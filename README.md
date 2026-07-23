@@ -43,6 +43,17 @@ See the [Architecture Documents](docs/architecture/) for detailed specifications
 | 09 | [Engineering Standards](docs/architecture/09-engineering-standards.md) | Naming, Git workflow, code quality |
 | 10 | [Repository Bootstrap](docs/architecture/10-repository-bootstrap.md) | Labels, milestones, initial issues |
 
+
+## Project Planning & Decisions
+
+In addition to system specifications, the repository maintains planning, workflow, and decision history:
+
+| Component | Directory | Description |
+|-----------|-----------|-------------|
+| **Architecture Decisions** | [docs/decisions/](docs/decisions/) | The Architecture Decision Record (ADR) library tracking historic context. |
+| **Kanban & Roadmap** | [docs/project-management/](docs/project-management/) | Milestones roadmap, label systems, and board configurations. |
+| **GitHub Issues** | [docs/issues/](docs/issues/) | 61 deconstructed atomic engineering tasks partitioned by implementation phase. |
+
 ## Performance Metrics
 
 | Category | Metrics |

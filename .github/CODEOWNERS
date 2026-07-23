@@ -1,0 +1,13 @@
+# CODEOWNERS
+# This file defines the owners of different directories in the monorepo.
+# GitHub uses this to automatically request reviews from owners when a PR modifies their files.
+#
+# NOTE: Replace placeholder handles (@developer-a, @developer-b) with your team's actual GitHub usernames.
+
+/backend/                   @developer-a
+/frontend/                  @developer-b
+/shared/                    @developer-a @developer-b
+/docs/                      @developer-a @developer-b
+/.github/                   @developer-a @developer-b
+/scripts/                   @developer-a @developer-b
+/examples/                  @developer-a @developer-b

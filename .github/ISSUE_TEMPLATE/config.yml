@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "📖 Architecture Documentation"
+    url: "https://github.com/Viraj-Jadhao-External_sasinst/traffic-intersection-control-comparison/tree/main/docs/architecture"
+    about: "Read system designs, contract layouts, and specification sheets before creating tasks."
+  - name: "💡 Architectural Decisions (ADRs)"
+    url: "https://github.com/Viraj-Jadhao-External_sasinst/traffic-intersection-control-comparison/tree/main/docs/decisions"
+    about: "Review recorded architecture decision logs."
