@@ -1,0 +1,28 @@
+from fastapi.testclient import TestClient
+
+from src.main import app
+
+client = TestClient(app)
+
+
+def test_get_single_vehicle() -> None:
+    """Test that the single-vehicle endpoint responds correctly and advances state."""
+    # First request
+    response = client.get("/api/simulation/single-vehicle")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["vehicle_id"] == "vehicle_1"
+    assert "position" in data
+    assert "speed" in data
+    assert "acceleration" in data
+    assert "x" in data
+    assert "y" in data
+    assert "heading" in data
+    assert "state" in data
+    assert "lane_id" in data
+
+    # Second request should advance the vehicle position
+    response2 = client.get("/api/simulation/single-vehicle")
+    assert response2.status_code == 200
+    data2 = response2.json()
+    assert data2["position"] > data["position"]
