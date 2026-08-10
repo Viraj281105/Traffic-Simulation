@@ -1,0 +1,87 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  validate-schemas:
+    name: Schema Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run Schema Validator
+        run: python scripts/validate_schemas.py
+
+  backend-lint-test:
+    name: Backend CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Linting & Testing Tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff mypy pytest pytest-cov
+
+      - name: Run Ruff Linter
+        run: ruff check src/ tests/
+
+      - name: Run MyPy Type Checker
+        run: mypy src/
+
+      - name: Run Backend Tests
+        run: pytest
+
+  frontend-lint-test:
+    name: Frontend CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run TypeScript Type Checker
+        run: npm run type-check
+
+      - name: Run Prettier Format Checker
+        run: npm run format
+
+  build-and-test:
+    name: build-and-test
+    needs: [validate-schemas, backend-lint-test, frontend-lint-test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Success
+        run: echo "All validation, backend, and frontend checks passed!"

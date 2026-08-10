@@ -1,0 +1,12 @@
+# CODEOWNERS
+# This file defines the owners of different directories in the monorepo.
+# GitHub uses this to automatically request reviews from owners when a PR modifies their files.
+#
+
+/backend/                   @virajjadhao
+/frontend/                  @khushikashyap-sas
+/shared/                    @virajjadhao @khushikashyap-sas
+/docs/                      @virajjadhao @khushikashyap-sas
+/.github/                   @virajjadhao @khushikashyap-sas
+/scripts/                   @virajjadhao @khushikashyap-sas
+/examples/                  @virajjadhao @khushikashyap-sas
