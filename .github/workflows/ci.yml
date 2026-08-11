@@ -50,6 +50,8 @@ jobs:
         run: mypy src/
 
       - name: Run Backend Tests
+        env:
+          PYTHONPATH: .
         run: pytest
 
   frontend-lint-test:
