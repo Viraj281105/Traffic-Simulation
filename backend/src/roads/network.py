@@ -1,4 +1,5 @@
-from typing import Dict, List, Tuple
+from typing import Dict, List
+
 from src.core.enums import Direction, TurnIntent
 from src.roads.approach import Approach
 from src.roads.lane import Lane

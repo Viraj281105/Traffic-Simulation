@@ -1,18 +1,21 @@
 import threading
 import time
-from typing import Callable, List, Optional, Dict, Any
+from typing import Any, Callable, Dict, List, Optional
+
 from src.core.clock import Clock
 from src.core.enums import SimulationStatus
 from src.roads.network import RoadNetwork
-from src.vehicles.spawner import VehicleSpawner
-from src.vehicles.pool import VehiclePool
 from src.vehicles.idm import IntelligentDriverModel
+from src.vehicles.pool import VehiclePool
+from src.vehicles.spawner import VehicleSpawner
 
 
 class SimulationEngine:
     """Orchestrates the entire discrete-time traffic simulation lifecycle and execution loop."""
 
-    def __init__(self, clock: Clock, duration: float, config: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(
+        self, clock: Clock, duration: float, config: Optional[Dict[str, Any]] = None
+    ) -> None:
         if duration <= 0:
             raise ValueError("duration must be greater than zero")
 
@@ -40,7 +43,7 @@ class SimulationEngine:
                 lanes_per_approach=road_cfg.get("lanesPerApproach", 2),
             )
             self.spawner = VehicleSpawner(self.config, self.network)
-            
+
             veh_gen = self.config.get("vehicleGeneration", {})
             self.idm = IntelligentDriverModel(
                 max_acceleration=veh_gen.get("maxAcceleration", 2.0),
@@ -57,7 +60,9 @@ class SimulationEngine:
     def register_tick_callback(self, callback: Callable[[], None]) -> None:
         self._tick_callbacks.append(callback)
 
-    def register_status_callback(self, callback: Callable[[SimulationStatus], None]) -> None:
+    def register_status_callback(
+        self, callback: Callable[[SimulationStatus], None]
+    ) -> None:
         self._status_callbacks.append(callback)
 
     def _transition_to(self, new_status: SimulationStatus) -> None:
@@ -69,7 +74,7 @@ class SimulationEngine:
         with self._lock:
             if self.status != SimulationStatus.INITIALIZED:
                 raise RuntimeError("Cannot start simulation")
-            
+
             self._transition_to(SimulationStatus.RUNNING)
             self._stop_event.clear()
             self._thread = threading.Thread(target=self._run_loop, daemon=True)
@@ -80,16 +85,16 @@ class SimulationEngine:
             with self._lock:
                 if self.status != SimulationStatus.RUNNING:
                     break
-            
+
             start_time = time.time()
-            
+
             try:
                 self.step()
             except Exception:
                 with self._lock:
                     self._transition_to(SimulationStatus.ERROR)
                 break
-            
+
             with self._lock:
                 if self.status == SimulationStatus.COMPLETED:
                     break

@@ -1,7 +1,8 @@
-from typing import Any, List, Dict
+from typing import Any, Dict, List
+
 from src.core.enums import Direction, VehicleState
-from src.vehicles.vehicle import Vehicle
 from src.vehicles.router import find_leader
+from src.vehicles.vehicle import Vehicle
 
 
 class VehiclePool:
@@ -27,6 +28,7 @@ class VehiclePool:
         idm = getattr(engine, "idm", None)
         if idm is None:
             from src.vehicles.idm import IntelligentDriverModel
+
             config = getattr(engine, "config", {})
             veh_gen = config.get("vehicleGeneration", {})
             idm = IntelligentDriverModel(
@@ -70,9 +72,7 @@ class VehiclePool:
 
     def get_active_counts(self) -> Dict[Direction, Dict[VehicleState, int]]:
         """Returns active count summaries categorized by direction and current vehicle state."""
-        summary = {
-            d: {s: 0 for s in VehicleState} for d in Direction
-        }
+        summary = {d: {s: 0 for s in VehicleState} for d in Direction}
 
         for v in self.active_vehicles:
             if not v.route or v.state == VehicleState.EXITED:

@@ -1,5 +1,6 @@
 import math
 
+
 class Clock:
     """Manages the discrete simulation time steps, elapsed time, and tick counting."""
 

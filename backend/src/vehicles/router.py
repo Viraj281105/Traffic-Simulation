@@ -1,4 +1,5 @@
-from typing import Tuple, Optional, Any
+from typing import Any, Optional, Tuple
+
 from src.roads.network import RoadNetwork
 from src.vehicles.vehicle import Vehicle
 
@@ -25,21 +26,21 @@ def find_leader(
     # Search through the remaining route lanes
     for i in range(curr_idx, len(vehicle.route)):
         lane = vehicle.route[i]
-        
+
         # Check for real vehicles in this lane
         leader = None
         min_lead_dist = float("inf")
-        
+
         for v in lane.get_vehicles():
             if v == vehicle:
                 continue
-            
+
             # Distance of candidate vehicle from subject vehicle along the route
             v_dist = accumulated_dist + v.position
             if v_dist > 0 and v_dist < min_lead_dist:
                 min_lead_dist = v_dist
                 leader = v
-        
+
         if leader is not None:
             # Physical gap: distance between front of trailing and rear of leading
             gap = min_lead_dist - (vehicle.length / 2.0 + leader.length / 2.0)
@@ -54,7 +55,10 @@ def find_leader(
     # For Sprint 2 core implementation, we support returning them if set.
     # Active controllers (sprint 3/4) will set/inject these virtual obstacles
     # or flags on the lanes.
-    if hasattr(vehicle.lane, "virtual_obstacle") and vehicle.lane.virtual_obstacle is not None:
+    if (
+        hasattr(vehicle.lane, "virtual_obstacle")
+        and vehicle.lane.virtual_obstacle is not None
+    ):
         obstacle = vehicle.lane.virtual_obstacle
         # distance of obstacle along route
         obs_dist = -vehicle.position + obstacle.position

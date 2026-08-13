@@ -1,9 +1,10 @@
-import random
 import math
-from typing import Dict, List, Optional, Any
+import random
+from typing import Any, Dict, List, Optional
+
 from src.core.enums import Direction, TurnIntent
-from src.roads.network import RoadNetwork
 from src.roads.lane import Lane
+from src.roads.network import RoadNetwork
 from src.vehicles.vehicle import Vehicle
 
 
@@ -23,16 +24,17 @@ class VehicleSpawner:
 
         self.total_vehicles_limit: int = traffic_cfg.get("totalVehicles", 200)
         self.arrival_rate: float = traffic_cfg.get("arrivalRate", 0.5)
-        self.arrival_distribution: str = traffic_cfg.get("arrivalDistribution", "poisson")
+        self.arrival_distribution: str = traffic_cfg.get(
+            "arrivalDistribution", "poisson"
+        )
 
         self.directional_split: Dict[str, float] = traffic_cfg.get(
             "directionalSplit",
-            {"north": 0.25, "south": 0.25, "east": 0.25, "west": 0.25}
+            {"north": 0.25, "south": 0.25, "east": 0.25, "west": 0.25},
         )
 
         self.turn_probabilities: Dict[str, float] = traffic_cfg.get(
-            "turnProbabilities",
-            {"left": 0.2, "straight": 0.6, "right": 0.2}
+            "turnProbabilities", {"left": 0.2, "straight": 0.6, "right": 0.2}
         )
 
         # Vehicle physical parameter bounds
@@ -120,7 +122,10 @@ class VehicleSpawner:
                 # Tail of preceding vehicle: preceding.position - preceding.length / 2
                 # We need it to be >= minimum_gap + new_vehicle_length
                 # Let's assume max length for check
-                if preceding.position - preceding.length / 2.0 >= self.minimum_gap + self.len_max:
+                if (
+                    preceding.position - preceding.length / 2.0
+                    >= self.minimum_gap + self.len_max
+                ):
                     available_lanes.append(lane)
 
         if not available_lanes:
@@ -140,7 +145,7 @@ class VehicleSpawner:
         weights = [
             self.turn_probabilities.get("left", 0.2),
             self.turn_probabilities.get("straight", 0.6),
-            self.turn_probabilities.get("right", 0.2)
+            self.turn_probabilities.get("right", 0.2),
         ]
         turn = self.rng.choices(turns, weights=weights)[0]
 
@@ -149,10 +154,10 @@ class VehicleSpawner:
 
         # Create Vehicle
         vehicle_id = f"veh_{self.spawned_count}"
-        
+
         # Vehicle starts at position L/2 so that its rear bumper is at 0.0
         start_pos = v_len / 2.0
-        
+
         vehicle = Vehicle(
             vehicle_id=vehicle_id,
             length=v_len,

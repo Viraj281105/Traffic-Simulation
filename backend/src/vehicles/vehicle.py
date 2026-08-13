@@ -1,4 +1,5 @@
-from typing import List, Tuple, Optional
+from typing import List, Optional, Tuple
+
 from src.core.enums import VehicleState
 from src.roads.lane import Lane
 
@@ -30,7 +31,7 @@ class Vehicle:
         self.width: float = width
         self.desired_speed: float = desired_speed
         self.route: List[Lane] = route
-        
+
         self.lane: Optional[Lane] = route[0]
         self.position: float = start_position
         self.speed: float = initial_speed
@@ -74,11 +75,11 @@ class Vehicle:
             return
 
         self.acceleration = acceleration
-        
+
         # Calculate new speed (cannot be negative)
         old_speed = self.speed
         self.speed = max(0.0, self.speed + acceleration * dt)
-        
+
         # Update position
         self.position += self.speed * dt
 
@@ -121,12 +122,13 @@ class Vehicle:
 
     def get_bounding_box(self) -> List[Tuple[float, float]]:
         import math
+
         cx, cy = self.coords
         heading_rad = math.radians(self.heading)
-        
+
         h_x = math.sin(heading_rad)
         h_y = math.cos(heading_rad)
-        
+
         r_x = h_y
         r_y = -h_x
 
@@ -149,9 +151,4 @@ class Vehicle:
         rl_x = cx - half_l * h_x - half_w * r_x
         rl_y = cy - half_l * h_y - half_w * r_y
 
-        return [
-            (fl_x, fl_y),
-            (fr_x, fr_y),
-            (rr_x, rr_y),
-            (rl_x, rl_y)
-        ]
+        return [(fl_x, fl_y), (fr_x, fr_y), (rr_x, rr_y), (rl_x, rl_y)]
