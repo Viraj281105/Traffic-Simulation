@@ -40,8 +40,8 @@
     },
     "simulationStatus": {
       "type": "string",
-      "enum": ["initializing", "running", "paused", "completed", "error"]
-    },
+      "enum": ["initialized", "running", "paused", "completed", "error"]
+    }
     "vehicles": {
       "type": "array",
       "items": {
