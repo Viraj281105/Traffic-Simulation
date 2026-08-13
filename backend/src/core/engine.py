@@ -83,7 +83,8 @@ class SimulationEngine:
     def _run_loop(self) -> None:
         while not self._stop_event.is_set():
             with self._lock:
-                if self.status != SimulationStatus.RUNNING:
+                status = self.status
+                if status != SimulationStatus.RUNNING:
                     break
 
             start_time = time.time()
@@ -96,7 +97,8 @@ class SimulationEngine:
                 break
 
             with self._lock:
-                if self.status == SimulationStatus.COMPLETED:
+                status = self.status
+                if status == SimulationStatus.COMPLETED:
                     break
 
             elapsed = time.time() - start_time

@@ -114,7 +114,8 @@ class Vehicle:
                     break
             except ValueError:
                 # Fallback if current lane is somehow not in the route
-                self.lane.remove_vehicle(self)
+                if self.lane is not None:
+                    self.lane.remove_vehicle(self)
                 self.lane = None
                 self.state = VehicleState.EXITED
                 self.speed = 0.0

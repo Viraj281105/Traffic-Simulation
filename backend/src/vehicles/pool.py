@@ -42,7 +42,8 @@ class VehiclePool:
         # Update each vehicle
         to_remove = []
         for vehicle in self.active_vehicles:
-            if vehicle.state == VehicleState.EXITED:
+            current_state = vehicle.state
+            if current_state == VehicleState.EXITED:
                 to_remove.append(vehicle)
                 continue
 
