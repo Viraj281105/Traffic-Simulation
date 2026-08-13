@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SimulationSnapshot",
+  "description": "Schema for the complete traffic simulation state snapshot at a single point in time",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "simulationId": {
+      "type": "string"
+    },
+    "configId": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "number",
+      "minimum": 0
+    },
+    "frameNumber": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tick": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "wallClockTime": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "samplingFrequency": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "deltaTime": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "simulationStatus": {
+      "type": "string",
+      "enum": ["initializing", "running", "paused", "completed", "error"]
+    },
+    "vehicles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "x": { "type": "number" },
+          "y": { "type": "number" },
+          "speed": { "type": "number", "minimum": 0 },
+          "acceleration": { "type": "number" },
+          "heading": { "type": "number", "minimum": 0, "maximum": 360 },
+          "length": { "type": "number", "exclusiveMinimum": 0 },
+          "width": { "type": "number", "exclusiveMinimum": 0 },
+          "state": {
+            "type": "string",
+            "enum": ["approaching", "waiting", "crossing", "in_roundabout", "exited"]
+          },
+          "laneId": { "type": "string" },
+          "direction": {
+            "type": "string",
+            "enum": ["north", "south", "east", "west"]
+          },
+          "turnIntent": {
+            "type": "string",
+            "enum": ["left", "straight", "right"]
+          },
+          "waitTime": { "type": "number", "minimum": 0 },
+          "stopCount": { "type": "integer", "minimum": 0 },
+          "spawnTime": { "type": "number", "minimum": 0 },
+          "exitTime": { "type": ["number", "null"], "minimum": 0 },
+          "distanceTraveled": { "type": "number", "minimum": 0 }
+        },
+        "required": [
+          "id", "x", "y", "speed", "acceleration", "heading", "length", "width",
+          "state", "laneId", "direction", "turnIntent", "waitTime", "stopCount",
+          "spawnTime", "distanceTraveled"
+        ]
+      }
+    },
+    "intersection": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["fixed_time_signal", "roundabout"] },
+        "centerX": { "type": "number" },
+        "centerY": { "type": "number" },
+        "boundingRadius": { "type": "number", "exclusiveMinimum": 0 },
+        "approaches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "direction": { "type": "string", "enum": ["north", "south", "east", "west"] },
+              "queueLength": { "type": "integer", "minimum": 0 },
+              "laneCount": { "type": "integer", "minimum": 1 }
+            },
+            "required": ["direction", "queueLength", "laneCount"]
+          }
+        }
+      },
+      "required": ["type", "centerX", "centerY", "boundingRadius", "approaches"]
+    },
+    "controller": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["fixed_time_signal", "roundabout"] },
+        "timeInCurrentState": { "type": "number", "minimum": 0 },
+        "currentPhase": { "type": "string", "enum": ["ns_green", "ns_yellow", "ew_green", "ew_yellow", "all_red"] },
+        "phaseTimeRemaining": { "type": "number", "minimum": 0 },
+        "cycleNumber": { "type": "integer", "minimum": 0 },
+        "signals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "direction": { "type": "string", "enum": ["north", "south", "east", "west"] },
+              "color": { "type": "string", "enum": ["green", "yellow", "red"] }
+            },
+            "required": ["direction", "color"]
+          }
+        },
+        "innerRadius": { "type": "number", "exclusiveMinimum": 0 },
+        "outerRadius": { "type": "number", "exclusiveMinimum": 0 },
+        "circulatingCount": { "type": "integer", "minimum": 0 },
+        "yieldingCount": { "type": "integer", "minimum": 0 },
+        "gapAcceptance": { "type": "number", "exclusiveMinimum": 0 }
+      },
+      "required": ["type", "timeInCurrentState"]
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "averageWaitTime": { "type": "number", "minimum": 0 },
+        "throughput": { "type": "integer", "minimum": 0 },
+        "throughputRate": { "type": "number", "minimum": 0 },
+        "currentQueueLengths": {
+          "type": "object",
+          "properties": {
+            "north": { "type": "integer", "minimum": 0 },
+            "south": { "type": "integer", "minimum": 0 },
+            "east": { "type": "integer", "minimum": 0 },
+            "west": { "type": "integer", "minimum": 0 }
+          },
+          "required": ["north", "south", "east", "west"]
+        },
+        "maxQueueLength": { "type": "integer", "minimum": 0 },
+        "averageQueueLength": { "type": "number", "minimum": 0 },
+        "totalStops": { "type": "integer", "minimum": 0 },
+        "averageStopsPerVehicle": { "type": "number", "minimum": 0 },
+        "speedVarianceIndex": { "type": "number", "minimum": 0 },
+        "travelTimeReliability": { "type": "number", "minimum": 0 },
+        "idleOpportunityLoss": { "type": "number", "minimum": 0, "maximum": 1 },
+        "directionalFairnessIndex": { "type": "number", "minimum": 0, "maximum": 1 },
+        "activeVehicleCount": { "type": "integer", "minimum": 0 },
+        "totalVehiclesSpawned": { "type": "integer", "minimum": 0 }
+      },
+      "required": [
+        "averageWaitTime", "throughput", "throughputRate", "currentQueueLengths",
+        "maxQueueLength", "averageQueueLength", "totalStops", "averageStopsPerVehicle",
+        "speedVarianceIndex", "travelTimeReliability", "idleOpportunityLoss",
+        "directionalFairnessIndex", "activeVehicleCount", "totalVehiclesSpawned"
+      ]
+    },
+    "vehicleCounts": {
+      "type": "object",
+      "properties": {
+        "active": { "type": "integer", "minimum": 0 },
+        "approaching": { "type": "integer", "minimum": 0 },
+        "waiting": { "type": "integer", "minimum": 0 },
+        "crossing": { "type": "integer", "minimum": 0 },
+        "inRoundabout": { "type": "integer", "minimum": 0 },
+        "exited": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["active", "approaching", "waiting", "crossing", "inRoundabout", "exited"]
+    },
+    "units": {
+      "type": "object",
+      "properties": {
+        "distance": { "type": "string", "const": "meters" },
+        "speed": { "type": "string", "const": "meters_per_second" },
+        "acceleration": { "type": "string", "const": "meters_per_second_squared" },
+        "time": { "type": "string", "const": "seconds" },
+        "angle": { "type": "string", "const": "degrees" }
+      },
+      "required": ["distance", "speed", "acceleration", "time", "angle"]
+    }
+  },
+  "required": [
+    "schemaVersion", "simulationId", "configId", "timestamp", "frameNumber", "tick",
+    "wallClockTime", "samplingFrequency", "deltaTime", "simulationStatus",
+    "vehicles", "intersection", "controller", "metrics", "vehicleCounts", "units"
+  ]
+}
