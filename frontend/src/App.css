@@ -9,7 +9,12 @@ body,
 #root {
   width: 100%;
   height: 100%;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
 }
 
 .app {
@@ -261,7 +266,7 @@ body,
   font-size: 13px;
   font-weight: 600;
   color: #2aff7a;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
 }
 
 @media (max-width: 1200px) {

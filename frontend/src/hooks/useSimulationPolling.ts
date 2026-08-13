@@ -1,7 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
-import type { PollingState, SingleVehicleResponse, SimulationLifecycle, ControlResponse } from '../types/simulation';
+import { useEffect, useRef, useState } from "react";
+import type {
+  PollingState,
+  SingleVehicleResponse,
+  SimulationLifecycle,
+  ControlResponse,
+} from "../types/simulation";
 
-const API_BASE = 'http://localhost:8000/api/simulation';
+const API_BASE = "http://localhost:8000/api/simulation";
 const POLL_INTERVAL_MS = 100; // Poll every 100ms for 10 Hz simulation
 
 /**
@@ -14,7 +19,7 @@ export function useSimulationPolling(): PollingState & {
   reset: () => Promise<void>;
 } {
   const [vehicle, setVehicle] = useState<SingleVehicleResponse | null>(null);
-  const [status, setStatus] = useState<SimulationLifecycle>('stopped');
+  const [status, setStatus] = useState<SimulationLifecycle>("stopped");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +31,9 @@ export function useSimulationPolling(): PollingState & {
     try {
       const response = await fetch(`${API_BASE}/single-vehicle`);
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status.toString()}: ${response.statusText}`);
+        throw new Error(
+          `HTTP ${response.status.toString()}: ${response.statusText}`,
+        );
       }
       const data = (await response.json()) as SingleVehicleResponse;
       setVehicle(data);
@@ -34,7 +41,7 @@ export function useSimulationPolling(): PollingState & {
       setError(null);
 
       // Stop polling if simulation has completed
-      if (data.simulation_status === 'completed') {
+      if (data.simulation_status === "completed") {
         isPollingRef.current = false;
       }
     } catch (err) {
@@ -49,9 +56,11 @@ export function useSimulationPolling(): PollingState & {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await fetch(`${API_BASE}/start`, { method: 'POST' });
+      const response = await fetch(`${API_BASE}/start`, { method: "POST" });
       if (!response.ok) {
-        throw new Error(`Failed to start simulation: HTTP ${response.status.toString()}`);
+        throw new Error(
+          `Failed to start simulation: HTTP ${response.status.toString()}`,
+        );
       }
       const data = (await response.json()) as ControlResponse;
       setStatus(data.status);
@@ -81,9 +90,11 @@ export function useSimulationPolling(): PollingState & {
         clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;
       }
-      const response = await fetch(`${API_BASE}/stop`, { method: 'POST' });
+      const response = await fetch(`${API_BASE}/stop`, { method: "POST" });
       if (!response.ok) {
-        throw new Error(`Failed to stop simulation: HTTP ${response.status.toString()}`);
+        throw new Error(
+          `Failed to stop simulation: HTTP ${response.status.toString()}`,
+        );
       }
       const data = (await response.json()) as ControlResponse;
       setStatus(data.status);
@@ -102,9 +113,11 @@ export function useSimulationPolling(): PollingState & {
         clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;
       }
-      const response = await fetch(`${API_BASE}/reset`, { method: 'POST' });
+      const response = await fetch(`${API_BASE}/reset`, { method: "POST" });
       if (!response.ok) {
-        throw new Error(`Failed to reset simulation: HTTP ${response.status.toString()}`);
+        throw new Error(
+          `Failed to reset simulation: HTTP ${response.status.toString()}`,
+        );
       }
       const data = (await response.json()) as ControlResponse;
       setStatus(data.status);

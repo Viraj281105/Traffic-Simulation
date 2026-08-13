@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react';
-import type { SingleVehicleResponse, Viewport } from '../types/simulation';
+import React, { useRef, useEffect } from "react";
+import type { SingleVehicleResponse, Viewport } from "../types/simulation";
 
 interface IntersectionCanvasProps {
   vehicle: SingleVehicleResponse | null;
@@ -23,7 +23,7 @@ export const IntersectionCanvas: React.FC<IntersectionCanvasProps> = ({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     // Define viewport: world center at origin, vehicle starts at (0, -70)
@@ -36,14 +36,19 @@ export const IntersectionCanvas: React.FC<IntersectionCanvasProps> = ({
     };
 
     // Convert world coordinates to canvas coordinates
-    const worldToCanvas = (worldX: number, worldY: number): [number, number] => {
-      const canvasX = (worldX - viewport.centerWorldX) * viewport.ppm + width / 2;
-      const canvasY = -(worldY - viewport.centerWorldY) * viewport.ppm + height / 2;
+    const worldToCanvas = (
+      worldX: number,
+      worldY: number,
+    ): [number, number] => {
+      const canvasX =
+        (worldX - viewport.centerWorldX) * viewport.ppm + width / 2;
+      const canvasY =
+        -(worldY - viewport.centerWorldY) * viewport.ppm + height / 2;
       return [canvasX, canvasY];
     };
 
     // Clear canvas
-    ctx.fillStyle = '#2a5a3a';
+    ctx.fillStyle = "#2a5a3a";
     ctx.fillRect(0, 0, width, height);
 
     // Draw intersection and roads
@@ -67,9 +72,9 @@ export const IntersectionCanvas: React.FC<IntersectionCanvasProps> = ({
       width={width}
       height={height}
       style={{
-        border: '1px solid #333',
-        backgroundColor: '#2a5a3a',
-        display: 'block',
+        border: "1px solid #333",
+        backgroundColor: "#2a5a3a",
+        display: "block",
       }}
     />
   );
@@ -81,9 +86,9 @@ function drawRoads(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
-  worldToCanvas: (x: number, y: number) => [number, number]
+  worldToCanvas: (x: number, y: number) => [number, number],
 ) {
-  ctx.fillStyle = '#444';
+  ctx.fillStyle = "#444";
 
   // North-South road
   const [nsLeft] = worldToCanvas(-7, 100);
@@ -98,10 +103,10 @@ function drawRoads(
 
 function drawIntersection(
   ctx: CanvasRenderingContext2D,
-  worldToCanvas: (x: number, y: number) => [number, number]
+  worldToCanvas: (x: number, y: number) => [number, number],
 ) {
   // Draw lane markings (dashed center lines and solid outer edges)
-  ctx.strokeStyle = '#fff';
+  ctx.strokeStyle = "#fff";
   ctx.lineWidth = 1;
 
   // North-South lanes (two in each direction)
@@ -142,7 +147,7 @@ function drawIntersection(
   ctx.setLineDash([]);
 
   // Yellow edge lines on intersection area
-  ctx.strokeStyle = '#ffaa00';
+  ctx.strokeStyle = "#ffaa00";
   ctx.lineWidth = 2;
   const [topLeft, topLeftY] = worldToCanvas(-7, 15);
   const [topRight, topRightY] = worldToCanvas(7, 15);
@@ -162,9 +167,9 @@ function drawIntersection(
 
 function drawCrosswalk(
   ctx: CanvasRenderingContext2D,
-  worldToCanvas: (x: number, y: number) => [number, number]
+  worldToCanvas: (x: number, y: number) => [number, number],
 ) {
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+  ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
   const stripeWidth = 1.2;
   const stripeSpacing = 2.4;
 
@@ -196,7 +201,7 @@ function drawCrosswalk(
 function drawTrafficLights(
   ctx: CanvasRenderingContext2D,
   worldToCanvas: (x: number, y: number) => [number, number],
-  vehicle: SingleVehicleResponse | null
+  vehicle: SingleVehicleResponse | null,
 ) {
   const lightSize = 4;
 
@@ -204,26 +209,36 @@ function drawTrafficLights(
   const [southLightX, southLightY] = worldToCanvas(-9, -3);
   const simTime = vehicle?.sim_time ?? 0;
   const isRed = simTime < 10;
-  ctx.fillStyle = isRed ? '#ff2222' : '#22ff22';
-  ctx.fillRect(southLightX - lightSize / 2, southLightY - lightSize / 2, lightSize, lightSize);
+  ctx.fillStyle = isRed ? "#ff2222" : "#22ff22";
+  ctx.fillRect(
+    southLightX - lightSize / 2,
+    southLightY - lightSize / 2,
+    lightSize,
+    lightSize,
+  );
 
   // North traffic light
   const [northLightX, northLightY] = worldToCanvas(9, 3);
-  ctx.fillStyle = isRed ? '#22ff22' : '#ff2222';
-  ctx.fillRect(northLightX - lightSize / 2, northLightY - lightSize / 2, lightSize, lightSize);
+  ctx.fillStyle = isRed ? "#22ff22" : "#ff2222";
+  ctx.fillRect(
+    northLightX - lightSize / 2,
+    northLightY - lightSize / 2,
+    lightSize,
+    lightSize,
+  );
 
   // Draw light labels
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 10px Arial';
-  ctx.textAlign = 'center';
-  ctx.fillText('R/G', southLightX, southLightY + 12);
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold 10px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText("R/G", southLightX, southLightY + 12);
 }
 
 function drawVehicle(
   ctx: CanvasRenderingContext2D,
   viewport: Viewport,
   vehicle: SingleVehicleResponse,
-  worldToCanvas: (x: number, y: number) => [number, number]
+  worldToCanvas: (x: number, y: number) => [number, number],
 ) {
   const [canvasX, canvasY] = worldToCanvas(vehicle.x, vehicle.y);
   const length = 4.5; // meters
@@ -240,16 +255,16 @@ function drawVehicle(
   ctx.rotate((vehicle.heading * Math.PI) / 180);
 
   // Draw vehicle body (rectangle)
-  ctx.fillStyle = vehicle.speed > 0.3 ? '#ff6b35' : '#ff9b50';
+  ctx.fillStyle = vehicle.speed > 0.3 ? "#ff6b35" : "#ff9b50";
   ctx.fillRect(-widthPx / 2, -lengthPx / 2, widthPx, lengthPx);
 
   // Draw vehicle outline
-  ctx.strokeStyle = '#333';
+  ctx.strokeStyle = "#333";
   ctx.lineWidth = 1;
   ctx.strokeRect(-widthPx / 2, -lengthPx / 2, widthPx, lengthPx);
 
   // Draw front indicator (small triangle at front)
-  ctx.fillStyle = '#fff';
+  ctx.fillStyle = "#fff";
   ctx.beginPath();
   ctx.moveTo(0, -lengthPx / 2 - 3);
   ctx.lineTo(-3, -lengthPx / 2 + 2);
@@ -264,16 +279,16 @@ function drawInfoOverlay(
   ctx: CanvasRenderingContext2D,
   _width: number,
   _height: number,
-  vehicle: SingleVehicleResponse | null
+  vehicle: SingleVehicleResponse | null,
 ) {
   if (!vehicle) return;
 
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+  ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
   ctx.fillRect(10, 10, 250, 130);
 
-  ctx.fillStyle = '#fff';
-  ctx.font = '11px monospace';
-  ctx.textAlign = 'left';
+  ctx.fillStyle = "#fff";
+  ctx.font = "11px monospace";
+  ctx.textAlign = "left";
 
   let y = 25;
   const lines = [
@@ -294,5 +309,3 @@ function drawInfoOverlay(
     y += 12;
   });
 }
-
-

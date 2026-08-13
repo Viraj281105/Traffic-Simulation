@@ -6,7 +6,7 @@
 // ── Layout toggle ──────────────────────────────────────────────────────────
 
 /** Which intersection layout to render on the canvas. */
-export type LayoutType = 'signal' | 'roundabout';
+export type LayoutType = "signal" | "roundabout";
 
 // ── Vehicle state ──────────────────────────────────────────────────────────
 
@@ -14,7 +14,7 @@ export type LayoutType = 'signal' | 'roundabout';
  * Vehicle state enum matching backend VehicleStatus values.
  * Mirrors the `state` field from GET /api/simulation/single-vehicle.
  */
-export type VehicleState = 'approaching' | 'waiting' | 'crossing' | 'exited';
+export type VehicleState = "approaching" | "waiting" | "crossing" | "exited";
 
 /**
  * Response from GET /api/simulation/single-vehicle.
@@ -57,7 +57,7 @@ export interface SingleVehicleResponse {
  * Lifecycle status of the simulation engine.
  * Matches backend SimStatus literal type.
  */
-export type SimulationLifecycle = 'stopped' | 'running' | 'completed';
+export type SimulationLifecycle = "stopped" | "running" | "completed";
 
 /** Response from GET /api/simulation/status */
 export interface SimulationStatusResponse {

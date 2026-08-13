@@ -1,27 +1,28 @@
-import { useState } from 'react';
-import { useSimulationPolling } from './hooks/useSimulationPolling';
-import { IntersectionCanvas } from './components/IntersectionCanvas';
-import './App.css';
+import { useState } from "react";
+import { useSimulationPolling } from "./hooks/useSimulationPolling";
+import { IntersectionCanvas } from "./components/IntersectionCanvas";
+import "./App.css";
 
 export function App() {
-  const { vehicle, status, isLoading, error, start, stop, reset } = useSimulationPolling();
+  const { vehicle, status, isLoading, error, start, stop, reset } =
+    useSimulationPolling();
   const [canvasSize] = useState({ width: 800, height: 600 });
 
   const handleStart = () => {
     start().catch((err: unknown) => {
-      console.error('Failed to start simulation:', err);
+      console.error("Failed to start simulation:", err);
     });
   };
 
   const handleStop = () => {
     stop().catch((err: unknown) => {
-      console.error('Failed to stop simulation:', err);
+      console.error("Failed to stop simulation:", err);
     });
   };
 
   const handleReset = () => {
     reset().catch((err: unknown) => {
-      console.error('Failed to reset simulation:', err);
+      console.error("Failed to reset simulation:", err);
     });
   };
 
@@ -45,7 +46,9 @@ export function App() {
           <div className="status-section">
             <h2>Simulation Status</h2>
             <div className="status-info">
-              <div className={`status-badge status-${status}`}>{status.toUpperCase()}</div>
+              <div className={`status-badge status-${status}`}>
+                {status.toUpperCase()}
+              </div>
               {vehicle && (
                 <>
                   <p>
@@ -67,19 +70,23 @@ export function App() {
             <div className="button-group">
               <button
                 onClick={handleStart}
-                disabled={status === 'running' || isLoading}
+                disabled={status === "running" || isLoading}
                 className="btn btn-primary"
               >
-                {isLoading ? 'Starting...' : 'Start'}
+                {isLoading ? "Starting..." : "Start"}
               </button>
               <button
                 onClick={handleStop}
-                disabled={status === 'stopped' || isLoading}
+                disabled={status === "stopped" || isLoading}
                 className="btn btn-secondary"
               >
                 Stop
               </button>
-              <button onClick={handleReset} disabled={isLoading} className="btn btn-tertiary">
+              <button
+                onClick={handleReset}
+                disabled={isLoading}
+                className="btn btn-tertiary"
+              >
                 Reset
               </button>
             </div>
@@ -98,15 +105,21 @@ export function App() {
               <div className="details-grid">
                 <div className="detail-item">
                   <span className="detail-label">Speed:</span>
-                  <span className="detail-value">{(vehicle.speed * 3.6).toFixed(1)} km/h</span>
+                  <span className="detail-value">
+                    {(vehicle.speed * 3.6).toFixed(1)} km/h
+                  </span>
                 </div>
                 <div className="detail-item">
                   <span className="detail-label">Position:</span>
-                  <span className="detail-value">{vehicle.position.toFixed(1)} m</span>
+                  <span className="detail-value">
+                    {vehicle.position.toFixed(1)} m
+                  </span>
                 </div>
                 <div className="detail-item">
                   <span className="detail-label">Acceleration:</span>
-                  <span className="detail-value">{vehicle.acceleration.toFixed(2)} m/s²</span>
+                  <span className="detail-value">
+                    {vehicle.acceleration.toFixed(2)} m/s²
+                  </span>
                 </div>
                 <div className="detail-item">
                   <span className="detail-label">Lane:</span>
@@ -114,7 +127,9 @@ export function App() {
                 </div>
                 <div className="detail-item">
                   <span className="detail-label">Wait Time:</span>
-                  <span className="detail-value">{vehicle.wait_time.toFixed(1)}s</span>
+                  <span className="detail-value">
+                    {vehicle.wait_time.toFixed(1)}s
+                  </span>
                 </div>
                 <div className="detail-item">
                   <span className="detail-label">Stops:</span>
