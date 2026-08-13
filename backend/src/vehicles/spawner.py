@@ -73,8 +73,15 @@ class VehicleSpawner:
             # Prevent log(0)
             u = max(1e-9, u)
             return -math.log(u) / dir_rate
-        else:  # uniform
+        if self.arrival_distribution == "uniform":
             return 1.0 / dir_rate
+        if self.arrival_distribution == "burst":
+            raise NotImplementedError(
+                "arrivalDistribution='burst' is not implemented in VehicleSpawner"
+            )
+        raise ValueError(
+            f"Unsupported arrivalDistribution: {self.arrival_distribution!r}"
+        )
 
     def step(self, dt: float) -> List[Vehicle]:
         """Ticks spawner and returns a list of newly spawned vehicles."""
