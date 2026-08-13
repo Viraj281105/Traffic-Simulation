@@ -138,8 +138,18 @@ class SimulationEngine:
                 self._transition_to(SimulationStatus.COMPLETED)
 
     def reset(self) -> None:
+        thread_to_join: Optional[threading.Thread] = None
         with self._lock:
             self._stop_event.set()
+            thread_to_join = self._thread
+
+        if (
+            thread_to_join is not None
+            and thread_to_join is not threading.current_thread()
+        ):
+            thread_to_join.join()
+
+        with self._lock:
             self.clock.reset()
             if self.spawner is not None:
                 self.spawner.reset()
