@@ -112,6 +112,18 @@ class SimulationEngine:
                 self._stop_event.set()
 
     def resume(self) -> None:
+        thread_to_join: Optional[threading.Thread] = None
+        with self._lock:
+            if self.status != SimulationStatus.PAUSED:
+                return
+            thread_to_join = self._thread
+
+        if (
+            thread_to_join is not None
+            and thread_to_join is not threading.current_thread()
+        ):
+            thread_to_join.join()
+
         with self._lock:
             if self.status == SimulationStatus.PAUSED:
                 self._transition_to(SimulationStatus.RUNNING)
