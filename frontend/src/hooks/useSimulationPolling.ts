@@ -4,6 +4,7 @@ import type {
   SingleVehicleResponse,
   SimulationLifecycle,
   ControlResponse,
+  SimulationStatusResponse,
 } from "../types/simulation";
 
 const API_BASE = "http://localhost:8000/api/simulation";
@@ -129,9 +130,43 @@ export function useSimulationPolling(): PollingState & {
     }
   };
 
-  // Cleanup interval on unmount
+  // Fetch initial status and cleanup interval on unmount
   useEffect(() => {
+    let active = true;
+
+    const fetchInitialStatus = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/status`);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status.toString()}`);
+        }
+        const data = (await response.json()) as SimulationStatusResponse;
+        if (active) {
+          setStatus(data.status);
+          setError(null);
+          // If already running, start polling
+          if (data.status === 'running') {
+            isPollingRef.current = true;
+            await pollVehicleState();
+            pollIntervalRef.current = setInterval(pollVehicleState, POLL_INTERVAL_MS);
+          }
+        }
+      } catch (err) {
+        if (active) {
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          setError(`Failed to fetch initial status: ${errorMsg}`);
+        }
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    fetchInitialStatus().catch(console.error);
+
     return () => {
+      active = false;
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
       }
