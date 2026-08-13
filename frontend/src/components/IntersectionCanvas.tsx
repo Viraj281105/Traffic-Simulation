@@ -284,9 +284,9 @@ function drawInfoOverlay(
     `State: ${vehicle.state}`,
     `Lane: ${vehicle.lane_id}`,
     `Sim Time: ${vehicle.sim_time.toFixed(1)}s`,
-    `Tick: ${vehicle.tick}`,
+    `Tick: ${vehicle.tick.toString()}`,
     `Waiting: ${vehicle.wait_time.toFixed(1)}s`,
-    `Stops: ${vehicle.stop_count}`,
+    `Stops: ${vehicle.stop_count.toString()}`,
   ];
 
   lines.forEach((line) => {

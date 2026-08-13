@@ -7,6 +7,24 @@ export function App() {
   const { vehicle, status, isLoading, error, start, stop, reset } = useSimulationPolling();
   const [canvasSize] = useState({ width: 800, height: 600 });
 
+  const handleStart = () => {
+    start().catch((err: unknown) => {
+      console.error('Failed to start simulation:', err);
+    });
+  };
+
+  const handleStop = () => {
+    stop().catch((err: unknown) => {
+      console.error('Failed to stop simulation:', err);
+    });
+  };
+
+  const handleReset = () => {
+    reset().catch((err: unknown) => {
+      console.error('Failed to reset simulation:', err);
+    });
+  };
+
   return (
     <div className="app">
       <header className="app-header">
@@ -48,20 +66,20 @@ export function App() {
             <h2>Controls</h2>
             <div className="button-group">
               <button
-                onClick={start}
+                onClick={handleStart}
                 disabled={status === 'running' || isLoading}
                 className="btn btn-primary"
               >
                 {isLoading ? 'Starting...' : 'Start'}
               </button>
               <button
-                onClick={stop}
+                onClick={handleStop}
                 disabled={status === 'stopped' || isLoading}
                 className="btn btn-secondary"
               >
                 Stop
               </button>
-              <button onClick={reset} disabled={isLoading} className="btn btn-tertiary">
+              <button onClick={handleReset} disabled={isLoading} className="btn btn-tertiary">
                 Reset
               </button>
             </div>
