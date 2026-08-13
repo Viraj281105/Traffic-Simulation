@@ -96,7 +96,7 @@ class Vehicle:
             self.state = VehicleState.APPROACHING
 
         # Handle lane transitions
-        while self.lane is not None and self.position > self.lane.length:
+        while self.lane is not None and self.position >= self.lane.length:
             try:
                 curr_idx = self.route.index(self.lane)
                 if curr_idx < len(self.route) - 1:
