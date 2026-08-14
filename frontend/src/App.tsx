@@ -10,7 +10,7 @@ export function App() {
   const [canvasSize] = useState({ width: 800, height: 600 });
 
   // Config State
-  const [viewMode, setViewMode] = useState<'map' | 'canvas'>('map');
+  const [viewMode, setViewMode] = useState<"map" | "canvas">("map");
   const [lanesNorth, setLanesNorth] = useState(2);
   const [lanesSouth, setLanesSouth] = useState(2);
   const [lanesEast, setLanesEast] = useState(2);
@@ -50,7 +50,7 @@ export function App() {
 
       <main className="app-main">
         <div className="canvas-container">
-          {viewMode === 'map' ? (
+          {viewMode === "map" ? (
             <IntersectionMap
               vehicles={activeVehicles}
               status={status}
@@ -129,21 +129,25 @@ export function App() {
             <h2>Map Configuration</h2>
             <div className="view-toggle">
               <button
-                onClick={() => { setViewMode('map'); }}
-                className={`btn ${viewMode === 'map' ? 'btn-primary' : 'btn-tertiary'}`}
-                style={{ flex: 1, padding: '8px' }}
+                onClick={() => {
+                  setViewMode("map");
+                }}
+                className={`btn ${viewMode === "map" ? "btn-primary" : "btn-tertiary"}`}
+                style={{ flex: 1, padding: "8px" }}
               >
                 Symmetrical Map
               </button>
               <button
-                onClick={() => { setViewMode('canvas'); }}
-                className={`btn ${viewMode === 'canvas' ? 'btn-primary' : 'btn-tertiary'}`}
-                style={{ flex: 1, padding: '8px' }}
+                onClick={() => {
+                  setViewMode("canvas");
+                }}
+                className={`btn ${viewMode === "canvas" ? "btn-primary" : "btn-tertiary"}`}
+                style={{ flex: 1, padding: "8px" }}
               >
                 Classic Canvas
               </button>
             </div>
-            {viewMode === 'map' && (
+            {viewMode === "map" && (
               <div className="config-group">
                 <div className="config-item">
                   <label>Lanes North</label>
@@ -152,7 +156,9 @@ export function App() {
                     min={1}
                     max={5}
                     value={lanesNorth}
-                    onChange={(e) => { setLanesNorth(Math.max(1, parseInt(e.target.value) || 1)); }}
+                    onChange={(e) => {
+                      setLanesNorth(Math.max(1, parseInt(e.target.value) || 1));
+                    }}
                   />
                 </div>
                 <div className="config-item">
@@ -162,7 +168,9 @@ export function App() {
                     min={1}
                     max={5}
                     value={lanesSouth}
-                    onChange={(e) => { setLanesSouth(Math.max(1, parseInt(e.target.value) || 1)); }}
+                    onChange={(e) => {
+                      setLanesSouth(Math.max(1, parseInt(e.target.value) || 1));
+                    }}
                   />
                 </div>
                 <div className="config-item">
@@ -172,7 +180,9 @@ export function App() {
                     min={1}
                     max={5}
                     value={lanesEast}
-                    onChange={(e) => { setLanesEast(Math.max(1, parseInt(e.target.value) || 1)); }}
+                    onChange={(e) => {
+                      setLanesEast(Math.max(1, parseInt(e.target.value) || 1));
+                    }}
                   />
                 </div>
                 <div className="config-item">
@@ -182,7 +192,9 @@ export function App() {
                     min={1}
                     max={5}
                     value={lanesWest}
-                    onChange={(e) => { setLanesWest(Math.max(1, parseInt(e.target.value) || 1)); }}
+                    onChange={(e) => {
+                      setLanesWest(Math.max(1, parseInt(e.target.value) || 1));
+                    }}
                   />
                 </div>
                 <div className="config-item">
@@ -193,7 +205,11 @@ export function App() {
                     min={2}
                     max={5}
                     value={laneWidth}
-                    onChange={(e) => { setLaneWidth(Math.max(2, parseFloat(e.target.value) || 3.5)); }}
+                    onChange={(e) => {
+                      setLaneWidth(
+                        Math.max(2, parseFloat(e.target.value) || 3.5),
+                      );
+                    }}
                   />
                 </div>
                 <div className="config-item">
@@ -203,7 +219,11 @@ export function App() {
                     min={10}
                     max={30}
                     value={intersectionSize}
-                    onChange={(e) => { setIntersectionSize(Math.max(10, parseInt(e.target.value) || 15)); }}
+                    onChange={(e) => {
+                      setIntersectionSize(
+                        Math.max(10, parseInt(e.target.value) || 15),
+                      );
+                    }}
                   />
                 </div>
                 <div className="config-item">
@@ -211,7 +231,9 @@ export function App() {
                   <input
                     type="checkbox"
                     checked={showCrosswalks}
-                    onChange={(e) => { setShowCrosswalks(e.target.checked); }}
+                    onChange={(e) => {
+                      setShowCrosswalks(e.target.checked);
+                    }}
                   />
                 </div>
                 <div className="config-item">
@@ -219,7 +241,9 @@ export function App() {
                   <input
                     type="checkbox"
                     checked={showStopLines}
-                    onChange={(e) => { setShowStopLines(e.target.checked); }}
+                    onChange={(e) => {
+                      setShowStopLines(e.target.checked);
+                    }}
                   />
                 </div>
                 <div className="config-item">
@@ -227,7 +251,9 @@ export function App() {
                   <input
                     type="checkbox"
                     checked={debug}
-                    onChange={(e) => { setDebug(e.target.checked); }}
+                    onChange={(e) => {
+                      setDebug(e.target.checked);
+                    }}
                   />
                 </div>
               </div>

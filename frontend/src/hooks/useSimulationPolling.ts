@@ -145,10 +145,13 @@ export function useSimulationPolling(): PollingState & {
           setStatus(data.status);
           setError(null);
           // If already running, start polling
-          if (data.status === 'running') {
+          if (data.status === "running") {
             isPollingRef.current = true;
             await pollVehicleState();
-            pollIntervalRef.current = setInterval(pollVehicleState, POLL_INTERVAL_MS);
+            pollIntervalRef.current = setInterval(
+              pollVehicleState,
+              POLL_INTERVAL_MS,
+            );
           }
         }
       } catch (err) {
