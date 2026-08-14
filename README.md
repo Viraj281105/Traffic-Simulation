@@ -95,8 +95,8 @@ npm run dev
 
 | Developer | Scope |
 |-----------|-------|
-| Developer A | Backend — Simulation Engine, Physics, Metrics, API |
-| Developer B | Frontend — Dashboard, Canvas, Charts, Playback |
+| Viraj Jadhao | Backend — Simulation Engine, Physics, Metrics, API |
+| Khushi Kashyap | Frontend — Dashboard, Canvas, Charts, Playback |
 
 ## Contributing
 

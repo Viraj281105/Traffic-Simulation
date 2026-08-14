@@ -1,0 +1,343 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #1a1a1a;
+  color: #eee;
+}
+
+.app-header {
+  padding: 20px 30px;
+  background: linear-gradient(135deg, #1a3a2a 0%, #2a5a4a 100%);
+  border-bottom: 1px solid #444;
+}
+
+.app-header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.app-header p {
+  font-size: 13px;
+  color: #aaa;
+}
+
+.app-main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  gap: 20px;
+  padding: 20px;
+}
+
+.canvas-container {
+  flex: 1;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 400px;
+}
+
+.canvas-container canvas {
+  display: block;
+}
+
+.control-panel {
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.control-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.control-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.control-panel::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 3px;
+}
+
+.control-panel::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
+
+.status-section,
+.controls-section,
+.error-section,
+.vehicle-details-section {
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.status-section h2,
+.controls-section h2,
+.error-section h3,
+.vehicle-details-section h2 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #fff;
+}
+
+.status-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 12px;
+  width: fit-content;
+}
+
+.status-badge.status-stopped {
+  background: #444;
+  color: #aaa;
+}
+
+.status-badge.status-running {
+  background: #2a6a3a;
+  color: #7eff7e;
+}
+
+.status-badge.status-completed {
+  background: #5a4a2a;
+  color: #ffcc77;
+}
+
+.status-info p {
+  font-size: 12px;
+  color: #bbb;
+}
+
+.status-info strong {
+  color: #ddd;
+}
+
+.button-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.btn {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: #2a8a3a;
+  color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #3aa04a;
+  box-shadow: 0 4px 12px rgba(42, 138, 58, 0.3);
+}
+
+.btn-primary:active:not(:disabled) {
+  background: #1a7a2a;
+}
+
+.btn-secondary {
+  background: #5a3a2a;
+  color: #fff;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #7a5a3a;
+  box-shadow: 0 4px 12px rgba(90, 58, 42, 0.3);
+}
+
+.btn-secondary:active:not(:disabled) {
+  background: #4a2a1a;
+}
+
+.btn-tertiary {
+  background: #3a3a3a;
+  color: #ddd;
+}
+
+.btn-tertiary:hover:not(:disabled) {
+  background: #4a4a4a;
+  box-shadow: 0 4px 12px rgba(58, 58, 58, 0.3);
+}
+
+.btn-tertiary:active:not(:disabled) {
+  background: #2a2a2a;
+}
+
+.error-section {
+  background: rgba(255, 50, 50, 0.1);
+  border: 1px solid #ff5555;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.error-section h3 {
+  color: #ff8888;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.error-message {
+  font-size: 11px;
+  color: #ff9999;
+  word-break: break-word;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  background: #1a1a1a;
+  border-radius: 4px;
+  border: 1px solid #333;
+}
+
+.detail-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #999;
+  margin-bottom: 4px;
+}
+
+.detail-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: #2aff7a;
+  font-family: "JetBrains Mono", monospace;
+}
+
+@media (max-width: 1200px) {
+  .app-main {
+    flex-direction: column;
+  }
+
+  .canvas-container {
+    min-height: 400px;
+    min-width: auto;
+  }
+
+  .control-panel {
+    width: 100%;
+    max-height: 250px;
+  }
+}
+
+.config-section {
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.config-section h2 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #fff;
+}
+
+.config-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.config-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #bbb;
+}
+
+.config-item label {
+  font-weight: 500;
+}
+
+.config-item input[type="number"] {
+  width: 60px;
+  background: #1a1a1a;
+  border: 1px solid #555;
+  color: #fff;
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-family: inherit;
+}
+
+.config-item input[type="checkbox"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}
+
+.view-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
