@@ -33,7 +33,7 @@ class RoundaboutController(BaseController):
             try:
                 approach = self.network.get_incoming_approach(d)
                 for lane in approach.get_lanes():
-                    lane.virtual_obstacle = None
+                    lane.virtual_obstacle = None  # type: ignore[attr-defined]
             except KeyError:
                 pass
 
@@ -76,9 +76,9 @@ class RoundaboutController(BaseController):
                                 break
 
                     if should_yield:
-                        lane.virtual_obstacle = VirtualObstacle(position=lane.length)
+                        lane.virtual_obstacle = VirtualObstacle(position=lane.length)  # type: ignore[attr-defined]
                     else:
-                        lane.virtual_obstacle = None
+                        lane.virtual_obstacle = None  # type: ignore[attr-defined]
             except KeyError:
                 pass
 

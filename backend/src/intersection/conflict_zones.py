@@ -14,13 +14,13 @@ class ConflictZoneDetector:
         self, lane_id_1: str, lane_id_2: str, x: float, y: float
     ) -> None:
         # Store sorted key to handle unordered pairs
-        key = tuple(sorted([lane_id_1, lane_id_2]))
+        key = (min(lane_id_1, lane_id_2), max(lane_id_1, lane_id_2))
         self.conflict_points[key] = (x, y)
 
     def _get_intersection_point(
         self, id1: str, id2: str
     ) -> Optional[Tuple[float, float]]:
-        key = tuple(sorted([id1, id2]))
+        key = (min(id1, id2), max(id1, id2))
         return self.conflict_points.get(key)
 
     def check_conflicts(

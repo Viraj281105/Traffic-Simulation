@@ -111,10 +111,10 @@ class FixedTimeSignalController(BaseController):
             for lane in approach.get_lanes():
                 if color in ("red", "yellow"):
                     # Stop obstacle at the end of the lane
-                    lane.virtual_obstacle = VirtualObstacle(position=lane.length)
+                    lane.virtual_obstacle = VirtualObstacle(position=lane.length)  # type: ignore[attr-defined]
                 else:
                     # Clear obstacle
-                    lane.virtual_obstacle = None
+                    lane.virtual_obstacle = None  # type: ignore[attr-defined]
         except KeyError:
             pass
 
