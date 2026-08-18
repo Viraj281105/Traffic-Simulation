@@ -5,6 +5,7 @@ from typing import Any, Dict
 import jsonschema
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from src.controllers.fixed_time_signal import FixedTimeSignalController
@@ -316,6 +317,51 @@ def get_simulation_history_tick(sim_id: str, tick: int) -> dict[str, Any]:
             status_code=404, detail=f"Frame at tick {tick} not found in buffer"
         )
     return frame
+
+
+@app.get("/api/v1/simulations/{sim_id}/report")
+def get_simulation_report(sim_id: str, format: str = "csv") -> Any:
+    if sim_id not in simulations_db:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+
+    sim = simulations_db[sim_id]
+    engine = sim["engine"]
+    collector = sim["collector"]
+
+    # Get final metrics
+    final_metrics = collector.get_metrics(
+        engine.clock.get_elapsed_time(),
+        engine.pool.active_vehicles,
+        engine.pool.exited_vehicles,
+        engine.spawner.spawned_count if engine.spawner else 0,
+    )
+
+    if format == "json":
+        return {
+            "simulationId": sim_id,
+            "finalMetrics": final_metrics,
+            "ticksCount": engine.clock.get_tick_count(),
+        }
+
+    import csv
+    import io
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Write header
+    writer.writerow(["Metric Name", "Value"])
+    for key, value in final_metrics.items():
+        if isinstance(value, dict):
+            writer.writerow([key, json.dumps(value)])
+        else:
+            writer.writerow([key, value])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=simulation_{sim_id}_report.csv"},
+    )
 
 
 # ── WebSocket Real-Time Snapshot Stream Route ────────────────────────────────

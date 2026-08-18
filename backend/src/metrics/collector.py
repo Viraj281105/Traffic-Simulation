@@ -20,6 +20,7 @@ from src.metrics.definitions.throughput import (
 )
 from src.metrics.definitions.travel_time import calculate_travel_time_reliability
 from src.metrics.definitions.wait_time import calculate_average_wait_time
+from src.metrics.efficiency import calculate_master_efficiency_score
 from src.vehicles.vehicle import Vehicle
 
 
@@ -126,7 +127,7 @@ class MetricCollector:
             if v.lane:
                 lane_lengths[v.lane.lane_id] = v.lane.length
 
-        return {
+        base_metrics = {
             "averageWaitTime": calculate_average_wait_time(post_warmup_exited),
             "throughput": calculate_throughput(post_warmup_exited),
             "throughputRate": calculate_throughput_rate(post_warmup_exited, current_time),
@@ -148,3 +149,5 @@ class MetricCollector:
             "congestionRecoveryTime": round(self.congestion_recovery_time, 2),
             "spaceFootprintArea": calculate_space_footprint_area(active_vehicles),
         }
+        base_metrics["masterEfficiencyScore"] = calculate_master_efficiency_score(base_metrics)
+        return base_metrics
