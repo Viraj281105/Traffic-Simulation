@@ -13,6 +13,7 @@ from src.core.clock import Clock
 from src.core.engine import SimulationEngine
 from src.core.enums import Direction
 from src.metrics.collector import MetricCollector
+from src.snapshot.buffer import SnapshotBuffer
 from src.snapshot.builder import SnapshotBuilder
 
 app = FastAPI(title="Traffic Simulation Framework API", version="1.0.0")
@@ -175,6 +176,8 @@ def create_simulation(config: Dict[str, Any]) -> Dict[str, Any]:
         controller = RoundaboutController(config, engine.network)
 
     collector = MetricCollector(config)
+    builder = SnapshotBuilder(sim_id, config_id, engine, collector, controller)
+    buffer = SnapshotBuffer(max_frames=1000)
 
     # Register tick callback on engine to update collector and controller
     def tick_callback() -> None:
@@ -200,6 +203,9 @@ def create_simulation(config: Dict[str, Any]) -> Dict[str, Any]:
             signals_state,
         )
 
+        # Cache snapshot for timeline scrubbing
+        buffer.append(builder.build())
+
     engine.register_tick_callback(tick_callback)
 
     simulations_db[sim_id] = {
@@ -207,6 +213,7 @@ def create_simulation(config: Dict[str, Any]) -> Dict[str, Any]:
         "collector": collector,
         "controller": controller,
         "config_id": config_id,
+        "buffer": buffer,
     }
 
     return {
@@ -268,6 +275,31 @@ def get_simulation_metrics(sim_id: str) -> Dict[str, Any]:
         engine.pool.exited_vehicles,
         engine.spawner.spawned_count if engine.spawner else 0,
     )
+
+
+@app.get("/api/v1/simulations/{sim_id}/history")
+def get_simulation_history(sim_id: str) -> list[dict[str, Any]]:
+    if sim_id not in simulations_db:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+
+    sim = simulations_db[sim_id]
+    buffer: SnapshotBuffer = sim["buffer"]
+    return buffer.get_all()
+
+
+@app.get("/api/v1/simulations/{sim_id}/history/{tick}")
+def get_simulation_history_tick(sim_id: str, tick: int) -> dict[str, Any]:
+    if sim_id not in simulations_db:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+
+    sim = simulations_db[sim_id]
+    buffer: SnapshotBuffer = sim["buffer"]
+    frame = buffer.get_frame(tick)
+    if frame is None:
+        raise HTTPException(
+            status_code=404, detail=f"Frame at tick {tick} not found in buffer"
+        )
+    return frame
 
 
 # ── WebSocket Real-Time Snapshot Stream Route ────────────────────────────────
