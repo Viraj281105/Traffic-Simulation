@@ -3,6 +3,11 @@ from typing import Any, Dict, List
 from src.core.enums import Direction
 from src.metrics.definitions.fairness import calculate_directional_fairness
 from src.metrics.definitions.idle_loss import calculate_idle_loss_tick
+from src.metrics.definitions.new_metrics import (
+    calculate_average_travel_speed,
+    calculate_queue_spillback_index,
+    calculate_space_footprint_area,
+)
 from src.metrics.definitions.queue_length import get_current_queue_lengths
 from src.metrics.definitions.speed_variance import calculate_speed_variance_index
 from src.metrics.definitions.stop_count import (
@@ -25,6 +30,7 @@ class MetricCollector:
         self.config: Dict[str, Any] = config
         sim_cfg = config.get("simulation", {})
         self.warmup_time: float = sim_cfg.get("warmupTime", 30.0)
+        self.time_step: float = sim_cfg.get("timeStep", 0.1)
 
         # Hysteresis configuration
         veh_gen = config.get("vehicleGeneration", {})
@@ -37,6 +43,7 @@ class MetricCollector:
         self.total_stops_in_warmup: int = 0
         self.idle_loss_ticks: int = 0
         self.total_ticks_post_warmup: int = 0
+        self.congestion_recovery_time: float = 0.0
 
         # Maintain list of queue lengths over time to compute time-average and max
         self.queue_history: List[Dict[str, int]] = []
@@ -74,6 +81,10 @@ class MetricCollector:
         )
         self.queue_history.append(current_queues)
 
+        # Congestion Recovery: increment recovery time if total queue length across all approaches > 5
+        if sum(current_queues.values()) > 5:
+            self.congestion_recovery_time += self.time_step
+
     def get_metrics(
         self,
         current_time: float,
@@ -109,6 +120,12 @@ class MetricCollector:
         if self.total_ticks_post_warmup > 0:
             idle_loss = self.idle_loss_ticks / self.total_ticks_post_warmup
 
+        # Extract active lane lengths for QSI calculation
+        lane_lengths = {}
+        for v in active_vehicles:
+            if v.lane:
+                lane_lengths[v.lane.lane_id] = v.lane.length
+
         return {
             "averageWaitTime": calculate_average_wait_time(post_warmup_exited),
             "throughput": calculate_throughput(post_warmup_exited),
@@ -124,4 +141,10 @@ class MetricCollector:
             "directionalFairnessIndex": calculate_directional_fairness(post_warmup_exited),
             "activeVehicleCount": len(active_vehicles),
             "totalVehiclesSpawned": total_spawned,
+            "averageTravelSpeed": calculate_average_travel_speed(active_vehicles),
+            "queueSpillbackIndex": calculate_queue_spillback_index(
+                active_vehicles, self.wait_speed_threshold, lane_lengths
+            ),
+            "congestionRecoveryTime": round(self.congestion_recovery_time, 2),
+            "spaceFootprintArea": calculate_space_footprint_area(active_vehicles),
         }
