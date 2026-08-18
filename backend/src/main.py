@@ -136,6 +136,14 @@ def get_single_vehicle() -> Dict[str, Any]:
     }
 
 
+@app.get("/api/simulation/active-vehicles")
+def get_active_vehicles() -> list[dict[str, Any]]:
+    sim = get_or_create_live_simulation()
+    builder = sim["builder"]
+    snapshot = builder.build()
+    return [v for v in snapshot["vehicles"] if v["state"] != "exited"]
+
+
 # ── Full Scenario Configuration Validation Route ────────────────────────────
 @app.post("/api/v1/configs/validate")
 def validate_config(payload: Dict[str, Any]) -> Dict[str, Any]:
