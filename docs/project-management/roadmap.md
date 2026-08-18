@@ -4,17 +4,20 @@ This document outlines the complete milestone roadmap for the **Traffic Intersec
 
 ---
 
-## Milestone 1: Phase 0 — Repository Setup & Docs
-*   **Purpose**: Establish monorepo structure, review rules, static code analyzers, and centralize documentation.
-*   **Description**: Prepares the project workspace with necessary boilerplate, sets up linting and formatting tooling (Ruff, ESLint, Prettier), and establishes the automated schema validation script to ensure contract stability from day one.
+## Milestone 1: Phase 0 — Repository Setup, Docs & Physics Spike
+*   **Purpose**: Establish monorepo structure, review rules, static code analyzers, centralize documentation, and validate physics equations.
+*   **Description**: Prepares the project workspace with necessary boilerplate, sets up linting and formatting tooling (Ruff, ESLint, Prettier), and establishes the automated schema validation script. Additionally, conducts a technical spike on the microscopic physics engine (Intelligent Driver Model - IDM) to validate mathematical foundations and sets up the complete backend test suite scaffolding early.
 *   **Target Deliverables**:
     *   Root directories, `.gitignore`, and `.github/CODEOWNERS`.
     *   Validation script `scripts/validate-schemas.sh`.
     *   Linter configurations in `backend/pyproject.toml` and `frontend/eslint.config.js`.
     *   Synchronized Markdown specs for architecture, contracts, metrics, and APIs.
+    *   `IDMModel` physics formulas (`backend/src/vehicles/idm.py`).
+    *   Complete backend test suite scaffolding and mock test implementations (`backend/tests/`).
 *   **Exit Criteria**:
     *   All baseline specifications are merged with mutual approvals from Developer A and B.
     *   Pre-commit configurations prevent committing unformatted or schema-failing JSON payloads.
+    *   IDM physics math is validated via active unit tests.
 *   **Dependencies**: None.
 *   **Estimated Duration**: 3 days.
 *   **Recommended Completion Order**: 
@@ -22,7 +25,8 @@ This document outlines the complete milestone roadmap for the **Traffic Intersec
     2. Configure static analysis configs for backend and frontend.
     3. Implement validation scripts.
     4. Sync architecture specifications.
-*   **Suggested GitHub Issues**: ISSUE-001, ISSUE-002, ISSUE-003, ISSUE-004, ISSUE-005, ISSUE-006, ISSUE-007, ISSUE-008.
+    5. Implement IDM physics and setup test suite scaffolding.
+*   **Suggested GitHub Issues**: ISSUE-001, ISSUE-002, ISSUE-003, ISSUE-004, ISSUE-005, ISSUE-006, ISSUE-007, ISSUE-008, ISSUE-013.
 
 ---
 
@@ -66,10 +70,9 @@ This document outlines the complete milestone roadmap for the **Traffic Intersec
 ---
 
 ## Milestone 4: Traffic Controllers (Intersection Logic & Physics)
-*   **Purpose**: Implement IDM physics, path conflict zone checking, and abstract controller interfaces.
-*   **Description**: Integrates the vehicle car-following physics (Intelligent Driver Model) and implements the base class for intersection controllers. Solves path collision checking by injecting virtual obstacles at conflict zones.
+*   **Purpose**: Implement path conflict zone checking and abstract controller interfaces.
+*   **Description**: Integrates the base class for intersection controllers and solves path collision checking by injecting virtual obstacles at conflict zones.
 *   **Target Deliverables**:
-    *   `IDMModel` physics formulas (`backend/src/vehicles/idm.py`).
     *   `BaseController` abstract interface (`backend/src/controllers/base.py`).
     *   `ConflictZoneDetector` safety boundaries checker (`backend/src/intersection/conflict_zones.py`).
 *   **Exit Criteria**:
@@ -78,10 +81,9 @@ This document outlines the complete milestone roadmap for the **Traffic Intersec
 *   **Dependencies**: Milestone 3.
 *   **Estimated Duration**: 5 days.
 *   **Recommended Completion Order**:
-    1. Implement IDM physics formulas.
-    2. Define `BaseController` abstract interface.
-    3. Build conflict zone overlap detection algorithms.
-*   **Suggested GitHub Issues**: ISSUE-013, ISSUE-018, ISSUE-019, ISSUE-020.
+    1. Define `BaseController` abstract interface.
+    2. Build conflict zone overlap detection algorithms.
+*   **Suggested GitHub Issues**: ISSUE-018, ISSUE-019, ISSUE-020.
 
 ---
 

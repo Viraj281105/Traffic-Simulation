@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ScenarioConfiguration",
+  "description": "Schema for the scenario configuration of the traffic simulation",
+  "type": "object",
+  "properties": {
+    "simulation": {
+      "type": "object",
+      "properties": {
+        "duration": { "type": "number", "minimum": 1, "maximum": 3600, "default": 300 },
+        "timeStep": { "type": "number", "exclusiveMinimum": 0, "maximum": 1.0, "default": 0.1 },
+        "warmupTime": { "type": "number", "minimum": 0, "default": 30 },
+        "randomSeed": { "type": "integer", "minimum": 0, "default": 42 },
+        "snapshotFrequency": { "type": "number", "exclusiveMinimum": 0, "maximum": 60, "default": 10 }
+      },
+      "required": ["duration"]
+    },
+    "traffic": {
+      "type": "object",
+      "properties": {
+        "totalVehicles": { "type": "integer", "exclusiveMinimum": 0, "maximum": 5000, "default": 200 },
+        "arrivalRate": { "type": "number", "exclusiveMinimum": 0, "maximum": 10.0, "default": 0.5 },
+        "arrivalDistribution": { "type": "string", "enum": ["poisson", "uniform", "burst"], "default": "poisson" },
+        "directionalSplit": {
+          "type": "object",
+          "properties": {
+            "north": { "type": "number", "minimum": 0, "maximum": 1 },
+            "south": { "type": "number", "minimum": 0, "maximum": 1 },
+            "east": { "type": "number", "minimum": 0, "maximum": 1 },
+            "west": { "type": "number", "minimum": 0, "maximum": 1 }
+          },
+          "required": ["north", "south", "east", "west"],
+          "default": { "north": 0.25, "south": 0.25, "east": 0.25, "west": 0.25 }
+        },
+        "turnProbabilities": {
+          "type": "object",
+          "properties": {
+            "left": { "type": "number", "minimum": 0, "maximum": 1 },
+            "straight": { "type": "number", "minimum": 0, "maximum": 1 },
+            "right": { "type": "number", "minimum": 0, "maximum": 1 }
+          },
+          "required": ["left", "straight", "right"],
+          "default": { "left": 0.2, "straight": 0.6, "right": 0.2 }
+        }
+      }
+    },
+    "geometry": {
+      "type": "object",
+      "properties": {
+        "intersectionType": { "type": "string", "enum": ["fixed_time_signal", "roundabout"] },
+        "intersectionCenter": {
+          "type": "object",
+          "properties": {
+            "x": { "type": "number", "default": 0 },
+            "y": { "type": "number", "default": 0 }
+          },
+          "required": ["x", "y"]
+        }
+      },
+      "required": ["intersectionType"]
+    },
+    "roads": {
+      "type": "object",
+      "properties": {
+        "approachLength": { "type": "number", "exclusiveMinimum": 50, "maximum": 1000, "default": 200 },
+        "laneWidth": { "type": "number", "exclusiveMinimum": 2.5, "maximum": 5.0, "default": 3.5 },
+        "lanesPerApproach": { "type": "integer", "minimum": 1, "maximum": 4, "default": 2 },
+        "speedLimit": { "type": "number", "exclusiveMinimum": 0, "maximum": 30.0, "default": 13.89 },
+        "approaches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "direction": { "type": "string", "enum": ["north", "south", "east", "west"] },
+              "lanes": { "type": "integer", "minimum": 1, "maximum": 4 },
+              "speedLimit": { "type": "number", "exclusiveMinimum": 0 }
+            },
+            "required": ["direction"]
+          }
+        }
+      }
+    },
+    "vehicleGeneration": {
+      "type": "object",
+      "properties": {
+        "vehicleLength": {
+          "type": "object",
+          "properties": {
+            "min": { "type": "number", "exclusiveMinimum": 0 },
+            "max": { "type": "number", "exclusiveMinimum": 0 }
+          },
+          "required": ["min", "max"]
+        },
+        "vehicleWidth": {
+          "type": "object",
+          "properties": {
+            "min": { "type": "number", "exclusiveMinimum": 0 },
+            "max": { "type": "number", "exclusiveMinimum": 0 }
+          },
+          "required": ["min", "max"]
+        },
+        "desiredSpeed": {
+          "type": "object",
+          "properties": {
+            "min": { "type": "number", "exclusiveMinimum": 0 },
+            "max": { "type": "number", "exclusiveMinimum": 0 }
+          },
+          "required": ["min", "max"]
+        },
+        "maxAcceleration": { "type": "number", "exclusiveMinimum": 0, "default": 2.0 },
+        "comfortDeceleration": { "type": "number", "exclusiveMinimum": 0, "default": 3.0 },
+        "minimumGap": { "type": "number", "exclusiveMinimum": 0, "default": 2.0 },
+        "desiredTimeHeadway": { "type": "number", "exclusiveMinimum": 0, "default": 1.5 },
+        "idmDelta": { "type": "number", "exclusiveMinimum": 0, "default": 4 }
+      }
+    },
+    "controller": {
+      "type": "object",
+      "properties": {
+        "greenTime": { "type": "number", "exclusiveMinimum": 5, "maximum": 120, "default": 30 },
+        "yellowTime": { "type": "number", "exclusiveMinimum": 2, "maximum": 8, "default": 4 },
+        "allRedTime": { "type": "number", "minimum": 0, "maximum": 5, "default": 2 },
+        "phaseSequence": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["ns_green", "ns_yellow", "all_red", "ew_green", "ew_yellow", "all_red"]
+        },
+        "offset": { "type": "number", "minimum": 0, "default": 0 },
+        "innerRadius": { "type": "number", "exclusiveMinimum": 5, "maximum": 50, "default": 10 },
+        "outerRadius": { "type": "number", "exclusiveMinimum": 5, "default": 20 },
+        "circulatingLanes": { "type": "integer", "minimum": 1, "maximum": 3, "default": 1 },
+        "criticalGap": { "type": "number", "exclusiveMinimum": 0, "maximum": 10.0, "default": 4.0 },
+        "followUpTime": { "type": "number", "exclusiveMinimum": 0, "default": 2.5 },
+        "entrySpeed": { "type": "number", "exclusiveMinimum": 0, "default": 5.0 },
+        "circulatingSpeed": { "type": "number", "exclusiveMinimum": 0, "maximum": 15.0, "default": 8.0 }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "array", "items": { "type": "string" } },
+        "updateFrequency": { "type": "number", "exclusiveMinimum": 0, "default": 1.0 },
+        "rollingWindowSize": { "type": "number", "exclusiveMinimum": 0, "default": 60 },
+        "waitSpeedThreshold": { "type": "number", "minimum": 0, "default": 0.5 },
+        "stopSpeedThreshold": { "type": "number", "minimum": 0, "default": 0.1 }
+      }
+    },
+    "visualization": {
+      "type": "object",
+      "properties": {
+        "canvasWidth": { "type": "integer", "exclusiveMinimum": 400, "default": 800 },
+        "canvasHeight": { "type": "integer", "exclusiveMinimum": 400, "default": 800 },
+        "pixelsPerMeter": { "type": "number", "exclusiveMinimum": 0, "default": 3.0 },
+        "showVehicleIds": { "type": "boolean", "default": false },
+        "showQueueLengths": { "type": "boolean", "default": true },
+        "colorScheme": { "type": "string", "enum": ["default", "colorblind"], "default": "default" },
+        "trailLength": { "type": "integer", "minimum": 0, "default": 0 }
+      }
+    }
+  },
+  "required": ["simulation", "geometry"]
+}

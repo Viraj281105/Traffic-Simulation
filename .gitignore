@@ -261,3 +261,21 @@ desktop.ini
 output/
 results/
 *.sim.json
+
+# ================================
+# Tool Caches
+# ================================
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# ================================
+# SQLite Database Files
+# ================================
+*.db
+
+# ================================
+# Virtual Environments
+# ================================
+.venv/
+venv/
