@@ -65,4 +65,7 @@ def test_full_simulation_run_integration() -> None:
     )
     assert "averageWaitTime" in metrics
     assert "averageTravelSpeed" in metrics
-    assert "queueSpillbackIndex" in metrics
+    assert "queueStabilityIndex" in metrics
+    assert "spaceFootprintConsumed" in metrics
+    assert "intersectionUtilization" in metrics
+    assert "criticalSaturationVolume" in metrics
