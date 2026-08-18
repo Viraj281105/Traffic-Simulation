@@ -13,6 +13,7 @@ from src.core.clock import Clock
 from src.core.engine import SimulationEngine
 from src.core.enums import Direction
 from src.metrics.collector import MetricCollector
+from src.snapshot.buffer import SnapshotBuffer
 from src.snapshot.builder import SnapshotBuilder
 
 app = FastAPI(title="Traffic Simulation Framework API", version="1.0.0")
@@ -135,6 +136,14 @@ def get_single_vehicle() -> Dict[str, Any]:
     }
 
 
+@app.get("/api/simulation/active-vehicles")
+def get_active_vehicles() -> list[dict[str, Any]]:
+    sim = get_or_create_live_simulation()
+    builder = sim["builder"]
+    snapshot = builder.build()
+    return [v for v in snapshot["vehicles"] if v["state"] != "exited"]
+
+
 # ── Full Scenario Configuration Validation Route ────────────────────────────
 @app.post("/api/v1/configs/validate")
 def validate_config(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -175,6 +184,8 @@ def create_simulation(config: Dict[str, Any]) -> Dict[str, Any]:
         controller = RoundaboutController(config, engine.network)
 
     collector = MetricCollector(config)
+    builder = SnapshotBuilder(sim_id, config_id, engine, collector, controller)
+    buffer = SnapshotBuffer(max_frames=1000)
 
     # Register tick callback on engine to update collector and controller
     def tick_callback() -> None:
@@ -200,6 +211,9 @@ def create_simulation(config: Dict[str, Any]) -> Dict[str, Any]:
             signals_state,
         )
 
+        # Cache snapshot for timeline scrubbing
+        buffer.append(builder.build())
+
     engine.register_tick_callback(tick_callback)
 
     simulations_db[sim_id] = {
@@ -207,6 +221,7 @@ def create_simulation(config: Dict[str, Any]) -> Dict[str, Any]:
         "collector": collector,
         "controller": controller,
         "config_id": config_id,
+        "buffer": buffer,
     }
 
     return {
@@ -270,6 +285,31 @@ def get_simulation_metrics(sim_id: str) -> Dict[str, Any]:
     )
 
 
+@app.get("/api/v1/simulations/{sim_id}/history")
+def get_simulation_history(sim_id: str) -> list[dict[str, Any]]:
+    if sim_id not in simulations_db:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+
+    sim = simulations_db[sim_id]
+    buffer: SnapshotBuffer = sim["buffer"]
+    return buffer.get_all()
+
+
+@app.get("/api/v1/simulations/{sim_id}/history/{tick}")
+def get_simulation_history_tick(sim_id: str, tick: int) -> dict[str, Any]:
+    if sim_id not in simulations_db:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+
+    sim = simulations_db[sim_id]
+    buffer: SnapshotBuffer = sim["buffer"]
+    frame = buffer.get_frame(tick)
+    if frame is None:
+        raise HTTPException(
+            status_code=404, detail=f"Frame at tick {tick} not found in buffer"
+        )
+    return frame
+
+
 # ── WebSocket Real-Time Snapshot Stream Route ────────────────────────────────
 @app.websocket("/ws/v1/stream")
 async def websocket_stream(websocket: WebSocket, simulationId: str) -> None:  # noqa: N803
@@ -304,3 +344,104 @@ async def websocket_stream(websocket: WebSocket, simulationId: str) -> None:  # 
         pass
     except Exception as e:
         await websocket.close(code=1011, reason=str(e))
+
+
+DEFAULT_CONFIG = {
+    "simulation": {
+        "timeStep": 0.1,
+        "duration": 300,
+        "warmupTime": 30.0,
+    },
+    "geometry": {
+        "intersectionType": "fixed_time_signal",
+        "intersectionCenter": {"x": 0.0, "y": 0.0},
+        "boundingRadius": 15.0,
+    },
+    "controller": {
+        "greenDuration": 30,
+        "yellowDuration": 5,
+        "allRedDuration": 2,
+    },
+    "vehicleGeneration": {
+        "stopSpeedThreshold": 0.1,
+        "waitSpeedThreshold": 0.5,
+    },
+}
+
+live_sim_data: Dict[str, Any] = {
+    "engine": None,
+    "collector": None,
+    "controller": None,
+    "builder": None,
+    "config_id": None,
+}
+
+
+def get_or_create_live_simulation() -> Dict[str, Any]:
+    if live_sim_data["engine"] is None:
+        clock = Clock(time_step=0.1)
+        engine = SimulationEngine(clock, duration=300, config=DEFAULT_CONFIG)
+        controller = FixedTimeSignalController(DEFAULT_CONFIG, engine.network)
+        collector = MetricCollector(DEFAULT_CONFIG)
+        config_id = str(uuid.uuid4())
+        builder = SnapshotBuilder("live_sim", config_id, engine, collector, controller)
+
+        def tick_callback() -> None:
+            controller.update(clock.time_step, engine.pool.active_vehicles)
+            signals_state = {}
+            state = controller.get_state()
+            if state["type"] == "fixed_time_signal":
+                for sig in state.get("signals", []):
+                    dir_enum = getattr(Direction, sig["direction"].upper())
+                    signals_state[dir_enum] = sig["color"]
+            else:
+                for d in Direction:
+                    signals_state[d] = "green"
+            collector.update(
+                clock.get_elapsed_time(),
+                engine.pool.active_vehicles,
+                engine.pool.exited_vehicles,
+                signals_state,
+            )
+
+        engine.register_tick_callback(tick_callback)
+        live_sim_data["engine"] = engine
+        live_sim_data["collector"] = collector
+        live_sim_data["controller"] = controller
+        live_sim_data["builder"] = builder
+        live_sim_data["config_id"] = config_id
+    return live_sim_data
+
+
+@app.post("/api/simulation/play")
+def play_live_simulation() -> Dict[str, Any]:
+    sim = get_or_create_live_simulation()
+    sim["engine"].start()
+    return {"status": sim["engine"].status.value.lower(), "message": "Live simulation started/resumed"}
+
+
+@app.post("/api/simulation/pause")
+def pause_live_simulation() -> Dict[str, Any]:
+    sim = get_or_create_live_simulation()
+    sim["engine"].pause()
+    return {"status": sim["engine"].status.value.lower(), "message": "Live simulation paused"}
+
+
+@app.websocket("/ws/simulation/live")
+async def websocket_live_stream(websocket: WebSocket) -> None:
+    await websocket.accept()
+    sim = get_or_create_live_simulation()
+    builder = sim["builder"]
+
+    try:
+        import asyncio
+        while True:
+            snapshot = builder.build()
+            await websocket.send_json(snapshot)
+            # Sleep 100ms for 10Hz frequency
+            await asyncio.sleep(0.1)
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        await websocket.close(code=1011, reason=str(e))
+
