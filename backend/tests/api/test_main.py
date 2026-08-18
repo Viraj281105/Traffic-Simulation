@@ -12,6 +12,10 @@ except ImportError:
 
 def test_get_single_vehicle() -> None:
     """Test that the single-vehicle endpoint responds correctly and advances state."""
+    # Reset and start the simulation first
+    client.post("/api/simulation/reset")
+    client.post("/api/simulation/start")
+
     # First request
     response = client.get("/api/simulation/single-vehicle")
     assert response.status_code == 200
@@ -31,3 +35,6 @@ def test_get_single_vehicle() -> None:
     assert response2.status_code == 200
     data2 = response2.json()
     assert data2["position"] > data["position"]
+
+    # Reset simulation state
+    client.post("/api/simulation/reset")

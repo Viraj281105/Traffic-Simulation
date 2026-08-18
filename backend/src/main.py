@@ -57,7 +57,7 @@ class SingleVehicleState:
         self.stop_count = 0
         self.sim_time = 0.0
         self.tick = 0
-        self.status = "running"
+        self.status = "stopped"
 
 
 single_veh = SingleVehicleState()
