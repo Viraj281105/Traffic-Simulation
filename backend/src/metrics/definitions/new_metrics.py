@@ -1,5 +1,6 @@
 import math
 from typing import Any, Dict, List
+
 from src.vehicles.vehicle import Vehicle
 
 
