@@ -15,6 +15,7 @@ from src.core.enums import Direction
 from src.metrics.collector import MetricCollector
 from src.snapshot.buffer import SnapshotBuffer
 from src.snapshot.builder import SnapshotBuilder
+from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
 
 app = FastAPI(title="Traffic Simulation Framework API", version="1.0.0")
 
@@ -444,4 +445,67 @@ async def websocket_live_stream(websocket: WebSocket) -> None:
         pass
     except Exception as e:
         await websocket.close(code=1011, reason=str(e))
+
+
+dual_sim_orchestrator: DualSimulationOrchestrator | None = None
+
+
+def get_or_create_dual_orchestrator() -> DualSimulationOrchestrator:
+    global dual_sim_orchestrator
+    if dual_sim_orchestrator is None:
+        dual_sim_orchestrator = DualSimulationOrchestrator(DEFAULT_CONFIG)
+    return dual_sim_orchestrator
+
+
+@app.post("/api/simulation/dual/play")
+def play_dual_simulation() -> Dict[str, Any]:
+    orch = get_or_create_dual_orchestrator()
+    orch.start()
+    return {"status": orch.get_status(), "message": "Dual simulation started/resumed"}
+
+
+@app.post("/api/simulation/dual/pause")
+def pause_dual_simulation() -> Dict[str, Any]:
+    orch = get_or_create_dual_orchestrator()
+    orch.pause()
+    return {"status": orch.get_status(), "message": "Dual simulation paused"}
+
+
+@app.post("/api/simulation/dual/reset")
+def reset_dual_simulation() -> Dict[str, Any]:
+    global dual_sim_orchestrator
+    if dual_sim_orchestrator is not None:
+        dual_sim_orchestrator.stop()
+    dual_sim_orchestrator = None
+    orch = get_or_create_dual_orchestrator()
+    return {"status": orch.get_status(), "message": "Dual simulation reset"}
+
+
+@app.get("/api/simulation/dual/status")
+def get_dual_simulation_status() -> Dict[str, Any]:
+    orch = get_or_create_dual_orchestrator()
+    return {
+        "status": orch.get_status(),
+        "elapsed": round(orch.clock_signal.get_elapsed_time(), 2),
+        "tick": orch.clock_signal.get_tick_count(),
+    }
+
+
+@app.websocket("/ws/simulation/dual")
+async def websocket_dual_stream(websocket: WebSocket) -> None:
+    await websocket.accept()
+    orch = get_or_create_dual_orchestrator()
+
+    try:
+        import asyncio
+        while True:
+            snapshot = orch.get_dual_snapshot()
+            await websocket.send_json(snapshot)
+            # Sleep 100ms for 10Hz frequency
+            await asyncio.sleep(0.1)
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        await websocket.close(code=1011, reason=str(e))
+
 
