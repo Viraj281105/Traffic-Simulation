@@ -56,13 +56,14 @@ In addition to system specifications, the repository maintains planning, workflo
 
 ## Performance Metrics
 
-| Category | Metrics |
-|----------|---------|
-| **Operational Efficiency** | Average Wait Time, Throughput, Queue Length Statistics |
-| **Traffic Flow Quality** | Stop Count, Speed Variance Index, Travel Time Reliability |
-| **System Performance** | Idle Opportunity Loss, Critical Saturation Volume |
-| **Fairness** | Directional Fairness Index |
-| **Physical Constraints** | Space / Footprint Consumed |
+| Category | Metrics | Description |
+|----------|---------|-------------|
+| **Operational Efficiency** | Average Wait Time, Throughput, Queue Length Statistics | Core delay and volume clearing statistics |
+| **Traffic Flow Quality** | Stop Count, Speed Variance Index, Travel Time Reliability, Average Travel Speed (ATS) | Vehicle comfort and flow stabilization markers |
+| **System Performance** | Idle Opportunity Loss, Critical Saturation Volume, Intersection Utilization % | Capacity and active service metrics |
+| **Fairness & Stability** | Directional Fairness Index (DFI), Queue Stability Index (QSI) | Variance across approaches and queues |
+| **Physical Constraints** | Space / Footprint Consumed | Land usage footprint comparison |
+| **Overall Winner Evaluation** | **Master Efficiency Score** | Combined weighted normalization of all metrics (0.0 to 100.0) |
 
 ## Quick Start
 
@@ -70,9 +71,18 @@ In addition to system specifications, the repository maintains planning, workflo
 
 - Python 3.11+
 - Node.js 18+
-- npm 9+
+- Docker & Docker Compose (optional, for containerized run)
 
-### Backend
+### Running via Docker (Recommended)
+
+To run the entire system (Backend API, Frontend Dashboard, and SQLite database volume configurations) concurrently:
+```bash
+docker compose up --build -d
+```
+*   Backend API: `http://localhost:8000`
+*   Frontend Dev Dashboard: `http://localhost:3000`
+
+### Running Backend Manually
 
 ```bash
 cd backend
@@ -81,14 +91,6 @@ python -m venv .venv
 # source .venv/bin/activate     # macOS/Linux
 pip install -r requirements.txt
 python -m src.main
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
 ```
 
 ## Team
