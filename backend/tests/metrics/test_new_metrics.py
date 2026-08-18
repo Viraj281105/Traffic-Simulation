@@ -2,8 +2,8 @@ import pytest
 
 from src.metrics.definitions.new_metrics import (
     calculate_average_travel_speed,
-    calculate_queue_spillback_index,
-    calculate_space_footprint_area,
+    calculate_queue_stability_index,
+    calculate_space_footprint_consumed,
 )
 from src.roads.lane import Lane
 from src.vehicles.vehicle import Vehicle
@@ -39,19 +39,32 @@ def test_calculate_average_travel_speed(mock_vehicles: list[Vehicle]) -> None:
     assert calculate_average_travel_speed([]) == 0.0
 
 
-def test_calculate_queue_spillback_index(mock_vehicles: list[Vehicle]) -> None:
-    # v2 is queued (speed 0.0 < 0.5 threshold) on lane_1 (length 100.0)
-    # QSI: (1 * 7.5) / 100.0 = 0.075
-    lane_lengths = {"lane_1": 100.0}
-    qsi = calculate_queue_spillback_index(mock_vehicles, 0.5, lane_lengths)
-    assert pytest.approx(qsi) == 0.075
+def test_calculate_queue_stability_index() -> None:
+    # queue lengths over history: [2, 4, 3] -> mean = 3
+    # values: [2, 4, 3], variance = ((2-3)^2 + (4-3)^2 + (3-3)^2) / 2 = (1 + 1 + 0) / 2 = 1.0 -> SD = 1.0
+    # QSI = SD / mean = 1.0 / 3 = 0.333
+    q_history = [
+        {"north": 1, "south": 1},
+        {"north": 2, "south": 2},
+        {"north": 1, "south": 2},
+    ]
+    qsi = calculate_queue_stability_index(q_history)
+    assert qsi == pytest.approx(0.333, abs=1e-3)
 
-    assert calculate_queue_spillback_index([], 0.5, {}) == 0.0
+    assert calculate_queue_stability_index([]) == 0.0
 
 
-def test_calculate_space_footprint_area(mock_vehicles: list[Vehicle]) -> None:
-    # areas: (4 * 2) + (5 * 2) = 8 + 10 = 18.0
-    area = calculate_space_footprint_area(mock_vehicles)
-    assert area == 18.0
+def test_calculate_space_footprint_consumed() -> None:
+    # Roundabout footprint: outerRadius = 20 -> Area = pi * 20^2 = 1256.64
+    config_roundabout = {
+        "geometry": {"intersectionType": "roundabout"},
+        "controller": {"outerRadius": 20.0},
+    }
+    assert calculate_space_footprint_consumed(config_roundabout) == pytest.approx(1256.64, abs=1e-2)
 
-    assert calculate_space_footprint_area([]) == 0.0
+    # Signal footprint: lanes = 2, laneWidth = 3.5 -> width = 14 -> Area = 14 * 14 = 196.0
+    config_signal = {
+        "geometry": {"intersectionType": "fixed_time_signal"},
+        "roads": {"lanesPerApproach": 2, "laneWidth": 3.5},
+    }
+    assert calculate_space_footprint_consumed(config_signal) == 196.0

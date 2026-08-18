@@ -5,8 +5,8 @@ from src.metrics.definitions.fairness import calculate_directional_fairness
 from src.metrics.definitions.idle_loss import calculate_idle_loss_tick
 from src.metrics.definitions.new_metrics import (
     calculate_average_travel_speed,
-    calculate_queue_spillback_index,
-    calculate_space_footprint_area,
+    calculate_queue_stability_index,
+    calculate_space_footprint_consumed,
 )
 from src.metrics.definitions.queue_length import get_current_queue_lengths
 from src.metrics.definitions.speed_variance import calculate_speed_variance_index
@@ -45,6 +45,8 @@ class MetricCollector:
         self.idle_loss_ticks: int = 0
         self.total_ticks_post_warmup: int = 0
         self.congestion_recovery_time: float = 0.0
+        self.demand_ticks: int = 0
+        self.service_ticks: int = 0
 
         # Maintain list of queue lengths over time to compute time-average and max
         self.queue_history: List[Dict[str, int]] = []
@@ -69,6 +71,12 @@ class MetricCollector:
 
         # Increment post-warmup simulation ticks count
         self.total_ticks_post_warmup += 1
+
+        if active_vehicles:
+            self.demand_ticks += 1
+            avg_speed = sum(v.speed for v in active_vehicles) / len(active_vehicles)
+            if avg_speed > self.wait_speed_threshold:
+                self.service_ticks += 1
 
         # Track idle opportunity loss
         if calculate_idle_loss_tick(
@@ -143,11 +151,11 @@ class MetricCollector:
             "activeVehicleCount": len(active_vehicles),
             "totalVehiclesSpawned": total_spawned,
             "averageTravelSpeed": calculate_average_travel_speed(active_vehicles),
-            "queueSpillbackIndex": calculate_queue_spillback_index(
-                active_vehicles, self.wait_speed_threshold, lane_lengths
-            ),
+            "queueStabilityIndex": calculate_queue_stability_index(self.queue_history),
             "congestionRecoveryTime": round(self.congestion_recovery_time, 2),
-            "spaceFootprintArea": calculate_space_footprint_area(active_vehicles),
+            "spaceFootprintConsumed": calculate_space_footprint_consumed(self.config),
+            "intersectionUtilization": round((self.service_ticks / self.demand_ticks * 100) if self.demand_ticks > 0 else 0.0, 1),
+            "criticalSaturationVolume": 1800.0,
         }
         base_metrics["masterEfficiencyScore"] = calculate_master_efficiency_score(base_metrics)
         return base_metrics
