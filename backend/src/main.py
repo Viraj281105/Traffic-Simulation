@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from src.controllers.fixed_time_signal import FixedTimeSignalController
 from src.controllers.roundabout import RoundaboutController
 from src.core.clock import Clock
+from src.core.config_models import ScenarioConfiguration
 from src.core.engine import SimulationEngine
 from src.core.enums import Direction
 from src.metrics.collector import MetricCollector
@@ -158,6 +159,12 @@ def validate_config(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # ── Full Simulation Lifecycle REST Routes ───────────────────────────────────
+@app.post("/api/simulation/new")
+def create_simulation_v2(payload: ScenarioConfiguration) -> Dict[str, Any]:
+    config_dict = payload.model_dump(exclude_none=True)
+    return create_simulation(config_dict)
+
+
 @app.post("/api/v1/simulations")
 def create_simulation(config: Dict[str, Any]) -> Dict[str, Any]:
     # Validate configuration
