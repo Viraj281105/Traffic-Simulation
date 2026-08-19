@@ -13,7 +13,7 @@ from src.controllers.roundabout import RoundaboutController
 from src.core.clock import Clock
 from src.core.config_models import ScenarioConfiguration
 from src.core.engine import SimulationEngine
-from src.core.enums import Direction
+from src.core.enums import Direction, SimulationStatus
 from src.metrics.collector import MetricCollector
 from src.snapshot.buffer import SnapshotBuffer
 from src.snapshot.builder import SnapshotBuilder
@@ -470,7 +470,11 @@ def get_or_create_live_simulation() -> Dict[str, Any]:
 @app.post("/api/simulation/play")
 def play_live_simulation() -> Dict[str, Any]:
     sim = get_or_create_live_simulation()
-    sim["engine"].start()
+    engine = sim["engine"]
+    if engine.status == SimulationStatus.INITIALIZED:
+        engine.start()
+    elif engine.status == SimulationStatus.PAUSED:
+        engine.resume()
     return {"status": sim["engine"].status.value.lower(), "message": "Live simulation started/resumed"}
 
 
