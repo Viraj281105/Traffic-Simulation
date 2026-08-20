@@ -1,9 +1,12 @@
 import pytest
 
+from src.controllers.base import BaseController
 from src.controllers.fixed_time_signal import FixedTimeSignalController
 from src.controllers.registry import ControllerRegistry
 from src.controllers.roundabout import RoundaboutController
+from src.core.enums import Direction
 from src.roads.network import RoadNetwork
+from src.vehicles.vehicle import Vehicle
 
 
 def test_controller_registry() -> None:
@@ -18,6 +21,7 @@ def test_controller_registry() -> None:
 
 
 def test_fixed_time_signal_transitions() -> None:
+    """Test the new multi-phase signal controller cycles through phases correctly."""
     network = RoadNetwork()
     network.setup_default_intersection(
         approach_length=100.0, lane_width=3.5, lanes_per_approach=2
@@ -25,44 +29,57 @@ def test_fixed_time_signal_transitions() -> None:
 
     config = {
         "controller": {
-            "greenTime": 10,
-            "yellowTime": 3,
-            "allRedTime": 2,
-            "phaseSequence": [
-                "ns_green",
-                "ns_yellow",
-                "all_red",
-                "ew_green",
-                "ew_yellow",
-                "all_red",
-            ],
+            "straightRightDuration": 10,
+            "leftDuration": 5,
+            "yellowDuration": 3,
+            "allRedDuration": 2,
         }
     }
 
     controller = FixedTimeSignalController(config, network)
-    assert controller.current_phase == "ns_green"
+
+    # Phase 0: north_straight_right (green, 10s)
+    phase = controller.current_phase
+    assert phase.name == "north_straight_right"
+    assert phase.color == "green"
     assert controller.phase_time_remaining == 10.0
 
-    # Advance by 5s
+    # Advance by 5s — still in north_straight_right
     controller.update(5.0, [])
-    assert controller.current_phase == "ns_green"
+    assert controller.current_phase.name == "north_straight_right"
     assert controller.phase_time_remaining == 5.0
 
-    # Advance by 5.1s -> transition to ns_yellow
+    # Advance by 5.1s — transition to north_left (5s)
     controller.update(5.1, [])
-    assert controller.current_phase == "ns_yellow"
-    assert pytest.approx(controller.phase_time_remaining) == 2.9
+    assert controller.current_phase.name == "north_left"
+    assert controller.current_phase.color == "green"
+    assert pytest.approx(controller.phase_time_remaining, abs=0.2) == 4.9
 
     # Check signal state dictionary
     state = controller.get_state()
     assert state["type"] == "fixed_time_signal"
-    assert state["currentPhase"] == "ns_yellow"
-    assert any(
-        s["direction"] == "north" and s["color"] == "yellow" for s in state["signals"]
-    )
-    assert any(
-        s["direction"] == "east" and s["color"] == "red" for s in state["signals"]
-    )
+    assert state["currentPhase"] == "north_left"
+    assert state["activeDirection"] == "north"
+
+    # North should be green, others red
+    for sig in state["signals"]:
+        if sig["direction"] == "north":
+            assert sig["color"] == "green"
+            assert "left" in sig["allowedTurns"]
+        else:
+            assert sig["color"] == "red"
+
+    # Advance through rest of north phases and verify south starts
+    # north_left: 4.9s remaining
+    controller.update(5.0, [])  # → north_yellow (3s)
+    assert controller.current_phase.name == "north_yellow"
+
+    controller.update(3.0, [])  # → all_red (2s)
+    assert controller.current_phase.name == "all_red"
+
+    controller.update(2.0, [])  # → south_straight_right
+    assert controller.current_phase.name == "south_straight_right"
+    assert controller.current_phase.color == "green"
 
 
 def test_roundabout_controller() -> None:
@@ -135,3 +152,118 @@ def test_roundabout_yielding() -> None:
 
     # Obstacle should be cleared
     assert lane.virtual_obstacle is None
+def test_base_controller_abstract_methods() -> None:
+    class DummyController(BaseController):
+        def update(self, delta_time: float, active_vehicles: list) -> None:
+            super().update(delta_time, active_vehicles)
+
+        def get_state(self) -> dict:
+            return super().get_state()
+
+        def reset(self) -> None:
+            super().reset()
+
+    dummy = DummyController()
+    dummy.update(1.0, [])
+    assert dummy.get_state() is None
+    dummy.reset()
+
+
+def test_controller_registry_decorator() -> None:
+    @ControllerRegistry.register("custom_controller")
+    class CustomController(BaseController):
+        def update(self, delta_time: float, active_vehicles: list) -> None:
+            pass
+
+        def get_state(self) -> dict:
+            return {}
+
+        def reset(self) -> None:
+            pass
+
+    assert ControllerRegistry.get_controller_class("custom_controller") == CustomController
+
+
+def test_fixed_time_signal_legacy_config_and_lane_intents() -> None:
+    network = RoadNetwork()
+    network.setup_default_intersection(approach_length=100.0, lane_width=3.5, lanes_per_approach=3)
+
+    config_legacy = {
+        "controller": {
+            "greenDuration": 15.0,
+            "yellowTime": 3.5,
+            "allRedTime": 1.5,
+        }
+    }
+    ctrl = FixedTimeSignalController(config_legacy, network)
+    assert ctrl.straight_right_duration == 15.0
+    assert ctrl.yellow_duration == 3.5
+    assert ctrl.all_red_duration == 1.5
+
+    config_legacy2 = {
+        "controller": {
+            "greenTime": 18.0,
+        }
+    }
+    ctrl2 = FixedTimeSignalController(config_legacy2, network)
+    assert ctrl2.straight_right_duration == 18.0
+
+    # Test _lane_turn_intent
+    assert len(FixedTimeSignalController._lane_turn_intent(0, 1)) == 3
+    assert len(FixedTimeSignalController._lane_turn_intent(0, 2)) == 1
+    assert len(FixedTimeSignalController._lane_turn_intent(1, 2)) == 2
+    assert len(FixedTimeSignalController._lane_turn_intent(0, 3)) == 1
+    assert len(FixedTimeSignalController._lane_turn_intent(1, 3)) == 1
+    assert len(FixedTimeSignalController._lane_turn_intent(2, 3)) == 1
+
+
+def test_fixed_time_signal_cycle_wrap_and_missing_approach() -> None:
+    network = RoadNetwork()
+    # Empty network without approaches triggers KeyError in _apply_signals and get_state
+    config = {
+        "controller": {
+            "straightRightDuration": 1.0,
+            "leftDuration": 1.0,
+            "yellowDuration": 1.0,
+            "allRedDuration": 1.0,
+        }
+    }
+    ctrl = FixedTimeSignalController(config, network)
+    state = ctrl.get_state()
+    assert len(state["signals"]) == 4
+
+    # Advance through each phase step by step to wrap around cycle
+    initial_cycles = ctrl.cycle_number
+    for p in ctrl.phases:
+        ctrl.update(p.duration + 0.01, [])
+    assert ctrl.cycle_number > initial_cycles
+
+
+def test_roundabout_missing_approach_and_yielding_metrics() -> None:
+    network = RoadNetwork()
+    network.setup_default_intersection(approach_length=50.0, lane_width=3.5, lanes_per_approach=1)
+    config = {
+        "controller": {
+            "innerRadius": 8.0,
+            "outerRadius": 16.0,
+            "criticalGap": 3.0,
+        }
+    }
+    ctrl = RoundaboutController(config, network)
+    ctrl.reset()
+
+    # Add a stopped vehicle near end of north lane
+    lane = network.get_incoming_approach(Direction.NORTH).get_lanes()[0]
+    veh = Vehicle("v_yield", length=4.0, width=2.0, desired_speed=10.0, route=[lane], start_position=46.0, initial_speed=0.0)
+    lane.add_vehicle(veh)
+
+    state = ctrl.get_state()
+    assert state["yieldingCount"] == 1
+
+    # Empty network KeyError branch
+    empty_net = RoadNetwork()
+    ctrl_empty = RoundaboutController(config, empty_net)
+    ctrl_empty.reset()
+    ctrl_empty.update(0.1, [])
+    state_empty = ctrl_empty.get_state()
+    assert state_empty["yieldingCount"] == 0

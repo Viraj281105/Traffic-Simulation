@@ -3,6 +3,7 @@ import pytest
 try:
     from src.core.enums import Direction, TurnIntent
     from src.roads.approach import Approach
+    from src.roads.lane import Lane
     from src.roads.network import RoadNetwork
 except ImportError:
     pytest.skip("Network modules not implemented yet", allow_module_level=True)
@@ -88,3 +89,58 @@ def test_network_route_generation() -> None:
     assert exit_lane.start_coords == (-1.75, -7.0)
     assert connection.start_coords == (-1.75, 7.0)
     assert connection.end_coords == (-1.75, -7.0)
+
+
+def test_network_edge_cases_and_missing_approaches() -> None:
+    network = RoadNetwork()
+
+    # KeyError on missing approaches
+    with pytest.raises(KeyError):
+        network.get_incoming_approach(Direction.NORTH)
+    with pytest.raises(KeyError):
+        network.get_outgoing_approach(Direction.NORTH)
+
+    # Missing outgoing approach in validation
+    for d in Direction:
+        in_app = Approach(d)
+        in_app.add_lane(Lane(f"in_{d.value}", 0, 0, 10, 10))
+        network.add_incoming_approach(in_app)
+
+    with pytest.raises(ValueError, match="Missing outgoing approach"):
+        network.validate_connectivity()
+
+    # Outgoing approach with zero lanes in validation
+    for d in Direction:
+        network.add_outgoing_approach(Approach(d))
+
+    with pytest.raises(ValueError, match="Outgoing approach .* has zero lanes"):
+        network.validate_connectivity()
+
+
+def test_network_setup_with_dict_lanes_and_all_turns() -> None:
+    network = RoadNetwork()
+    dict_lanes = {"north": 2, "south": 3, "east": 1, "west": 2}
+    network.setup_default_intersection(approach_length=100.0, lane_width=3.5, lanes_per_approach=dict_lanes)
+    network.validate_connectivity()
+
+    # Test right turns from each direction
+    for d in Direction:
+        route_right = network.generate_route(d, lane_index=0, turn_intent=TurnIntent.RIGHT)
+        assert len(route_right) == 3
+
+    # Test cache hit on connection lane
+    cached_conn = network._get_or_create_connection_lane(Direction.NORTH, 0, TurnIntent.STRAIGHT)
+    assert cached_conn in network.get_all_connection_lanes()
+
+    # Test precompute on incomplete network
+    empty_net = RoadNetwork()
+    empty_net._precompute_connection_lanes()
+
+    # Precompute when incoming has lanes but outgoing is missing
+    partial_net = RoadNetwork()
+    in_app = Approach(Direction.NORTH)
+    in_app.add_lane(Lane("n_in_0", 0, 10, 0, 0))
+    partial_net.add_incoming_approach(in_app)
+    partial_net._precompute_connection_lanes()
+
+

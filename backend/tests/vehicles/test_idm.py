@@ -85,3 +85,14 @@ def test_idm_invalid_arguments() -> None:
         idm.calculate_acceleration(speed=-1.0, desired_speed=10.0)
     with pytest.raises(ValueError, match="must be greater than zero"):
         idm.calculate_acceleration(speed=5.0, desired_speed=0.0)
+
+    # Invalid constructor parameters
+    with pytest.raises(ValueError, match="Headway and gap parameters must be positive"):
+        IntelligentDriverModel(desired_time_headway=0.0)
+    with pytest.raises(ValueError, match="Headway and gap parameters must be positive"):
+        IntelligentDriverModel(minimum_gap=0.0)
+    with pytest.raises(ValueError, match="IDM delta exponent must be positive"):
+        IntelligentDriverModel(idm_delta=0.0)
+    with pytest.raises(ValueError, match="Max deceleration limit must be positive"):
+        IntelligentDriverModel(max_deceleration=0.0)
+

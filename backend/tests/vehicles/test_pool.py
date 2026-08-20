@@ -1,0 +1,103 @@
+
+from src.core.enums import Direction, VehicleState
+from src.roads.lane import Lane
+from src.roads.network import RoadNetwork
+from src.vehicles.pool import VehiclePool
+from src.vehicles.vehicle import Vehicle
+
+
+def test_vehicle_pool_lifecycle_and_counts() -> None:
+    pool = VehiclePool()
+    assert pool.get_active_vehicles() == []
+    assert pool.get_exited_vehicles() == []
+    assert pool.collision_count == 0
+
+    lane_n = Lane("n_in_0", 0.0, 100.0, 0.0, 10.0)
+    lane_s = Lane("s_in_0", 0.0, -100.0, 0.0, -10.0)
+    lane_e = Lane("e_in_0", 100.0, 0.0, 10.0, 0.0)
+    lane_w = Lane("w_in_0", -100.0, 0.0, -10.0, 0.0)
+
+    v_n = Vehicle("v_n", 4.0, 2.0, 10.0, [lane_n], start_position=5.0)
+    v_s = Vehicle("v_s", 4.0, 2.0, 10.0, [lane_s], start_position=5.0)
+    v_e = Vehicle("v_e", 4.0, 2.0, 10.0, [lane_e], start_position=5.0)
+    v_w = Vehicle("v_w", 4.0, 2.0, 10.0, [lane_w], start_position=5.0)
+
+    for v in [v_n, v_s, v_e, v_w]:
+        pool.add_vehicle(v)
+
+    counts = pool.get_active_counts()
+    assert counts[Direction.NORTH][v_n.state] == 1
+    assert counts[Direction.SOUTH][v_s.state] == 1
+    assert counts[Direction.EAST][v_e.state] == 1
+    assert counts[Direction.WEST][v_w.state] == 1
+
+    # Test get_active_counts with empty route or EXITED vehicle
+    v_empty = Vehicle("v_empty", 4.0, 2.0, 10.0, [lane_n], start_position=5.0)
+    v_empty.route = []
+    v_exited = Vehicle("v_exited", 4.0, 2.0, 10.0, [lane_n], start_position=5.0)
+    v_exited.state = VehicleState.EXITED
+    pool.add_vehicle(v_empty)
+    pool.add_vehicle(v_exited)
+    counts2 = pool.get_active_counts()
+    assert counts2[Direction.NORTH][v_n.state] == 1
+
+
+def test_vehicle_pool_update_and_exited() -> None:
+    from src.core.clock import Clock
+    from src.intersection.conflict_manager import ConflictManager
+
+    lane = Lane("n_in_0", 0.0, 10.0, 0.0, 0.0)
+    v = Vehicle("v1", 4.0, 2.0, 10.0, [lane], start_position=8.0, initial_speed=10.0)
+    v_exited = Vehicle("v_ex", 4.0, 2.0, 10.0, [lane], start_position=10.0)
+    v_exited.state = VehicleState.EXITED
+
+    pool = VehiclePool()
+    pool.add_vehicle(v)
+    pool.add_vehicle(v_exited)
+
+    cm = ConflictManager()
+
+    class MockEngine:
+        def __init__(self):
+            self.network = RoadNetwork()
+            self.config = {"vehicleGeneration": {}}
+            self.clock = Clock(0.1)
+            self.conflict_manager = cm
+
+    engine = MockEngine()
+
+    pool.update(0.5, engine)
+    assert len(pool.get_exited_vehicles()) == 2
+    assert len(pool.get_active_vehicles()) == 0
+
+
+def test_vehicle_pool_collision_audit_separation() -> None:
+    lane_a = Lane("lane_a", 0.0, 0.0, 10.0, 0.0)
+    lane_b = Lane("lane_b", 5.0, -5.0, 5.0, 5.0)
+    lane_c = Lane("lane_c", 0.0, 0.0, 10.0, 0.0)
+
+    # va and vb intersect on different lanes/routes
+    va = Vehicle("va", 4.0, 2.0, 5.0, [lane_a], start_position=5.0, initial_speed=5.0)
+    vb = Vehicle("vb", 4.0, 2.0, 2.0, [lane_b], start_position=5.5, initial_speed=2.0)
+
+    pool = VehiclePool()
+    pool.add_vehicle(va)
+    pool.add_vehicle(vb)
+    pool._collision_audit()
+    assert pool.collision_count == 1
+    assert vb.speed == 0.0
+    assert vb.acceleration == 0.0
+
+    # Test collision audit skips:
+    pool2 = VehiclePool()
+    vc = Vehicle("vc", 4.0, 2.0, 5.0, [lane_a], start_position=1.0, initial_speed=5.0)
+    vd = Vehicle("vd", 4.0, 2.0, 5.0, [lane_c, lane_a], start_position=2.0, initial_speed=5.0)
+    ve = Vehicle("ve", 4.0, 2.0, 5.0, [lane_a], start_position=5.0)
+    ve.lane = None
+    for v in [va, vc, vd, ve]:
+        pool2.add_vehicle(v)
+    pool2._collision_audit()
+    assert pool2.collision_count == 0
+
+
+

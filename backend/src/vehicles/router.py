@@ -1,69 +1,68 @@
-import math
-from typing import Any, List, Optional, Tuple
+"""Layered leader-detection and collision avoidance for vehicles.
 
+Safety layers (checked in order):
+    1. **Same-lane following** — vehicles ahead on the current / upcoming route
+       lanes (including shared connection lanes).
+    2. **Virtual obstacles** — signal stop-line barriers placed by the traffic
+       controller.
+    3. **Conflict zone reservation** — queries the :class:`ConflictManager` for
+       blocked intersection zones and inserts virtual obstacles before them.
+    4. **Emergency proximity check** — bounding-box proximity scan; if any
+       vehicle is dangerously close, returns an emergency braking obstacle.
+"""
+
+from __future__ import annotations
+
+import math
+from typing import Any, Dict, List, Optional, Tuple
+
+from src.core.enums import TurnIntent
 from src.roads.network import RoadNetwork
 from src.vehicles.vehicle import Vehicle
 
+# ---------------------------------------------------------------------------
+# Lightweight obstacle stand-in (same interface expected by IDM caller)
+# ---------------------------------------------------------------------------
 
 class VirtualObstacle:
-    def __init__(self, position: float, speed: float = 0.0, length: float = 0.0) -> None:
-        self.position: float = position
-        self.speed: float = speed
-        self.length: float = length
-        self.vehicle_id: str = "virtual_stop_line"
+    """A stationary or slow-moving obstacle on a lane (e.g. stop-line)."""
+
+    __slots__ = ("position", "speed", "length", "vehicle_id")
+
+    def __init__(
+        self, position: float, speed: float = 0.0, length: float = 0.0
+    ) -> None:
+        self.position = position
+        self.speed = speed
+        self.length = length
+        self.vehicle_id = "virtual_stop_line"
 
 
-def line_intersection(
-    p0: Tuple[float, float], p1: Tuple[float, float],
-    p2: Tuple[float, float], p3: Tuple[float, float]
-) -> Optional[Tuple[float, float]]:
-    """Calculates the intersection point of two line segments p0->p1 and p2->p3."""
-    s1_x = p1[0] - p0[0]
-    s1_y = p1[1] - p0[1]
-    s2_x = p3[0] - p2[0]
-    s2_y = p3[1] - p2[1]
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
 
-    denom = (-s2_x * s1_y + s1_x * s2_y)
-    if abs(denom) < 1e-9:
-        return None  # Parallel or collinear
-
-    s = (-s1_y * (p0[0] - p2[0]) + s1_x * (p0[1] - p2[1])) / denom
-    t = ( s2_x * (p0[1] - p2[1]) - s2_y * (p0[0] - p2[0])) / denom
-
-    if 0.0 <= s <= 1.0 and 0.0 <= t <= 1.0:
-        return (p0[0] + (t * s1_x), p0[1] + (t * s1_y))
-    return None
+_EMERGENCY_DIST: float = 2.5        # meters — triggers emergency braking
+_SENSOR_RANGE: float = 30.0         # meters — max 360° sensor reach
+_LOOK_AHEAD_LANES: int = 3          # how many route lanes to scan forward
 
 
-def get_distance_to_point_on_route(v: Vehicle, target_lane: Any, pt: Tuple[float, float]) -> float:
-    """Calculates route distance from vehicle's current position to a point on a target lane."""
-    if v.lane is None:
-        return -1.0
-    try:
-        curr_idx = v.route.index(v.lane)
-        target_idx = v.route.index(target_lane)
-    except ValueError:
-        return -1.0
-
-    if target_idx < curr_idx:
-        return -1.0
-
-    dist = -v.position
-    for idx in range(curr_idx, target_idx):
-        dist += v.route[idx].length
-
-    start_x, start_y = target_lane.start_coords
-    dist_on_lane = math.sqrt((pt[0] - start_x) ** 2 + (pt[1] - start_y) ** 2)
-    dist += dist_on_lane
-    return dist
-
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
 
 def find_leader(
     vehicle: Vehicle,
     network: Optional[RoadNetwork] = None,
     active_vehicles: Optional[List[Vehicle]] = None,
+    conflict_manager: Any = None,
+    current_time: float = 0.0,
 ) -> Tuple[Optional[Any], float]:
-    """Finds the leading vehicle (or virtual obstacle/crossing conflict) for a vehicle along its route."""
+    """Find the effective leader (or virtual obstacle) for *vehicle*.
+
+    Returns ``(leader_object, gap)`` where *gap* is bumper-to-bumper distance.
+    If no obstacle is found the gap is ``float('inf')``.
+    """
     if vehicle.lane is None or not vehicle.route:
         return None, float("inf")
 
@@ -72,84 +71,144 @@ def find_leader(
     except ValueError:
         return None, float("inf")
 
-    # 1. Lane-following leader detection (checking vehicles on the same or subsequent route lanes)
-    leader: Optional[Any] = None
-    min_lead_dist = float("inf")
+    best_leader: Optional[Any] = None
+    best_gap: float = float("inf")
+
+    # ── Layer 1: Same-lane following ────────────────────────────────────
     accumulated_dist = -vehicle.position
 
-    for i in range(curr_idx, len(vehicle.route)):
+    end_idx = min(curr_idx + _LOOK_AHEAD_LANES, len(vehicle.route))
+    for i in range(curr_idx, end_idx):
         lane = vehicle.route[i]
 
+        # Scan vehicles on this lane
         for v in lane.get_vehicles():
-            if v == vehicle:
+            if v is vehicle:
                 continue
             v_dist = accumulated_dist + v.position
-            if 0 < v_dist < min_lead_dist:
-                min_lead_dist = v_dist
-                leader = v
+            if v_dist > 0:
+                gap = v_dist - (vehicle.length / 2.0 + v.length / 2.0)
+                gap = max(0.0, gap)
+                if gap < best_gap:
+                    best_gap = gap
+                    best_leader = v
 
-        # Check for virtual obstacles (e.g., stop signals) in this lane
-        if hasattr(lane, "virtual_obstacle") and lane.virtual_obstacle is not None:
-            obstacle = lane.virtual_obstacle
-            obs_dist = accumulated_dist + obstacle.position
-            if 0 < obs_dist < min_lead_dist:
-                min_lead_dist = obs_dist
-                leader = obstacle
+        # ── Layer 2: Virtual obstacles (signal stop-lines) ─────────────
+        virtual_obs = getattr(lane, "virtual_obstacle", None)
+        if virtual_obs is not None:
+            obs_dist = accumulated_dist + virtual_obs.position
+            if obs_dist > 0:
+                gap = obs_dist - (vehicle.length / 2.0 + virtual_obs.length / 2.0)
+                gap = max(0.0, gap)
+                if gap < best_gap:
+                    best_gap = gap
+                    best_leader = virtual_obs
 
-        if leader is not None:
-            gap = min_lead_dist - (vehicle.length / 2.0 + leader.length / 2.0)
-            return leader, max(0.0, gap)
+        # If we already found something on this lane, no need to look further
+        if best_leader is not None and i == curr_idx:
+            # Only short-circuit on the current lane — for future lanes we
+            # still want to check conflict zones
+            pass
 
         accumulated_dist += lane.length
 
-    # 2. 360-degree sensor view & crossing conflict yielding
+    # ── Layer 3: Conflict zone reservation check ───────────────────────
+    if conflict_manager is not None:
+        # Build info list for all vehicles currently on connection lanes
+        conn_vehicles_info: List[Dict[str, Any]] = []
+        if active_vehicles:
+            for av in active_vehicles:
+                if av is vehicle:
+                    continue
+                if av.lane is not None and av.lane.lane_id.startswith("conn"):
+                    conn_vehicles_info.append(
+                        {
+                            "vehicle_id": av.vehicle_id,
+                            "turn_intent": getattr(av, "turn_intent", TurnIntent.STRAIGHT),
+                            "connection_lane_id": av.lane.lane_id,
+                            "position_on_lane": av.position,
+                        }
+                    )
+
+        # Check each connection lane in the vehicle's upcoming route
+        acc_dist_for_conflict = -vehicle.position
+        for i in range(curr_idx, end_idx):
+            lane = vehicle.route[i]
+
+            if lane.lane_id.startswith("conn"):
+                # Position on this connection lane
+                if lane is vehicle.lane:
+                    pos_on_conn = vehicle.position
+                else:
+                    pos_on_conn = 0.0  # haven't entered yet
+
+                turn = getattr(vehicle, "turn_intent", TurnIntent.STRAIGHT) or TurnIntent.STRAIGHT
+
+                block_dist = conflict_manager.get_conflict_distance(
+                    vehicle_id=vehicle.vehicle_id,
+                    vehicle_turn_intent=turn,
+                    connection_lane_id=lane.lane_id,
+                    vehicle_position_on_lane=pos_on_conn,
+                    current_time=current_time,
+                    all_vehicles_info=conn_vehicles_info,
+                )
+
+                if block_dist < float("inf"):
+                    # Convert block distance (relative to connection lane start)
+                    # to distance from the vehicle's current position
+                    if lane is vehicle.lane:
+                        total_block_dist = block_dist
+                    else:
+                        total_block_dist = acc_dist_for_conflict + block_dist
+
+                    gap = max(0.0, total_block_dist - vehicle.length / 2.0)
+                    if gap < best_gap:
+                        best_gap = gap
+                        best_leader = VirtualObstacle(
+                            position=0.0, speed=0.0, length=0.0
+                        )
+
+                # Update reservation clear time if vehicle has passed through
+                if lane is vehicle.lane and pos_on_conn > 0:
+                    conflict_manager.update_reservation_clear_time(
+                        vehicle.vehicle_id, lane.lane_id, current_time
+                    )
+
+            acc_dist_for_conflict += lane.length
+
+    # ── Layer 4: Emergency proximity check ─────────────────────────────
     if active_vehicles:
         my_x, my_y = vehicle.coords
-        sensor_range = 25.0
-        
         for other in active_vehicles:
-            if other == vehicle or other.lane is None:
+            if other is vehicle or other.lane is None:
                 continue
 
-            # Compute Euclidean distance (360-degree check)
             ox, oy = other.coords
-            dist_to_other = math.sqrt((ox - my_x) ** 2 + (oy - my_y) ** 2)
-            if dist_to_other > sensor_range:
+            dx = ox - my_x
+            dy = oy - my_y
+            dist = math.sqrt(dx * dx + dy * dy)
+
+            if dist > _SENSOR_RANGE:
                 continue
 
-            # Scan future intersecting routes
-            try:
-                other_curr_idx = other.route.index(other.lane)
-            except ValueError:
+            # Check if this vehicle is actually *ahead* of us (not behind)
+            # Use dot product with our heading to determine
+            heading_rad = math.radians(vehicle.heading)
+            fwd_x = math.sin(heading_rad)
+            fwd_y = math.cos(heading_rad)
+            dot = dx * fwd_x + dy * fwd_y
+
+            if dot <= 0:
+                # Other vehicle is behind or beside us — not a forward threat
                 continue
 
-            for my_lane_idx in range(curr_idx, len(vehicle.route)):
-                my_lane = vehicle.route[my_lane_idx]
-                for other_lane_idx in range(other_curr_idx, len(other.route)):
-                    other_lane = other.route[other_lane_idx]
-
-                    if my_lane.lane_id == other_lane.lane_id:
-                        continue
-
-                    # Check segment intersection
-                    pt = line_intersection(
-                        my_lane.start_coords, my_lane.end_coords,
-                        other_lane.start_coords, other_lane.end_coords
+            # Emergency braking if dangerously close
+            if dist < _EMERGENCY_DIST + (vehicle.length + other.length) / 2.0:
+                gap = max(0.0, dist - (vehicle.length + other.length) / 2.0)
+                if gap < best_gap:
+                    best_gap = gap
+                    best_leader = VirtualObstacle(
+                        position=0.0, speed=other.speed, length=other.length
                     )
-                    if pt is not None:
-                        dist_to_pt_self = get_distance_to_point_on_route(vehicle, my_lane, pt)
-                        dist_to_pt_other = get_distance_to_point_on_route(other, other_lane, pt)
 
-                        if dist_to_pt_self > 0 and dist_to_pt_other > 0:
-                            # Whichever vehicle is closer to the conflict point has right of way
-                            if dist_to_pt_other < dist_to_pt_self:
-                                gap = dist_to_pt_self - vehicle.length / 2.0
-                                if gap < min_lead_dist:
-                                    min_lead_dist = gap
-                                    # Treat the crossing vehicle as the pseudo-leader
-                                    leader = other
-
-        if leader is not None:
-            return leader, max(0.0, min_lead_dist)
-
-    return None, float("inf")
+    return best_leader, best_gap
