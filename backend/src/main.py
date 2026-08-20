@@ -439,6 +439,7 @@ def get_or_create_live_simulation() -> Dict[str, Any]:
         clock = Clock(time_step=0.1)
         engine = SimulationEngine(clock, duration=300, config=current_live_config)
         geom_type = current_live_config.get("geometry", {}).get("intersectionType", "fixed_time_signal")
+        controller: Any
         if geom_type == "fixed_time_signal":
             controller = FixedTimeSignalController(current_live_config, engine.network)
         else:

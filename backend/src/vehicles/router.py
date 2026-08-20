@@ -37,6 +37,8 @@ def line_intersection(
 
 def get_distance_to_point_on_route(v: Vehicle, target_lane: Any, pt: Tuple[float, float]) -> float:
     """Calculates route distance from vehicle's current position to a point on a target lane."""
+    if v.lane is None:
+        return -1.0
     try:
         curr_idx = v.route.index(v.lane)
         target_idx = v.route.index(target_lane)
