@@ -554,6 +554,8 @@ async def websocket_live_stream(websocket: WebSocket) -> None:
     except WebSocketDisconnect:
         pass
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         try:
             await websocket.close(code=1011, reason=str(e))
         except Exception:
