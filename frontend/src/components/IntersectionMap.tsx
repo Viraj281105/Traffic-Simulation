@@ -26,9 +26,17 @@ type Widths = Record<Direction, number>;
 type Point = (x: number, y: number) => [number, number];
 
 function carColor(vehicle: SnapshotVehicle): string {
-  const palette = ["#4d96ff", "#f8961e", "#43aa8b", "#e76f51", "#c77dff", "#f9c74f"];
+  const palette = [
+    "#4d96ff",
+    "#f8961e",
+    "#43aa8b",
+    "#e76f51",
+    "#c77dff",
+    "#f9c74f",
+  ];
   let hash = 0;
-  for (const character of vehicle.id) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  for (const character of vehicle.id)
+    hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
   return palette[hash % palette.length];
 }
 
