@@ -26,10 +26,10 @@ type Widths = Record<Direction, number>;
 type Point = (x: number, y: number) => [number, number];
 
 function carColor(vehicle: SnapshotVehicle): string {
-  if (vehicle.state === "waiting") return "#e94f37";
-  if (vehicle.state === "crossing") return "#43aa8b";
-  if (vehicle.state === "in_roundabout") return "#f8961e";
-  return "#4d96ff";
+  const palette = ["#4d96ff", "#f8961e", "#43aa8b", "#e76f51", "#c77dff", "#f9c74f"];
+  let hash = 0;
+  for (const character of vehicle.id) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  return palette[hash % palette.length];
 }
 
 function signalColor(color: string): string {
@@ -64,10 +64,10 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
     const point: Point = (x, y) => [x * ppm + width / 2, -y * ppm + height / 2];
     const half = intersectionSize / 2;
     const widths: Widths = {
-      north: lanesNorth * laneWidth,
-      south: lanesSouth * laneWidth,
-      east: lanesEast * laneWidth,
-      west: lanesWest * laneWidth,
+      north: lanesNorth * laneWidth * 2,
+      south: lanesSouth * laneWidth * 2,
+      east: lanesEast * laneWidth * 2,
+      west: lanesWest * laneWidth * 2,
     };
     const roadLength = Math.max(46, Math.ceil(Math.max(width, height) / ppm));
     const line = (x1: number, y1: number, x2: number, y2: number) => {
@@ -109,14 +109,10 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
     line(-half, widths.west / 2, -roadLength, widths.west / 2);
     line(-half, -widths.west / 2, -roadLength, -widths.west / 2);
 
-    const divider = (
-      direction: Direction,
-      count: number,
-      roadWidth: number,
-    ) => {
-      for (let i = 1; i < count; i += 1) {
-        const offset = -roadWidth / 2 + i * laneWidth;
-        const center = Math.abs(offset) < 0.2;
+    const divider = (direction: Direction, count: number) => {
+      for (let i = -count; i <= count; i += 1) {
+        const center = i === 0;
+        const offset = i * laneWidth;
         ctx.strokeStyle = center ? "#f2c230" : "rgba(255,255,255,.55)";
         ctx.lineWidth = center ? 2.2 : 1.2;
         ctx.setLineDash(center ? [] : [7, 9]);
@@ -126,10 +122,10 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
         if (direction === "west") line(-half, offset, -roadLength, offset);
       }
     };
-    divider("north", lanesNorth, widths.north);
-    divider("south", lanesSouth, widths.south);
-    divider("east", lanesEast, widths.east);
-    divider("west", lanesWest, widths.west);
+    divider("north", lanesNorth);
+    divider("south", lanesSouth);
+    divider("east", lanesEast);
+    divider("west", lanesWest);
 
     if (showStopLines) {
       ctx.strokeStyle = "#fff";
