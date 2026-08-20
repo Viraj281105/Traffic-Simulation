@@ -39,7 +39,9 @@ export function App() {
         <div className="header-right">
           <button
             className="config-toggle-btn"
-            onClick={() => setConfigOpen((v) => !v)}
+            onClick={() => {
+              setConfigOpen((v) => !v);
+            }}
           >
             ⚙ Map Config
           </button>
@@ -93,8 +95,12 @@ export function App() {
         <PlaybackControls
           snapshot={snapshot}
           isPlaying={isPlaying}
-          onPlay={() => { void play(); }}
-          onPause={() => { void pause(); }}
+          onPlay={() => {
+            void play();
+          }}
+          onPause={() => {
+            void pause();
+          }}
         />
         {error && <div className="error-banner">⚠ {error}</div>}
       </footer>
@@ -129,7 +135,9 @@ function ConfigSlider({
           max={max}
           step={step}
           value={value}
-          onChange={(e) => onChange(parseFloat(e.target.value))}
+          onChange={(e) => {
+            onChange(parseFloat(e.target.value));
+          }}
           className="config-range"
         />
         <span className="config-val">{value}</span>
@@ -152,7 +160,9 @@ function ConfigToggle({
       <label className="config-label">{label}</label>
       <button
         className={`toggle-btn ${value ? "toggle-on" : "toggle-off"}`}
-        onClick={() => onChange(!value)}
+        onClick={() => {
+          onChange(!value);
+        }}
       >
         {value ? "ON" : "OFF"}
       </button>

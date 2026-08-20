@@ -16,7 +16,7 @@ const DIR_LABEL: Record<SignalDirection, string> = {
 };
 
 function fmt(val: number | undefined, decimals = 1): string {
-  if (val === undefined || val === null || isNaN(val)) return "—";
+  if (val === undefined || isNaN(val)) return "—";
   return val.toFixed(decimals);
 }
 
@@ -43,7 +43,7 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
   const conn = CONNECTION_LABELS[connectionStatus];
 
   const maxQ = Math.max(
-    ...DIRECTIONS.map((d) => m?.currentQueueLengths?.[d] ?? 0),
+    ...DIRECTIONS.map((d) => m?.currentQueueLengths[d] ?? 0),
     1,
   );
 
@@ -86,7 +86,7 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
         <h3 className="section-title">Queue Lengths</h3>
         <div className="queue-bars">
           {DIRECTIONS.map((dir) => {
-            const q = m?.currentQueueLengths?.[dir] ?? 0;
+            const q = m?.currentQueueLengths[dir] ?? 0;
             const pct = Math.min((q / maxQ) * 100, 100);
             const color = metricColor(q, 3, 8);
             return (
@@ -95,7 +95,7 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
                 <div className="queue-bar-track">
                   <div
                     className="queue-bar-fill"
-                    style={{ width: `${pct}%`, background: color }}
+                    style={{ width: `${String(pct)}%`, background: color }}
                   />
                 </div>
                 <span className="queue-val">{q}</span>
@@ -156,19 +156,19 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
           />
           <MetricRow
             label="Total Spawned"
-            value={`${fmt(m?.totalVehiclesSpawned, 0)}`}
+            value={fmt(m?.totalVehiclesSpawned, 0)}
             color="#888"
           />
         </div>
       </section>
 
       {/* Signal phase info */}
-      {snapshot?.controller?.type === "fixed_time_signal" && (
+      {snapshot?.controller.type === "fixed_time_signal" && (
         <section className="sidebar-section">
           <h3 className="section-title">Signal Phase</h3>
           <div className="phase-info">
             <span className="phase-name">
-              {snapshot.controller.currentPhase?.replace(/_/g, " ").toUpperCase()}
+              {snapshot.controller.currentPhase.replace(/_/g, " ").toUpperCase()}
             </span>
             <span className="phase-timer">
               {fmt(snapshot.controller.phaseTimeRemaining)}s left
@@ -188,7 +188,7 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
                     boxShadow: `0 0 8px ${sig.color === "green" ? "#2ecc40" : sig.color === "yellow" ? "#ffdc00" : "#ff4136"}`,
                   }}
                 />
-                <span>{DIR_LABEL[sig.direction as SignalDirection]}</span>
+                <span>{DIR_LABEL[sig.direction]}</span>
               </div>
             ))}
           </div>
@@ -196,18 +196,18 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
       )}
 
       {/* Roundabout info */}
-      {snapshot?.controller?.type === "roundabout" && (
+      {snapshot?.controller.type === "roundabout" && (
         <section className="sidebar-section">
           <h3 className="section-title">Roundabout</h3>
           <div className="metric-rows">
             <MetricRow
               label="Circulating"
-              value={`${snapshot.controller.circulatingCount} veh`}
+              value={`${String(snapshot.controller.circulatingCount)} veh`}
               color="#cc5de8"
             />
             <MetricRow
               label="Yielding"
-              value={`${snapshot.controller.yieldingCount} veh`}
+              value={`${String(snapshot.controller.yieldingCount)} veh`}
               color="#ff922b"
             />
             <MetricRow
