@@ -1,6 +1,6 @@
 /**
- * TypeScript interfaces matching the backend single-vehicle API schema.
- * Based on tests/api/test_main.py and docs/architecture/05-snapshot-contract.md
+ * TypeScript interfaces matching the backend snapshot contract.
+ * Based on docs/architecture/05-snapshot-contract.md and backend/src/main.py
  */
 
 // ── Layout toggle ──────────────────────────────────────────────────────────
@@ -12,54 +12,162 @@ export type LayoutType = "signal" | "roundabout";
 
 /**
  * Vehicle state enum matching backend VehicleStatus values.
- * Mirrors the `state` field from GET /api/simulation/single-vehicle.
  */
-export type VehicleState = "approaching" | "waiting" | "crossing" | "exited";
+export type VehicleState =
+  "approaching" | "waiting" | "crossing" | "in_roundabout" | "exited";
+
+/**
+ * A single vehicle in a live snapshot (multi-vehicle format).
+ * Matches the `vehicles` array in the snapshot contract.
+ */
+export interface SnapshotVehicle {
+  id: string;
+  x: number;
+  y: number;
+  speed: number;
+  acceleration: number;
+  heading: number;
+  length: number;
+  width: number;
+  state: VehicleState;
+  laneId: string;
+  direction: "north" | "south" | "east" | "west";
+  turnIntent: "left" | "straight" | "right";
+  waitTime: number;
+  stopCount: number;
+  spawnTime: number;
+  exitTime: number | null;
+  distanceTraveled: number;
+}
+
+// ── Signal / Controller state ──────────────────────────────────────────────
+
+export type SignalColor = "red" | "yellow" | "green";
+export type SignalDirection = "north" | "south" | "east" | "west";
+export type SignalPhase =
+  "ns_green" | "ns_yellow" | "ew_green" | "ew_yellow" | "all_red";
+
+export interface SignalHead {
+  direction: SignalDirection;
+  color: SignalColor;
+}
+
+export interface FixedTimeControllerState {
+  type: "fixed_time_signal";
+  timeInCurrentState: number;
+  currentPhase: SignalPhase;
+  phaseTimeRemaining: number;
+  cycleNumber: number;
+  signals: SignalHead[];
+}
+
+export interface RoundaboutControllerState {
+  type: "roundabout";
+  timeInCurrentState: number;
+  innerRadius: number;
+  outerRadius: number;
+  circulatingCount: number;
+  yieldingCount: number;
+  gapAcceptance: number;
+}
+
+export type ControllerState =
+  FixedTimeControllerState | RoundaboutControllerState;
+
+// ── Intersection state ─────────────────────────────────────────────────────
+
+export interface Approach {
+  direction: SignalDirection;
+  queueLength: number;
+  laneCount: number;
+}
+
+export interface IntersectionState {
+  type: "fixed_time_signal" | "roundabout";
+  centerX: number;
+  centerY: number;
+  boundingRadius: number;
+  approaches: Approach[];
+}
+
+// ── Running metrics ────────────────────────────────────────────────────────
+
+export interface RunningMetrics {
+  averageWaitTime: number;
+  throughput: number;
+  throughputRate: number;
+  currentQueueLengths: Record<SignalDirection, number>;
+  maxQueueLength: number;
+  averageQueueLength: number;
+  totalStops: number;
+  averageStopsPerVehicle: number;
+  speedVarianceIndex: number;
+  travelTimeReliability: number;
+  idleOpportunityLoss: number;
+  directionalFairnessIndex: number;
+  activeVehicleCount: number;
+  totalVehiclesSpawned: number;
+}
+
+// ── Vehicle counts ─────────────────────────────────────────────────────────
+
+export interface VehicleCounts {
+  active: number;
+  approaching: number;
+  waiting: number;
+  crossing: number;
+  inRoundabout: number;
+  exited: number;
+}
+
+// ── Live snapshot (WebSocket message payload) ──────────────────────────────
+
+export type SimulationStatus =
+  "initializing" | "running" | "paused" | "completed" | "error" | "stopped";
+
+export interface LiveSnapshot {
+  schemaVersion: string;
+  simulationId: string;
+  configId: string;
+  timestamp: number;
+  frameNumber: number;
+  tick: number;
+  wallClockTime: string;
+  samplingFrequency: number;
+  deltaTime: number;
+  vehicles: SnapshotVehicle[];
+  intersection: IntersectionState;
+  controller: ControllerState;
+  metrics: RunningMetrics;
+  vehicleCounts: VehicleCounts;
+  simulationStatus: SimulationStatus;
+}
+
+// ── Legacy single-vehicle types (Sprint 1 compatibility) ──────────────────
 
 /**
  * Response from GET /api/simulation/single-vehicle.
- * Every field comes directly from the backend — nothing is fabricated.
+ * Kept for backward compatibility with IntersectionCanvas.
  */
 export interface SingleVehicleResponse {
-  /** Unique vehicle identifier, e.g. "vehicle_1" */
   vehicle_id: string;
-  /** Linear distance traveled along the route (meters) */
   position: number;
-  /** Current speed (m/s) */
   speed: number;
-  /** Current acceleration (m/s², negative = decelerating) */
   acceleration: number;
-  /** World X-coordinate — East positive, meters */
   x: number;
-  /** World Y-coordinate — North positive, meters */
   y: number;
-  /** Heading angle in degrees, 0 = North, clockwise */
   heading: number;
-  /** Current vehicle state */
   state: VehicleState;
-  /** Current lane identifier */
   lane_id: string;
-  /** Cumulative time spent waiting (speed < 0.3 m/s), seconds */
   wait_time: number;
-  /** Number of times vehicle came to a complete stop */
   stop_count: number;
-  /** Elapsed simulation time in seconds */
   sim_time: number;
-  /** Simulation tick counter */
   tick: number;
-  /** Overall simulation lifecycle status */
   simulation_status: SimulationLifecycle;
 }
 
-// ── Simulation lifecycle ───────────────────────────────────────────────────
-
-/**
- * Lifecycle status of the simulation engine.
- * Matches backend SimStatus literal type.
- */
 export type SimulationLifecycle = "stopped" | "running" | "completed";
 
-/** Response from GET /api/simulation/status */
 export interface SimulationStatusResponse {
   status: SimulationLifecycle;
   sim_time: number;
@@ -68,42 +176,24 @@ export interface SimulationStatusResponse {
   message: string;
 }
 
-/** Response from POST /api/simulation/start | stop | reset */
 export interface ControlResponse {
   status: SimulationLifecycle;
   message: string;
 }
 
-// ── Polling hook state ─────────────────────────────────────────────────────
-
-/** All state returned by useSimulationPolling. */
 export interface PollingState {
-  /** Latest vehicle snapshot from the backend, or null if none yet */
   vehicle: SingleVehicleResponse | null;
-  /** Current lifecycle status */
   status: SimulationLifecycle;
-  /** True while waiting for first response or during start/stop operations */
   isLoading: boolean;
-  /** Human-readable error string, or null if no error */
   error: string | null;
 }
 
 // ── Canvas viewport ────────────────────────────────────────────────────────
 
-/**
- * Viewport parameters for coordinate mapping.
- * World space: X = East (meters), Y = North (meters).
- * Canvas space: X = right (pixels), Y = down (pixels).
- */
 export interface Viewport {
-  /** Canvas width in CSS pixels */
   canvasW: number;
-  /** Canvas height in CSS pixels */
   canvasH: number;
-  /** Pixels per meter (zoom factor) */
   ppm: number;
-  /** World X coordinate shown at canvas center */
   centerWorldX: number;
-  /** World Y coordinate shown at canvas center */
   centerWorldY: number;
 }
