@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useWebSocketSnapshot } from "./hooks/useWebSocketSnapshot";
 import { IntersectionMap } from "./components/IntersectionMap";
 import { MetricsSidebar } from "./components/MetricsSidebar";
 import { PlaybackControls } from "./components/PlaybackControls";
+import { updateSimulationConfig } from "./services/api";
 import "./App.css";
 
 export function App() {
@@ -20,6 +21,30 @@ export function App() {
   const [showStopLines, setShowStopLines] = useState(true);
   const [debug, setDebug] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
+  const [intersectionType, setIntersectionType] = useState("fixed_time_signal");
+
+  // Sync config with backend on change
+  useEffect(() => {
+    updateSimulationConfig({
+      intersectionType,
+      intersectionSize,
+      laneWidth,
+      lanesNorth,
+      lanesSouth,
+      lanesEast,
+      lanesWest,
+    }).catch((err: unknown) => {
+      console.error("Failed to update backend config:", err);
+    });
+  }, [
+    intersectionType,
+    intersectionSize,
+    laneWidth,
+    lanesNorth,
+    lanesSouth,
+    lanesEast,
+    lanesWest,
+  ]);
 
   return (
     <div className="app">
@@ -100,6 +125,27 @@ export function App() {
               step={1}
               onChange={setIntersectionSize}
             />
+            <div className="config-item">
+              <label className="config-label">Intersection Type</label>
+              <select
+                className="config-select"
+                value={intersectionType}
+                onChange={(e) => {
+                  setIntersectionType(e.target.value);
+                }}
+                style={{
+                  background: "#2b2b2b",
+                  color: "#fff",
+                  border: "1px solid #444",
+                  borderRadius: "4px",
+                  padding: "6px 8px",
+                  width: "100%",
+                }}
+              >
+                <option value="fixed_time_signal">🚦 Fixed-Time Signal</option>
+                <option value="roundabout">🔄 Roundabout</option>
+              </select>
+            </div>
             <ConfigToggle
               label="Crosswalks"
               value={showCrosswalks}

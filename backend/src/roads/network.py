@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from src.core.enums import Direction, TurnIntent
 from src.roads.approach import Approach
@@ -45,10 +45,8 @@ class RoadNetwork:
         self,
         approach_length: float = 100.0,
         lane_width: float = 3.5,
-        lanes_per_approach: int = 2,
+        lanes_per_approach: Any = 2,
     ) -> None:
-        boundary = lanes_per_approach * lane_width
-
         # Clear existing
         self._incoming.clear()
         self._outgoing.clear()
@@ -57,7 +55,15 @@ class RoadNetwork:
             in_approach = Approach(d)
             out_approach = Approach(d)
 
-            for i in range(lanes_per_approach):
+            # Support both int and dict configurations
+            if isinstance(lanes_per_approach, dict):
+                lane_count = lanes_per_approach.get(d.value, 2)
+            else:
+                lane_count = int(lanes_per_approach)
+
+            boundary = lane_count * lane_width
+
+            for i in range(lane_count):
                 if d == Direction.NORTH:
                     # Incoming: North to South (moves down, x < 0)
                     in_x = -(i + 0.5) * lane_width
@@ -177,7 +183,8 @@ class RoadNetwork:
             }[origin_direction]
 
         outgoing_approach = self.get_outgoing_approach(target_direction)
-        exit_lane = outgoing_approach.get_lanes()[lane_index]
+        exit_lane_index = lane_index % len(outgoing_approach.get_lanes())
+        exit_lane = outgoing_approach.get_lanes()[exit_lane_index]
 
         # Create connection lane
         conn_id = f"conn_{origin_direction.value}_{lane_index}_{turn_intent.value}"
