@@ -41,6 +41,14 @@ def find_leader(
                 min_lead_dist = v_dist
                 leader = v
 
+        # Check for virtual obstacles (e.g., stop signals) in this lane
+        if hasattr(lane, "virtual_obstacle") and lane.virtual_obstacle is not None:
+            obstacle = lane.virtual_obstacle
+            obs_dist = accumulated_dist + obstacle.position
+            if obs_dist > 0 and obs_dist < min_lead_dist:
+                min_lead_dist = obs_dist
+                leader = obstacle
+
         if leader is not None:
             # Physical gap: distance between front of trailing and rear of leading
             gap = min_lead_dist - (vehicle.length / 2.0 + leader.length / 2.0)
@@ -48,22 +56,5 @@ def find_leader(
 
         # Advance accumulated distance by the lane's length
         accumulated_dist += lane.length
-
-    # If no real vehicle was found, we check if there are virtual leaders.
-    # Virtual leaders can be injected via custom properties on the lane,
-    # e.g., if lane has a virtual stop line or signal.
-    # For Sprint 2 core implementation, we support returning them if set.
-    # Active controllers (sprint 3/4) will set/inject these virtual obstacles
-    # or flags on the lanes.
-    if (
-        hasattr(vehicle.lane, "virtual_obstacle")
-        and vehicle.lane.virtual_obstacle is not None
-    ):
-        obstacle = vehicle.lane.virtual_obstacle
-        # distance of obstacle along route
-        obs_dist = -vehicle.position + obstacle.position
-        if obs_dist > 0:
-            gap = obs_dist - (vehicle.length / 2.0 + obstacle.length / 2.0)
-            return obstacle, max(0.0, gap)
 
     return None, float("inf")
