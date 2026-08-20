@@ -52,6 +52,10 @@ def calculate_space_footprint_consumed(config: Dict[str, Any]) -> float:
     else:
         lanes = roads_cfg.get("lanesPerApproach", 2)
         lane_width = roads_cfg.get("laneWidth", 3.5)
+        if isinstance(lanes, dict):
+            lane_count = max(lanes.values()) if lanes else 2
+        else:
+            lane_count = int(lanes)
         # Central square where the roads cross
-        width = 2 * lanes * lane_width
+        width = 2 * lane_count * lane_width
         return float(round(width * width, 2))
