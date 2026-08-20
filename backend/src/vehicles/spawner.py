@@ -9,7 +9,13 @@ from src.vehicles.vehicle import Vehicle
 
 
 class VehicleSpawner:
-    """Spawns vehicles onto the road network using arrival processes (Poisson or Uniform)."""
+    """Spawns vehicles onto the road network using arrival processes (Poisson or Uniform).
+
+    Lane assignment is turn-intent-aware:
+        - 1 lane:  all turns share the lane.
+        - 2 lanes: lane 0 = left-turn, lane 1 = straight/right.
+        - 3+ lanes: lane 0 = left, middle = straight, last = right.
+    """
 
     def __init__(self, config: Dict[str, Any], network: RoadNetwork) -> None:
         self.config: Dict[str, Any] = config
@@ -51,6 +57,9 @@ class VehicleSpawner:
         # Vehicles spawned count
         self.spawned_count: int = 0
 
+        # Cumulative simulation time — used to set vehicle spawn_time
+        self._elapsed_time: float = 0.0
+
         # Spawn timers for each direction
         self.timers: Dict[Direction, float] = {}
         self.reset()
@@ -58,6 +67,7 @@ class VehicleSpawner:
     def reset(self) -> None:
         self.rng = random.Random(self.random_seed)
         self.spawned_count = 0
+        self._elapsed_time = 0.0
         self.timers.clear()
         for d in Direction:
             self.timers[d] = self._generate_next_arrival_time(d)
@@ -85,6 +95,7 @@ class VehicleSpawner:
 
     def step(self, dt: float) -> List[Vehicle]:
         """Ticks spawner and returns a list of newly spawned vehicles."""
+        self._elapsed_time += dt
         new_vehicles: List[Vehicle] = []
 
         # Check total vehicle limit
@@ -109,45 +120,41 @@ class VehicleSpawner:
 
         return new_vehicles
 
+    def _select_lane_for_turn(
+        self, lanes: List[Lane], turn: TurnIntent
+    ) -> int:
+        """Return the best lane index for the given turn intent.
+
+        Policy (right-hand traffic):
+            1 lane  → lane 0 for everything.
+            2 lanes → lane 0 = left, lane 1 = straight / right.
+            3+ lanes → lane 0 = left, middle lanes = straight, last = right.
+        """
+        n = len(lanes)
+        if n <= 1:
+            return 0
+
+        if n == 2:
+            if turn == TurnIntent.LEFT:
+                return 0
+            return 1  # straight or right
+
+        # 3+ lanes
+        if turn == TurnIntent.LEFT:
+            return 0
+        elif turn == TurnIntent.RIGHT:
+            return n - 1
+        else:
+            # Straight → pick a middle lane
+            return n // 2
+
     def _attempt_spawn(self, direction: Direction) -> Optional[Vehicle]:
         incoming_approach = self.network.get_incoming_approach(direction)
         lanes = incoming_approach.get_lanes()
         if not lanes:
             return None
 
-        # Choose lane with the largest spacing from the entrance (first vehicle is furthest down the lane)
-        # Or choose randomly/sequentially. To prevent blockages, let's select a lane that has enough space.
-        # Let's check which lane has the best space at the entrance.
-        available_lanes: List[Lane] = []
-        for lane in lanes:
-            vehicles = lane.get_vehicles()
-            if not vehicles:
-                available_lanes.append(lane)
-            else:
-                # Find vehicle with the minimum position in the lane
-                preceding = min(vehicles, key=lambda v: v.position)
-                # Tail of preceding vehicle: preceding.position - preceding.length / 2
-                # We need it to be >= minimum_gap + new_vehicle_length
-                # Let's assume max length for check
-                if (
-                    preceding.position - preceding.length / 2.0
-                    >= self.minimum_gap + self.len_max
-                ):
-                    available_lanes.append(lane)
-
-        if not available_lanes:
-            return None
-
-        # Pick one lane from the available ones
-        lane = self.rng.choice(available_lanes)
-        lane_idx = lanes.index(lane)
-
-        # Generate vehicle parameters
-        v_len = self.rng.uniform(self.len_min, self.len_max)
-        v_width = self.rng.uniform(self.width_min, self.width_max)
-        v_desired_speed = self.rng.uniform(self.speed_min, self.speed_max)
-
-        # Decide Turn Intent based on turn probabilities
+        # Decide Turn Intent first (so we can pick the correct lane)
         turns = [TurnIntent.LEFT, TurnIntent.STRAIGHT, TurnIntent.RIGHT]
         weights = [
             self.turn_probabilities.get("left", 0.2),
@@ -156,8 +163,46 @@ class VehicleSpawner:
         ]
         turn = self.rng.choices(turns, weights=weights)[0]
 
-        # Generate Route
-        route = self.network.generate_route(direction, lane_idx, turn)
+        # Select the preferred lane for this turn intent
+        preferred_idx = self._select_lane_for_turn(lanes, turn)
+
+        # Try preferred lane first, then fall back to any available lane
+        ordered_indices = [preferred_idx] + [
+            i for i in range(len(lanes)) if i != preferred_idx
+        ]
+
+        target_lane: Optional[Lane] = None
+        target_idx: int = preferred_idx
+
+        for idx in ordered_indices:
+            lane = lanes[idx]
+            vehicles = lane.get_vehicles()
+            if not vehicles:
+                target_lane = lane
+                target_idx = idx
+                break
+            # Find vehicle with the minimum position in the lane
+            preceding = min(vehicles, key=lambda v: v.position)
+            # Tail of preceding vehicle: preceding.position - preceding.length / 2
+            # We need it to be >= minimum_gap + new_vehicle_length
+            if (
+                preceding.position - preceding.length / 2.0
+                >= self.minimum_gap + self.len_max
+            ):
+                target_lane = lane
+                target_idx = idx
+                break
+
+        if target_lane is None:
+            return None
+
+        # Generate vehicle parameters
+        v_len = self.rng.uniform(self.len_min, self.len_max)
+        v_width = self.rng.uniform(self.width_min, self.width_max)
+        v_desired_speed = self.rng.uniform(self.speed_min, self.speed_max)
+
+        # Generate Route using the selected lane index and turn intent
+        route = self.network.generate_route(direction, target_idx, turn)
 
         # Create Vehicle
         vehicle_id = f"veh_{self.spawned_count}"
@@ -173,6 +218,8 @@ class VehicleSpawner:
             route=route,
             start_position=start_pos,
             initial_speed=v_desired_speed,  # starts moving at free-flow speed
+            turn_intent=turn,
+            spawn_time=self._elapsed_time,
         )
 
         return vehicle

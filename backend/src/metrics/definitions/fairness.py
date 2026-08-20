@@ -36,8 +36,5 @@ def calculate_directional_fairness(exited_vehicles: List[Vehicle]) -> float:
         return 1.0
 
     sum_sq_x = sum(val**2 for val in x)
-    if sum_sq_x <= 0:
-        return 1.0
-
     n = len(x)
     return float((sum_x**2) / (n * sum_sq_x))

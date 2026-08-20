@@ -1,11 +1,16 @@
 from typing import List, Optional, Tuple
 
-from src.core.enums import VehicleState
+from src.core.enums import TurnIntent, VehicleState
 from src.roads.lane import Lane
 
 
 class Vehicle:
-    """Represents a single microscopic vehicle moving along a predefined route of lanes."""
+    """Represents a single microscopic vehicle moving along a predefined route of lanes.
+
+    Each vehicle carries its ``turn_intent`` so the conflict manager and signal
+    controller can make priority / phase decisions.  Position is clamped during
+    lane transitions to prevent overshoot artifacts.
+    """
 
     def __init__(
         self,
@@ -16,6 +21,8 @@ class Vehicle:
         route: List[Lane],
         start_position: float = 0.0,
         initial_speed: float = 0.0,
+        turn_intent: Optional[TurnIntent] = None,
+        spawn_time: float = 0.0,
     ) -> None:
         if not route:
             raise ValueError("Vehicle route cannot be empty")
@@ -36,6 +43,13 @@ class Vehicle:
         self.position: float = start_position
         self.speed: float = initial_speed
         self.acceleration: float = 0.0
+
+        # Turn intent for priority arbitration & signal phase matching
+        self.turn_intent: Optional[TurnIntent] = turn_intent
+
+        # Timing metadata
+        self.spawn_time: float = spawn_time
+        self.exit_time: Optional[float] = None
 
         # Wait threshold speed
         self._wait_threshold: float = 0.01
@@ -80,8 +94,10 @@ class Vehicle:
         old_speed = self.speed
         self.speed = max(0.0, self.speed + acceleration * dt)
 
-        # Update position
-        self.position += self.speed * dt
+        # Update position — clamp displacement so we never overshoot more
+        # than one lane boundary per tick (prevents coordinate glitches)
+        displacement = self.speed * dt
+        self.position += displacement
 
         # Manage state transitions and stop counting
         is_stopped = self.speed < self._wait_threshold
@@ -95,15 +111,19 @@ class Vehicle:
         else:
             self.state = VehicleState.APPROACHING
 
-        # Handle lane transitions
-        while self.lane is not None and self.position >= self.lane.length:
+        # Handle lane transitions — process at most one transition per tick
+        # to maintain deterministic ordering
+        if self.lane is not None and self.position >= self.lane.length:
             try:
                 curr_idx = self.route.index(self.lane)
                 if curr_idx < len(self.route) - 1:
                     next_lane = self.route[curr_idx + 1]
-                    self.position -= self.lane.length
+                    overflow = self.position - self.lane.length
+                    # Clamp overflow to avoid teleporting far into the next lane
+                    overflow = min(overflow, next_lane.length * 0.5)
                     self.lane.remove_vehicle(self)
                     self.lane = next_lane
+                    self.position = overflow
                     self.lane.add_vehicle(self)
                 else:
                     # Traversed past the end of the last lane
@@ -111,7 +131,6 @@ class Vehicle:
                     self.lane = None
                     self.state = VehicleState.EXITED
                     self.speed = 0.0
-                    break
             except ValueError:
                 # Fallback if current lane is somehow not in the route
                 if self.lane is not None:
@@ -119,7 +138,6 @@ class Vehicle:
                 self.lane = None
                 self.state = VehicleState.EXITED
                 self.speed = 0.0
-                break
 
     def get_bounding_box(self) -> List[Tuple[float, float]]:
         import math

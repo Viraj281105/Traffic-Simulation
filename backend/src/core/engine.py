@@ -1,13 +1,25 @@
+"""Simulation engine — orchestrates the discrete-time traffic simulation.
+
+Creates and owns the :class:`ConflictManager` so that it is available to the
+vehicle pool during updates.
+"""
+
+from __future__ import annotations
+
+import logging
 import threading
 import time
 from typing import Any, Callable, Dict, List, Optional
 
 from src.core.clock import Clock
 from src.core.enums import SimulationStatus
+from src.intersection.conflict_manager import ConflictManager
 from src.roads.network import RoadNetwork
 from src.vehicles.idm import IntelligentDriverModel
 from src.vehicles.pool import VehiclePool
 from src.vehicles.spawner import VehicleSpawner
+
+logger = logging.getLogger(__name__)
 
 
 class SimulationEngine:
@@ -33,6 +45,7 @@ class SimulationEngine:
         self.pool: VehiclePool = VehiclePool()
         self.spawner: Optional[VehicleSpawner] = None
         self.idm: Optional[IntelligentDriverModel] = None
+        self.conflict_manager: ConflictManager = ConflictManager()
 
         if self.config:
             # Setup default network
@@ -42,6 +55,19 @@ class SimulationEngine:
                 lane_width=road_cfg.get("laneWidth", 3.5),
                 lanes_per_approach=road_cfg.get("lanesPerApproach", 2),
             )
+
+            # Register all connection lanes with the conflict manager and
+            # pre-compute crossing points
+            for conn_lane in self.network.get_all_connection_lanes():
+                self.conflict_manager.register_connection_lane(conn_lane)
+            self.conflict_manager.compute_conflict_points()
+
+            logger.info(
+                "ConflictManager initialized: %d connection lanes, %d conflict points",
+                len(self.network.get_all_connection_lanes()),
+                len(self.conflict_manager.get_all_conflict_points()),
+            )
+
             self.spawner = VehicleSpawner(self.config, self.network)
 
             veh_gen = self.config.get("vehicleGeneration", {})
@@ -92,6 +118,7 @@ class SimulationEngine:
             try:
                 self.step()
             except Exception:
+                logger.exception("Error in simulation step")
                 with self._lock:
                     self._transition_to(SimulationStatus.ERROR)
                 break
@@ -169,7 +196,7 @@ class SimulationEngine:
             for v in new_vehs:
                 self.pool.add_vehicle(v)
 
-        # Update spatial states of all vehicles
+        # Update spatial states of all vehicles (pool reads conflict_manager from engine)
         self.pool.update(self.clock.time_step, self)
 
         # Run registered tick callbacks

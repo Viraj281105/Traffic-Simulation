@@ -23,6 +23,7 @@ def test_vehicle_initialization(sample_route: list[Lane]) -> None:
     assert v.desired_speed == 15.0
     assert v.route == sample_route
     assert v.lane == sample_route[0]
+    assert v.lane_id == sample_route[0].lane_id
     assert v.position == 0.0
     assert v.speed == 0.0
     assert v.acceleration == 0.0
@@ -105,3 +106,30 @@ def test_vehicle_bounding_box(sample_route: list[Lane]) -> None:
     assert corners[1] == (1.0, 2.0)
     assert corners[2] == (1.0, -2.0)
     assert corners[3] == (-1.0, -2.0)
+
+
+def test_vehicle_none_lane_and_exited_behavior(sample_route: list[Lane]) -> None:
+    v = Vehicle("v_none", 4.0, 2.0, 10.0, sample_route)
+    v.lane = None
+
+    assert v.coords == (0.0, 0.0)
+    assert v.heading == 0.0
+    assert v.lane_id == ""
+
+    # update_state when exited does nothing
+    v.state = VehicleState.EXITED
+    v.update_state(10.0, 0.1)
+    assert v.speed == 0.0
+
+
+def test_vehicle_lane_transition_fallback(sample_route: list[Lane]) -> None:
+    foreign_lane = Lane("foreign_lane", 0.0, 0.0, 10.0, 0.0)
+    v = Vehicle("v_foreign", 4.0, 2.0, 10.0, sample_route)
+    # Put vehicle on a lane that is not in its route
+    v.lane = foreign_lane
+    v.position = 20.0  # past foreign_lane length
+
+    v.update_state(0.0, 0.1)
+    assert v.lane is None
+    assert v.state == VehicleState.EXITED
+
