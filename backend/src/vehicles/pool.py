@@ -100,7 +100,7 @@ class VehiclePool:
             # Update kinematics
             vehicle.update_state(acc, dt)
 
-            if vehicle.state == VehicleState.EXITED:
+            if vehicle.state == VehicleState.EXITED:  # type: ignore[comparison-overlap]
                 vehicle.exit_time = current_time
                 # Release any conflict zone reservations
                 if conflict_manager is not None:
