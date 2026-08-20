@@ -20,7 +20,7 @@ const DIR_LABEL: Record<SignalDirection, string> = {
 };
 
 function fmt(val: number | undefined, decimals = 1): string {
-  if (val === undefined || isNaN(val)) return "—";
+  if (val === undefined) return "—";
   return val.toFixed(decimals);
 }
 
@@ -45,8 +45,8 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
   snapshot,
   connectionStatus,
 }) => {
-  const m: RunningMetrics | undefined = snapshot?.metrics;
-  const vc = snapshot?.vehicleCounts;
+  const m: RunningMetrics | undefined = snapshot ? snapshot.metrics : undefined;
+  const vc = snapshot ? snapshot.vehicleCounts : undefined;
   const conn = CONNECTION_LABELS[connectionStatus];
 
   const maxQ = Math.max(
@@ -65,7 +65,7 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
       </div>
 
       {/* Controller type */}
-      {snapshot?.controller && (
+      {snapshot && (
         <div className="controller-chip">
           {snapshot.controller.type === "fixed_time_signal"
             ? "🚦 Fixed-Time Signal"
@@ -85,10 +85,10 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
           />
           <VehicleChip label="Waiting" value={vc?.waiting} color="#ff6b6b" />
           <VehicleChip label="Crossing" value={vc?.crossing} color="#ffd93d" />
-          {(vc?.inRoundabout ?? 0) > 0 && (
+          {vc && vc.inRoundabout > 0 && (
             <VehicleChip
               label="In Ring"
-              value={vc?.inRoundabout}
+              value={vc.inRoundabout}
               color="#cc5de8"
             />
           )}
@@ -110,7 +110,10 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
                 <div className="queue-bar-track">
                   <div
                     className="queue-bar-fill"
-                    style={{ width: `${String(pct)}%`, background: color }}
+                    style={{
+                      width: `${pct.toString()}%`,
+                      background: color,
+                    }}
                   />
                 </div>
                 <span className="queue-val">{q}</span>
@@ -178,7 +181,7 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
       </section>
 
       {/* Signal phase info */}
-      {snapshot?.controller.type === "fixed_time_signal" && (
+      {snapshot && snapshot.controller.type === "fixed_time_signal" && (
         <section className="sidebar-section">
           <h3 className="section-title">Signal Phase</h3>
           <div className="phase-info">
@@ -214,18 +217,18 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
       )}
 
       {/* Roundabout info */}
-      {snapshot?.controller.type === "roundabout" && (
+      {snapshot && snapshot.controller.type === "roundabout" && (
         <section className="sidebar-section">
           <h3 className="section-title">Roundabout</h3>
           <div className="metric-rows">
             <MetricRow
               label="Circulating"
-              value={`${String(snapshot.controller.circulatingCount)} veh`}
+              value={`${snapshot.controller.circulatingCount.toString()} veh`}
               color="#cc5de8"
             />
             <MetricRow
               label="Yielding"
-              value={`${String(snapshot.controller.yieldingCount)} veh`}
+              value={`${snapshot.controller.yieldingCount.toString()} veh`}
               color="#ff922b"
             />
             <MetricRow

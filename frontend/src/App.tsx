@@ -150,10 +150,10 @@ export function App() {
           snapshot={snapshot}
           isPlaying={isPlaying}
           onPlay={() => {
-            void play();
+            play().catch(() => {});
           }}
           onPause={() => {
-            void pause();
+            pause().catch(() => {});
           }}
         />
         {error && <div className="error-banner">⚠ {error}</div>}

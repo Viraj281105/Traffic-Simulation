@@ -8,13 +8,15 @@ const BASE = "http://localhost:8000";
 
 async function post(path: string): Promise<unknown> {
   const res = await fetch(`${BASE}${path}`, { method: "POST" });
-  if (!res.ok) throw new Error(`HTTP ${String(res.status)}: ${res.statusText}`);
+  if (!res.ok)
+    throw new Error(`HTTP ${res.status.toString()}: ${res.statusText}`);
   return res.json();
 }
 
 async function get(path: string): Promise<unknown> {
   const res = await fetch(`${BASE}${path}`);
-  if (!res.ok) throw new Error(`HTTP ${String(res.status)}: ${res.statusText}`);
+  if (!res.ok)
+    throw new Error(`HTTP ${res.status.toString()}: ${res.statusText}`);
   return res.json();
 }
 
