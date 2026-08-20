@@ -48,7 +48,11 @@ class VehiclePool:
                 continue
 
             # Leader detection
-            leader, gap = find_leader(vehicle, getattr(engine, "network", None))
+            leader, gap = find_leader(
+                vehicle,
+                getattr(engine, "network", None),
+                self.active_vehicles,
+            )
 
             # Calculate acceleration using IDM
             acc = idm.calculate_acceleration(
