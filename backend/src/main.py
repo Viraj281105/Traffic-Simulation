@@ -541,20 +541,23 @@ def pause_live_simulation() -> Dict[str, Any]:
 @app.websocket("/ws/simulation/live")
 async def websocket_live_stream(websocket: WebSocket) -> None:
     await websocket.accept()
-    sim = get_or_create_live_simulation()
-    builder = sim["builder"]
-
     try:
         import asyncio
         while True:
-            snapshot = builder.build()
-            await websocket.send_json(snapshot)
+            sim = get_or_create_live_simulation()
+            builder = sim.get("builder")
+            if builder is not None:
+                snapshot = builder.build()
+                await websocket.send_json(snapshot)
             # Sleep 100ms for 10Hz frequency
             await asyncio.sleep(0.1)
     except WebSocketDisconnect:
         pass
     except Exception as e:
-        await websocket.close(code=1011, reason=str(e))
+        try:
+            await websocket.close(code=1011, reason=str(e))
+        except Exception:
+            pass
 
 
 dual_sim_orchestrator: DualSimulationOrchestrator | None = None
