@@ -14,11 +14,7 @@ export type LayoutType = "signal" | "roundabout";
  * Vehicle state enum matching backend VehicleStatus values.
  */
 export type VehicleState =
-  | "approaching"
-  | "waiting"
-  | "crossing"
-  | "in_roundabout"
-  | "exited";
+  "approaching" | "waiting" | "crossing" | "in_roundabout" | "exited";
 
 /**
  * A single vehicle in a live snapshot (multi-vehicle format).
@@ -49,11 +45,7 @@ export interface SnapshotVehicle {
 export type SignalColor = "red" | "yellow" | "green";
 export type SignalDirection = "north" | "south" | "east" | "west";
 export type SignalPhase =
-  | "ns_green"
-  | "ns_yellow"
-  | "ew_green"
-  | "ew_yellow"
-  | "all_red";
+  "ns_green" | "ns_yellow" | "ew_green" | "ew_yellow" | "all_red";
 
 export interface SignalHead {
   direction: SignalDirection;
@@ -80,8 +72,7 @@ export interface RoundaboutControllerState {
 }
 
 export type ControllerState =
-  | FixedTimeControllerState
-  | RoundaboutControllerState;
+  FixedTimeControllerState | RoundaboutControllerState;
 
 // ── Intersection state ─────────────────────────────────────────────────────
 
@@ -132,12 +123,7 @@ export interface VehicleCounts {
 // ── Live snapshot (WebSocket message payload) ──────────────────────────────
 
 export type SimulationStatus =
-  | "initializing"
-  | "running"
-  | "paused"
-  | "completed"
-  | "error"
-  | "stopped";
+  "initializing" | "running" | "paused" | "completed" | "error" | "stopped";
 
 export interface LiveSnapshot {
   schemaVersion: string;

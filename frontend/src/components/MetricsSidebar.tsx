@@ -1,5 +1,9 @@
 import React from "react";
-import type { LiveSnapshot, RunningMetrics, SignalDirection } from "../types/simulation";
+import type {
+  LiveSnapshot,
+  RunningMetrics,
+  SignalDirection,
+} from "../types/simulation";
 import type { ConnectionStatus } from "../services/websocket";
 
 interface MetricsSidebarProps {
@@ -26,7 +30,10 @@ function metricColor(value: number, low: number, high: number): string {
   return "#ffdc00";
 }
 
-const CONNECTION_LABELS: Record<ConnectionStatus, { label: string; color: string }> = {
+const CONNECTION_LABELS: Record<
+  ConnectionStatus,
+  { label: string; color: string }
+> = {
   connected: { label: "● LIVE", color: "#2ecc40" },
   connecting: { label: "◌ CONNECTING", color: "#ffdc00" },
   reconnecting: { label: "↻ RECONNECTING", color: "#ff922b" },
@@ -71,11 +78,19 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
         <h3 className="section-title">Vehicles</h3>
         <div className="vehicle-chips">
           <VehicleChip label="Active" value={vc?.active} color="#4d96ff" />
-          <VehicleChip label="Approaching" value={vc?.approaching} color="#20c997" />
+          <VehicleChip
+            label="Approaching"
+            value={vc?.approaching}
+            color="#20c997"
+          />
           <VehicleChip label="Waiting" value={vc?.waiting} color="#ff6b6b" />
           <VehicleChip label="Crossing" value={vc?.crossing} color="#ffd93d" />
           {(vc?.inRoundabout ?? 0) > 0 && (
-            <VehicleChip label="In Ring" value={vc?.inRoundabout} color="#cc5de8" />
+            <VehicleChip
+              label="In Ring"
+              value={vc?.inRoundabout}
+              color="#cc5de8"
+            />
           )}
           <VehicleChip label="Exited" value={vc?.exited} color="#888" />
         </div>
@@ -168,7 +183,9 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
           <h3 className="section-title">Signal Phase</h3>
           <div className="phase-info">
             <span className="phase-name">
-              {snapshot.controller.currentPhase.replace(/_/g, " ").toUpperCase()}
+              {snapshot.controller.currentPhase
+                .replace(/_/g, " ")
+                .toUpperCase()}
             </span>
             <span className="phase-timer">
               {fmt(snapshot.controller.phaseTimeRemaining)}s left
@@ -180,11 +197,12 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
                 <div
                   className="signal-dot"
                   style={{
-                    background: sig.color === "green"
-                      ? "#2ecc40"
-                      : sig.color === "yellow"
-                        ? "#ffdc00"
-                        : "#ff4136",
+                    background:
+                      sig.color === "green"
+                        ? "#2ecc40"
+                        : sig.color === "yellow"
+                          ? "#ffdc00"
+                          : "#ff4136",
                     boxShadow: `0 0 8px ${sig.color === "green" ? "#2ecc40" : sig.color === "yellow" ? "#ffdc00" : "#ff4136"}`,
                   }}
                 />
