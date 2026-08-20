@@ -10,11 +10,7 @@ const WS_URL = "ws://localhost:8000/ws/simulation/live";
 const BACKOFF_DELAYS_MS = [1000, 2000, 4000, 8000, 16000, 30000];
 
 export type ConnectionStatus =
-  | "disconnected"
-  | "connecting"
-  | "connected"
-  | "reconnecting"
-  | "error";
+  "disconnected" | "connecting" | "connected" | "reconnecting" | "error";
 
 export interface WebSocketCallbacks {
   onSnapshot: (snapshot: LiveSnapshot) => void;
@@ -103,7 +99,9 @@ export class SimulationWebSocket {
   private _scheduleReconnect(): void {
     if (!this.shouldReconnect) return;
     const delay =
-      BACKOFF_DELAYS_MS[Math.min(this.retryCount, BACKOFF_DELAYS_MS.length - 1)];
+      BACKOFF_DELAYS_MS[
+        Math.min(this.retryCount, BACKOFF_DELAYS_MS.length - 1)
+      ];
     this.retryCount++;
     this.retryTimer = setTimeout(() => {
       this._connect();

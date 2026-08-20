@@ -52,15 +52,69 @@ export function App() {
       {configOpen && (
         <div className="config-panel">
           <div className="config-grid">
-            <ConfigSlider label="Lanes North" value={lanesNorth} min={1} max={5} step={1} onChange={setLanesNorth} />
-            <ConfigSlider label="Lanes South" value={lanesSouth} min={1} max={5} step={1} onChange={setLanesSouth} />
-            <ConfigSlider label="Lanes East"  value={lanesEast}  min={1} max={5} step={1} onChange={setLanesEast} />
-            <ConfigSlider label="Lanes West"  value={lanesWest}  min={1} max={5} step={1} onChange={setLanesWest} />
-            <ConfigSlider label="Lane Width (m)" value={laneWidth} min={2} max={5} step={0.5} onChange={setLaneWidth} />
-            <ConfigSlider label="Intersection (m)" value={intersectionSize} min={10} max={30} step={1} onChange={setIntersectionSize} />
-            <ConfigToggle label="Crosswalks" value={showCrosswalks} onChange={setShowCrosswalks} />
-            <ConfigToggle label="Stop Lines"  value={showStopLines}  onChange={setShowStopLines} />
-            <ConfigToggle label="Debug Queues" value={debug}          onChange={setDebug} />
+            <ConfigSlider
+              label="Lanes North"
+              value={lanesNorth}
+              min={1}
+              max={5}
+              step={1}
+              onChange={setLanesNorth}
+            />
+            <ConfigSlider
+              label="Lanes South"
+              value={lanesSouth}
+              min={1}
+              max={5}
+              step={1}
+              onChange={setLanesSouth}
+            />
+            <ConfigSlider
+              label="Lanes East"
+              value={lanesEast}
+              min={1}
+              max={5}
+              step={1}
+              onChange={setLanesEast}
+            />
+            <ConfigSlider
+              label="Lanes West"
+              value={lanesWest}
+              min={1}
+              max={5}
+              step={1}
+              onChange={setLanesWest}
+            />
+            <ConfigSlider
+              label="Lane Width (m)"
+              value={laneWidth}
+              min={2}
+              max={5}
+              step={0.5}
+              onChange={setLaneWidth}
+            />
+            <ConfigSlider
+              label="Intersection (m)"
+              value={intersectionSize}
+              min={10}
+              max={30}
+              step={1}
+              onChange={setIntersectionSize}
+            />
+            <ConfigToggle
+              label="Crosswalks"
+              value={showCrosswalks}
+              onChange={setShowCrosswalks}
+            />
+            <ConfigToggle
+              label="Stop Lines"
+              value={showStopLines}
+              onChange={setShowStopLines}
+            />
+            <ConfigToggle
+              label="Debug Queues"
+              value={debug}
+              onChange={setDebug}
+            />
           </div>
         </div>
       )}
