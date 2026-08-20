@@ -422,6 +422,8 @@ DEFAULT_CONFIG = {
     },
 }
 
+current_live_config: Dict[str, Any] = DEFAULT_CONFIG.copy()
+
 live_sim_data: Dict[str, Any] = {
     "engine": None,
     "collector": None,
@@ -432,11 +434,16 @@ live_sim_data: Dict[str, Any] = {
 
 
 def get_or_create_live_simulation() -> Dict[str, Any]:
+    global current_live_config
     if live_sim_data["engine"] is None:
         clock = Clock(time_step=0.1)
-        engine = SimulationEngine(clock, duration=300, config=DEFAULT_CONFIG)
-        controller = FixedTimeSignalController(DEFAULT_CONFIG, engine.network)
-        collector = MetricCollector(DEFAULT_CONFIG)
+        engine = SimulationEngine(clock, duration=300, config=current_live_config)
+        geom_type = current_live_config.get("geometry", {}).get("intersectionType", "fixed_time_signal")
+        if geom_type == "fixed_time_signal":
+            controller = FixedTimeSignalController(current_live_config, engine.network)
+        else:
+            controller = RoundaboutController(current_live_config, engine.network)
+        collector = MetricCollector(current_live_config)
         config_id = str(uuid.uuid4())
         builder = SnapshotBuilder("live_sim", config_id, engine, collector, controller)
 
@@ -465,6 +472,52 @@ def get_or_create_live_simulation() -> Dict[str, Any]:
         live_sim_data["builder"] = builder
         live_sim_data["config_id"] = config_id
     return live_sim_data
+
+
+@app.post("/api/simulation/config")
+def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
+    global current_live_config
+    # Shutdown existing simulation if running
+    if live_sim_data["engine"] is not None:
+        try:
+            live_sim_data["engine"].stop()
+        except Exception:
+            pass
+        live_sim_data["engine"] = None
+
+    # Compile the config dictionary based on user payload
+    current_live_config = {
+        "simulation": DEFAULT_CONFIG["simulation"],
+        "geometry": {
+            "intersectionType": payload.get("intersectionType", "fixed_time_signal"),
+            "intersectionCenter": {"x": 0.0, "y": 0.0},
+            "boundingRadius": float(payload.get("intersectionSize", 15.0)),
+        },
+        "roads": {
+            "approachLength": 200.0,
+            "laneWidth": float(payload.get("laneWidth", 3.5)),
+            "lanesPerApproach": {
+                "north": int(payload.get("lanesNorth", 2)),
+                "south": int(payload.get("lanesSouth", 2)),
+                "east": int(payload.get("lanesEast", 2)),
+                "west": int(payload.get("lanesWest", 2)),
+            }
+        },
+        "controller": DEFAULT_CONFIG["controller"],
+        "vehicleGeneration": DEFAULT_CONFIG["vehicleGeneration"],
+    }
+
+    # Reset live simulation cache
+    live_sim_data["engine"] = None
+    live_sim_data["collector"] = None
+    live_sim_data["controller"] = None
+    live_sim_data["builder"] = None
+    live_sim_data["config_id"] = None
+
+    # Pre-create the simulation with new configuration parameters
+    get_or_create_live_simulation()
+
+    return {"status": "ok", "message": "Simulation configuration updated successfully"}
 
 
 @app.post("/api/simulation/play")

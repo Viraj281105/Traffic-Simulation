@@ -40,3 +40,23 @@ export async function getSimulationStatus(): Promise<{
     message?: string;
   }>;
 }
+
+/** Send new configuration to backend. */
+export async function updateSimulationConfig(config: {
+  intersectionType: string;
+  intersectionSize: number;
+  laneWidth: number;
+  lanesNorth: number;
+  lanesSouth: number;
+  lanesEast: number;
+  lanesWest: number;
+}): Promise<void> {
+  const res = await fetch(`${BASE}/api/simulation/config`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status.toString()}: ${res.statusText}`);
+  }
+}
