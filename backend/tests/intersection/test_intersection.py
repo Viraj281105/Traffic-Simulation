@@ -29,8 +29,8 @@ def test_conflict_zone_detector() -> None:
 
 def test_360_degree_conflict_yielding() -> None:
     from src.roads.lane import Lane
-    from src.vehicles.vehicle import Vehicle
     from src.vehicles.router import find_leader
+    from src.vehicles.vehicle import Vehicle
 
     # Create two crossing lanes
     lane_1 = Lane("lane_1", start_x=0.0, start_y=0.0, end_x=10.0, end_y=0.0)
