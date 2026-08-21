@@ -120,20 +120,21 @@ class VehiclePool:
                 continue
 
             # Lane-changing logic for straight-going vehicles on the incoming approach
+            current_lane = vehicle.lane
             can_change_lane = (
                 getattr(vehicle, "turn_intent", None) == TurnIntent.STRAIGHT
-                and vehicle.lane is not None
+                and current_lane is not None
                 and vehicle.route
-                and vehicle.lane == vehicle.route[0]
-                and (vehicle.lane.length - vehicle.position >= 20.0)
+                and current_lane == vehicle.route[0]
+                and (current_lane.length - vehicle.position >= 20.0)
                 and (current_time - self._last_lane_change.get(vehicle.vehicle_id, -999.0) >= 3.0)
             )
 
-            if can_change_lane:
+            if can_change_lane and current_lane is not None:
                 network = getattr(engine, "network", None)
                 if network is not None:
                     # Determine approach direction
-                    lane_id = vehicle.lane.lane_id.lower()
+                    lane_id = current_lane.lane_id.lower()
                     direction = None
                     if lane_id.startswith("n_in_"):
                         direction = Direction.NORTH
@@ -149,7 +150,7 @@ class VehiclePool:
                             approach = network.get_incoming_approach(direction)
                             lanes = approach.get_lanes()
                             if len(lanes) > 1:
-                                curr_idx = lanes.index(vehicle.lane)
+                                curr_idx = lanes.index(current_lane)
                                 # Candidates: adjacent lanes
                                 candidates = []
                                 if curr_idx > 0:
@@ -160,7 +161,7 @@ class VehiclePool:
                                 # Evaluate current gap
                                 curr_gap = float("inf")
                                 curr_leader = None
-                                for v in vehicle.lane.get_vehicles():
+                                for v in current_lane.get_vehicles():
                                     if v is vehicle:
                                         continue
                                     dist = v.position - vehicle.position
@@ -170,7 +171,7 @@ class VehiclePool:
 
                                 # Also check if we are blocked by a red light
                                 is_blocked_by_light = False
-                                virtual_obs = getattr(vehicle.lane, "virtual_obstacle", None)
+                                virtual_obs = getattr(current_lane, "virtual_obstacle", None)
                                 if virtual_obs is not None:
                                     obs_dist = virtual_obs.position - vehicle.position
                                     if 0 < obs_dist < min(curr_gap, 25.0):
@@ -226,7 +227,7 @@ class VehiclePool:
 
                                     if best_target_idx is not None:
                                         target_lane = lanes[best_target_idx]
-                                        vehicle.lane.remove_vehicle(vehicle)
+                                        current_lane.remove_vehicle(vehicle)
                                         vehicle.lane = target_lane
                                         target_lane.add_vehicle(vehicle)
                                         self._last_lane_change[vehicle.vehicle_id] = current_time

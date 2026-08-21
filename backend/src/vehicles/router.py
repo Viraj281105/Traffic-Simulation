@@ -53,6 +53,8 @@ _LOOK_AHEAD_LANES: int = 3          # how many route lanes to scan forward
 
 def is_blocked_before_lane(vehicle: Vehicle, target_lane: Any) -> bool:
     """Check if there is a vehicle or virtual obstacle on the route before target_lane."""
+    if vehicle.lane is None:
+        return True
     try:
         curr_idx = vehicle.route.index(vehicle.lane)
         target_idx = vehicle.route.index(target_lane)
