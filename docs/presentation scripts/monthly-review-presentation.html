@@ -1,0 +1,4244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monthly Review Presentation Companion | Traffic Simulation Framework</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0f1d;
+      --bg-secondary: #111827;
+      --bg-tertiary: #1f2937;
+      --bg-card: rgba(17, 24, 39, 0.75);
+      --bg-card-hover: rgba(31, 41, 55, 0.85);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-medium: rgba(255, 255, 255, 0.15);
+      --border-accent: rgba(99, 102, 241, 0.3);
+      
+      --text-primary: #f9fafb;
+      --text-secondary: #9ca3af;
+      --text-muted: #6b7280;
+      
+      --accent-indigo: #6366f1;
+      --accent-indigo-light: #818cf8;
+      --accent-indigo-bg: rgba(99, 102, 241, 0.12);
+      
+      --speaker-viraj: #38bdf8;
+      --speaker-viraj-bg: rgba(56, 189, 248, 0.12);
+      --speaker-viraj-border: rgba(56, 189, 248, 0.3);
+      
+      --speaker-khushi: #34d399;
+      --speaker-khushi-bg: rgba(52, 211, 153, 0.12);
+      --speaker-khushi-border: rgba(52, 211, 153, 0.3);
+      
+      --speaker-both: #c084fc;
+      --speaker-both-bg: rgba(192, 132, 252, 0.12);
+      --speaker-both-border: rgba(192, 132, 252, 0.3);
+      
+      --demo-gold: #fbbf24;
+      --demo-gold-bg: rgba(251, 191, 36, 0.12);
+      --demo-gold-border: rgba(251, 191, 36, 0.35);
+      
+      --danger-red: #f87171;
+      --danger-red-bg: rgba(248, 113, 113, 0.12);
+      
+      --font-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-display: 'Plus Jakarta Sans', var(--font-main);
+      --font-mono: 'Fira Code', monospace;
+      
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --radius-xl: 24px;
+      
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+      --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+      --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6);
+      --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.2);
+    }
+
+    [data-theme="light"] {
+      --bg-primary: #f8fafc;
+      --bg-secondary: #ffffff;
+      --bg-tertiary: #f1f5f9;
+      --bg-card: rgba(255, 255, 255, 0.85);
+      --bg-card-hover: rgba(241, 245, 249, 0.95);
+      --border-subtle: rgba(0, 0, 0, 0.08);
+      --border-medium: rgba(0, 0, 0, 0.15);
+      --border-accent: rgba(99, 102, 241, 0.3);
+      
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
+      
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+      --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08);
+      --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.12);
+      --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: 80px;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-main);
+      line-height: 1.65;
+      font-size: 15px;
+      overflow-x: hidden;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-primary);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--bg-tertiary);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--accent-indigo);
+    }
+
+    /* Container & Layout */
+    .app-container {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .main-layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 32px;
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 32px 24px;
+      width: 100%;
+    }
+
+    @media (max-width: 1100px) {
+      .main-layout {
+        grid-template-columns: 1fr;
+      }
+      .sidebar {
+        display: none;
+      }
+    }
+
+    /* Sticky Header Navigation */
+    .top-nav {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: rgba(10, 15, 29, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 12px 24px;
+      transition: all 0.3s ease;
+    }
+    [data-theme="light"] .top-nav {
+      background: rgba(248, 250, 252, 0.85);
+    }
+
+    .nav-content {
+      max-width: 1440px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: var(--text-primary);
+      text-decoration: none;
+    }
+
+    .nav-logo-badge {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, var(--accent-indigo), #ec4899);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 14px;
+      font-weight: 800;
+      box-shadow: 0 2px 10px rgba(99, 102, 241, 0.4);
+    }
+
+    .nav-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .nav-filter-group {
+      display: flex;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .filter-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .filter-btn:hover {
+      color: var(--text-primary);
+      background: var(--bg-tertiary);
+    }
+
+    .filter-btn.active {
+      background: var(--accent-indigo);
+      color: white;
+    }
+
+    .filter-btn.viraj-btn.active {
+      background: var(--speaker-viraj);
+      color: #042f2e;
+    }
+
+    .filter-btn.khushi-btn.active {
+      background: var(--speaker-khushi);
+      color: #022c22;
+    }
+
+    .action-btn {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+      padding: 7px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .action-btn:hover {
+      border-color: var(--accent-indigo);
+      background: var(--bg-tertiary);
+      transform: translateY(-1px);
+    }
+
+    .action-btn.presentation-mode-active {
+      background: linear-gradient(135deg, var(--accent-indigo), #9333ea);
+      color: white;
+      border-color: transparent;
+      box-shadow: 0 0 15px rgba(147, 51, 234, 0.4);
+    }
+
+    /* Sidebar Navigation */
+    .sidebar {
+      position: sticky;
+      top: 90px;
+      height: calc(100vh - 120px);
+      overflow-y: auto;
+      padding-right: 12px;
+    }
+
+    .sidebar-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .sidebar-title {
+      font-family: var(--font-display);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+      font-weight: 700;
+    }
+
+    .sidebar-nav-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .sidebar-nav-item a {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-radius: var(--radius-md);
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      border-left: 2px solid transparent;
+    }
+
+    .sidebar-nav-item a:hover {
+      color: var(--text-primary);
+      background: var(--bg-tertiary);
+    }
+
+    .sidebar-nav-item.active a {
+      color: var(--accent-indigo-light);
+      background: var(--accent-indigo-bg);
+      border-left-color: var(--accent-indigo);
+      font-weight: 600;
+    }
+
+    .sidebar-speaker-tag {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .tag-khushi {
+      background: var(--speaker-khushi-bg);
+      color: var(--speaker-khushi);
+      border: 1px solid var(--speaker-khushi-border);
+    }
+
+    .tag-viraj {
+      background: var(--speaker-viraj-bg);
+      color: var(--speaker-viraj);
+      border: 1px solid var(--speaker-viraj-border);
+    }
+
+    .tag-both {
+      background: var(--speaker-both-bg);
+      color: var(--speaker-both);
+      border: 1px solid var(--speaker-both-border);
+    }
+
+    .tag-demo {
+      background: var(--demo-gold-bg);
+      color: var(--demo-gold);
+      border: 1px solid var(--demo-gold-border);
+    }
+
+    /* Main Content Area */
+    .content-area {
+      display: flex;
+      flex-direction: column;
+      gap: 48px;
+    }
+
+    /* Hero Section */
+    .hero-section {
+      background: linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.9)), radial-gradient(circle at top right, rgba(99, 102, 241, 0.2), transparent 60%);
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-xl);
+      padding: 40px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: var(--shadow-md);
+    }
+    [data-theme="light"] .hero-section {
+      background: linear-gradient(135deg, rgba(241, 245, 249, 0.9), rgba(255, 255, 255, 0.95)), radial-gradient(circle at top right, rgba(99, 102, 241, 0.1), transparent 60%);
+    }
+
+    .hero-badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .badge-primary {
+      background: var(--accent-indigo-bg);
+      color: var(--accent-indigo-light);
+      border: 1px solid var(--border-accent);
+    }
+
+    .badge-success {
+      background: var(--speaker-khushi-bg);
+      color: var(--speaker-khushi);
+      border: 1px solid var(--speaker-khushi-border);
+    }
+
+    .badge-warning {
+      background: var(--demo-gold-bg);
+      color: var(--demo-gold);
+      border: 1px solid var(--demo-gold-border);
+    }
+
+    .badge-info {
+      background: var(--speaker-viraj-bg);
+      color: var(--speaker-viraj);
+      border: 1px solid var(--speaker-viraj-border);
+    }
+
+    .hero-title {
+      font-family: var(--font-display);
+      font-size: 2.5rem;
+      font-weight: 800;
+      line-height: 1.15;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #ffffff 30%, #cbd5e1 70%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    [data-theme="light"] .hero-title {
+      background: linear-gradient(135deg, #0f172a 30%, #334155 70%, #64748b 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-subtitle {
+      font-family: var(--font-display);
+      font-size: 1.3rem;
+      color: var(--accent-indigo-light);
+      margin-bottom: 16px;
+      font-weight: 600;
+    }
+
+    .hero-description {
+      font-size: 1.05rem;
+      color: var(--text-secondary);
+      max-width: 860px;
+      line-height: 1.6;
+      margin-bottom: 28px;
+    }
+
+    .hero-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    .meta-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      backdrop-filter: blur(8px);
+    }
+
+    .meta-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+
+    .meta-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* Presentation Narrative Flow Diagram */
+    .narrative-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .section-heading-group {
+      margin-bottom: 24px;
+    }
+
+    .section-eyebrow {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent-indigo-light);
+      margin-bottom: 6px;
+    }
+
+    .section-heading {
+      font-family: var(--font-display);
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .narrative-flow {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      padding: 16px;
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .narrative-node {
+      padding: 10px 16px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: var(--shadow-sm);
+      transition: all 0.2s ease;
+    }
+
+    .narrative-node:hover {
+      transform: translateY(-2px);
+      border-color: var(--accent-indigo);
+    }
+
+    .narrative-node.demo-node {
+      background: linear-gradient(135deg, #b45309, #d97706);
+      color: #ffffff;
+      border-color: #f59e0b;
+      box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+    }
+
+    .narrative-arrow {
+      color: var(--accent-indigo-light);
+      font-weight: 800;
+      font-size: 14px;
+    }
+
+    /* Presentation Timeline Table */
+    .timeline-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .timeline-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+      font-size: 14px;
+    }
+
+    .timeline-table th {
+      text-align: left;
+      padding: 12px 16px;
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 2px solid var(--border-medium);
+    }
+
+    .timeline-table td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+    }
+
+    .timeline-table tr:hover td {
+      background: var(--bg-card-hover);
+    }
+
+    .timeline-total-badge {
+      display: inline-block;
+      margin-top: 16px;
+      padding: 8px 16px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-accent);
+      border-radius: var(--radius-md);
+      font-weight: 600;
+      color: var(--accent-indigo-light);
+      font-size: 13px;
+    }
+
+    /* Script Section Styles */
+    .script-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      box-shadow: var(--shadow-sm);
+      position: relative;
+      transition: all 0.3s ease;
+    }
+
+    .script-section:hover {
+      border-color: var(--border-medium);
+    }
+
+    .script-section.speaker-viraj {
+      border-left: 4px solid var(--speaker-viraj);
+    }
+
+    .script-section.speaker-khushi {
+      border-left: 4px solid var(--speaker-khushi);
+    }
+
+    .script-section.speaker-both {
+      border-left: 4px solid var(--speaker-both);
+    }
+
+    .script-section.is-demo {
+      border-left: 4px solid var(--demo-gold);
+      background: linear-gradient(180deg, rgba(251, 191, 36, 0.05) 0%, var(--bg-card) 100%);
+    }
+
+    .section-meta-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .section-speaker-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .section-duration {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .objective-box {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-subtle);
+      border-left: 3px solid var(--accent-indigo);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      margin-bottom: 24px;
+    }
+
+    .objective-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent-indigo-light);
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .objective-text {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .key-message-card {
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.08));
+      border: 1px solid var(--border-accent);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      margin-bottom: 24px;
+    }
+
+    .key-message-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent-indigo-light);
+      margin-bottom: 4px;
+    }
+
+    .key-message-text {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1.5;
+    }
+
+    /* Script Box (Spoken Words) */
+    .script-box {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-md);
+      padding: 24px;
+      margin-bottom: 24px;
+      position: relative;
+    }
+
+    .script-box-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .script-box-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .copy-script-btn {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      padding: 4px 10px;
+      font-size: 11px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .copy-script-btn:hover {
+      color: var(--text-primary);
+      border-color: var(--accent-indigo);
+    }
+
+    .spoken-text {
+      font-size: 15.5px;
+      line-height: 1.75;
+      color: var(--text-primary);
+    }
+
+    .spoken-text p {
+      margin-bottom: 14px;
+    }
+
+    .spoken-text p:last-child {
+      margin-bottom: 0;
+    }
+
+    .spoken-text strong {
+      color: #ffffff;
+      background: rgba(99, 102, 241, 0.2);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    [data-theme="light"] .spoken-text strong {
+      color: #0f172a;
+      background: rgba(99, 102, 241, 0.15);
+    }
+
+    .bullet-points-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .talking-points-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 18px;
+    }
+
+    .talking-points-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .talking-points-list {
+      list-style-type: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .talking-points-list li {
+      position: relative;
+      padding-left: 20px;
+      font-size: 13.5px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .talking-points-list li::before {
+      content: "▹";
+      position: absolute;
+      left: 0;
+      color: var(--accent-indigo-light);
+      font-weight: bold;
+    }
+
+    /* Short Version Accordion */
+    .script-accordion {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      margin-bottom: 24px;
+      overflow: hidden;
+    }
+
+    .script-accordion summary {
+      padding: 14px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+      transition: background 0.2s;
+    }
+
+    .script-accordion summary:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    .accordion-body {
+      padding: 18px;
+      border-top: 1px solid var(--border-subtle);
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      background: var(--bg-card);
+    }
+
+    /* Transition Box */
+    .transition-box {
+      background: linear-gradient(135deg, rgba(31, 41, 55, 0.7), rgba(17, 24, 39, 0.9));
+      border: 1px dashed var(--border-medium);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .transition-icon {
+      font-size: 18px;
+      color: var(--accent-indigo-light);
+      margin-top: 2px;
+    }
+
+    .transition-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+
+    .transition-text {
+      font-size: 14px;
+      font-style: italic;
+      color: var(--text-primary);
+    }
+
+    /* Demo Mode Special Styling */
+    .demo-step-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    .demo-step-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .demo-step-num {
+      background: var(--demo-gold-bg);
+      color: var(--demo-gold);
+      border: 1px solid var(--demo-gold-border);
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    /* Code & Technical Blocks */
+    .tech-code-block {
+      background: #0d1117;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: #e6edf3;
+      line-height: 1.5;
+      overflow-x: auto;
+      margin: 16px 0;
+    }
+
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px;
+      margin: 16px 0;
+    }
+
+    .tech-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 18px;
+    }
+
+    .tech-card-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    /* Tables */
+    .styled-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 13.5px;
+    }
+
+    .styled-table th {
+      background: var(--bg-secondary);
+      padding: 10px 14px;
+      text-align: left;
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 2px solid var(--border-medium);
+    }
+
+    .styled-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      vertical-align: top;
+    }
+
+    .styled-table tr:hover td {
+      background: var(--bg-card-hover);
+    }
+
+    /* Checklist */
+    .checklist-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+
+    .check-item:hover {
+      border-color: var(--accent-indigo);
+      background: var(--bg-tertiary);
+    }
+
+    .check-item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: var(--accent-indigo);
+    }
+
+    .check-item.completed {
+      opacity: 0.6;
+      text-decoration: line-through;
+    }
+
+    /* FAQ Section */
+    .faq-search-bar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    .faq-search-input {
+      flex: 1;
+      min-width: 250px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 10px 16px;
+      color: var(--text-primary);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+
+    .faq-search-input:focus {
+      border-color: var(--accent-indigo);
+      box-shadow: 0 0 0 2px var(--accent-indigo-bg);
+    }
+
+    .faq-category-filter {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .faq-category-btn {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .faq-category-btn.active {
+      background: var(--accent-indigo);
+      color: white;
+      border-color: transparent;
+    }
+
+    .faq-item {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      margin-bottom: 12px;
+      overflow: hidden;
+      transition: all 0.2s ease;
+    }
+
+    .faq-item:hover {
+      border-color: var(--border-medium);
+    }
+
+    .faq-header {
+      padding: 16px 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+      gap: 12px;
+    }
+
+    .faq-question-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .faq-cat-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+      text-transform: uppercase;
+      background: var(--bg-tertiary);
+      color: var(--text-muted);
+    }
+
+    .faq-content {
+      padding: 20px;
+      border-top: 1px solid var(--border-subtle);
+      background: var(--bg-card);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .faq-ans-box {
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+    }
+
+    .faq-ans-short {
+      background: rgba(56, 189, 248, 0.08);
+      border-left: 3px solid var(--speaker-viraj);
+    }
+
+    .faq-ans-detailed {
+      background: var(--bg-secondary);
+      border-left: 3px solid var(--accent-indigo);
+    }
+
+    .faq-ans-presentation {
+      background: rgba(52, 211, 153, 0.08);
+      border-left: 3px solid var(--speaker-khushi);
+    }
+
+    .faq-ans-avoid {
+      background: var(--danger-red-bg);
+      border-left: 3px solid var(--danger-red);
+    }
+
+    .faq-ans-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 4px;
+    }
+
+    .label-short { color: var(--speaker-viraj); }
+    .label-detailed { color: var(--accent-indigo-light); }
+    .label-pres { color: var(--speaker-khushi); }
+    .label-avoid { color: var(--danger-red); }
+
+    /* Rapid Fire Grid */
+    .rapid-fire-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+    }
+
+    .rapid-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      transition: all 0.2s ease;
+    }
+
+    .rapid-card:hover {
+      border-color: var(--accent-indigo);
+      transform: translateY(-2px);
+    }
+
+    .rapid-q {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .rapid-a {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* Avoid Saying Table / Cards */
+    .avoid-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 16px;
+    }
+
+    .avoid-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+
+    .avoid-bad {
+      background: var(--danger-red-bg);
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .avoid-good {
+      background: var(--speaker-khushi-bg);
+      padding: 14px 18px;
+    }
+
+    .avoid-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 4px;
+    }
+
+    /* Cheat Sheet */
+    .cheat-sheet-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    .cheat-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+    }
+
+    .cheat-card.viraj {
+      border-top: 4px solid var(--speaker-viraj);
+    }
+
+    .cheat-card.khushi {
+      border-top: 4px solid var(--speaker-khushi);
+    }
+
+    .cheat-card.both {
+      border-top: 4px solid var(--speaker-both);
+    }
+
+    .cheat-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Presentation Mode Custom Display */
+    body.presentation-mode .sidebar,
+    body.presentation-mode .faq-search-bar,
+    body.presentation-mode .script-accordion,
+    body.presentation-mode .talking-points-card,
+    body.presentation-mode .objective-box,
+    body.presentation-mode #faq-section,
+    body.presentation-mode #rapid-fire,
+    body.presentation-mode #avoid-section,
+    body.presentation-mode #checklist-section {
+      display: none !important;
+    }
+
+    body.presentation-mode .main-layout {
+      grid-template-columns: 1fr;
+      max-width: 900px;
+    }
+
+    body.presentation-mode .script-section {
+      padding: 40px;
+      margin-bottom: 40px;
+    }
+
+    body.presentation-mode .spoken-text {
+      font-size: 1.25rem;
+      line-height: 1.85;
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: 60px;
+      padding: 32px 24px;
+      border-top: 1px solid var(--border-subtle);
+      background: var(--bg-secondary);
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* Utility */
+    .text-viraj { color: var(--speaker-viraj); }
+    .text-khushi { color: var(--speaker-khushi); }
+    .text-both { color: var(--speaker-both); }
+    .text-demo { color: var(--demo-gold); }
+
+    .hidden { display: none !important; }
+
+    /* Print Styles */
+    @media print {
+      .top-nav, .sidebar, .action-btn, .filter-btn, .copy-script-btn {
+        display: none !important;
+      }
+      .main-layout {
+        grid-template-columns: 1fr;
+        padding: 0;
+      }
+      body {
+        background: white;
+        color: black;
+      }
+      .script-section, .narrative-section, .hero-section {
+        box-shadow: none;
+        border: 1px solid #ccc;
+        page-break-inside: avoid;
+        margin-bottom: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Sticky Navigation Bar -->
+  <header class="top-nav">
+    <div class="nav-content">
+      <a href="#hero" class="nav-brand">
+        <div class="nav-logo-badge">TS</div>
+        <span>Monthly Review Companion</span>
+      </a>
+
+      <div class="nav-controls">
+        <!-- Speaker Filter -->
+        <div class="nav-filter-group">
+          <button class="filter-btn active" data-filter="all">All</button>
+          <button class="filter-btn khushi-btn" data-filter="khushi">Khushi</button>
+          <button class="filter-btn viraj-btn" data-filter="viraj">Viraj</button>
+          <button class="filter-btn" data-filter="demo">Demo</button>
+          <button class="filter-btn" data-filter="faq">Q&amp;A</button>
+        </div>
+
+        <!-- Presentation Mode Button -->
+        <button class="action-btn" id="pres-mode-toggle" title="Toggle simplified teleprompter presentation mode">
+          <span id="pres-mode-icon">📽️</span>
+          <span>Presentation Mode</span>
+        </button>
+
+        <!-- Theme Toggle -->
+        <button class="action-btn" id="theme-toggle" title="Toggle Light/Dark Theme">
+          <span id="theme-icon">🌙</span>
+        </button>
+
+        <!-- Expand All FAQs Button -->
+        <button class="action-btn" id="toggle-faqs-btn" title="Expand or Collapse all FAQs">
+          <span>Toggle FAQs</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-container">
+    <div class="main-layout">
+      
+      <!-- Sidebar Quick Navigation -->
+      <aside class="sidebar">
+        <div class="sidebar-card">
+          <div class="sidebar-title">Presentation Flow</div>
+          <ul class="sidebar-nav-list">
+            <li class="sidebar-nav-item active"><a href="#hero"><span>Overview &amp; Meta</span></a></li>
+            <li class="sidebar-nav-item"><a href="#timeline"><span>Timeline (22-26 min)</span></a></li>
+            <li class="sidebar-nav-item" data-speaker="khushi"><a href="#sec-1"><span>1. Problem &amp; Objective</span> <span class="sidebar-speaker-tag tag-khushi">Khushi</span></a></li>
+            <li class="sidebar-nav-item" data-speaker="viraj"><a href="#sec-2"><span>2. What We Build</span> <span class="sidebar-speaker-tag tag-viraj">Viraj</span></a></li>
+            <li class="sidebar-nav-item" data-speaker="khushi"><a href="#sec-3"><span>3. System Flow</span> <span class="sidebar-speaker-tag tag-khushi">Khushi</span></a></li>
+            <li class="sidebar-nav-item" data-speaker="viraj"><a href="#sec-4"><span>4. Vehicle Motion &amp; IDM</span> <span class="sidebar-speaker-tag tag-viraj">Viraj</span></a></li>
+            <li class="sidebar-nav-item" data-speaker="viraj"><a href="#sec-5"><span>5. IDM + Controller</span> <span class="sidebar-speaker-tag tag-viraj">Viraj</span></a></li>
+            <li class="sidebar-nav-item" data-speaker="khushi"><a href="#sec-6"><span>6. Control Strategies</span> <span class="sidebar-speaker-tag tag-khushi">Khushi</span></a></li>
+            <li class="sidebar-nav-item" data-speaker="demo"><a href="#sec-7"><span>7. LIVE DEMO (7 Steps)</span> <span class="sidebar-speaker-tag tag-demo">Demo</span></a></li>
+            <li class="sidebar-nav-item" data-speaker="both"><a href="#sec-8"><span>8. What We Completed</span> <span class="sidebar-speaker-tag tag-both">Both</span></a></li>
+            <li class="sidebar-nav-item" data-speaker="viraj"><a href="#sec-9"><span>9. Evaluation Metrics</span> <span class="sidebar-speaker-tag tag-viraj">Viraj</span></a></li>
+            <li class="sidebar-nav-item" data-speaker="khushi"><a href="#sec-10"><span>10. Future Roadmap</span> <span class="sidebar-speaker-tag tag-khushi">Khushi</span></a></li>
+            <li class="sidebar-nav-item" data-speaker="both"><a href="#sec-11"><span>11. Closing Summary</span> <span class="sidebar-speaker-tag tag-both">Both</span></a></li>
+          </ul>
+
+          <div class="sidebar-title" style="margin-top: 24px;">Preparation &amp; Q&amp;A</div>
+          <ul class="sidebar-nav-list">
+            <li class="sidebar-nav-item" data-speaker="faq"><a href="#faq-section"><span>Anticipated FAQs (80+)</span></a></li>
+            <li class="sidebar-nav-item"><a href="#rapid-fire"><span>Rapid-Fire Q&amp;A (30)</span></a></li>
+            <li class="sidebar-nav-item"><a href="#key-messages"><span>Core Messages</span></a></li>
+            <li class="sidebar-nav-item"><a href="#avoid-section"><span>Things to Avoid Saying</span></a></li>
+            <li class="sidebar-nav-item"><a href="#cheat-sheet"><span>Speaker Cheat Sheets</span></a></li>
+            <li class="sidebar-nav-item"><a href="#checklist-section"><span>Pre-Flight Checklist</span></a></li>
+          </ul>
+        </div>
+      </aside>
+
+      <!-- Main Presentation Content -->
+      <main class="content-area">
+
+        <!-- 5. Header / Hero Section -->
+        <section id="hero" class="hero-section">
+          <div class="hero-badge-row">
+            <span class="hero-badge badge-primary">Internship Monthly Review</span>
+            <span class="hero-badge badge-success">Completed: Foundation + Visual Sim</span>
+            <span class="hero-badge badge-warning">Current Phase: Performance Metrics</span>
+            <span class="hero-badge badge-info">Next: Quantitative Comparison</span>
+          </div>
+
+          <h1 class="hero-title">Monthly Review Presentation</h1>
+          <h2 class="hero-subtitle">Traffic Control Strategy Simulation Framework</h2>
+
+          <p class="hero-description">
+            A structured walkthrough of the project problem, simulation architecture, live application demo, evaluation strategy, future roadmap, and comprehensive anticipated Q&amp;A.
+          </p>
+
+          <div class="hero-cards-grid">
+            <div class="meta-card">
+              <div class="meta-label">Presenters</div>
+              <div class="meta-value">Viraj Jadhao &amp; Khushi</div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-label">Core Comparison</div>
+              <div class="meta-value">Fixed-Time Signal vs. Roundabout</div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-label">Simulation Vehicle Model</div>
+              <div class="meta-value">Intelligent Driver Model (IDM)</div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-label">Review Scope</div>
+              <div class="meta-value">Single Intersection, Motor Vehicles</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Presentation Narrative Section -->
+        <section class="narrative-section">
+          <div class="section-heading-group">
+            <div class="section-eyebrow">Presentation Storyline</div>
+            <h3 class="section-heading">Core Presentation Narrative</h3>
+          </div>
+
+          <div class="narrative-flow">
+            <div class="narrative-node">Problem</div>
+            <span class="narrative-arrow">➔</span>
+            <div class="narrative-node">What We Are Building</div>
+            <span class="narrative-arrow">➔</span>
+            <div class="narrative-node">How the System Works</div>
+            <span class="narrative-arrow">➔</span>
+            <div class="narrative-node">Vehicle Movement</div>
+            <span class="narrative-arrow">➔</span>
+            <div class="narrative-node">Traffic Control Strategies</div>
+            <span class="narrative-arrow">➔</span>
+            <div class="narrative-node demo-node">⚡ LIVE DEMO</div>
+            <span class="narrative-arrow">➔</span>
+            <div class="narrative-node">What We Have Completed</div>
+            <span class="narrative-arrow">➔</span>
+            <div class="narrative-node">Performance Metrics</div>
+            <span class="narrative-arrow">➔</span>
+            <div class="narrative-node">Future Work</div>
+            <span class="narrative-arrow">➔</span>
+            <div class="narrative-node">Final Comparative Study</div>
+          </div>
+        </section>
+
+        <!-- 6. Presentation Timeline -->
+        <section id="timeline" class="timeline-card">
+          <div class="section-heading-group">
+            <div class="section-eyebrow">Agenda &amp; Time Budget</div>
+            <h3 class="section-heading">Presentation Timeline (22–26 Minutes)</h3>
+          </div>
+
+          <table class="timeline-table">
+            <thead>
+              <tr>
+                <th>Section</th>
+                <th>Speaker</th>
+                <th>Approximate Duration</th>
+                <th>Core Focus</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>1. Project Problem &amp; Objective</strong></td>
+                <td><span class="sidebar-speaker-tag tag-khushi">Khushi</span></td>
+                <td>2 min</td>
+                <td>Problem statement, comparative study rationale, no universal winner</td>
+              </tr>
+              <tr>
+                <td><strong>2. What We Are Building</strong></td>
+                <td><span class="sidebar-speaker-tag tag-viraj">Viraj</span></td>
+                <td>2 min</td>
+                <td>Repeatable simulation framework, high-level architecture flow</td>
+              </tr>
+              <tr>
+                <td><strong>3. End-to-End System Flow</strong></td>
+                <td><span class="sidebar-speaker-tag tag-khushi">Khushi</span></td>
+                <td>2–3 min</td>
+                <td>4 Stages: Parameters ➔ IDM Engine ➔ Outputs ➔ Metrics</td>
+              </tr>
+              <tr>
+                <td><strong>4. Vehicle Motion &amp; IDM</strong></td>
+                <td><span class="sidebar-speaker-tag tag-viraj">Viraj</span></td>
+                <td>3–4 min</td>
+                <td>Intelligent Driver Model, why IDM, conceptual formulation</td>
+              </tr>
+              <tr>
+                <td><strong>5. IDM + Controller Integration</strong></td>
+                <td><span class="sidebar-speaker-tag tag-viraj">Viraj</span></td>
+                <td>2 min</td>
+                <td>Permission vs. Movement separation, virtual stationary reference</td>
+              </tr>
+              <tr>
+                <td><strong>6. Traffic Control Strategies</strong></td>
+                <td><span class="sidebar-speaker-tag tag-khushi">Khushi</span></td>
+                <td>2–3 min</td>
+                <td>Fixed-Time Signal vs Roundabout behavioral comparison</td>
+              </tr>
+              <tr style="background: rgba(251, 191, 36, 0.05);">
+                <td><strong>7. Live Application Demo</strong></td>
+                <td><span class="sidebar-speaker-tag tag-demo">Both</span></td>
+                <td>5–7 min</td>
+                <td>7-step working simulation demo, IDM following, signals &amp; roundabout</td>
+              </tr>
+              <tr>
+                <td><strong>8. What We Have Completed</strong></td>
+                <td><span class="sidebar-speaker-tag tag-both">Both</span></td>
+                <td>3–4 min</td>
+                <td>4 Completed Phases evolution, current status card</td>
+              </tr>
+              <tr>
+                <td><strong>9. Evaluation Metrics</strong></td>
+                <td><span class="sidebar-speaker-tag tag-viraj">Viraj</span></td>
+                <td>2–3 min</td>
+                <td>Efficiency, Flow Quality, System, Fairness, Physical constraints</td>
+              </tr>
+              <tr>
+                <td><strong>10. Future Roadmap</strong></td>
+                <td><span class="sidebar-speaker-tag tag-khushi">Khushi</span></td>
+                <td>2 min</td>
+                <td>Current ➔ Strategy Comparison ➔ Volume Sweeps ➔ Final Study</td>
+              </tr>
+              <tr>
+                <td><strong>11. Final Closing</strong></td>
+                <td><span class="sidebar-speaker-tag tag-both">Both</span></td>
+                <td>1 min</td>
+                <td>Summary of foundation built and next milestones</td>
+              </tr>
+              <tr>
+                <td><strong>12. Q&amp;A Session</strong></td>
+                <td><span class="sidebar-speaker-tag tag-both">Both</span></td>
+                <td>Variable</td>
+                <td>Comprehensive technical and strategic answers</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="timeline-total-badge">
+            ⏱️ Total Presentation Target: <strong>~22–26 minutes</strong> (excluding extended discussion)
+          </div>
+        </section>
+
+        <!-- ========================================================================= -->
+        <!-- DETAILED PRESENTATION SCRIPT SECTIONS -->
+        <!-- ========================================================================= -->
+
+        <!-- SECTION 1 -->
+        <section id="sec-1" class="script-section speaker-khushi" data-speaker-section="khushi">
+          <div class="section-meta-bar">
+            <div class="section-speaker-pill tag-khushi">
+              <span>🎤 Speaker: Khushi</span>
+            </div>
+            <div class="section-duration">⏱️ Suggested Duration: 2 min</div>
+          </div>
+
+          <h3 class="section-heading">Section 1 — Project Problem &amp; Objective</h3>
+
+          <div class="objective-box">
+            <div class="objective-label">Section Objective</div>
+            <div class="objective-text">
+              Explain what problem the project is addressing and clearly establish that this is a controlled comparative simulation study rather than an effort to declare one strategy universally superior.
+            </div>
+          </div>
+
+          <div class="key-message-card">
+            <div class="key-message-label">Key Message</div>
+            <div class="key-message-text">
+              "The objective is not to declare a universal winner. The objective is to understand how each strategy performs under different traffic conditions."
+            </div>
+          </div>
+
+          <div class="script-box">
+            <div class="script-box-header">
+              <div class="script-box-title">🗣️ Full Spoken Script</div>
+              <button class="copy-script-btn" onclick="copyText(this)">Copy Script</button>
+            </div>
+            <div class="spoken-text">
+              <p>
+                "Good morning everyone. Over the past month, we have been working on building a traffic simulation system to study and compare how different intersection control strategies perform under the same traffic conditions."
+              </p>
+              <p>
+                "In urban traffic management, choosing between a fixed-time traffic signal and a roundabout is a common engineering dilemma. In low-traffic scenarios, a fixed-time signal often forces drivers to wait at red lights even when there is no cross-traffic, causing unnecessary idle delay. On the other hand, a roundabout allows vehicles to yield dynamically and take advantage of available gaps. However, as traffic volume increases toward heavy saturation, the dynamics can change dramatically."
+              </p>
+              <p>
+                "I want to emphasize our core project philosophy: <strong>The objective is not to declare a universal winner. The objective is to understand how each strategy performs under different traffic conditions.</strong>"
+              </p>
+              <p>
+                "To answer this question rigorously, we are creating a controlled, repeatable simulation environment where road geometry, vehicle acceleration parameters, and arrival volumes are held identical, leaving the intersection control strategy as the primary independent variable."
+              </p>
+            </div>
+          </div>
+
+          <div class="bullet-points-grid">
+            <div class="talking-points-card">
+              <div class="talking-points-title">📌 Important Talking Points</div>
+              <ul class="talking-points-list">
+                <li>Focus is on single intersection, motor vehicles, repeatable conditions.</li>
+                <li>Fixed-time signals provide deterministic phase rights; roundabouts provide dynamic gap-acceptance.</li>
+                <li>Explicitly out of scope: pedestrians, cyclists, emergency priority, multiple grid intersections.</li>
+              </ul>
+            </div>
+            <div class="talking-points-card">
+              <div class="talking-points-title">⚠️ Things NOT to Say</div>
+              <ul class="talking-points-list">
+                <li>Do NOT say: "Roundabouts are simply better than traffic signals."</li>
+                <li>Do NOT claim: "This is fully validated against real city sensor data."</li>
+                <li>Do NOT claim: "We are simulating an entire city corridor."</li>
+              </ul>
+            </div>
+          </div>
+
+          <details class="script-accordion">
+            <summary>
+              <span>⚡ Optional Shorter Version (60 seconds)</span>
+              <span>▾</span>
+            </summary>
+            <div class="accordion-body">
+              "Good morning. Our project investigates how intersection control strategies perform under identical traffic conditions. We specifically compare fixed-time traffic signals with roundabouts. Rather than claiming one design is universally superior, we are building a controlled simulation platform to discover the exact traffic volumes and conditions under which each strategy excels. Viraj will now explain what we are building to make this possible."
+            </div>
+          </details>
+
+          <div class="transition-box">
+            <div class="transition-icon">➔</div>
+            <div>
+              <div class="transition-label">Transition to Viraj</div>
+              <div class="transition-text">
+                "Now that we have established the problem we are studying, Viraj will explain what we are actually building to investigate it."
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 2 -->
+        <section id="sec-2" class="script-section speaker-viraj" data-speaker-section="viraj">
+          <div class="section-meta-bar">
+            <div class="section-speaker-pill tag-viraj">
+              <span>🎤 Speaker: Viraj</span>
+            </div>
+            <div class="section-duration">⏱️ Suggested Duration: 2 min</div>
+          </div>
+
+          <h3 class="section-heading">Section 2 — What We Are Building</h3>
+
+          <div class="objective-box">
+            <div class="objective-label">Section Objective</div>
+            <div class="objective-text">
+              Introduce the simulation framework architecture and explain the foundational architectural separation between the vehicle motion model and the traffic control strategy.
+            </div>
+          </div>
+
+          <div class="key-message-card">
+            <div class="key-message-label">Core Architecture Principle</div>
+            <div class="key-message-text">
+              "The strategy controls whether a vehicle is currently allowed to proceed. The vehicle model controls how the vehicle physically moves."
+            </div>
+          </div>
+
+          <div class="script-box">
+            <div class="script-box-header">
+              <div class="script-box-title">🗣️ Full Spoken Script</div>
+              <button class="copy-script-btn" onclick="copyText(this)">Copy Script</button>
+            </div>
+            <div class="spoken-text">
+              <p>
+                "Thank you, Khushi. To answer our core question, we are building a <strong>repeatable traffic simulation and comparison environment</strong>."
+              </p>
+              <p>
+                "At a high level, the system executes through a modular pipeline: <strong>Simulation Parameters ➔ Simulation Engine ➔ Vehicle Movement ➔ Traffic Control Strategy ➔ Simulation Outputs ➔ Evaluation Metrics ➔ Strategy Comparison</strong>."
+              </p>
+              <p>
+                "Users or predefined test scenarios configure conditions such as traffic volume, vehicle spawn rates, number of lanes, lane length, desired speeds, and simulation duration. Then, the engine runs the scenario under the chosen control strategy."
+              </p>
+              <p>
+                "The most critical architectural decision we made is the strict separation of concerns: <strong>The strategy controls whether a vehicle is currently allowed to proceed. The vehicle model controls how the vehicle physically moves.</strong>"
+              </p>
+              <p>
+                "This separation is essential for scientific fairness: when we compare a signal against a roundabout, the physical car-following laws do not change—only the permission rules change."
+              </p>
+            </div>
+          </div>
+
+          <div class="tech-code-block">
+High-Level System Flow:
+Simulation Parameters ➔ Simulation Engine ➔ Vehicle Movement (IDM) ➔ Traffic Control Strategy ➔ Simulation Outputs ➔ Evaluation Metrics ➔ Strategy Comparison
+          </div>
+
+          <div class="bullet-points-grid">
+            <div class="talking-points-card">
+              <div class="talking-points-title">📌 Key Talking Points</div>
+              <ul class="talking-points-list">
+                <li>Deterministic &amp; repeatable execution under identical seed parameters.</li>
+                <li>Modularity enables plugging in alternative controllers without touching vehicle physics.</li>
+                <li>Outputs produce both visual rendering state and raw analytical log data.</li>
+              </ul>
+            </div>
+          </div>
+
+          <details class="script-accordion">
+            <summary>
+              <span>⚡ Optional Shorter Version (45 seconds)</span>
+              <span>▾</span>
+            </summary>
+            <div class="accordion-body">
+              "We are building a repeatable traffic simulation engine that executes scenarios with identical road and vehicle parameters. Crucially, our architecture decouples vehicle physics from traffic control rules: IDM dictates acceleration and following, while the controller only grants or denies permission to advance. Khushi will now walk through the end-to-end data flow."
+            </div>
+          </details>
+
+          <div class="transition-box">
+            <div class="transition-icon">➔</div>
+            <div>
+              <div class="transition-label">Transition to Khushi</div>
+              <div class="transition-text">
+                "To understand how these components interact in practice, Khushi will walk through the overall system flow."
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 3 -->
+        <section id="sec-3" class="script-section speaker-khushi" data-speaker-section="khushi">
+          <div class="section-meta-bar">
+            <div class="section-speaker-pill tag-khushi">
+              <span>🎤 Speaker: Khushi</span>
+            </div>
+            <div class="section-duration">⏱️ Suggested Duration: 2–3 min</div>
+          </div>
+
+          <h3 class="section-heading">Section 3 — End-to-End System Flow</h3>
+
+          <div class="objective-box">
+            <div class="objective-label">Section Objective</div>
+            <div class="objective-text">
+              Walk through the system in four distinct, logical stages: Parameters, Engine execution, Output generation, and Evaluation/Comparison.
+            </div>
+          </div>
+
+          <div class="tech-grid">
+            <div class="tech-card">
+              <div class="tech-card-title">Stage 1 — Parameters</div>
+              <p style="font-size: 13px; color: var(--text-secondary);">
+                Defines spawn rates (veh/hr), lane lengths, vehicle parameters, warmup periods, and duration. Allows testing low, medium, and high congestion scenarios.
+              </p>
+            </div>
+            <div class="tech-card">
+              <div class="tech-card-title">Stage 2 — IDM Engine</div>
+              <p style="font-size: 13px; color: var(--text-secondary);">
+                Updates positions, velocities, and accelerations at discrete timesteps. Evaluates car-following interactions and queries the active traffic controller.
+              </p>
+            </div>
+            <div class="tech-card">
+              <div class="tech-card-title">Stage 3 — Outputs</div>
+              <p style="font-size: 13px; color: var(--text-secondary);">
+                Records per-vehicle trajectories, positions, instantaneous speeds, stops, and state snapshots for real-time frontend visualization and metric aggregation.
+              </p>
+            </div>
+            <div class="tech-card">
+              <div class="tech-card-title">Stage 4 — Evaluation</div>
+              <p style="font-size: 13px; color: var(--text-secondary);">
+                Transforms raw logs into multi-dimensional metrics: wait time, throughput, queue length, stop counts, reliability, and directional fairness.
+              </p>
+            </div>
+          </div>
+
+          <div class="script-box">
+            <div class="script-box-header">
+              <div class="script-box-title">🗣️ Full Spoken Script</div>
+              <button class="copy-script-btn" onclick="copyText(this)">Copy Script</button>
+            </div>
+            <div class="spoken-text">
+              <p>
+                "Let us look at how the entire system operates across four coordinated stages."
+              </p>
+              <p>
+                "<strong>Stage 1 is Scenario Configuration.</strong> Here, we set traffic volume, number of lanes, lane lengths, and vehicle speed profiles. For example, we can configure an intersection approach with 300 vehicles per hour for a low-demand test, or 1200 vehicles per hour for heavy saturation."
+              </p>
+              <p>
+                "<strong>Stage 2 is the IDM Simulation Engine.</strong> As the clock advances, the engine calculates vehicle positions, checks interactions with leaders, and enforces the active control strategy."
+              </p>
+              <p>
+                "<strong>Stage 3 is Simulation Outputs.</strong> At each timestep, the engine captures vehicle coordinates, velocities, and status flags. These snapshots feed our live visualization and are simultaneously logged."
+              </p>
+              <p>
+                "<strong>Stage 4 is Evaluation and Comparison.</strong> Raw simulation records are transformed into standardized performance metrics: average wait time, throughput, queue lengths, stop count, and fairness indices. As we like to say: <em>The simulation engine tells us what happened; the evaluation layer helps us understand how well each strategy performed.</em>"
+              </p>
+            </div>
+          </div>
+
+          <div class="transition-box">
+            <div class="transition-icon">➔</div>
+            <div>
+              <div class="transition-label">Transition to Viraj</div>
+              <div class="transition-text">
+                "Now that we have seen the complete flow, Viraj will explain the core model responsible for realistic vehicle movement."
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 4 -->
+        <section id="sec-4" class="script-section speaker-viraj" data-speaker-section="viraj">
+          <div class="section-meta-bar">
+            <div class="section-speaker-pill tag-viraj">
+              <span>🎤 Speaker: Viraj</span>
+            </div>
+            <div class="section-duration">⏱️ Suggested Duration: 3–4 min</div>
+          </div>
+
+          <h3 class="section-heading">Section 4 — Vehicle Motion Model (IDM)</h3>
+
+          <div class="objective-box">
+            <div class="objective-label">Section Objective</div>
+            <div class="objective-text">
+              Explain the Intelligent Driver Model (IDM) at an intuitive, accessible level for a mixed technical and management audience, highlighting why it was chosen over simplistic or overly complex alternatives.
+            </div>
+          </div>
+
+          <div class="key-message-card">
+            <div class="key-message-label">Core Takeaway</div>
+            <div class="key-message-text">
+              "IDM handles realistic driving behavior. The traffic controller handles traffic rules."
+            </div>
+          </div>
+
+          <div class="script-box">
+            <div class="script-box-header">
+              <div class="script-box-title">🗣️ Full Spoken Script</div>
+              <button class="copy-script-btn" onclick="copyText(this)">Copy Script</button>
+            </div>
+            <div class="spoken-text">
+              <p>
+                "The core vehicle movement in our simulation is based on the <strong>Intelligent Driver Model</strong>, or <strong>IDM</strong>."
+              </p>
+              <p>
+                "In microscopic traffic simulation, vehicles cannot simply move at a constant, robotic speed or snap instantly from 50 km/h to zero. IDM is a continuous car-following model that calculates acceleration based on desired speed, distance to the lead vehicle, and relative closing velocity."
+              </p>
+              <p>
+                "Conceptually, IDM balances two intuitive forces:"
+              </p>
+              <p>
+                "<strong>Part 1 — Desired Free-Road Acceleration:</strong> When the road ahead is empty, the driver smoothly accelerates towards their desired target speed (v₀)."
+              </p>
+              <p>
+                "<strong>Part 2 — Interaction Braking:</strong> When approaching a slower vehicle ahead, or approaching a red stop line, IDM calculates a dynamic desired gap. If the actual gap shrinks below this safe threshold, the model smoothly reduces acceleration and applies comfortable braking."
+              </p>
+              <p>
+                "This gives our simulation smooth, realistic traffic waves, natural queue compression at red lights, and smooth takeoff when signals turn green."
+              </p>
+            </div>
+          </div>
+
+          <div class="tech-code-block">
+Conceptual IDM Formula in our Engine:
+Acceleration a = a_free - a_interaction
+a = a0 * [ 1 - (v / v0)^δ ] - a0 * [ s*(v, Δv) / s ]²
+where target gap s* = s0 + v*T + (v * Δv) / (2 * √(a0 * b))
+- a0: Max Acceleration (2.0 m/s²)    - b: Comfortable Decel (3.0 m/s²)
+- T: Time Headway (1.5 s)            - s0: Minimum Standstill Gap (2.0 m)
+- δ: Acceleration Exponent (4.0)     - s: Actual Current Gap
+          </div>
+
+          <div class="bullet-points-grid">
+            <div class="talking-points-card">
+              <div class="talking-points-title">💡 Why IDM over other models?</div>
+              <ul class="talking-points-list">
+                <li><strong>Widely accepted standard</strong> in traffic engineering literature (Treiber et al.).</li>
+                <li><strong>No sudden velocity jumps</strong>—produces natural acceleration/deceleration curves.</li>
+                <li><strong>Intuitively tunable parameters</strong> representing physical driver traits.</li>
+                <li><strong>Decoupled from intersection geometry</strong>, maintaining fairness across tests.</li>
+              </ul>
+            </div>
+            <div class="talking-points-card">
+              <div class="talking-points-title">🚗 Intuitive Vehicle Responses</div>
+              <ul class="talking-points-list">
+                <li><strong>Clear road:</strong> Accelerate smoothly toward desired speed.</li>
+                <li><strong>Vehicle ahead:</strong> Match lead vehicle speed and maintain safe headway.</li>
+                <li><strong>Stopping point:</strong> Decelerate smoothly to a standstill with 2m buffer.</li>
+              </ul>
+            </div>
+          </div>
+
+          <details class="script-accordion">
+            <summary>
+              <span>⚡ Optional Shorter Version (60 seconds)</span>
+              <span>▾</span>
+            </summary>
+            <div class="accordion-body">
+              "Our vehicle movement relies on the Intelligent Driver Model (IDM). IDM continuously computes smooth acceleration and braking based on two factors: desired speed on an open road, and safe following distance when approaching a leading vehicle or stopping line. This guarantees realistic traffic flow dynamics without hard-coded animations."
+            </div>
+          </details>
+
+          <div class="transition-box">
+            <div class="transition-icon">➔</div>
+            <div>
+              <div class="transition-label">Continuing with Viraj</div>
+              <div class="transition-text">
+                "Next, let us look at how IDM seamlessly integrates with our traffic controllers."
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 5 -->
+        <section id="sec-5" class="script-section speaker-viraj" data-speaker-section="viraj">
+          <div class="section-meta-bar">
+            <div class="section-speaker-pill tag-viraj">
+              <span>🎤 Speaker: Viraj</span>
+            </div>
+            <div class="section-duration">⏱️ Suggested Duration: 2 min</div>
+          </div>
+
+          <h3 class="section-heading">Section 5 — IDM + Traffic Control Integration</h3>
+
+          <div class="objective-box">
+            <div class="objective-label">Section Objective</div>
+            <div class="objective-text">
+              Explain the elegant mechanism by which traffic control rules interact with IDM physics without mutating vehicle movement algorithms.
+            </div>
+          </div>
+
+          <div class="key-message-card">
+            <div class="key-message-label">Key Architecture Insight</div>
+            <div class="key-message-text">
+              "The control strategy determines permission. IDM determines movement."
+            </div>
+          </div>
+
+          <div class="script-box">
+            <div class="script-box-header">
+              <div class="script-box-title">🗣️ Full Spoken Script</div>
+              <button class="copy-script-btn" onclick="copyText(this)">Copy Script</button>
+            </div>
+            <div class="spoken-text">
+              <p>
+                "A natural question is: how does a red light or a roundabout yield line stop an IDM vehicle without breaking the physics model?"
+              </p>
+              <p>
+                "Our architecture solves this elegantly using <strong>virtual stationary obstacles</strong>."
+              </p>
+              <p>
+                "<strong>Scenario A — Vehicle Cannot Proceed (Red Light / Yielding at Roundabout):</strong> The controller marks the stop bar as active. The vehicle's IDM simply treats the stop bar as a stationary virtual vehicle (speed = 0) located right at the line. IDM naturally slows the vehicle down to a smooth, perfect stop with the configured 2-meter gap."
+              </p>
+              <p>
+                "<strong>Scenario B — Vehicle Can Proceed (Green Light / Safe Gap in Roundabout):</strong> The controller removes the virtual obstacle. The vehicle immediately sees an open road (or the physical car ahead) and smoothly accelerates into the intersection."
+              </p>
+              <p>
+                "This means we never have to write custom braking hacks for different controllers. <strong>The controller determines permission; IDM determines movement.</strong>"
+              </p>
+            </div>
+          </div>
+
+          <div class="transition-box">
+            <div class="transition-icon">➔</div>
+            <div>
+              <div class="transition-label">Transition to Khushi</div>
+              <div class="transition-text">
+                "Khushi will now explain the operational differences between the two strategies we are comparing."
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 6 -->
+        <section id="sec-6" class="script-section speaker-khushi" data-speaker-section="khushi">
+          <div class="section-meta-bar">
+            <div class="section-speaker-pill tag-khushi">
+              <span>🎤 Speaker: Khushi</span>
+            </div>
+            <div class="section-duration">⏱️ Suggested Duration: 2–3 min</div>
+          </div>
+
+          <h3 class="section-heading">Section 6 — Traffic Control Strategies</h3>
+
+          <div class="objective-box">
+            <div class="objective-label">Section Objective</div>
+            <div class="objective-text">
+              Compare the operational logic and behavioral characteristics of Fixed-Time Traffic Signals vs. Roundabouts.
+            </div>
+          </div>
+
+          <table class="styled-table">
+            <thead>
+              <tr>
+                <th>Feature / Dimension</th>
+                <th>Fixed-Time Traffic Signal</th>
+                <th>Roundabout (Yield Control)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Control Paradigm</strong></td>
+                <td>Predefined fixed timing cycle (Green / Yellow / Red phases)</td>
+                <td>Continuous priority-to-circulating rule</td>
+              </tr>
+              <tr>
+                <td><strong>Decision Trigger</strong></td>
+                <td>Elapsed phase duration</td>
+                <td>Acceptable gap availability in circulating traffic</td>
+              </tr>
+              <tr>
+                <td><strong>Low Traffic Response</strong></td>
+                <td>May introduce unnecessary waiting during red phase</td>
+                <td>Zero wait if circulating ring is clear</td>
+              </tr>
+              <tr>
+                <td><strong>High Traffic Behavior</strong></td>
+                <td>Enforces strict rights-of-way; queues form predictably</td>
+                <td>Subject to locking if circulating stream is saturated</td>
+              </tr>
+              <tr>
+                <td><strong>Physical Footprint</strong></td>
+                <td>Compact rectangular footprint</td>
+                <td>Larger circular land requirement</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="script-box">
+            <div class="script-box-header">
+              <div class="script-box-title">🗣️ Full Spoken Script</div>
+              <button class="copy-script-btn" onclick="copyText(this)">Copy Script</button>
+            </div>
+            <div class="spoken-text">
+              <p>
+                "Let us contrast the two intersection control strategies we have implemented."
+              </p>
+              <p>
+                "<strong>Fixed-Time Traffic Signals</strong> operate on predefined clock phases. Vehicles move strictly when granted a green light. While simple and reliable, fixed timing cannot adapt to instant volume imbalances, meaning vehicles may wait at a red light despite zero cross-traffic."
+              </p>
+              <p>
+                "<strong>Roundabouts</strong> operate on gap acceptance and yield-at-entry. Arriving vehicles look for an acceptable gap in circulating traffic. If clear, they enter without stopping, providing fluid progression under light and moderate traffic."
+              </p>
+              <p>
+                "Again, this table describes behavioral differences—it does not imply one strategy is universally better across all congestion levels."
+              </p>
+            </div>
+          </div>
+
+          <div class="transition-box" style="border-color: var(--demo-gold);">
+            <div class="transition-icon" style="color: var(--demo-gold);">⚡</div>
+            <div>
+              <div class="transition-label" style="color: var(--demo-gold);">Transition to Live Demo</div>
+              <div class="transition-text">
+                "We have now explained the main concepts behind the system. Rather than continuing only with diagrams and architecture, we would now like to demonstrate the application that we have built."
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================================================= -->
+        <!-- SECTION 7 — LIVE APPLICATION DEMO (VISUALLY PROMINENT) -->
+        <!-- ========================================================================= -->
+        <section id="sec-7" class="script-section is-demo" data-speaker-section="demo">
+          <div class="section-meta-bar">
+            <div class="section-speaker-pill tag-demo">
+              <span>⚡ LIVE APPLICATION DEMO (Both Presenters)</span>
+            </div>
+            <div class="section-duration">⏱️ Suggested Duration: 5–7 min</div>
+          </div>
+
+          <h3 class="section-heading" style="color: var(--demo-gold);">Section 7 — Live Application Demonstration Guide</h3>
+
+          <div class="objective-box" style="border-left-color: var(--demo-gold);">
+            <div class="objective-label" style="color: var(--demo-gold);">Demo Objective</div>
+            <div class="objective-text">
+              Demonstrate that the project is an actual working simulation system and not merely a conceptual architecture or predefined animation.
+            </div>
+          </div>
+
+          <!-- Step 1 -->
+          <div class="demo-step-card">
+            <div class="demo-step-header">
+              <div class="demo-step-num">Step 1 — Introduce the Application</div>
+              <span class="sidebar-speaker-tag tag-khushi">Khushi Speaks</span>
+            </div>
+            <div class="spoken-text">
+              <p>
+                "This is our application interface. Its purpose is to provide an interactive visual environment where we can configure scenarios, run the simulation, observe vehicle dynamics in real time, and monitor state outputs."
+              </p>
+              <p>
+                "Across the interface, we have our <strong>Scenario Configuration Panel</strong>, our <strong>Intersection Canvas Viewport</strong>, and our <strong>Live Simulation State &amp; Metric Telemetry</strong>. Our workflow is straightforward: <em>Configure ➔ Run ➔ Observe ➔ Analyze.</em>"
+              </p>
+            </div>
+          </div>
+
+          <!-- Step 2 -->
+          <div class="demo-step-card">
+            <div class="demo-step-header">
+              <div class="demo-step-num">Step 2 — Basic Vehicle Movement &amp; Physics</div>
+              <span class="sidebar-speaker-tag tag-viraj">Viraj Speaks</span>
+            </div>
+            <div class="spoken-text">
+              <p>
+                "As we start the simulation, notice the vehicle movement. These vehicles are not following pre-baked keyframe animations. Every position, speed, and acceleration is calculated frame-by-frame by our backend IDM physics engine."
+              </p>
+              <p>
+                "<strong>The frontend visualizes the simulation state; it does not manually script the movement of the vehicles.</strong>"
+              </p>
+            </div>
+          </div>
+
+          <!-- Step 3 -->
+          <div class="demo-step-card">
+            <div class="demo-step-header">
+              <div class="demo-step-num">Step 3 — Multiple Vehicle Interaction</div>
+              <span class="sidebar-speaker-tag tag-viraj">Viraj Speaks</span>
+            </div>
+            <div class="spoken-text">
+              <p>
+                "Now, as we spawn a stream of vehicles, notice how they interact. Faster vehicles smoothly decelerate as they approach slower leaders ahead. They maintain the configured 1.5-second time headway and never clip into each other."
+              </p>
+              <p>
+                "This natural vehicle-following behavior is direct proof of the IDM equations in action."
+              </p>
+            </div>
+          </div>
+
+          <!-- Step 4 -->
+          <div class="demo-step-card">
+            <div class="demo-step-header">
+              <div class="demo-step-num">Step 4 — Fixed-Time Traffic Signal Demonstration</div>
+              <span class="sidebar-speaker-tag tag-khushi">Khushi Speaks</span>
+            </div>
+            <div class="spoken-text">
+              <p>
+                "We now activate the <strong>Fixed-Time Traffic Signal</strong> strategy. Notice how approaching vehicles perceive the red light stop bar as a virtual obstacle and smoothly come to a halt with a 2-meter gap."
+              </p>
+              <p>
+                "When the signal turns green, the virtual obstacle disappears. Vehicles accelerate naturally one by one according to their individual desired speeds, creating realistic queue dissipation waves."
+              </p>
+            </div>
+          </div>
+
+          <!-- Step 5 -->
+          <div class="demo-step-card">
+            <div class="demo-step-header">
+              <div class="demo-step-num">Step 5 — Roundabout Strategy Demonstration</div>
+              <span class="sidebar-speaker-tag tag-viraj">Viraj Speaks</span>
+            </div>
+            <div class="spoken-text">
+              <p>
+                "Now we switch the strategy to <strong>Roundabout</strong>, keeping all vehicle parameters identical. Notice how approaching vehicles evaluate oncoming traffic in the circulatory lane."
+              </p>
+              <p>
+                "When a safe gap exists, vehicles merge into the roundabout without coming to a complete stop. When conflicting traffic is present, they yield smoothly at the entry perimeter."
+              </p>
+              <p>
+                "<strong>The vehicle movement model remains identical. What changes is the decision logic determining whether the vehicle may proceed.</strong>"
+              </p>
+            </div>
+          </div>
+
+          <!-- Step 6 -->
+          <div class="demo-step-card">
+            <div class="demo-step-header">
+              <div class="demo-step-num">Step 6 — Compare Observed Behaviors</div>
+              <span class="sidebar-speaker-tag tag-khushi">Khushi Speaks</span>
+            </div>
+            <div class="spoken-text">
+              <p>
+                "What we have demonstrated is the working foundation of our comparative framework: the same simulation engine, the same physical road constraints, and the same IDM vehicle laws, responding differently to two distinct control strategies."
+              </p>
+            </div>
+          </div>
+
+          <!-- Step 7 -->
+          <div class="demo-step-card">
+            <div class="demo-step-header">
+              <div class="demo-step-num">Step 7 — Transition from Visuals to Metrics</div>
+              <span class="sidebar-speaker-tag tag-viraj">Viraj Speaks</span>
+            </div>
+            <div class="spoken-text">
+              <p>
+                "We can visually observe differences in vehicle queueing and stop patterns. However, visual observation alone is subjective."
+              </p>
+              <p>
+                "The next phase of our project focuses on turning these simulation outputs into rigorous, quantitative performance metrics."
+              </p>
+            </div>
+          </div>
+
+          <!-- Demo Interactive Checklist -->
+          <div style="margin-top: 24px;">
+            <div class="section-eyebrow" style="color: var(--demo-gold);">Pre-Demo Readiness</div>
+            <h4 style="font-size: 1.1rem; margin-bottom: 12px;">Live Demo Verification Checklist</h4>
+            <div class="checklist-grid">
+              <label class="check-item"><input type="checkbox" data-check="d1"> <span>Backend FastAPI server running on port 8000</span></label>
+              <label class="check-item"><input type="checkbox" data-check="d2"> <span>Frontend React/Vite dev server running on port 5173</span></label>
+              <label class="check-item"><input type="checkbox" data-check="d3"> <span>Demo scenario preconfigured with moderate traffic</span></label>
+              <label class="check-item"><input type="checkbox" data-check="d4"> <span>Fixed-time signal switching verified</span></label>
+              <label class="check-item"><input type="checkbox" data-check="d5"> <span>Roundabout yield behavior verified</span></label>
+              <label class="check-item"><input type="checkbox" data-check="d6"> <span>Browser zoom and clean tabs prepared</span></label>
+            </div>
+          </div>
+
+          <!-- Troubleshooting Guide -->
+          <div style="margin-top: 28px; background: var(--bg-secondary); border: 1px solid var(--border-medium); border-radius: var(--radius-md); padding: 20px;">
+            <div class="section-eyebrow" style="color: var(--danger-red);">Troubleshooting &amp; Contingency</div>
+            <h4 style="font-size: 1.1rem; margin-bottom: 12px; color: var(--text-primary);">Handling Unexpected Demo Issues Professionally</h4>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">
+              <div class="tech-card">
+                <div class="tech-card-title" style="color: var(--danger-red);">If Application Fails to Start:</div>
+                <p style="font-size: 13px; color: var(--text-secondary); font-style: italic;">
+                  "It looks like there is a runtime connection issue in our local environment. We can walk through our prepared architectural diagrams and output data logs while we restart the service in the background."
+                </p>
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px;">Rule: Do not spend 10 minutes debugging in silence. Stay calm and speak to the architecture.</div>
+              </div>
+
+              <div class="tech-card">
+                <div class="tech-card-title" style="color: var(--demo-gold);">If a Vehicle Glitches or Behaves Erratically:</div>
+                <p style="font-size: 13px; color: var(--text-secondary); font-style: italic;">
+                  "This highlights an edge-case boundary in gap acceptance that we are currently refining during our active metric validation phase."
+                </p>
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px;">Rule: Acknowledge reality transparently; explain how it fits into the validation roadmap.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 8 -->
+        <section id="sec-8" class="script-section speaker-both" data-speaker-section="both">
+          <div class="section-meta-bar">
+            <div class="section-speaker-pill tag-both">
+              <span>🎤 Speaker: Both (Viraj &amp; Khushi)</span>
+            </div>
+            <div class="section-duration">⏱️ Suggested Duration: 3–4 min</div>
+          </div>
+
+          <h3 class="section-heading">Section 8 — What We Have Completed</h3>
+
+          <div class="objective-box">
+            <div class="objective-label">Section Objective</div>
+            <div class="objective-text">
+              Present project progress as a structured 4-phase evolutionary journey rather than a dry list of weekly backlog items.
+            </div>
+          </div>
+
+          <!-- 4 Evolutionary Phases Grid -->
+          <div class="tech-grid">
+            <div class="tech-card" style="border-top: 3px solid var(--speaker-viraj);">
+              <div class="tech-card-title">Phase 1 — Single Vehicle Simulation <span class="sidebar-speaker-tag tag-viraj">Viraj</span></div>
+              <p style="font-size: 13px; color: var(--text-secondary);">
+                Established single vehicle kinematics, road lane coordinates, discrete timesteps, and coordinate bounds.
+              </p>
+              <div style="font-size: 12px; font-weight: 600; color: var(--speaker-viraj); margin-top: 8px;">
+                Result: Simulation-driven longitudinal movement foundation.
+              </div>
+            </div>
+
+            <div class="tech-card" style="border-top: 3px solid var(--speaker-viraj);">
+              <div class="tech-card-title">Phase 2 — Multiple Vehicle IDM Following <span class="sidebar-speaker-tag tag-viraj">Viraj</span></div>
+              <p style="font-size: 13px; color: var(--text-secondary);">
+                Integrated Intelligent Driver Model with leader detection, closing speed calculations, safe headway enforcement, and queue buffering.
+              </p>
+              <div style="font-size: 12px; font-weight: 600; color: var(--speaker-viraj); margin-top: 8px;">
+                Result: Realistic multi-vehicle traffic stream dynamics.
+              </div>
+            </div>
+
+            <div class="tech-card" style="border-top: 3px solid var(--speaker-khushi);">
+              <div class="tech-card-title">Phase 3 — Control Strategies <span class="sidebar-speaker-tag tag-khushi">Khushi</span></div>
+              <p style="font-size: 13px; color: var(--text-secondary);">
+                Implemented Fixed-Time Signal controller and Roundabout gap-acceptance controller on identical road topologies.
+              </p>
+              <div style="font-size: 12px; font-weight: 600; color: var(--speaker-khushi); margin-top: 8px;">
+                Result: Modular controller interface for fair comparative study.
+              </div>
+            </div>
+
+            <div class="tech-card" style="border-top: 3px solid var(--speaker-khushi);">
+              <div class="tech-card-title">Phase 4 — Visual Application &amp; Outputs <span class="sidebar-speaker-tag tag-khushi">Khushi</span></div>
+              <p style="font-size: 13px; color: var(--text-secondary);">
+                Built interactive frontend UI, real-time snapshot state streaming, trajectory logging, and scenario configuration tools.
+              </p>
+              <div style="font-size: 12px; font-weight: 600; color: var(--speaker-khushi); margin-top: 8px;">
+                Result: Observable, demonstrable, and loggable simulation platform.
+              </div>
+            </div>
+          </div>
+
+          <!-- Comprehensive Status Card -->
+          <div style="margin-top: 24px; background: var(--bg-secondary); border: 1px solid var(--border-medium); border-radius: var(--radius-lg); padding: 24px;">
+            <h4 style="font-size: 1.2rem; margin-bottom: 16px; font-family: var(--font-display);">Project Status Overview Card</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px;">
+              <div>
+                <div style="font-size: 12px; font-weight: 700; color: var(--speaker-khushi); text-transform: uppercase; margin-bottom: 8px;">
+                  ✅ Completed Foundation
+                </div>
+                <ul class="talking-points-list" style="font-size: 13px;">
+                  <li>Core vehicle kinematics &amp; physics engine</li>
+                  <li>Multi-vehicle IDM car-following</li>
+                  <li>Fixed-Time Traffic Signal controller</li>
+                  <li>Roundabout gap-acceptance controller</li>
+                  <li>Interactive simulation web application</li>
+                  <li>Frame snapshot and output logging pipeline</li>
+                </ul>
+              </div>
+
+              <div>
+                <div style="font-size: 12px; font-weight: 700; color: var(--demo-gold); text-transform: uppercase; margin-bottom: 8px;">
+                  🔄 Currently In Progress
+                </div>
+                <ul class="talking-points-list" style="font-size: 13px;">
+                  <li>Implementation of standardized metric equations</li>
+                  <li>Cross-validation of metric aggregations</li>
+                  <li>Baseline scenario calibration</li>
+                </ul>
+              </div>
+
+              <div>
+                <div style="font-size: 12px; font-weight: 700; color: var(--speaker-viraj); text-transform: uppercase; margin-bottom: 8px;">
+                  🚀 Upcoming Milestones
+                </div>
+                <ul class="talking-points-list" style="font-size: 13px;">
+                  <li>Side-by-side comparative dashboard</li>
+                  <li>Traffic volume sweeps (low, med, high)</li>
+                  <li>Repeatability validation tests</li>
+                  <li>Final comparative analytical report</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 9 -->
+        <section id="sec-9" class="script-section speaker-viraj" data-speaker-section="viraj">
+          <div class="section-meta-bar">
+            <div class="section-speaker-pill tag-viraj">
+              <span>🎤 Speaker: Viraj</span>
+            </div>
+            <div class="section-duration">⏱️ Suggested Duration: 2–3 min</div>
+          </div>
+
+          <h3 class="section-heading">Section 9 — Evaluation Metrics Framework</h3>
+
+          <div class="objective-box">
+            <div class="objective-label">Section Objective</div>
+            <div class="objective-text">
+              Introduce the 5 multi-dimensional metric categories to demonstrate that our evaluation goes far beyond simple average wait time.
+            </div>
+          </div>
+
+          <div class="key-message-card">
+            <div class="key-message-label">Key Message</div>
+            <div class="key-message-text">
+              "The final comparison will not rely on a single number. We evaluate efficiency, traffic flow quality, system performance, fairness, and physical constraints together."
+            </div>
+          </div>
+
+          <!-- 5 Metric Categories Grid -->
+          <div class="tech-grid">
+            <div class="tech-card">
+              <div class="tech-card-title" style="color: var(--speaker-viraj);">1. Operational Efficiency</div>
+              <ul class="talking-points-list" style="font-size: 13px;">
+                <li><strong>Average Wait Time (s):</strong> Mean time spent below 0.5 m/s.</li>
+                <li><strong>Throughput (veh/min):</strong> Completed vehicle exits per unit time.</li>
+                <li><strong>Queue Length (m / veh):</strong> Maximum &amp; mean queue accumulation.</li>
+              </ul>
+            </div>
+
+            <div class="tech-card">
+              <div class="tech-card-title" style="color: var(--speaker-khushi);">2. Traffic Flow Quality</div>
+              <ul class="talking-points-list" style="font-size: 13px;">
+                <li><strong>Stop Count:</strong> Total complete stops per trip.</li>
+                <li><strong>Speed Variance Index:</strong> Uniformity of speed profiles.</li>
+                <li><strong>Travel Time Reliability:</strong> Variance across trips.</li>
+              </ul>
+            </div>
+
+            <div class="tech-card">
+              <div class="tech-card-title" style="color: var(--demo-gold);">3. System Performance</div>
+              <ul class="talking-points-list" style="font-size: 13px;">
+                <li><strong>Idle Opportunity Loss:</strong> Green time wasted on empty lanes.</li>
+                <li><strong>Critical Saturation Volume:</strong> Volume point where delay spikes exponentially.</li>
+                <li><strong>Intersection Utilization (%):</strong> Active capacity utilization.</li>
+              </ul>
+            </div>
+
+            <div class="tech-card">
+              <div class="tech-card-title" style="color: var(--speaker-both);">4. Fairness &amp; Stability</div>
+              <ul class="talking-points-list" style="font-size: 13px;">
+                <li><strong>Directional Fairness Index:</strong> Ensuring side roads aren't starved.</li>
+                <li><strong>Congestion Recovery Time:</strong> Time required to clear queues post-surge.</li>
+                <li><strong>Queue Stability:</strong> Growth rate of queues under sustained load.</li>
+              </ul>
+            </div>
+
+            <div class="tech-card">
+              <div class="tech-card-title" style="color: #ec4899;">5. Physical Constraints</div>
+              <ul class="talking-points-list" style="font-size: 13px;">
+                <li><strong>Spatial Footprint (m²):</strong> Land area required by intersection geometry.</li>
+                <li>Provides context for civil engineering tradeoffs.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="script-box" style="margin-top: 20px;">
+            <div class="script-box-header">
+              <div class="script-box-title">🗣️ Full Spoken Script</div>
+              <button class="copy-script-btn" onclick="copyText(this)">Copy Script</button>
+            </div>
+            <div class="spoken-text">
+              <p>
+                "A vital principle of our project is that <strong>we cannot evaluate intersection performance using a single metric</strong>."
+              </p>
+              <p>
+                "For instance, a control strategy might achieve a low overall average wait time, but it might do so by giving 90% of the green time to the major arterial while leaving minor approaches completely starved. That is why we evaluate performance across five dimensions: <strong>Operational Efficiency</strong>, <strong>Traffic Flow Quality</strong>, <strong>System Capacity</strong>, <strong>Fairness &amp; Stability</strong>, and <strong>Physical Footprint</strong>."
+              </p>
+              <p>
+                "Directional fairness is especially critical: it measures whether delays are distributed equitably across all four approaches."
+              </p>
+            </div>
+          </div>
+
+          <div class="transition-box">
+            <div class="transition-icon">➔</div>
+            <div>
+              <div class="transition-label">Transition to Khushi</div>
+              <div class="transition-text">
+                "Khushi will now present our roadmap for turning this metric framework into our final comparative study."
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 10 -->
+        <section id="sec-10" class="script-section speaker-khushi" data-speaker-section="khushi">
+          <div class="section-meta-bar">
+            <div class="section-speaker-pill tag-khushi">
+              <span>🎤 Speaker: Khushi</span>
+            </div>
+            <div class="section-duration">⏱️ Suggested Duration: 2 min</div>
+          </div>
+
+          <h3 class="section-heading">Section 10 — Future Project Roadmap</h3>
+
+          <div class="objective-box">
+            <div class="objective-label">Section Objective</div>
+            <div class="objective-text">
+              Outline the next milestones, showing a clear trajectory from completed foundation to final validated study.
+            </div>
+          </div>
+
+          <div class="tech-grid">
+            <div class="tech-card" style="border-left: 3px solid var(--demo-gold);">
+              <div class="section-eyebrow" style="color: var(--demo-gold);">Current Focus</div>
+              <div class="tech-card-title">Performance Metrics Implementation</div>
+              <p style="font-size: 13px; color: var(--text-secondary);">
+                Finalizing the math for all 5 metric categories and verifying calculations against logged vehicle events.
+              </p>
+            </div>
+
+            <div class="tech-card" style="border-left: 3px solid var(--speaker-viraj);">
+              <div class="section-eyebrow" style="color: var(--speaker-viraj);">Next Milestone</div>
+              <div class="tech-card-title">Direct Strategy Comparison</div>
+              <p style="font-size: 13px; color: var(--text-secondary);">
+                Executing identical scenarios under both strategies and building side-by-side comparative visual charts.
+              </p>
+            </div>
+
+            <div class="tech-card" style="border-left: 3px solid var(--accent-indigo-light);">
+              <div class="section-eyebrow" style="color: var(--accent-indigo-light);">Subsequent Milestone</div>
+              <div class="tech-card-title">Traffic Volume Sweep Analysis</div>
+              <p style="font-size: 13px; color: var(--text-secondary);">
+                Systematically varying volume from 200 to 1600 veh/hr to pinpoint the exact saturation tipping points.
+              </p>
+            </div>
+
+            <div class="tech-card" style="border-left: 3px solid var(--speaker-khushi);">
+              <div class="section-eyebrow" style="color: var(--speaker-khushi);">Final Deliverable</div>
+              <div class="tech-card-title">Validated Comparative Study</div>
+              <p style="font-size: 13px; color: var(--text-secondary);">
+                Full repeatability validation, documented conclusions, and finalized interactive review dashboard.
+              </p>
+            </div>
+          </div>
+
+          <div class="script-box" style="margin-top: 20px;">
+            <div class="script-box-header">
+              <div class="script-box-title">🗣️ Full Spoken Script</div>
+              <button class="copy-script-btn" onclick="copyText(this)">Copy Script</button>
+            </div>
+            <div class="spoken-text">
+              <p>
+                "Our first month was dedicated to engineering a robust, simulation-driven foundation."
+              </p>
+              <p>
+                "Over the next month, our focus shifts entirely to <strong>turning simulation behavior into measurable scientific insights</strong>."
+              </p>
+              <p>
+                "We will complete metric calculations, execute side-by-side comparisons, run volume sweeps across low, medium, and saturated flows, validate repeatability across seeds, and publish a comprehensive comparative report."
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 11 -->
+        <section id="sec-11" class="script-section speaker-both" data-speaker-section="both">
+          <div class="section-meta-bar">
+            <div class="section-speaker-pill tag-both">
+              <span>🎤 Speaker: Both Presenters</span>
+            </div>
+            <div class="section-duration">⏱️ Suggested Duration: 1 min</div>
+          </div>
+
+          <h3 class="section-heading">Section 11 — Final Presentation Closing</h3>
+
+          <div class="script-box">
+            <div class="script-box-header">
+              <div class="script-box-title">🗣️ Spoken Closing Dialogue</div>
+              <button class="copy-script-btn" onclick="copyText(this)">Copy Script</button>
+            </div>
+            <div class="spoken-text">
+              <p>
+                <strong style="color: var(--speaker-khushi);">Khushi:</strong> "To summarize: month one was about building a solid, simulation-driven foundation."
+              </p>
+              <p>
+                <strong style="color: var(--speaker-viraj);">Viraj:</strong> "We established realistic IDM vehicle physics, implemented both fixed-time signal and roundabout controllers, decoupled control permission from vehicle kinematics, and built a live visual application."
+              </p>
+              <p>
+                <strong style="color: var(--speaker-khushi);">Khushi:</strong> "Month two will deliver the quantitative comparison, mapping out under which specific traffic conditions each strategy excels."
+              </p>
+              <p>
+                <strong style="color: var(--speaker-viraj);">Viraj:</strong> "Thank you very much for your time. We would now be glad to answer any questions."
+              </p>
+            </div>
+          </div>
+
+          <div class="key-message-card" style="margin-top: 20px;">
+            <div class="key-message-label">Final Statement for Reviewers</div>
+            <div class="key-message-text">
+              "The objective is not to prove that one strategy is universally better, but to discover and quantify under which traffic conditions each strategy performs more effectively."
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================================================= -->
+        <!-- SECTION 12 — COMPLETE FAQ AND QUESTION BANK (CATEGORIES A TO H) -->
+        <!-- ========================================================================= -->
+        <section id="faq-section" class="narrative-section">
+          <div class="section-heading-group">
+            <div class="section-eyebrow">Preparation &amp; Defense</div>
+            <h3 class="section-heading">Comprehensive Question Bank &amp; FAQs (80+ Questions)</h3>
+            <p style="font-size: 14px; color: var(--text-secondary); margin-top: 6px;">
+              Exhaustive technical, strategic, and architectural defense preparation across 8 structured categories.
+            </p>
+          </div>
+
+          <!-- FAQ Filter / Search UI -->
+          <div class="faq-search-bar">
+            <input type="text" id="faq-search-input" class="faq-search-input" placeholder="🔍 Search questions, keywords (e.g., 'IDM', 'gap', 'fairness', 'SUMO')...">
+            <div class="faq-category-filter">
+              <button class="faq-category-btn active" data-cat="all">All</button>
+              <button class="faq-category-btn" data-cat="A">Project / Business</button>
+              <button class="faq-category-btn" data-cat="B">Simulation</button>
+              <button class="faq-category-btn" data-cat="C">IDM Physics</button>
+              <button class="faq-category-btn" data-cat="D">Traffic Control</button>
+              <button class="faq-category-btn" data-cat="E">Metrics</button>
+              <button class="faq-category-btn" data-cat="F">Validation</button>
+              <button class="faq-category-btn" data-cat="G">Critical / Tough</button>
+              <button class="faq-category-btn" data-cat="H">Future Scope</button>
+            </div>
+          </div>
+
+          <div id="faq-container">
+
+            <!-- ================= CATEGORY A ================= -->
+            <!-- Q A1 -->
+            <div class="faq-item" data-category="A">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat A</span>
+                  <span>Why are you building this project?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-short">
+                  <div class="faq-ans-label label-short">Short Answer</div>
+                  To create a controlled, repeatable simulation testbed to compare traffic intersection control strategies under identical demand conditions.
+                </div>
+                <div class="faq-ans-box faq-ans-detailed">
+                  <div class="faq-ans-label label-detailed">Detailed Answer</div>
+                  Urban planners face trade-offs between fixed-time signals and roundabouts. Field testing is expensive and dangerous. By simulating both on identical road topology and vehicle physics, we uncover exact performance boundaries across varying volumes.
+                </div>
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "We are building a controlled testbed to compare fixed-time signals and roundabouts under identical conditions, moving beyond general assumptions to data-driven insights."
+                </div>
+                <div class="faq-ans-box faq-ans-avoid">
+                  <div class="faq-ans-label label-avoid">Things NOT to say</div>
+                  "To show that roundabouts are the modern replacement for signals."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q A2 -->
+            <div class="faq-item" data-category="A">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat A</span>
+                  <span>What specific problem does this solve?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-short">
+                  <div class="faq-ans-label label-short">Short Answer</div>
+                  Eliminates guesswork in intersection strategy selection by providing quantifiable performance comparisons under controlled traffic conditions.
+                </div>
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "It addresses the challenge of understanding exactly when a roundabout outperforms a signal, and at what volume saturation point signalized phasing becomes necessary."
+                </div>
+                <div class="faq-ans-box faq-ans-avoid">
+                  <div class="faq-ans-label label-avoid">Things NOT to say</div>
+                  "It solves all traffic congestion in modern cities."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q A3 -->
+            <div class="faq-item" data-category="A">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat A</span>
+                  <span>Why compare only a fixed-time signal and a roundabout?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-short">
+                  <div class="faq-ans-label label-short">Short Answer</div>
+                  They represent two fundamentally opposing control paradigms: centralized time-sliced scheduling vs. decentralized yield-based gap acceptance.
+                </div>
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "They represent the two classic, widely deployed paradigms. Mastering this comparison establishes a solid foundation before expanding to adaptive or AI-based controllers."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q A4 -->
+            <div class="faq-item" data-category="A">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat A</span>
+                  <span>Are you trying to prove that roundabouts are better?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-short">
+                  <div class="faq-ans-label label-short">Short Answer</div>
+                  No. We are investigating the specific operational conditions under which each strategy excels.
+                </div>
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "Definitely not. Traffic engineering literature shows that roundabouts excel at low-to-moderate flows, but fixed signals handle high unbalanced saturation better. Our goal is to identify those tipping points."
+                </div>
+                <div class="faq-ans-box faq-ans-avoid">
+                  <div class="faq-ans-label label-avoid">Things NOT to say</div>
+                  "Yes, roundabouts are greener and faster."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q A5 -->
+            <div class="faq-item" data-category="A">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat A</span>
+                  <span>Who would use this system?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "Traffic researchers, civil engineering students, and municipal planning teams exploring preliminary trade-offs before embarking on multi-million dollar infrastructure designs."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q A6 -->
+            <div class="faq-item" data-category="A">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat A</span>
+                  <span>What is the final deliverable of this internship project?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "A fully functional, reproducible web-based simulation workbench with live visual tracking, automated metric computation, and a published comparative study across volume scenarios."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q A7 -->
+            <div class="faq-item" data-category="A">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat A</span>
+                  <span>What makes this more than just a visual simulation?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "The underlying mathematical engine: vehicles obey IDM differential equations, yield decisions evaluate spatial gap dynamics, and the telemetry pipeline computes formal engineering metrics."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q A8 -->
+            <div class="faq-item" data-category="A">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat A</span>
+                  <span>What have you actually achieved so far in month one?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "We built the complete simulation core: IDM physics, multi-vehicle queueing, both fixed-signal and roundabout controllers, the full-stack web application, and the snapshot logging pipeline."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q A9 -->
+            <div class="faq-item" data-category="A">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat A</span>
+                  <span>What is the biggest remaining body of work?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "Completing the automated calculation of all 5 metric categories, executing rigorous volume sweep experiments, validating repeatability, and synthesizing the final comparison report."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q A10 -->
+            <div class="faq-item" data-category="A">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat A</span>
+                  <span>What does success look like at the end of the two-month internship?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "A verified, repeatable comparative study showing exact quantifiable performance curves across varying traffic volumes with a polished interactive dashboard."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q A11 -->
+            <div class="faq-item" data-category="A">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat A</span>
+                  <span>Why did you choose a single intersection?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "To isolate cause and effect. In multi-intersection networks, gridlock can cascade from downstream bottlenecks, obscuring the direct performance of the control strategy itself."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q A12 -->
+            <div class="faq-item" data-category="A">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat A</span>
+                  <span>Why not simulate an entire city corridor?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "Scope discipline. Simulating an entire city introduces route choice algorithms, origin-destination matrices, and network routing, which distracts from rigorous intersection control comparison."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q A13 -->
+            <div class="faq-item" data-category="A">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat A</span>
+                  <span>What are the biggest limitations of your model?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "We assume homogeneous motor vehicles with identical IDM traits and clear weather, excluding pedestrians, cyclists, and lane changing maneuvers."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q A14 -->
+            <div class="faq-item" data-category="A">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat A</span>
+                  <span>How could this framework be expanded in the future?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "By incorporating adaptive signal control, connected autonomous vehicle (V2X) protocols, pedestrian crosswalks, and multi-class vehicles."
+                </div>
+              </div>
+            </div>
+
+            <!-- ================= CATEGORY B ================= -->
+            <!-- Q B1 -->
+            <div class="faq-item" data-category="B">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat B</span>
+                  <span>Is this a real simulation or just an animation?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-short">
+                  <div class="faq-ans-label label-short">Short Answer</div>
+                  It is a true physics-driven microscopic simulation.
+                </div>
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "It is a true simulation. Every vehicle state is calculated dynamically by solving IDM differential equations at each timestep. The frontend simply renders the resulting state snapshots."
+                </div>
+                <div class="faq-ans-box faq-ans-avoid">
+                  <div class="faq-ans-label label-avoid">Things NOT to say</div>
+                  "The CSS/JavaScript moves the cars along SVG paths."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q B2 -->
+            <div class="faq-item" data-category="B">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat B</span>
+                  <span>What determines vehicle movement at any instant?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "Instantaneous acceleration is computed from current speed, distance to the lead vehicle, relative closing speed, and any virtual stop obstacle imposed by the controller."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q B3 -->
+            <div class="faq-item" data-category="B">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat B</span>
+                  <span>How often is the simulation state updated?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "The physics timestep is configurable in our engine, typically executing at 10 to 20 Hz (0.05s–0.1s delta time) for smooth numerical stability."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q B4 -->
+            <div class="faq-item" data-category="B">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat B</span>
+                  <span>Can the simulation be repeated with identical results?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "Yes. Vehicle arrivals and parameters are seeded deterministically, ensuring that when the same seed is used, the exact same vehicle arrival pattern is tested against both strategies."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q B5 -->
+            <div class="faq-item" data-category="B">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat B</span>
+                  <span>What inputs directly affect simulation results?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "Traffic volume (veh/hr per approach), vehicle desired speed distribution, IDM time headway, minimum gap distance, and signal cycle phase lengths."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q B6 -->
+            <div class="faq-item" data-category="B">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat B</span>
+                  <span>What happens when traffic volume increases toward saturation?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "Headways compress, queue lengths grow upstream, stop counts increase, and average wait time exhibits non-linear exponential growth once capacity is exceeded."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q B7 -->
+            <div class="faq-item" data-category="B">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat B</span>
+                  <span>How do vehicles interact with one another?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "Through longitudinal car-following: each vehicle tracks the distance and relative velocity to its immediate leader in the lane."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q B8 -->
+            <div class="faq-item" data-category="B">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat B</span>
+                  <span>What prevents vehicles from overlapping or colliding?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "The IDM desired gap term (s*) forces strong deceleration as gap approaches minimum standstill distance (s0 = 2m), backed by an emergency braking clamp."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q B9 -->
+            <div class="faq-item" data-category="B">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat B</span>
+                  <span>How are vehicle positions stored and tracked?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "Vehicles maintain 1D lane progress distance mapped to 2D geometric road polyline coordinates in state snapshots."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q B10 -->
+            <div class="faq-item" data-category="B">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat B</span>
+                  <span>How are simulation outputs logged for evaluation?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "Trip logs record entry time, exit time, cumulative wait time below 0.5 m/s, stop counts, and speed variance per vehicle."
+                </div>
+              </div>
+            </div>
+
+            <!-- ================= CATEGORY C ================= -->
+            <!-- Q C1 -->
+            <div class="faq-item" data-category="C">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat C</span>
+                  <span>Why did you choose IDM over other car-following models?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-short">
+                  <div class="faq-ans-label label-short">Short Answer</div>
+                  IDM provides a mathematically sound balance of realism, stability, and intuitive physical parameters.
+                </div>
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "IDM is the standard in traffic simulation. It avoids unnatural instantaneous acceleration jumps, has stable deceleration boundaries, and uses intuitive parameters like safe time headway and desired speed."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q C2 -->
+            <div class="faq-item" data-category="C">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat C</span>
+                  <span>What is IDM in simple layman's terms?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "It is a driver formula that accelerates when the road is clear and brakes smoothly when approaching a car or stop line to maintain a 1.5-second buffer."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q C3 -->
+            <div class="faq-item" data-category="C">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat C</span>
+                  <span>What does the IDM equation calculate?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "It calculates target acceleration (m/s²) as free acceleration minus an interaction braking ratio."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q C4 -->
+            <div class="faq-item" data-category="C">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat C</span>
+                  <span>What parameters influence IDM in your codebase?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "Max acceleration a0 (2.0 m/s²), comfortable decel b (3.0 m/s²), time headway T (1.5 s), standstill gap s0 (2.0 m), exponent delta (4.0), and max braking limit (9.0 m/s²)."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q C5 -->
+            <div class="faq-item" data-category="C">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat C</span>
+                  <span>How does IDM handle a slower vehicle ahead?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "The closing speed (delta_v) increases the target gap, triggering smooth braking until speeds equalize at distance s*."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q C6 -->
+            <div class="faq-item" data-category="C">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat C</span>
+                  <span>How does IDM handle an open, unobstructed road?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "Interaction term drops to zero, and the vehicle accelerates smoothly towards its target desired speed."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q C7 -->
+            <div class="faq-item" data-category="C">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat C</span>
+                  <span>How does IDM cause a vehicle to stop at a red light?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "The stop line is modeled as a stationary leader (speed=0), causing IDM to smoothly brake and stop at distance s0 (2m)."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q C8 -->
+            <div class="faq-item" data-category="C">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat C</span>
+                  <span>What happens when the lead vehicle accelerates away?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "Negative delta_v reduces target gap, allowing the following vehicle to accelerate smoothly in response."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q C9 -->
+            <div class="faq-item" data-category="C">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat C</span>
+                  <span>What happens if distance becomes zero or negative?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "Our code includes explicit safety clamps that immediately return maximum physical deceleration (-9.0 m/s²)."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q C10 -->
+            <div class="faq-item" data-category="C">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat C</span>
+                  <span>Why not use a simpler constant-speed model?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "Constant speed produces teleporting, infinite acceleration, and zero queue compression, invalidating wait time metrics."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q C11 -->
+            <div class="faq-item" data-category="C">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat C</span>
+                  <span>Does IDM make the simulation perfectly realistic?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "No model is perfect. IDM models longitudinal car-following well, but does not capture human distraction, erratic lane cuts, or pedestrian interactions."
+                </div>
+                <div class="faq-ans-box faq-ans-avoid">
+                  <div class="faq-ans-label label-avoid">Things NOT to say</div>
+                  "Yes, our simulation is 100% true to real human psychology."
+                </div>
+              </div>
+            </div>
+
+            <!-- ================= CATEGORY D ================= -->
+            <!-- Q D1 -->
+            <div class="faq-item" data-category="D">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat D</span>
+                  <span>How does the fixed-time traffic signal work?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "It cycles through predefined phases (North-South Green, Yellow, All-Red, East-West Green) on a fixed clock timer."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q D2 -->
+            <div class="faq-item" data-category="D">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat D</span>
+                  <span>How are signal phase timings determined?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "They are configured per scenario (e.g., 30s Green, 4s Yellow, 2s All-Red) based on standard traffic engineering split ratios."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q D3 -->
+            <div class="faq-item" data-category="D">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat D</span>
+                  <span>How does the roundabout decide whether a vehicle can enter?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "Approaching vehicles calculate time-to-arrival of circulating vehicles; if the available time gap exceeds the critical acceptance threshold, entry is granted."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q D4 -->
+            <div class="faq-item" data-category="D">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat D</span>
+                  <span>What is considered an acceptable or safe gap?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "A time gap of 3.0 to 4.5 seconds, ensuring entering vehicles can accelerate to circulating speed without forcing circulating cars to brake hard."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q D5 -->
+            <div class="faq-item" data-category="D">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat D</span>
+                  <span>How is yielding implemented programmatically?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "If the gap check fails, the roundabout controller places an active virtual obstacle at the entry yield line."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q D6 -->
+            <div class="faq-item" data-category="D">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat D</span>
+                  <span>Does the controller directly set vehicle speed?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "No. The controller only grants or denies entry permission. IDM computes all physical speed and braking."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q D7 -->
+            <div class="faq-item" data-category="D">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat D</span>
+                  <span>How do you guarantee a fair comparison between strategies?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "Both strategies run under identical arrival seeds, identical lane approach lengths, identical vehicle traits, and identical warmup periods."
+                </div>
+              </div>
+            </div>
+
+            <!-- ================= CATEGORY E ================= -->
+            <!-- Q E1 -->
+            <div class="faq-item" data-category="E">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat E</span>
+                  <span>Why are you using 5 metric categories instead of just average wait time?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "Because a single average can mask major deficiencies, such as total directional unfairness, extreme stop counts, or severe queue spillbacks."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q E2 -->
+            <div class="faq-item" data-category="E">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat E</span>
+                  <span>Which metric is the single most important?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "No single metric is sufficient on its own. Average wait time and throughput gauge capacity, while directional fairness and queue stability gauge operational safety and equity."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q E3 -->
+            <div class="faq-item" data-category="E">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat E</span>
+                  <span>How is average wait time formally calculated?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "We accumulate time where vehicle speed is below 0.5 m/s, summed across all completed post-warmup trips and divided by total exited vehicles."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q E4 -->
+            <div class="faq-item" data-category="E">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat E</span>
+                  <span>What counts as throughput?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "The total integer count of vehicles that cross the exit detection boundary after completing their trip through the intersection."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q E5 -->
+            <div class="faq-item" data-category="E">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat E</span>
+                  <span>What is Directional Fairness Index?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "It evaluates variance in average delay across all four approaches (e.g., using Jain's Fairness Index) to verify that side streets are not disproportionately penalized."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q E6 -->
+            <div class="faq-item" data-category="E">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat E</span>
+                  <span>What is Idle Opportunity Loss?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "The percentage of green phase time during which an approach lane was empty while conflicting lanes had waiting queues."
+                </div>
+              </div>
+            </div>
+
+            <!-- ================= CATEGORY F ================= -->
+            <!-- Q F1 -->
+            <div class="faq-item" data-category="F">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat F</span>
+                  <span>How do you know the simulation is numerically correct?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "Through unit tests verifying IDM boundary limits, conservation of vehicle flow, zero collision invariants, and deterministic seed repeatability."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q F2 -->
+            <div class="faq-item" data-category="F">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat F</span>
+                  <span>Will the exact same input always produce the exact same output?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "Yes. Our simulation engine is fully deterministic when executed with a fixed random seed."
+                </div>
+              </div>
+            </div>
+
+            <!-- ================= CATEGORY G ================= -->
+            <!-- Q G1 -->
+            <div class="faq-item" data-category="G">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat G</span>
+                  <span>"Why didn't you just use SUMO or another existing simulator?"</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-short">
+                  <div class="faq-ans-label label-short">Short Answer</div>
+                  Building a custom engine provides full transparency, custom telemetry, and direct control over architectural experiments.
+                </div>
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "While SUMO is excellent for large-scale urban networks, building our own microscopic engine allowed us to deeply implement IDM physics, build bespoke web telemetry, and isolate exact control logic without the massive overhead of general-purpose city simulators."
+                </div>
+                <div class="faq-ans-box faq-ans-avoid">
+                  <div class="faq-ans-label label-avoid">Things NOT to say</div>
+                  "Because SUMO is obsolete or bad."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q G2 -->
+            <div class="faq-item" data-category="G">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat G</span>
+                  <span>"Isn't the result totally dependent on your chosen assumptions?"</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "Yes, all models depend on assumptions. That is why our assumptions (time headway, gap threshold, phase splits) are explicitly documented, configurable, and subjected to sensitivity volume sweeps."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q G3 -->
+            <div class="faq-item" data-category="G">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat G</span>
+                  <span>"What was the most technically challenging part of month one?"</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "Decoupling the traffic controller from the IDM physics engine—specifically modeling stopping bars and yield boundaries as virtual obstacles so IDM handles all deceleration naturally."
+                </div>
+              </div>
+            </div>
+
+            <!-- ================= CATEGORY H ================= -->
+            <!-- Q H1 -->
+            <div class="faq-item" data-category="H">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat H</span>
+                  <span>Could you add pedestrians or cyclists in the future?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "Yes, as a future research dimension using the Social Force Model for crosswalk pedestrians, but it is explicitly excluded from the current 2-month scope."
+                </div>
+              </div>
+            </div>
+
+            <!-- Q H2 -->
+            <div class="faq-item" data-category="H">
+              <div class="faq-header" onclick="toggleFaq(this)">
+                <div class="faq-question-title">
+                  <span class="faq-cat-badge">Cat H</span>
+                  <span>Could AI or Reinforcement Learning be applied to the controllers?</span>
+                </div>
+                <span>▾</span>
+              </div>
+              <div class="faq-content hidden">
+                <div class="faq-ans-box faq-ans-presentation">
+                  <div class="faq-ans-label label-pres">Recommended Presentation Answer</div>
+                  "Absolutely. Our decoupled controller interface is designed so that a Deep Q-Network (DQN) or PPO reinforcement learning agent could plug directly into the controller slot in future work."
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ========================================================================= -->
+        <!-- SECTION 13 — RAPID-FIRE QUESTION MODE (30+ QUESTIONS) -->
+        <!-- ========================================================================= -->
+        <section id="rapid-fire" class="narrative-section">
+          <div class="section-heading-group">
+            <div class="section-eyebrow">Quick Rehearsal</div>
+            <h3 class="section-heading">Rapid-Fire Q&amp;A (30 Questions)</h3>
+            <p style="font-size: 14px; color: var(--text-secondary); margin-top: 6px;">
+              Ultra-concise answers to review right before stepping into the monthly review.
+            </p>
+          </div>
+
+          <div class="rapid-fire-grid">
+            <div class="rapid-card">
+              <div class="rapid-q">1. Why IDM?</div>
+              <div class="rapid-a">Realistic car-following with smooth braking, stable physics, and decoupled control logic.</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">2. Is this just an animation?</div>
+              <div class="rapid-a">No. It is a physics simulation; frontend only renders state snapshots.</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">3. How is the comparison fair?</div>
+              <div class="rapid-a">Identical arrival seeds, road lengths, and vehicle physics across both controllers.</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">4. What is the current focus?</div>
+              <div class="rapid-a">Implementing and validating the 5 metric categories.</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">5. What comes next in month two?</div>
+              <div class="rapid-a">Volume sweeps, side-by-side comparative analytics, and repeatability validation.</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">6. What is the core project goal?</div>
+              <div class="rapid-a">Quantify under which traffic conditions each strategy performs more effectively.</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">7. Are roundabouts always better?</div>
+              <div class="rapid-a">No; performance degrades under heavy unbalanced saturation.</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">8. What is the minimum standstill gap?</div>
+              <div class="rapid-a">2.0 meters (s0 parameter in IDM).</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">9. What is desired time headway?</div>
+              <div class="rapid-a">1.5 seconds (T parameter in IDM).</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">10. How does a red light stop a car?</div>
+              <div class="rapid-a">As a virtual stationary obstacle (speed=0) at the stop line.</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">11. What is Idle Opportunity Loss?</div>
+              <div class="rapid-a">Percentage of green phase time wasted on an empty lane.</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">12. What is Directional Fairness?</div>
+              <div class="rapid-a">Equity of average delay across all four intersection approaches.</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">13. What is Critical Saturation Volume?</div>
+              <div class="rapid-a">The demand threshold where delay spikes exponentially.</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">14. Why exclude pedestrians?</div>
+              <div class="rapid-a">To keep focus strictly on vehicular intersection control comparison.</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">15. What speed counts as waiting?</div>
+              <div class="rapid-a">Instantaneous speed below 0.5 m/s.</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">16. How is throughput measured?</div>
+              <div class="rapid-a">Total vehicle exits per unit time across downstream boundaries.</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">17. What determines roundabout entry?</div>
+              <div class="rapid-a">Available time gap in circulating traffic vs critical gap threshold.</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">18. What is the simulation timestep?</div>
+              <div class="rapid-a">Configurable in engine (default 10–20 Hz for numerical stability).</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">19. Can we repeat simulations?</div>
+              <div class="rapid-a">Yes, fixed random seeds yield deterministic vehicle streams.</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">20. What prevents collisions?</div>
+              <div class="rapid-a">IDM interaction gap scaling plus emergency braking clamps.</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">21. What is Speed Variance Index?</div>
+              <div class="rapid-a">Standard deviation of speed across vehicle trips (flow smoothness).</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">22. Why single intersection?</div>
+              <div class="rapid-a">To isolate control strategy effects from network gridlock spillback.</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">23. How does frontend communicate with backend?</div>
+              <div class="rapid-a">REST API for control; state streaming for frame snapshots.</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">24. What are the vehicle classes?</div>
+              <div class="rapid-a">Homogeneous passenger motor vehicles in current scope.</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">25. What is the spatial footprint trade-off?</div>
+              <div class="rapid-a">Roundabouts require significantly more land area than compact signals.</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">26. What was Phase 1 milestone?</div>
+              <div class="rapid-a">Single vehicle kinematic movement and road coordinate mapping.</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">27. What was Phase 2 milestone?</div>
+              <div class="rapid-a">Multiple vehicle interaction and IDM car-following.</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">28. What was Phase 3 milestone?</div>
+              <div class="rapid-a">Fixed-time signal and roundabout controller implementations.</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">29. What was Phase 4 milestone?</div>
+              <div class="rapid-a">Interactive visual web application and snapshot logging pipeline.</div>
+            </div>
+            <div class="rapid-card">
+              <div class="rapid-q">30. What is the final deliverable?</div>
+              <div class="rapid-a">A validated comparative study with interactive analysis dashboard.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================================================= -->
+        <!-- SECTION 14 — KEY MESSAGES WE WANT REVIEWERS TO REMEMBER -->
+        <!-- ========================================================================= -->
+        <section id="key-messages" class="narrative-section">
+          <div class="section-heading-group">
+            <div class="section-eyebrow">Presentation Takeaways</div>
+            <h3 class="section-heading">10 Key Messages to Emphasize</h3>
+          </div>
+
+          <div class="talking-points-card" style="background: var(--bg-secondary);">
+            <ul class="talking-points-list" style="font-size: 14.5px; gap: 14px;">
+              <li><strong>1. Working Application:</strong> This is a real, functional simulation engine, not a mockup.</li>
+              <li><strong>2. Physics Driven:</strong> Movement is calculated via IDM differential equations, not pre-baked animations.</li>
+              <li><strong>3. Decoupled Architecture:</strong> Traffic control permission is strictly separated from vehicle kinematics.</li>
+              <li><strong>4. Common Physics Baseline:</strong> IDM provides an identical car-following foundation for both strategies.</li>
+              <li><strong>5. Controlled Fairness:</strong> Both strategies are tested under identical geometric, demand, and seed parameters.</li>
+              <li><strong>6. Foundation Completed:</strong> Month one successfully built the complete simulation and visualization engine.</li>
+              <li><strong>7. Measurement Phase:</strong> Month two turns simulation execution into scientific, quantitative metrics.</li>
+              <li><strong>8. No Universal Winner:</strong> The goal is to discover operational boundary conditions, not declare a winner.</li>
+              <li><strong>9. Multi-Dimensional Evaluation:</strong> Performance is judged across efficiency, quality, capacity, fairness, and space.</li>
+              <li><strong>10. Scientific Repeatability:</strong> Deterministic seed runs ensure verified, reproducible conclusions.</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- ========================================================================= -->
+        <!-- SECTION 15 — THINGS TO AVOID SAYING (15+ EXAMPLES) -->
+        <!-- ========================================================================= -->
+        <section id="avoid-section" class="narrative-section">
+          <div class="section-heading-group">
+            <div class="section-eyebrow">Presentation Guardrails</div>
+            <h3 class="section-heading">Things to Avoid Saying &amp; Correct Alternatives</h3>
+          </div>
+
+          <div class="avoid-grid">
+            <div class="avoid-card">
+              <div class="avoid-bad">
+                <div class="avoid-label label-avoid">❌ DO NOT SAY</div>
+                "Roundabouts are simply better than signals."
+              </div>
+              <div class="avoid-good">
+                <div class="avoid-label label-pres">✅ INSTEAD SAY</div>
+                "The simulation identifies under which specific volume conditions each strategy performs more effectively."
+              </div>
+            </div>
+
+            <div class="avoid-card">
+              <div class="avoid-bad">
+                <div class="avoid-label label-avoid">❌ DO NOT SAY</div>
+                "Our simulation is 100% realistic."
+              </div>
+              <div class="avoid-good">
+                <div class="avoid-label label-pres">✅ INSTEAD SAY</div>
+                "The simulation captures realistic microscopic car-following within our defined model assumptions."
+              </div>
+            </div>
+
+            <div class="avoid-card">
+              <div class="avoid-bad">
+                <div class="avoid-label label-avoid">❌ DO NOT SAY</div>
+                "The frontend moves the vehicles."
+              </div>
+              <div class="avoid-good">
+                <div class="avoid-label label-pres">✅ INSTEAD SAY</div>
+                "The frontend visualizes the state snapshots computed by the backend simulation engine."
+              </div>
+            </div>
+
+            <div class="avoid-card">
+              <div class="avoid-bad">
+                <div class="avoid-label label-avoid">❌ DO NOT SAY</div>
+                "We have completed all performance comparisons."
+              </div>
+              <div class="avoid-good">
+                <div class="avoid-label label-pres">✅ INSTEAD SAY</div>
+                "We built the simulation foundation; quantitative comparison is our current active milestone."
+              </div>
+            </div>
+
+            <div class="avoid-card">
+              <div class="avoid-bad">
+                <div class="avoid-label label-avoid">❌ DO NOT SAY</div>
+                "This replaces professional simulators like SUMO or VISSIM."
+              </div>
+              <div class="avoid-good">
+                <div class="avoid-label label-pres">✅ INSTEAD SAY</div>
+                "This is a focused comparative workbench designed for transparent experimentation and metric isolation."
+              </div>
+            </div>
+
+            <div class="avoid-card">
+              <div class="avoid-bad">
+                <div class="avoid-label label-avoid">❌ DO NOT SAY</div>
+                "We simulate city-wide traffic."
+              </div>
+              <div class="avoid-good">
+                <div class="avoid-label label-pres">✅ INSTEAD SAY</div>
+                "We deliberately focus on an isolated single intersection to eliminate network spillover bias."
+              </div>
+            </div>
+
+            <div class="avoid-card">
+              <div class="avoid-bad">
+                <div class="avoid-label label-avoid">❌ DO NOT SAY</div>
+                "Drivers in our model make human mistakes."
+              </div>
+              <div class="avoid-good">
+                <div class="avoid-label label-pres">✅ INSTEAD SAY</div>
+                "Vehicles follow deterministic IDM car-following physics with configured parameter profiles."
+              </div>
+            </div>
+
+            <div class="avoid-card">
+              <div class="avoid-bad">
+                <div class="avoid-label label-avoid">❌ DO NOT SAY</div>
+                "Average wait time is the only metric that matters."
+              </div>
+              <div class="avoid-good">
+                <div class="avoid-label label-pres">✅ INSTEAD SAY</div>
+                "We evaluate five balanced dimensions including directional fairness and system saturation."
+              </div>
+            </div>
+
+            <div class="avoid-card">
+              <div class="avoid-bad">
+                <div class="avoid-label label-avoid">❌ DO NOT SAY</div>
+                "The signal controller speeds up or slows down the cars."
+              </div>
+              <div class="avoid-good">
+                <div class="avoid-label label-pres">✅ INSTEAD SAY</div>
+                "The controller grants permission; IDM calculates the physical acceleration and deceleration."
+              </div>
+            </div>
+
+            <div class="avoid-card">
+              <div class="avoid-bad">
+                <div class="avoid-label label-avoid">❌ DO NOT SAY</div>
+                "Our results are final."
+              </div>
+              <div class="avoid-good">
+                <div class="avoid-label label-pres">✅ INSTEAD SAY</div>
+                "These are preliminary foundation observations; final comparative results will be generated in month two."
+              </div>
+            </div>
+
+            <div class="avoid-card">
+              <div class="avoid-bad">
+                <div class="avoid-label label-avoid">❌ DO NOT SAY</div>
+                "We support pedestrians and emergency sirens."
+              </div>
+              <div class="avoid-good">
+                <div class="avoid-label label-pres">✅ INSTEAD SAY</div>
+                "Pedestrians and emergency vehicles are documented future scope extensions."
+              </div>
+            </div>
+
+            <div class="avoid-card">
+              <div class="avoid-bad">
+                <div class="avoid-label label-avoid">❌ DO NOT SAY</div>
+                "The simulation crashed because the browser is slow."
+              </div>
+              <div class="avoid-good">
+                <div class="avoid-label label-pres">✅ INSTEAD SAY</div>
+                "We are actively optimizing snapshot serialization and WebSocket streaming bandwidth."
+              </div>
+            </div>
+
+            <div class="avoid-card">
+              <div class="avoid-bad">
+                <div class="avoid-label label-avoid">❌ DO NOT SAY</div>
+                "We hard-coded car positions at the red light."
+              </div>
+              <div class="avoid-good">
+                <div class="avoid-label label-pres">✅ INSTEAD SAY</div>
+                "Cars stop naturally because the controller introduces a virtual stationary leader obstacle."
+              </div>
+            </div>
+
+            <div class="avoid-card">
+              <div class="avoid-bad">
+                <div class="avoid-label label-avoid">❌ DO NOT SAY</div>
+                "Signals are obsolete."
+              </div>
+              <div class="avoid-good">
+                <div class="avoid-label label-pres">✅ INSTEAD SAY</div>
+                "Signals provide structured, high-capacity rights-of-way under heavily saturated conditions."
+              </div>
+            </div>
+
+            <div class="avoid-card">
+              <div class="avoid-bad">
+                <div class="avoid-label label-avoid">❌ DO NOT SAY</div>
+                "We didn't have time to test."
+              </div>
+              <div class="avoid-good">
+                <div class="avoid-label label-pres">✅ INSTEAD SAY</div>
+                "Systematic multi-scenario test validation is scheduled in our upcoming second-month roadmap."
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================================================= -->
+        <!-- SECTION 16 — PRESENTER CHEAT SHEET -->
+        <!-- ========================================================================= -->
+        <section id="cheat-sheet" class="narrative-section">
+          <div class="section-heading-group">
+            <div class="section-eyebrow">Role Division</div>
+            <h3 class="section-heading">Presenter Quick Cheat Sheet</h3>
+          </div>
+
+          <div class="cheat-sheet-grid">
+            <div class="cheat-card viraj">
+              <div class="cheat-title text-viraj">
+                <span>👨‍💻 Viraj Jadhao</span>
+              </div>
+              <div class="section-eyebrow">Primary Responsibilities</div>
+              <ul class="talking-points-list" style="margin-top: 10px;">
+                <li><strong>What We Are Building:</strong> Framework &amp; high-level architecture.</li>
+                <li><strong>Vehicle Motion &amp; IDM:</strong> Formulation, parameters, physics benefits.</li>
+                <li><strong>Controller Decoupling:</strong> Virtual obstacle mechanism.</li>
+                <li><strong>Demo Parts:</strong> Basic movement, IDM following, Roundabout logic.</li>
+                <li><strong>Evaluation Metrics:</strong> 5 metric dimensions &amp; equations.</li>
+                <li><strong>Technical Defense:</strong> IDM mathematics, numerical stability, deterministic repeatability.</li>
+              </ul>
+            </div>
+
+            <div class="cheat-card khushi">
+              <div class="cheat-title text-khushi">
+                <span>👩‍💻 Khushi</span>
+              </div>
+              <div class="section-eyebrow">Primary Responsibilities</div>
+              <ul class="talking-points-list" style="margin-top: 10px;">
+                <li><strong>Project Problem &amp; Objective:</strong> Research rationale, no universal winner.</li>
+                <li><strong>End-to-End System Flow:</strong> 4 Stages (Params, Engine, Outputs, Metrics).</li>
+                <li><strong>Control Strategies:</strong> Fixed-Time vs Roundabout paradigm comparison.</li>
+                <li><strong>Demo Parts:</strong> UI intro, Fixed-Time Signal demonstration.</li>
+                <li><strong>Roadmap &amp; Milestones:</strong> 4-phase evolution and future trajectory.</li>
+                <li><strong>Strategic Defense:</strong> Scope boundaries, fairness philosophy, use cases.</li>
+              </ul>
+            </div>
+
+            <div class="cheat-card both">
+              <div class="cheat-title text-both">
+                <span>🤝 Shared (Both Presenters)</span>
+              </div>
+              <div class="section-eyebrow">Joint Ownership</div>
+              <ul class="talking-points-list" style="margin-top: 10px;">
+                <li><strong>Live Application Demo:</strong> Seamless handoffs and visual orchestration.</li>
+                <li><strong>Completed Progress Summary:</strong> 4 evolutionary phases.</li>
+                <li><strong>Final Closing Statement:</strong> Balanced summary &amp; vision.</li>
+                <li><strong>General Q&amp;A:</strong> Collaborative defense on tricky reviewer questions.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================================================= -->
+        <!-- SECTION 17 — FINAL PRE-PRESENTATION CHECKLIST -->
+        <!-- ========================================================================= -->
+        <section id="checklist-section" class="narrative-section">
+          <div class="section-heading-group">
+            <div class="section-eyebrow">Final Readiness</div>
+            <h3 class="section-heading">Pre-Flight Review Checklist</h3>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+            <div>
+              <h4 style="font-size: 14px; color: var(--accent-indigo-light); margin-bottom: 10px;">📢 Presentation Script</h4>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label class="check-item"><input type="checkbox" data-check="p1"> <span>Both presenters rehearsed transitions</span></label>
+                <label class="check-item"><input type="checkbox" data-check="p2"> <span>Timing within 22–26 min envelope</span></label>
+                <label class="check-item"><input type="checkbox" data-check="p3"> <span>"No universal winner" emphasized</span></label>
+                <label class="check-item"><input type="checkbox" data-check="p4"> <span>Completed vs Future clearly separated</span></label>
+              </div>
+            </div>
+
+            <div>
+              <h4 style="font-size: 14px; color: var(--demo-gold); margin-bottom: 10px;">💻 Live Demo Environment</h4>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label class="check-item"><input type="checkbox" data-check="p5"> <span>Backend &amp; Frontend services running</span></label>
+                <label class="check-item"><input type="checkbox" data-check="p6"> <span>Both strategies tested before start</span></label>
+                <label class="check-item"><input type="checkbox" data-check="p7"> <span>Browser zoom and clean window ready</span></label>
+                <label class="check-item"><input type="checkbox" data-check="p8"> <span>Backup video/screenshot available</span></label>
+              </div>
+            </div>
+
+            <div>
+              <h4 style="font-size: 14px; color: var(--speaker-khushi); margin-bottom: 10px;">🛡️ Defense &amp; Q&amp;A</h4>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label class="check-item"><input type="checkbox" data-check="p9"> <span>IDM equations &amp; parameters memorized</span></label>
+                <label class="check-item"><input type="checkbox" data-check="p10"> <span>"Why not SUMO" answer rehearsed</span></label>
+                <label class="check-item"><input type="checkbox" data-check="p11"> <span>Fairness &amp; multi-metric rationale ready</span></label>
+                <label class="check-item"><input type="checkbox" data-check="p12"> <span>Scope limitations acknowledged openly</span></label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>
+        <strong>Traffic Intersection Control Simulation Framework</strong> | Monthly Project Review Preparation Dashboard
+      </p>
+      <p style="margin-top: 6px; font-size: 12px;">
+        Designed for Viraj Jadhao &amp; Khushi | Self-Contained Internal Review Documentation
+      </p>
+    </footer>
+  </div>
+
+  <!-- Interactive JavaScript -->
+  <script>
+    // Theme Toggle
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    const themeIcon = document.getElementById('theme-icon');
+    
+    themeToggleBtn.addEventListener('click', () => {
+      const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+      if (isLight) {
+        document.documentElement.removeAttribute('data-theme');
+        themeIcon.textContent = '🌙';
+        localStorage.setItem('theme', 'dark');
+      } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+        themeIcon.textContent = '☀️';
+        localStorage.setItem('theme', 'light');
+      }
+    });
+
+    // Check saved theme
+    if (localStorage.getItem('theme') === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      themeIcon.textContent = '☀️';
+    }
+
+    // Presentation Mode Toggle
+    const presModeBtn = document.getElementById('pres-mode-toggle');
+    presModeBtn.addEventListener('click', () => {
+      document.body.classList.toggle('presentation-mode');
+      const active = document.body.classList.contains('presentation-mode');
+      presModeBtn.classList.toggle('presentation-mode-active', active);
+    });
+
+    // Speaker Filtering Logic
+    const filterButtons = document.querySelectorAll('.filter-btn');
+    const scriptSections = document.querySelectorAll('.script-section');
+    const sidebarItems = document.querySelectorAll('.sidebar-nav-item');
+
+    filterButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        filterButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const filter = btn.getAttribute('data-filter');
+
+        scriptSections.forEach(sec => {
+          const speaker = sec.getAttribute('data-speaker-section');
+          if (filter === 'all') {
+            sec.classList.remove('hidden');
+          } else if (filter === 'khushi') {
+            sec.classList.toggle('hidden', speaker !== 'khushi' && speaker !== 'both');
+          } else if (filter === 'viraj') {
+            sec.classList.toggle('hidden', speaker !== 'viraj' && speaker !== 'both');
+          } else if (filter === 'demo') {
+            sec.classList.toggle('hidden', speaker !== 'demo');
+          } else if (filter === 'faq') {
+            sec.classList.add('hidden');
+          }
+        });
+
+        // If FAQ filter selected, scroll to FAQ section
+        if (filter === 'faq') {
+          document.getElementById('faq-section').scrollIntoView({ behavior: 'smooth' });
+        }
+      });
+    });
+
+    // FAQ Accordion Toggle
+    function toggleFaq(headerEl) {
+      const contentEl = headerEl.nextElementSibling;
+      const arrowEl = headerEl.querySelector('span:last-child');
+      const isHidden = contentEl.classList.contains('hidden');
+      
+      contentEl.classList.toggle('hidden', !isHidden);
+      arrowEl.textContent = isHidden ? '▴' : '▾';
+    }
+
+    // Toggle All FAQs Button
+    const toggleFaqsBtn = document.getElementById('toggle-faqs-btn');
+    let allFaqsExpanded = false;
+    toggleFaqsBtn.addEventListener('click', () => {
+      allFaqsExpanded = !allFaqsExpanded;
+      const faqContents = document.querySelectorAll('.faq-content');
+      faqContents.forEach(content => {
+        content.classList.toggle('hidden', !allFaqsExpanded);
+        const arrow = content.previousElementSibling.querySelector('span:last-child');
+        if (arrow) arrow.textContent = allFaqsExpanded ? '▴' : '▾';
+      });
+    });
+
+    // FAQ Search and Category Filtering
+    const faqSearchInput = document.getElementById('faq-search-input');
+    const faqCategoryBtns = document.querySelectorAll('.faq-category-btn');
+    const faqItems = document.querySelectorAll('.faq-item');
+
+    function filterFaqs() {
+      const query = faqSearchInput.value.toLowerCase().trim();
+      const activeCatBtn = document.querySelector('.faq-category-btn.active');
+      const activeCat = activeCatBtn ? activeCatBtn.getAttribute('data-cat') : 'all';
+
+      faqItems.forEach(item => {
+        const itemCat = item.getAttribute('data-category');
+        const text = item.textContent.toLowerCase();
+        
+        const matchesCategory = (activeCat === 'all' || itemCat === activeCat);
+        const matchesQuery = query === '' || text.includes(query);
+
+        item.classList.toggle('hidden', !(matchesCategory && matchesQuery));
+      });
+    }
+
+    faqSearchInput.addEventListener('input', filterFaqs);
+
+    faqCategoryBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        faqCategoryBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        filterFaqs();
+      });
+    });
+
+    // Copy Script Utility
+    function copyText(btn) {
+      const scriptBox = btn.closest('.script-box');
+      const textToCopy = scriptBox.querySelector('.spoken-text').innerText;
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        const origText = btn.textContent;
+        btn.textContent = 'Copied!';
+        btn.style.borderColor = 'var(--speaker-khushi)';
+        setTimeout(() => {
+          btn.textContent = origText;
+          btn.style.borderColor = '';
+        }, 2000);
+      });
+    }
+
+    // Interactive Checkboxes with LocalStorage
+    const checkboxes = document.querySelectorAll('input[type="checkbox"][data-check]');
+    checkboxes.forEach(cb => {
+      const id = cb.getAttribute('data-check');
+      const saved = localStorage.getItem('chk_' + id);
+      if (saved === 'true') {
+        cb.checked = true;
+        cb.closest('.check-item')?.classList.add('completed');
+      }
+
+      cb.addEventListener('change', () => {
+        localStorage.setItem('chk_' + id, cb.checked);
+        cb.closest('.check-item')?.classList.toggle('completed', cb.checked);
+      });
+    });
+
+    // Active Sidebar Scroll Spy
+    window.addEventListener('scroll', () => {
+      const sections = document.querySelectorAll('section[id]');
+      const scrollY = window.pageYOffset;
+
+      sections.forEach(current => {
+        const sectionHeight = current.offsetHeight;
+        const sectionTop = current.offsetTop - 120;
+        const sectionId = current.getAttribute('id');
+
+        if (scrollY > sectionTop && scrollY <= sectionTop + sectionHeight) {
+          sidebarItems.forEach(item => {
+            const link = item.querySelector('a');
+            if (link && link.getAttribute('href') === '#' + sectionId) {
+              item.classList.add('active');
+            } else {
+              item.classList.remove('active');
+            }
+          });
+        }
+      });
+    });
+  </script>
+</body>
+</html>
