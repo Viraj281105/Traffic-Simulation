@@ -51,6 +51,34 @@ _LOOK_AHEAD_LANES: int = 3          # how many route lanes to scan forward
 # Public API
 # ---------------------------------------------------------------------------
 
+def is_blocked_before_lane(vehicle: Vehicle, target_lane: Any) -> bool:
+    """Check if there is a vehicle or virtual obstacle on the route before target_lane."""
+    if vehicle.lane is None:
+        return True
+    try:
+        curr_idx = vehicle.route.index(vehicle.lane)
+        target_idx = vehicle.route.index(target_lane)
+    except ValueError:
+        return True
+
+    accumulated_dist = -vehicle.position
+    for i in range(curr_idx, target_idx):
+        lane = vehicle.route[i]
+        # Check for virtual obstacle on this intermediate lane
+        if getattr(lane, "virtual_obstacle", None) is not None:
+            return True
+        # Check for any vehicles ahead of us on this intermediate lane
+        for v in lane.get_vehicles():
+            if v is vehicle:
+                continue
+            v_dist = accumulated_dist + v.position
+            if v_dist > 0:
+                # There is a vehicle ahead of us before the target lane
+                return True
+        accumulated_dist += lane.length
+    return False
+
+
 def find_leader(
     vehicle: Vehicle,
     network: Optional[RoadNetwork] = None,
@@ -136,6 +164,11 @@ def find_leader(
             lane = vehicle.route[i]
 
             if lane.lane_id.startswith("conn"):
+                # Check if we are blocked before this connection lane
+                if is_blocked_before_lane(vehicle, lane):
+                    acc_dist_for_conflict += lane.length
+                    continue
+
                 # Position on this connection lane
                 if lane is vehicle.lane:
                     pos_on_conn = vehicle.position
@@ -179,32 +212,43 @@ def find_leader(
     # ── Layer 4: Emergency proximity check ─────────────────────────────
     if active_vehicles:
         my_x, my_y = vehicle.coords
+        heading_rad = math.radians(vehicle.heading)
+        fwd_x = math.sin(heading_rad)
+        fwd_y = math.cos(heading_rad)
+
         for other in active_vehicles:
             if other is vehicle or other.lane is None:
                 continue
 
+            # Skip parallel lanes of the same street (non-connection lanes starting with same direction prefix)
+            id_a = vehicle.lane.lane_id.lower()
+            id_b = other.lane.lane_id.lower()
+            if not id_a.startswith("conn") and not id_b.startswith("conn"):
+                if id_a[0] in ("n", "s", "e", "w") and id_a[:2] == id_b[:2]:
+                    continue
+
             ox, oy = other.coords
             dx = ox - my_x
             dy = oy - my_y
-            dist = math.sqrt(dx * dx + dy * dy)
 
-            if dist > _SENSOR_RANGE:
-                continue
-
-            # Check if this vehicle is actually *ahead* of us (not behind)
-            # Use dot product with our heading to determine
-            heading_rad = math.radians(vehicle.heading)
-            fwd_x = math.sin(heading_rad)
-            fwd_y = math.cos(heading_rad)
-            dot = dx * fwd_x + dy * fwd_y
-
-            if dot <= 0:
+            # Forward distance along our heading
+            fwd_dist = dx * fwd_x + dy * fwd_y
+            if fwd_dist <= 0:
                 # Other vehicle is behind or beside us — not a forward threat
                 continue
 
-            # Emergency braking if dangerously close
-            if dist < _EMERGENCY_DIST + (vehicle.length + other.length) / 2.0:
-                gap = max(0.0, dist - (vehicle.length + other.length) / 2.0)
+            # Lateral distance perpendicular to our heading
+            lat_dist = abs(-dx * fwd_y + dy * fwd_x)
+            corridor_width = (vehicle.width + other.width) / 2.0 + 0.3  # ~2.2m
+
+            if lat_dist > corridor_width:
+                # Outside our lane envelope (e.g. adjacent lane, waiting at perpendicular red light)
+                continue
+
+            # Emergency braking if directly ahead in our corridor
+            min_safe_dist = _EMERGENCY_DIST + (vehicle.length + other.length) / 2.0
+            if fwd_dist < min_safe_dist:
+                gap = max(0.0, fwd_dist - (vehicle.length + other.length) / 2.0)
                 if gap < best_gap:
                     best_gap = gap
                     best_leader = VirtualObstacle(

@@ -76,6 +76,8 @@ class Vehicle:
     def heading(self) -> float:
         if self.lane is None:
             return 0.0
+        if hasattr(self.lane, "get_heading_at_distance"):
+            return self.lane.get_heading_at_distance(self.position)
         return self.lane.heading
 
     @property

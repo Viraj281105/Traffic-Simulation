@@ -210,11 +210,11 @@ def test_fixed_time_signal_legacy_config_and_lane_intents() -> None:
 
     # Test _lane_turn_intent
     assert len(FixedTimeSignalController._lane_turn_intent(0, 1)) == 3
-    assert len(FixedTimeSignalController._lane_turn_intent(0, 2)) == 1
+    assert len(FixedTimeSignalController._lane_turn_intent(0, 2)) == 2
     assert len(FixedTimeSignalController._lane_turn_intent(1, 2)) == 2
-    assert len(FixedTimeSignalController._lane_turn_intent(0, 3)) == 1
+    assert len(FixedTimeSignalController._lane_turn_intent(0, 3)) == 2
     assert len(FixedTimeSignalController._lane_turn_intent(1, 3)) == 1
-    assert len(FixedTimeSignalController._lane_turn_intent(2, 3)) == 1
+    assert len(FixedTimeSignalController._lane_turn_intent(2, 3)) == 2
 
 
 def test_fixed_time_signal_cycle_wrap_and_missing_approach() -> None:

@@ -100,9 +100,9 @@ class FixedTimeSignalController(BaseController):
         ctrl_cfg = config.get("controller", {})
 
         # Configurable durations (seconds)
-        self.straight_right_duration: float = ctrl_cfg.get("straightRightDuration", 25.0)
-        self.left_duration: float = ctrl_cfg.get("leftDuration", 10.0)
-        self.yellow_duration: float = ctrl_cfg.get("yellowDuration", 4.0)
+        self.straight_right_duration: float = ctrl_cfg.get("straightRightDuration", 15.0)
+        self.left_duration: float = ctrl_cfg.get("leftDuration", 5.0)
+        self.yellow_duration: float = ctrl_cfg.get("yellowDuration", 3.0)
         self.all_red_duration: float = ctrl_cfg.get("allRedDuration", 2.0)
 
         # Also support legacy keys for backward compat
@@ -183,24 +183,18 @@ class FixedTimeSignalController(BaseController):
     def _lane_turn_intent(lane_index: int, total_lanes: int) -> Tuple[TurnIntent, ...]:
         """Determine which turn intents a lane serves based on its index.
 
-        Policy (right-hand traffic):
-            1 lane  → all turns.
-            2 lanes → 0 = left, 1 = straight + right.
-            3+ lanes → 0 = left, middle = straight, last = right.
+        Policy:
+            - Left lane (0) serves LEFT and STRAIGHT.
+            - Right lane (total_lanes - 1) serves RIGHT and STRAIGHT.
+            - Middle lanes serve STRAIGHT.
         """
         if total_lanes <= 1:
             return (TurnIntent.LEFT, TurnIntent.STRAIGHT, TurnIntent.RIGHT)
 
-        if total_lanes == 2:
-            if lane_index == 0:
-                return (TurnIntent.LEFT,)
-            return (TurnIntent.STRAIGHT, TurnIntent.RIGHT)
-
-        # 3+ lanes
         if lane_index == 0:
-            return (TurnIntent.LEFT,)
+            return (TurnIntent.LEFT, TurnIntent.STRAIGHT)
         elif lane_index == total_lanes - 1:
-            return (TurnIntent.RIGHT,)
+            return (TurnIntent.RIGHT, TurnIntent.STRAIGHT)
         return (TurnIntent.STRAIGHT,)
 
     # ------------------------------------------------------------------
