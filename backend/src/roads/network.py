@@ -192,6 +192,28 @@ class RoadNetwork:
                         # Some combinations might not be valid
                         pass
 
+    @staticmethod
+    def _resolve_exit_lane_index(
+        lane_index: int, total_in_lanes: int, total_out_lanes: int, turn_intent: TurnIntent
+    ) -> int:
+        if total_out_lanes <= 1:
+            return 0
+        if turn_intent == TurnIntent.LEFT:
+            return 0
+        elif turn_intent == TurnIntent.RIGHT:
+            return total_out_lanes - 1
+        else:  # STRAIGHT
+            if total_in_lanes <= 1:
+                return total_out_lanes // 2
+            if lane_index == 0:
+                return 0
+            if lane_index == total_in_lanes - 1:
+                return total_out_lanes - 1
+            # Map middle lanes proportionally
+            in_ratio = lane_index / (total_in_lanes - 1)
+            out_idx = round(in_ratio * (total_out_lanes - 1))
+            return max(0, min(out_idx, total_out_lanes - 1))
+
     def _get_or_create_connection_lane(
         self, origin_direction: Direction, lane_index: int, turn_intent: TurnIntent
     ) -> Lane:
@@ -205,12 +227,33 @@ class RoadNetwork:
 
         target_direction = self._resolve_target_direction(origin_direction, turn_intent)
         outgoing_approach = self.get_outgoing_approach(target_direction)
-        exit_lane_index = lane_index % len(outgoing_approach.get_lanes())
+
+        total_in_lanes = len(incoming_approach.get_lanes())
+        total_out_lanes = len(outgoing_approach.get_lanes())
+        exit_lane_index = self._resolve_exit_lane_index(
+            lane_index, total_in_lanes, total_out_lanes, turn_intent
+        )
         exit_lane = outgoing_approach.get_lanes()[exit_lane_index]
 
         conn_id = f"conn_{origin_direction.value}_{lane_index}_{turn_intent.value}"
         start_x, start_y = incoming_lane.end_coords
         end_x, end_y = exit_lane.start_coords
+
+        waypoints = None
+        if turn_intent in (TurnIntent.LEFT, TurnIntent.RIGHT):
+            if origin_direction in (Direction.NORTH, Direction.SOUTH):
+                cx, cy = start_x, end_y
+            else:
+                cx, cy = end_x, start_y
+
+            waypoints = []
+            num_pts = 12
+            for i in range(num_pts + 1):
+                t = i / float(num_pts)
+                omt = 1.0 - t
+                px = omt * omt * start_x + 2.0 * omt * t * cx + t * t * end_x
+                py = omt * omt * start_y + 2.0 * omt * t * cy + t * t * end_y
+                waypoints.append((px, py))
 
         connection_lane = Lane(
             conn_id,
@@ -219,6 +262,7 @@ class RoadNetwork:
             end_x=end_x,
             end_y=end_y,
             speed_limit=incoming_approach.speed_limit,
+            waypoints=waypoints,
         )
 
         self._connection_lane_cache[key] = connection_lane
@@ -274,7 +318,12 @@ class RoadNetwork:
 
         target_direction = self._resolve_target_direction(origin_direction, turn_intent)
         outgoing_approach = self.get_outgoing_approach(target_direction)
-        exit_lane_index = lane_index % len(outgoing_approach.get_lanes())
+
+        total_in_lanes = len(incoming_approach.get_lanes())
+        total_out_lanes = len(outgoing_approach.get_lanes())
+        exit_lane_index = self._resolve_exit_lane_index(
+            lane_index, total_in_lanes, total_out_lanes, turn_intent
+        )
         exit_lane = outgoing_approach.get_lanes()[exit_lane_index]
 
         return [incoming_lane, connection_lane, exit_lane]

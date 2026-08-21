@@ -66,118 +66,208 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
   ppm = 7,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animFrameIdRef = useRef<number | null>(null);
+
+  const snapshotRef = useRef<LiveSnapshot | null>(null);
+  const prevSnapshotRef = useRef<LiveSnapshot | null>(null);
+  const lastSnapshotTimeRef = useRef<number>(0);
+
   useEffect(() => {
-    const ctx = canvasRef.current?.getContext("2d");
-    if (!ctx) return;
-    const point: Point = (x, y) => [x * ppm + width / 2, -y * ppm + height / 2];
-    const half = intersectionSize / 2;
-    const widths: Widths = {
-      north: lanesNorth * laneWidth * 2,
-      south: lanesSouth * laneWidth * 2,
-      east: lanesEast * laneWidth * 2,
-      west: lanesWest * laneWidth * 2,
-    };
-    const roadLength = Math.max(46, Math.ceil(Math.max(width, height) / ppm));
-    const line = (x1: number, y1: number, x2: number, y2: number) => {
-      const [a, b] = point(x1, y1);
-      const [c, d] = point(x2, y2);
-      ctx.beginPath();
-      ctx.moveTo(a, b);
-      ctx.lineTo(c, d);
-      ctx.stroke();
-    };
-    const rect = (x1: number, y1: number, x2: number, y2: number) => {
-      const [left, top] = point(x1, y2);
-      const [right, bottom] = point(x2, y1);
-      ctx.fillRect(left, top, right - left, bottom - top);
+    prevSnapshotRef.current = snapshotRef.current;
+    snapshotRef.current = snapshot;
+    lastSnapshotTimeRef.current = performance.now();
+  }, [snapshot]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+
+    let active = true;
+
+    const render = () => {
+      if (!active) return;
+
+      const current = snapshotRef.current;
+      const previous = prevSnapshotRef.current;
+      const lastTime = lastSnapshotTimeRef.current;
+
+      if (!current) {
+        // Draw grass background while waiting for data
+        ctx.fillStyle = "#557d35";
+        ctx.fillRect(0, 0, width, height);
+        animFrameIdRef.current = requestAnimationFrame(render);
+        return;
+      }
+
+      // Calculate t (interpolation factor from 0 to 1)
+      const elapsed = performance.now() - lastTime;
+      const stepDuration = current.deltaTime ? current.deltaTime * 1000 : 100;
+      const t = Math.max(0, Math.min(1, elapsed / stepDuration));
+
+      const point: Point = (x, y) => [
+        x * ppm + width / 2,
+        -y * ppm + height / 2,
+      ];
+      const half = intersectionSize / 2;
+      const widths: Widths = {
+        north: lanesNorth * laneWidth * 2,
+        south: lanesSouth * laneWidth * 2,
+        east: lanesEast * laneWidth * 2,
+        west: lanesWest * laneWidth * 2,
+      };
+      const roadLength = Math.max(46, Math.ceil(Math.max(width, height) / ppm));
+
+      const line = (x1: number, y1: number, x2: number, y2: number) => {
+        const [a, b] = point(x1, y1);
+        const [c, d] = point(x2, y2);
+        ctx.beginPath();
+        ctx.moveTo(a, b);
+        ctx.lineTo(c, d);
+        ctx.stroke();
+      };
+      const rect = (x1: number, y1: number, x2: number, y2: number) => {
+        const [left, top] = point(x1, y2);
+        const [right, bottom] = point(x2, y1);
+        ctx.fillRect(left, top, right - left, bottom - top);
+      };
+
+      // Draw background grass
+      ctx.fillStyle = "#557d35";
+      ctx.fillRect(0, 0, width, height);
+      ctx.strokeStyle = "rgba(28,58,28,.22)";
+      ctx.lineWidth = 1;
+      for (let y = 0; y < height; y += 18)
+        line(0, (height / 2 - y) / ppm, width / ppm, (height / 2 - y) / ppm);
+
+      // Draw roads
+      ctx.fillStyle = "#343b42";
+      rect(-widths.north / 2, half, widths.north / 2, roadLength);
+      rect(-widths.south / 2, -roadLength, widths.south / 2, -half);
+      rect(half, -widths.east / 2, roadLength, widths.east / 2);
+      rect(-roadLength, -widths.west / 2, -half, widths.west / 2);
+      rect(-half, -half, half, half);
+
+      // Draw road borders
+      ctx.strokeStyle = "#d7dde0";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([]);
+      line(-widths.north / 2, half, -widths.north / 2, roadLength);
+      line(widths.north / 2, half, widths.north / 2, roadLength);
+      line(-widths.south / 2, -half, -widths.south / 2, -roadLength);
+      line(widths.south / 2, -half, widths.south / 2, -roadLength);
+      line(half, widths.east / 2, roadLength, widths.east / 2);
+      line(half, -widths.east / 2, roadLength, -widths.east / 2);
+      line(-half, widths.west / 2, -roadLength, widths.west / 2);
+      line(-half, -widths.west / 2, -roadLength, -widths.west / 2);
+
+      // Draw dividers
+      const divider = (direction: Direction, count: number) => {
+        for (let i = -count; i <= count; i += 1) {
+          const center = i === 0;
+          const offset = i * laneWidth;
+          ctx.strokeStyle = center ? "#f2c230" : "rgba(255,255,255,.55)";
+          ctx.lineWidth = center ? 2.2 : 1.2;
+          ctx.setLineDash(center ? [] : [7, 9]);
+          if (direction === "north") line(offset, half, offset, roadLength);
+          if (direction === "south") line(offset, -half, offset, -roadLength);
+          if (direction === "east") line(half, offset, roadLength, offset);
+          if (direction === "west") line(-half, offset, -roadLength, offset);
+        }
+      };
+      divider("north", lanesNorth);
+      divider("south", lanesSouth);
+      divider("east", lanesEast);
+      divider("west", lanesWest);
+
+      if (showStopLines) {
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 3;
+        ctx.setLineDash([]);
+        line(-widths.north / 2, half, 0, half);
+        line(0, -half, widths.south / 2, -half);
+        line(half, 0, half, widths.east / 2);
+        line(-half, -widths.west / 2, -half, 0);
+      }
+      if (showCrosswalks) drawCrosswalks(ctx, half, widths, ppm, point);
+
+      const controller = current.controller;
+      if (controller.type === "roundabout") {
+        const [cx, cy] = point(0, 0);
+        ctx.fillStyle = "#343b42";
+        ctx.beginPath();
+        ctx.arc(cx, cy, controller.outerRadius * ppm, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#557d35";
+        ctx.beginPath();
+        ctx.arc(cx, cy, controller.innerRadius * ppm, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#e5eaed";
+        ctx.setLineDash([7, 8]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      if (controller.type === "fixed_time_signal")
+        drawSignals(ctx, controller.signals, half, widths, ppm, point);
+
+      // Interpolate vehicle positions
+      const prevVehiclesMap = new Map<string, SnapshotVehicle>();
+      if (previous) {
+        for (const pv of previous.vehicles) {
+          prevVehiclesMap.set(pv.id, pv);
+        }
+      }
+
+      for (const vehicle of current.vehicles) {
+        if (vehicle.state === "exited") continue;
+
+        let renderX = vehicle.x;
+        let renderY = vehicle.y;
+        let renderHeading = vehicle.heading;
+
+        const prevVehicle = prevVehiclesMap.get(vehicle.id);
+        if (prevVehicle) {
+          renderX = prevVehicle.x + t * (vehicle.x - prevVehicle.x);
+          renderY = prevVehicle.y + t * (vehicle.y - prevVehicle.y);
+
+          // Interpolate heading along the shortest angular path
+          let diff = vehicle.heading - prevVehicle.heading;
+          while (diff < -180) diff += 360;
+          while (diff > 180) diff -= 360;
+          renderHeading = (prevVehicle.heading + t * diff + 360) % 360;
+        }
+
+        drawVehicle(
+          ctx,
+          { ...vehicle, x: renderX, y: renderY, heading: renderHeading },
+          ppm,
+          point,
+        );
+      }
+
+      if (debug)
+        drawQueues(
+          ctx,
+          current.intersection.approaches,
+          half,
+          widths,
+          ppm,
+          point,
+        );
+      drawHud(ctx, current, width);
+
+      animFrameIdRef.current = requestAnimationFrame(render);
     };
 
-    ctx.fillStyle = "#557d35";
-    ctx.fillRect(0, 0, width, height);
-    ctx.strokeStyle = "rgba(28,58,28,.22)";
-    ctx.lineWidth = 1;
-    for (let y = 0; y < height; y += 18)
-      line(0, (height / 2 - y) / ppm, width / ppm, (height / 2 - y) / ppm);
-    ctx.fillStyle = "#343b42";
-    rect(-widths.north / 2, half, widths.north / 2, roadLength);
-    rect(-widths.south / 2, -roadLength, widths.south / 2, -half);
-    rect(half, -widths.east / 2, roadLength, widths.east / 2);
-    rect(-roadLength, -widths.west / 2, -half, widths.west / 2);
-    rect(-half, -half, half, half);
+    render();
 
-    ctx.strokeStyle = "#d7dde0";
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([]);
-    line(-widths.north / 2, half, -widths.north / 2, roadLength);
-    line(widths.north / 2, half, widths.north / 2, roadLength);
-    line(-widths.south / 2, -half, -widths.south / 2, -roadLength);
-    line(widths.south / 2, -half, widths.south / 2, -roadLength);
-    line(half, widths.east / 2, roadLength, widths.east / 2);
-    line(half, -widths.east / 2, roadLength, -widths.east / 2);
-    line(-half, widths.west / 2, -roadLength, widths.west / 2);
-    line(-half, -widths.west / 2, -roadLength, -widths.west / 2);
-
-    const divider = (direction: Direction, count: number) => {
-      for (let i = -count; i <= count; i += 1) {
-        const center = i === 0;
-        const offset = i * laneWidth;
-        ctx.strokeStyle = center ? "#f2c230" : "rgba(255,255,255,.55)";
-        ctx.lineWidth = center ? 2.2 : 1.2;
-        ctx.setLineDash(center ? [] : [7, 9]);
-        if (direction === "north") line(offset, half, offset, roadLength);
-        if (direction === "south") line(offset, -half, offset, -roadLength);
-        if (direction === "east") line(half, offset, roadLength, offset);
-        if (direction === "west") line(-half, offset, -roadLength, offset);
+    return () => {
+      active = false;
+      if (animFrameIdRef.current) {
+        cancelAnimationFrame(animFrameIdRef.current);
       }
     };
-    divider("north", lanesNorth);
-    divider("south", lanesSouth);
-    divider("east", lanesEast);
-    divider("west", lanesWest);
-
-    if (showStopLines) {
-      ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 3;
-      ctx.setLineDash([]);
-      line(-widths.north / 2, half, 0, half);
-      line(0, -half, widths.south / 2, -half);
-      line(half, 0, half, widths.east / 2);
-      line(-half, -widths.west / 2, -half, 0);
-    }
-    if (showCrosswalks) drawCrosswalks(ctx, half, widths, ppm, point);
-
-    const controller = snapshot?.controller;
-    if (controller?.type === "roundabout") {
-      const [cx, cy] = point(0, 0);
-      ctx.fillStyle = "#343b42";
-      ctx.beginPath();
-      ctx.arc(cx, cy, controller.outerRadius * ppm, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#557d35";
-      ctx.beginPath();
-      ctx.arc(cx, cy, controller.innerRadius * ppm, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = "#e5eaed";
-      ctx.setLineDash([7, 8]);
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
-    if (controller?.type === "fixed_time_signal")
-      drawSignals(ctx, controller.signals, half, widths, ppm, point);
-    for (const vehicle of snapshot?.vehicles ?? [])
-      if (vehicle.state !== "exited") drawVehicle(ctx, vehicle, ppm, point);
-    if (debug && snapshot?.intersection)
-      drawQueues(
-        ctx,
-        snapshot.intersection.approaches,
-        half,
-        widths,
-        ppm,
-        point,
-      );
-    drawHud(ctx, snapshot, width);
   }, [
-    snapshot,
     width,
     height,
     lanesNorth,

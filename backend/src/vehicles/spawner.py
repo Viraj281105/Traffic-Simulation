@@ -48,8 +48,8 @@ class VehicleSpawner:
         self.len_max: float = veh_gen_cfg.get("vehicleLength", {}).get("max", 5.0)
         self.width_min: float = veh_gen_cfg.get("vehicleWidth", {}).get("min", 1.8)
         self.width_max: float = veh_gen_cfg.get("vehicleWidth", {}).get("max", 2.2)
-        self.speed_min: float = veh_gen_cfg.get("desiredSpeed", {}).get("min", 11.0)
-        self.speed_max: float = veh_gen_cfg.get("desiredSpeed", {}).get("max", 15.0)
+        self.speed_min: float = veh_gen_cfg.get("desiredSpeed", {}).get("min", 18.0)
+        self.speed_max: float = veh_gen_cfg.get("desiredSpeed", {}).get("max", 25.0)
 
         # Safety distance
         self.minimum_gap: float = veh_gen_cfg.get("minimumGap", 2.0)
@@ -166,10 +166,13 @@ class VehicleSpawner:
         # Select the preferred lane for this turn intent
         preferred_idx = self._select_lane_for_turn(lanes, turn)
 
-        # Try preferred lane first, then fall back to any available lane
-        ordered_indices = [preferred_idx] + [
-            i for i in range(len(lanes)) if i != preferred_idx
-        ]
+        # Try preferred lane first. Turning vehicles must spawn in their designated lane.
+        if turn in (TurnIntent.LEFT, TurnIntent.RIGHT):
+            ordered_indices = [preferred_idx]
+        else:
+            ordered_indices = [preferred_idx] + [
+                i for i in range(len(lanes)) if i != preferred_idx
+            ]
 
         target_lane: Optional[Lane] = None
         target_idx: int = preferred_idx

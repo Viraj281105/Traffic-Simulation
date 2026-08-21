@@ -425,7 +425,7 @@ async def websocket_stream(websocket: WebSocket, simulationId: str) -> None:  # 
 DEFAULT_CONFIG = {
     "simulation": {
         "timeStep": 0.1,
-        "duration": 300,
+        "duration": 600,
         "warmupTime": 30.0,
     },
     "geometry": {
@@ -434,14 +434,20 @@ DEFAULT_CONFIG = {
         "boundingRadius": 15.0,
     },
     "controller": {
-        "straightRightDuration": 25,
-        "leftDuration": 10,
-        "yellowDuration": 4,
-        "allRedDuration": 3,
+        "straightRightDuration": 15.0,
+        "leftDuration": 5.0,
+        "yellowDuration": 3.0,
+        "allRedDuration": 2.0,
     },
     "vehicleGeneration": {
         "stopSpeedThreshold": 0.1,
         "waitSpeedThreshold": 0.5,
+        "maxAcceleration": 3.0,
+        "comfortDeceleration": 3.5,
+        "desiredSpeed": {
+            "min": 18.0,
+            "max": 25.0,
+        },
     },
 }
 
