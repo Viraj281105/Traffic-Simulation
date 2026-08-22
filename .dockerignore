@@ -1,0 +1,31 @@
+# Version control
+.git
+.gitignore
+
+# Python virtual environments & caches
+backend/.venv
+backend/.mypy_cache
+backend/.pytest_cache
+backend/.ruff_cache
+backend/__pycache__
+backend/src/__pycache__
+**/__pycache__
+**/*.pyc
+**/*.pyo
+
+# Database files
+backend/*.db
+
+# Frontend (not needed for backend container)
+frontend/
+docs/
+scripts/
+.github/
+.vscode/
+
+# IDE & OS
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

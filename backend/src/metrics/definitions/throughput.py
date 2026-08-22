@@ -28,7 +28,4 @@ def calculate_throughput_rate(
             window_count += 1
 
     actual_window = min(current_time, window_size)
-    if actual_window <= 0:
-        return 0.0
-
     return (window_count / actual_window) * 60.0

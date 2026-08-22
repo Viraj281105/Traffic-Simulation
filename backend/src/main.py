@@ -1,4 +1,5 @@
 import json
+import logging
 import uuid
 from typing import Any, Dict
 
@@ -19,6 +20,9 @@ from src.snapshot.buffer import SnapshotBuffer
 from src.snapshot.builder import SnapshotBuilder
 from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 app = FastAPI(title="Traffic Simulation Framework API", version="1.0.0")
 
 # Configure CORS
@@ -30,12 +34,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# ── Health check endpoint (used by Docker HEALTHCHECK) ───────────────────────
+@app.get("/health")
+def health_check() -> Dict[str, str]:
+    return {"status": "healthy"}
+
+
+from pathlib import Path
+
 # Load schemas for validation
-try:
-    with open("shared/schemas/config.schema.json", "r") as f:
-        CONFIG_SCHEMA = json.load(f)
-except Exception:
-    CONFIG_SCHEMA = {}
+SCHEMA_PATHS = [
+    Path(__file__).resolve().parent.parent.parent / "shared" / "schemas" / "config.schema.json",
+    Path("shared/schemas/config.schema.json"),
+]
+
+CONFIG_SCHEMA: Dict[str, Any] = {}
+for p in SCHEMA_PATHS:
+    if p.is_file():
+        try:
+            with open(p, "r", encoding="utf-8") as f:
+                CONFIG_SCHEMA = json.load(f)
+            break
+        except Exception:
+            pass
 
 # ── Global State for Multi-Vehicle Simulations ──────────────────────────────
 # Dict mapping simulation_id -> { "engine": SimulationEngine, "collector": MetricCollector, "controller": Any }
@@ -403,7 +425,7 @@ async def websocket_stream(websocket: WebSocket, simulationId: str) -> None:  # 
 DEFAULT_CONFIG = {
     "simulation": {
         "timeStep": 0.1,
-        "duration": 300,
+        "duration": 600,
         "warmupTime": 30.0,
     },
     "geometry": {
@@ -412,13 +434,20 @@ DEFAULT_CONFIG = {
         "boundingRadius": 15.0,
     },
     "controller": {
-        "greenDuration": 30,
-        "yellowDuration": 5,
-        "allRedDuration": 2,
+        "straightRightDuration": 15.0,
+        "leftDuration": 5.0,
+        "yellowDuration": 3.0,
+        "allRedDuration": 2.0,
     },
     "vehicleGeneration": {
         "stopSpeedThreshold": 0.1,
         "waitSpeedThreshold": 0.5,
+        "maxAcceleration": 3.0,
+        "comfortDeceleration": 3.5,
+        "desiredSpeed": {
+            "min": 18.0,
+            "max": 25.0,
+        },
     },
 }
 

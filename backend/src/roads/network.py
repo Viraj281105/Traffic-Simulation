@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 from src.core.enums import Direction, TurnIntent
 from src.roads.approach import Approach
@@ -6,11 +6,20 @@ from src.roads.lane import Lane
 
 
 class RoadNetwork:
-    """Manages the network topology of the intersection, containing approaches and lanes."""
+    """Manages the network topology of the intersection, containing approaches and lanes.
+
+    Connection lanes (the lanes that traverse the intersection) are created once
+    and cached so that every vehicle travelling the same path shares the *same*
+    ``Lane`` instance.  This is critical for correct leader detection — vehicles
+    on the same physical path must see each other through the lane's vehicle list.
+    """
 
     def __init__(self) -> None:
         self._incoming: Dict[Direction, Approach] = {}
         self._outgoing: Dict[Direction, Approach] = {}
+
+        # Cache of connection lanes: (origin_dir, lane_idx, turn_intent) → Lane
+        self._connection_lane_cache: Dict[Tuple[Direction, int, TurnIntent], Lane] = {}
 
     def add_incoming_approach(self, approach: Approach) -> None:
         self._incoming[approach.direction] = approach
@@ -27,6 +36,10 @@ class RoadNetwork:
         if direction not in self._outgoing:
             raise KeyError(f"No outgoing approach for direction {direction}")
         return self._outgoing[direction]
+
+    def get_all_connection_lanes(self) -> List[Lane]:
+        """Return every cached connection lane (useful for conflict pre-computation)."""
+        return list(self._connection_lane_cache.values())
 
     def validate_connectivity(self) -> None:
         # Check all directions are present in both incoming and outgoing
@@ -50,6 +63,7 @@ class RoadNetwork:
         # Clear existing
         self._incoming.clear()
         self._outgoing.clear()
+        self._connection_lane_cache.clear()
 
         for d in Direction:
             in_approach = Approach(d)
@@ -150,46 +164,97 @@ class RoadNetwork:
             self.add_incoming_approach(in_approach)
             self.add_outgoing_approach(out_approach)
 
-    def generate_route(
+        # Pre-create all possible connection lanes
+        self._precompute_connection_lanes()
+
+    # ------------------------------------------------------------------
+    # Connection lane management
+    # ------------------------------------------------------------------
+
+    def _precompute_connection_lanes(self) -> None:
+        """Create and cache every possible connection lane.
+
+        This ensures that all vehicles taking the same path through the
+        intersection share the *same* Lane object, which is essential for
+        correct lane-based leader detection.
+        """
+        for direction in Direction:
+            try:
+                incoming = self.get_incoming_approach(direction)
+            except KeyError:
+                continue
+
+            for lane_idx in range(len(incoming.get_lanes())):
+                for turn in TurnIntent:
+                    try:
+                        self._get_or_create_connection_lane(direction, lane_idx, turn)
+                    except (KeyError, IndexError):
+                        # Some combinations might not be valid
+                        pass
+
+    @staticmethod
+    def _resolve_exit_lane_index(
+        lane_index: int, total_in_lanes: int, total_out_lanes: int, turn_intent: TurnIntent
+    ) -> int:
+        if total_out_lanes <= 1:
+            return 0
+        if turn_intent == TurnIntent.LEFT:
+            return 0
+        elif turn_intent == TurnIntent.RIGHT:
+            return total_out_lanes - 1
+        else:  # STRAIGHT
+            if total_in_lanes <= 1:
+                return total_out_lanes // 2
+            if lane_index == 0:
+                return 0
+            if lane_index == total_in_lanes - 1:
+                return total_out_lanes - 1
+            # Map middle lanes proportionally
+            in_ratio = lane_index / (total_in_lanes - 1)
+            out_idx = round(in_ratio * (total_out_lanes - 1))
+            return max(0, min(out_idx, total_out_lanes - 1))
+
+    def _get_or_create_connection_lane(
         self, origin_direction: Direction, lane_index: int, turn_intent: TurnIntent
-    ) -> List[Lane]:
+    ) -> Lane:
+        """Return the cached connection lane, creating it if necessary."""
+        key = (origin_direction, lane_index, turn_intent)
+        if key in self._connection_lane_cache:
+            return self._connection_lane_cache[key]
+
         incoming_approach = self.get_incoming_approach(origin_direction)
         incoming_lane = incoming_approach.get_lanes()[lane_index]
 
-        # Determine target outgoing direction based on TurnIntent
-        # LEFT: N->E, E->S, S->W, W->N
-        # STRAIGHT: N->S, E->W, S->N, W->E
-        # RIGHT: N->W, E->N, S->E, W->S
-        if turn_intent == TurnIntent.LEFT:
-            target_direction = {
-                Direction.NORTH: Direction.EAST,
-                Direction.EAST: Direction.SOUTH,
-                Direction.SOUTH: Direction.WEST,
-                Direction.WEST: Direction.NORTH,
-            }[origin_direction]
-        elif turn_intent == TurnIntent.STRAIGHT:
-            target_direction = {
-                Direction.NORTH: Direction.SOUTH,
-                Direction.EAST: Direction.WEST,
-                Direction.SOUTH: Direction.NORTH,
-                Direction.WEST: Direction.EAST,
-            }[origin_direction]
-        else:  # RIGHT
-            target_direction = {
-                Direction.NORTH: Direction.WEST,
-                Direction.EAST: Direction.NORTH,
-                Direction.SOUTH: Direction.EAST,
-                Direction.WEST: Direction.SOUTH,
-            }[origin_direction]
-
+        target_direction = self._resolve_target_direction(origin_direction, turn_intent)
         outgoing_approach = self.get_outgoing_approach(target_direction)
-        exit_lane_index = lane_index % len(outgoing_approach.get_lanes())
+
+        total_in_lanes = len(incoming_approach.get_lanes())
+        total_out_lanes = len(outgoing_approach.get_lanes())
+        exit_lane_index = self._resolve_exit_lane_index(
+            lane_index, total_in_lanes, total_out_lanes, turn_intent
+        )
         exit_lane = outgoing_approach.get_lanes()[exit_lane_index]
 
-        # Create connection lane
         conn_id = f"conn_{origin_direction.value}_{lane_index}_{turn_intent.value}"
         start_x, start_y = incoming_lane.end_coords
         end_x, end_y = exit_lane.start_coords
+
+        waypoints = None
+        if turn_intent in (TurnIntent.LEFT, TurnIntent.RIGHT):
+            if origin_direction in (Direction.NORTH, Direction.SOUTH):
+                cx, cy = start_x, end_y
+            else:
+                cx, cy = end_x, start_y
+
+            waypoints = []
+            num_pts = 12
+            for i in range(num_pts + 1):
+                t = i / float(num_pts)
+                omt = 1.0 - t
+                px = omt * omt * start_x + 2.0 * omt * t * cx + t * t * end_x
+                py = omt * omt * start_y + 2.0 * omt * t * cy + t * t * end_y
+                waypoints.append((px, py))
+
         connection_lane = Lane(
             conn_id,
             start_x=start_x,
@@ -197,6 +262,68 @@ class RoadNetwork:
             end_x=end_x,
             end_y=end_y,
             speed_limit=incoming_approach.speed_limit,
+            waypoints=waypoints,
         )
+
+        self._connection_lane_cache[key] = connection_lane
+        return connection_lane
+
+    @staticmethod
+    def _resolve_target_direction(
+        origin: Direction, turn: TurnIntent
+    ) -> Direction:
+        """Determine the exit direction given origin and turn intent.
+
+        Convention (right-hand traffic, driving on the right):
+            LEFT:     N→E, E→S, S→W, W→N
+            STRAIGHT: N→S, E→W, S→N, W→E
+            RIGHT:    N→W, E→N, S→E, W→S
+        """
+        mapping = {
+            TurnIntent.LEFT: {
+                Direction.NORTH: Direction.EAST,
+                Direction.EAST: Direction.SOUTH,
+                Direction.SOUTH: Direction.WEST,
+                Direction.WEST: Direction.NORTH,
+            },
+            TurnIntent.STRAIGHT: {
+                Direction.NORTH: Direction.SOUTH,
+                Direction.EAST: Direction.WEST,
+                Direction.SOUTH: Direction.NORTH,
+                Direction.WEST: Direction.EAST,
+            },
+            TurnIntent.RIGHT: {
+                Direction.NORTH: Direction.WEST,
+                Direction.EAST: Direction.NORTH,
+                Direction.SOUTH: Direction.EAST,
+                Direction.WEST: Direction.SOUTH,
+            },
+        }
+        return mapping[turn][origin]
+
+    def generate_route(
+        self, origin_direction: Direction, lane_index: int, turn_intent: TurnIntent
+    ) -> List[Lane]:
+        """Build a three-segment route: incoming lane → connection lane → exit lane.
+
+        The connection lane is *shared* across all vehicles taking the same
+        path, so lane-based leader detection works correctly.
+        """
+        incoming_approach = self.get_incoming_approach(origin_direction)
+        incoming_lane = incoming_approach.get_lanes()[lane_index]
+
+        connection_lane = self._get_or_create_connection_lane(
+            origin_direction, lane_index, turn_intent
+        )
+
+        target_direction = self._resolve_target_direction(origin_direction, turn_intent)
+        outgoing_approach = self.get_outgoing_approach(target_direction)
+
+        total_in_lanes = len(incoming_approach.get_lanes())
+        total_out_lanes = len(outgoing_approach.get_lanes())
+        exit_lane_index = self._resolve_exit_lane_index(
+            lane_index, total_in_lanes, total_out_lanes, turn_intent
+        )
+        exit_lane = outgoing_approach.get_lanes()[exit_lane_index]
 
         return [incoming_lane, connection_lane, exit_lane]

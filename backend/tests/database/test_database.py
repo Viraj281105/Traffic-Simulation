@@ -1,7 +1,7 @@
 import sqlite3
 
 from src.database.dao import ConfigurationDAO, RunMetricsDAO, SimulationRunDAO
-from src.database.db import DB_PATH, init_db
+from src.database.db import DB_PATH, get_db_connection, init_db
 
 
 def test_database_crud_operations() -> None:
@@ -75,3 +75,35 @@ def test_database_transaction_rollback() -> None:
         assert run is None
     finally:
         conn.close()
+
+
+def test_get_db_connection_and_missing_records() -> None:
+    init_db()
+    for conn in get_db_connection():
+        # Missing config returns None
+        missing_cfg = ConfigurationDAO.get(conn, "nonexistent_config_id_123")
+        assert missing_cfg is None
+
+        # Missing run returns None
+        missing_run = SimulationRunDAO.get(conn, "nonexistent_run_id_123")
+        assert missing_run is None
+
+
+def test_volume_sweep_runner(monkeypatch, tmp_path) -> None:
+    import runpy
+
+    import src.database.db as db_module
+    import src.database.sweep_runner as sweep_module
+
+    test_db = str(tmp_path / "test_sweep.db")
+    monkeypatch.setattr(db_module, "DB_PATH", test_db)
+    monkeypatch.setattr(sweep_module, "DB_PATH", test_db)
+    
+    # Test main block via runpy
+    runpy.run_path(sweep_module.__file__, run_name="__main__")
+
+
+
+
+
+

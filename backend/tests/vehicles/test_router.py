@@ -25,3 +25,81 @@ def test_find_leader_physical_leader() -> None:
     assert leader == v2
     # gap = v2.pos - v2.length/2 - (v1.pos + v1.length/2) = 20 - 2.25 - 7.25 = 10.5
     assert pytest.approx(gap) == 10.5
+
+
+def test_find_leader_none_lane_or_invalid_route() -> None:
+    lane1 = Lane("l1", 0, 0, 10, 0)
+    v1 = Vehicle("v1", 4.0, 2.0, 10.0, [lane1], start_position=2.0)
+
+    v1.lane = None
+    assert find_leader(v1) == (None, float("inf"))
+
+    v1.lane = Lane("l_foreign", 0, 0, 10, 0)
+    assert find_leader(v1) == (None, float("inf"))
+
+
+def test_find_leader_virtual_obstacle() -> None:
+    from src.controllers.fixed_time_signal import VirtualObstacle
+
+    lane = Lane("l_obs", 0.0, 0.0, 100.0, 0.0)
+    lane.virtual_obstacle = VirtualObstacle(position=50.0)  # type: ignore[attr-defined]
+
+    v = Vehicle("v_obs", 4.0, 2.0, 10.0, [lane], start_position=10.0)
+    leader, gap = find_leader(v)
+    assert leader is not None
+    assert gap > 0
+
+
+def test_find_leader_conflict_manager_and_active_vehicles() -> None:
+    from src.core.enums import TurnIntent
+    from src.intersection.conflict_manager import ConflictManager
+
+    lane_in = Lane("n_in_0", 0.0, 100.0, 0.0, 10.0)
+    conn_a = Lane("conn_north_0_straight", 0.0, 10.0, 0.0, -10.0)
+    conn_b = Lane("conn_east_0_straight", 10.0, 0.0, -10.0, 0.0)
+
+    cm = ConflictManager()
+    cm.register_connection_lane(conn_a)
+    cm.register_connection_lane(conn_b)
+    cm.compute_conflict_points()
+
+    # v1 approaching conn_a
+    v1 = Vehicle("v1", 4.0, 2.0, 10.0, [lane_in, conn_a], start_position=95.0, turn_intent=TurnIntent.LEFT)
+    # v2 on conn_b
+    v2 = Vehicle("v2", 4.0, 2.0, 10.0, [conn_b], start_position=5.0, turn_intent=TurnIntent.STRAIGHT)
+    v2.lane = conn_b
+
+    leader, gap = find_leader(v1, active_vehicles=[v1, v2], conflict_manager=cm, current_time=0.0)
+    assert leader is not None
+
+    # Test when v1 is already on conn_a
+    v1.lane = conn_a
+    v1.position = 5.0
+    leader_conn, gap_conn = find_leader(v1, active_vehicles=[v1, v2], conflict_manager=cm, current_time=0.0)
+    assert leader_conn is not None
+
+
+def test_find_leader_emergency_proximity() -> None:
+    lane1 = Lane("l1", 0.0, 0.0, 100.0, 0.0)
+
+
+    # v_main at (10.0, 0.0) heading East
+    v_main = Vehicle("v_main", 4.0, 2.0, 10.0, [lane1], start_position=10.0)
+
+    # Vehicle ahead on a different lane at (11.0, 0.0)
+    lane_cross = Lane("l_cross", 11.0, -10.0, 11.0, 10.0)
+    v_ahead = Vehicle("v_ahead", 4.0, 2.0, 10.0, [lane_cross], start_position=10.0)
+
+    # Vehicle behind (dot <= 0)
+    lane_behind = Lane("l_behind", 0.0, 0.0, 10.0, 0.0)
+    v_behind = Vehicle("v_behind", 4.0, 2.0, 10.0, [lane_behind], start_position=5.0)
+
+    # Vehicle far away (> 30m)
+    lane_far = Lane("l_far", 90.0, 0.0, 100.0, 0.0)
+    v_far = Vehicle("v_far", 4.0, 2.0, 10.0, [lane_far], start_position=0.0)
+
+    leader, gap = find_leader(v_main, active_vehicles=[v_main, v_ahead, v_behind, v_far])
+    assert leader is not None
+    assert leader.vehicle_id == "virtual_stop_line"
+
+

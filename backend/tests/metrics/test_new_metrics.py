@@ -68,3 +68,16 @@ def test_calculate_space_footprint_consumed() -> None:
         "roads": {"lanesPerApproach": 2, "laneWidth": 3.5},
     }
     assert calculate_space_footprint_consumed(config_signal) == 196.0
+
+    # Signal footprint with dict lanes:
+    config_dict_lanes = {
+        "geometry": {"intersectionType": "fixed_time_signal"},
+        "roads": {"lanesPerApproach": {"north": 3, "south": 2}, "laneWidth": 3.0},
+    }
+    assert calculate_space_footprint_consumed(config_dict_lanes) == 324.0
+
+    # QSI with 1 entry and 0 entry
+    assert calculate_queue_stability_index([{"north": 1}]) == 0.0
+    assert calculate_queue_stability_index([{"north": 0}, {"north": 0}]) == 0.0
+
+
