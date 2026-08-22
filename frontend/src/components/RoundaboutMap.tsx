@@ -10,8 +10,6 @@ interface RoundaboutMapProps {
   debug?: boolean;
 }
 
-type Direction = "north" | "south" | "east" | "west";
-
 const COLORS = [
   "#4d96ff",
   "#f8961e",
@@ -28,47 +26,7 @@ function vehicleColor(id: string): string {
   return COLORS[hash % COLORS.length];
 }
 
-function laneIndex(laneId: string): number {
-  const match = laneId.match(/_(?:in|out)_(\d+)/);
-  return match ? Number(match[1]) : 0;
-}
 
-function entryAngle(direction: Direction): number {
-  return { north: Math.PI / 2, east: 0, south: -Math.PI / 2, west: Math.PI }[
-    direction
-  ];
-}
-
-function exitDirection(
-  origin: Direction,
-  turnIntent: SnapshotVehicle["turnIntent"],
-): Direction {
-  const order: Direction[] = ["north", "east", "south", "west"];
-  const originIndex = order.indexOf(origin);
-  const offset = turnIntent === "right" ? 1 : turnIntent === "left" ? 3 : 2;
-  return order[(originIndex + offset) % order.length];
-}
-
-function clamp(value: number, minimum: number, maximum: number): number {
-  return Math.max(minimum, Math.min(maximum, value));
-}
-
-function turnArc(turnIntent: SnapshotVehicle["turnIntent"]): number {
-  if (turnIntent === "right") return Math.PI / 2;
-  if (turnIntent === "left") return Math.PI * 1.5;
-  return Math.PI;
-}
-
-function laneDirection(laneId: string, fallback: Direction): Direction {
-  const prefix = laneId.charAt(0).toLowerCase();
-  const directions: Record<string, Direction> = {
-    n: "north",
-    s: "south",
-    e: "east",
-    w: "west",
-  };
-  return directions[prefix] ?? fallback;
-}
 
 export const RoundaboutMap: React.FC<RoundaboutMapProps> = ({
   snapshot,
@@ -79,123 +37,177 @@ export const RoundaboutMap: React.FC<RoundaboutMapProps> = ({
   debug = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animFrameIdRef = useRef<number | null>(null);
+
+  const snapshotRef = useRef<LiveSnapshot | null>(null);
+  const prevSnapshotRef = useRef<LiveSnapshot | null>(null);
+  const lastSnapshotTimeRef = useRef<number>(0);
 
   useEffect(() => {
-    const ctx = canvasRef.current?.getContext("2d");
-    if (!ctx) return;
+    prevSnapshotRef.current = snapshotRef.current;
+    snapshotRef.current = snapshot;
+    lastSnapshotTimeRef.current = performance.now();
+  }, [snapshot]);
 
-    const controller = snapshot?.controller;
-    const innerRadius =
-      controller?.type === "roundabout" ? controller.innerRadius : 10;
-    const outerRadius =
-      controller?.type === "roundabout" ? controller.outerRadius : 20;
-    const ringRadius = (innerRadius + outerRadius) / 2;
-    const armReach = outerRadius + 42;
-    const scale = Math.min(width, height) / (armReach * 2);
-    const toCanvas = (x: number, y: number): [number, number] => [
-      width / 2 + x * scale,
-      height / 2 - y * scale,
-    ];
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
 
-    ctx.fillStyle = "#557d35";
-    ctx.fillRect(0, 0, width, height);
-    ctx.strokeStyle = "rgba(28,58,28,.2)";
-    ctx.lineWidth = 1;
-    for (let y = 0; y < height; y += 18) {
+    let active = true;
+
+    const render = () => {
+      if (!active) return;
+
+      const current = snapshotRef.current;
+      const previous = prevSnapshotRef.current;
+      const lastTime = lastSnapshotTimeRef.current;
+
+      if (!current) {
+        // Draw grass background while waiting for data
+        ctx.fillStyle = "#557d35";
+        ctx.fillRect(0, 0, width, height);
+        animFrameIdRef.current = requestAnimationFrame(render);
+        return;
+      }
+
+      const controller = current.controller;
+      const innerRadius =
+        controller?.type === "roundabout" ? controller.innerRadius : 10;
+      const outerRadius =
+        controller?.type === "roundabout" ? controller.outerRadius : 20;
+      const armReach = outerRadius + 42;
+      const scale = Math.min(width, height) / (armReach * 2);
+      const toCanvas = (x: number, y: number): [number, number] => [
+        width / 2 + x * scale,
+        height / 2 - y * scale,
+      ];
+
+      // Interpolate factor t
+      const elapsed = performance.now() - lastTime;
+      const stepDuration = current.deltaTime ? current.deltaTime * 1000 : 100;
+      const t = Math.max(0, Math.min(1, elapsed / stepDuration));
+
+      ctx.fillStyle = "#557d35";
+      ctx.fillRect(0, 0, width, height);
+      ctx.strokeStyle = "rgba(28,58,28,.2)";
+      ctx.lineWidth = 1;
+      for (let y = 0; y < height; y += 18) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+
+      const armWidth = laneWidth * 4;
+      ctx.fillStyle = "#343b42";
+      fillWorldRect(
+        ctx,
+        toCanvas,
+        -armWidth / 2,
+        outerRadius,
+        armWidth,
+        armReach - outerRadius,
+      );
+      fillWorldRect(
+        ctx,
+        toCanvas,
+        -armWidth / 2,
+        -armReach,
+        armWidth,
+        armReach - outerRadius,
+      );
+      fillWorldRect(
+        ctx,
+        toCanvas,
+        outerRadius,
+        -armWidth / 2,
+        armReach - outerRadius,
+        armWidth,
+      );
+      fillWorldRect(
+        ctx,
+        toCanvas,
+        -armReach,
+        -armWidth / 2,
+        armReach - outerRadius,
+        armWidth,
+      );
+
+      const [cx, cy] = toCanvas(0, 0);
+      ctx.fillStyle = "#343b42";
       ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
+      ctx.arc(cx, cy, outerRadius * scale, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#557d35";
+      ctx.beginPath();
+      ctx.arc(cx, cy, innerRadius * scale, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#e5eaed";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([7, 8]);
       ctx.stroke();
-    }
+      ctx.setLineDash([]);
 
-    const armWidth = laneWidth * 4;
-    ctx.fillStyle = "#343b42";
-    fillWorldRect(
-      ctx,
-      toCanvas,
-      -armWidth / 2,
-      outerRadius,
-      armWidth,
-      armReach - outerRadius,
-    );
-    fillWorldRect(
-      ctx,
-      toCanvas,
-      -armWidth / 2,
-      -armReach,
-      armWidth,
-      armReach - outerRadius,
-    );
-    fillWorldRect(
-      ctx,
-      toCanvas,
-      outerRadius,
-      -armWidth / 2,
-      armReach - outerRadius,
-      armWidth,
-    );
-    fillWorldRect(
-      ctx,
-      toCanvas,
-      -armReach,
-      -armWidth / 2,
-      armReach - outerRadius,
-      armWidth,
-    );
+      drawApproachMarkings(
+        ctx,
+        toCanvas,
+        outerRadius,
+        armReach,
+        armWidth,
+        showCrosswalks,
+      );
+      drawEntryYieldSigns(ctx, toCanvas, outerRadius, armReach, armWidth);
 
-    const [cx, cy] = toCanvas(0, 0);
-    ctx.fillStyle = "#343b42";
-    ctx.beginPath();
-    ctx.arc(cx, cy, outerRadius * scale, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#557d35";
-    ctx.beginPath();
-    ctx.arc(cx, cy, innerRadius * scale, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "#bcc6ca";
-    ctx.lineWidth = 2.5;
-    ctx.setLineDash([]);
-    ctx.beginPath();
-    ctx.arc(cx, cy, outerRadius * scale, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.strokeStyle = "#dfe7e9";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(cx, cy, innerRadius * scale, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.strokeStyle = "#f4f6f6";
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([8, 8]);
-    ctx.beginPath();
-    ctx.arc(cx, cy, ringRadius * scale, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
+      // Interpolate vehicle positions
+      const prevVehiclesMap = new Map<string, SnapshotVehicle>();
+      if (previous) {
+        for (const pv of previous.vehicles) {
+          prevVehiclesMap.set(pv.id, pv);
+        }
+      }
 
-    drawApproachMarkings(
-      ctx,
-      toCanvas,
-      outerRadius,
-      armReach,
-      armWidth,
-      showCrosswalks,
-    );
-    drawEntryYieldSigns(ctx, toCanvas, outerRadius, armReach, armWidth);
+      for (const vehicle of current.vehicles) {
+        if (vehicle.state === "exited") continue;
 
-    for (const vehicle of snapshot?.vehicles ?? []) {
-      if (vehicle.state !== "exited") {
+        let renderX = vehicle.x;
+        let renderY = vehicle.y;
+        let renderHeading = vehicle.heading;
+
+        const prevVehicle = prevVehiclesMap.get(vehicle.id);
+        if (prevVehicle) {
+          renderX = prevVehicle.x + t * (vehicle.x - prevVehicle.x);
+          renderY = prevVehicle.y + t * (vehicle.y - prevVehicle.y);
+
+          // Interpolate heading along shortest angular path
+          let diff = vehicle.heading - prevVehicle.heading;
+          while (diff < -180) diff += 360;
+          while (diff > 180) diff -= 360;
+          renderHeading = (prevVehicle.heading + t * diff + 360) % 360;
+        }
+
         drawRoundaboutVehicle(
           ctx,
-          vehicle,
+          { ...vehicle, x: renderX, y: renderY, heading: renderHeading },
           toCanvas,
           scale,
-          ringRadius,
-          outerRadius,
         );
       }
-    }
 
-    if (debug) drawDebugLabel(ctx, snapshot, width);
-  }, [snapshot, width, height, laneWidth, showCrosswalks, debug]);
+      if (debug) drawDebugLabel(ctx, current, width);
+
+      animFrameIdRef.current = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      active = false;
+      if (animFrameIdRef.current) {
+        cancelAnimationFrame(animFrameIdRef.current);
+      }
+    };
+  }, [width, height, laneWidth, showCrosswalks, debug]);
 
   return (
     <canvas
@@ -338,93 +350,13 @@ function drawRoundaboutVehicle(
   vehicle: SnapshotVehicle,
   toCanvas: (x: number, y: number) => [number, number],
   scale: number,
-  ringRadius: number,
-  outerRadius: number,
 ) {
-  const direction: Direction = vehicle.direction;
-  const index = laneIndex(vehicle.laneId);
-  const laneOffset = (index - 1.5) * 2.1;
-  const exit = exitDirection(direction, vehicle.turnIntent);
-  const startAngle = entryAngle(direction);
-  const exitAngle = entryAngle(exit);
-  const laneId = vehicle.laneId.toLowerCase();
-  const approachLength = 200;
-  const isConnection =
-    laneId.startsWith("conn_") || vehicle.state === "in_roundabout";
-  const isExit = laneId.includes("_out_");
-  const rawDistance =
-    direction === "north"
-      ? 200 - vehicle.y
-      : direction === "south"
-        ? vehicle.y + 200
-        : direction === "east"
-          ? 200 - vehicle.x
-          : vehicle.x + 200;
-  const approachProgress = clamp(
-    rawDistance / (approachLength - outerRadius),
-    0,
-    1,
-  );
-  const connectionProgress = clamp(
-    vehicle.distanceTraveled / Math.max(18, outerRadius * 1.5),
-    0,
-    1,
-  );
-  const exitDirectionValue = laneDirection(laneId, exit);
-  const exitDistance =
-    exitDirectionValue === "north"
-      ? vehicle.y
-      : exitDirectionValue === "south"
-        ? -vehicle.y
-        : exitDirectionValue === "east"
-          ? vehicle.x
-          : -vehicle.x;
-  const exitProgress = clamp((exitDistance - outerRadius) / 42, 0, 1);
-  const angle = startAngle - turnArc(vehicle.turnIntent) * connectionProgress;
-  let x: number;
-  let y: number;
-  let heading: number;
-
-  if (!isConnection && !isExit) {
-    const distance = outerRadius + 42 - approachProgress * 42;
-    if (direction === "north") {
-      x = -laneOffset;
-      y = distance;
-      heading = 180;
-    } else if (direction === "south") {
-      x = laneOffset;
-      y = -distance;
-      heading = 0;
-    } else if (direction === "east") {
-      x = distance;
-      y = laneOffset;
-      heading = 270;
-    } else {
-      x = -distance;
-      y = -laneOffset;
-      heading = 90;
-    }
-  } else if (isConnection) {
-    x = ringRadius * Math.cos(angle);
-    y = ringRadius * Math.sin(angle);
-    heading = (angle * 180) / Math.PI - 90;
-  } else {
-    const startX = ringRadius * Math.cos(exitAngle);
-    const startY = ringRadius * Math.sin(exitAngle);
-    const endDistance = outerRadius + 42;
-    const endX = endDistance * Math.cos(exitAngle);
-    const endY = endDistance * Math.sin(exitAngle);
-    x = startX + (endX - startX) * exitProgress;
-    y = startY + (endY - startY) * exitProgress;
-    heading = (exitAngle * 180) / Math.PI - 90;
-  }
-
-  const [cx, cy] = toCanvas(x, y);
+  const [cx, cy] = toCanvas(vehicle.x, vehicle.y);
   const length = Math.max(4.5, vehicle.length) * scale;
   const width = Math.max(2, vehicle.width) * scale;
   ctx.save();
   ctx.translate(cx, cy);
-  ctx.rotate((heading * Math.PI) / 180);
+  ctx.rotate((vehicle.heading * Math.PI) / 180);
   ctx.fillStyle = vehicleColor(vehicle.id);
   ctx.strokeStyle = "#172027";
   ctx.lineWidth = 2;
@@ -433,7 +365,9 @@ function drawRoundaboutVehicle(
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = "rgba(224,243,255,.8)";
-  ctx.fillRect(-width * 0.34, -length * 0.28, width * 0.68, length * 0.24);
+  ctx.beginPath();
+  ctx.roundRect(-width * 0.34, -length * 0.28, width * 0.68, length * 0.24, 2);
+  ctx.fill();
   ctx.restore();
 }
 

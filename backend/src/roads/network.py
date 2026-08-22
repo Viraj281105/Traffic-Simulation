@@ -1,3 +1,4 @@
+import math
 from typing import Any, Dict, List, Tuple
 
 from src.core.enums import Direction, TurnIntent
@@ -59,7 +60,14 @@ class RoadNetwork:
         approach_length: float = 100.0,
         lane_width: float = 3.5,
         lanes_per_approach: Any = 2,
+        is_roundabout: bool = False,
+        inner_radius: float = 10.0,
+        outer_radius: float = 20.0,
     ) -> None:
+        self.is_roundabout = is_roundabout
+        self.inner_radius = inner_radius
+        self.outer_radius = outer_radius
+
         # Clear existing
         self._incoming.clear()
         self._outgoing.clear()
@@ -75,7 +83,7 @@ class RoadNetwork:
             else:
                 lane_count = int(lanes_per_approach)
 
-            boundary = lane_count * lane_width
+            boundary = outer_radius if is_roundabout else (lane_count * lane_width)
 
             for i in range(lane_count):
                 if d == Direction.NORTH:
@@ -240,7 +248,44 @@ class RoadNetwork:
         end_x, end_y = exit_lane.start_coords
 
         waypoints = None
-        if turn_intent in (TurnIntent.LEFT, TurnIntent.RIGHT):
+        if getattr(self, "is_roundabout", False):
+            # Circular roundabout geometry
+            inner_r = getattr(self, "inner_radius", 10.0)
+            outer_r = getattr(self, "outer_radius", 20.0)
+            R = (inner_r + outer_r) / 2.0
+
+            # Polar angles
+            angle_entry = math.atan2(start_y, start_x)
+            angle_exit = math.atan2(end_y, end_x)
+
+            # Roundabout circulates counter-clockwise (increasing angle in standard polar coordinates)
+            # Ensure angle_exit > angle_entry
+            if angle_exit <= angle_entry:
+                angle_exit += 2 * math.pi
+
+            waypoints = []
+            num_pts = 30
+            for i in range(num_pts + 1):
+                t = i / float(num_pts)
+                angle = angle_entry + t * (angle_exit - angle_entry)
+
+                # Smoothly transition the radius from entry_radius to R, and then to exit_radius
+                entry_r = math.hypot(start_x, start_y)
+                exit_r = math.hypot(end_x, end_y)
+
+                if t < 0.2:
+                    u = t / 0.2
+                    r = entry_r + u * (R - entry_r)
+                elif t > 0.8:
+                    u = (t - 0.8) / 0.2
+                    r = R + u * (exit_r - R)
+                else:
+                    r = R
+
+                px = r * math.cos(angle)
+                py = r * math.sin(angle)
+                waypoints.append((px, py))
+        elif turn_intent in (TurnIntent.LEFT, TurnIntent.RIGHT):
             if origin_direction in (Direction.NORTH, Direction.SOUTH):
                 cx, cy = start_x, end_y
             else:
