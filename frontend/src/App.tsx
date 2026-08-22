@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useWebSocketSnapshot } from "./hooks/useWebSocketSnapshot";
 import { IntersectionMap } from "./components/IntersectionMap";
+import { RoundaboutMap } from "./components/RoundaboutMap";
 import { MetricsSidebar } from "./components/MetricsSidebar";
 import { PlaybackControls } from "./components/PlaybackControls";
 import { updateSimulationConfig } from "./services/api";
@@ -169,18 +170,27 @@ export function App() {
       <main className="app-main">
         {/* Canvas */}
         <div className="canvas-wrapper">
-          <IntersectionMap
-            snapshot={snapshot}
-            lanesNorth={lanesNorth}
-            lanesSouth={lanesSouth}
-            lanesEast={lanesEast}
-            lanesWest={lanesWest}
-            laneWidth={laneWidth}
-            intersectionSize={intersectionSize}
-            showCrosswalks={showCrosswalks}
-            showStopLines={showStopLines}
-            debug={debug}
-          />
+          {snapshot?.controller.type === "roundabout" ? (
+            <RoundaboutMap
+              snapshot={snapshot}
+              laneWidth={laneWidth}
+              showCrosswalks={showCrosswalks}
+              debug={debug}
+            />
+          ) : (
+            <IntersectionMap
+              snapshot={snapshot}
+              lanesNorth={lanesNorth}
+              lanesSouth={lanesSouth}
+              lanesEast={lanesEast}
+              lanesWest={lanesWest}
+              laneWidth={laneWidth}
+              intersectionSize={intersectionSize}
+              showCrosswalks={showCrosswalks}
+              showStopLines={showStopLines}
+              debug={debug}
+            />
+          )}
         </div>
 
         {/* Sidebar */}

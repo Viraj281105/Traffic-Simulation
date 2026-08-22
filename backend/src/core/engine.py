@@ -50,10 +50,19 @@ class SimulationEngine:
         if self.config:
             # Setup default network
             road_cfg = self.config.get("roads", {})
+            geom_cfg = self.config.get("geometry", {})
+            ctrl_cfg = self.config.get("controller", {})
+            is_roundabout = geom_cfg.get("intersectionType") == "roundabout"
+            inner_radius = ctrl_cfg.get("innerRadius", 10.0)
+            outer_radius = ctrl_cfg.get("outerRadius", 20.0)
+
             self.network.setup_default_intersection(
                 approach_length=road_cfg.get("approachLength", 200.0),
                 lane_width=road_cfg.get("laneWidth", 3.5),
                 lanes_per_approach=road_cfg.get("lanesPerApproach", 2),
+                is_roundabout=is_roundabout,
+                inner_radius=inner_radius,
+                outer_radius=outer_radius,
             )
 
             # Register all connection lanes with the conflict manager and
