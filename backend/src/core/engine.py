@@ -46,6 +46,7 @@ class SimulationEngine:
         self.spawner: Optional[VehicleSpawner] = None
         self.idm: Optional[IntelligentDriverModel] = None
         self.conflict_manager: ConflictManager = ConflictManager()
+        self.controller: Optional[Any] = None
 
         if self.config:
             # Setup default network
