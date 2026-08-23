@@ -61,7 +61,7 @@ class RoundaboutController(BaseController):
                     # The entry point of this lane is lane.end_coords.
                     entry_pt = lane.end_coords
                     theta_entry = math.atan2(entry_pt[1], entry_pt[0])
-                    R = (self.inner_radius + self.outer_radius) / 2.0
+                    avg_radius = (self.inner_radius + self.outer_radius) / 2.0
                     should_yield = False
 
                     # Safe look-ahead distance threshold
@@ -82,7 +82,7 @@ class RoundaboutController(BaseController):
                             
                             # If angular_gap < pi, it is upstream / approaching the entry point
                             if angular_gap < math.pi:
-                                dist_along_circle = R * angular_gap
+                                dist_along_circle = avg_radius * angular_gap
                                 if dist_along_circle < threshold:
                                     time_gap = dist_along_circle / self.circulating_speed
                                     if time_gap < self.critical_gap:

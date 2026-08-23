@@ -270,8 +270,8 @@ def test_roundabout_missing_approach_and_yielding_metrics() -> None:
 
 
 def test_roundabout_circular_leader_detection() -> None:
-    from src.vehicles.router import find_leader
     from src.core.enums import Direction, TurnIntent
+    from src.vehicles.router import find_leader
     network = RoadNetwork()
     network.setup_default_intersection(
         approach_length=100.0, lane_width=3.5, lanes_per_approach=2, is_roundabout=True

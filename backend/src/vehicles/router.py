@@ -114,7 +114,7 @@ def find_leader(
         if getattr(network, "is_roundabout", False) and lane.lane_id.startswith("conn"):
             inner_r = getattr(network, "inner_radius", 10.0)
             outer_r = getattr(network, "outer_radius", 20.0)
-            R = (inner_r + outer_r) / 2.0
+            avg_radius = (inner_r + outer_r) / 2.0
 
             if lane is vehicle.lane:
                 my_x, my_y = vehicle.coords
@@ -136,7 +136,7 @@ def find_leader(
                 
                 # Only consider vehicles that are actually ahead of us (within 270 degrees)
                 if diff < 1.5 * math.pi:
-                    arc_dist = R * diff
+                    arc_dist = avg_radius * diff
                     v_dist = dist_to_lane_start + arc_dist
                     
                     if v_dist > 0:

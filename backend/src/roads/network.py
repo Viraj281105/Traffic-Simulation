@@ -252,7 +252,7 @@ class RoadNetwork:
             # Circular roundabout geometry
             inner_r = getattr(self, "inner_radius", 10.0)
             outer_r = getattr(self, "outer_radius", 20.0)
-            R = (inner_r + outer_r) / 2.0
+            avg_radius = (inner_r + outer_r) / 2.0
 
             # Polar angles
             angle_entry = math.atan2(start_y, start_x)
@@ -269,18 +269,18 @@ class RoadNetwork:
                 t = i / float(num_pts)
                 angle = angle_entry + t * (angle_exit - angle_entry)
 
-                # Smoothly transition the radius from entry_radius to R, and then to exit_radius
+                # Smoothly transition the radius from entry_radius to avg_radius, and then to exit_radius
                 entry_r = math.hypot(start_x, start_y)
                 exit_r = math.hypot(end_x, end_y)
 
                 if t < 0.2:
                     u = t / 0.2
-                    r = entry_r + u * (R - entry_r)
+                    r = entry_r + u * (avg_radius - entry_r)
                 elif t > 0.8:
                     u = (t - 0.8) / 0.2
-                    r = R + u * (exit_r - R)
+                    r = avg_radius + u * (exit_r - avg_radius)
                 else:
-                    r = R
+                    r = avg_radius
 
                 px = r * math.cos(angle)
                 py = r * math.sin(angle)
