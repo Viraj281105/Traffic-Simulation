@@ -10,10 +10,6 @@ interface RoundaboutMapProps {
   debug?: boolean;
 }
 
-
-
-
-
 export const RoundaboutMap: React.FC<RoundaboutMapProps> = ({
   snapshot,
   width = 800,
@@ -132,7 +128,13 @@ export const RoundaboutMap: React.FC<RoundaboutMapProps> = ({
       ctx.stroke();
 
       ctx.beginPath();
-      ctx.arc(cx, cy, ((innerRadius + outerRadius) / 2) * scale, 0, Math.PI * 2);
+      ctx.arc(
+        cx,
+        cy,
+        ((innerRadius + outerRadius) / 2) * scale,
+        0,
+        Math.PI * 2,
+      );
       ctx.strokeStyle = "rgba(229, 234, 237, 0.65)";
       ctx.lineWidth = 1.5;
       ctx.setLineDash([6, 8]);
@@ -374,7 +376,7 @@ function drawRoundaboutVehicle(
   ctx.fillStyle = carColor(vehicle.id);
   ctx.strokeStyle = "#172027";
   ctx.lineWidth = 2;
-  
+
   ctx.beginPath();
   ctx.roundRect(-width / 2, -length / 2, width, length, 4);
   ctx.fill();

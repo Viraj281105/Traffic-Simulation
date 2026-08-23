@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
+    "fix": "npm run format:fix && eslint --fix .",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

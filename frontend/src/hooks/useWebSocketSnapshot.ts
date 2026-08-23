@@ -4,7 +4,11 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SimulationWebSocket } from "../services/websocket";
-import { playSimulation, pauseSimulation, stopSimulation } from "../services/api";
+import {
+  playSimulation,
+  pauseSimulation,
+  stopSimulation,
+} from "../services/api";
 import type { LiveSnapshot } from "../types/simulation";
 import type { ConnectionStatus } from "../services/websocket";
 
