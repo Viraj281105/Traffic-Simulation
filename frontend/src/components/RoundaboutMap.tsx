@@ -59,9 +59,9 @@ export const RoundaboutMap: React.FC<RoundaboutMapProps> = ({
 
       const controller = current.controller;
       const innerRadius =
-        controller?.type === "roundabout" ? controller.innerRadius : 10;
+        controller.type === "roundabout" ? controller.innerRadius : 10;
       const outerRadius =
-        controller?.type === "roundabout" ? controller.outerRadius : 20;
+        controller.type === "roundabout" ? controller.outerRadius : 20;
       const initialArmReach = outerRadius + 42;
       const scale = Math.min(width, height) / (initialArmReach * 2);
       const armReach = Math.max(width, height) / scale + 10;
