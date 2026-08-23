@@ -205,6 +205,11 @@ class SimulationEngine:
             for v in new_vehs:
                 self.pool.add_vehicle(v)
 
+        # Update controller BEFORE physics update to ensure zero-latency yield/signal response
+        controller = getattr(self, "controller", None)
+        if controller is not None:
+            controller.update(self.clock.time_step, self.pool.active_vehicles)
+
         # Update spatial states of all vehicles (pool reads conflict_manager from engine)
         self.pool.update(self.clock.time_step, self)
 

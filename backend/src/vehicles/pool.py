@@ -100,7 +100,10 @@ class VehiclePool:
 
         # Conflict manager is only active for unsignalized intersections
         geom_type = config.get("geometry", {}).get("intersectionType", "fixed_time_signal")
-        conflict_manager = getattr(engine, "conflict_manager", None) if geom_type != "fixed_time_signal" else None
+        if geom_type == "roundabout":
+            conflict_manager = None
+        else:
+            conflict_manager = getattr(engine, "conflict_manager", None) if geom_type not in ("fixed_time_signal", "roundabout") else None
 
         current_time = 0.0
         clock = getattr(engine, "clock", None)
@@ -292,12 +295,18 @@ class VehiclePool:
                 if va.lane is vb.lane:
                     continue
 
-                # Skip parallel lanes of the same street (non-connection lanes starting with same direction prefix)
+                # Skip parallel lanes of the same street (starting with same direction prefix)
                 id_a = va.lane.lane_id.lower()
                 id_b = vb.lane.lane_id.lower()
-                if not id_a.startswith("conn") and not id_b.startswith("conn"):
-                    if id_a[0] in ("n", "s", "e", "w") and id_a[:2] == id_b[:2]:
-                        continue
+                def get_dir(lane_id: str) -> str:
+                    lid = lane_id.lower()
+                    if lid.startswith("conn_"):
+                        return lid.split("_")[1][0]
+                    if lid and lid[0] in ("n", "s", "e", "w"):
+                        return lid[0]
+                    return lane_id
+                if get_dir(id_a) == get_dir(id_b):
+                    continue
 
                 # Skip vehicles that share any lane in their routes (same path)
                 va_lane_ids = {lane_obj.lane_id for lane_obj in va.route} if va.route else set()

@@ -10,21 +10,7 @@ interface RoundaboutMapProps {
   debug?: boolean;
 }
 
-const COLORS = [
-  "#4d96ff",
-  "#f8961e",
-  "#43aa8b",
-  "#e76f51",
-  "#c77dff",
-  "#f9c74f",
-];
 
-function vehicleColor(id: string): string {
-  let hash = 0;
-  for (const character of id)
-    hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
-  return COLORS[hash % COLORS.length];
-}
 
 
 
@@ -76,8 +62,9 @@ export const RoundaboutMap: React.FC<RoundaboutMapProps> = ({
         controller?.type === "roundabout" ? controller.innerRadius : 10;
       const outerRadius =
         controller?.type === "roundabout" ? controller.outerRadius : 20;
-      const armReach = outerRadius + 42;
-      const scale = Math.min(width, height) / (armReach * 2);
+      const initialArmReach = outerRadius + 42;
+      const scale = Math.min(width, height) / (initialArmReach * 2);
+      const armReach = Math.max(width, height) / scale + 10;
       const toCanvas = (x: number, y: number): [number, number] => [
         width / 2 + x * scale,
         height / 2 - y * scale,
@@ -139,15 +126,26 @@ export const RoundaboutMap: React.FC<RoundaboutMapProps> = ({
       ctx.beginPath();
       ctx.arc(cx, cy, outerRadius * scale, 0, Math.PI * 2);
       ctx.fill();
+      ctx.strokeStyle = "#e5eaed";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, ((innerRadius + outerRadius) / 2) * scale, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(229, 234, 237, 0.65)";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 8]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
       ctx.fillStyle = "#557d35";
       ctx.beginPath();
       ctx.arc(cx, cy, innerRadius * scale, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = "#e5eaed";
       ctx.lineWidth = 2;
-      ctx.setLineDash([7, 8]);
       ctx.stroke();
-      ctx.setLineDash([]);
 
       drawApproachMarkings(
         ctx,
@@ -345,6 +343,21 @@ function drawWorldLine(
   ctx.stroke();
 }
 
+function carColor(id: string): string {
+  const palette = [
+    "#4d96ff",
+    "#f8961e",
+    "#43aa8b",
+    "#e76f51",
+    "#c77dff",
+    "#f9c74f",
+  ];
+  let hash = 0;
+  for (const character of id)
+    hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  return palette[hash % palette.length];
+}
+
 function drawRoundaboutVehicle(
   ctx: CanvasRenderingContext2D,
   vehicle: SnapshotVehicle,
@@ -357,17 +370,30 @@ function drawRoundaboutVehicle(
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate((vehicle.heading * Math.PI) / 180);
-  ctx.fillStyle = vehicleColor(vehicle.id);
+
+  ctx.fillStyle = carColor(vehicle.id);
   ctx.strokeStyle = "#172027";
   ctx.lineWidth = 2;
+  
   ctx.beginPath();
   ctx.roundRect(-width / 2, -length / 2, width, length, 4);
   ctx.fill();
   ctx.stroke();
+
   ctx.fillStyle = "rgba(224,243,255,.8)";
   ctx.beginPath();
   ctx.roundRect(-width * 0.34, -length * 0.28, width * 0.68, length * 0.24, 2);
   ctx.fill();
+
+  // Draw brake lights if waiting
+  if (vehicle.state === "waiting") {
+    ctx.fillStyle = "#ff1744";
+    ctx.beginPath();
+    ctx.arc(-width * 0.3, length / 2, 2.5, 0, Math.PI * 2);
+    ctx.arc(width * 0.3, length / 2, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   ctx.restore();
 }
 

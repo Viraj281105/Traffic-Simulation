@@ -25,7 +25,7 @@ type Direction = "north" | "south" | "east" | "west";
 type Widths = Record<Direction, number>;
 type Point = (x: number, y: number) => [number, number];
 
-function carColor(vehicle: SnapshotVehicle): string {
+function carColor(id: string): string {
   const palette = [
     "#4d96ff",
     "#f8961e",
@@ -35,7 +35,7 @@ function carColor(vehicle: SnapshotVehicle): string {
     "#f9c74f",
   ];
   let hash = 0;
-  for (const character of vehicle.id)
+  for (const character of id)
     hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
   return palette[hash % palette.length];
 }
@@ -363,17 +363,30 @@ function drawVehicle(
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate((vehicle.heading * Math.PI) / 180);
-  ctx.fillStyle = carColor(vehicle);
+
+  ctx.fillStyle = carColor(vehicle.id);
   ctx.strokeStyle = "#172027";
   ctx.lineWidth = 2;
+
   ctx.beginPath();
   ctx.roundRect(-width / 2, -length / 2, width, length, 4);
   ctx.fill();
   ctx.stroke();
+
   ctx.fillStyle = "rgba(224,243,255,.8)";
   ctx.beginPath();
   ctx.roundRect(-width * 0.34, -length * 0.28, width * 0.68, length * 0.24, 2);
   ctx.fill();
+
+  // Draw brake lights if waiting
+  if (vehicle.state === "waiting") {
+    ctx.fillStyle = "#ff1744";
+    ctx.beginPath();
+    ctx.arc(-width * 0.3, length / 2, 2.5, 0, Math.PI * 2);
+    ctx.arc(width * 0.3, length / 2, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   ctx.fillStyle = "#fff";
   ctx.beginPath();
   ctx.moveTo(0, -length / 2 - 4);
