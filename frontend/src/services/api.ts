@@ -30,6 +30,11 @@ export async function pauseSimulation(): Promise<void> {
   await post("/api/simulation/pause");
 }
 
+/** Stop the live simulation engine. */
+export async function stopSimulation(): Promise<void> {
+  await post("/api/simulation/stop");
+}
+
 /** Get current simulation lifecycle status. */
 export async function getSimulationStatus(): Promise<{
   status: string;

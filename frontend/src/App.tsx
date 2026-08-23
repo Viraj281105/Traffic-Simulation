@@ -8,7 +8,7 @@ import { updateSimulationConfig } from "./services/api";
 import "./App.css";
 
 export function App() {
-  const { snapshot, connectionStatus, isPlaying, error, play, pause } =
+  const { snapshot, connectionStatus, isPlaying, error, play, pause, stop } =
     useWebSocketSnapshot();
 
   // Canvas config state
@@ -210,6 +210,9 @@ export function App() {
           }}
           onPause={() => {
             pause().catch(() => {});
+          }}
+          onStop={() => {
+            stop().catch(() => {});
           }}
         />
         {error && <div className="error-banner">⚠ {error}</div>}

@@ -119,6 +119,13 @@ def start_simulation() -> Dict[str, Any]:
 @app.post("/api/simulation/stop")
 def stop_simulation() -> Dict[str, Any]:
     single_veh.status = "stopped"
+    sim = get_or_create_live_simulation()
+    engine = sim.get("engine")
+    if engine is not None:
+        try:
+            engine.stop()
+        except Exception as e:
+            logger.error(f"Error stopping live engine: {e}")
     return {"status": "stopped", "message": "Simulation stopped"}
 
 
@@ -214,15 +221,14 @@ def create_simulation(config: Dict[str, Any]) -> Dict[str, Any]:
     else:
         controller = RoundaboutController(config, engine.network)
 
+    engine.controller = controller
+
     collector = MetricCollector(config)
     builder = SnapshotBuilder(sim_id, config_id, engine, collector, controller)
     buffer = SnapshotBuffer(max_frames=1000)
 
     # Register tick callback on engine to update collector and controller
     def tick_callback() -> None:
-        # Update controller
-        controller.update(clock.time_step, engine.pool.active_vehicles)
-
         # Get signals state
         signals_state = {}
         state = controller.get_state()
@@ -473,12 +479,14 @@ def get_or_create_live_simulation() -> Dict[str, Any]:
             controller = FixedTimeSignalController(current_live_config, engine.network)
         else:
             controller = RoundaboutController(current_live_config, engine.network)
+        
+        engine.controller = controller
+        
         collector = MetricCollector(current_live_config)
         config_id = str(uuid.uuid4())
         builder = SnapshotBuilder("live_sim", config_id, engine, collector, controller)
 
         def tick_callback() -> None:
-            controller.update(clock.time_step, engine.pool.active_vehicles)
             signals_state = {}
             state = controller.get_state()
             if state["type"] == "fixed_time_signal":
