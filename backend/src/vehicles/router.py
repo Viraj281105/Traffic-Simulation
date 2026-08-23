@@ -109,17 +109,54 @@ def find_leader(
     for i in range(curr_idx, end_idx):
         lane = vehicle.route[i]
 
-        # Scan vehicles on this lane
-        for v in lane.get_vehicles():
-            if v is vehicle:
-                continue
-            v_dist = accumulated_dist + v.position
-            if v_dist > 0:
-                gap = v_dist - (vehicle.length / 2.0 + v.length / 2.0)
-                gap = max(0.0, gap)
-                if gap < best_gap:
-                    best_gap = gap
-                    best_leader = v
+        # Special logic for roundabouts: connection lanes circle the same roundabout, so
+        # vehicles can be on different connection lane objects but physically follow each other.
+        if getattr(network, "is_roundabout", False) and lane.lane_id.startswith("conn"):
+            inner_r = getattr(network, "inner_radius", 10.0)
+            outer_r = getattr(network, "outer_radius", 20.0)
+            avg_radius = (inner_r + outer_r) / 2.0
+
+            if lane is vehicle.lane:
+                my_x, my_y = vehicle.coords
+                theta_self = math.atan2(my_y, my_x)
+                dist_to_lane_start = 0.0
+            else:
+                start_x, start_y = lane.start_coords
+                theta_self = math.atan2(start_y, start_x)
+                dist_to_lane_start = accumulated_dist
+
+            for v in (active_vehicles or []):
+                if v is vehicle or v.lane is None or not v.lane.lane_id.startswith("conn"):
+                    continue
+                v_x, v_y = v.coords
+                theta_v = math.atan2(v_y, v_x)
+                
+                # Counter-clockwise angular distance from theta_self to theta_v
+                diff = (theta_v - theta_self) % (2 * math.pi)
+                
+                # Only consider vehicles that are actually ahead of us (within 270 degrees)
+                if diff < 1.5 * math.pi:
+                    arc_dist = avg_radius * diff
+                    v_dist = dist_to_lane_start + arc_dist
+                    
+                    if v_dist > 0:
+                        gap = v_dist - (vehicle.length / 2.0 + v.length / 2.0)
+                        gap = max(0.0, gap)
+                        if gap < best_gap:
+                            best_gap = gap
+                            best_leader = v
+        else:
+            # Scan vehicles on this lane
+            for v in lane.get_vehicles():
+                if v is vehicle:
+                    continue
+                v_dist = accumulated_dist + v.position
+                if v_dist > 0:
+                    gap = v_dist - (vehicle.length / 2.0 + v.length / 2.0)
+                    gap = max(0.0, gap)
+                    if gap < best_gap:
+                        best_gap = gap
+                        best_leader = v
 
         # ── Layer 2: Virtual obstacles (signal stop-lines) ─────────────
         virtual_obs = getattr(lane, "virtual_obstacle", None)
@@ -223,9 +260,15 @@ def find_leader(
             # Skip parallel lanes of the same street (non-connection lanes starting with same direction prefix)
             id_a = vehicle.lane.lane_id.lower()
             id_b = other.lane.lane_id.lower()
-            if not id_a.startswith("conn") and not id_b.startswith("conn"):
-                if id_a[0] in ("n", "s", "e", "w") and id_a[:2] == id_b[:2]:
+            if getattr(network, "is_roundabout", False):
+                # In a roundabout, skip straight-line emergency check if either vehicle is on a connection lane
+                # because they are already tracked by the circular/arc-length logic in Layer 1.
+                if id_a.startswith("conn") or id_b.startswith("conn"):
                     continue
+            else:
+                if not id_a.startswith("conn") and not id_b.startswith("conn"):
+                    if id_a[0] in ("n", "s", "e", "w") and id_a[:2] == id_b[:2]:
+                        continue
 
             ox, oy = other.coords
             dx = ox - my_x

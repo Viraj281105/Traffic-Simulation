@@ -46,14 +46,24 @@ class SimulationEngine:
         self.spawner: Optional[VehicleSpawner] = None
         self.idm: Optional[IntelligentDriverModel] = None
         self.conflict_manager: ConflictManager = ConflictManager()
+        self.controller: Optional[Any] = None
 
         if self.config:
             # Setup default network
             road_cfg = self.config.get("roads", {})
+            geom_cfg = self.config.get("geometry", {})
+            ctrl_cfg = self.config.get("controller", {})
+            is_roundabout = geom_cfg.get("intersectionType") == "roundabout"
+            inner_radius = ctrl_cfg.get("innerRadius", 10.0)
+            outer_radius = ctrl_cfg.get("outerRadius", 20.0)
+
             self.network.setup_default_intersection(
                 approach_length=road_cfg.get("approachLength", 200.0),
                 lane_width=road_cfg.get("laneWidth", 3.5),
                 lanes_per_approach=road_cfg.get("lanesPerApproach", 2),
+                is_roundabout=is_roundabout,
+                inner_radius=inner_radius,
+                outer_radius=outer_radius,
             )
 
             # Register all connection lanes with the conflict manager and
@@ -195,6 +205,11 @@ class SimulationEngine:
             new_vehs = self.spawner.step(self.clock.time_step)
             for v in new_vehs:
                 self.pool.add_vehicle(v)
+
+        # Update controller BEFORE physics update to ensure zero-latency yield/signal response
+        controller = getattr(self, "controller", None)
+        if controller is not None:
+            controller.update(self.clock.time_step, self.pool.active_vehicles)
 
         # Update spatial states of all vehicles (pool reads conflict_manager from engine)
         self.pool.update(self.clock.time_step, self)

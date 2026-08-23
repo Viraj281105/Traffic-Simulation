@@ -4,7 +4,11 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SimulationWebSocket } from "../services/websocket";
-import { playSimulation, pauseSimulation } from "../services/api";
+import {
+  playSimulation,
+  pauseSimulation,
+  stopSimulation,
+} from "../services/api";
 import type { LiveSnapshot } from "../types/simulation";
 import type { ConnectionStatus } from "../services/websocket";
 
@@ -15,6 +19,7 @@ export interface WebSocketSnapshotState {
   error: string | null;
   play: () => Promise<void>;
   pause: () => Promise<void>;
+  stop: () => Promise<void>;
 }
 
 export function useWebSocketSnapshot(): WebSocketSnapshotState {
@@ -79,5 +84,16 @@ export function useWebSocketSnapshot(): WebSocketSnapshotState {
     }
   }, []);
 
-  return { snapshot, connectionStatus, isPlaying, error, play, pause };
+  const stop = useCallback(async () => {
+    try {
+      setError(null);
+      await stopSimulation();
+      setIsPlaying(false);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(`Failed to stop simulation: ${msg}`);
+    }
+  }, []);
+
+  return { snapshot, connectionStatus, isPlaying, error, play, pause, stop };
 }

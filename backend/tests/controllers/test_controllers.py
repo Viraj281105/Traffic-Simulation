@@ -267,3 +267,25 @@ def test_roundabout_missing_approach_and_yielding_metrics() -> None:
     ctrl_empty.update(0.1, [])
     state_empty = ctrl_empty.get_state()
     assert state_empty["yieldingCount"] == 0
+
+
+def test_roundabout_circular_leader_detection() -> None:
+    from src.core.enums import Direction, TurnIntent
+    from src.vehicles.router import find_leader
+    network = RoadNetwork()
+    network.setup_default_intersection(
+        approach_length=100.0, lane_width=3.5, lanes_per_approach=2, is_roundabout=True
+    )
+    # Vehicle A is circulating in the roundabout
+    lane_a = network.generate_route(Direction.NORTH, 0, TurnIntent.STRAIGHT)[1]
+    veh_a = Vehicle("veh_a", length=4.5, width=2.0, desired_speed=8.0, route=[lane_a], start_position=5.0)
+    lane_a.add_vehicle(veh_a)
+    
+    # Vehicle B is behind Vehicle A on the roundabout
+    lane_b = network.generate_route(Direction.EAST, 0, TurnIntent.STRAIGHT)[1]
+    veh_b = Vehicle("veh_b", length=4.5, width=2.0, desired_speed=8.0, route=[lane_b], start_position=0.0)
+    lane_b.add_vehicle(veh_b)
+    
+    leader, gap = find_leader(veh_b, network=network, active_vehicles=[veh_a, veh_b])
+    # It should identify veh_a as the leader
+    assert leader is veh_a

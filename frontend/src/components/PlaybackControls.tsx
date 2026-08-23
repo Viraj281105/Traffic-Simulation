@@ -6,6 +6,7 @@ interface PlaybackControlsProps {
   isPlaying: boolean;
   onPlay: () => void;
   onPause: () => void;
+  onStop: () => void;
   disabled?: boolean;
 }
 
@@ -14,6 +15,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   isPlaying,
   onPlay,
   onPause,
+  onStop,
   disabled = false,
 }) => {
   const simTime = snapshot?.timestamp ?? 0;
@@ -23,13 +25,13 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
 
   return (
     <div className="playback-bar">
-      {/* Play / Pause */}
+      {/* Play / Pause / Stop */}
       <div className="playback-btns">
         <button
           id="btn-play"
           className={`pb-btn pb-primary ${isPlaying ? "active" : ""}`}
           onClick={onPlay}
-          disabled={disabled || isPlaying}
+          disabled={disabled || isPlaying || status === "completed"}
           title="Play simulation"
         >
           ▶ Play
@@ -38,10 +40,19 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           id="btn-pause"
           className={`pb-btn pb-secondary ${!isPlaying ? "active" : ""}`}
           onClick={onPause}
-          disabled={disabled || !isPlaying}
+          disabled={disabled || !isPlaying || status === "completed"}
           title="Pause simulation"
         >
           ⏸ Pause
+        </button>
+        <button
+          id="btn-stop"
+          className="pb-btn pb-danger"
+          onClick={onStop}
+          disabled={disabled || status === "completed"}
+          title="Stop simulation"
+        >
+          ⏹ Stop
         </button>
       </div>
 

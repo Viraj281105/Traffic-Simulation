@@ -1,3 +1,4 @@
+import math
 from typing import Any, Dict, List
 
 from src.controllers.base import BaseController
@@ -41,11 +42,14 @@ class RoundaboutController(BaseController):
         self.update_active_vehicles_ref(active_vehicles)
         self.time_in_current_state += delta_time
 
-        # Identify all circulating vehicles (those on connection/circulating lanes)
+        # Identify all circulating vehicles (those on connection/circulating lanes OR physically in the roundabout)
         circulating_vehicles = [
             v
             for v in active_vehicles
-            if v.lane is not None and v.lane.lane_id.startswith("conn")
+            if v.lane is not None and (
+                v.lane.lane_id.startswith("conn") or
+                math.hypot(v.coords[0], v.coords[1]) <= self.outer_radius + 1.0
+            )
         ]
 
         for d in Direction:
@@ -56,24 +60,34 @@ class RoundaboutController(BaseController):
                     # We check circulating vehicles approaching this direction's entry node.
                     # The entry point of this lane is lane.end_coords.
                     entry_pt = lane.end_coords
+                    theta_entry = math.atan2(entry_pt[1], entry_pt[0])
+                    avg_radius = (self.inner_radius + self.outer_radius) / 2.0
                     should_yield = False
 
-                    for cv in circulating_vehicles:
-                        # Distance from circulating vehicle to our entry point along the circle
-                        # For simplicity, we can use Euclidean distance or coordinate bounds
-                        # Let's say if circulating vehicle is within 15 meters of entry point
-                        cv_x, cv_y = cv.coords
-                        dist_to_entry = (
-                            (cv_x - entry_pt[0]) ** 2 + (cv_y - entry_pt[1]) ** 2
-                        ) ** 0.5
+                    # Safe look-ahead distance threshold
+                    threshold = max(20.0, self.critical_gap * self.circulating_speed)
+                    lane_prefix = lane.lane_id.split("_")[0] + "_in"
 
-                        # If circulating vehicle is approaching our entry point
-                        # (We estimate the time gap based on circulating speed)
-                        if dist_to_entry < 15.0:
-                            time_gap = dist_to_entry / self.circulating_speed
-                            if time_gap < self.critical_gap:
-                                should_yield = True
-                                break
+                    for cv in circulating_vehicles:
+                        if cv.lane is not None and cv.lane.lane_id.startswith(lane_prefix):
+                            continue
+
+                        cv_x, cv_y = cv.coords
+                        dist_to_entry_euclidean = ((cv_x - entry_pt[0]) ** 2 + (cv_y - entry_pt[1]) ** 2) ** 0.5
+
+                        if dist_to_entry_euclidean < threshold:
+                            theta_cv = math.atan2(cv_y, cv_x)
+                            # Angular distance from circulating vehicle to entry point (counter-clockwise)
+                            angular_gap = (theta_entry - theta_cv) % (2 * math.pi)
+                            
+                            # If angular_gap < pi, it is upstream / approaching the entry point
+                            if angular_gap < math.pi:
+                                dist_along_circle = avg_radius * angular_gap
+                                if dist_along_circle < threshold:
+                                    time_gap = dist_along_circle / self.circulating_speed
+                                    if time_gap < self.critical_gap:
+                                        should_yield = True
+                                        break
 
                     if should_yield:
                         lane.virtual_obstacle = VirtualObstacle(position=lane.length)  # type: ignore[attr-defined]
