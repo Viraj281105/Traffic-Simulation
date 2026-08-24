@@ -5,11 +5,17 @@ import { RoundaboutMap } from "./components/RoundaboutMap";
 import { MetricsSidebar } from "./components/MetricsSidebar";
 import { PlaybackControls } from "./components/PlaybackControls";
 import { updateSimulationConfig } from "./services/api";
+import type { LiveSnapshot } from "./types/simulation";
 import "./App.css";
 
 export function App() {
   const { snapshot, connectionStatus, isPlaying, error, play, pause, stop } =
     useWebSocketSnapshot();
+
+  const [lastCompletedSnapshot, setLastCompletedSnapshot] =
+    useState<LiveSnapshot | null>(null);
+  const [prevSnapshot, setPrevSnapshot] = useState<LiveSnapshot | null>(null);
+  const [prevConfigKey, setPrevConfigKey] = useState("");
 
   // Canvas config state
   const [lanesNorth, setLanesNorth] = useState(2);
@@ -23,6 +29,28 @@ export function App() {
   const [debug, setDebug] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
   const [intersectionType, setIntersectionType] = useState("fixed_time_signal");
+
+  // Adjust state during render to avoid useEffect warnings
+  const configKey = `${intersectionType}-${intersectionSize.toString()}-${laneWidth.toString()}-${lanesNorth.toString()}-${lanesSouth.toString()}-${lanesEast.toString()}-${lanesWest.toString()}`;
+
+  if (configKey !== prevConfigKey) {
+    setPrevConfigKey(configKey);
+    setLastCompletedSnapshot(null);
+  }
+
+  if (snapshot !== prevSnapshot) {
+    setPrevSnapshot(snapshot);
+    if (snapshot && snapshot.simulationStatus === "completed") {
+      setLastCompletedSnapshot(snapshot);
+    }
+  }
+
+  const metricsSnapshot =
+    snapshot &&
+    snapshot.simulationStatus === "initialized" &&
+    lastCompletedSnapshot
+      ? lastCompletedSnapshot
+      : snapshot;
 
   // Sync config with backend on change
   useEffect(() => {
@@ -195,7 +223,7 @@ export function App() {
 
         {/* Sidebar */}
         <MetricsSidebar
-          snapshot={snapshot}
+          snapshot={metricsSnapshot}
           connectionStatus={connectionStatus}
         />
       </main>

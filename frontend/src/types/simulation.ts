@@ -123,7 +123,13 @@ export interface VehicleCounts {
 // ── Live snapshot (WebSocket message payload) ──────────────────────────────
 
 export type SimulationStatus =
-  "initializing" | "running" | "paused" | "completed" | "error" | "stopped";
+  | "initialized"
+  | "initializing"
+  | "running"
+  | "paused"
+  | "completed"
+  | "error"
+  | "stopped";
 
 export interface LiveSnapshot {
   schemaVersion: string;
