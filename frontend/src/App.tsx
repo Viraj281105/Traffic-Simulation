@@ -14,20 +14,8 @@ export function App() {
 
   const [lastCompletedSnapshot, setLastCompletedSnapshot] =
     useState<LiveSnapshot | null>(null);
-
-  // Track last completed snapshot to keep metrics visible
-  useEffect(() => {
-    if (snapshot && snapshot.simulationStatus === "completed") {
-      setLastCompletedSnapshot(snapshot);
-    }
-  }, [snapshot]);
-
-  const metricsSnapshot =
-    snapshot &&
-    snapshot.simulationStatus === "initialized" &&
-    lastCompletedSnapshot
-      ? lastCompletedSnapshot
-      : snapshot;
+  const [prevSnapshot, setPrevSnapshot] = useState<LiveSnapshot | null>(null);
+  const [prevConfigKey, setPrevConfigKey] = useState("");
 
   // Canvas config state
   const [lanesNorth, setLanesNorth] = useState(2);
@@ -42,9 +30,30 @@ export function App() {
   const [configOpen, setConfigOpen] = useState(false);
   const [intersectionType, setIntersectionType] = useState("fixed_time_signal");
 
+  // Adjust state during render to avoid useEffect warnings
+  const configKey = `${intersectionType}-${intersectionSize.toString()}-${laneWidth.toString()}-${lanesNorth.toString()}-${lanesSouth.toString()}-${lanesEast.toString()}-${lanesWest.toString()}`;
+
+  if (configKey !== prevConfigKey) {
+    setPrevConfigKey(configKey);
+    setLastCompletedSnapshot(null);
+  }
+
+  if (snapshot !== prevSnapshot) {
+    setPrevSnapshot(snapshot);
+    if (snapshot && snapshot.simulationStatus === "completed") {
+      setLastCompletedSnapshot(snapshot);
+    }
+  }
+
+  const metricsSnapshot =
+    snapshot &&
+    snapshot.simulationStatus === "initialized" &&
+    lastCompletedSnapshot
+      ? lastCompletedSnapshot
+      : snapshot;
+
   // Sync config with backend on change
   useEffect(() => {
-    setLastCompletedSnapshot(null);
     updateSimulationConfig({
       intersectionType,
       intersectionSize,
