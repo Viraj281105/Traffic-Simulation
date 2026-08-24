@@ -5,11 +5,29 @@ import { RoundaboutMap } from "./components/RoundaboutMap";
 import { MetricsSidebar } from "./components/MetricsSidebar";
 import { PlaybackControls } from "./components/PlaybackControls";
 import { updateSimulationConfig } from "./services/api";
+import type { LiveSnapshot } from "./types/simulation";
 import "./App.css";
 
 export function App() {
   const { snapshot, connectionStatus, isPlaying, error, play, pause, stop } =
     useWebSocketSnapshot();
+
+  const [lastCompletedSnapshot, setLastCompletedSnapshot] =
+    useState<LiveSnapshot | null>(null);
+
+  // Track last completed snapshot to keep metrics visible
+  useEffect(() => {
+    if (snapshot && snapshot.simulationStatus === "completed") {
+      setLastCompletedSnapshot(snapshot);
+    }
+  }, [snapshot]);
+
+  const metricsSnapshot =
+    snapshot &&
+    snapshot.simulationStatus === "initialized" &&
+    lastCompletedSnapshot
+      ? lastCompletedSnapshot
+      : snapshot;
 
   // Canvas config state
   const [lanesNorth, setLanesNorth] = useState(2);
@@ -26,6 +44,7 @@ export function App() {
 
   // Sync config with backend on change
   useEffect(() => {
+    setLastCompletedSnapshot(null);
     updateSimulationConfig({
       intersectionType,
       intersectionSize,
@@ -195,7 +214,7 @@ export function App() {
 
         {/* Sidebar */}
         <MetricsSidebar
-          snapshot={snapshot}
+          snapshot={metricsSnapshot}
           connectionStatus={connectionStatus}
         />
       </main>

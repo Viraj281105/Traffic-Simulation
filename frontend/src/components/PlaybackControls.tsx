@@ -31,10 +31,12 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           id="btn-play"
           className={`pb-btn pb-primary ${isPlaying ? "active" : ""}`}
           onClick={onPlay}
-          disabled={disabled || isPlaying || status === "completed"}
-          title="Play simulation"
+          disabled={disabled || isPlaying}
+          title={
+            status === "completed" ? "Run simulation again" : "Play simulation"
+          }
         >
-          ▶ Play
+          {status === "completed" ? "▶ Run Again" : "▶ Play"}
         </button>
         <button
           id="btn-pause"
