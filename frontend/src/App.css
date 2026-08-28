@@ -599,3 +599,34 @@ body {
   padding: 8px 20px;
   font-family: "JetBrains Mono", monospace;
 }
+
+/* Dual Canvas Layout for Comparison Mode */
+.dual-canvas-container {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+}
+.canvas-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  justify-content: center;
+}
+.canvas-column h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.canvas-column canvas {
+  width: 100% !important;
+  height: auto !important;
+  max-height: 85% !important;
+}

@@ -1,11 +1,9 @@
 import json
 from typing import Any, Dict
 
-from src.controllers.fixed_time_signal import FixedTimeSignalController
-from src.controllers.roundabout import RoundaboutController
+from src.controllers.factory import build_tick_callback, create_controller
 from src.core.clock import Clock
 from src.core.engine import SimulationEngine
-from src.core.enums import Direction
 from src.metrics.collector import MetricCollector
 from src.snapshot.builder import SnapshotBuilder
 
@@ -25,6 +23,26 @@ class DualSimulationOrchestrator:
         self.config_roundabout["geometry"] = self.config_roundabout.get("geometry", {})
         self.config_roundabout["geometry"]["intersectionType"] = "roundabout"
 
+        # ── Inject proper controller configs for each mode ──────────────
+        # Signal controller needs signal timing parameters
+        self.config_signal["controller"] = self.config_signal.get("controller", {})
+        if "straightRightDuration" not in self.config_signal["controller"]:
+            self.config_signal["controller"].setdefault("straightRightDuration", 15.0)
+            self.config_signal["controller"].setdefault("leftDuration", 5.0)
+            self.config_signal["controller"].setdefault("yellowDuration", 3.0)
+            self.config_signal["controller"].setdefault("allRedDuration", 2.0)
+
+        # Roundabout controller needs gap-acceptance / geometry parameters
+        self.config_roundabout["controller"] = {
+            "innerRadius": 10.0,
+            "outerRadius": 20.0,
+            "circulatingLanes": 1,
+            "criticalGap": 4.0,
+            "followUpTime": 2.5,
+            "entrySpeed": 5.0,
+            "circulatingSpeed": 8.0,
+        }
+
         # Propagate random seed to align spawn sequences
         seed = config.get("simulation", {}).get("randomSeed", 42)
         if "simulation" not in self.config_signal:
@@ -34,48 +52,46 @@ class DualSimulationOrchestrator:
         self.config_signal["simulation"]["randomSeed"] = seed
         self.config_roundabout["simulation"]["randomSeed"] = seed
 
-        # Build Signal Simulation
+        # ── Build Signal Simulation ─────────────────────────────────────
         self.clock_signal = Clock(time_step=0.1)
-        self.engine_signal = SimulationEngine(self.clock_signal, duration=300, config=self.config_signal)
-        self.controller_signal = FixedTimeSignalController(self.config_signal, self.engine_signal.network)
+        duration = config.get("simulation", {}).get("duration", 300)
+        self.engine_signal = SimulationEngine(self.clock_signal, duration=duration, config=self.config_signal)
+        self.controller_signal = create_controller(self.config_signal, self.engine_signal.network)
+
+        # CRITICAL: Assign controller to engine so engine.step() calls
+        # controller.update() BEFORE vehicle physics (zero-latency response)
+        self.engine_signal.controller = self.controller_signal
+
         self.collector_signal = MetricCollector(self.config_signal)
         self.builder_signal = SnapshotBuilder("dual_signal", "dual_cfg", self.engine_signal, self.collector_signal, self.controller_signal)
 
-        def tick_callback_sig() -> None:
-            self.controller_signal.update(0.1, self.engine_signal.pool.active_vehicles)
-            signals_state = {}
-            state = self.controller_signal.get_state()
-            for sig in state.get("signals", []):
-                dir_enum = getattr(Direction, sig["direction"].upper())
-                signals_state[dir_enum] = sig["color"]
-            self.collector_signal.update(
-                self.clock_signal.get_elapsed_time(),
-                self.engine_signal.pool.active_vehicles,
-                self.engine_signal.pool.exited_vehicles,
-                signals_state,
-            )
-        self.engine_signal.register_tick_callback(tick_callback_sig)
+        self.engine_signal.register_tick_callback(
+            build_tick_callback(self.controller_signal, self.clock_signal, self.engine_signal, self.collector_signal)
+        )
 
-        # Build Roundabout Simulation
+        # ── Build Roundabout Simulation ─────────────────────────────────
         self.clock_roundabout = Clock(time_step=0.1)
-        self.engine_roundabout = SimulationEngine(self.clock_roundabout, duration=300, config=self.config_roundabout)
-        self.controller_roundabout = RoundaboutController(self.config_roundabout, self.engine_roundabout.network)
+        self.engine_roundabout = SimulationEngine(self.clock_roundabout, duration=duration, config=self.config_roundabout)
+        self.controller_roundabout = create_controller(self.config_roundabout, self.engine_roundabout.network)
+
+        # CRITICAL: Assign controller to engine so engine.step() calls
+        # controller.update() BEFORE vehicle physics (zero-latency yield response)
+        self.engine_roundabout.controller = self.controller_roundabout
+
         self.collector_roundabout = MetricCollector(self.config_roundabout)
         self.builder_roundabout = SnapshotBuilder("dual_roundabout", "dual_cfg", self.engine_roundabout, self.collector_roundabout, self.controller_roundabout)
 
-        def tick_callback_round() -> None:
-            self.controller_roundabout.update(0.1, self.engine_roundabout.pool.active_vehicles)
-            self.collector_roundabout.update(
-                self.clock_roundabout.get_elapsed_time(),
-                self.engine_roundabout.pool.active_vehicles,
-                self.engine_roundabout.pool.exited_vehicles,
-                {},
-            )
-        self.engine_roundabout.register_tick_callback(tick_callback_round)
+        self.engine_roundabout.register_tick_callback(
+            build_tick_callback(self.controller_roundabout, self.clock_roundabout, self.engine_roundabout, self.collector_roundabout)
+        )
 
     def start(self) -> None:
         self.engine_signal.start()
         self.engine_roundabout.start()
+
+    def resume(self) -> None:
+        self.engine_signal.resume()
+        self.engine_roundabout.resume()
 
     def pause(self) -> None:
         self.engine_signal.pause()

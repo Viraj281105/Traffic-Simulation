@@ -16,27 +16,10 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, List, Optional, Tuple
 
+from src.controllers.virtual_obstacle import VirtualObstacle
 from src.core.enums import TurnIntent
 from src.roads.network import RoadNetwork
 from src.vehicles.vehicle import Vehicle
-
-# ---------------------------------------------------------------------------
-# Lightweight obstacle stand-in (same interface expected by IDM caller)
-# ---------------------------------------------------------------------------
-
-class VirtualObstacle:
-    """A stationary or slow-moving obstacle on a lane (e.g. stop-line)."""
-
-    __slots__ = ("position", "speed", "length", "vehicle_id")
-
-    def __init__(
-        self, position: float, speed: float = 0.0, length: float = 0.0
-    ) -> None:
-        self.position = position
-        self.speed = speed
-        self.length = length
-        self.vehicle_id = "virtual_stop_line"
-
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -110,11 +93,16 @@ def find_leader(
         lane = vehicle.route[i]
 
         # Special logic for roundabouts: connection lanes circle the same roundabout, so
-        # vehicles can be on different connection lane objects but physically follow each other.
+        # vehicles can be on different connection lane objects but physically follow each other if they are in the same lane index.
         if getattr(network, "is_roundabout", False) and lane.lane_id.startswith("conn"):
             inner_r = getattr(network, "inner_radius", 10.0)
             outer_r = getattr(network, "outer_radius", 20.0)
             avg_radius = (inner_r + outer_r) / 2.0
+
+            try:
+                my_lane_idx = int(lane.lane_id.split("_")[2])
+            except (ValueError, IndexError):
+                my_lane_idx = 0
 
             if lane is vehicle.lane:
                 my_x, my_y = vehicle.coords
@@ -128,6 +116,14 @@ def find_leader(
             for v in (active_vehicles or []):
                 if v is vehicle or v.lane is None or not v.lane.lane_id.startswith("conn"):
                     continue
+
+                try:
+                    v_lane_idx = int(v.lane.lane_id.split("_")[2])
+                    if v_lane_idx != my_lane_idx:
+                        continue
+                except (ValueError, IndexError):
+                    pass
+
                 v_x, v_y = v.coords
                 theta_v = math.atan2(v_y, v_x)
                 
