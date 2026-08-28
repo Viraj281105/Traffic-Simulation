@@ -1,23 +1,59 @@
 import { useState, useEffect } from "react";
 import { useWebSocketSnapshot } from "./hooks/useWebSocketSnapshot";
+import { useSimulationPolling } from "./hooks/useSimulationPolling";
 import { IntersectionMap } from "./components/IntersectionMap";
 import { RoundaboutMap } from "./components/RoundaboutMap";
+import { IntersectionCanvas } from "./components/IntersectionCanvas";
 import { MetricsSidebar } from "./components/MetricsSidebar";
 import { PlaybackControls } from "./components/PlaybackControls";
 import { updateSimulationConfig } from "./services/api";
-import type { LiveSnapshot } from "./types/simulation";
+import type {
+  LiveSnapshot,
+  DualSnapshot,
+  SimulationStatus,
+} from "./types/simulation";
 import "./App.css";
 
 export function App() {
-  const { snapshot, connectionStatus, isPlaying, error, play, pause, stop } =
-    useWebSocketSnapshot();
+  const [viewMode, setViewMode] = useState<"sandbox" | "single" | "comparison">(
+    "sandbox",
+  );
 
-  const [lastCompletedSnapshot, setLastCompletedSnapshot] =
-    useState<LiveSnapshot | null>(null);
-  const [prevSnapshot, setPrevSnapshot] = useState<LiveSnapshot | null>(null);
+  // Determine path for WebSocket snapshot based on mode
+  const wsPath =
+    viewMode === "comparison" ? "/ws/simulation/dual" : "/ws/simulation/live";
+
+  // WebSocket Live / Comparison Hook
+  const {
+    snapshot,
+    connectionStatus,
+    isPlaying,
+    error: wsError,
+    play,
+    pause,
+    stop,
+  } = useWebSocketSnapshot(wsPath);
+
+  // REST Polling Hook for Single Vehicle tracking
+  const {
+    vehicle: singleVehicle,
+    status: singleStatus,
+    isLoading: singleIsLoading,
+    error: singleError,
+    start: singleStart,
+    stop: singleStop,
+    reset: singleReset,
+  } = useSimulationPolling();
+
+  const [lastCompletedSnapshot, setLastCompletedSnapshot] = useState<
+    LiveSnapshot | DualSnapshot | null
+  >(null);
+  const [prevSnapshot, setPrevSnapshot] = useState<
+    LiveSnapshot | DualSnapshot | null
+  >(null);
   const [prevConfigKey, setPrevConfigKey] = useState("");
 
-  // Canvas config state
+  // Canvas and traffic config state
   const [lanesNorth, setLanesNorth] = useState(2);
   const [lanesSouth, setLanesSouth] = useState(2);
   const [lanesEast, setLanesEast] = useState(2);
@@ -30,8 +66,13 @@ export function App() {
   const [configOpen, setConfigOpen] = useState(false);
   const [intersectionType, setIntersectionType] = useState("fixed_time_signal");
 
+  // Extra configurations
+  const [arrivalRate, setArrivalRate] = useState(0.3);
+  const [duration, setDuration] = useState(300);
+  const [randomSeed, setRandomSeed] = useState(42);
+
   // Adjust state during render to avoid useEffect warnings
-  const configKey = `${intersectionType}-${intersectionSize.toString()}-${laneWidth.toString()}-${lanesNorth.toString()}-${lanesSouth.toString()}-${lanesEast.toString()}-${lanesWest.toString()}`;
+  const configKey = `${intersectionType}-${intersectionSize.toString()}-${laneWidth.toString()}-${lanesNorth.toString()}-${lanesSouth.toString()}-${lanesEast.toString()}-${lanesWest.toString()}-${arrivalRate.toString()}-${duration.toString()}-${randomSeed.toString()}`;
 
   if (configKey !== prevConfigKey) {
     setPrevConfigKey(configKey);
@@ -40,31 +81,50 @@ export function App() {
 
   if (snapshot !== prevSnapshot) {
     setPrevSnapshot(snapshot);
-    if (snapshot && snapshot.simulationStatus === "completed") {
+    const status =
+      snapshot !== null
+        ? "signal" in snapshot
+          ? snapshot.signal.simulationStatus
+          : snapshot.simulationStatus
+        : null;
+    if (snapshot && status === "completed") {
       setLastCompletedSnapshot(snapshot);
     }
   }
 
+  const isDual = viewMode === "comparison";
+  const status =
+    snapshot !== null
+      ? "signal" in snapshot
+        ? snapshot.signal.simulationStatus
+        : snapshot.simulationStatus
+      : null;
   const metricsSnapshot =
-    snapshot &&
-    snapshot.simulationStatus === "initialized" &&
-    lastCompletedSnapshot
+    snapshot && status === "initialized" && lastCompletedSnapshot
       ? lastCompletedSnapshot
       : snapshot;
 
-  // Sync config with backend on change
+  // Sync config with backend on change (debounced to prevent flooding)
   useEffect(() => {
-    updateSimulationConfig({
-      intersectionType,
-      intersectionSize,
-      laneWidth,
-      lanesNorth,
-      lanesSouth,
-      lanesEast,
-      lanesWest,
-    }).catch((err: unknown) => {
-      console.error("Failed to update backend config:", err);
-    });
+    const timer = setTimeout(() => {
+      updateSimulationConfig({
+        intersectionType,
+        intersectionSize,
+        laneWidth,
+        lanesNorth,
+        lanesSouth,
+        lanesEast,
+        lanesWest,
+        arrivalRate,
+        duration,
+        randomSeed,
+      }).catch((err: unknown) => {
+        console.error("Failed to update backend config:", err);
+      });
+    }, 500);
+    return () => {
+      clearTimeout(timer);
+    };
   }, [
     intersectionType,
     intersectionSize,
@@ -73,7 +133,70 @@ export function App() {
     lanesSouth,
     lanesEast,
     lanesWest,
+    arrivalRate,
+    duration,
+    randomSeed,
   ]);
+
+  // Map controls to appropriate hooks based on the active view mode
+  const activeIsPlaying =
+    viewMode === "single" ? singleStatus === "running" : isPlaying;
+  const activeError = viewMode === "single" ? singleError : wsError;
+  const activeConnectionStatus =
+    viewMode === "single"
+      ? singleError
+        ? "error"
+        : singleIsLoading
+          ? "connecting"
+          : "connected"
+      : connectionStatus;
+
+  const handlePlay = () => {
+    if (viewMode === "single") {
+      singleStart().catch(() => {});
+    } else {
+      play().catch(() => {});
+    }
+  };
+
+  const handlePause = () => {
+    if (viewMode === "single") {
+      singleStop().catch(() => {});
+    } else {
+      pause().catch(() => {});
+    }
+  };
+
+  const handleStop = () => {
+    if (viewMode === "single") {
+      singleReset().catch(() => {});
+    } else {
+      stop().catch(() => {});
+    }
+  };
+
+  // Construct a compatible envelope object for the playback bar in polling mode
+  const singlePlaybackEnvelope = {
+    timestamp: singleVehicle?.sim_time ?? 0,
+    tick: singleVehicle?.tick ?? 0,
+    samplingFrequency: 10,
+    simulationStatus: (singleStatus === "running"
+      ? "running"
+      : "stopped") as SimulationStatus,
+  };
+
+  const playbackEnvelope =
+    viewMode === "single"
+      ? (singlePlaybackEnvelope as unknown as LiveSnapshot)
+      : isDual && snapshot
+        ? ({
+            timestamp: (snapshot as DualSnapshot).elapsed,
+            tick: (snapshot as DualSnapshot).tick,
+            samplingFrequency: 10,
+            simulationStatus: (snapshot as DualSnapshot).signal
+              .simulationStatus,
+          } as unknown as LiveSnapshot)
+        : (snapshot as LiveSnapshot | null);
 
   return (
     <div className="app">
@@ -90,6 +213,92 @@ export function App() {
             </div>
           </div>
         </div>
+
+        {/* View Mode Switching Tabs */}
+        <div className="view-mode-tabs" style={{ display: "flex", gap: "8px" }}>
+          <button
+            className={`tab-btn ${viewMode === "sandbox" ? "active" : ""}`}
+            onClick={() => {
+              setViewMode("sandbox");
+            }}
+            style={{
+              background:
+                viewMode === "sandbox" ? "var(--bg-hover)" : "transparent",
+              color:
+                viewMode === "sandbox"
+                  ? "var(--text-primary)"
+                  : "var(--text-secondary)",
+              border: "1px solid var(--border)",
+              borderBottom:
+                viewMode === "sandbox"
+                  ? "2px solid var(--accent-blue)"
+                  : "1px solid var(--border)",
+              borderRadius: "4px 4px 0 0",
+              padding: "6px 14px",
+              cursor: "pointer",
+              fontSize: "12px",
+              fontWeight: 600,
+              transition: "all 0.15s",
+            }}
+          >
+            Sandbox View
+          </button>
+          <button
+            className={`tab-btn ${viewMode === "single" ? "active" : ""}`}
+            onClick={() => {
+              setViewMode("single");
+            }}
+            style={{
+              background:
+                viewMode === "single" ? "var(--bg-hover)" : "transparent",
+              color:
+                viewMode === "single"
+                  ? "var(--text-primary)"
+                  : "var(--text-secondary)",
+              border: "1px solid var(--border)",
+              borderBottom:
+                viewMode === "single"
+                  ? "2px solid var(--accent-blue)"
+                  : "1px solid var(--border)",
+              borderRadius: "4px 4px 0 0",
+              padding: "6px 14px",
+              cursor: "pointer",
+              fontSize: "12px",
+              fontWeight: 600,
+              transition: "all 0.15s",
+            }}
+          >
+            Single Vehicle Track
+          </button>
+          <button
+            className={`tab-btn ${viewMode === "comparison" ? "active" : ""}`}
+            onClick={() => {
+              setViewMode("comparison");
+            }}
+            style={{
+              background:
+                viewMode === "comparison" ? "var(--bg-hover)" : "transparent",
+              color:
+                viewMode === "comparison"
+                  ? "var(--text-primary)"
+                  : "var(--text-secondary)",
+              border: "1px solid var(--border)",
+              borderBottom:
+                viewMode === "comparison"
+                  ? "2px solid var(--accent-blue)"
+                  : "1px solid var(--border)",
+              borderRadius: "4px 4px 0 0",
+              padding: "6px 14px",
+              cursor: "pointer",
+              fontSize: "12px",
+              fontWeight: 600,
+              transition: "all 0.15s",
+            }}
+          >
+            Dual Comparison
+          </button>
+        </div>
+
         <div className="header-right">
           <button
             className="config-toggle-btn"
@@ -154,6 +363,33 @@ export function App() {
               step={1}
               onChange={setIntersectionSize}
             />
+
+            {/* Added Extra Parameters */}
+            <ConfigSlider
+              label="Arrival Rate (veh/s)"
+              value={arrivalRate}
+              min={0.1}
+              max={2.0}
+              step={0.1}
+              onChange={setArrivalRate}
+            />
+            <ConfigSlider
+              label="Duration (s)"
+              value={duration}
+              min={30}
+              max={600}
+              step={10}
+              onChange={setDuration}
+            />
+            <ConfigSlider
+              label="Random Seed"
+              value={randomSeed}
+              min={1}
+              max={100}
+              step={1}
+              onChange={setRandomSeed}
+            />
+
             <div className="config-item">
               <label className="config-label">Intersection Type</label>
               <select
@@ -162,6 +398,7 @@ export function App() {
                 onChange={(e) => {
                   setIntersectionType(e.target.value);
                 }}
+                disabled={viewMode === "comparison"} // Fixed in comparison
                 style={{
                   background: "#2b2b2b",
                   color: "#fff",
@@ -196,9 +433,52 @@ export function App() {
 
       {/* ── Main content ──────────────────────────────────────────────── */}
       <main className="app-main">
-        {/* Canvas */}
+        {/* Render appropriate canvas based on the view mode */}
         <div className="canvas-wrapper">
-          {snapshot?.controller.type === "roundabout" ? (
+          {viewMode === "single" ? (
+            <IntersectionCanvas
+              vehicle={singleVehicle}
+              width={800}
+              height={680}
+            />
+          ) : viewMode === "comparison" ? (
+            <div className="dual-canvas-container">
+              <div className="canvas-column">
+                <h3>Fixed-Time Signal</h3>
+                <IntersectionMap
+                  snapshot={
+                    isDual && snapshot
+                      ? (snapshot as DualSnapshot).signal
+                      : null
+                  }
+                  lanesNorth={lanesNorth}
+                  lanesSouth={lanesSouth}
+                  lanesEast={lanesEast}
+                  lanesWest={lanesWest}
+                  laneWidth={laneWidth}
+                  intersectionSize={intersectionSize}
+                  showCrosswalks={showCrosswalks}
+                  showStopLines={showStopLines}
+                  debug={debug}
+                />
+              </div>
+              <div className="canvas-column">
+                <h3>Roundabout</h3>
+                <RoundaboutMap
+                  snapshot={
+                    isDual && snapshot
+                      ? (snapshot as DualSnapshot).roundabout
+                      : null
+                  }
+                  laneWidth={laneWidth}
+                  showCrosswalks={showCrosswalks}
+                  debug={debug}
+                />
+              </div>
+            </div>
+          ) : snapshot !== null &&
+            "controller" in snapshot &&
+            snapshot.controller.type === "roundabout" ? (
             <RoundaboutMap
               snapshot={snapshot}
               laneWidth={laneWidth}
@@ -207,7 +487,7 @@ export function App() {
             />
           ) : (
             <IntersectionMap
-              snapshot={snapshot}
+              snapshot={snapshot as LiveSnapshot | null}
               lanesNorth={lanesNorth}
               lanesSouth={lanesSouth}
               lanesEast={lanesEast}
@@ -224,26 +504,20 @@ export function App() {
         {/* Sidebar */}
         <MetricsSidebar
           snapshot={metricsSnapshot}
-          connectionStatus={connectionStatus}
+          connectionStatus={activeConnectionStatus}
         />
       </main>
 
       {/* ── Playback controls ─────────────────────────────────────────── */}
       <footer className="app-footer">
         <PlaybackControls
-          snapshot={snapshot}
-          isPlaying={isPlaying}
-          onPlay={() => {
-            play().catch(() => {});
-          }}
-          onPause={() => {
-            pause().catch(() => {});
-          }}
-          onStop={() => {
-            stop().catch(() => {});
-          }}
+          snapshot={playbackEnvelope}
+          isPlaying={activeIsPlaying}
+          onPlay={handlePlay}
+          onPause={handlePause}
+          onStop={handleStop}
         />
-        {error && <div className="error-banner">⚠ {error}</div>}
+        {activeError && <div className="error-banner">⚠ {activeError}</div>}
       </footer>
     </div>
   );

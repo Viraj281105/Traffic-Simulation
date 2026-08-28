@@ -2,8 +2,8 @@ import math
 from typing import Any, Dict, List
 
 from src.controllers.base import BaseController
-from src.controllers.fixed_time_signal import VirtualObstacle
-from src.core.enums import Direction
+from src.controllers.virtual_obstacle import VirtualObstacle
+from src.core.enums import Direction, TurnIntent
 from src.roads.network import RoadNetwork
 from src.vehicles.vehicle import Vehicle
 
@@ -19,8 +19,8 @@ class RoundaboutController(BaseController):
         self.inner_radius: float = ctrl_cfg.get("innerRadius", 10.0)
         self.outer_radius: float = ctrl_cfg.get("outerRadius", 20.0)
         self.circulating_lanes: int = ctrl_cfg.get("circulatingLanes", 1)
-        self.critical_gap: float = ctrl_cfg.get("criticalGap", 4.0)
-        self.follow_up_time: float = ctrl_cfg.get("followUpTime", 2.5)
+        self.critical_gap: float = ctrl_cfg.get("criticalGap", 2.5)
+        self.follow_up_time: float = ctrl_cfg.get("followUpTime", 1.5)
         self.entry_speed: float = ctrl_cfg.get("entrySpeed", 5.0)
         self.circulating_speed: float = ctrl_cfg.get("circulatingSpeed", 8.0)
 
@@ -34,7 +34,7 @@ class RoundaboutController(BaseController):
             try:
                 approach = self.network.get_incoming_approach(d)
                 for lane in approach.get_lanes():
-                    lane.virtual_obstacle = None  # type: ignore[attr-defined]
+                    lane.virtual_obstacle = None
             except KeyError:
                 pass
 
@@ -42,35 +42,70 @@ class RoundaboutController(BaseController):
         self.update_active_vehicles_ref(active_vehicles)
         self.time_in_current_state += delta_time
 
-        # Identify all circulating vehicles (those on connection/circulating lanes OR physically in the roundabout)
+        # Identify all circulating vehicles (those on connection/circulating lanes)
         circulating_vehicles = [
             v
             for v in active_vehicles
-            if v.lane is not None and (
-                v.lane.lane_id.startswith("conn") or
-                math.hypot(v.coords[0], v.coords[1]) <= self.outer_radius + 1.0
-            )
+            if v.lane is not None and v.lane.lane_id.startswith("conn")
         ]
 
         for d in Direction:
             try:
                 approach = self.network.get_incoming_approach(d)
+                total_in_lanes = len(approach.get_lanes())
                 for lane in approach.get_lanes():
                     # Calculate if there is an oncoming circulating vehicle that blocks entry.
                     # We check circulating vehicles approaching this direction's entry node.
                     # The entry point of this lane is lane.end_coords.
                     entry_pt = lane.end_coords
                     theta_entry = math.atan2(entry_pt[1], entry_pt[0])
-                    avg_radius = (self.inner_radius + self.outer_radius) / 2.0
+                    
+                    entering_lane_idx = int(lane.lane_id.split("_")[-1])
+                    w_ring = self.outer_radius - self.inner_radius
+                    lane_radius = self.inner_radius + (entering_lane_idx + 0.5) * (w_ring / total_in_lanes)
+                    
                     should_yield = False
 
                     # Safe look-ahead distance threshold
-                    threshold = max(20.0, self.critical_gap * self.circulating_speed)
-                    lane_prefix = lane.lane_id.split("_")[0] + "_in"
+                    threshold = max(15.0, self.critical_gap * self.circulating_speed)
 
                     for cv in circulating_vehicles:
-                        if cv.lane is not None and cv.lane.lane_id.startswith(lane_prefix):
-                            continue
+                        # Match circulating lane index and ignore downstream/exiting vehicles
+                        if cv.lane is not None:
+                            try:
+                                cv_parts = cv.lane.lane_id.split("_")
+                                if len(cv_parts) >= 4 and cv_parts[0] == "conn":
+                                    cv_origin_dir_str = cv_parts[1]
+                                    cv_lane_idx = int(cv_parts[2])
+                                    cv_turn_str = cv_parts[3]
+
+                                    # 1. Skip if the vehicle entered from the same approach (it is downstream)
+                                    if cv_origin_dir_str == d.value:
+                                        continue
+
+                                    # 2. Skip if the vehicle is in a different circulating lane index
+                                    if cv_lane_idx != entering_lane_idx:
+                                        continue
+
+                                    # 3. Skip if the vehicle is exiting at this approach
+                                    dir_map = {
+                                        "n": Direction.NORTH,
+                                        "s": Direction.SOUTH,
+                                        "e": Direction.EAST,
+                                        "w": Direction.WEST,
+                                    }
+                                    turn_map = {
+                                        "left": TurnIntent.LEFT,
+                                        "straight": TurnIntent.STRAIGHT,
+                                        "right": TurnIntent.RIGHT,
+                                    }
+                                    cv_origin = dir_map[cv_origin_dir_str]
+                                    cv_turn = turn_map[cv_turn_str]
+                                    cv_target = self.network._resolve_target_direction(cv_origin, cv_turn)
+                                    if cv_target == d:
+                                        continue
+                            except (ValueError, IndexError):
+                                pass
 
                         cv_x, cv_y = cv.coords
                         dist_to_entry_euclidean = ((cv_x - entry_pt[0]) ** 2 + (cv_y - entry_pt[1]) ** 2) ** 0.5
@@ -82,7 +117,7 @@ class RoundaboutController(BaseController):
                             
                             # If angular_gap < pi, it is upstream / approaching the entry point
                             if angular_gap < math.pi:
-                                dist_along_circle = avg_radius * angular_gap
+                                dist_along_circle = lane_radius * angular_gap
                                 if dist_along_circle < threshold:
                                     time_gap = dist_along_circle / self.circulating_speed
                                     if time_gap < self.critical_gap:
@@ -90,9 +125,9 @@ class RoundaboutController(BaseController):
                                         break
 
                     if should_yield:
-                        lane.virtual_obstacle = VirtualObstacle(position=lane.length)  # type: ignore[attr-defined]
+                        lane.virtual_obstacle = VirtualObstacle(position=lane.length)
                     else:
-                        lane.virtual_obstacle = None  # type: ignore[attr-defined]
+                        lane.virtual_obstacle = None
             except KeyError:
                 pass
 
@@ -101,9 +136,7 @@ class RoundaboutController(BaseController):
         circulating_count = 0
         yielding_count = 0
 
-        # We need a references of active vehicles. We can scan lanes or count from active pool.
-        # But this is formatted for snapshot. Let's find yielding count:
-        # vehicles at the end of incoming lanes with speed < 0.1
+        # Count yielding vehicles (near stop line on incoming approaches with low speed)
         for d in Direction:
             try:
                 approach = self.network.get_incoming_approach(d)
@@ -113,40 +146,6 @@ class RoundaboutController(BaseController):
                             yielding_count += 1
             except KeyError:
                 pass
-
-            # Count circulating from connection lanes
-            # Let's check connection lanes inside network or active vehicles
-            # Since get_state does not have access to active_vehicles list directly,
-            # we can look up vehicles registered on connection lanes in the network.
-            # But wait! We can just scan all active vehicles if we store a reference or
-            # count from the lanes.
-            # We can find connection vehicles by finding vehicles in all exit/incoming lanes?
-            # No, connection lanes are not inside incoming/outgoing approaches, but they have vehicles.
-            # In setup_default_intersection, we create connection lanes. Let's make sure
-            # we can count them:
-            # For simplicity, let's scan all incoming lanes' vehicles and see if any vehicle is on a connection lane.
-            # Wait, the vehicle pool has active vehicles. But BaseController.get_state() signature does not pass active_vehicles.
-            # So we can look at the vehicles registered on the connection lanes of the routes of active vehicles in approaches,
-            # or just look at all lanes.
-            # Let's query all vehicles in incoming/outgoing approaches, and check if any vehicle's current lane is a connection lane.
-            # But connection lanes are not inside incoming or outgoing.
-            # Let's traverse vehicles from incoming approaches:
-            # Actually, vehicles transition from incoming to connection.
-            # When on connection, the vehicle's `lane` is the connection lane.
-            # We can traverse the vehicles in the connection lanes if we track them.
-            # Since `Lane.get_vehicles()` tracks vehicles on it, we can find them if we keep a reference to connection lanes.
-            # In `generate_route` we create connection lanes dynamically, which means they are new instances every time.
-            # Wait, is that a problem?
-            # Yes! If we create connection lanes dynamically in `generate_route`, they are new instances,
-            # so the vehicle is added to a dynamically created lane instance!
-            # But the simulation loop updates vehicles, and the vehicle calls `self.lane.add_vehicle(self)`.
-            # So the dynamically created lane instance will correctly have the vehicle in its `_vehicles` list!
-            # But how do we find these connection lanes?
-            # We can traverse all active vehicles in the simulation.
-            # Wait, how does `get_state` access active vehicles?
-            # We can store a reference to the active vehicles list during `update(self, dt, active_vehicles)`!
-            # Yes! `self._active_vehicles = active_vehicles`.
-            # That is incredibly simple and robust!
 
         active_vehs = getattr(self, "_active_vehicles", [])
         circulating_count = sum(

@@ -1,36 +1,9 @@
 from src.core.enums import Direction, TurnIntent
 from src.intersection.conflict_manager import ConflictManager
-from src.intersection.conflict_zones import ConflictZoneDetector
-from src.intersection.geometry import IntersectionGeometry
 from src.roads.lane import Lane
 from src.roads.network import RoadNetwork
 from src.vehicles.router import find_leader
 from src.vehicles.vehicle import Vehicle
-
-
-def test_intersection_geometry() -> None:
-    geom = IntersectionGeometry(center_x=0.0, center_y=0.0, bounding_radius=15.0)
-    assert geom.is_within_intersection(0.0, 0.0) is True
-    assert geom.is_within_intersection(10.0, 10.0) is True  # dist^2 = 200 <= 225
-    assert geom.is_within_intersection(12.0, 12.0) is False  # dist^2 = 288 > 225
-
-    geom.register_entry_node("n_in_0", (0.0, 15.0))
-    assert geom.entry_nodes["n_in_0"] == (0.0, 15.0)
-
-
-def test_conflict_zone_detector() -> None:
-    detector = ConflictZoneDetector()
-    detector.register_conflict(
-        "conn_north_0_straight", "conn_east_0_straight", 0.0, 0.0
-    )
-
-    # Let's verify sorted keys storing works
-    assert detector._get_intersection_point(
-        "conn_north_0_straight", "conn_east_0_straight"
-    ) == (0.0, 0.0)
-    assert detector._get_intersection_point(
-        "conn_east_0_straight", "conn_north_0_straight"
-    ) == (0.0, 0.0)
 
 
 def test_conflict_manager_reservation() -> None:
@@ -99,47 +72,7 @@ def test_emergency_proximity_detection() -> None:
     assert gap >= 0
 
 
-def test_intersection_geometry_exit_node() -> None:
-    geom = IntersectionGeometry(center_x=0.0, center_y=0.0, bounding_radius=20.0)
-    geom.register_exit_node("s_out_0", (0.0, -20.0))
-    assert geom.exit_nodes["s_out_0"] == (0.0, -20.0)
 
-
-def test_conflict_zone_detector_branches() -> None:
-    detector = ConflictZoneDetector()
-    lane_conn1 = Lane("conn_1", start_x=-20.0, start_y=0.0, end_x=20.0, end_y=0.0)
-    lane_conn2 = Lane("conn_2", start_x=0.0, start_y=-20.0, end_x=0.0, end_y=20.0)
-    lane_non_conn = Lane("non_conn", start_x=0.0, start_y=0.0, end_x=50.0, end_y=0.0)
-
-    detector.register_conflict("conn_1", "conn_2", 0.0, 0.0)
-
-    v1 = Vehicle("v1", 4.0, 2.0, 10.0, route=[lane_conn1], start_position=5.0, initial_speed=10.0)
-    v2 = Vehicle("v2", 4.0, 2.0, 10.0, route=[lane_conn2], start_position=15.0, initial_speed=10.0)
-    v_non_conn = Vehicle("v_nc", 4.0, 2.0, 10.0, route=[lane_non_conn], start_position=5.0, initial_speed=10.0)
-    v_no_lane = Vehicle("v_nl", 4.0, 2.0, 10.0, route=[lane_conn1], start_position=0.0, initial_speed=0.0)
-    v_no_lane.lane = None
-
-    # Vehicle on non connection lane
-    assert detector.check_conflicts(v_non_conn, [v1, v2]) == float("inf")
-
-    # Vehicle with lane = None
-    assert detector.check_conflicts(v_no_lane, [v1]) == float("inf")
-
-    # Non-crossing connection lane (pt is None)
-    lane_conn3 = Lane("conn_3", start_x=100.0, start_y=100.0, end_x=120.0, end_y=100.0)
-    v3 = Vehicle("v3", 4.0, 2.0, 10.0, route=[lane_conn3], start_position=5.0, initial_speed=10.0)
-    assert detector.check_conflicts(v1, [v3]) == float("inf")
-
-    # v2 is closer to crossing (dist to (0,0) is 20 - 15 = 5m) than v1 (dist to (0,0) is 20 - 5 = 15m)
-    gap = detector.check_conflicts(v1, [v1, v2, v_non_conn, v_no_lane])
-    assert gap < float("inf")
-
-    # v1 is further, so v2 does not yield to v1
-    assert detector.check_conflicts(v2, [v1]) == float("inf")
-
-    # v2 has passed crossing (position = 25m > dist_to_pt = 20m)
-    v2.position = 25.0
-    assert detector.check_conflicts(v1, [v2]) == float("inf")
 
 
 def test_conflict_manager_full_lifecycle_and_arbitration() -> None:

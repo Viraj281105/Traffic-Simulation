@@ -1,13 +1,13 @@
 from typing import Any, Dict, List
 
 from src.core.enums import Direction
-from src.metrics.definitions.fairness import calculate_directional_fairness
-from src.metrics.definitions.idle_loss import calculate_idle_loss_tick
-from src.metrics.definitions.new_metrics import (
+from src.metrics.definitions.derived_metrics import (
     calculate_average_travel_speed,
     calculate_queue_stability_index,
     calculate_space_footprint_consumed,
 )
+from src.metrics.definitions.fairness import calculate_directional_fairness
+from src.metrics.definitions.idle_loss import calculate_idle_loss_tick
 from src.metrics.definitions.queue_length import get_current_queue_lengths
 from src.metrics.definitions.speed_variance import calculate_speed_variance_index
 from src.metrics.definitions.stop_count import (

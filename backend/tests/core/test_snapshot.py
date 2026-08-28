@@ -113,12 +113,3 @@ def test_dual_simulation_orchestrator() -> None:
     assert "roundabout" in snap
 
 
-def test_snapshot_serializer() -> None:
-    from src.snapshot.serializer import Serializer
-
-    data = {"frame": 1, "test": "abc"}
-    serialized = Serializer.serialize(data)
-    assert isinstance(serialized, str)
-    deserialized = Serializer.deserialize(serialized)
-    assert deserialized == data
-

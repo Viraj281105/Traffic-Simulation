@@ -50,6 +50,7 @@ class DummyVehicle:
         self.position = 10.0
         self.acceleration = 0.0
         self.heading = 0.0
+        self._hysteresis_stopped = speed < 0.1
 
 
 def test_wait_time_calculator() -> None:
@@ -90,6 +91,7 @@ def test_stop_count_hysteresis() -> None:
             self.speed = 10.0
             self.stop_count = 0
             self.length = 4.5
+            self._hysteresis_stopped = False
 
     v = MockVehicle()
     # Initialize the state (speed = 10.0 -> False stopped)

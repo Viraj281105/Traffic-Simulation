@@ -107,6 +107,7 @@ export interface RunningMetrics {
   directionalFairnessIndex: number;
   activeVehicleCount: number;
   totalVehiclesSpawned: number;
+  masterEfficiencyScore?: number;
 }
 
 // ── Vehicle counts ─────────────────────────────────────────────────────────
@@ -147,6 +148,13 @@ export interface LiveSnapshot {
   metrics: RunningMetrics;
   vehicleCounts: VehicleCounts;
   simulationStatus: SimulationStatus;
+}
+
+export interface DualSnapshot {
+  tick: number;
+  elapsed: number;
+  signal: LiveSnapshot;
+  roundabout: LiveSnapshot;
 }
 
 // ── Legacy single-vehicle types (Sprint 1 compatibility) ──────────────────
