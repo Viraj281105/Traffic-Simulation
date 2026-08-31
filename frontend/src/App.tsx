@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { useWebSocketSnapshot } from "./hooks/useWebSocketSnapshot";
+import { useSimulationPolling } from "./hooks/useSimulationPolling";
 import { IntersectionMap } from "./components/IntersectionMap";
 import { RoundaboutMap } from "./components/RoundaboutMap";
+import { IntersectionCanvas } from "./components/IntersectionCanvas";
 import { MetricsSidebar } from "./components/MetricsSidebar";
 import { PlaybackControls } from "./components/PlaybackControls";
 import { updateSimulationConfig } from "./services/api";
@@ -42,6 +44,11 @@ export function App() {
   const [showStopLines, setShowStopLines] = useState(true);
   const [debug, setDebug] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
+
+  // Extra configurations
+  const [arrivalRate, setArrivalRate] = useState(0.3);
+  const [duration, setDuration] = useState(300);
+  const [randomSeed, setRandomSeed] = useState(42);
 
   // Adjust state during render to avoid useEffect warnings
   const configKey = `${intersectionSize.toString()}-${laneWidth.toString()}-${lanesNorth.toString()}-${lanesSouth.toString()}-${lanesEast.toString()}-${lanesWest.toString()}`;
@@ -90,7 +97,7 @@ export function App() {
     }
   }
 
-  // Sync config with backend on change
+  // Sync config with backend on change (debounced to prevent flooding)
   useEffect(() => {
     const intersectionType =
       viewMode === "roundabout" ? "roundabout" : "fixed_time_signal";
@@ -113,7 +120,70 @@ export function App() {
     lanesSouth,
     lanesEast,
     lanesWest,
+    arrivalRate,
+    duration,
+    randomSeed,
   ]);
+
+  // Map controls to appropriate hooks based on the active view mode
+  const activeIsPlaying =
+    viewMode === "single" ? singleStatus === "running" : isPlaying;
+  const activeError = viewMode === "single" ? singleError : wsError;
+  const activeConnectionStatus =
+    viewMode === "single"
+      ? singleError
+        ? "error"
+        : singleIsLoading
+          ? "connecting"
+          : "connected"
+      : connectionStatus;
+
+  const handlePlay = () => {
+    if (viewMode === "single") {
+      singleStart().catch(() => {});
+    } else {
+      play().catch(() => {});
+    }
+  };
+
+  const handlePause = () => {
+    if (viewMode === "single") {
+      singleStop().catch(() => {});
+    } else {
+      pause().catch(() => {});
+    }
+  };
+
+  const handleStop = () => {
+    if (viewMode === "single") {
+      singleReset().catch(() => {});
+    } else {
+      stop().catch(() => {});
+    }
+  };
+
+  // Construct a compatible envelope object for the playback bar in polling mode
+  const singlePlaybackEnvelope = {
+    timestamp: singleVehicle?.sim_time ?? 0,
+    tick: singleVehicle?.tick ?? 0,
+    samplingFrequency: 10,
+    simulationStatus: (singleStatus === "running"
+      ? "running"
+      : "stopped") as SimulationStatus,
+  };
+
+  const playbackEnvelope =
+    viewMode === "single"
+      ? (singlePlaybackEnvelope as unknown as LiveSnapshot)
+      : isDual && snapshot
+        ? ({
+            timestamp: (snapshot as DualSnapshot).elapsed,
+            tick: (snapshot as DualSnapshot).tick,
+            samplingFrequency: 10,
+            simulationStatus: (snapshot as DualSnapshot).signal
+              .simulationStatus,
+          } as unknown as LiveSnapshot)
+        : (snapshot as LiveSnapshot | null);
 
   return (
     <div className="app">
@@ -350,7 +420,7 @@ export function App() {
             stop().catch(() => {});
           }}
         />
-        {error && <div className="error-banner">⚠ {error}</div>}
+        {activeError && <div className="error-banner">⚠ {activeError}</div>}
       </footer>
     </div>
   );

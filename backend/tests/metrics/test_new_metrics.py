@@ -1,6 +1,6 @@
 import pytest
 
-from src.metrics.definitions.new_metrics import (
+from src.metrics.definitions.derived_metrics import (
     calculate_average_travel_speed,
     calculate_queue_stability_index,
     calculate_space_footprint_consumed,

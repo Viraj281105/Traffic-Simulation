@@ -11,19 +11,14 @@ def update_vehicle_stops(
     - A stop is detected when speed drops below stop_speed_threshold.
     - Hysteresis: speed must exceed 2 * stop_speed_threshold before another stop can be counted.
     """
-    if not hasattr(vehicle, "_hysteresis_stopped"):
-        # Initialize custom attributes
-        setattr(vehicle, "_hysteresis_stopped", vehicle.speed < stop_speed_threshold)
-        # vehicle.stop_count is initialized in Vehicle.__init__
-
-    if getattr(vehicle, "_hysteresis_stopped"):
+    if vehicle._hysteresis_stopped:
         # If currently marked as stopped, check if speed has recovered above 2 * threshold
         if vehicle.speed >= 2 * stop_speed_threshold:
-            setattr(vehicle, "_hysteresis_stopped", False)
+            vehicle._hysteresis_stopped = False
     else:
         # If currently marked as moving, check if speed has dropped below threshold
         if vehicle.speed < stop_speed_threshold:
-            setattr(vehicle, "_hysteresis_stopped", True)
+            vehicle._hysteresis_stopped = True
             vehicle.stop_count += 1
 
 

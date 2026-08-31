@@ -35,6 +35,34 @@ export async function stopSimulation(): Promise<void> {
   await post("/api/simulation/stop");
 }
 
+/** Start / resume the dual simulation engine. */
+export async function playDualSimulation(): Promise<void> {
+  await post("/api/simulation/dual/play");
+}
+
+/** Pause the dual simulation engine. */
+export async function pauseDualSimulation(): Promise<void> {
+  await post("/api/simulation/dual/pause");
+}
+
+/** Reset the dual simulation engine. */
+export async function resetDualSimulation(): Promise<void> {
+  await post("/api/simulation/dual/reset");
+}
+
+/** Get current dual simulation status. */
+export async function getDualSimulationStatus(): Promise<{
+  status: string;
+  elapsed: number;
+  tick: number;
+}> {
+  return get("/api/simulation/dual/status") as Promise<{
+    status: string;
+    elapsed: number;
+    tick: number;
+  }>;
+}
+
 /** Get current simulation lifecycle status. */
 export async function getSimulationStatus(): Promise<{
   status: string;
@@ -55,6 +83,9 @@ export async function updateSimulationConfig(config: {
   lanesSouth: number;
   lanesEast: number;
   lanesWest: number;
+  arrivalRate?: number;
+  duration?: number;
+  randomSeed?: number;
 }): Promise<void> {
   const res = await fetch(`${BASE}/api/simulation/config`, {
     method: "POST",

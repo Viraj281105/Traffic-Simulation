@@ -4,7 +4,7 @@
  * Handles reconnection with exponential backoff.
  * Pure TypeScript — zero React imports.
  */
-import type { LiveSnapshot } from "../types/simulation";
+import type { LiveSnapshot, DualSnapshot } from "../types/simulation";
 
 const BACKOFF_DELAYS_MS = [1000, 2000, 4000, 8000, 16000, 30000];
 
@@ -12,7 +12,7 @@ export type ConnectionStatus =
   "disconnected" | "connecting" | "connected" | "reconnecting" | "error";
 
 export interface WebSocketCallbacks {
-  onSnapshot: (snapshot: LiveSnapshot) => void;
+  onSnapshot: (snapshot: LiveSnapshot | DualSnapshot) => void;
   onStatusChange: (status: ConnectionStatus) => void;
   onError: (error: string) => void;
 }
@@ -65,6 +65,11 @@ export class SimulationWebSocket {
 
     this._setStatus(this.retryCount === 0 ? "connecting" : "reconnecting");
 
+    const host = window.location.hostname || "localhost";
+    const port = "8000";
+    const wsProto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const url = `${wsProto}//${host}:${port}${this.path}`;
+
     try {
       this.ws = new WebSocket(this.url);
     } catch {
@@ -79,7 +84,8 @@ export class SimulationWebSocket {
 
     this.ws.onmessage = (event: MessageEvent) => {
       try {
-        const snapshot = JSON.parse(event.data as string) as LiveSnapshot;
+        const snapshot = JSON.parse(event.data as string) as
+          LiveSnapshot | DualSnapshot;
         this.callbacks.onSnapshot(snapshot);
       } catch {
         this.callbacks.onError("Failed to parse snapshot JSON");

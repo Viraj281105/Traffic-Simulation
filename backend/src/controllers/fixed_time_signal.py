@@ -27,27 +27,10 @@ from __future__ import annotations
 from typing import Any, Dict, List, Tuple
 
 from src.controllers.base import BaseController
+from src.controllers.virtual_obstacle import VirtualObstacle
 from src.core.enums import Direction, TurnIntent
 from src.roads.network import RoadNetwork
 from src.vehicles.vehicle import Vehicle
-
-# ---------------------------------------------------------------------------
-# Virtual obstacle (same as used by the roundabout controller)
-# ---------------------------------------------------------------------------
-
-class VirtualObstacle:
-    """A zero-speed barrier at a given position (typically the lane stop-line)."""
-
-    __slots__ = ("position", "speed", "length", "vehicle_id")
-
-    def __init__(
-        self, position: float, speed: float = 0.0, length: float = 0.0
-    ) -> None:
-        self.position = position
-        self.speed = speed
-        self.length = length
-        self.vehicle_id = "virtual_stop_line"
-
 
 # ---------------------------------------------------------------------------
 # Phase descriptor
@@ -254,10 +237,10 @@ class FixedTimeSignalController(BaseController):
                         should_be_green = True
 
                 if should_be_green:
-                    lane.virtual_obstacle = None  # type: ignore[attr-defined]
+                    lane.virtual_obstacle = None
                 else:
                     # Block the lane with a virtual obstacle at the stop line
-                    lane.virtual_obstacle = VirtualObstacle(position=lane.length)  # type: ignore[attr-defined]
+                    lane.virtual_obstacle = VirtualObstacle(position=lane.length)
 
     # ------------------------------------------------------------------
     # State snapshot (for the frontend / API)

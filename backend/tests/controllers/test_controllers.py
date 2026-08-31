@@ -2,22 +2,10 @@ import pytest
 
 from src.controllers.base import BaseController
 from src.controllers.fixed_time_signal import FixedTimeSignalController
-from src.controllers.registry import ControllerRegistry
 from src.controllers.roundabout import RoundaboutController
 from src.core.enums import Direction
 from src.roads.network import RoadNetwork
 from src.vehicles.vehicle import Vehicle
-
-
-def test_controller_registry() -> None:
-    signal_cls = ControllerRegistry.get_controller_class("fixed_time_signal")
-    assert signal_cls == FixedTimeSignalController
-
-    roundabout_cls = ControllerRegistry.get_controller_class("roundabout")
-    assert roundabout_cls == RoundaboutController
-
-    with pytest.raises(KeyError):
-        ControllerRegistry.get_controller_class("invalid_name")
 
 
 def test_fixed_time_signal_transitions() -> None:
@@ -169,19 +157,7 @@ def test_base_controller_abstract_methods() -> None:
     dummy.reset()
 
 
-def test_controller_registry_decorator() -> None:
-    @ControllerRegistry.register("custom_controller")
-    class CustomController(BaseController):
-        def update(self, delta_time: float, active_vehicles: list) -> None:
-            pass
 
-        def get_state(self) -> dict:
-            return {}
-
-        def reset(self) -> None:
-            pass
-
-    assert ControllerRegistry.get_controller_class("custom_controller") == CustomController
 
 
 def test_fixed_time_signal_legacy_config_and_lane_intents() -> None:

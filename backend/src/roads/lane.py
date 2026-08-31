@@ -57,6 +57,9 @@ class Lane:
 
         self._vehicles: List[Any] = []
 
+        # Optional virtual obstacle placed on this lane by a controller (e.g. stop-line)
+        self.virtual_obstacle: Optional[Any] = None
+
     def get_point_at_distance(self, distance: float) -> Tuple[float, float]:
         dist = max(0.0, min(distance, self.length))
         if len(self.waypoints) == 2:

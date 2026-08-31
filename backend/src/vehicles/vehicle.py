@@ -1,3 +1,4 @@
+import math
 from typing import List, Optional, Tuple
 
 from src.core.enums import TurnIntent, VehicleState
@@ -65,6 +66,9 @@ class Vehicle:
         else:
             self.state = VehicleState.APPROACHING
             self.stop_count = 0
+
+        # Used by stop-count hysteresis in metrics/definitions/stop_count.py
+        self._hysteresis_stopped: bool = self.speed < self._wait_threshold
 
     @property
     def coords(self) -> Tuple[float, float]:
@@ -142,7 +146,6 @@ class Vehicle:
                 self.speed = 0.0
 
     def get_bounding_box(self) -> List[Tuple[float, float]]:
-        import math
 
         cx, cy = self.coords
         heading_rad = math.radians(self.heading)

@@ -1,6 +1,10 @@
-import json
+import asyncio
+import csv
+import io
 import logging
+import traceback
 import uuid
+from pathlib import Path
 from typing import Any, Dict
 
 import jsonschema
@@ -9,12 +13,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from src.controllers.fixed_time_signal import FixedTimeSignalController
-from src.controllers.roundabout import RoundaboutController
+from src.controllers.factory import build_tick_callback, create_controller
 from src.core.clock import Clock
 from src.core.config_models import ScenarioConfiguration
 from src.core.engine import SimulationEngine
-from src.core.enums import Direction, SimulationStatus
+from src.core.enums import SimulationStatus
 from src.metrics.collector import MetricCollector
 from src.snapshot.buffer import SnapshotBuffer
 from src.snapshot.builder import SnapshotBuilder
@@ -41,13 +44,13 @@ def health_check() -> Dict[str, str]:
     return {"status": "healthy"}
 
 
-from pathlib import Path
-
 # Load schemas for validation
 SCHEMA_PATHS = [
     Path(__file__).resolve().parent.parent.parent / "shared" / "schemas" / "config.schema.json",
     Path("shared/schemas/config.schema.json"),
 ]
+
+import json
 
 CONFIG_SCHEMA: Dict[str, Any] = {}
 for p in SCHEMA_PATHS:
@@ -62,6 +65,12 @@ for p in SCHEMA_PATHS:
 # ── Global State for Multi-Vehicle Simulations ──────────────────────────────
 # Dict mapping simulation_id -> { "engine": SimulationEngine, "collector": MetricCollector, "controller": Any }
 simulations_db: Dict[str, Dict[str, Any]] = {}
+
+
+def _get_simulation_or_404(sim_id: str) -> Dict[str, Any]:
+    if sim_id not in simulations_db:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+    return simulations_db[sim_id]
 
 
 # ── Global State for Single-Vehicle Polling Mode (Sprint 2 UI compatibility) ──
@@ -214,13 +223,7 @@ def create_simulation(config: Dict[str, Any]) -> Dict[str, Any]:
     duration = config.get("simulation", {}).get("duration", 300)
     engine = SimulationEngine(clock, duration=duration, config=config)
 
-    geom_type = config.get("geometry", {}).get("intersectionType", "fixed_time_signal")
-    controller: Any
-    if geom_type == "fixed_time_signal":
-        controller = FixedTimeSignalController(config, engine.network)
-    else:
-        controller = RoundaboutController(config, engine.network)
-
+    controller = create_controller(config, engine.network)
     engine.controller = controller
 
     collector = MetricCollector(config)
@@ -228,30 +231,7 @@ def create_simulation(config: Dict[str, Any]) -> Dict[str, Any]:
     buffer = SnapshotBuffer(max_frames=1000)
 
     # Register tick callback on engine to update collector and controller
-    def tick_callback() -> None:
-        # Get signals state
-        signals_state = {}
-        state = controller.get_state()
-        if state["type"] == "fixed_time_signal":
-            for sig in state.get("signals", []):
-                dir_enum = getattr(Direction, sig["direction"].upper())
-                signals_state[dir_enum] = sig["color"]
-        else:
-            for d in Direction:
-                signals_state[d] = "green"
-
-        # Update collector
-        collector.update(
-            clock.get_elapsed_time(),
-            engine.pool.active_vehicles,
-            engine.pool.exited_vehicles,
-            signals_state,
-        )
-
-        # Cache snapshot for timeline scrubbing
-        buffer.append(builder.build())
-
-    engine.register_tick_callback(tick_callback)
+    engine.register_tick_callback(build_tick_callback(controller, clock, engine, collector, buffer, builder))
 
     simulations_db[sim_id] = {
         "engine": engine,
@@ -270,10 +250,7 @@ def create_simulation(config: Dict[str, Any]) -> Dict[str, Any]:
 
 @app.post("/api/v1/simulations/{sim_id}/control")
 def control_simulation(sim_id: str, payload: ControlRequest) -> Dict[str, Any]:
-    if sim_id not in simulations_db:
-        raise HTTPException(status_code=404, detail="Simulation not found")
-
-    sim = simulations_db[sim_id]
+    sim = _get_simulation_or_404(sim_id)
     engine = sim["engine"]
     action = payload.action.lower()
 
@@ -293,10 +270,7 @@ def control_simulation(sim_id: str, payload: ControlRequest) -> Dict[str, Any]:
 
 @app.get("/api/v1/simulations/{sim_id}")
 def get_simulation(sim_id: str) -> Dict[str, Any]:
-    if sim_id not in simulations_db:
-        raise HTTPException(status_code=404, detail="Simulation not found")
-
-    sim = simulations_db[sim_id]
+    sim = _get_simulation_or_404(sim_id)
     engine = sim["engine"]
     return {
         "simulationId": sim_id,
@@ -308,10 +282,7 @@ def get_simulation(sim_id: str) -> Dict[str, Any]:
 
 @app.get("/api/v1/simulations/{sim_id}/metrics")
 def get_simulation_metrics(sim_id: str) -> Dict[str, Any]:
-    if sim_id not in simulations_db:
-        raise HTTPException(status_code=404, detail="Simulation not found")
-
-    sim = simulations_db[sim_id]
+    sim = _get_simulation_or_404(sim_id)
     engine = sim["engine"]
     collector: MetricCollector = sim["collector"]
     return collector.get_metrics(
@@ -324,20 +295,14 @@ def get_simulation_metrics(sim_id: str) -> Dict[str, Any]:
 
 @app.get("/api/v1/simulations/{sim_id}/history")
 def get_simulation_history(sim_id: str) -> list[dict[str, Any]]:
-    if sim_id not in simulations_db:
-        raise HTTPException(status_code=404, detail="Simulation not found")
-
-    sim = simulations_db[sim_id]
+    sim = _get_simulation_or_404(sim_id)
     buffer: SnapshotBuffer = sim["buffer"]
     return buffer.get_all()
 
 
 @app.get("/api/v1/simulations/{sim_id}/history/{tick}")
 def get_simulation_history_tick(sim_id: str, tick: int) -> dict[str, Any]:
-    if sim_id not in simulations_db:
-        raise HTTPException(status_code=404, detail="Simulation not found")
-
-    sim = simulations_db[sim_id]
+    sim = _get_simulation_or_404(sim_id)
     buffer: SnapshotBuffer = sim["buffer"]
     frame = buffer.get_frame(tick)
     if frame is None:
@@ -348,11 +313,8 @@ def get_simulation_history_tick(sim_id: str, tick: int) -> dict[str, Any]:
 
 
 @app.get("/api/v1/simulations/{sim_id}/report")
-def get_simulation_report(sim_id: str, format: str = "csv") -> Any:
-    if sim_id not in simulations_db:
-        raise HTTPException(status_code=404, detail="Simulation not found")
-
-    sim = simulations_db[sim_id]
+def get_simulation_report(sim_id: str, format: str = "csv") -> Any:  # noqa: A002
+    sim = _get_simulation_or_404(sim_id)
     engine = sim["engine"]
     collector = sim["collector"]
 
@@ -371,8 +333,6 @@ def get_simulation_report(sim_id: str, format: str = "csv") -> Any:
             "ticksCount": engine.clock.get_tick_count(),
         }
 
-    import csv
-    import io
     output = io.StringIO()
     writer = csv.writer(output)
 
@@ -392,15 +352,15 @@ def get_simulation_report(sim_id: str, format: str = "csv") -> Any:
     )
 
 
-# ── WebSocket Real-Time Snapshot Stream Route ────────────────────────────────
 @app.websocket("/ws/v1/stream")
 async def websocket_stream(websocket: WebSocket, simulationId: str) -> None:  # noqa: N803
     await websocket.accept()
-    if simulationId not in simulations_db:
+    try:
+        sim = _get_simulation_or_404(simulationId)
+    except HTTPException:
         await websocket.close(code=1008, reason="Simulation not found")
         return
 
-    sim = simulations_db[simulationId]
     engine = sim["engine"]
     collector = sim["collector"]
     controller = sim["controller"]
@@ -409,8 +369,6 @@ async def websocket_stream(websocket: WebSocket, simulationId: str) -> None:  # 
     builder = SnapshotBuilder(simulationId, config_id, engine, collector, controller)
 
     try:
-        import asyncio
-
         while True:
             # Generate and send state snapshot
             snapshot = builder.build()
@@ -428,7 +386,7 @@ async def websocket_stream(websocket: WebSocket, simulationId: str) -> None:  # 
         await websocket.close(code=1011, reason=str(e))
 
 
-DEFAULT_CONFIG = {
+DEFAULT_CONFIG: Dict[str, Any] = {
     "simulation": {
         "timeStep": 0.1,
         "duration": 600,
@@ -473,37 +431,14 @@ def get_or_create_live_simulation() -> Dict[str, Any]:
     if live_sim_data["engine"] is None:
         clock = Clock(time_step=0.1)
         engine = SimulationEngine(clock, duration=300, config=current_live_config)
-        geom_type = current_live_config.get("geometry", {}).get("intersectionType", "fixed_time_signal")
-        controller: Any
-        if geom_type == "fixed_time_signal":
-            controller = FixedTimeSignalController(current_live_config, engine.network)
-        else:
-            controller = RoundaboutController(current_live_config, engine.network)
-        
+        controller = create_controller(current_live_config, engine.network)
         engine.controller = controller
         
         collector = MetricCollector(current_live_config)
         config_id = str(uuid.uuid4())
         builder = SnapshotBuilder("live_sim", config_id, engine, collector, controller)
 
-        def tick_callback() -> None:
-            signals_state = {}
-            state = controller.get_state()
-            if state["type"] == "fixed_time_signal":
-                for sig in state.get("signals", []):
-                    dir_enum = getattr(Direction, sig["direction"].upper())
-                    signals_state[dir_enum] = sig["color"]
-            else:
-                for d in Direction:
-                    signals_state[d] = "green"
-            collector.update(
-                clock.get_elapsed_time(),
-                engine.pool.active_vehicles,
-                engine.pool.exited_vehicles,
-                signals_state,
-            )
-
-        engine.register_tick_callback(tick_callback)
+        engine.register_tick_callback(build_tick_callback(controller, clock, engine, collector))
         live_sim_data["engine"] = engine
         live_sim_data["collector"] = collector
         live_sim_data["controller"] = controller
@@ -514,7 +449,7 @@ def get_or_create_live_simulation() -> Dict[str, Any]:
 
 @app.post("/api/simulation/config")
 def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
-    global current_live_config
+    global current_live_config, dual_sim_orchestrator
     # Shutdown existing simulation if running
     if live_sim_data["engine"] is not None:
         try:
@@ -523,9 +458,22 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
             pass
         live_sim_data["engine"] = None
 
+    # Reset dual orchestrator if existing
+    if dual_sim_orchestrator is not None:
+        try:
+            dual_sim_orchestrator.stop()
+        except Exception:
+            pass
+        dual_sim_orchestrator = None
+
     # Compile the config dictionary based on user payload
     current_live_config = {
-        "simulation": DEFAULT_CONFIG["simulation"],
+        "simulation": {
+            "timeStep": DEFAULT_CONFIG["simulation"]["timeStep"],
+            "duration": float(payload.get("duration", DEFAULT_CONFIG["simulation"]["duration"])),
+            "warmupTime": DEFAULT_CONFIG["simulation"]["warmupTime"],
+            "randomSeed": int(payload.get("randomSeed", DEFAULT_CONFIG["simulation"].get("randomSeed", 42))),
+        },
         "geometry": {
             "intersectionType": payload.get("intersectionType", "fixed_time_signal"),
             "intersectionCenter": {"x": 0.0, "y": 0.0},
@@ -541,7 +489,23 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
                 "west": int(payload.get("lanesWest", 2)),
             }
         },
-        "controller": DEFAULT_CONFIG["controller"],
+        "traffic": {
+            "arrivalRate": float(payload.get("arrivalRate", 0.5)),
+            "arrivalDistribution": "poisson",
+        },
+        "controller": (
+            DEFAULT_CONFIG["controller"]
+            if payload.get("intersectionType", "fixed_time_signal") == "fixed_time_signal"
+            else {
+                "innerRadius": 10.0,
+                "outerRadius": 20.0,
+                "circulatingLanes": 1,
+                "criticalGap": 2.5,
+                "followUpTime": 1.5,
+                "entrySpeed": 5.0,
+                "circulatingSpeed": 8.0,
+            }
+        ),
         "vehicleGeneration": DEFAULT_CONFIG["vehicleGeneration"],
     }
 
@@ -580,7 +544,6 @@ def pause_live_simulation() -> Dict[str, Any]:
 async def websocket_live_stream(websocket: WebSocket) -> None:
     await websocket.accept()
     try:
-        import asyncio
         while True:
             sim = get_or_create_live_simulation()
             builder = sim.get("builder")
@@ -592,7 +555,6 @@ async def websocket_live_stream(websocket: WebSocket) -> None:
     except WebSocketDisconnect:
         pass
     except Exception as e:
-        import traceback
         traceback.print_exc()
         try:
             await websocket.close(code=1011, reason=str(e))
@@ -606,14 +568,18 @@ dual_sim_orchestrator: DualSimulationOrchestrator | None = None
 def get_or_create_dual_orchestrator() -> DualSimulationOrchestrator:
     global dual_sim_orchestrator
     if dual_sim_orchestrator is None:
-        dual_sim_orchestrator = DualSimulationOrchestrator(DEFAULT_CONFIG)
+        dual_sim_orchestrator = DualSimulationOrchestrator(current_live_config)
     return dual_sim_orchestrator
 
 
 @app.post("/api/simulation/dual/play")
 def play_dual_simulation() -> Dict[str, Any]:
     orch = get_or_create_dual_orchestrator()
-    orch.start()
+    status = orch.engine_signal.status
+    if status == SimulationStatus.INITIALIZED:
+        orch.start()
+    elif status == SimulationStatus.PAUSED:
+        orch.resume()
     return {"status": orch.get_status(), "message": "Dual simulation started/resumed"}
 
 
@@ -647,11 +613,11 @@ def get_dual_simulation_status() -> Dict[str, Any]:
 @app.websocket("/ws/simulation/dual")
 async def websocket_dual_stream(websocket: WebSocket) -> None:
     await websocket.accept()
-    orch = get_or_create_dual_orchestrator()
 
     try:
-        import asyncio
         while True:
+            # Re-fetch orchestrator each frame so config changes are reflected
+            orch = get_or_create_dual_orchestrator()
             snapshot = orch.get_dual_snapshot()
             await websocket.send_json(snapshot)
             # Sleep 100ms for 10Hz frequency
@@ -659,6 +625,10 @@ async def websocket_dual_stream(websocket: WebSocket) -> None:
     except WebSocketDisconnect:
         pass
     except Exception as e:
-        await websocket.close(code=1011, reason=str(e))
+        traceback.print_exc()
+        try:
+            await websocket.close(code=1011, reason=str(e))
+        except Exception:
+            pass
 
 

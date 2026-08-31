@@ -100,10 +100,10 @@ class VehiclePool:
 
         # Conflict manager is only active for unsignalized intersections
         geom_type = config.get("geometry", {}).get("intersectionType", "fixed_time_signal")
-        if geom_type == "roundabout":
+        if geom_type in ("fixed_time_signal", "roundabout"):
             conflict_manager = None
         else:
-            conflict_manager = getattr(engine, "conflict_manager", None) if geom_type not in ("fixed_time_signal", "roundabout") else None
+            conflict_manager = getattr(engine, "conflict_manager", None)
 
         current_time = 0.0
         clock = getattr(engine, "clock", None)
@@ -122,124 +122,7 @@ class VehiclePool:
                 to_remove.append(vehicle)
                 continue
 
-            # Lane-changing logic for straight-going vehicles on the incoming approach
-            current_lane = vehicle.lane
-            can_change_lane = (
-                getattr(vehicle, "turn_intent", None) == TurnIntent.STRAIGHT
-                and current_lane is not None
-                and vehicle.route
-                and current_lane == vehicle.route[0]
-                and (current_lane.length - vehicle.position >= 20.0)
-                and (current_time - self._last_lane_change.get(vehicle.vehicle_id, -999.0) >= 3.0)
-            )
-
-            if can_change_lane and current_lane is not None:
-                network = getattr(engine, "network", None)
-                if network is not None:
-                    # Determine approach direction
-                    lane_id = current_lane.lane_id.lower()
-                    direction = None
-                    if lane_id.startswith("n_in_"):
-                        direction = Direction.NORTH
-                    elif lane_id.startswith("s_in_"):
-                        direction = Direction.SOUTH
-                    elif lane_id.startswith("e_in_"):
-                        direction = Direction.EAST
-                    elif lane_id.startswith("w_in_"):
-                        direction = Direction.WEST
-
-                    if direction is not None:
-                        try:
-                            approach = network.get_incoming_approach(direction)
-                            lanes = approach.get_lanes()
-                            if len(lanes) > 1:
-                                curr_idx = lanes.index(current_lane)
-                                # Candidates: adjacent lanes
-                                candidates = []
-                                if curr_idx > 0:
-                                    candidates.append(curr_idx - 1)
-                                if curr_idx < len(lanes) - 1:
-                                    candidates.append(curr_idx + 1)
-
-                                # Evaluate current gap
-                                curr_gap = float("inf")
-                                curr_leader = None
-                                for v in current_lane.get_vehicles():
-                                    if v is vehicle:
-                                        continue
-                                    dist = v.position - vehicle.position
-                                    if dist > 0 and dist < curr_gap:
-                                        curr_gap = dist
-                                        curr_leader = v
-
-                                # Also check if we are blocked by a red light
-                                is_blocked_by_light = False
-                                virtual_obs = getattr(current_lane, "virtual_obstacle", None)
-                                if virtual_obs is not None:
-                                    obs_dist = virtual_obs.position - vehicle.position
-                                    if 0 < obs_dist < min(curr_gap, 25.0):
-                                        curr_gap = obs_dist
-                                        is_blocked_by_light = True
-
-                                # We want to switch if our path is blocked or we are stuck behind a slower leader
-                                is_slow_leader = curr_leader is not None and curr_leader.speed < vehicle.speed - 2.0 and curr_gap < 20.0
-                                if is_slow_leader or is_blocked_by_light:
-                                    best_target_idx = None
-                                    best_target_gap = -1.0
-
-                                    for target_idx in candidates:
-                                        target_lane = lanes[target_idx]
-                                        # Check safety
-                                        ahead_gap = float("inf")
-                                        behind_gap = float("inf")
-                                        behind_veh = None
-
-                                        for v in target_lane.get_vehicles():
-                                            dist = v.position - vehicle.position
-                                            if dist >= 0:
-                                                if dist < ahead_gap:
-                                                    ahead_gap = dist
-                                            else:
-                                                dist_behind = -dist
-                                                if dist_behind < behind_gap:
-                                                    behind_gap = dist_behind
-                                                    behind_veh = v
-
-                                        # Also check target lane virtual obstacle
-                                        target_virtual_obs = getattr(target_lane, "virtual_obstacle", None)
-                                        if target_virtual_obs is not None:
-                                            obs_dist = target_virtual_obs.position - vehicle.position
-                                            if 0 < obs_dist < ahead_gap:
-                                                ahead_gap = obs_dist
-
-                                        # Safety threshold: at least minimum gap + vehicle length
-                                        safe_behind = True
-                                        if behind_veh is not None:
-                                            speed_diff = max(0.0, behind_veh.speed - vehicle.speed)
-                                            safe_behind = behind_gap > (vehicle.length + 3.0 + speed_diff * 1.5)
-                                        else:
-                                            safe_behind = behind_gap > (vehicle.length + 3.0)
-
-                                        safe_ahead = ahead_gap > (vehicle.length + 3.0)
-
-                                        if safe_behind and safe_ahead:
-                                            if ahead_gap > curr_gap + 12.0 or ahead_gap > 35.0:
-                                                if ahead_gap > best_target_gap:
-                                                    best_target_gap = ahead_gap
-                                                    best_target_idx = target_idx
-
-                                    if best_target_idx is not None:
-                                        target_lane = lanes[best_target_idx]
-                                        current_lane.remove_vehicle(vehicle)
-                                        vehicle.lane = target_lane
-                                        target_lane.add_vehicle(vehicle)
-                                        self._last_lane_change[vehicle.vehicle_id] = current_time
-                                        # Regenerate route with new lane index
-                                        vehicle.route = network.generate_route(
-                                            direction, best_target_idx, vehicle.turn_intent
-                                        )
-                        except Exception as e:
-                            logger.error(f"Error changing lane for vehicle {vehicle.vehicle_id}: {e}")
+            self._attempt_lane_change(vehicle, current_time, engine)
 
             # Leader detection with all safety layers
             leader, gap = find_leader(
@@ -364,3 +247,131 @@ class VehiclePool:
                 summary[direction][v.state] += 1
 
         return summary
+
+    def _attempt_lane_change(self, vehicle: Vehicle, current_time: float, engine: Any) -> None:
+        """Attempt to perform a lane change if conditions permit and it is beneficial."""
+        current_lane = vehicle.lane
+        can_change_lane = (
+            getattr(vehicle, "turn_intent", None) == TurnIntent.STRAIGHT
+            and current_lane is not None
+            and vehicle.route
+            and current_lane == vehicle.route[0]
+            and (current_lane.length - vehicle.position >= 20.0)
+            and (current_time - self._last_lane_change.get(vehicle.vehicle_id, -999.0) >= 3.0)
+        )
+
+        if not (can_change_lane and current_lane is not None):
+            return
+
+        network = getattr(engine, "network", None)
+        if network is None:
+            return
+
+        # Determine approach direction
+        lane_id = current_lane.lane_id.lower()
+        direction = None
+        if lane_id.startswith("n_in_"):
+            direction = Direction.NORTH
+        elif lane_id.startswith("s_in_"):
+            direction = Direction.SOUTH
+        elif lane_id.startswith("e_in_"):
+            direction = Direction.EAST
+        elif lane_id.startswith("w_in_"):
+            direction = Direction.WEST
+
+        if direction is None:
+            return
+
+        try:
+            approach = network.get_incoming_approach(direction)
+            lanes = approach.get_lanes()
+            if len(lanes) <= 1:
+                return
+
+            curr_idx = lanes.index(current_lane)
+            # Candidates: adjacent lanes
+            candidates = []
+            if curr_idx > 0:
+                candidates.append(curr_idx - 1)
+            if curr_idx < len(lanes) - 1:
+                candidates.append(curr_idx + 1)
+
+            # Evaluate current gap
+            curr_gap = float("inf")
+            curr_leader = None
+            for v in current_lane.get_vehicles():
+                if v is vehicle:
+                    continue
+                dist = v.position - vehicle.position
+                if 0 < dist < curr_gap:
+                    curr_gap = dist
+                    curr_leader = v
+
+            # Also check if we are blocked by a red light
+            is_blocked_by_light = False
+            virtual_obs = getattr(current_lane, "virtual_obstacle", None)
+            if virtual_obs is not None:
+                obs_dist = virtual_obs.position - vehicle.position
+                if 0 < obs_dist < min(curr_gap, 25.0):
+                    curr_gap = obs_dist
+                    is_blocked_by_light = True
+
+            # We want to switch if our path is blocked or we are stuck behind a slower leader
+            is_slow_leader = curr_leader is not None and curr_leader.speed < vehicle.speed - 2.0 and curr_gap < 20.0
+            if is_slow_leader or is_blocked_by_light:
+                best_target_idx = None
+                best_target_gap = -1.0
+
+                for target_idx in candidates:
+                    target_lane = lanes[target_idx]
+                    # Check safety
+                    ahead_gap = float("inf")
+                    behind_gap = float("inf")
+                    behind_veh = None
+
+                    for v in target_lane.get_vehicles():
+                        dist = v.position - vehicle.position
+                        if dist >= 0:
+                            if dist < ahead_gap:
+                                ahead_gap = dist
+                        else:
+                            dist_behind = -dist
+                            if dist_behind < behind_gap:
+                                behind_gap = dist_behind
+                                behind_veh = v
+
+                    # Also check target lane virtual obstacle
+                    target_virtual_obs = getattr(target_lane, "virtual_obstacle", None)
+                    if target_virtual_obs is not None:
+                        obs_dist = target_virtual_obs.position - vehicle.position
+                        if 0 < obs_dist < ahead_gap:
+                            ahead_gap = obs_dist
+
+                    # Safety threshold: at least minimum gap + vehicle length
+                    safe_behind = True
+                    if behind_veh is not None:
+                        speed_diff = max(0.0, behind_veh.speed - vehicle.speed)
+                        safe_behind = behind_gap > (vehicle.length + 3.0 + speed_diff * 1.5)
+                    else:
+                        safe_behind = behind_gap > (vehicle.length + 3.0)
+
+                    safe_ahead = ahead_gap > (vehicle.length + 3.0)
+
+                    if safe_behind and safe_ahead:
+                        if ahead_gap > curr_gap + 12.0 or ahead_gap > 35.0:
+                            if ahead_gap > best_target_gap:
+                                best_target_gap = ahead_gap
+                                best_target_idx = target_idx
+
+                if best_target_idx is not None:
+                    target_lane = lanes[best_target_idx]
+                    current_lane.remove_vehicle(vehicle)
+                    vehicle.lane = target_lane
+                    target_lane.add_vehicle(vehicle)
+                    self._last_lane_change[vehicle.vehicle_id] = current_time
+                    # Regenerate route with new lane index
+                    vehicle.route = network.generate_route(
+                        direction, best_target_idx, vehicle.turn_intent
+                    )
+        except Exception as e:
+            logger.error(f"Error changing lane for vehicle {vehicle.vehicle_id}: {e}")

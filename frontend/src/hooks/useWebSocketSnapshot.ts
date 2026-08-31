@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SimulationWebSocket } from "../services/websocket";
+import { LiveSnapshot, DualSnapshot } from "../types/simulation";
 import {
   playSimulation,
   pauseSimulation,
@@ -122,7 +123,7 @@ export function useWebSocketSnapshot(
       setIsPlaying(false);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      setError(`Failed to stop simulation: ${msg}`);
+      setError(`Failed to stop/reset simulation: ${msg}`);
     }
   }, [mode]);
 
