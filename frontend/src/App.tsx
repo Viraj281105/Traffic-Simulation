@@ -11,7 +11,7 @@ import "./App.css";
 
 export function App() {
   const [viewMode, setViewMode] = useState<
-    "signal" | "roundabout" | "comparative"
+    "signal" | "roundabout" | "comparative" | "single"
   >("comparative");
 
   const mode = viewMode === "comparative" ? "dual" : "single";
