@@ -313,7 +313,8 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
           <h3 className="section-title">Queue Lengths</h3>
           <div className="queue-bars">
             {DIRECTIONS.map((dir) => {
-              const q = (m?.currentQueueLengths && m.currentQueueLengths[dir]) ?? 0;
+              const q =
+                (m?.currentQueueLengths && m.currentQueueLengths[dir]) ?? 0;
               const pct = Math.min((q / maxQ) * 100, 100);
               const color = metricColor(q, 3, 8);
               return (

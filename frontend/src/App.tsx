@@ -6,7 +6,11 @@ import { RoundaboutMap } from "./components/RoundaboutMap";
 import { MetricsSidebar } from "./components/MetricsSidebar";
 import { PlaybackControls } from "./components/PlaybackControls";
 import { updateSimulationConfig } from "./services/api";
-import type { LiveSnapshot, DualSnapshot, SimulationStatus } from "./types/simulation";
+import type {
+  LiveSnapshot,
+  DualSnapshot,
+  SimulationStatus,
+} from "./types/simulation";
 import "./App.css";
 
 export function App() {
@@ -15,8 +19,15 @@ export function App() {
   >("comparative");
 
   const mode = viewMode === "comparative" ? "dual" : "single";
-  const { snapshot, connectionStatus, isPlaying, error: wsError, play, pause, stop } =
-    useWebSocketSnapshot(mode);
+  const {
+    snapshot,
+    connectionStatus,
+    isPlaying,
+    error: wsError,
+    play,
+    pause,
+    stop,
+  } = useWebSocketSnapshot(mode);
 
   const {
     vehicle: singleVehicle,

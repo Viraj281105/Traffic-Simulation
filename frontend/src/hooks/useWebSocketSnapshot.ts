@@ -52,7 +52,10 @@ export function useWebSocketSnapshot(
         onSnapshot: (snap) => {
           setSnapshot(snap);
           setError(null);
-          const status = "signal" in snap ? snap.signal.simulationStatus : snap.simulationStatus;
+          const status =
+            "signal" in snap
+              ? snap.signal.simulationStatus
+              : snap.simulationStatus;
 
           if (status === "running" || status === "initializing") {
             setIsPlaying(true);
