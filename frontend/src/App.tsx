@@ -199,13 +199,12 @@ export function App() {
   const playbackEnvelope =
     viewMode === "single"
       ? (singlePlaybackEnvelope as unknown as LiveSnapshot)
-      : isDual && snapshot
+      : isDual && snapshot && "signal" in snapshot
         ? ({
-            timestamp: (snapshot as DualSnapshot).elapsed,
-            tick: (snapshot as DualSnapshot).tick,
+            timestamp: snapshot.elapsed,
+            tick: snapshot.tick,
             samplingFrequency: 10,
-            simulationStatus: (snapshot as DualSnapshot).signal
-              .simulationStatus,
+            simulationStatus: snapshot.signal.simulationStatus,
           } as unknown as LiveSnapshot)
         : (snapshot as LiveSnapshot | null);
 
