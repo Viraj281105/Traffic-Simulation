@@ -4,6 +4,7 @@ import { useSimulationPolling } from "./hooks/useSimulationPolling";
 import { IntersectionMap } from "./components/IntersectionMap";
 import { RoundaboutMap } from "./components/RoundaboutMap";
 import { MetricsSidebar } from "./components/MetricsSidebar";
+import { ComparativeDashboard } from "./components/ComparativeDashboard";
 import { PlaybackControls } from "./components/PlaybackControls";
 import { updateSimulationConfig } from "./services/api";
 import type {
@@ -316,59 +317,54 @@ export function App() {
 
       {/* ── Main content ──────────────────────────────────────────────── */}
       {viewMode === "comparative" ? (
-        <main className="app-main comparison-container">
-          {/* Left Column: Fixed-Time Signal */}
-          <div className="comparison-column">
-            <div className="column-header">
-              <span className="column-title">🚦 Fixed-Time Signal Control</span>
+        <main className="app-main comparison-container" style={{ flexDirection: 'column' }}>
+          <div className="comparison-maps-row" style={{ display: 'flex', flex: 1.2, minHeight: 0 }}>
+            {/* Left Column: Fixed-Time Signal */}
+            <div className="comparison-column" style={{ flex: 1 }}>
+              <div className="column-header">
+                <span className="column-title">🚦 Fixed-Time Signal Control</span>
+              </div>
+              <div className="canvas-wrapper">
+                <IntersectionMap
+                  snapshot={dualSnapshot?.signal ?? null}
+                  lanesNorth={lanesNorth}
+                  lanesSouth={lanesSouth}
+                  lanesEast={lanesEast}
+                  lanesWest={lanesWest}
+                  laneWidth={laneWidth}
+                  intersectionSize={intersectionSize}
+                  showCrosswalks={true}
+                  showStopLines={showStopLines}
+                  debug={debug}
+                  width={600}
+                  height={450}
+                />
+              </div>
             </div>
-            <div className="canvas-wrapper">
-              <IntersectionMap
-                snapshot={dualSnapshot?.signal ?? null}
-                lanesNorth={lanesNorth}
-                lanesSouth={lanesSouth}
-                lanesEast={lanesEast}
-                lanesWest={lanesWest}
-                laneWidth={laneWidth}
-                intersectionSize={intersectionSize}
-                showCrosswalks={true}
-                showStopLines={showStopLines}
-                debug={debug}
-                width={600}
-                height={450}
-              />
-            </div>
-            <div className="sidebar-container">
-              <MetricsSidebar
-                snapshot={metricsSnapshotDual?.signal ?? null}
-                connectionStatus={activeConnectionStatus}
-                hideHeader={true}
-              />
+
+            {/* Right Column: Roundabout */}
+            <div className="comparison-column" style={{ flex: 1 }}>
+              <div className="column-header">
+                <span className="column-title">🔄 Modern Roundabout</span>
+              </div>
+              <div className="canvas-wrapper">
+                <RoundaboutMap
+                  snapshot={dualSnapshot?.roundabout ?? null}
+                  laneWidth={laneWidth}
+                  showCrosswalks={false}
+                  debug={debug}
+                  width={600}
+                  height={450}
+                />
+              </div>
             </div>
           </div>
-
-          {/* Right Column: Roundabout */}
-          <div className="comparison-column">
-            <div className="column-header">
-              <span className="column-title">🔄 Modern Roundabout</span>
-            </div>
-            <div className="canvas-wrapper">
-              <RoundaboutMap
-                snapshot={dualSnapshot?.roundabout ?? null}
-                laneWidth={laneWidth}
-                showCrosswalks={false}
-                debug={debug}
-                width={600}
-                height={450}
-              />
-            </div>
-            <div className="sidebar-container">
-              <MetricsSidebar
-                snapshot={metricsSnapshotDual?.roundabout ?? null}
+          
+          <div className="comparison-metrics-row" style={{ flex: 1, minHeight: 0, borderTop: '1px solid var(--border)', display: 'flex' }}>
+             <ComparativeDashboard
+                snapshot={metricsSnapshotDual}
                 connectionStatus={activeConnectionStatus}
-                hideHeader={true}
               />
-            </div>
           </div>
         </main>
       ) : (
