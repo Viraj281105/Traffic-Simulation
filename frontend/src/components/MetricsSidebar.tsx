@@ -9,6 +9,7 @@ import type { ConnectionStatus } from "../services/websocket";
 interface MetricsSidebarProps {
   snapshot: LiveSnapshot | DualSnapshot | null;
   connectionStatus: ConnectionStatus;
+  hideHeader?: boolean;
 }
 
 const DIRECTIONS: SignalDirection[] = ["north", "south", "east", "west"];
@@ -44,6 +45,7 @@ const CONNECTION_LABELS: Record<
 export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
   snapshot,
   connectionStatus,
+  hideHeader = false,
 }) => {
   const conn = CONNECTION_LABELS[connectionStatus];
 
@@ -61,7 +63,10 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
 
   const maxQ = Math.max(
     ...DIRECTIONS.map((d) =>
-      Math.max(m?.currentQueueLengths[d] ?? 0, mr?.currentQueueLengths[d] ?? 0),
+      Math.max(
+        (m?.currentQueueLengths && m.currentQueueLengths[d]) ?? 0,
+        (mr?.currentQueueLengths && mr.currentQueueLengths[d]) ?? 0,
+      ),
     ),
     1,
   );
@@ -154,16 +159,19 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
   };
 
   return (
-    <aside className="metrics-sidebar">
+    <aside
+      className="metrics-sidebar"
+      style={hideHeader ? { width: "100%", borderLeft: "none" } : undefined}
+    >
       {/* Header */}
-      <div className="sidebar-header">
-        <h2 className="sidebar-title">
-          {isDual ? "Comparison View" : "Live Metrics"}
-        </h2>
-        <span className="conn-badge" style={{ color: conn.color }}>
-          {conn.label}
-        </span>
-      </div>
+      {!hideHeader && (
+        <div className="sidebar-header">
+          <h2 className="sidebar-title">Live Metrics</h2>
+          <span className="conn-badge" style={{ color: conn.color }}>
+            {conn.label}
+          </span>
+        </div>
+      )}
 
       {/* Controller type */}
       {snapshot && !isDual && (
@@ -305,7 +313,8 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
           <h3 className="section-title">Queue Lengths</h3>
           <div className="queue-bars">
             {DIRECTIONS.map((dir) => {
-              const q = m?.currentQueueLengths[dir] ?? 0;
+              const q =
+                (m?.currentQueueLengths && m.currentQueueLengths[dir]) ?? 0;
               const pct = Math.min((q / maxQ) * 100, 100);
               const color = metricColor(q, 3, 8);
               return (

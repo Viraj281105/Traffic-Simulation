@@ -96,3 +96,8 @@ export async function updateSimulationConfig(config: {
     throw new Error(`HTTP ${res.status.toString()}: ${res.statusText}`);
   }
 }
+
+/** Reset/stop lockstep dual simulation. */
+export async function stopDualSimulation(): Promise<void> {
+  await post("/api/simulation/dual/reset");
+}

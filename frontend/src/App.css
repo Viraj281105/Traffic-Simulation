@@ -600,33 +600,99 @@ body {
   font-family: "JetBrains Mono", monospace;
 }
 
-/* Dual Canvas Layout for Comparison Mode */
-.dual-canvas-container {
+/* ── Comparison View Layout ─────────────────────────────────────────────── */
+.comparison-container {
   display: flex;
-  gap: 16px;
   width: 100%;
   height: 100%;
-  align-items: center;
-  justify-content: center;
+  overflow: hidden;
+  gap: 0;
 }
-.canvas-column {
+
+.comparison-column {
   flex: 1;
   display: flex;
   flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+}
+
+.comparison-column:last-child {
+  border-right: none;
+}
+
+.column-header {
+  padding: 12px 20px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.column-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.3px;
+}
+
+.comparison-column .canvas-wrapper {
+  flex: 1.2; /* prioritize space for canvas */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  min-height: 0;
+  padding: 10px;
+}
+
+.sidebar-container {
+  flex: 1; /* split height for metrics */
+  border-top: 1px solid var(--border);
+  overflow-y: auto;
+  display: flex;
+  background: var(--bg-secondary);
+  min-height: 0;
+}
+
+.sidebar-container .metrics-sidebar {
+  width: 100% !important;
+  border-left: none !important;
+}
+
+/* ── Header View Tabs ───────────────────────────────────────────────────── */
+.header-tabs {
+  display: flex;
   align-items: center;
   gap: 8px;
-  height: 100%;
-  justify-content: center;
+  background: var(--bg-primary);
+  padding: 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
 }
-.canvas-column h3 {
-  font-size: 13px;
-  font-weight: 600;
+
+.tab-btn {
+  padding: 6px 14px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: "Inter", sans-serif;
 }
-.canvas-column canvas {
-  width: 100% !important;
-  height: auto !important;
-  max-height: 85% !important;
+
+.tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.tab-btn.active {
+  background: var(--bg-tertiary);
+  color: var(--accent-blue);
+  box-shadow: var(--shadow-sm);
 }

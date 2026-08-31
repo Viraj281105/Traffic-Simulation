@@ -6,7 +6,6 @@
  */
 import type { LiveSnapshot, DualSnapshot } from "../types/simulation";
 
-const WS_URL_DEFAULT = "/ws/simulation/live";
 const BACKOFF_DELAYS_MS = [1000, 2000, 4000, 8000, 16000, 30000];
 
 export type ConnectionStatus =
@@ -25,11 +24,14 @@ export class SimulationWebSocket {
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private shouldReconnect = true;
   private status: ConnectionStatus = "disconnected";
-  private path: string;
+  private url: string;
 
-  constructor(callbacks: WebSocketCallbacks, path: string = WS_URL_DEFAULT) {
+  constructor(
+    callbacks: WebSocketCallbacks,
+    url: string = "ws://localhost:8000/ws/simulation/live",
+  ) {
     this.callbacks = callbacks;
-    this.path = path;
+    this.url = url;
   }
 
   connect(): void {
@@ -63,13 +65,8 @@ export class SimulationWebSocket {
 
     this._setStatus(this.retryCount === 0 ? "connecting" : "reconnecting");
 
-    const host = window.location.hostname || "localhost";
-    const port = "8000";
-    const wsProto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const url = `${wsProto}//${host}:${port}${this.path}`;
-
     try {
-      this.ws = new WebSocket(url);
+      this.ws = new WebSocket(this.url);
     } catch {
       this._scheduleReconnect();
       return;

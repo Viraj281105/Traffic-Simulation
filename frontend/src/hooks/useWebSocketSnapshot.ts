@@ -1,7 +1,3 @@
-/**
- * useWebSocketSnapshot — React hook that manages the WebSocket connection
- * to the live simulation stream and exposes snapshot data + controls.
- */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SimulationWebSocket } from "../services/websocket";
 import { LiveSnapshot, DualSnapshot } from "../types/simulation";
@@ -11,7 +7,7 @@ import {
   stopSimulation,
   playDualSimulation,
   pauseDualSimulation,
-  resetDualSimulation,
+  stopDualSimulation,
 } from "../services/api";
 import type { ConnectionStatus } from "../services/websocket";
 
@@ -26,7 +22,7 @@ export interface WebSocketSnapshotState {
 }
 
 export function useWebSocketSnapshot(
-  path: string = "/ws/simulation/live",
+  mode: "single" | "dual",
 ): WebSocketSnapshotState {
   const [snapshot, setSnapshot] = useState<LiveSnapshot | DualSnapshot | null>(
     null,
@@ -36,19 +32,31 @@ export function useWebSocketSnapshot(
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [prevMode, setPrevMode] = useState(mode);
   const wsRef = useRef<SimulationWebSocket | null>(null);
 
+  if (mode !== prevMode) {
+    setPrevMode(mode);
+    setSnapshot(null);
+    setIsPlaying(false);
+  }
+
   useEffect(() => {
+    const url =
+      mode === "dual"
+        ? "ws://localhost:8000/ws/simulation/dual"
+        : "ws://localhost:8000/ws/simulation/live";
+
     const ws = new SimulationWebSocket(
       {
-        onSnapshot: (snap: LiveSnapshot | DualSnapshot) => {
+        onSnapshot: (snap) => {
           setSnapshot(snap);
           setError(null);
-          // Sync play state from snapshot status (either nested or top-level)
           const status =
             "signal" in snap
               ? snap.signal.simulationStatus
               : snap.simulationStatus;
+
           if (status === "running" || status === "initializing") {
             setIsPlaying(true);
           } else {
@@ -62,7 +70,7 @@ export function useWebSocketSnapshot(
           setError(msg);
         },
       },
-      path,
+      url,
     );
 
     wsRef.current = ws;
@@ -71,12 +79,12 @@ export function useWebSocketSnapshot(
     return () => {
       ws.disconnect();
     };
-  }, [path]);
+  }, [mode]);
 
   const play = useCallback(async () => {
     try {
       setError(null);
-      if (path.includes("dual")) {
+      if (mode === "dual") {
         await playDualSimulation();
       } else {
         await playSimulation();
@@ -86,12 +94,12 @@ export function useWebSocketSnapshot(
       const msg = err instanceof Error ? err.message : String(err);
       setError(`Failed to start simulation: ${msg}`);
     }
-  }, [path]);
+  }, [mode]);
 
   const pause = useCallback(async () => {
     try {
       setError(null);
-      if (path.includes("dual")) {
+      if (mode === "dual") {
         await pauseDualSimulation();
       } else {
         await pauseSimulation();
@@ -101,13 +109,13 @@ export function useWebSocketSnapshot(
       const msg = err instanceof Error ? err.message : String(err);
       setError(`Failed to pause simulation: ${msg}`);
     }
-  }, [path]);
+  }, [mode]);
 
   const stop = useCallback(async () => {
     try {
       setError(null);
-      if (path.includes("dual")) {
-        await resetDualSimulation();
+      if (mode === "dual") {
+        await stopDualSimulation();
       } else {
         await stopSimulation();
       }
@@ -116,7 +124,7 @@ export function useWebSocketSnapshot(
       const msg = err instanceof Error ? err.message : String(err);
       setError(`Failed to stop/reset simulation: ${msg}`);
     }
-  }, [path]);
+  }, [mode]);
 
   return { snapshot, connectionStatus, isPlaying, error, play, pause, stop };
 }
