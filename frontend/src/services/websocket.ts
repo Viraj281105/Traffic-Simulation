@@ -65,11 +65,6 @@ export class SimulationWebSocket {
 
     this._setStatus(this.retryCount === 0 ? "connecting" : "reconnecting");
 
-    const host = window.location.hostname || "localhost";
-    const port = "8000";
-    const wsProto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const url = `${wsProto}//${host}:${port}${this.path}`;
-
     try {
       this.ws = new WebSocket(this.url);
     } catch {

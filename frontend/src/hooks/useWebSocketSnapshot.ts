@@ -9,7 +9,6 @@ import {
   pauseDualSimulation,
   stopDualSimulation,
 } from "../services/api";
-import type { LiveSnapshot, DualSnapshot } from "../types/simulation";
 import type { ConnectionStatus } from "../services/websocket";
 
 export interface WebSocketSnapshotState {
@@ -50,13 +49,7 @@ export function useWebSocketSnapshot(
         onSnapshot: (snap) => {
           setSnapshot(snap);
           setError(null);
-          // Sync play state from snapshot status
-          let status = "";
-          if ("signal" in snap) {
-            status = (snap as unknown as DualSnapshot).signal.simulationStatus;
-          } else {
-            status = snap.simulationStatus;
-          }
+          const status = "signal" in snap ? snap.signal.simulationStatus : snap.simulationStatus;
 
           if (status === "running" || status === "initializing") {
             setIsPlaying(true);

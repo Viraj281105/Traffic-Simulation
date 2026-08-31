@@ -3,11 +3,10 @@ import { useWebSocketSnapshot } from "./hooks/useWebSocketSnapshot";
 import { useSimulationPolling } from "./hooks/useSimulationPolling";
 import { IntersectionMap } from "./components/IntersectionMap";
 import { RoundaboutMap } from "./components/RoundaboutMap";
-import { IntersectionCanvas } from "./components/IntersectionCanvas";
 import { MetricsSidebar } from "./components/MetricsSidebar";
 import { PlaybackControls } from "./components/PlaybackControls";
 import { updateSimulationConfig } from "./services/api";
-import type { LiveSnapshot, DualSnapshot } from "./types/simulation";
+import type { LiveSnapshot, DualSnapshot, SimulationStatus } from "./types/simulation";
 import "./App.css";
 
 export function App() {
@@ -16,8 +15,18 @@ export function App() {
   >("comparative");
 
   const mode = viewMode === "comparative" ? "dual" : "single";
-  const { snapshot, connectionStatus, isPlaying, error, play, pause, stop } =
+  const { snapshot, connectionStatus, isPlaying, error: wsError, play, pause, stop } =
     useWebSocketSnapshot(mode);
+
+  const {
+    vehicle: singleVehicle,
+    status: singleStatus,
+    isLoading: singleIsLoading,
+    error: singleError,
+    start: singleStart,
+    stop: singleStop,
+    reset: singleReset,
+  } = useSimulationPolling();
 
   const [lastCompletedSnapshotDual, setLastCompletedSnapshotDual] =
     useState<DualSnapshot | null>(null);
@@ -28,19 +37,11 @@ export function App() {
   >(null);
   const [prevConfigKey, setPrevConfigKey] = useState("");
 
-  const dualSnapshot =
-    snapshot && "signal" in snapshot ? (snapshot) : null;
-  const singleSnapshot =
-    snapshot && !("signal" in snapshot) ? (snapshot) : null;
+  const dualSnapshot = snapshot && "signal" in snapshot ? snapshot : null;
+  const singleSnapshot = snapshot && !("signal" in snapshot) ? snapshot : null;
 
   // Canvas config state
-  const [lanesNorth, setLanesNorth] = useState(2);
-  const [lanesSouth, setLanesSouth] = useState(2);
-  const [lanesEast, setLanesEast] = useState(2);
-  const [lanesWest, setLanesWest] = useState(2);
-  const [laneWidth, setLaneWidth] = useState(3.5);
-  const [intersectionSize, setIntersectionSize] = useState(15);
-  const [showCrosswalks, setShowCrosswalks] = useState(true);
+  const [lanes, setLanes] = useState(2);
   const [showStopLines, setShowStopLines] = useState(true);
   const [debug, setDebug] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
@@ -50,8 +51,18 @@ export function App() {
   const [duration, setDuration] = useState(300);
   const [randomSeed, setRandomSeed] = useState(42);
 
+  // Dynamically compute width and intersection proportionally based on lanes count
+  const lanesNorth = lanes;
+  const lanesSouth = lanes;
+  const lanesEast = lanes;
+  const lanesWest = lanes;
+  const laneWidth = 3.0 + (lanes - 1) * 0.5;
+  const intersectionSize = lanes * laneWidth * 2 + 4.0;
+
+  const isDual = viewMode === "comparative";
+
   // Adjust state during render to avoid useEffect warnings
-  const configKey = `${intersectionSize.toString()}-${laneWidth.toString()}-${lanesNorth.toString()}-${lanesSouth.toString()}-${lanesEast.toString()}-${lanesWest.toString()}`;
+  const configKey = lanes.toString();
 
   if (configKey !== prevConfigKey) {
     setPrevConfigKey(configKey);
@@ -63,13 +74,11 @@ export function App() {
     setPrevSnapshot(snapshot);
     if (snapshot) {
       if ("signal" in snapshot) {
-        if (
-          (snapshot).signal.simulationStatus === "completed"
-        ) {
+        if (snapshot.signal.simulationStatus === "completed") {
           setLastCompletedSnapshotDual(snapshot);
         }
       } else {
-        if ((snapshot).simulationStatus === "completed") {
+        if (snapshot.simulationStatus === "completed") {
           setLastCompletedSnapshotSingle(snapshot);
         }
       }
@@ -109,11 +118,15 @@ export function App() {
       lanesSouth,
       lanesEast,
       lanesWest,
+      arrivalRate,
+      duration,
+      randomSeed,
     }).catch((err: unknown) => {
       console.error("Failed to update backend config:", err);
     });
   }, [
     viewMode,
+    lanes,
     intersectionSize,
     laneWidth,
     lanesNorth,
@@ -246,57 +259,36 @@ export function App() {
         <div className="config-panel">
           <div className="config-grid">
             <ConfigSlider
-              label="Lanes North"
-              value={lanesNorth}
+              label="Lanes"
+              value={lanes}
               min={1}
               max={5}
               step={1}
-              onChange={setLanesNorth}
+              onChange={setLanes}
             />
             <ConfigSlider
-              label="Lanes South"
-              value={lanesSouth}
+              label="Arrival Rate"
+              value={arrivalRate}
+              min={0.1}
+              max={1.0}
+              step={0.05}
+              onChange={setArrivalRate}
+            />
+            <ConfigSlider
+              label="Duration (s)"
+              value={duration}
+              min={60}
+              max={900}
+              step={10}
+              onChange={setDuration}
+            />
+            <ConfigSlider
+              label="Random Seed"
+              value={randomSeed}
               min={1}
-              max={5}
+              max={100}
               step={1}
-              onChange={setLanesSouth}
-            />
-            <ConfigSlider
-              label="Lanes East"
-              value={lanesEast}
-              min={1}
-              max={5}
-              step={1}
-              onChange={setLanesEast}
-            />
-            <ConfigSlider
-              label="Lanes West"
-              value={lanesWest}
-              min={1}
-              max={5}
-              step={1}
-              onChange={setLanesWest}
-            />
-            <ConfigSlider
-              label="Lane Width (m)"
-              value={laneWidth}
-              min={2}
-              max={5}
-              step={0.5}
-              onChange={setLaneWidth}
-            />
-            <ConfigSlider
-              label="Intersection (m)"
-              value={intersectionSize}
-              min={10}
-              max={30}
-              step={1}
-              onChange={setIntersectionSize}
-            />
-            <ConfigToggle
-              label="Crosswalks"
-              value={showCrosswalks}
-              onChange={setShowCrosswalks}
+              onChange={setRandomSeed}
             />
             <ConfigToggle
               label="Stop Lines"
@@ -329,7 +321,7 @@ export function App() {
                 lanesWest={lanesWest}
                 laneWidth={laneWidth}
                 intersectionSize={intersectionSize}
-                showCrosswalks={showCrosswalks}
+                showCrosswalks={true}
                 showStopLines={showStopLines}
                 debug={debug}
                 width={600}
@@ -339,7 +331,7 @@ export function App() {
             <div className="sidebar-container">
               <MetricsSidebar
                 snapshot={metricsSnapshotDual?.signal ?? null}
-                connectionStatus={connectionStatus}
+                connectionStatus={activeConnectionStatus}
                 hideHeader={true}
               />
             </div>
@@ -354,7 +346,7 @@ export function App() {
               <RoundaboutMap
                 snapshot={dualSnapshot?.roundabout ?? null}
                 laneWidth={laneWidth}
-                showCrosswalks={showCrosswalks}
+                showCrosswalks={false}
                 debug={debug}
                 width={600}
                 height={450}
@@ -363,7 +355,7 @@ export function App() {
             <div className="sidebar-container">
               <MetricsSidebar
                 snapshot={metricsSnapshotDual?.roundabout ?? null}
-                connectionStatus={connectionStatus}
+                connectionStatus={activeConnectionStatus}
                 hideHeader={true}
               />
             </div>
@@ -376,7 +368,7 @@ export function App() {
               <RoundaboutMap
                 snapshot={singleSnapshot}
                 laneWidth={laneWidth}
-                showCrosswalks={showCrosswalks}
+                showCrosswalks={false}
                 debug={debug}
               />
             ) : (
@@ -388,7 +380,7 @@ export function App() {
                 lanesWest={lanesWest}
                 laneWidth={laneWidth}
                 intersectionSize={intersectionSize}
-                showCrosswalks={showCrosswalks}
+                showCrosswalks={true}
                 showStopLines={showStopLines}
                 debug={debug}
               />
@@ -396,7 +388,7 @@ export function App() {
           </div>
           <MetricsSidebar
             snapshot={metricsSnapshotSingle}
-            connectionStatus={connectionStatus}
+            connectionStatus={activeConnectionStatus}
           />
         </main>
       )}
@@ -404,21 +396,11 @@ export function App() {
       {/* ── Playback controls ─────────────────────────────────────────── */}
       <footer className="app-footer">
         <PlaybackControls
-          snapshot={
-            viewMode === "comparative"
-              ? (dualSnapshot?.signal ?? null)
-              : singleSnapshot
-          }
-          isPlaying={isPlaying}
-          onPlay={() => {
-            play().catch(() => {});
-          }}
-          onPause={() => {
-            pause().catch(() => {});
-          }}
-          onStop={() => {
-            stop().catch(() => {});
-          }}
+          snapshot={playbackEnvelope}
+          isPlaying={activeIsPlaying}
+          onPlay={handlePlay}
+          onPause={handlePause}
+          onStop={handleStop}
         />
         {activeError && <div className="error-banner">⚠ {activeError}</div>}
       </footer>
