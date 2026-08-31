@@ -32,13 +32,16 @@ export function useWebSocketSnapshot(
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [prevMode, setPrevMode] = useState(mode);
   const wsRef = useRef<SimulationWebSocket | null>(null);
 
-  useEffect(() => {
-    // Reset snapshot state on mode switch
+  if (mode !== prevMode) {
+    setPrevMode(mode);
     setSnapshot(null);
     setIsPlaying(false);
+  }
 
+  useEffect(() => {
     const url =
       mode === "dual"
         ? "ws://localhost:8000/ws/simulation/dual"
