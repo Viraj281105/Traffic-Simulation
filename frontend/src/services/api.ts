@@ -65,3 +65,18 @@ export async function updateSimulationConfig(config: {
     throw new Error(`HTTP ${res.status.toString()}: ${res.statusText}`);
   }
 }
+
+/** Start/resume lockstep dual simulation. */
+export async function playDualSimulation(): Promise<void> {
+  await post("/api/simulation/dual/play");
+}
+
+/** Pause lockstep dual simulation. */
+export async function pauseDualSimulation(): Promise<void> {
+  await post("/api/simulation/dual/pause");
+}
+
+/** Reset/stop lockstep dual simulation. */
+export async function stopDualSimulation(): Promise<void> {
+  await post("/api/simulation/dual/reset");
+}

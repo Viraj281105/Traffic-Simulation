@@ -5,17 +5,31 @@ import { RoundaboutMap } from "./components/RoundaboutMap";
 import { MetricsSidebar } from "./components/MetricsSidebar";
 import { PlaybackControls } from "./components/PlaybackControls";
 import { updateSimulationConfig } from "./services/api";
-import type { LiveSnapshot } from "./types/simulation";
+import type { LiveSnapshot, DualSnapshot } from "./types/simulation";
 import "./App.css";
 
 export function App() {
-  const { snapshot, connectionStatus, isPlaying, error, play, pause, stop } =
-    useWebSocketSnapshot();
+  const [viewMode, setViewMode] = useState<
+    "signal" | "roundabout" | "comparative"
+  >("comparative");
 
-  const [lastCompletedSnapshot, setLastCompletedSnapshot] =
+  const mode = viewMode === "comparative" ? "dual" : "single";
+  const { snapshot, connectionStatus, isPlaying, error, play, pause, stop } =
+    useWebSocketSnapshot(mode);
+
+  const [lastCompletedSnapshotDual, setLastCompletedSnapshotDual] =
+    useState<DualSnapshot | null>(null);
+  const [lastCompletedSnapshotSingle, setLastCompletedSnapshotSingle] =
     useState<LiveSnapshot | null>(null);
-  const [prevSnapshot, setPrevSnapshot] = useState<LiveSnapshot | null>(null);
+  const [prevSnapshot, setPrevSnapshot] = useState<
+    LiveSnapshot | DualSnapshot | null
+  >(null);
   const [prevConfigKey, setPrevConfigKey] = useState("");
+
+  const dualSnapshot =
+    snapshot && "signal" in snapshot ? (snapshot) : null;
+  const singleSnapshot =
+    snapshot && !("signal" in snapshot) ? (snapshot) : null;
 
   // Canvas config state
   const [lanesNorth, setLanesNorth] = useState(2);
@@ -28,32 +42,58 @@ export function App() {
   const [showStopLines, setShowStopLines] = useState(true);
   const [debug, setDebug] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
-  const [intersectionType, setIntersectionType] = useState("fixed_time_signal");
 
   // Adjust state during render to avoid useEffect warnings
-  const configKey = `${intersectionType}-${intersectionSize.toString()}-${laneWidth.toString()}-${lanesNorth.toString()}-${lanesSouth.toString()}-${lanesEast.toString()}-${lanesWest.toString()}`;
+  const configKey = `${intersectionSize.toString()}-${laneWidth.toString()}-${lanesNorth.toString()}-${lanesSouth.toString()}-${lanesEast.toString()}-${lanesWest.toString()}`;
 
   if (configKey !== prevConfigKey) {
     setPrevConfigKey(configKey);
-    setLastCompletedSnapshot(null);
+    setLastCompletedSnapshotDual(null);
+    setLastCompletedSnapshotSingle(null);
   }
 
   if (snapshot !== prevSnapshot) {
     setPrevSnapshot(snapshot);
-    if (snapshot && snapshot.simulationStatus === "completed") {
-      setLastCompletedSnapshot(snapshot);
+    if (snapshot) {
+      if ("signal" in snapshot) {
+        if (
+          (snapshot).signal.simulationStatus === "completed"
+        ) {
+          setLastCompletedSnapshotDual(snapshot);
+        }
+      } else {
+        if ((snapshot).simulationStatus === "completed") {
+          setLastCompletedSnapshotSingle(snapshot);
+        }
+      }
     }
   }
 
-  const metricsSnapshot =
-    snapshot &&
-    snapshot.simulationStatus === "initialized" &&
-    lastCompletedSnapshot
-      ? lastCompletedSnapshot
-      : snapshot;
+  // Determine displayed snapshot for metrics
+  let metricsSnapshotDual: DualSnapshot | null = dualSnapshot;
+  if (dualSnapshot) {
+    if (
+      dualSnapshot.signal.simulationStatus === "initialized" &&
+      lastCompletedSnapshotDual
+    ) {
+      metricsSnapshotDual = lastCompletedSnapshotDual;
+    }
+  }
+
+  let metricsSnapshotSingle: LiveSnapshot | null = singleSnapshot;
+  if (singleSnapshot) {
+    if (
+      singleSnapshot.simulationStatus === "initialized" &&
+      lastCompletedSnapshotSingle
+    ) {
+      metricsSnapshotSingle = lastCompletedSnapshotSingle;
+    }
+  }
 
   // Sync config with backend on change
   useEffect(() => {
+    const intersectionType =
+      viewMode === "roundabout" ? "roundabout" : "fixed_time_signal";
     updateSimulationConfig({
       intersectionType,
       intersectionSize,
@@ -66,7 +106,7 @@ export function App() {
       console.error("Failed to update backend config:", err);
     });
   }, [
-    intersectionType,
+    viewMode,
     intersectionSize,
     laneWidth,
     lanesNorth,
@@ -83,13 +123,42 @@ export function App() {
           <div className="header-logo">
             <span className="logo-icon">🚦</span>
             <div>
-              <h1 className="header-title">Traffic Simulation</h1>
+              <h1 className="header-title">Traffic Simulation Comparison</h1>
               <p className="header-sub">
                 Fixed-Time Signal vs. Modern Roundabout
               </p>
             </div>
           </div>
         </div>
+
+        {/* View Mode Tabs */}
+        <div className="header-tabs">
+          <button
+            className={`tab-btn ${viewMode === "signal" ? "active" : ""}`}
+            onClick={() => {
+              setViewMode("signal");
+            }}
+          >
+            🚦 Fixed-Time Signal Only
+          </button>
+          <button
+            className={`tab-btn ${viewMode === "roundabout" ? "active" : ""}`}
+            onClick={() => {
+              setViewMode("roundabout");
+            }}
+          >
+            🔄 Roundabout Only
+          </button>
+          <button
+            className={`tab-btn ${viewMode === "comparative" ? "active" : ""}`}
+            onClick={() => {
+              setViewMode("comparative");
+            }}
+          >
+            📊 Comparative View
+          </button>
+        </div>
+
         <div className="header-right">
           <button
             className="config-toggle-btn"
@@ -154,27 +223,6 @@ export function App() {
               step={1}
               onChange={setIntersectionSize}
             />
-            <div className="config-item">
-              <label className="config-label">Intersection Type</label>
-              <select
-                className="config-select"
-                value={intersectionType}
-                onChange={(e) => {
-                  setIntersectionType(e.target.value);
-                }}
-                style={{
-                  background: "#2b2b2b",
-                  color: "#fff",
-                  border: "1px solid #444",
-                  borderRadius: "4px",
-                  padding: "6px 8px",
-                  width: "100%",
-                }}
-              >
-                <option value="fixed_time_signal">🚦 Fixed-Time Signal</option>
-                <option value="roundabout">🔄 Roundabout</option>
-              </select>
-            </div>
             <ConfigToggle
               label="Crosswalks"
               value={showCrosswalks}
@@ -195,43 +243,102 @@ export function App() {
       )}
 
       {/* ── Main content ──────────────────────────────────────────────── */}
-      <main className="app-main">
-        {/* Canvas */}
-        <div className="canvas-wrapper">
-          {snapshot?.controller.type === "roundabout" ? (
-            <RoundaboutMap
-              snapshot={snapshot}
-              laneWidth={laneWidth}
-              showCrosswalks={showCrosswalks}
-              debug={debug}
-            />
-          ) : (
-            <IntersectionMap
-              snapshot={snapshot}
-              lanesNorth={lanesNorth}
-              lanesSouth={lanesSouth}
-              lanesEast={lanesEast}
-              lanesWest={lanesWest}
-              laneWidth={laneWidth}
-              intersectionSize={intersectionSize}
-              showCrosswalks={showCrosswalks}
-              showStopLines={showStopLines}
-              debug={debug}
-            />
-          )}
-        </div>
+      {viewMode === "comparative" ? (
+        <main className="app-main comparison-container">
+          {/* Left Column: Fixed-Time Signal */}
+          <div className="comparison-column">
+            <div className="column-header">
+              <span className="column-title">🚦 Fixed-Time Signal Control</span>
+            </div>
+            <div className="canvas-wrapper">
+              <IntersectionMap
+                snapshot={dualSnapshot?.signal ?? null}
+                lanesNorth={lanesNorth}
+                lanesSouth={lanesSouth}
+                lanesEast={lanesEast}
+                lanesWest={lanesWest}
+                laneWidth={laneWidth}
+                intersectionSize={intersectionSize}
+                showCrosswalks={showCrosswalks}
+                showStopLines={showStopLines}
+                debug={debug}
+                width={600}
+                height={450}
+              />
+            </div>
+            <div className="sidebar-container">
+              <MetricsSidebar
+                snapshot={metricsSnapshotDual?.signal ?? null}
+                connectionStatus={connectionStatus}
+                hideHeader={true}
+              />
+            </div>
+          </div>
 
-        {/* Sidebar */}
-        <MetricsSidebar
-          snapshot={metricsSnapshot}
-          connectionStatus={connectionStatus}
-        />
-      </main>
+          {/* Right Column: Roundabout */}
+          <div className="comparison-column">
+            <div className="column-header">
+              <span className="column-title">🔄 Modern Roundabout</span>
+            </div>
+            <div className="canvas-wrapper">
+              <RoundaboutMap
+                snapshot={dualSnapshot?.roundabout ?? null}
+                laneWidth={laneWidth}
+                showCrosswalks={showCrosswalks}
+                debug={debug}
+                width={600}
+                height={450}
+              />
+            </div>
+            <div className="sidebar-container">
+              <MetricsSidebar
+                snapshot={metricsSnapshotDual?.roundabout ?? null}
+                connectionStatus={connectionStatus}
+                hideHeader={true}
+              />
+            </div>
+          </div>
+        </main>
+      ) : (
+        <main className="app-main">
+          <div className="canvas-wrapper">
+            {viewMode === "roundabout" ? (
+              <RoundaboutMap
+                snapshot={singleSnapshot}
+                laneWidth={laneWidth}
+                showCrosswalks={showCrosswalks}
+                debug={debug}
+              />
+            ) : (
+              <IntersectionMap
+                snapshot={singleSnapshot}
+                lanesNorth={lanesNorth}
+                lanesSouth={lanesSouth}
+                lanesEast={lanesEast}
+                lanesWest={lanesWest}
+                laneWidth={laneWidth}
+                intersectionSize={intersectionSize}
+                showCrosswalks={showCrosswalks}
+                showStopLines={showStopLines}
+                debug={debug}
+              />
+            )}
+          </div>
+          <MetricsSidebar
+            snapshot={metricsSnapshotSingle}
+            connectionStatus={connectionStatus}
+          />
+        </main>
+      )}
 
       {/* ── Playback controls ─────────────────────────────────────────── */}
       <footer className="app-footer">
         <PlaybackControls
-          snapshot={snapshot}
+          snapshot={
+            viewMode === "comparative"
+              ? (dualSnapshot?.signal ?? null)
+              : singleSnapshot
+          }
           isPlaying={isPlaying}
           onPlay={() => {
             play().catch(() => {});

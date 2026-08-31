@@ -9,6 +9,7 @@ import type { ConnectionStatus } from "../services/websocket";
 interface MetricsSidebarProps {
   snapshot: LiveSnapshot | null;
   connectionStatus: ConnectionStatus;
+  hideHeader?: boolean;
 }
 
 const DIRECTIONS: SignalDirection[] = ["north", "south", "east", "west"];
@@ -44,6 +45,7 @@ const CONNECTION_LABELS: Record<
 export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
   snapshot,
   connectionStatus,
+  hideHeader = false,
 }) => {
   const m: RunningMetrics | undefined = snapshot ? snapshot.metrics : undefined;
   const vc = snapshot ? snapshot.vehicleCounts : undefined;
@@ -55,14 +57,19 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
   );
 
   return (
-    <aside className="metrics-sidebar">
+    <aside
+      className="metrics-sidebar"
+      style={hideHeader ? { width: "100%", borderLeft: "none" } : undefined}
+    >
       {/* Header */}
-      <div className="sidebar-header">
-        <h2 className="sidebar-title">Live Metrics</h2>
-        <span className="conn-badge" style={{ color: conn.color }}>
-          {conn.label}
-        </span>
-      </div>
+      {!hideHeader && (
+        <div className="sidebar-header">
+          <h2 className="sidebar-title">Live Metrics</h2>
+          <span className="conn-badge" style={{ color: conn.color }}>
+            {conn.label}
+          </span>
+        </div>
+      )}
 
       {/* Controller type */}
       {snapshot && (
