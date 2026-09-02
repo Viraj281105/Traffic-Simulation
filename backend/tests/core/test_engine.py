@@ -176,5 +176,3 @@ def test_engine_with_config_and_step() -> None:
     for _ in range(5):
         engine.step()
     assert engine.status == SimulationStatus.COMPLETED
-
-

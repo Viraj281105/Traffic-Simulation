@@ -64,7 +64,9 @@ def test_api_lifecycle_and_ws_stream() -> None:
     sim_id = res_create.json()["simulationId"]
 
     # 2. Start control request
-    res_start = client.post(f"/api/v1/simulations/{sim_id}/control", json={"action": "start"})
+    res_start = client.post(
+        f"/api/v1/simulations/{sim_id}/control", json={"action": "start"}
+    )
     assert res_start.status_code == 200
     assert res_start.json()["status"] == "running"
 
@@ -75,11 +77,15 @@ def test_api_lifecycle_and_ws_stream() -> None:
         assert "tick" in data
 
     # 4. Pause control request
-    res_pause = client.post(f"/api/v1/simulations/{sim_id}/control", json={"action": "pause"})
+    res_pause = client.post(
+        f"/api/v1/simulations/{sim_id}/control", json={"action": "pause"}
+    )
     assert res_pause.status_code == 200
     assert res_pause.json()["status"] == "paused"
 
     # 5. Stop control request
-    res_stop = client.post(f"/api/v1/simulations/{sim_id}/control", json={"action": "stop"})
+    res_stop = client.post(
+        f"/api/v1/simulations/{sim_id}/control", json={"action": "stop"}
+    )
     assert res_stop.status_code == 200
     assert res_stop.json()["status"] == "completed"

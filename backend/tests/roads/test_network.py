@@ -120,16 +120,22 @@ def test_network_edge_cases_and_missing_approaches() -> None:
 def test_network_setup_with_dict_lanes_and_all_turns() -> None:
     network = RoadNetwork()
     dict_lanes = {"north": 2, "south": 3, "east": 1, "west": 2}
-    network.setup_default_intersection(approach_length=100.0, lane_width=3.5, lanes_per_approach=dict_lanes)
+    network.setup_default_intersection(
+        approach_length=100.0, lane_width=3.5, lanes_per_approach=dict_lanes
+    )
     network.validate_connectivity()
 
     # Test right turns from each direction
     for d in Direction:
-        route_right = network.generate_route(d, lane_index=0, turn_intent=TurnIntent.RIGHT)
+        route_right = network.generate_route(
+            d, lane_index=0, turn_intent=TurnIntent.RIGHT
+        )
         assert len(route_right) == 3
 
     # Test cache hit on connection lane
-    cached_conn = network._get_or_create_connection_lane(Direction.NORTH, 0, TurnIntent.STRAIGHT)
+    cached_conn = network._get_or_create_connection_lane(
+        Direction.NORTH, 0, TurnIntent.STRAIGHT
+    )
     assert cached_conn in network.get_all_connection_lanes()
 
     # Test precompute on incomplete network
@@ -142,5 +148,3 @@ def test_network_setup_with_dict_lanes_and_all_turns() -> None:
     in_app.add_lane(Lane("n_in_0", 0, 10, 0, 0))
     partial_net.add_incoming_approach(in_app)
     partial_net._precompute_connection_lanes()
-
-

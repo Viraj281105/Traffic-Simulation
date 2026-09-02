@@ -60,7 +60,9 @@ def test_config_validation_route() -> None:
     assert res_val.json()["valid"] is True
 
     # Invalid config against schema if schema loaded
-    res_inv = client.post("/api/v1/configs/validate", json={"simulation": "not_an_object"})
+    res_inv = client.post(
+        "/api/v1/configs/validate", json={"simulation": "not_an_object"}
+    )
     assert res_inv.status_code == 200
 
     # Validation when schema is empty
@@ -76,7 +78,12 @@ def test_simulations_lifecycle_and_tick_callbacks() -> None:
     cfg_signal = {
         "simulation": {"timeStep": 0.1, "duration": 30, "warmupTime": 0.0},
         "geometry": {"intersectionType": "fixed_time_signal"},
-        "controller": {"type": "fixed_time_signal", "greenDuration": 10, "yellowDuration": 3, "allRedDuration": 2},
+        "controller": {
+            "type": "fixed_time_signal",
+            "greenDuration": 10,
+            "yellowDuration": 3,
+            "allRedDuration": 2,
+        },
     }
     res_sig = client.post("/api/v1/simulations", json=cfg_signal)
     assert res_sig.status_code == 200
@@ -107,18 +114,26 @@ def test_simulations_lifecycle_and_tick_callbacks() -> None:
     first_tick = sim_data["buffer"].get_all()[0]["tick"]
     frame_res = client.get(f"/api/v1/simulations/{sig_sim_id}/history/{first_tick}")
     assert frame_res.status_code == 200
-    assert client.get(f"/api/v1/simulations/{sig_sim_id}/history/99999").status_code == 404
+    assert (
+        client.get(f"/api/v1/simulations/{sig_sim_id}/history/99999").status_code == 404
+    )
     assert client.get("/api/v1/simulations/unknown_id/history/0").status_code == 404
 
     # 5. Control simulation: start, pause, resume, stop, invalid action, not found
     for action in ["start", "pause", "resume", "stop"]:
-        ctrl_res = client.post(f"/api/v1/simulations/{sig_sim_id}/control", json={"action": action})
+        ctrl_res = client.post(
+            f"/api/v1/simulations/{sig_sim_id}/control", json={"action": action}
+        )
         assert ctrl_res.status_code == 200
 
-    bad_action = client.post(f"/api/v1/simulations/{sig_sim_id}/control", json={"action": "fly"})
+    bad_action = client.post(
+        f"/api/v1/simulations/{sig_sim_id}/control", json={"action": "fly"}
+    )
     assert bad_action.status_code == 400
 
-    not_found_ctrl = client.post("/api/v1/simulations/unknown_id/control", json={"action": "start"})
+    not_found_ctrl = client.post(
+        "/api/v1/simulations/unknown_id/control", json={"action": "start"}
+    )
     assert not_found_ctrl.status_code == 404
 
     # 6. Get simulation status & metrics
@@ -201,7 +216,12 @@ def test_websocket_streams() -> None:
     cfg = {
         "simulation": {"duration": 10, "timeStep": 0.1, "warmupTime": 0.0},
         "geometry": {"intersectionType": "fixed_time_signal"},
-        "controller": {"type": "fixed_time_signal", "greenDuration": 10, "yellowDuration": 3, "allRedDuration": 2},
+        "controller": {
+            "type": "fixed_time_signal",
+            "greenDuration": 10,
+            "yellowDuration": 3,
+            "allRedDuration": 2,
+        },
     }
     res = client.post("/api/v1/simulations", json=cfg)
     assert res.status_code == 200
@@ -216,4 +236,3 @@ def test_websocket_streams() -> None:
         dual_frame = ws.receive_json()
         assert "signal" in dual_frame
         assert "roundabout" in dual_frame
-

@@ -1,4 +1,3 @@
-
 from src.core.enums import Direction, VehicleState
 from src.roads.lane import Lane
 from src.roads.network import RoadNetwork
@@ -91,13 +90,12 @@ def test_vehicle_pool_collision_audit_separation() -> None:
     # Test collision audit skips:
     pool2 = VehiclePool()
     vc = Vehicle("vc", 4.0, 2.0, 5.0, [lane_a], start_position=1.0, initial_speed=5.0)
-    vd = Vehicle("vd", 4.0, 2.0, 5.0, [lane_c, lane_a], start_position=2.0, initial_speed=5.0)
+    vd = Vehicle(
+        "vd", 4.0, 2.0, 5.0, [lane_c, lane_a], start_position=2.0, initial_speed=5.0
+    )
     ve = Vehicle("ve", 4.0, 2.0, 5.0, [lane_a], start_position=5.0)
     ve.lane = None
     for v in [va, vc, vd, ve]:
         pool2.add_vehicle(v)
     pool2._collision_audit()
     assert pool2.collision_count == 0
-
-
-

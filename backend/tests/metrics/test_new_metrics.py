@@ -60,7 +60,9 @@ def test_calculate_space_footprint_consumed() -> None:
         "geometry": {"intersectionType": "roundabout"},
         "controller": {"outerRadius": 20.0},
     }
-    assert calculate_space_footprint_consumed(config_roundabout) == pytest.approx(1256.64, abs=1e-2)
+    assert calculate_space_footprint_consumed(config_roundabout) == pytest.approx(
+        1256.64, abs=1e-2
+    )
 
     # Signal footprint: lanes = 2, laneWidth = 3.5 -> width = 14 -> Area = 14 * 14 = 196.0
     config_signal = {
@@ -79,5 +81,3 @@ def test_calculate_space_footprint_consumed() -> None:
     # QSI with 1 entry and 0 entry
     assert calculate_queue_stability_index([{"north": 1}]) == 0.0
     assert calculate_queue_stability_index([{"north": 0}, {"north": 0}]) == 0.0
-
-

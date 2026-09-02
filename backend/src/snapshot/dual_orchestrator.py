@@ -47,6 +47,7 @@ class DualSimulationOrchestrator:
         seed = config.get("simulation", {}).get("randomSeed")
         if seed is None:
             import random
+
             seed = random.randint(1, 10000000)
             if "simulation" not in self.config:
                 self.config["simulation"] = {}
@@ -62,34 +63,64 @@ class DualSimulationOrchestrator:
         # ── Build Signal Simulation ─────────────────────────────────────
         self.clock_signal = Clock(time_step=0.1)
         duration = config.get("simulation", {}).get("duration", 300)
-        self.engine_signal = SimulationEngine(self.clock_signal, duration=duration, config=self.config_signal)
-        self.controller_signal = create_controller(self.config_signal, self.engine_signal.network)
+        self.engine_signal = SimulationEngine(
+            self.clock_signal, duration=duration, config=self.config_signal
+        )
+        self.controller_signal = create_controller(
+            self.config_signal, self.engine_signal.network
+        )
 
         # CRITICAL: Assign controller to engine so engine.step() calls
         # controller.update() BEFORE vehicle physics (zero-latency response)
         self.engine_signal.controller = self.controller_signal
 
         self.collector_signal = MetricCollector(self.config_signal)
-        self.builder_signal = SnapshotBuilder("dual_signal", "dual_cfg", self.engine_signal, self.collector_signal, self.controller_signal)
+        self.builder_signal = SnapshotBuilder(
+            "dual_signal",
+            "dual_cfg",
+            self.engine_signal,
+            self.collector_signal,
+            self.controller_signal,
+        )
 
         self.engine_signal.register_tick_callback(
-            build_tick_callback(self.controller_signal, self.clock_signal, self.engine_signal, self.collector_signal)
+            build_tick_callback(
+                self.controller_signal,
+                self.clock_signal,
+                self.engine_signal,
+                self.collector_signal,
+            )
         )
 
         # ── Build Roundabout Simulation ─────────────────────────────────
         self.clock_roundabout = Clock(time_step=0.1)
-        self.engine_roundabout = SimulationEngine(self.clock_roundabout, duration=duration, config=self.config_roundabout)
-        self.controller_roundabout = create_controller(self.config_roundabout, self.engine_roundabout.network)
+        self.engine_roundabout = SimulationEngine(
+            self.clock_roundabout, duration=duration, config=self.config_roundabout
+        )
+        self.controller_roundabout = create_controller(
+            self.config_roundabout, self.engine_roundabout.network
+        )
 
         # CRITICAL: Assign controller to engine so engine.step() calls
         # controller.update() BEFORE vehicle physics (zero-latency yield response)
         self.engine_roundabout.controller = self.controller_roundabout
 
         self.collector_roundabout = MetricCollector(self.config_roundabout)
-        self.builder_roundabout = SnapshotBuilder("dual_roundabout", "dual_cfg", self.engine_roundabout, self.collector_roundabout, self.controller_roundabout)
+        self.builder_roundabout = SnapshotBuilder(
+            "dual_roundabout",
+            "dual_cfg",
+            self.engine_roundabout,
+            self.collector_roundabout,
+            self.controller_roundabout,
+        )
 
         self.engine_roundabout.register_tick_callback(
-            build_tick_callback(self.controller_roundabout, self.clock_roundabout, self.engine_roundabout, self.collector_roundabout)
+            build_tick_callback(
+                self.controller_roundabout,
+                self.clock_roundabout,
+                self.engine_roundabout,
+                self.collector_roundabout,
+            )
         )
 
     def start(self) -> None:

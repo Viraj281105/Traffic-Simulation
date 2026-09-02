@@ -36,6 +36,7 @@ from src.vehicles.vehicle import Vehicle
 # Phase descriptor
 # ---------------------------------------------------------------------------
 
+
 class Phase:
     """Describes one phase of the signal cycle."""
 
@@ -60,6 +61,7 @@ class Phase:
 # Controller
 # ---------------------------------------------------------------------------
 
+
 class FixedTimeSignalController(BaseController):
     """Controls intersection traffic using a realistic multi-phase signal plan.
 
@@ -83,7 +85,9 @@ class FixedTimeSignalController(BaseController):
         ctrl_cfg = config.get("controller", {})
 
         # Configurable durations (seconds)
-        self.straight_right_duration: float = ctrl_cfg.get("straightRightDuration", 15.0)
+        self.straight_right_duration: float = ctrl_cfg.get(
+            "straightRightDuration", 15.0
+        )
         self.left_duration: float = ctrl_cfg.get("leftDuration", 5.0)
         self.yellow_duration: float = ctrl_cfg.get("yellowDuration", 3.0)
         self.all_red_duration: float = ctrl_cfg.get("allRedDuration", 2.0)
@@ -140,7 +144,11 @@ class FixedTimeSignalController(BaseController):
                 Phase(
                     name=f"{direction.value}_yellow",
                     direction=direction,
-                    allowed_turns=(TurnIntent.LEFT, TurnIntent.STRAIGHT, TurnIntent.RIGHT),
+                    allowed_turns=(
+                        TurnIntent.LEFT,
+                        TurnIntent.STRAIGHT,
+                        TurnIntent.RIGHT,
+                    ),
                     duration=self.yellow_duration,
                     color="yellow",
                 )
@@ -254,7 +262,9 @@ class FixedTimeSignalController(BaseController):
             try:
                 self.network.get_incoming_approach(d)
             except KeyError:
-                signals.append({"direction": d.value, "color": "red", "allowedTurns": []})
+                signals.append(
+                    {"direction": d.value, "color": "red", "allowedTurns": []}
+                )
                 continue
 
             # lanes not needed

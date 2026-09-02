@@ -43,22 +43,16 @@ def test_get_single_vehicle() -> None:
 def test_simulation_history() -> None:
     """Test that simulation creations record history snapshots and permit history scrubbing."""
     import time
+
     config = {
         "simulation": {"timeStep": 0.1, "duration": 10, "warmupTime": 0.0},
         "geometry": {
             "intersectionType": "fixed_time_signal",
             "intersectionCenter": {"x": 0.0, "y": 0.0},
-            "boundingRadius": 15.0
+            "boundingRadius": 15.0,
         },
-        "controller": {
-            "greenDuration": 30,
-            "yellowDuration": 5,
-            "allRedDuration": 2
-        },
-        "vehicleGeneration": {
-            "stopSpeedThreshold": 0.1,
-            "waitSpeedThreshold": 0.5
-        }
+        "controller": {"greenDuration": 30, "yellowDuration": 5, "allRedDuration": 2},
+        "vehicleGeneration": {"stopSpeedThreshold": 0.1, "waitSpeedThreshold": 0.5},
     }
     # 1. Create simulation
     response = client.post("/api/v1/simulations", json=config)
@@ -66,7 +60,9 @@ def test_simulation_history() -> None:
     sim_id = response.json()["simulationId"]
 
     # 2. Control start
-    response_start = client.post(f"/api/v1/simulations/{sim_id}/control", json={"action": "start"})
+    response_start = client.post(
+        f"/api/v1/simulations/{sim_id}/control", json={"action": "start"}
+    )
     assert response_start.status_code == 200
 
     # 3. Wait for background ticks

@@ -132,4 +132,3 @@ def test_vehicle_lane_transition_fallback(sample_route: list[Lane]) -> None:
     v.update_state(0.0, 0.1)
     assert v.lane is None
     assert v.state == VehicleState.EXITED
-

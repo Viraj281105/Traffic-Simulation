@@ -90,7 +90,9 @@ class SnapshotBuilder:
                     "stopCount": v.stop_count,
                     "spawnTime": round(getattr(v, "spawn_time", 0.0), 2),
                     "exitTime": None,
-                    "distanceTraveled": round(v.position, 2),  # approximation along route
+                    "distanceTraveled": round(
+                        v.position, 2
+                    ),  # approximation along route
                 }
             )
 

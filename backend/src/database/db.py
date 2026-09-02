@@ -47,6 +47,19 @@ def init_db() -> None:
         """
     )
 
+    # 4. Sweep Sessions table
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS sweep_sessions (
+            id TEXT PRIMARY KEY,
+            name TEXT,
+            config_json TEXT NOT NULL,
+            results_json TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+    )
+
     conn.commit()
     conn.close()
 

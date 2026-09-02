@@ -66,7 +66,9 @@ def test_throughput_calculators() -> None:
 
     assert calculate_throughput([v1, v2]) == 2
     # Setting current_time=60.0 means the actual window is 60.0, rate = (2 / 60) * 60 = 2.0
-    assert calculate_throughput_rate([v1, v2], current_time=60.0, window_size=60.0) == 2.0
+    assert (
+        calculate_throughput_rate([v1, v2], current_time=60.0, window_size=60.0) == 2.0
+    )
     assert calculate_throughput_rate([], current_time=0.0) == 0.0
     assert calculate_throughput_rate([v1], current_time=-1.0) == 0.0
 
@@ -167,9 +169,20 @@ def test_idle_loss() -> None:
     v_no_lane = DummyVehicle(0.0, 0.0, 0, route=[])
     v_no_lane.lane = None
 
-    signals = {Direction.NORTH: "red", Direction.SOUTH: "green", Direction.EAST: "red", Direction.WEST: "red"}
-    assert calculate_idle_loss_tick([v1, v_no_lane], signals, wait_speed_threshold=0.5) is True
-    assert calculate_idle_loss_tick([v1, v_green], signals, wait_speed_threshold=0.5) is False
+    signals = {
+        Direction.NORTH: "red",
+        Direction.SOUTH: "green",
+        Direction.EAST: "red",
+        Direction.WEST: "red",
+    }
+    assert (
+        calculate_idle_loss_tick([v1, v_no_lane], signals, wait_speed_threshold=0.5)
+        is True
+    )
+    assert (
+        calculate_idle_loss_tick([v1, v_green], signals, wait_speed_threshold=0.5)
+        is False
+    )
 
     signals_all_green = {Direction.NORTH: "green", Direction.SOUTH: "green"}
     assert calculate_idle_loss_tick([v1], signals_all_green) is False
@@ -199,7 +212,12 @@ def test_metric_collector_full_lifecycle() -> None:
     lane_n = DummyLane("n_in_0")
     waiting_vehs = [DummyVehicle(0.0, 10.0, 1, route=[lane_n]) for _ in range(6)]
     moving_vehs = [DummyVehicle(10.0, 0.0, 0, route=[lane_n])]
-    signals = {Direction.NORTH: "red", Direction.SOUTH: "green", Direction.EAST: "red", Direction.WEST: "red"}
+    signals = {
+        Direction.NORTH: "red",
+        Direction.SOUTH: "green",
+        Direction.EAST: "red",
+        Direction.WEST: "red",
+    }
 
     # 1. Warmup tick
     collector.update(2.0, waiting_vehs, [], signals)
