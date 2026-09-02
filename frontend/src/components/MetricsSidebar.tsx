@@ -108,7 +108,38 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
       addRow("Average Wait Time", m.averageWaitTime, mr.averageWaitTime, true);
       addRow("Throughput", m.throughput, mr.throughput, false);
       addRow("Throughput Rate", m.throughputRate, mr.throughputRate, false);
+      addRow(
+        "Average Travel Speed",
+        m.averageTravelSpeed,
+        mr.averageTravelSpeed,
+        false,
+      );
+      addRow(
+        "Intersection Utilization",
+        m.intersectionUtilization,
+        mr.intersectionUtilization,
+        false,
+      );
       addRow("Max Queue Length", m.maxQueueLength, mr.maxQueueLength, true);
+      addRow(
+        "Average Queue Length",
+        m.averageQueueLength,
+        mr.averageQueueLength,
+        true,
+      );
+      addRow(
+        "Queue Stability Index",
+        m.queueStabilityIndex,
+        mr.queueStabilityIndex,
+        true,
+      );
+      addRow(
+        "Congestion Recovery Time",
+        m.congestionRecoveryTime,
+        mr.congestionRecoveryTime,
+        true,
+      );
+      addRow("Total Stops", m.totalStops, mr.totalStops, true);
       addRow(
         "Average Stops per Vehicle",
         m.averageStopsPerVehicle,
@@ -137,6 +168,12 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
         "Idle Opportunity Loss",
         m.idleOpportunityLoss,
         mr.idleOpportunityLoss,
+        true,
+      );
+      addRow(
+        "Land Footprint Area (m²)",
+        m.spaceFootprintConsumed,
+        mr.spaceFootprintConsumed,
         true,
       );
 
@@ -370,6 +407,26 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
                 )}
               />
               <DualMetricRow
+                label="Avg Travel Speed"
+                valA={`${fmt(m.averageTravelSpeed)} m/s`}
+                valB={`${fmt(mr.averageTravelSpeed)} m/s`}
+                better={compareBetter(
+                  m.averageTravelSpeed,
+                  mr.averageTravelSpeed,
+                  false,
+                )}
+              />
+              <DualMetricRow
+                label="Intersection Utilization"
+                valA={`${fmt(m.intersectionUtilization)}%`}
+                valB={`${fmt(mr.intersectionUtilization)}%`}
+                better={compareBetter(
+                  m.intersectionUtilization,
+                  mr.intersectionUtilization,
+                  false,
+                )}
+              />
+              <DualMetricRow
                 label="Max Queue"
                 valA={fmt(m.maxQueueLength, 0)}
                 valB={fmt(mr.maxQueueLength, 0)}
@@ -378,6 +435,42 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
                   mr.maxQueueLength,
                   true,
                 )}
+              />
+              <DualMetricRow
+                label="Avg Queue Length"
+                valA={fmt(m.averageQueueLength)}
+                valB={fmt(mr.averageQueueLength)}
+                better={compareBetter(
+                  m.averageQueueLength,
+                  mr.averageQueueLength,
+                  true,
+                )}
+              />
+              <DualMetricRow
+                label="Queue Stability (QSI)"
+                valA={fmt(m.queueStabilityIndex)}
+                valB={fmt(mr.queueStabilityIndex)}
+                better={compareBetter(
+                  m.queueStabilityIndex,
+                  mr.queueStabilityIndex,
+                  true,
+                )}
+              />
+              <DualMetricRow
+                label="Congestion Recovery"
+                valA={`${fmt(m.congestionRecoveryTime)}s`}
+                valB={`${fmt(mr.congestionRecoveryTime)}s`}
+                better={compareBetter(
+                  m.congestionRecoveryTime,
+                  mr.congestionRecoveryTime,
+                  true,
+                )}
+              />
+              <DualMetricRow
+                label="Total Stops"
+                valA={fmt(m.totalStops, 0)}
+                valB={fmt(mr.totalStops, 0)}
+                better={compareBetter(m.totalStops, mr.totalStops, true)}
               />
               <DualMetricRow
                 label="Avg Stops/Veh"
@@ -429,6 +522,16 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
                   true,
                 )}
               />
+              <DualMetricRow
+                label="Land Footprint Area"
+                valA={`${fmt(m.spaceFootprintConsumed, 0)} m²`}
+                valB={`${fmt(mr.spaceFootprintConsumed, 0)} m²`}
+                better={compareBetter(
+                  m.spaceFootprintConsumed,
+                  mr.spaceFootprintConsumed,
+                  true,
+                )}
+              />
             </>
           ) : (
             <>
@@ -448,9 +551,43 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
                 color="#20c997"
               />
               <MetricRow
+                label="Avg Travel Speed"
+                value={`${fmt(m?.averageTravelSpeed)} m/s`}
+                color="#4d96ff"
+              />
+              <MetricRow
+                label="Utilization"
+                value={`${fmt(m?.intersectionUtilization)}%`}
+                color={metricColor(
+                  100 - (m?.intersectionUtilization ?? 100),
+                  10,
+                  40,
+                )}
+              />
+              <MetricRow
                 label="Max Queue"
                 value={`${fmt(m?.maxQueueLength, 0)} veh`}
                 color={metricColor(m?.maxQueueLength ?? 0, 5, 12)}
+              />
+              <MetricRow
+                label="Avg Queue Length"
+                value={`${fmt(m?.averageQueueLength)} veh`}
+                color={metricColor(m?.averageQueueLength ?? 0, 3, 8)}
+              />
+              <MetricRow
+                label="Queue Stability"
+                value={fmt(m?.queueStabilityIndex)}
+                color={metricColor(m?.queueStabilityIndex ?? 0, 0.3, 0.8)}
+              />
+              <MetricRow
+                label="Recovery Time"
+                value={`${fmt(m?.congestionRecoveryTime)}s`}
+                color={metricColor(m?.congestionRecoveryTime ?? 0, 5, 20)}
+              />
+              <MetricRow
+                label="Total Stops"
+                value={fmt(m?.totalStops, 0)}
+                color={metricColor(m?.totalStops ?? 0, 10, 30)}
               />
               <MetricRow
                 label="Avg Stops/Veh"
@@ -480,6 +617,11 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
                 label="Idle Loss"
                 value={fmt(m?.idleOpportunityLoss)}
                 color={metricColor(m?.idleOpportunityLoss ?? 0, 0.05, 0.2)}
+              />
+              <MetricRow
+                label="Land Footprint"
+                value={`${fmt(m?.spaceFootprintConsumed, 0)} m²`}
+                color="#888"
               />
               <MetricRow
                 label="Total Spawned"

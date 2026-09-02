@@ -123,7 +123,8 @@ def test_engine_loop_exception_handling() -> None:
 
     engine.step = bad_step  # type: ignore[assignment]
     engine.start()
-    time.sleep(0.1)
+    if engine._thread:
+        engine._thread.join(timeout=1.0)
     assert engine.status == SimulationStatus.ERROR
 
 
