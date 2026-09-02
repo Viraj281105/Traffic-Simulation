@@ -43,8 +43,15 @@ class DualSimulationOrchestrator:
             "circulatingSpeed": 8.0,
         }
 
-        # Propagate random seed to align spawn sequences
-        seed = config.get("simulation", {}).get("randomSeed", 42)
+        # Propagate random seed to align spawn sequences for fair comparison
+        seed = config.get("simulation", {}).get("randomSeed")
+        if seed is None:
+            import random
+            seed = random.randint(1, 10000000)
+            if "simulation" not in self.config:
+                self.config["simulation"] = {}
+            self.config["simulation"]["randomSeed"] = seed
+
         if "simulation" not in self.config_signal:
             self.config_signal["simulation"] = {}
         if "simulation" not in self.config_roundabout:

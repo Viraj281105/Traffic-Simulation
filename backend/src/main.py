@@ -2,6 +2,7 @@ import asyncio
 import csv
 import io
 import logging
+import random
 import traceback
 import uuid
 from pathlib import Path
@@ -217,6 +218,12 @@ def create_simulation(config: Dict[str, Any]) -> Dict[str, Any]:
 
     sim_id = str(uuid.uuid4())
     config_id = str(uuid.uuid4())
+
+    # Ensure simulation section has a randomSeed if not provided
+    if "simulation" not in config:
+        config["simulation"] = {}
+    if config["simulation"].get("randomSeed") is None:
+        config["simulation"]["randomSeed"] = random.randint(1, 10000000)
 
     # Instantiate clock, engine, collector, and controller
     clock = Clock(time_step=config.get("simulation", {}).get("timeStep", 0.1))
@@ -466,13 +473,23 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
             pass
         dual_sim_orchestrator = None
 
+    # Determine randomSeed (pick a fresh random integer if None or not provided)
+    raw_seed = payload.get("randomSeed")
+    if raw_seed is not None and str(raw_seed).strip() != "":
+        try:
+            seed_val = int(raw_seed)
+        except (ValueError, TypeError):
+            seed_val = random.randint(1, 10000000)
+    else:
+        seed_val = random.randint(1, 10000000)
+
     # Compile the config dictionary based on user payload
     current_live_config = {
         "simulation": {
             "timeStep": DEFAULT_CONFIG["simulation"]["timeStep"],
             "duration": float(payload.get("duration", DEFAULT_CONFIG["simulation"]["duration"])),
             "warmupTime": DEFAULT_CONFIG["simulation"]["warmupTime"],
-            "randomSeed": int(payload.get("randomSeed", DEFAULT_CONFIG["simulation"].get("randomSeed", 42))),
+            "randomSeed": seed_val,
         },
         "geometry": {
             "intersectionType": payload.get("intersectionType", "fixed_time_signal"),
@@ -519,14 +536,25 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
     # Pre-create the simulation with new configuration parameters
     get_or_create_live_simulation()
 
-    return {"status": "ok", "message": "Simulation configuration updated successfully"}
+    return {
+        "status": "ok",
+        "message": "Simulation configuration updated successfully",
+        "randomSeed": seed_val,
+    }
 
 
 @app.post("/api/simulation/play")
 def play_live_simulation() -> Dict[str, Any]:
     sim = get_or_create_live_simulation()
     engine = sim["engine"]
-    if engine.status == SimulationStatus.INITIALIZED:
+    if engine.status == SimulationStatus.COMPLETED:
+        # Re-randomize seed for the new run
+        current_live_config["simulation"]["randomSeed"] = random.randint(1, 10000000)
+        live_sim_data["engine"] = None
+        sim = get_or_create_live_simulation()
+        engine = sim["engine"]
+        engine.start()
+    elif engine.status == SimulationStatus.INITIALIZED:
         engine.start()
     elif engine.status == SimulationStatus.PAUSED:
         engine.resume()
@@ -574,9 +602,21 @@ def get_or_create_dual_orchestrator() -> DualSimulationOrchestrator:
 
 @app.post("/api/simulation/dual/play")
 def play_dual_simulation() -> Dict[str, Any]:
+    global dual_sim_orchestrator
     orch = get_or_create_dual_orchestrator()
     status = orch.engine_signal.status
-    if status == SimulationStatus.INITIALIZED:
+    if status == SimulationStatus.COMPLETED:
+        # Re-randomize shared seed for next dual comparison run
+        if dual_sim_orchestrator is not None:
+            try:
+                dual_sim_orchestrator.stop()
+            except Exception:
+                pass
+        dual_sim_orchestrator = None
+        current_live_config["simulation"]["randomSeed"] = random.randint(1, 10000000)
+        orch = get_or_create_dual_orchestrator()
+        orch.start()
+    elif status == SimulationStatus.INITIALIZED:
         orch.start()
     elif status == SimulationStatus.PAUSED:
         orch.resume()
@@ -594,8 +634,13 @@ def pause_dual_simulation() -> Dict[str, Any]:
 def reset_dual_simulation() -> Dict[str, Any]:
     global dual_sim_orchestrator
     if dual_sim_orchestrator is not None:
-        dual_sim_orchestrator.stop()
+        try:
+            dual_sim_orchestrator.stop()
+        except Exception:
+            pass
     dual_sim_orchestrator = None
+    # Generate a fresh shared random seed for the next run
+    current_live_config["simulation"]["randomSeed"] = random.randint(1, 10000000)
     orch = get_or_create_dual_orchestrator()
     return {"status": orch.get_status(), "message": "Dual simulation reset"}
 

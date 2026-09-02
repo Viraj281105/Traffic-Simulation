@@ -129,3 +129,55 @@ def test_vehicle_spawner_lane_selection_and_spawn_loop() -> None:
     sp_empty = VehicleSpawner(config, empty_net)
     assert sp_empty._attempt_spawn(Direction.NORTH) is None
 
+
+def test_random_traffic_variation_across_runs() -> None:
+    """Verifies that separate runs without fixed seeds or with different seeds produce distinct traffic streams."""
+    network = RoadNetwork()
+    network.setup_default_intersection(200.0, 3.5, 2)
+
+    config_run1 = {
+        "simulation": {"timeStep": 0.1, "randomSeed": 1001},
+        "traffic": {"arrivalRate": 2.0, "totalVehicles": 50},
+    }
+    config_run2 = {
+        "simulation": {"timeStep": 0.1, "randomSeed": 2002},
+        "traffic": {"arrivalRate": 2.0, "totalVehicles": 50},
+    }
+
+    spawner1 = VehicleSpawner(config_run1, network)
+    spawner2 = VehicleSpawner(config_run2, network)
+
+    # Directional splits should be different
+    assert spawner1.directional_split != spawner2.directional_split
+
+    vehs1 = []
+    vehs2 = []
+    for _ in range(200):
+        vehs1.extend(spawner1.step(0.1))
+        vehs2.extend(spawner2.step(0.1))
+
+    # Spawning sequences should differ across runs
+    assert len(vehs1) > 0 and len(vehs2) > 0
+    speeds1 = [v.desired_speed for v in vehs1]
+    speeds2 = [v.desired_speed for v in vehs2]
+    assert speeds1 != speeds2
+
+
+def test_directional_split_asymmetry() -> None:
+    """Verifies that default randomized traffic has non-uniform distribution across approaches."""
+    network = RoadNetwork()
+    network.setup_default_intersection(200.0, 3.5, 2)
+
+    config = {
+        "simulation": {"timeStep": 0.1, "randomSeed": 777},
+        "traffic": {"arrivalRate": 1.0, "totalVehicles": 20},
+    }
+    spawner = VehicleSpawner(config, network)
+
+    # Weights across directions should not be identical 0.25 everywhere
+    splits = list(spawner.directional_split.values())
+    assert not all(s == 0.25 for s in splits)
+    # Total sum of directional splits should still equal 1.0
+    assert pytest.approx(sum(splits), rel=1e-3) == 1.0
+
+
