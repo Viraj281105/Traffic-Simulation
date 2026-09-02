@@ -7,7 +7,7 @@ class SimulationSection(BaseModel):
     duration: float = Field(..., ge=1, le=3600)
     timeStep: float = Field(0.1, gt=0, le=1.0)
     warmupTime: float = Field(30.0, ge=0)
-    randomSeed: int = Field(42, ge=0)
+    randomSeed: Optional[int] = Field(None, ge=0)
     snapshotFrequency: float = Field(10.0, gt=0, le=60)
 
 
