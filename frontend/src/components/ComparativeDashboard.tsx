@@ -53,14 +53,9 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
       };
       addRow("Average Wait Time", mSignal.averageWaitTime, mRound.averageWaitTime, true);
       addRow("Throughput", mSignal.throughput, mRound.throughput, false);
-      addRow("Throughput Rate", mSignal.throughputRate, mRound.throughputRate, false);
+      addRow("Average Speed", mSignal.averageTravelSpeed ?? 0, mRound.averageTravelSpeed ?? 0, false);
       addRow("Average Queue Length", mSignal.averageQueueLength ?? 0, mRound.averageQueueLength ?? 0, true);
       addRow("Max Queue Length", mSignal.maxQueueLength, mRound.maxQueueLength, true);
-      addRow("Average Stops per Vehicle", mSignal.averageStopsPerVehicle, mRound.averageStopsPerVehicle, true);
-      addRow("Speed Variance Index", mSignal.speedVarianceIndex, mRound.speedVarianceIndex, true);
-      addRow("Travel Time Reliability", mSignal.travelTimeReliability, mRound.travelTimeReliability, true);
-      addRow("Directional Fairness", mSignal.directionalFairnessIndex, mRound.directionalFairnessIndex, false);
-      addRow("Idle Opportunity Loss", mSignal.idleOpportunityLoss, mRound.idleOpportunityLoss, true);
 
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
@@ -99,9 +94,9 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
         <thead>
           <tr>
             <th>Performance Metric</th>
-            <th>🚦 Fixed-Time Signal</th>
-            <th>🔄 Modern Roundabout</th>
-            <th>Difference (Roundabout vs Signal)</th>
+            <th>🚦 Signal</th>
+            <th>🔄 Roundabout</th>
+            <th>Improvement %</th>
           </tr>
         </thead>
         <tbody>
@@ -111,6 +106,7 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
             valB={mRound.averageWaitTime}
             lowerIsBetter={true}
             formatter={(v) => fmt(v)}
+            insight="Roundabouts minimize wait times in light-to-moderate traffic."
           />
           <ComparisonRow
             label="Throughput (veh)"
@@ -118,13 +114,15 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
             valB={mRound.throughput}
             lowerIsBetter={false}
             formatter={(v) => fmt(v, 0)}
+            insight="Total vehicles successfully processed."
           />
           <ComparisonRow
-            label="Speed Variance"
-            valA={mSignal.speedVarianceIndex}
-            valB={mRound.speedVarianceIndex}
-            lowerIsBetter={true}
+            label="Avg Speed (m/s)"
+            valA={mSignal.averageTravelSpeed ?? 0}
+            valB={mRound.averageTravelSpeed ?? 0}
+            lowerIsBetter={false}
             formatter={(v) => fmt(v)}
+            insight="Higher average speed indicates better flow."
           />
           <ComparisonRow
             label="Average Queue"
@@ -132,48 +130,15 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
             valB={mRound.averageQueueLength ?? 0}
             lowerIsBetter={true}
             formatter={(v) => fmt(v)}
+            insight="Signals usually have longer queues due to red phases."
           />
           <ComparisonRow
-            label="Max Queue Length"
+            label="Max Queue"
             valA={mSignal.maxQueueLength}
             valB={mRound.maxQueueLength}
             lowerIsBetter={true}
             formatter={(v) => fmt(v, 0)}
-          />
-          <ComparisonRow
-            label="Active Vehicles"
-            valA={vcSignal.active}
-            valB={vcRound.active}
-            lowerIsBetter={true}
-            formatter={(v) => fmt(v, 0)}
-          />
-          <ComparisonRow
-            label="Approaching"
-            valA={vcSignal.approaching}
-            valB={vcRound.approaching}
-            lowerIsBetter={true}
-            formatter={(v) => fmt(v, 0)}
-          />
-          <ComparisonRow
-            label="Waiting"
-            valA={vcSignal.waiting}
-            valB={vcRound.waiting}
-            lowerIsBetter={true}
-            formatter={(v) => fmt(v, 0)}
-          />
-          <ComparisonRow
-            label="Crossing"
-            valA={vcSignal.crossing}
-            valB={vcRound.crossing + vcRound.inRoundabout}
-            lowerIsBetter={true}
-            formatter={(v) => fmt(v, 0)}
-          />
-          <ComparisonRow
-            label="Exited"
-            valA={vcSignal.exited}
-            valB={vcRound.exited}
-            lowerIsBetter={false}
-            formatter={(v) => fmt(v, 0)}
+            insight="Peak congestion impact on approaches."
           />
         </tbody>
       </table>
@@ -181,21 +146,45 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
   );
 };
 
+export function CompactVehicleStatePanel({ counts }: { counts: any }) {
+  if (!counts) return null;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', minWidth: '70px', boxShadow: "var(--shadow-sm)" }}>
+      <VerticalStateBox label="Active" value={counts.active} color="#3b82f6" />
+      <VerticalStateBox label="Appr." value={counts.approaching} color="#8b5cf6" />
+      <VerticalStateBox label="Wait" value={counts.waiting} color="#ef4444" />
+      <VerticalStateBox label="Cross" value={counts.crossing} color="#f59e0b" />
+      <VerticalStateBox label="Exit" value={counts.exited} color="#10b981" />
+    </div>
+  );
+}
+
+function VerticalStateBox({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div style={{ background: 'var(--bg-tertiary)', borderRadius: '4px', padding: '6px 4px', textAlign: 'center', borderLeft: `3px solid ${color}` }}>
+      <div style={{ fontSize: "14px", fontWeight: "bold", color: "var(--text-primary)" }}>{value}</div>
+      <div style={{ fontSize: "10px", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.2px", marginTop: "2px" }}>{label}</div>
+    </div>
+  );
+}
+
 function ComparisonRow({
   label,
   valA,
   valB,
   lowerIsBetter,
   formatter,
+  insight
 }: {
   label: string;
   valA: number;
   valB: number;
   lowerIsBetter: boolean;
   formatter: (v: number) => string;
+  insight: string;
 }) {
   const diff = valB - valA;
-  const pct = valA === 0 ? 0 : (diff / valA) * 100;
+  const pct = valA === 0 ? 0 : Math.abs((diff / valA) * 100);
   
   let winner = "";
   if (valA !== valB) {
@@ -208,14 +197,18 @@ function ComparisonRow({
 
   return (
     <tr>
-      <td className="metric-name">{label}</td>
+      <td className="metric-name">
+        <div>{label}</div>
+        <div style={{ fontSize: "11px", color: "var(--text-secondary)", fontWeight: "normal", marginTop: "2px" }}>{insight}</div>
+      </td>
       <td className={winner === "sig" ? "winner-cell" : ""}>{formatter(valA)}</td>
       <td className={winner === "round" ? "winner-cell" : ""}>{formatter(valB)}</td>
       <td className="diff-cell">
         <span className={`diff-badge ${diffColorClass}`}>
-          {diff > 0 ? "+" : ""}{formatter(diff)} ({pct > 0 ? "+" : ""}{fmt(pct)}%)
+          {pct > 0 && winner === "round" ? "+" : (pct > 0 && winner === "sig" ? "-" : "")}{fmt(pct)}%
         </span>
       </td>
     </tr>
   );
 }
+
