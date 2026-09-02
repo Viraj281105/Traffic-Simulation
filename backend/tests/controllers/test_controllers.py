@@ -3,7 +3,7 @@ import pytest
 from src.controllers.base import BaseController
 from src.controllers.fixed_time_signal import FixedTimeSignalController
 from src.controllers.roundabout import RoundaboutController
-from src.core.enums import Direction
+from src.core.enums import Direction, TurnIntent
 from src.roads.network import RoadNetwork
 from src.vehicles.vehicle import Vehicle
 
@@ -187,11 +187,11 @@ def test_fixed_time_signal_legacy_config_and_lane_intents() -> None:
 
     # Test _lane_turn_intent
     assert len(FixedTimeSignalController._lane_turn_intent(0, 1)) == 3
-    assert len(FixedTimeSignalController._lane_turn_intent(0, 2)) == 2
-    assert len(FixedTimeSignalController._lane_turn_intent(1, 2)) == 2
-    assert len(FixedTimeSignalController._lane_turn_intent(0, 3)) == 2
-    assert len(FixedTimeSignalController._lane_turn_intent(1, 3)) == 1
-    assert len(FixedTimeSignalController._lane_turn_intent(2, 3)) == 2
+    assert FixedTimeSignalController._lane_turn_intent(0, 2) == (TurnIntent.LEFT,)
+    assert FixedTimeSignalController._lane_turn_intent(1, 2) == (TurnIntent.STRAIGHT, TurnIntent.RIGHT)
+    assert FixedTimeSignalController._lane_turn_intent(0, 3) == (TurnIntent.LEFT,)
+    assert FixedTimeSignalController._lane_turn_intent(1, 3) == (TurnIntent.STRAIGHT,)
+    assert FixedTimeSignalController._lane_turn_intent(2, 3) == (TurnIntent.RIGHT,)
 
 
 def test_fixed_time_signal_cycle_wrap_and_missing_approach() -> None:
