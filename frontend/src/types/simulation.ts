@@ -107,6 +107,12 @@ export interface RunningMetrics {
   directionalFairnessIndex: number;
   activeVehicleCount: number;
   totalVehiclesSpawned: number;
+  averageTravelSpeed: number;
+  queueStabilityIndex: number;
+  congestionRecoveryTime: number;
+  spaceFootprintConsumed: number;
+  intersectionUtilization: number;
+  criticalSaturationVolume: number;
   masterEfficiencyScore?: number;
 }
 
