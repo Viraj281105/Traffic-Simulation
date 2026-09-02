@@ -95,4 +95,3 @@ def test_idm_invalid_arguments() -> None:
         IntelligentDriverModel(idm_delta=0.0)
     with pytest.raises(ValueError, match="Max deceleration limit must be positive"):
         IntelligentDriverModel(max_deceleration=0.0)
-

@@ -104,7 +104,9 @@ class MetricCollector:
         """Calculates and aggregates the complete metrics snapshot."""
         # Filter exited vehicles that were spawned AFTER the warmup period
         post_warmup_exited = [
-            v for v in exited_vehicles if getattr(v, "spawn_time", 0.0) >= self.warmup_time
+            v
+            for v in exited_vehicles
+            if getattr(v, "spawn_time", 0.0) >= self.warmup_time
         ]
 
         # Calculate current queue lengths
@@ -138,24 +140,37 @@ class MetricCollector:
         base_metrics = {
             "averageWaitTime": calculate_average_wait_time(post_warmup_exited),
             "throughput": calculate_throughput(post_warmup_exited),
-            "throughputRate": calculate_throughput_rate(post_warmup_exited, current_time),
+            "throughputRate": calculate_throughput_rate(
+                post_warmup_exited, current_time
+            ),
             "currentQueueLengths": curr_queues,
             "maxQueueLength": max_q,
             "averageQueueLength": avg_q,
             "totalStops": total_stops_exited,
             "averageStopsPerVehicle": calculate_average_stops(post_warmup_exited),
             "speedVarianceIndex": calculate_speed_variance_index(active_vehicles),
-            "travelTimeReliability": calculate_travel_time_reliability(post_warmup_exited),
+            "travelTimeReliability": calculate_travel_time_reliability(
+                post_warmup_exited
+            ),
             "idleOpportunityLoss": idle_loss,
-            "directionalFairnessIndex": calculate_directional_fairness(post_warmup_exited),
+            "directionalFairnessIndex": calculate_directional_fairness(
+                post_warmup_exited
+            ),
             "activeVehicleCount": len(active_vehicles),
             "totalVehiclesSpawned": total_spawned,
             "averageTravelSpeed": calculate_average_travel_speed(active_vehicles),
             "queueStabilityIndex": calculate_queue_stability_index(self.queue_history),
             "congestionRecoveryTime": round(self.congestion_recovery_time, 2),
             "spaceFootprintConsumed": calculate_space_footprint_consumed(self.config),
-            "intersectionUtilization": round((self.service_ticks / self.demand_ticks * 100) if self.demand_ticks > 0 else 0.0, 1),
+            "intersectionUtilization": round(
+                (self.service_ticks / self.demand_ticks * 100)
+                if self.demand_ticks > 0
+                else 0.0,
+                1,
+            ),
             "criticalSaturationVolume": 1800.0,
         }
-        base_metrics["masterEfficiencyScore"] = calculate_master_efficiency_score(base_metrics)
+        base_metrics["masterEfficiencyScore"] = calculate_master_efficiency_score(
+            base_metrics
+        )
         return base_metrics

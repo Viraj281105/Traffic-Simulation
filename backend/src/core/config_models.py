@@ -76,7 +76,16 @@ class ControllerSection(BaseModel):
     greenTime: float = Field(30.0, gt=5, le=120)
     yellowTime: float = Field(4.0, gt=2, le=8)
     allRedTime: float = Field(2.0, ge=0, le=5)
-    phaseSequence: List[str] = Field(default_factory=lambda: ["ns_green", "ns_yellow", "all_red", "ew_green", "ew_yellow", "all_red"])
+    phaseSequence: List[str] = Field(
+        default_factory=lambda: [
+            "ns_green",
+            "ns_yellow",
+            "all_red",
+            "ew_green",
+            "ew_yellow",
+            "all_red",
+        ]
+    )
     offset: float = Field(0.0, ge=0)
     innerRadius: float = Field(10.0, gt=5, le=50)
     outerRadius: float = Field(20.0, gt=5)

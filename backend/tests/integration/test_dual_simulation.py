@@ -79,7 +79,9 @@ def test_dual_simulation_different_runs() -> None:
 
     # In Run 1: signal and roundabout match 1:1
     sig1 = sorted(orch1.engine_signal.pool.active_vehicles, key=lambda v: v.vehicle_id)
-    rnd1 = sorted(orch1.engine_roundabout.pool.active_vehicles, key=lambda v: v.vehicle_id)
+    rnd1 = sorted(
+        orch1.engine_roundabout.pool.active_vehicles, key=lambda v: v.vehicle_id
+    )
     assert len(sig1) == len(rnd1)
     for vs, vr in zip(sig1, rnd1):
         assert vs.desired_speed == vr.desired_speed
@@ -87,7 +89,9 @@ def test_dual_simulation_different_runs() -> None:
 
     # In Run 2: signal and roundabout match 1:1
     sig2 = sorted(orch2.engine_signal.pool.active_vehicles, key=lambda v: v.vehicle_id)
-    rnd2 = sorted(orch2.engine_roundabout.pool.active_vehicles, key=lambda v: v.vehicle_id)
+    rnd2 = sorted(
+        orch2.engine_roundabout.pool.active_vehicles, key=lambda v: v.vehicle_id
+    )
     assert len(sig2) == len(rnd2)
     for vs, vr in zip(sig2, rnd2):
         assert vs.desired_speed == vr.desired_speed
@@ -97,4 +101,3 @@ def test_dual_simulation_different_runs() -> None:
     speeds1 = [v.desired_speed for v in sig1]
     speeds2 = [v.desired_speed for v in sig2]
     assert speeds1 != speeds2
-

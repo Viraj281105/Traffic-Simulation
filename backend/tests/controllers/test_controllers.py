@@ -140,6 +140,8 @@ def test_roundabout_yielding() -> None:
 
     # Obstacle should be cleared
     assert lane.virtual_obstacle is None
+
+
 def test_base_controller_abstract_methods() -> None:
     class DummyController(BaseController):
         def update(self, delta_time: float, active_vehicles: list) -> None:
@@ -157,12 +159,11 @@ def test_base_controller_abstract_methods() -> None:
     dummy.reset()
 
 
-
-
-
 def test_fixed_time_signal_legacy_config_and_lane_intents() -> None:
     network = RoadNetwork()
-    network.setup_default_intersection(approach_length=100.0, lane_width=3.5, lanes_per_approach=3)
+    network.setup_default_intersection(
+        approach_length=100.0, lane_width=3.5, lanes_per_approach=3
+    )
 
     config_legacy = {
         "controller": {
@@ -217,7 +218,9 @@ def test_fixed_time_signal_cycle_wrap_and_missing_approach() -> None:
 
 def test_roundabout_missing_approach_and_yielding_metrics() -> None:
     network = RoadNetwork()
-    network.setup_default_intersection(approach_length=50.0, lane_width=3.5, lanes_per_approach=1)
+    network.setup_default_intersection(
+        approach_length=50.0, lane_width=3.5, lanes_per_approach=1
+    )
     config = {
         "controller": {
             "innerRadius": 8.0,
@@ -230,7 +233,15 @@ def test_roundabout_missing_approach_and_yielding_metrics() -> None:
 
     # Add a stopped vehicle near end of north lane
     lane = network.get_incoming_approach(Direction.NORTH).get_lanes()[0]
-    veh = Vehicle("v_yield", length=4.0, width=2.0, desired_speed=10.0, route=[lane], start_position=46.0, initial_speed=0.0)
+    veh = Vehicle(
+        "v_yield",
+        length=4.0,
+        width=2.0,
+        desired_speed=10.0,
+        route=[lane],
+        start_position=46.0,
+        initial_speed=0.0,
+    )
     lane.add_vehicle(veh)
 
     state = ctrl.get_state()
@@ -248,20 +259,35 @@ def test_roundabout_missing_approach_and_yielding_metrics() -> None:
 def test_roundabout_circular_leader_detection() -> None:
     from src.core.enums import Direction, TurnIntent
     from src.vehicles.router import find_leader
+
     network = RoadNetwork()
     network.setup_default_intersection(
         approach_length=100.0, lane_width=3.5, lanes_per_approach=2, is_roundabout=True
     )
     # Vehicle A is circulating in the roundabout
     lane_a = network.generate_route(Direction.NORTH, 0, TurnIntent.STRAIGHT)[1]
-    veh_a = Vehicle("veh_a", length=4.5, width=2.0, desired_speed=8.0, route=[lane_a], start_position=5.0)
+    veh_a = Vehicle(
+        "veh_a",
+        length=4.5,
+        width=2.0,
+        desired_speed=8.0,
+        route=[lane_a],
+        start_position=5.0,
+    )
     lane_a.add_vehicle(veh_a)
-    
+
     # Vehicle B is behind Vehicle A on the roundabout
     lane_b = network.generate_route(Direction.EAST, 0, TurnIntent.STRAIGHT)[1]
-    veh_b = Vehicle("veh_b", length=4.5, width=2.0, desired_speed=8.0, route=[lane_b], start_position=0.0)
+    veh_b = Vehicle(
+        "veh_b",
+        length=4.5,
+        width=2.0,
+        desired_speed=8.0,
+        route=[lane_b],
+        start_position=0.0,
+    )
     lane_b.add_vehicle(veh_b)
-    
+
     leader, gap = find_leader(veh_b, network=network, active_vehicles=[veh_a, veh_b])
     # It should identify veh_a as the leader
     assert leader is veh_a

@@ -20,6 +20,7 @@ from src.roads.lane import Lane
 # Geometric helper
 # ---------------------------------------------------------------------------
 
+
 def _segment_intersection(
     p0: Tuple[float, float],
     p1: Tuple[float, float],
@@ -54,6 +55,7 @@ def _distance_along_lane(lane: Lane, point: Tuple[float, float]) -> float:
 # ---------------------------------------------------------------------------
 # Conflict Zone data structures
 # ---------------------------------------------------------------------------
+
 
 class ConflictPoint:
     """A single crossing point between two connection lanes."""
@@ -108,6 +110,7 @@ _TURN_PRIORITY: Dict[TurnIntent, int] = {
 # ---------------------------------------------------------------------------
 # ConflictManager
 # ---------------------------------------------------------------------------
+
 
 class ConflictManager:
     """Manages conflict detection and reservation for intersection crossing.
@@ -204,7 +207,9 @@ class ConflictManager:
     def release_vehicle(self, vehicle_id: str) -> None:
         """Immediately release all reservations held by a vehicle (e.g. on exit)."""
         to_del = [
-            key for key, res in self._reservations.items() if res.vehicle_id == vehicle_id
+            key
+            for key, res in self._reservations.items()
+            if res.vehicle_id == vehicle_id
         ]
         for key in to_del:
             del self._reservations[key]
@@ -336,7 +341,9 @@ class ConflictManager:
                     min_block_dist = min(min_block_dist, block_dist)
                 else:
                     # Acquire reservation
-                    clear_time = current_time + self.CLEARANCE_TIME + 5.0  # generous default
+                    clear_time = (
+                        current_time + self.CLEARANCE_TIME + 5.0
+                    )  # generous default
                     self._reservations[key] = Reservation(vehicle_id, clear_time)
 
         return min_block_dist

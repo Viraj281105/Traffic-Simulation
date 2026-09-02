@@ -14,12 +14,9 @@ def test_vehicle_spawner_init() -> None:
         "geometry": {
             "intersectionType": "fixed_time_signal",
             "intersectionCenter": {"x": 0.0, "y": 0.0},
-            "boundingRadius": 15.0
+            "boundingRadius": 15.0,
         },
-        "vehicleGeneration": {
-            "arrivalRate": 0.5,
-            "seed": 42
-        }
+        "vehicleGeneration": {"arrivalRate": 0.5, "seed": 42},
     }
     spawner = VehicleSpawner(config, network)
     assert spawner.arrival_rate == 0.5
@@ -32,14 +29,21 @@ def test_vehicle_spawner_distributions_and_errors() -> None:
 
     # 1. Zero directional split
     cfg_zero = {
-        "traffic": {"arrivalRate": 0.5, "directionalSplit": {"north": 0.0, "south": 0.0, "east": 0.0, "west": 0.0}},
+        "traffic": {
+            "arrivalRate": 0.5,
+            "directionalSplit": {"north": 0.0, "south": 0.0, "east": 0.0, "west": 0.0},
+        },
     }
     sp_zero = VehicleSpawner(cfg_zero, network)
     assert sp_zero._generate_next_arrival_time(Direction.NORTH) == float("inf")
 
     # 2. Uniform distribution
     cfg_uni = {
-        "traffic": {"arrivalRate": 0.5, "arrivalDistribution": "uniform", "directionalSplit": {"north": 1.0}},
+        "traffic": {
+            "arrivalRate": 0.5,
+            "arrivalDistribution": "uniform",
+            "directionalSplit": {"north": 1.0},
+        },
     }
     sp_uni = VehicleSpawner(cfg_uni, network)
     assert sp_uni._generate_next_arrival_time(Direction.NORTH) == 2.0
@@ -92,7 +96,6 @@ def test_vehicle_spawner_blocked_and_spacing() -> None:
     assert sp_blocked.timers[Direction.NORTH] == 0.0
 
 
-
 def test_vehicle_spawner_lane_selection_and_spawn_loop() -> None:
     from src.core.enums import TurnIntent
     from src.roads.lane import Lane
@@ -107,7 +110,11 @@ def test_vehicle_spawner_lane_selection_and_spawn_loop() -> None:
     # Test _select_lane_for_turn
     lanes_1 = [Lane("l0", 0, 0, 10, 0)]
     lanes_2 = [Lane("l0", 0, 0, 10, 0), Lane("l1", 0, 0, 10, 0)]
-    lanes_3 = [Lane("l0", 0, 0, 10, 0), Lane("l1", 0, 0, 10, 0), Lane("l2", 0, 0, 10, 0)]
+    lanes_3 = [
+        Lane("l0", 0, 0, 10, 0),
+        Lane("l1", 0, 0, 10, 0),
+        Lane("l2", 0, 0, 10, 0),
+    ]
 
     assert spawner._select_lane_for_turn(lanes_1, TurnIntent.LEFT) == 0
     assert spawner._select_lane_for_turn(lanes_2, TurnIntent.LEFT) == 0
@@ -179,5 +186,3 @@ def test_directional_split_asymmetry() -> None:
     assert not all(s == 0.25 for s in splits)
     # Total sum of directional splits should still equal 1.0
     assert pytest.approx(sum(splits), rel=1e-3) == 1.0
-
-

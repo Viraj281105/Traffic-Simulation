@@ -57,7 +57,9 @@ def test_database_transaction_rollback() -> None:
 
         # Trigger unique constraint violation by inserting the duplicate primary key manually
         # (This will fail because 'rollback_run_1' was just inserted in the same transaction)
-        conn.execute("INSERT INTO simulation_runs (id, status, elapsed) VALUES ('rollback_run_1', 'failed', 0.0);")
+        conn.execute(
+            "INSERT INTO simulation_runs (id, status, elapsed) VALUES ('rollback_run_1', 'failed', 0.0);"
+        )
 
         conn.commit()
     except sqlite3.IntegrityError:
@@ -98,12 +100,6 @@ def test_volume_sweep_runner(monkeypatch, tmp_path) -> None:
     test_db = str(tmp_path / "test_sweep.db")
     monkeypatch.setattr(db_module, "DB_PATH", test_db)
     monkeypatch.setattr(sweep_module, "DB_PATH", test_db)
-    
+
     # Test main block via runpy
     runpy.run_path(sweep_module.__file__, run_name="__main__")
-
-
-
-
-
-

@@ -36,7 +36,9 @@ def test_stress_massive_density() -> None:
     sim_id = res_create.json()["simulationId"]
 
     # Start run
-    res_start = client.post(f"/api/v1/simulations/{sim_id}/control", json={"action": "start"})
+    res_start = client.post(
+        f"/api/v1/simulations/{sim_id}/control", json={"action": "start"}
+    )
     assert res_start.status_code == 200
 
     # Retrieve report in JSON format

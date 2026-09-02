@@ -25,14 +25,15 @@ from src.vehicles.vehicle import Vehicle
 # Constants
 # ---------------------------------------------------------------------------
 
-_EMERGENCY_DIST: float = 2.5        # meters — triggers emergency braking
-_SENSOR_RANGE: float = 30.0         # meters — max 360° sensor reach
-_LOOK_AHEAD_LANES: int = 3          # how many route lanes to scan forward
+_EMERGENCY_DIST: float = 2.5  # meters — triggers emergency braking
+_SENSOR_RANGE: float = 30.0  # meters — max 360° sensor reach
+_LOOK_AHEAD_LANES: int = 3  # how many route lanes to scan forward
 
 
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def is_blocked_before_lane(vehicle: Vehicle, target_lane: Any) -> bool:
     """Check if there is a vehicle or virtual obstacle on the route before target_lane."""
@@ -113,8 +114,12 @@ def find_leader(
                 theta_self = math.atan2(start_y, start_x)
                 dist_to_lane_start = accumulated_dist
 
-            for v in (active_vehicles or []):
-                if v is vehicle or v.lane is None or not v.lane.lane_id.startswith("conn"):
+            for v in active_vehicles or []:
+                if (
+                    v is vehicle
+                    or v.lane is None
+                    or not v.lane.lane_id.startswith("conn")
+                ):
                     continue
 
                 try:
@@ -126,15 +131,15 @@ def find_leader(
 
                 v_x, v_y = v.coords
                 theta_v = math.atan2(v_y, v_x)
-                
+
                 # Counter-clockwise angular distance from theta_self to theta_v
                 diff = (theta_v - theta_self) % (2 * math.pi)
-                
+
                 # Only consider vehicles that are actually ahead of us (within 270 degrees)
                 if diff < 1.5 * math.pi:
                     arc_dist = avg_radius * diff
                     v_dist = dist_to_lane_start + arc_dist
-                    
+
                     if v_dist > 0:
                         gap = v_dist - (vehicle.length / 2.0 + v.length / 2.0)
                         gap = max(0.0, gap)
@@ -185,7 +190,9 @@ def find_leader(
                     conn_vehicles_info.append(
                         {
                             "vehicle_id": av.vehicle_id,
-                            "turn_intent": getattr(av, "turn_intent", TurnIntent.STRAIGHT),
+                            "turn_intent": getattr(
+                                av, "turn_intent", TurnIntent.STRAIGHT
+                            ),
                             "connection_lane_id": av.lane.lane_id,
                             "position_on_lane": av.position,
                         }
@@ -208,7 +215,10 @@ def find_leader(
                 else:
                     pos_on_conn = 0.0  # haven't entered yet
 
-                turn = getattr(vehicle, "turn_intent", TurnIntent.STRAIGHT) or TurnIntent.STRAIGHT
+                turn = (
+                    getattr(vehicle, "turn_intent", TurnIntent.STRAIGHT)
+                    or TurnIntent.STRAIGHT
+                )
 
                 block_dist = conflict_manager.get_conflict_distance(
                     vehicle_id=vehicle.vehicle_id,

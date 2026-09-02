@@ -25,9 +25,7 @@ class VehicleSpawner:
         sim_cfg = config.get("simulation", {})
         veh_gen_cfg = config.get("vehicleGeneration", {})
 
-        self.random_seed: int = sim_cfg.get(
-            "randomSeed", veh_gen_cfg.get("seed", None)
-        )
+        self.random_seed: int = sim_cfg.get("randomSeed", veh_gen_cfg.get("seed", None))
         if self.random_seed is None:
             self.random_seed = random.randint(1, 10000000)
         self.rng: random.Random = random.Random(self.random_seed)
@@ -40,18 +38,23 @@ class VehicleSpawner:
             "arrivalDistribution", "poisson"
         )
 
-        if "directionalSplit" in traffic_cfg and traffic_cfg["directionalSplit"] is not None:
+        if (
+            "directionalSplit" in traffic_cfg
+            and traffic_cfg["directionalSplit"] is not None
+        ):
             self.directional_split: Dict[str, float] = traffic_cfg["directionalSplit"]
         else:
             # Generate stochastic non-uniform weights for the 4 approaches
             raw_weights = [self.rng.uniform(0.5, 2.0) for _ in Direction]
             total_w = sum(raw_weights)
             self.directional_split = {
-                d.value: raw_weights[i] / total_w
-                for i, d in enumerate(Direction)
+                d.value: raw_weights[i] / total_w for i, d in enumerate(Direction)
             }
 
-        if "turnProbabilities" in traffic_cfg and traffic_cfg["turnProbabilities"] is not None:
+        if (
+            "turnProbabilities" in traffic_cfg
+            and traffic_cfg["turnProbabilities"] is not None
+        ):
             self.turn_probabilities: Dict[str, float] = traffic_cfg["turnProbabilities"]
         else:
             # Realistic randomized turn probabilities with natural variance per run
@@ -95,14 +98,19 @@ class VehicleSpawner:
         self.timers.clear()
 
         traffic_cfg = self.config.get("traffic", {})
-        if "directionalSplit" not in traffic_cfg or traffic_cfg.get("directionalSplit") is None:
+        if (
+            "directionalSplit" not in traffic_cfg
+            or traffic_cfg.get("directionalSplit") is None
+        ):
             raw_weights = [self.rng.uniform(0.5, 2.0) for _ in Direction]
             total_w = sum(raw_weights)
             self.directional_split = {
-                d.value: raw_weights[i] / total_w
-                for i, d in enumerate(Direction)
+                d.value: raw_weights[i] / total_w for i, d in enumerate(Direction)
             }
-        if "turnProbabilities" not in traffic_cfg or traffic_cfg.get("turnProbabilities") is None:
+        if (
+            "turnProbabilities" not in traffic_cfg
+            or traffic_cfg.get("turnProbabilities") is None
+        ):
             p_straight = self.rng.uniform(0.50, 0.70)
             rem = 1.0 - p_straight
             p_left = self.rng.uniform(0.3, 0.7) * rem
@@ -164,9 +172,7 @@ class VehicleSpawner:
 
         return new_vehicles
 
-    def _select_lane_for_turn(
-        self, lanes: List[Lane], turn: TurnIntent
-    ) -> int:
+    def _select_lane_for_turn(self, lanes: List[Lane], turn: TurnIntent) -> int:
         """Return the best lane index for the given turn intent.
 
         Policy (right-hand traffic):
