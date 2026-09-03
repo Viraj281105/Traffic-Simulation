@@ -9,6 +9,7 @@ import {
   CompactVehicleStatePanel,
 } from "./components/ComparativeDashboard";
 import { PlaybackControls } from "./components/PlaybackControls";
+import { HistoryDashboard, SavedReplay } from "./components/HistoryDashboard";
 import { updateSimulationConfig } from "./services/api";
 import type {
   LiveSnapshot,
@@ -19,8 +20,17 @@ import "./App.css";
 
 export function App() {
   const [viewMode, setViewMode] = useState<
-    "signal" | "roundabout" | "comparative" | "single"
+    "signal" | "roundabout" | "comparative" | "single" | "history"
   >("comparative");
+  const [activeReplay, setActiveReplay] = useState<SavedReplay | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 3000);
+  };
 
   const mode = viewMode === "comparative" ? "dual" : "single";
   const {
@@ -93,6 +103,7 @@ export function App() {
   );
 
   const randomizeSeed = () => {
+    setActiveReplay(null);
     setRandomSeed(Math.floor(Math.random() * 1000000) + 1);
   };
 
@@ -205,6 +216,7 @@ export function App() {
 
   const handleStop = () => {
     randomizeSeed();
+    setActiveReplay(null);
     if (viewMode === "single") {
       singleReset().catch(() => {});
     } else {
@@ -233,6 +245,88 @@ export function App() {
             simulationStatus: snapshot.signal.simulationStatus,
           } as unknown as LiveSnapshot)
         : (snapshot as LiveSnapshot | null);
+
+  const handleSaveHistory = () => {
+    let currentDuration = duration;
+    if (viewMode === "comparative" && metricsSnapshotDual) {
+      currentDuration =
+        metricsSnapshotDual.elapsed || metricsSnapshotDual.signal.timestamp;
+    } else if (viewMode !== "comparative" && metricsSnapshotSingle) {
+      currentDuration = metricsSnapshotSingle.timestamp;
+    } else if (playbackEnvelope?.timestamp) {
+      currentDuration = playbackEnvelope.timestamp;
+    }
+    // Safeguard: if it's 0 for some reason, use the config duration
+    if (!currentDuration) {
+      currentDuration = duration;
+    }
+
+    const configToSave = {
+      simulation: { duration: currentDuration, randomSeed },
+      geometry: {
+        intersectionType:
+          viewMode === "roundabout" ? "roundabout" : "fixed_time_signal",
+      },
+      roads: {
+        lanesPerApproach: {
+          north: lanesNorth,
+          south: lanesSouth,
+          east: lanesEast,
+          west: lanesWest,
+        },
+      },
+      traffic: { arrivalRate },
+    };
+
+    let metricsToSave: Record<string, unknown> = {};
+    if (viewMode === "comparative" && metricsSnapshotDual) {
+      metricsToSave = {
+        signal: metricsSnapshotDual.signal.metrics,
+        roundabout: metricsSnapshotDual.roundabout.metrics,
+      };
+    } else if (viewMode !== "comparative" && metricsSnapshotSingle) {
+      metricsToSave = (
+        metricsSnapshotSingle as unknown as { metrics: Record<string, unknown> }
+      ).metrics;
+    }
+
+    const payload = {
+      name: `${viewMode.toUpperCase()} Run - ${new Date().toLocaleTimeString()}`,
+      config: configToSave,
+      metrics: metricsToSave,
+    };
+
+    fetch("http://localhost:8000/api/v1/replays", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+      .then((r) => r.json())
+      .then(() => {
+        showToast("✅ Simulation saved to history!");
+      })
+      .catch((e: unknown) => {
+        console.error(e);
+      });
+  };
+
+  const handleReplay = (replay: SavedReplay) => {
+    setActiveReplay(replay);
+    setLanes(replay.config.roads?.lanesPerApproach?.north || 2);
+    setArrivalRate(replay.config.traffic?.arrivalRate || 0.3);
+    setDuration(replay.config.simulation?.duration || 300);
+    setRandomSeed(replay.config.simulation?.randomSeed || 42);
+
+    const isDual =
+      replay.metrics.signal !== undefined &&
+      replay.metrics.roundabout !== undefined;
+    if (isDual) {
+      setViewMode("comparative");
+    } else {
+      const type = replay.config.geometry?.intersectionType;
+      setViewMode(type === "roundabout" ? "roundabout" : "signal");
+    }
+  };
 
   return (
     <div className="app">
@@ -275,6 +369,14 @@ export function App() {
             }}
           >
             📊 Comparative View
+          </button>
+          <button
+            className={`tab-btn ${viewMode === "history" ? "active" : ""}`}
+            onClick={() => {
+              setViewMode("history");
+            }}
+          >
+            📚 History
           </button>
         </div>
 
@@ -460,13 +562,47 @@ export function App() {
               minHeight: 0,
               borderTop: "1px solid var(--border)",
               display: "flex",
+              flexDirection: "column",
             }}
           >
+            <div
+              style={{
+                padding: "8px 16px",
+                display: "flex",
+                justifyContent: "flex-end",
+              }}
+            >
+              <button
+                className="pb-btn pb-primary"
+                onClick={handleSaveHistory}
+                disabled={activeIsPlaying || activeReplay !== null}
+                title={
+                  activeReplay
+                    ? "Cannot save a replay"
+                    : "Save this simulation to history"
+                }
+              >
+                💾 Save to History
+              </button>
+            </div>
             <ComparativeDashboard
-              snapshot={metricsSnapshotDual}
+              snapshot={
+                activeReplay &&
+                activeReplay.metrics.signal &&
+                activeReplay.metrics.roundabout
+                  ? ({
+                      signal: { metrics: activeReplay.metrics.signal },
+                      roundabout: { metrics: activeReplay.metrics.roundabout },
+                    } as unknown as DualSnapshot)
+                  : metricsSnapshotDual
+              }
               connectionStatus={activeConnectionStatus}
             />
           </div>
+        </main>
+      ) : viewMode === "history" ? (
+        <main className="app-main" style={{ overflow: "hidden" }}>
+          <HistoryDashboard onReplay={handleReplay} />
         </main>
       ) : (
         <main className="app-main">
@@ -493,10 +629,38 @@ export function App() {
               />
             )}
           </div>
-          <MetricsSidebar
-            snapshot={metricsSnapshotSingle}
-            connectionStatus={activeConnectionStatus}
-          />
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <div
+              style={{
+                padding: "8px 16px",
+                display: "flex",
+                justifyContent: "flex-end",
+              }}
+            >
+              <button
+                className="pb-btn pb-primary"
+                onClick={handleSaveHistory}
+                disabled={activeIsPlaying || activeReplay !== null}
+                title={
+                  activeReplay
+                    ? "Cannot save a replay"
+                    : "Save this simulation to history"
+                }
+              >
+                💾 Save to History
+              </button>
+            </div>
+            <MetricsSidebar
+              snapshot={
+                activeReplay && "averageWaitTime" in activeReplay.metrics
+                  ? ({
+                      metrics: activeReplay.metrics,
+                    } as unknown as LiveSnapshot)
+                  : metricsSnapshotSingle
+              }
+              connectionStatus={activeConnectionStatus}
+            />
+          </div>
         </main>
       )}
 
@@ -511,6 +675,9 @@ export function App() {
         />
         {activeError && <div className="error-banner">⚠ {activeError}</div>}
       </footer>
+
+      {/* ── Toast Notification ────────────────────────────────────────── */}
+      {toastMessage && <div className="toast-notification">{toastMessage}</div>}
     </div>
   );
 }

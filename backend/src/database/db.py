@@ -60,6 +60,19 @@ def init_db() -> None:
         """
     )
 
+    # 5. Saved Replays table
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS saved_replays (
+            id TEXT PRIMARY KEY,
+            name TEXT,
+            config_json TEXT NOT NULL,
+            metrics_json TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+    )
+
     conn.commit()
     conn.close()
 

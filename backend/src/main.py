@@ -46,6 +46,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Initialize Database
+try:
+    init_db()
+    logger.info("Database initialized successfully.")
+except Exception as e:
+    logger.error(f"Failed to initialize database: {e}")
+
+
 
 # ── Health check endpoint (used by Docker HEALTHCHECK) ───────────────────────
 @app.get("/health")
@@ -844,3 +852,47 @@ def export_study_report_endpoint(format: str = "json") -> Any:  # noqa: A002
             },
         )
     return generate_study_report_json()
+
+
+class SaveReplayRequest(BaseModel):
+    name: str
+    config: Dict[str, Any]
+    metrics: Dict[str, Any]
+
+from src.database.replay_dao import ReplayDAO
+
+
+@app.post("/api/v1/replays")
+def save_replay(payload: SaveReplayRequest) -> Dict[str, Any]:
+    init_db()
+    import sqlite3
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        replay_id = ReplayDAO.save(conn, payload.name, payload.config, payload.metrics)
+        return {"status": "ok", "replay_id": replay_id}
+    finally:
+        conn.close()
+
+@app.get("/api/v1/replays")
+def list_replays(limit: int = 50, offset: int = 0) -> list[Dict[str, Any]]:
+    init_db()
+    import sqlite3
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        return ReplayDAO.list_all(conn, limit=limit, offset=offset)
+    finally:
+        conn.close()
+
+@app.delete("/api/v1/replays/{replay_id}")
+def delete_replay(replay_id: str) -> Dict[str, Any]:
+    init_db()
+    import sqlite3
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        success = ReplayDAO.delete(conn, replay_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Replay not found")
+        return {"status": "ok"}
+    finally:
+        conn.close()
