@@ -73,11 +73,11 @@ function CIBar({
       <div className="ci-bar-track">
         <div
           className="ci-bar-fill"
-          style={{ width: `${pct}%`, background: color, opacity: 0.6 }}
+          style={{ width: `${pct.toString()}%`, background: color, opacity: 0.6 }}
         />
         <div
           className="ci-bar-ci"
-          style={{ left: `${ciLeft}%`, width: `${ciWidthPct}%` }}
+          style={{ left: `${ciLeft.toString()}%`, width: `${ciWidthPct.toString()}%` }}
         />
       </div>
       <div className="ci-values">
@@ -110,7 +110,7 @@ export const ValidationDashboard: React.FC = () => {
       body: JSON.stringify({ num_seeds: numSeeds, duration }),
     })
       .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status.toString()}`);
         return r.json() as Promise<ValidationResult>;
       })
       .then((data) => {
@@ -144,7 +144,7 @@ export const ValidationDashboard: React.FC = () => {
               min={2}
               max={30}
               value={numSeeds}
-              onChange={(e) => setNumSeeds(Number(e.target.value))}
+              onChange={(e) => { setNumSeeds(Number(e.target.value)); }}
             />
           </div>
           <div className="validation-field">
@@ -155,7 +155,7 @@ export const ValidationDashboard: React.FC = () => {
               max={300}
               step={10}
               value={duration}
-              onChange={(e) => setDuration(Number(e.target.value))}
+              onChange={(e) => { setDuration(Number(e.target.value)); }}
             />
           </div>
           <button
@@ -262,7 +262,7 @@ export const ValidationDashboard: React.FC = () => {
           </div>
 
           {/* Per-seed runs table */}
-          {result.seedRuns && result.seedRuns.length > 0 && (
+          {result.seedRuns.length > 0 && (
             <div className="seed-runs-table">
               <h4>Per-Seed Raw Results ({result.numSeeds} seeds)</h4>
               <table>

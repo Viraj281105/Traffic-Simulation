@@ -28,6 +28,11 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     pool: "vmThreads",
+    server: {
+      deps: {
+        inline: ["@reduxjs/toolkit", "recharts"],
+      },
+    },
     coverage: {
       reporter: ["text", "lcov"],
       include: ["src/components/**", "src/services/**"],

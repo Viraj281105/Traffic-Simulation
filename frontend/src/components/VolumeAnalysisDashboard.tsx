@@ -108,7 +108,6 @@ export const VolumeAnalysisDashboard: React.FC = () => {
 
   // Sweep config form state
   const [sweepDuration, setSweepDuration] = useState(60);
-  const numSeeds = 1;
   const [randomSeed, setRandomSeed] = useState(42);
 
   const [isRunning, setIsRunning] = useState(false);
@@ -119,8 +118,8 @@ export const VolumeAnalysisDashboard: React.FC = () => {
   const fetchSweeps = useCallback(() => {
     fetch(`${API_BASE_URL}/api/v1/study/sweeps`)
       .then((r) => r.json())
-      .then((data: SavedSweep[]) => setSavedSweeps(data))
-      .catch(() => setSavedSweeps([]));
+      .then((data: SavedSweep[]) => { setSavedSweeps(data); })
+      .catch(() => { setSavedSweeps([]); });
   }, []);
 
   useEffect(() => {
@@ -157,7 +156,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
       }),
     })
       .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status.toString()}`);
         return r.json() as Promise<SweepSession>;
       })
       .then((data) => {
@@ -189,7 +188,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
               max={600}
               step={10}
               value={sweepDuration}
-              onChange={(e) => setSweepDuration(Number(e.target.value))}
+              onChange={(e) => { setSweepDuration(Number(e.target.value)); }}
             />
           </div>
           <div className="sweep-field">
@@ -198,7 +197,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
               type="number"
               min={1}
               value={randomSeed}
-              onChange={(e) => setRandomSeed(Number(e.target.value))}
+              onChange={(e) => { setRandomSeed(Number(e.target.value)); }}
             />
           </div>
           <div className="sweep-field" style={{ opacity: 0.5 }}>
@@ -217,7 +216,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
         {isRunning && (
           <div className="sweep-loading">
             <div className="spin" />
-            Running {numSeeds > 1 ? `${numSeeds} seeds × ` : ""}8 arrival rates — this may take 10–60s…
+            Running 8 arrival rates — this may take 10–60s…
           </div>
         )}
       </div>
@@ -231,7 +230,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
               <div
                 key={s.id}
                 className={`sweep-list-item ${selectedId === s.id ? "active" : ""}`}
-                onClick={() => loadSweep(s.id)}
+                onClick={() => { loadSweep(s.id); }}
               >
                 <span className="sweep-name">{s.name}</span>
                 <span className="sweep-meta">
@@ -288,7 +287,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                     <XAxis
                       dataKey="volume"
                       tick={{ fontSize: 10, fill: "#666" }}
-                      tickFormatter={(v: number) => `${v}`}
+                      tickFormatter={(v: number) => v.toString()}
                       label={{ value: "veh/h", position: "insideBottom", offset: -2, fill: "#555", fontSize: 10 }}
                     />
                     <YAxis tick={{ fontSize: 10, fill: "#666" }} />

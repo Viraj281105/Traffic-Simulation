@@ -111,13 +111,13 @@ export async function runVolumeSweep(params: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status.toString()}: ${res.statusText}`);
   return res.json();
 }
 
 /** List saved sweep sessions. */
 export async function listSweeps(limit = 20): Promise<unknown> {
-  return get(`/api/v1/study/sweeps?limit=${limit}`);
+  return get(`/api/v1/study/sweeps?limit=${limit.toString()}`);
 }
 
 /** Get a specific sweep session by ID. */
@@ -135,6 +135,6 @@ export async function runMonteCarlo(params: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status.toString()}: ${res.statusText}`);
   return res.json();
 }
