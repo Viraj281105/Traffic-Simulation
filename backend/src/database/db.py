@@ -1,11 +1,16 @@
+import os
 import sqlite3
 from typing import Generator
 
-DB_PATH = "simulation.db"
+DB_PATH = os.environ.get("DB_PATH", "simulation.db")
 
 
 def init_db() -> None:
     """Initializes the SQLite database tables if they do not exist."""
+    db_dir = os.path.dirname(DB_PATH)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
+
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
@@ -79,6 +84,9 @@ def init_db() -> None:
 
 def get_db_connection() -> Generator[sqlite3.Connection, None, None]:
     """Yields a database connection context manager."""
+    db_dir = os.path.dirname(DB_PATH)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     try:

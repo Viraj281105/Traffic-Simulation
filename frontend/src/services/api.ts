@@ -1,10 +1,6 @@
-/**
- * REST API client for the traffic simulation backend.
- * Base URL: http://localhost:8000
- * Pure TypeScript — zero React imports.
- */
+import { API_BASE_URL } from "../config";
 
-const BASE = "http://localhost:8000";
+const BASE = API_BASE_URL;
 
 async function post(path: string): Promise<unknown> {
   const res = await fetch(`${BASE}${path}`, { method: "POST" });
