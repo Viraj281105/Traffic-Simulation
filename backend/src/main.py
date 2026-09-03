@@ -861,6 +861,7 @@ class SaveReplayRequest(BaseModel):
 
 from src.database.replay_dao import ReplayDAO
 
+
 @app.post("/api/v1/replays")
 def save_replay(payload: SaveReplayRequest) -> Dict[str, Any]:
     init_db()
