@@ -2,9 +2,9 @@ name: Docker Container CI
 
 on:
   push:
-    branches: [ main, develop, backend ]
+    branches: [ main, develop, backend, "backend*", "feature/*" ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, develop, backend, "backend*" ]
 
 jobs:
   validate-compose:
