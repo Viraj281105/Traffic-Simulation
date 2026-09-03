@@ -52,6 +52,7 @@ In addition to system specifications, the repository maintains planning, workflo
 | **Architecture Decisions** | [docs/decisions/](docs/decisions/)                   | The Architecture Decision Record (ADR) library tracking historic context.      |
 | **Kanban & Roadmap**       | [docs/project-management/](docs/project-management/) | Milestones roadmap, label systems, and board configurations.                   |
 | **GitHub Issues**          | [docs/issues/](docs/issues/)                         | 61 deconstructed atomic engineering tasks partitioned by implementation phase. |
+| **Future Scope & Roadmap** | [docs/future-scope/](docs/future-scope/)             | Finalized roadmap & Google Maps-grade Digital Twin UI/UX innovation blueprints.|
 
 ## Performance Metrics
 
