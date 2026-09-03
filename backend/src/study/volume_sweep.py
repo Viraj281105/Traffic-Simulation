@@ -126,8 +126,16 @@ def run_volume_sweep_experiment(
                 else 0,
             )
 
-            sig_delay = round(sig_metrics.get("averageDelay", 0.0), 2)
-            round_delay = round(round_metrics.get("averageDelay", 0.0), 2)
+            sig_delay = round(
+                sig_metrics.get("averageDelay", sig_metrics.get("averageWaitTime", 0.0)),
+                2,
+            )
+            round_delay = round(
+                round_metrics.get(
+                    "averageDelay", round_metrics.get("averageWaitTime", 0.0)
+                ),
+                2,
+            )
             sig_tp = round(sig_metrics.get("throughput", 0.0), 1)
             round_tp = round(round_metrics.get("throughput", 0.0), 1)
             sig_q = round(sig_metrics.get("averageQueueLength", 0.0), 1)

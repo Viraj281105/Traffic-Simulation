@@ -97,3 +97,46 @@ export async function updateSimulationConfig(config: {
 export async function stopDualSimulation(): Promise<void> {
   await post("/api/simulation/dual/reset");
 }
+
+// ── Study / Analytics API ──────────────────────────────────────────────────
+
+/** Trigger a new volume sweep experiment. */
+export async function runVolumeSweep(params: {
+  duration?: number;
+  random_seed?: number;
+  time_step?: number;
+}): Promise<unknown> {
+  const res = await fetch(`${BASE}/api/v1/study/sweeps/run`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok)
+    throw new Error(`HTTP ${res.status.toString()}: ${res.statusText}`);
+  return res.json();
+}
+
+/** List saved sweep sessions. */
+export async function listSweeps(limit = 20): Promise<unknown> {
+  return get(`/api/v1/study/sweeps?limit=${limit.toString()}`);
+}
+
+/** Get a specific sweep session by ID. */
+export async function getSweep(id: string): Promise<unknown> {
+  return get(`/api/v1/study/sweeps/${id}`);
+}
+
+/** Run Monte Carlo statistical validation. */
+export async function runMonteCarlo(params: {
+  num_seeds?: number;
+  duration?: number;
+}): Promise<unknown> {
+  const res = await fetch(`${BASE}/api/v1/study/validate/monte-carlo`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok)
+    throw new Error(`HTTP ${res.status.toString()}: ${res.statusText}`);
+  return res.json();
+}
