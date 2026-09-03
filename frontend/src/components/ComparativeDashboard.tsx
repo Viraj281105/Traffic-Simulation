@@ -48,11 +48,31 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
       const delta = valA === 0 ? 0 : ((valB - valA) / valA) * 100;
       csv += `"${label}",${valA.toFixed(2)},${valB.toFixed(2)},${winner},${delta.toFixed(1)}%\n`;
     };
-    addRow("Average Wait Time", mSignal.averageWaitTime, mRound.averageWaitTime, true);
+    addRow(
+      "Average Wait Time",
+      mSignal.averageWaitTime,
+      mRound.averageWaitTime,
+      true,
+    );
     addRow("Throughput", mSignal.throughput, mRound.throughput, false);
-    addRow("Average Speed", mSignal.averageTravelSpeed, mRound.averageTravelSpeed, false);
-    addRow("Average Queue Length", mSignal.averageQueueLength, mRound.averageQueueLength, true);
-    addRow("Max Queue Length", mSignal.maxQueueLength, mRound.maxQueueLength, true);
+    addRow(
+      "Average Speed",
+      mSignal.averageTravelSpeed,
+      mRound.averageTravelSpeed,
+      false,
+    );
+    addRow(
+      "Average Queue Length",
+      mSignal.averageQueueLength,
+      mRound.averageQueueLength,
+      true,
+    );
+    addRow(
+      "Max Queue Length",
+      mSignal.maxQueueLength,
+      mRound.maxQueueLength,
+      true,
+    );
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -69,18 +89,46 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
 
   return (
     <div className="comparative-dashboard">
-      <div className="dashboard-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+      <div
+        className="dashboard-header"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "16px",
+        }}
+      >
         <div className="dashboard-insights">
-           <h3 style={{ margin: 0, fontSize: "14px", color: "var(--text-primary)" }}>Performance Insights</h3>
-           <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "var(--text-secondary)" }}>
-             Observe how the Roundabout typically reduces Average Wait Time and Queues during low-to-medium traffic, 
-             while the Fixed-Time Signal may offer better fairness or throughput under heavy, directional loads.
-           </p>
+          <h3
+            style={{
+              margin: 0,
+              fontSize: "14px",
+              color: "var(--text-primary)",
+            }}
+          >
+            Performance Insights
+          </h3>
+          <p
+            style={{
+              margin: "4px 0 0 0",
+              fontSize: "12px",
+              color: "var(--text-secondary)",
+            }}
+          >
+            Observe how the Roundabout typically reduces Average Wait Time and
+            Queues during low-to-medium traffic, while the Fixed-Time Signal may
+            offer better fairness or throughput under heavy, directional loads.
+          </p>
         </div>
         <button
           className="pb-btn pb-primary"
           onClick={handleDownloadReport}
-          style={{ padding: "8px 12px", fontSize: "12px", borderRadius: "4px", whiteSpace: "nowrap" }}
+          style={{
+            padding: "8px 12px",
+            fontSize: "12px",
+            borderRadius: "4px",
+            whiteSpace: "nowrap",
+          }}
         >
           📥 Export CSV
         </button>
@@ -142,12 +190,31 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
   );
 };
 
-export function CompactVehicleStatePanel({ counts }: { counts: VehicleCounts | null | undefined }) {
+export function CompactVehicleStatePanel({
+  counts,
+}: {
+  counts: VehicleCounts | null | undefined;
+}) {
   if (!counts) return null;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', minWidth: '70px', boxShadow: "var(--shadow-sm)" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "8px",
+        background: "var(--bg-secondary)",
+        padding: "12px",
+        borderRadius: "8px",
+        minWidth: "70px",
+        boxShadow: "var(--shadow-sm)",
+      }}
+    >
       <VerticalStateBox label="Active" value={counts.active} color="#3b82f6" />
-      <VerticalStateBox label="Appr." value={counts.approaching} color="#8b5cf6" />
+      <VerticalStateBox
+        label="Appr."
+        value={counts.approaching}
+        color="#8b5cf6"
+      />
       <VerticalStateBox label="Wait" value={counts.waiting} color="#ef4444" />
       <VerticalStateBox label="Cross" value={counts.crossing} color="#f59e0b" />
       <VerticalStateBox label="Exit" value={counts.exited} color="#10b981" />
@@ -155,11 +222,45 @@ export function CompactVehicleStatePanel({ counts }: { counts: VehicleCounts | n
   );
 }
 
-function VerticalStateBox({ label, value, color }: { label: string; value: number; color: string }) {
+function VerticalStateBox({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: number;
+  color: string;
+}) {
   return (
-    <div style={{ background: 'var(--bg-tertiary)', borderRadius: '4px', padding: '6px 4px', textAlign: 'center', borderLeft: `3px solid ${color}` }}>
-      <div style={{ fontSize: "14px", fontWeight: "bold", color: "var(--text-primary)" }}>{value}</div>
-      <div style={{ fontSize: "10px", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.2px", marginTop: "2px" }}>{label}</div>
+    <div
+      style={{
+        background: "var(--bg-tertiary)",
+        borderRadius: "4px",
+        padding: "6px 4px",
+        textAlign: "center",
+        borderLeft: `3px solid ${color}`,
+      }}
+    >
+      <div
+        style={{
+          fontSize: "14px",
+          fontWeight: "bold",
+          color: "var(--text-primary)",
+        }}
+      >
+        {value}
+      </div>
+      <div
+        style={{
+          fontSize: "10px",
+          color: "var(--text-secondary)",
+          textTransform: "uppercase",
+          letterSpacing: "0.2px",
+          marginTop: "2px",
+        }}
+      >
+        {label}
+      </div>
     </div>
   );
 }
@@ -170,7 +271,7 @@ function ComparisonRow({
   valB,
   lowerIsBetter,
   formatter,
-  insight
+  insight,
 }: {
   label: string;
   valA: number;
@@ -181,7 +282,7 @@ function ComparisonRow({
 }) {
   const diff = valB - valA;
   const pct = valA === 0 ? 0 : Math.abs((diff / valA) * 100);
-  
+
   let winner = "";
   if (valA !== valB) {
     if (lowerIsBetter) winner = valA < valB ? "sig" : "round";
@@ -189,22 +290,39 @@ function ComparisonRow({
   }
 
   const isBetterDiff = lowerIsBetter ? diff < 0 : diff > 0;
-  const diffColorClass = diff === 0 ? "neutral" : (isBetterDiff ? "good" : "bad");
+  const diffColorClass = diff === 0 ? "neutral" : isBetterDiff ? "good" : "bad";
 
   return (
     <tr>
       <td className="metric-name">
         <div>{label}</div>
-        <div style={{ fontSize: "11px", color: "var(--text-secondary)", fontWeight: "normal", marginTop: "2px" }}>{insight}</div>
+        <div
+          style={{
+            fontSize: "11px",
+            color: "var(--text-secondary)",
+            fontWeight: "normal",
+            marginTop: "2px",
+          }}
+        >
+          {insight}
+        </div>
       </td>
-      <td className={winner === "sig" ? "winner-cell" : ""}>{formatter(valA)}</td>
-      <td className={winner === "round" ? "winner-cell" : ""}>{formatter(valB)}</td>
+      <td className={winner === "sig" ? "winner-cell" : ""}>
+        {formatter(valA)}
+      </td>
+      <td className={winner === "round" ? "winner-cell" : ""}>
+        {formatter(valB)}
+      </td>
       <td className="diff-cell">
         <span className={`diff-badge ${diffColorClass}`}>
-          {pct > 0 && winner === "round" ? "+" : (pct > 0 && winner === "sig" ? "-" : "")}{fmt(pct)}%
+          {pct > 0 && winner === "round"
+            ? "+"
+            : pct > 0 && winner === "sig"
+              ? "-"
+              : ""}
+          {fmt(pct)}%
         </span>
       </td>
     </tr>
   );
 }
-

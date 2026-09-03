@@ -4,7 +4,10 @@ import { useSimulationPolling } from "./hooks/useSimulationPolling";
 import { IntersectionMap } from "./components/IntersectionMap";
 import { RoundaboutMap } from "./components/RoundaboutMap";
 import { MetricsSidebar } from "./components/MetricsSidebar";
-import { ComparativeDashboard, CompactVehicleStatePanel } from "./components/ComparativeDashboard";
+import {
+  ComparativeDashboard,
+  CompactVehicleStatePanel,
+} from "./components/ComparativeDashboard";
 import { PlaybackControls } from "./components/PlaybackControls";
 import { updateSimulationConfig } from "./services/api";
 import type {
@@ -40,8 +43,10 @@ export function App() {
     reset: singleReset,
   } = useSimulationPolling();
 
-  const [lastCompletedSnapshotDual, setLastCompletedSnapshotDual] = useState<DualSnapshot | null>(null);
-  const [lastCompletedSnapshotSingle, setLastCompletedSnapshotSingle] = useState<LiveSnapshot | null>(null);
+  const [lastCompletedSnapshotDual, setLastCompletedSnapshotDual] =
+    useState<DualSnapshot | null>(null);
+  const [lastCompletedSnapshotSingle, setLastCompletedSnapshotSingle] =
+    useState<LiveSnapshot | null>(null);
   const [prevDual, setPrevDual] = useState<DualSnapshot | null>(null);
   const [prevSingle, setPrevSingle] = useState<LiveSnapshot | null>(null);
   const [prevConfigKey, setPrevConfigKey] = useState("");
@@ -52,14 +57,24 @@ export function App() {
   // Capture the last snapshot with valid metrics/vehicles to display when initialized/stopped
   if (dualSnapshot !== prevDual) {
     setPrevDual(dualSnapshot);
-    if (dualSnapshot && (dualSnapshot.signal.simulationStatus === "running" || dualSnapshot.signal.simulationStatus === "completed" || dualSnapshot.signal.simulationStatus === "paused")) {
+    if (
+      dualSnapshot &&
+      (dualSnapshot.signal.simulationStatus === "running" ||
+        dualSnapshot.signal.simulationStatus === "completed" ||
+        dualSnapshot.signal.simulationStatus === "paused")
+    ) {
       setLastCompletedSnapshotDual(dualSnapshot);
     }
   }
 
   if (singleSnapshot !== prevSingle) {
     setPrevSingle(singleSnapshot);
-    if (singleSnapshot && (singleSnapshot.simulationStatus === "running" || singleSnapshot.simulationStatus === "completed" || singleSnapshot.simulationStatus === "paused")) {
+    if (
+      singleSnapshot &&
+      (singleSnapshot.simulationStatus === "running" ||
+        singleSnapshot.simulationStatus === "completed" ||
+        singleSnapshot.simulationStatus === "paused")
+    ) {
       setLastCompletedSnapshotSingle(singleSnapshot);
     }
   }
@@ -104,7 +119,8 @@ export function App() {
   let metricsSnapshotDual: DualSnapshot | null = dualSnapshot;
   if (dualSnapshot) {
     if (
-      (dualSnapshot.signal.simulationStatus === "initialized" || dualSnapshot.signal.simulationStatus === "stopped") &&
+      (dualSnapshot.signal.simulationStatus === "initialized" ||
+        dualSnapshot.signal.simulationStatus === "stopped") &&
       lastCompletedSnapshotDual
     ) {
       metricsSnapshotDual = lastCompletedSnapshotDual;
@@ -116,7 +132,8 @@ export function App() {
   let metricsSnapshotSingle: LiveSnapshot | null = singleSnapshot;
   if (singleSnapshot) {
     if (
-      (singleSnapshot.simulationStatus === "initialized" || singleSnapshot.simulationStatus === "stopped") &&
+      (singleSnapshot.simulationStatus === "initialized" ||
+        singleSnapshot.simulationStatus === "stopped") &&
       lastCompletedSnapshotSingle
     ) {
       metricsSnapshotSingle = lastCompletedSnapshotSingle;
@@ -351,14 +368,31 @@ export function App() {
 
       {/* ── Main content ──────────────────────────────────────────────── */}
       {viewMode === "comparative" ? (
-        <main className="app-main comparison-container" style={{ flexDirection: 'column' }}>
-          <div className="comparison-maps-row" style={{ display: 'flex', flex: 1.2, minHeight: 0 }}>
+        <main
+          className="app-main comparison-container"
+          style={{ flexDirection: "column" }}
+        >
+          <div
+            className="comparison-maps-row"
+            style={{ display: "flex", flex: 1.2, minHeight: 0 }}
+          >
             {/* Left Column: Fixed-Time Signal */}
             <div className="comparison-column" style={{ flex: 1 }}>
               <div className="column-header">
-                <span className="column-title">🚦 Fixed-Time Signal Control</span>
+                <span className="column-title">
+                  🚦 Fixed-Time Signal Control
+                </span>
               </div>
-              <div className="canvas-wrapper" style={{ display: "flex", flexDirection: "row", alignItems: "flex-start", gap: "16px", padding: "0 16px" }}>
+              <div
+                className="canvas-wrapper"
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "flex-start",
+                  gap: "16px",
+                  padding: "0 16px",
+                }}
+              >
                 <IntersectionMap
                   snapshot={dualSnapshot?.signal ?? null}
                   lanesNorth={lanesNorth}
@@ -374,7 +408,9 @@ export function App() {
                   height={450}
                 />
                 {metricsSnapshotDual && (
-                  <CompactVehicleStatePanel counts={metricsSnapshotDual.signal.vehicleCounts} />
+                  <CompactVehicleStatePanel
+                    counts={metricsSnapshotDual.signal.vehicleCounts}
+                  />
                 )}
               </div>
             </div>
@@ -384,7 +420,16 @@ export function App() {
               <div className="column-header">
                 <span className="column-title">🔄 Modern Roundabout</span>
               </div>
-              <div className="canvas-wrapper" style={{ display: "flex", flexDirection: "row", alignItems: "flex-start", gap: "16px", padding: "0 16px" }}>
+              <div
+                className="canvas-wrapper"
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "flex-start",
+                  gap: "16px",
+                  padding: "0 16px",
+                }}
+              >
                 <RoundaboutMap
                   snapshot={dualSnapshot?.roundabout ?? null}
                   laneWidth={laneWidth}
@@ -394,20 +439,33 @@ export function App() {
                   height={450}
                 />
                 {metricsSnapshotDual && (
-                  <CompactVehicleStatePanel counts={{
-                    ...metricsSnapshotDual.roundabout.vehicleCounts,
-                    crossing: metricsSnapshotDual.roundabout.vehicleCounts.crossing + metricsSnapshotDual.roundabout.vehicleCounts.inRoundabout
-                  }} />
+                  <CompactVehicleStatePanel
+                    counts={{
+                      ...metricsSnapshotDual.roundabout.vehicleCounts,
+                      crossing:
+                        metricsSnapshotDual.roundabout.vehicleCounts.crossing +
+                        metricsSnapshotDual.roundabout.vehicleCounts
+                          .inRoundabout,
+                    }}
+                  />
                 )}
               </div>
             </div>
           </div>
-          
-          <div className="comparison-metrics-row" style={{ flex: 1, minHeight: 0, borderTop: '1px solid var(--border)', display: 'flex' }}>
-             <ComparativeDashboard
-                snapshot={metricsSnapshotDual}
-                connectionStatus={activeConnectionStatus}
-              />
+
+          <div
+            className="comparison-metrics-row"
+            style={{
+              flex: 1,
+              minHeight: 0,
+              borderTop: "1px solid var(--border)",
+              display: "flex",
+            }}
+          >
+            <ComparativeDashboard
+              snapshot={metricsSnapshotDual}
+              connectionStatus={activeConnectionStatus}
+            />
           </div>
         </main>
       ) : (
