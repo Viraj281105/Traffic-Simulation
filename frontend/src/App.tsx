@@ -40,30 +40,21 @@ export function App() {
     reset: singleReset,
   } = useSimulationPolling();
 
-  const [lastCompletedSnapshotDual, setLastCompletedSnapshotDual] =
-    useState<DualSnapshot | null>(null);
-  const [lastCompletedSnapshotSingle, setLastCompletedSnapshotSingle] =
-    useState<LiveSnapshot | null>(null);
-  const [prevSnapshot, setPrevSnapshot] = useState<
-    LiveSnapshot | DualSnapshot | null
-  >(null);
+  const lastCompletedDualRef = React.useRef<DualSnapshot | null>(null);
+  const lastCompletedSingleRef = React.useRef<LiveSnapshot | null>(null);
   const [prevConfigKey, setPrevConfigKey] = useState("");
 
   const dualSnapshot = snapshot && "signal" in snapshot ? snapshot : null;
   const singleSnapshot = snapshot && !("signal" in snapshot) ? snapshot : null;
 
   // Capture the last snapshot with valid metrics/vehicles to display when initialized/stopped
-  useEffect(() => {
-    if (dualSnapshot && (dualSnapshot.signal.simulationStatus === "running" || dualSnapshot.signal.simulationStatus === "completed" || dualSnapshot.signal.simulationStatus === "paused")) {
-      setLastCompletedSnapshotDual(dualSnapshot);
-    }
-  }, [dualSnapshot]);
+  if (dualSnapshot && (dualSnapshot.signal.simulationStatus === "running" || dualSnapshot.signal.simulationStatus === "completed" || dualSnapshot.signal.simulationStatus === "paused")) {
+    lastCompletedDualRef.current = dualSnapshot;
+  }
 
-  useEffect(() => {
-    if (singleSnapshot && (singleSnapshot.simulationStatus === "running" || singleSnapshot.simulationStatus === "completed" || singleSnapshot.simulationStatus === "paused")) {
-      setLastCompletedSnapshotSingle(singleSnapshot);
-    }
-  }, [singleSnapshot]);
+  if (singleSnapshot && (singleSnapshot.simulationStatus === "running" || singleSnapshot.simulationStatus === "completed" || singleSnapshot.simulationStatus === "paused")) {
+    lastCompletedSingleRef.current = singleSnapshot;
+  }
 
   // Canvas config state
   const [lanes, setLanes] = useState(2);
@@ -97,8 +88,8 @@ export function App() {
 
   if (configKey !== prevConfigKey) {
     setPrevConfigKey(configKey);
-    setLastCompletedSnapshotDual(null);
-    setLastCompletedSnapshotSingle(null);
+    lastCompletedDualRef.current = null;
+    lastCompletedSingleRef.current = null;
   }
 
   // Determine displayed snapshot for metrics
@@ -106,24 +97,24 @@ export function App() {
   if (dualSnapshot) {
     if (
       (dualSnapshot.signal.simulationStatus === "initialized" || dualSnapshot.signal.simulationStatus === "stopped") &&
-      lastCompletedSnapshotDual
+      lastCompletedDualRef.current
     ) {
-      metricsSnapshotDual = lastCompletedSnapshotDual;
+      metricsSnapshotDual = lastCompletedDualRef.current;
     }
-  } else if (lastCompletedSnapshotDual) {
-    metricsSnapshotDual = lastCompletedSnapshotDual;
+  } else if (lastCompletedDualRef.current) {
+    metricsSnapshotDual = lastCompletedDualRef.current;
   }
 
   let metricsSnapshotSingle: LiveSnapshot | null = singleSnapshot;
   if (singleSnapshot) {
     if (
       (singleSnapshot.simulationStatus === "initialized" || singleSnapshot.simulationStatus === "stopped") &&
-      lastCompletedSnapshotSingle
+      lastCompletedSingleRef.current
     ) {
-      metricsSnapshotSingle = lastCompletedSnapshotSingle;
+      metricsSnapshotSingle = lastCompletedSingleRef.current;
     }
-  } else if (lastCompletedSnapshotSingle) {
-    metricsSnapshotSingle = lastCompletedSnapshotSingle;
+  } else if (lastCompletedSingleRef.current) {
+    metricsSnapshotSingle = lastCompletedSingleRef.current;
   }
 
   // Sync config with backend on change (debounced to prevent flooding)
@@ -374,7 +365,7 @@ export function App() {
                   width={600}
                   height={450}
                 />
-                {metricsSnapshotDual && metricsSnapshotDual.signal && (
+                {metricsSnapshotDual && (
                   <CompactVehicleStatePanel counts={metricsSnapshotDual.signal.vehicleCounts} />
                 )}
               </div>
@@ -394,7 +385,7 @@ export function App() {
                   width={600}
                   height={450}
                 />
-                {metricsSnapshotDual && metricsSnapshotDual.roundabout && (
+                {metricsSnapshotDual && (
                   <CompactVehicleStatePanel counts={{
                     ...metricsSnapshotDual.roundabout.vehicleCounts,
                     crossing: metricsSnapshotDual.roundabout.vehicleCounts.crossing + metricsSnapshotDual.roundabout.vehicleCounts.inRoundabout

@@ -1,5 +1,5 @@
 import React from "react";
-import type { DualSnapshot, LiveSnapshot } from "../types/simulation";
+import type { DualSnapshot, VehicleCounts } from "../types/simulation";
 import type { ConnectionStatus } from "../services/websocket";
 import "./ComparativeDashboard.css";
 
@@ -16,7 +16,7 @@ function fmt(val: number | undefined, decimals = 1): string {
 export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
   snapshot,
 }) => {
-  if (!snapshot || !snapshot.signal || !snapshot.roundabout) {
+  if (!snapshot) {
     return (
       <div className="comparative-dashboard empty">
         <p>Waiting for simulation data...</p>
@@ -26,49 +26,45 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
 
   const mSignal = snapshot.signal.metrics;
   const mRound = snapshot.roundabout.metrics;
-  const vcSignal = snapshot.signal.vehicleCounts;
-  const vcRound = snapshot.roundabout.vehicleCounts;
 
   const handleDownloadReport = () => {
-    if (mSignal && mRound) {
-      let csv = "Metric Name,Fixed-Time Signal,Roundabout,Winner,Delta (%)\n";
-      const addRow = (
-        label: string,
-        valA: number,
-        valB: number,
-        lowerIsBetter = true,
-      ) => {
-        const winner =
-          valA === valB
-            ? "Tie"
-            : lowerIsBetter
-              ? valA < valB
-                ? "Signal"
-                : "Roundabout"
-              : valA > valB
-                ? "Signal"
-                : "Roundabout";
-        const delta = valA === 0 ? 0 : ((valB - valA) / valA) * 100;
-        csv += `"${label}",${valA.toFixed(2)},${valB.toFixed(2)},${winner},${delta.toFixed(1)}%\n`;
-      };
-      addRow("Average Wait Time", mSignal.averageWaitTime, mRound.averageWaitTime, true);
-      addRow("Throughput", mSignal.throughput, mRound.throughput, false);
-      addRow("Average Speed", mSignal.averageTravelSpeed ?? 0, mRound.averageTravelSpeed ?? 0, false);
-      addRow("Average Queue Length", mSignal.averageQueueLength ?? 0, mRound.averageQueueLength ?? 0, true);
-      addRow("Max Queue Length", mSignal.maxQueueLength, mRound.maxQueueLength, true);
+    let csv = "Metric Name,Fixed-Time Signal,Roundabout,Winner,Delta (%)\n";
+    const addRow = (
+      label: string,
+      valA: number,
+      valB: number,
+      lowerIsBetter = true,
+    ) => {
+      const winner =
+        valA === valB
+          ? "Tie"
+          : lowerIsBetter
+            ? valA < valB
+              ? "Signal"
+              : "Roundabout"
+            : valA > valB
+              ? "Signal"
+              : "Roundabout";
+      const delta = valA === 0 ? 0 : ((valB - valA) / valA) * 100;
+      csv += `"${label}",${valA.toFixed(2)},${valB.toFixed(2)},${winner},${delta.toFixed(1)}%\n`;
+    };
+    addRow("Average Wait Time", mSignal.averageWaitTime, mRound.averageWaitTime, true);
+    addRow("Throughput", mSignal.throughput, mRound.throughput, false);
+    addRow("Average Speed", mSignal.averageTravelSpeed, mRound.averageTravelSpeed, false);
+    addRow("Average Queue Length", mSignal.averageQueueLength, mRound.averageQueueLength, true);
+    addRow("Max Queue Length", mSignal.maxQueueLength, mRound.maxQueueLength, true);
 
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute(
-        "download",
-        `comparative_report_${Date.now().toString()}.csv`,
-      );
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `comparative_report_${Date.now().toString()}.csv`,
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -118,16 +114,16 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
           />
           <ComparisonRow
             label="Avg Speed (m/s)"
-            valA={mSignal.averageTravelSpeed ?? 0}
-            valB={mRound.averageTravelSpeed ?? 0}
+            valA={mSignal.averageTravelSpeed}
+            valB={mRound.averageTravelSpeed}
             lowerIsBetter={false}
             formatter={(v) => fmt(v)}
             insight="Higher average speed indicates better flow."
           />
           <ComparisonRow
             label="Average Queue"
-            valA={mSignal.averageQueueLength ?? 0}
-            valB={mRound.averageQueueLength ?? 0}
+            valA={mSignal.averageQueueLength}
+            valB={mRound.averageQueueLength}
             lowerIsBetter={true}
             formatter={(v) => fmt(v)}
             insight="Signals usually have longer queues due to red phases."
@@ -146,7 +142,7 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
   );
 };
 
-export function CompactVehicleStatePanel({ counts }: { counts: any }) {
+export function CompactVehicleStatePanel({ counts }: { counts: VehicleCounts | null | undefined }) {
   if (!counts) return null;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', minWidth: '70px', boxShadow: "var(--shadow-sm)" }}>
