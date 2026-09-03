@@ -9,7 +9,14 @@ export interface SavedReplay {
   config: {
     simulation?: { duration?: number; randomSeed?: number };
     geometry?: { intersectionType?: string };
-    roads?: { lanesPerApproach?: { north?: number; south?: number; east?: number; west?: number } };
+    roads?: {
+      lanesPerApproach?: {
+        north?: number;
+        south?: number;
+        east?: number;
+        west?: number;
+      };
+    };
     traffic?: { arrivalRate?: number };
   };
   metrics: {
@@ -23,7 +30,9 @@ interface HistoryDashboardProps {
   onReplay: (replay: SavedReplay) => void;
 }
 
-export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({ onReplay }) => {
+export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
+  onReplay,
+}) => {
   const [replays, setReplays] = useState<SavedReplay[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -59,14 +68,20 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({ onReplay }) 
   };
 
   if (loading) {
-    return <div className="history-dashboard"><p>Loading history...</p></div>;
+    return (
+      <div className="history-dashboard">
+        <p>Loading history...</p>
+      </div>
+    );
   }
 
   if (replays.length === 0) {
     return (
       <div className="history-dashboard empty">
         <p>No saved simulations found.</p>
-        <p className="hint">Run a simulation and click "Save to History" to see it here.</p>
+        <p className="hint">
+          Run a simulation and click "Save to History" to see it here.
+        </p>
       </div>
     );
   }
@@ -92,34 +107,53 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({ onReplay }) 
         <tbody>
           {replays.map((r) => {
             const date = new Date(r.created_at).toLocaleString();
-            const type = r.config.geometry?.intersectionType === "roundabout" ? "🔄 Roundabout" : "🚦 Signal";
-            const isDual = r.metrics.signal !== undefined && r.metrics.roundabout !== undefined;
+            const type =
+              r.config.geometry?.intersectionType === "roundabout"
+                ? "🔄 Roundabout"
+                : "🚦 Signal";
+            const isDual =
+              r.metrics.signal !== undefined &&
+              r.metrics.roundabout !== undefined;
             const displayType = isDual ? "📊 Comparative" : type;
-            
+
             let awt = "—";
             let throughput = "—";
             if (isDual && r.metrics.signal && r.metrics.roundabout) {
-                awt = `S: ${r.metrics.signal.averageWaitTime.toFixed(1)} / R: ${r.metrics.roundabout.averageWaitTime.toFixed(1)}`;
-                throughput = `S: ${String(r.metrics.signal.throughput)} / R: ${String(r.metrics.roundabout.throughput)}`;
+              awt = `S: ${r.metrics.signal.averageWaitTime.toFixed(1)} / R: ${r.metrics.roundabout.averageWaitTime.toFixed(1)}`;
+              throughput = `S: ${String(r.metrics.signal.throughput)} / R: ${String(r.metrics.roundabout.throughput)}`;
             } else if (r.metrics.averageWaitTime !== undefined) {
-                awt = r.metrics.averageWaitTime.toFixed(1);
-                throughput = String(r.metrics.throughput ?? 0);
+              awt = r.metrics.averageWaitTime.toFixed(1);
+              throughput = String(r.metrics.throughput ?? 0);
             }
 
             return (
               <tr key={r.id}>
                 <td>{date}</td>
-                <td><strong>{r.name}</strong></td>
+                <td>
+                  <strong>{r.name}</strong>
+                </td>
                 <td>{displayType}</td>
-                <td style={{ fontFamily: "monospace" }}>{String(r.config.simulation?.randomSeed)}</td>
+                <td style={{ fontFamily: "monospace" }}>
+                  {String(r.config.simulation?.randomSeed)}
+                </td>
                 <td>{awt}</td>
                 <td>{throughput}</td>
                 <td>
                   <div style={{ display: "flex", gap: "8px" }}>
-                    <button className="pb-btn pb-primary" onClick={() => { onReplay(r); }}>
+                    <button
+                      className="pb-btn pb-primary"
+                      onClick={() => {
+                        onReplay(r);
+                      }}
+                    >
                       ▶ Replay
                     </button>
-                    <button className="pb-btn pb-danger" onClick={() => { setDeletingId(r.id); }}>
+                    <button
+                      className="pb-btn pb-danger"
+                      onClick={() => {
+                        setDeletingId(r.id);
+                      }}
+                    >
                       🗑 Delete
                     </button>
                   </div>
@@ -134,10 +168,27 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({ onReplay }) 
         <div className="modal-overlay">
           <div className="modal-content">
             <h4>Confirm Deletion</h4>
-            <p>Are you sure you want to delete this simulation? This action cannot be undone.</p>
+            <p>
+              Are you sure you want to delete this simulation? This action
+              cannot be undone.
+            </p>
             <div className="modal-actions">
-              <button className="pb-btn" onClick={() => { setDeletingId(null); }}>Cancel</button>
-              <button className="pb-btn pb-danger" onClick={() => { confirmDelete(deletingId); }}>Delete</button>
+              <button
+                className="pb-btn"
+                onClick={() => {
+                  setDeletingId(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className="pb-btn pb-danger"
+                onClick={() => {
+                  confirmDelete(deletingId);
+                }}
+              >
+                Delete
+              </button>
             </div>
           </div>
         </div>

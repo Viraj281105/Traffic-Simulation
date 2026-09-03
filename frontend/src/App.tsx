@@ -27,7 +27,9 @@ export function App() {
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => { setToastMessage(null); }, 3000);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 3000);
   };
 
   const mode = viewMode === "comparative" ? "dual" : "single";
@@ -247,7 +249,8 @@ export function App() {
   const handleSaveHistory = () => {
     let currentDuration = duration;
     if (viewMode === "comparative" && metricsSnapshotDual) {
-      currentDuration = metricsSnapshotDual.elapsed || metricsSnapshotDual.signal.timestamp;
+      currentDuration =
+        metricsSnapshotDual.elapsed || metricsSnapshotDual.signal.timestamp;
     } else if (viewMode !== "comparative" && metricsSnapshotSingle) {
       currentDuration = metricsSnapshotSingle.timestamp;
     } else if (playbackEnvelope?.timestamp) {
@@ -260,37 +263,51 @@ export function App() {
 
     const configToSave = {
       simulation: { duration: currentDuration, randomSeed },
-      geometry: { intersectionType: viewMode === "roundabout" ? "roundabout" : "fixed_time_signal" },
-      roads: { lanesPerApproach: { north: lanesNorth, south: lanesSouth, east: lanesEast, west: lanesWest } },
-      traffic: { arrivalRate }
+      geometry: {
+        intersectionType:
+          viewMode === "roundabout" ? "roundabout" : "fixed_time_signal",
+      },
+      roads: {
+        lanesPerApproach: {
+          north: lanesNorth,
+          south: lanesSouth,
+          east: lanesEast,
+          west: lanesWest,
+        },
+      },
+      traffic: { arrivalRate },
     };
-    
+
     let metricsToSave: Record<string, unknown> = {};
     if (viewMode === "comparative" && metricsSnapshotDual) {
       metricsToSave = {
         signal: metricsSnapshotDual.signal.metrics,
-        roundabout: metricsSnapshotDual.roundabout.metrics
+        roundabout: metricsSnapshotDual.roundabout.metrics,
       };
     } else if (viewMode !== "comparative" && metricsSnapshotSingle) {
-      metricsToSave = (metricsSnapshotSingle as unknown as { metrics: Record<string, unknown> }).metrics;
+      metricsToSave = (
+        metricsSnapshotSingle as unknown as { metrics: Record<string, unknown> }
+      ).metrics;
     }
 
     const payload = {
       name: `${viewMode.toUpperCase()} Run - ${new Date().toLocaleTimeString()}`,
       config: configToSave,
-      metrics: metricsToSave
+      metrics: metricsToSave,
     };
 
     fetch("http://localhost:8000/api/v1/replays", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     })
-    .then(r => r.json())
-    .then(() => {
-      showToast("✅ Simulation saved to history!");
-    })
-    .catch((e: unknown) => { console.error(e); });
+      .then((r) => r.json())
+      .then(() => {
+        showToast("✅ Simulation saved to history!");
+      })
+      .catch((e: unknown) => {
+        console.error(e);
+      });
   };
 
   const handleReplay = (replay: SavedReplay) => {
@@ -299,8 +316,10 @@ export function App() {
     setArrivalRate(replay.config.traffic?.arrivalRate || 0.3);
     setDuration(replay.config.simulation?.duration || 300);
     setRandomSeed(replay.config.simulation?.randomSeed || 42);
-    
-    const isDual = replay.metrics.signal !== undefined && replay.metrics.roundabout !== undefined;
+
+    const isDual =
+      replay.metrics.signal !== undefined &&
+      replay.metrics.roundabout !== undefined;
     if (isDual) {
       setViewMode("comparative");
     } else {
@@ -546,19 +565,31 @@ export function App() {
               flexDirection: "column",
             }}
           >
-            <div style={{ padding: "8px 16px", display: "flex", justifyContent: "flex-end" }}>
-              <button 
-                className="pb-btn pb-primary" 
+            <div
+              style={{
+                padding: "8px 16px",
+                display: "flex",
+                justifyContent: "flex-end",
+              }}
+            >
+              <button
+                className="pb-btn pb-primary"
                 onClick={handleSaveHistory}
                 disabled={activeIsPlaying || activeReplay !== null}
-                title={activeReplay ? "Cannot save a replay" : "Save this simulation to history"}
+                title={
+                  activeReplay
+                    ? "Cannot save a replay"
+                    : "Save this simulation to history"
+                }
               >
                 💾 Save to History
               </button>
             </div>
             <ComparativeDashboard
               snapshot={
-                (activeReplay && activeReplay.metrics.signal && activeReplay.metrics.roundabout)
+                activeReplay &&
+                activeReplay.metrics.signal &&
+                activeReplay.metrics.roundabout
                   ? ({
                       signal: { metrics: activeReplay.metrics.signal },
                       roundabout: { metrics: activeReplay.metrics.roundabout },
@@ -599,20 +630,32 @@ export function App() {
             )}
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ padding: "8px 16px", display: "flex", justifyContent: "flex-end" }}>
-              <button 
-                className="pb-btn pb-primary" 
+            <div
+              style={{
+                padding: "8px 16px",
+                display: "flex",
+                justifyContent: "flex-end",
+              }}
+            >
+              <button
+                className="pb-btn pb-primary"
                 onClick={handleSaveHistory}
                 disabled={activeIsPlaying || activeReplay !== null}
-                title={activeReplay ? "Cannot save a replay" : "Save this simulation to history"}
+                title={
+                  activeReplay
+                    ? "Cannot save a replay"
+                    : "Save this simulation to history"
+                }
               >
                 💾 Save to History
               </button>
             </div>
             <MetricsSidebar
               snapshot={
-                (activeReplay && "averageWaitTime" in activeReplay.metrics)
-                  ? ({ metrics: activeReplay.metrics } as unknown as LiveSnapshot)
+                activeReplay && "averageWaitTime" in activeReplay.metrics
+                  ? ({
+                      metrics: activeReplay.metrics,
+                    } as unknown as LiveSnapshot)
                   : metricsSnapshotSingle
               }
               connectionStatus={activeConnectionStatus}
@@ -634,11 +677,7 @@ export function App() {
       </footer>
 
       {/* ── Toast Notification ────────────────────────────────────────── */}
-      {toastMessage && (
-        <div className="toast-notification">
-          {toastMessage}
-        </div>
-      )}
+      {toastMessage && <div className="toast-notification">{toastMessage}</div>}
     </div>
   );
 }
