@@ -11,6 +11,7 @@ import {
 import { PlaybackControls } from "./components/PlaybackControls";
 import { HistoryDashboard, SavedReplay } from "./components/HistoryDashboard";
 import { updateSimulationConfig } from "./services/api";
+import { API_BASE_URL } from "./config";
 import type {
   LiveSnapshot,
   DualSnapshot,
@@ -296,7 +297,7 @@ export function App() {
       metrics: metricsToSave,
     };
 
-    fetch("http://localhost:8000/api/v1/replays", {
+    fetch(`${API_BASE_URL}/api/v1/replays`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
