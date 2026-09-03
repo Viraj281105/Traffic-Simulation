@@ -1,0 +1,326 @@
+/* ── Statistical Validation Dashboard ───────────────────────────────────── */
+
+.validation-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px;
+  height: 100%;
+  overflow-y: auto;
+  background: var(--bg, #0d1b2a);
+  color: var(--text, #e0e6f0);
+  box-sizing: border-box;
+}
+
+/* ── Trigger Panel ─────────────────────────────────────────────────────────── */
+
+.validation-trigger-panel {
+  background: rgba(155, 93, 229, 0.06);
+  border: 1px solid rgba(155, 93, 229, 0.22);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+
+.validation-trigger-panel h3 {
+  margin: 0 0 14px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #9b5de5;
+}
+
+.validation-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: flex-end;
+}
+
+.validation-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 120px;
+}
+
+.validation-field label {
+  font-size: 11px;
+  color: #888;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.validation-field input[type="number"] {
+  background: #1a2a3d;
+  border: 1px solid #2a3d56;
+  border-radius: 6px;
+  color: #e0e6f0;
+  padding: 7px 10px;
+  font-size: 13px;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.validation-field input[type="number"]:focus {
+  outline: none;
+  border-color: #9b5de5;
+}
+
+.validation-run-btn {
+  background: linear-gradient(135deg, #9b5de5, #6b3db5);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.2s, transform 0.1s;
+  height: 36px;
+}
+
+.validation-run-btn:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.validation-run-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.validation-error {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 65, 54, 0.12);
+  border: 1px solid rgba(255, 65, 54, 0.25);
+  border-radius: 6px;
+  color: #ff6b6b;
+  font-size: 12px;
+}
+
+.validation-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px;
+  color: #888;
+  font-size: 13px;
+}
+
+.spin-purple {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(155, 93, 229, 0.2);
+  border-top-color: #9b5de5;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Verdict Card ─────────────────────────────────────────────────────────── */
+
+.verdict-card {
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.verdict-card.significant {
+  background: rgba(46, 204, 64, 0.08);
+  border: 1px solid rgba(46, 204, 64, 0.25);
+}
+
+.verdict-card.not-significant {
+  background: rgba(255, 107, 107, 0.08);
+  border: 1px solid rgba(255, 107, 107, 0.2);
+}
+
+.verdict-icon {
+  font-size: 28px;
+}
+
+.verdict-text strong {
+  font-size: 14px;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.verdict-text span {
+  font-size: 12px;
+  color: #888;
+  line-height: 1.5;
+}
+
+/* ── Stats grid ───────────────────────────────────────────────────────────── */
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 800px) {
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+}
+
+.stat-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.stat-card h4 {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #a8c0e0;
+  text-transform: capitalize;
+}
+
+.ci-comparison {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ci-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ci-label {
+  font-size: 11px;
+  color: #888;
+  font-weight: 500;
+}
+
+.ci-bar-track {
+  position: relative;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.ci-bar-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.ci-bar-ci {
+  position: absolute;
+  top: 2px;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 2px;
+}
+
+.ci-values {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.ci-mean {
+  font-weight: 600;
+}
+
+.ci-range {
+  color: #666;
+}
+
+/* ── Seed runs table ─────────────────────────────────────────────────────── */
+
+.seed-runs-table {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  overflow: auto;
+}
+
+.seed-runs-table h4 {
+  margin: 0;
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #a8c0e0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.seed-runs-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.seed-runs-table th {
+  padding: 8px 12px;
+  text-align: right;
+  color: #666;
+  font-weight: 500;
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.seed-runs-table th:first-child {
+  text-align: left;
+}
+
+.seed-runs-table td {
+  padding: 7px 12px;
+  text-align: right;
+  color: #c0cfe0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.seed-runs-table td:first-child {
+  text-align: left;
+  font-family: monospace;
+  color: #888;
+}
+
+.seed-runs-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* ── Significance summary ─────────────────────────────────────────────────── */
+
+.significance-tags {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sig-tag {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.sig-tag.yes {
+  background: rgba(46, 204, 64, 0.12);
+  color: #2ecc40;
+  border: 1px solid rgba(46, 204, 64, 0.25);
+}
+
+.sig-tag.no {
+  background: rgba(136, 136, 136, 0.12);
+  color: #888;
+  border: 1px solid rgba(136, 136, 136, 0.2);
+}

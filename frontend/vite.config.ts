@@ -23,4 +23,14 @@ export default defineConfig({
       },
     },
   },
+  test: {
+    globals: true,
+    environment: "jsdom",
+    setupFiles: ["./src/test/setup.ts"],
+    pool: "vmThreads",
+    coverage: {
+      reporter: ["text", "lcov"],
+      include: ["src/components/**", "src/services/**"],
+    },
+  },
 });

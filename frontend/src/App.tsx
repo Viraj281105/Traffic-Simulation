@@ -10,6 +10,8 @@ import {
 } from "./components/ComparativeDashboard";
 import { PlaybackControls } from "./components/PlaybackControls";
 import { HistoryDashboard, SavedReplay } from "./components/HistoryDashboard";
+import { VolumeAnalysisDashboard } from "./components/VolumeAnalysisDashboard";
+import { ValidationDashboard } from "./components/ValidationDashboard";
 import { updateSimulationConfig } from "./services/api";
 import { API_BASE_URL } from "./config";
 import type {
@@ -21,7 +23,13 @@ import "./App.css";
 
 export function App() {
   const [viewMode, setViewMode] = useState<
-    "signal" | "roundabout" | "comparative" | "single" | "history"
+    | "signal"
+    | "roundabout"
+    | "comparative"
+    | "single"
+    | "history"
+    | "volume"
+    | "validation"
   >("comparative");
   const [activeReplay, setActiveReplay] = useState<SavedReplay | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -379,6 +387,22 @@ export function App() {
           >
             📚 History
           </button>
+          <button
+            className={`tab-btn ${viewMode === "volume" ? "active" : ""}`}
+            onClick={() => {
+              setViewMode("volume");
+            }}
+          >
+            📈 Volume Analysis
+          </button>
+          <button
+            className={`tab-btn ${viewMode === "validation" ? "active" : ""}`}
+            onClick={() => {
+              setViewMode("validation");
+            }}
+          >
+            🔬 Validation
+          </button>
         </div>
 
         <div className="header-right">
@@ -604,6 +628,14 @@ export function App() {
       ) : viewMode === "history" ? (
         <main className="app-main" style={{ overflow: "hidden" }}>
           <HistoryDashboard onReplay={handleReplay} />
+        </main>
+      ) : viewMode === "volume" ? (
+        <main className="app-main" style={{ overflow: "hidden" }}>
+          <VolumeAnalysisDashboard />
+        </main>
+      ) : viewMode === "validation" ? (
+        <main className="app-main" style={{ overflow: "hidden" }}>
+          <ValidationDashboard />
         </main>
       ) : (
         <main className="app-main">

@@ -1,0 +1,322 @@
+/* ── Volume Analysis Dashboard ────────────────────────────────────────────── */
+
+.volume-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px;
+  height: 100%;
+  overflow-y: auto;
+  background: var(--bg, #0d1b2a);
+  color: var(--text, #e0e6f0);
+  box-sizing: border-box;
+}
+
+/* ── Trigger Panel ─────────────────────────────────────────────────────────── */
+
+.sweep-trigger-panel {
+  background: rgba(77, 150, 255, 0.06);
+  border: 1px solid rgba(77, 150, 255, 0.2);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+
+.sweep-trigger-panel h3 {
+  margin: 0 0 14px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #4d96ff;
+}
+
+.sweep-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: flex-end;
+}
+
+.sweep-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 130px;
+}
+
+.sweep-field label {
+  font-size: 11px;
+  color: #888;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sweep-field input[type="number"] {
+  background: #1a2a3d;
+  border: 1px solid #2a3d56;
+  border-radius: 6px;
+  color: #e0e6f0;
+  padding: 7px 10px;
+  font-size: 13px;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.sweep-field input[type="number"]:focus {
+  outline: none;
+  border-color: #4d96ff;
+}
+
+.sweep-run-btn {
+  background: linear-gradient(135deg, #4d96ff, #2c6fcf);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.2s, transform 0.1s;
+  height: 36px;
+}
+
+.sweep-run-btn:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.sweep-run-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.sweep-error {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 65, 54, 0.12);
+  border: 1px solid rgba(255, 65, 54, 0.25);
+  border-radius: 6px;
+  color: #ff6b6b;
+  font-size: 12px;
+}
+
+/* ── Saved Sweeps selector ─────────────────────────────────────────────────── */
+
+.saved-sweeps-panel {
+  background: rgba(46, 204, 64, 0.05);
+  border: 1px solid rgba(46, 204, 64, 0.15);
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+
+.saved-sweeps-panel h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #2ecc40;
+}
+
+.sweep-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.sweep-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  font-size: 12px;
+}
+
+.sweep-list-item:hover {
+  background: rgba(77, 150, 255, 0.08);
+  border-color: rgba(77, 150, 255, 0.2);
+}
+
+.sweep-list-item.active {
+  background: rgba(77, 150, 255, 0.12);
+  border-color: #4d96ff;
+}
+
+.sweep-list-item .sweep-name {
+  font-weight: 600;
+  color: #e0e6f0;
+}
+
+.sweep-list-item .sweep-meta {
+  color: #888;
+  font-size: 11px;
+}
+
+/* ── Charts section ───────────────────────────────────────────────────────── */
+
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 1100px) {
+  .charts-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .charts-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chart-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.chart-card h4 {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #a8c0e0;
+}
+
+.chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 180px;
+  color: #555;
+  font-size: 12px;
+  text-align: center;
+}
+
+/* ── Crossover badge ─────────────────────────────────────────────────────── */
+
+.crossover-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 220, 0, 0.08);
+  border: 1px solid rgba(255, 220, 0, 0.25);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 13px;
+}
+
+.crossover-badge .crossover-icon {
+  font-size: 20px;
+}
+
+.crossover-badge .crossover-text strong {
+  color: #ffd93d;
+}
+
+.crossover-badge .crossover-text span {
+  color: #aaa;
+  font-size: 12px;
+}
+
+/* ── Summary table ─────────────────────────────────────────────────────────── */
+
+.sweep-summary-table {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  overflow: auto;
+}
+
+.sweep-summary-table h4 {
+  margin: 0;
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #a8c0e0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.sweep-summary-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.sweep-summary-table th {
+  padding: 8px 12px;
+  text-align: right;
+  color: #666;
+  font-weight: 500;
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.sweep-summary-table th:first-child {
+  text-align: left;
+}
+
+.sweep-summary-table td {
+  padding: 7px 12px;
+  text-align: right;
+  color: #c0cfe0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.sweep-summary-table td:first-child {
+  text-align: left;
+  font-weight: 500;
+  color: #e0e6f0;
+}
+
+.sweep-summary-table tr:last-child td {
+  border-bottom: none;
+}
+
+.winner-roundabout {
+  color: #2ecc40;
+  font-weight: 600;
+}
+
+.winner-signal {
+  color: #4d96ff;
+  font-weight: 600;
+}
+
+.winner-tie {
+  color: #888;
+}
+
+/* ── Loading spinner ─────────────────────────────────────────────────────── */
+
+.sweep-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px;
+  color: #888;
+  font-size: 13px;
+}
+
+.spin {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(77, 150, 255, 0.2);
+  border-top-color: #4d96ff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
