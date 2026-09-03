@@ -87,12 +87,14 @@ const CustomTooltip = ({
         fontSize: 12,
       }}
     >
-      <p style={{ margin: "0 0 4px", color: "#888" }}>
-        Vol: {label} veh/h
-      </p>
+      <p style={{ margin: "0 0 4px", color: "#888" }}>Vol: {label} veh/h</p>
       {payload.map((p) => (
         <p key={p.name} style={{ margin: "2px 0", color: p.color }}>
-          {p.name}: <strong>{p.value.toFixed(2)}{unit}</strong>
+          {p.name}:{" "}
+          <strong>
+            {p.value.toFixed(2)}
+            {unit}
+          </strong>
         </p>
       ))}
     </div>
@@ -118,8 +120,12 @@ export const VolumeAnalysisDashboard: React.FC = () => {
   const fetchSweeps = useCallback(() => {
     fetch(`${API_BASE_URL}/api/v1/study/sweeps`)
       .then((r) => r.json())
-      .then((data: SavedSweep[]) => { setSavedSweeps(data); })
-      .catch(() => { setSavedSweeps([]); });
+      .then((data: SavedSweep[]) => {
+        setSavedSweeps(data);
+      })
+      .catch(() => {
+        setSavedSweeps([]);
+      });
   }, []);
 
   useEffect(() => {
@@ -156,7 +162,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
       }),
     })
       .then((r) => {
-      if (!r.ok) throw new Error(`HTTP ${r.status.toString()}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status.toString()}`);
         return r.json() as Promise<SweepSession>;
       })
       .then((data) => {
@@ -188,7 +194,9 @@ export const VolumeAnalysisDashboard: React.FC = () => {
               max={600}
               step={10}
               value={sweepDuration}
-              onChange={(e) => { setSweepDuration(Number(e.target.value)); }}
+              onChange={(e) => {
+                setSweepDuration(Number(e.target.value));
+              }}
             />
           </div>
           <div className="sweep-field">
@@ -197,7 +205,9 @@ export const VolumeAnalysisDashboard: React.FC = () => {
               type="number"
               min={1}
               value={randomSeed}
-              onChange={(e) => { setRandomSeed(Number(e.target.value)); }}
+              onChange={(e) => {
+                setRandomSeed(Number(e.target.value));
+              }}
             />
           </div>
           <div className="sweep-field" style={{ opacity: 0.5 }}>
@@ -230,7 +240,9 @@ export const VolumeAnalysisDashboard: React.FC = () => {
               <div
                 key={s.id}
                 className={`sweep-list-item ${selectedId === s.id ? "active" : ""}`}
-                onClick={() => { loadSweep(s.id); }}
+                onClick={() => {
+                  loadSweep(s.id);
+                }}
               >
                 <span className="sweep-name">{s.name}</span>
                 <span className="sweep-meta">
@@ -258,19 +270,32 @@ export const VolumeAnalysisDashboard: React.FC = () => {
             <div className="crossover-badge">
               <span className="crossover-icon">⭐</span>
               <div className="crossover-text">
-                <strong>Critical Saturation Crossover: {crossover.toLocaleString()} veh/h</strong>
+                <strong>
+                  Critical Saturation Crossover: {crossover.toLocaleString()}{" "}
+                  veh/h
+                </strong>
                 <br />
                 <span>
-                  Below this volume: Roundabout outperforms Signal (lower delay).
-                  Above this volume: Signal provides better queue stability and fairness.
+                  Below this volume: Roundabout outperforms Signal (lower
+                  delay). Above this volume: Signal provides better queue
+                  stability and fairness.
                 </span>
               </div>
             </div>
           ) : (
-            <div className="crossover-badge" style={{ borderColor: "rgba(136,136,136,0.2)", background: "rgba(136,136,136,0.05)" }}>
+            <div
+              className="crossover-badge"
+              style={{
+                borderColor: "rgba(136,136,136,0.2)",
+                background: "rgba(136,136,136,0.05)",
+              }}
+            >
               <span className="crossover-icon">ℹ</span>
               <div className="crossover-text">
-                <span>No crossover point detected within the evaluated volume range. Roundabout maintained advantage across all tested rates.</span>
+                <span>
+                  No crossover point detected within the evaluated volume range.
+                  Roundabout maintained advantage across all tested rates.
+                </span>
               </div>
             </div>
           )}
@@ -282,13 +307,25 @@ export const VolumeAnalysisDashboard: React.FC = () => {
               <h4>Average Delay vs. Traffic Volume</h4>
               {chartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                  <LineChart
+                    data={chartData}
+                    margin={{ top: 4, right: 8, bottom: 4, left: 0 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="rgba(255,255,255,0.06)"
+                    />
                     <XAxis
                       dataKey="volume"
                       tick={{ fontSize: 10, fill: "#666" }}
                       tickFormatter={(v: number) => v.toString()}
-                      label={{ value: "veh/h", position: "insideBottom", offset: -2, fill: "#555", fontSize: 10 }}
+                      label={{
+                        value: "veh/h",
+                        position: "insideBottom",
+                        offset: -2,
+                        fill: "#555",
+                        fontSize: 10,
+                      }}
                     />
                     <YAxis tick={{ fontSize: 10, fill: "#666" }} />
                     <Tooltip content={<CustomTooltip unit="s" />} />
@@ -298,11 +335,30 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                         x={crossover}
                         stroke="#ffd93d"
                         strokeDasharray="4 2"
-                        label={{ value: "Crossover", position: "top", fill: "#ffd93d", fontSize: 10 }}
+                        label={{
+                          value: "Crossover",
+                          position: "top",
+                          fill: "#ffd93d",
+                          fontSize: 10,
+                        }}
                       />
                     )}
-                    <Line type="monotone" dataKey="signalDelay" name="Signal" stroke="#4d96ff" strokeWidth={2} dot={{ r: 3 }} />
-                    <Line type="monotone" dataKey="roundaboutDelay" name="Roundabout" stroke="#2ecc40" strokeWidth={2} dot={{ r: 3 }} />
+                    <Line
+                      type="monotone"
+                      dataKey="signalDelay"
+                      name="Signal"
+                      stroke="#4d96ff"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="roundaboutDelay"
+                      name="Roundabout"
+                      stroke="#2ecc40"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
@@ -315,21 +371,51 @@ export const VolumeAnalysisDashboard: React.FC = () => {
               <h4>Throughput vs. Traffic Volume</h4>
               {chartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                  <LineChart
+                    data={chartData}
+                    margin={{ top: 4, right: 8, bottom: 4, left: 0 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="rgba(255,255,255,0.06)"
+                    />
                     <XAxis
                       dataKey="volume"
                       tick={{ fontSize: 10, fill: "#666" }}
-                      label={{ value: "veh/h", position: "insideBottom", offset: -2, fill: "#555", fontSize: 10 }}
+                      label={{
+                        value: "veh/h",
+                        position: "insideBottom",
+                        offset: -2,
+                        fill: "#555",
+                        fontSize: 10,
+                      }}
                     />
                     <YAxis tick={{ fontSize: 10, fill: "#666" }} />
                     <Tooltip content={<CustomTooltip unit=" veh" />} />
                     <Legend wrapperStyle={{ fontSize: 11 }} />
                     {crossover && (
-                      <ReferenceLine x={crossover} stroke="#ffd93d" strokeDasharray="4 2" />
+                      <ReferenceLine
+                        x={crossover}
+                        stroke="#ffd93d"
+                        strokeDasharray="4 2"
+                      />
                     )}
-                    <Line type="monotone" dataKey="signalThroughput" name="Signal" stroke="#4d96ff" strokeWidth={2} dot={{ r: 3 }} />
-                    <Line type="monotone" dataKey="roundaboutThroughput" name="Roundabout" stroke="#2ecc40" strokeWidth={2} dot={{ r: 3 }} />
+                    <Line
+                      type="monotone"
+                      dataKey="signalThroughput"
+                      name="Signal"
+                      stroke="#4d96ff"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="roundaboutThroughput"
+                      name="Roundabout"
+                      stroke="#2ecc40"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
@@ -342,21 +428,51 @@ export const VolumeAnalysisDashboard: React.FC = () => {
               <h4>Average Queue Length vs. Traffic Volume</h4>
               {chartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                  <LineChart
+                    data={chartData}
+                    margin={{ top: 4, right: 8, bottom: 4, left: 0 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="rgba(255,255,255,0.06)"
+                    />
                     <XAxis
                       dataKey="volume"
                       tick={{ fontSize: 10, fill: "#666" }}
-                      label={{ value: "veh/h", position: "insideBottom", offset: -2, fill: "#555", fontSize: 10 }}
+                      label={{
+                        value: "veh/h",
+                        position: "insideBottom",
+                        offset: -2,
+                        fill: "#555",
+                        fontSize: 10,
+                      }}
                     />
                     <YAxis tick={{ fontSize: 10, fill: "#666" }} />
                     <Tooltip content={<CustomTooltip unit=" veh" />} />
                     <Legend wrapperStyle={{ fontSize: 11 }} />
                     {crossover && (
-                      <ReferenceLine x={crossover} stroke="#ffd93d" strokeDasharray="4 2" />
+                      <ReferenceLine
+                        x={crossover}
+                        stroke="#ffd93d"
+                        strokeDasharray="4 2"
+                      />
                     )}
-                    <Line type="monotone" dataKey="signalQueue" name="Signal" stroke="#4d96ff" strokeWidth={2} dot={{ r: 3 }} />
-                    <Line type="monotone" dataKey="roundaboutQueue" name="Roundabout" stroke="#2ecc40" strokeWidth={2} dot={{ r: 3 }} />
+                    <Line
+                      type="monotone"
+                      dataKey="signalQueue"
+                      name="Signal"
+                      stroke="#4d96ff"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="roundaboutQueue"
+                      name="Roundabout"
+                      stroke="#2ecc40"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
@@ -400,15 +516,15 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                           run.winner === "roundabout"
                             ? "winner-roundabout"
                             : run.winner === "signal"
-                            ? "winner-signal"
-                            : "winner-tie"
+                              ? "winner-signal"
+                              : "winner-tie"
                         }
                       >
                         {run.winner === "roundabout"
                           ? "🔄 Roundabout"
                           : run.winner === "signal"
-                          ? "🚦 Signal"
-                          : "— Tie"}
+                            ? "🚦 Signal"
+                            : "— Tie"}
                       </span>
                     </td>
                     <td
@@ -417,8 +533,8 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                           run.delayDeltaPercent > 0
                             ? "#2ecc40"
                             : run.delayDeltaPercent < 0
-                            ? "#ff6b6b"
-                            : "#888",
+                              ? "#ff6b6b"
+                              : "#888",
                       }}
                     >
                       {run.delayDeltaPercent > 0 ? "+" : ""}

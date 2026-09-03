@@ -39,8 +39,16 @@ const MOCK_VALIDATION = {
     queue: { pValue: 0.08, cohensD: 0.6, significant: false },
   },
   seedRuns: [
-    { seed: 1001, signal: { delay: 11, throughput: 79, queue: 3.8 }, roundabout: { delay: 7, throughput: 91, queue: 1.9 } },
-    { seed: 1002, signal: { delay: 13, throughput: 81, queue: 4.2 }, roundabout: { delay: 9, throughput: 89, queue: 2.1 } },
+    {
+      seed: 1001,
+      signal: { delay: 11, throughput: 79, queue: 3.8 },
+      roundabout: { delay: 7, throughput: 91, queue: 1.9 },
+    },
+    {
+      seed: 1002,
+      signal: { delay: 13, throughput: 81, queue: 4.2 },
+      roundabout: { delay: 9, throughput: 89, queue: 2.1 },
+    },
   ],
   individualRuns: [],
 };
@@ -54,8 +62,12 @@ describe("ValidationDashboard", () => {
 
   it("renders trigger panel with heading and button", () => {
     render(<ValidationDashboard />);
-    expect(screen.getByText(/Monte Carlo Statistical Validation/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Run Validation/i })).toBeInTheDocument();
+    expect(
+      screen.getByText(/Monte Carlo Statistical Validation/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Run Validation/i }),
+    ).toBeInTheDocument();
   });
 
   it("shows loading state after clicking Run Validation", async () => {
@@ -65,24 +77,27 @@ describe("ValidationDashboard", () => {
     fireEvent.click(screen.getByRole("button", { name: /Run Validation/i }));
 
     await waitFor(() =>
-      expect(screen.getByText(/Executing/i)).toBeInTheDocument()
+      expect(screen.getByText(/Executing/i)).toBeInTheDocument(),
     );
     expect(screen.getByRole("button", { name: /Running/i })).toBeDisabled();
   });
 
   it("renders verdict and metric stats after successful validation", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
-      new Response(JSON.stringify(MOCK_VALIDATION), { status: 200 })
+      new Response(JSON.stringify(MOCK_VALIDATION), { status: 200 }),
     );
 
     const { container } = render(<ValidationDashboard />);
     fireEvent.click(screen.getByRole("button", { name: /Run Validation/i }));
 
     // Wait for verdict card to appear
-    await waitFor(() => {
-      const verdictCard = container.querySelector(".verdict-card");
-      expect(verdictCard).not.toBeNull();
-    }, { timeout: 5000 });
+    await waitFor(
+      () => {
+        const verdictCard = container.querySelector(".verdict-card");
+        expect(verdictCard).not.toBeNull();
+      },
+      { timeout: 5000 },
+    );
 
     // Metric labels should appear in stat card headings (multiple matches OK)
     await waitFor(() => {
@@ -93,14 +108,14 @@ describe("ValidationDashboard", () => {
 
   it("renders per-seed raw results table", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
-      new Response(JSON.stringify(MOCK_VALIDATION), { status: 200 })
+      new Response(JSON.stringify(MOCK_VALIDATION), { status: 200 }),
     );
 
     render(<ValidationDashboard />);
     fireEvent.click(screen.getByRole("button", { name: /Run Validation/i }));
 
     await waitFor(() =>
-      expect(screen.getByText(/Per-Seed Raw Results/i)).toBeInTheDocument()
+      expect(screen.getByText(/Per-Seed Raw Results/i)).toBeInTheDocument(),
     );
     // Seed values in the table
     expect(screen.getByText("1001")).toBeInTheDocument();
@@ -109,20 +124,20 @@ describe("ValidationDashboard", () => {
 
   it("displays an error message on failed API call", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
-      new Response("fail", { status: 503, statusText: "Service Unavailable" })
+      new Response("fail", { status: 503, statusText: "Service Unavailable" }),
     );
 
     render(<ValidationDashboard />);
     fireEvent.click(screen.getByRole("button", { name: /Run Validation/i }));
 
     await waitFor(() =>
-      expect(screen.getByText(/HTTP 503/i)).toBeInTheDocument()
+      expect(screen.getByText(/HTTP 503/i)).toBeInTheDocument(),
     );
   });
 
   it("shows significance tags per metric", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
-      new Response(JSON.stringify(MOCK_VALIDATION), { status: 200 })
+      new Response(JSON.stringify(MOCK_VALIDATION), { status: 200 }),
     );
 
     render(<ValidationDashboard />);
@@ -137,7 +152,7 @@ describe("ValidationDashboard", () => {
 
   it("shows Cohen's d values in metric cards", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
-      new Response(JSON.stringify(MOCK_VALIDATION), { status: 200 })
+      new Response(JSON.stringify(MOCK_VALIDATION), { status: 200 }),
     );
 
     render(<ValidationDashboard />);

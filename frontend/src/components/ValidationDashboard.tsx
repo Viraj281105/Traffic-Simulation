@@ -32,7 +32,11 @@ interface ValidationResult {
   };
   comparison: {
     delay: { pValue: number | null; significant: boolean; cohensD: number };
-    throughput: { pValue: number | null; significant: boolean; cohensD: number };
+    throughput: {
+      pValue: number | null;
+      significant: boolean;
+      cohensD: number;
+    };
     queue: { pValue: number | null; significant: boolean; cohensD: number };
   };
   seedRuns: SeedRun[];
@@ -73,11 +77,18 @@ function CIBar({
       <div className="ci-bar-track">
         <div
           className="ci-bar-fill"
-          style={{ width: `${pct.toString()}%`, background: color, opacity: 0.6 }}
+          style={{
+            width: `${pct.toString()}%`,
+            background: color,
+            opacity: 0.6,
+          }}
         />
         <div
           className="ci-bar-ci"
-          style={{ left: `${ciLeft.toString()}%`, width: `${ciWidthPct.toString()}%` }}
+          style={{
+            left: `${ciLeft.toString()}%`,
+            width: `${ciWidthPct.toString()}%`,
+          }}
         />
       </div>
       <div className="ci-values">
@@ -144,7 +155,9 @@ export const ValidationDashboard: React.FC = () => {
               min={2}
               max={30}
               value={numSeeds}
-              onChange={(e) => { setNumSeeds(Number(e.target.value)); }}
+              onChange={(e) => {
+                setNumSeeds(Number(e.target.value));
+              }}
             />
           </div>
           <div className="validation-field">
@@ -155,7 +168,9 @@ export const ValidationDashboard: React.FC = () => {
               max={300}
               step={10}
               value={duration}
-              onChange={(e) => { setDuration(Number(e.target.value)); }}
+              onChange={(e) => {
+                setDuration(Number(e.target.value));
+              }}
             />
           </div>
           <button
@@ -170,7 +185,8 @@ export const ValidationDashboard: React.FC = () => {
         {isRunning && (
           <div className="validation-loading">
             <div className="spin-purple" />
-            Executing {numSeeds} randomized seeds × {duration}s — computing confidence intervals…
+            Executing {numSeeds} randomized seeds × {duration}s — computing
+            confidence intervals…
           </div>
         )}
       </div>
@@ -192,12 +208,12 @@ export const ValidationDashboard: React.FC = () => {
                 {allSignificant
                   ? "Statistically Significant Difference Across All Metrics"
                   : anySignificant
-                  ? "Partial Statistical Significance Detected"
-                  : "No Statistically Significant Difference Detected"}
+                    ? "Partial Statistical Significance Detected"
+                    : "No Statistically Significant Difference Detected"}
               </strong>
               <span>
-                Based on {result.numSeeds} randomized Monte Carlo seeds with 95% confidence intervals (α = 0.05).
-                {" "}Significance tags:{" "}
+                Based on {result.numSeeds} randomized Monte Carlo seeds with 95%
+                confidence intervals (α = 0.05). Significance tags:{" "}
                 <span className="significance-tags">
                   {METRIC_KEYS.map((k) => (
                     <span
@@ -207,7 +223,9 @@ export const ValidationDashboard: React.FC = () => {
                       }`}
                     >
                       {METRIC_LABELS[k]}:{" "}
-                      {result.comparison[k].significant ? "Significant" : "Not Significant"}
+                      {result.comparison[k].significant
+                        ? "Significant"
+                        : "Not Significant"}
                     </span>
                   ))}
                 </span>
@@ -220,7 +238,11 @@ export const ValidationDashboard: React.FC = () => {
             {METRIC_KEYS.map((key) => {
               const sigStat = result.signal[key];
               const rndStat = result.roundabout[key];
-              const maxMean = Math.max(sigStat.mean + sigStat.ci95, rndStat.mean + rndStat.ci95, 0.01);
+              const maxMean = Math.max(
+                sigStat.mean + sigStat.ci95,
+                rndStat.mean + rndStat.ci95,
+                0.01,
+              );
               const cmp = result.comparison[key];
 
               return (
@@ -248,10 +270,18 @@ export const ValidationDashboard: React.FC = () => {
                     >
                       Cohen's d = {cmp.cohensD.toFixed(3)}
                       {cmp.pValue !== null && (
-                        <> · p = {cmp.pValue < 0.001 ? "<0.001" : cmp.pValue.toFixed(3)}</>
-                      )}
-                      {" "}·{" "}
-                      <strong style={{ color: cmp.significant ? "#ffd93d" : "#555" }}>
+                        <>
+                          {" "}
+                          · p ={" "}
+                          {cmp.pValue < 0.001
+                            ? "<0.001"
+                            : cmp.pValue.toFixed(3)}
+                        </>
+                      )}{" "}
+                      ·{" "}
+                      <strong
+                        style={{ color: cmp.significant ? "#ffd93d" : "#555" }}
+                      >
                         {cmp.significant ? "★ Significant" : "Not Significant"}
                       </strong>
                     </div>

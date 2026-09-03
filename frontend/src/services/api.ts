@@ -111,7 +111,8 @@ export async function runVolumeSweep(params: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status.toString()}: ${res.statusText}`);
+  if (!res.ok)
+    throw new Error(`HTTP ${res.status.toString()}: ${res.statusText}`);
   return res.json();
 }
 
@@ -135,6 +136,7 @@ export async function runMonteCarlo(params: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status.toString()}: ${res.statusText}`);
+  if (!res.ok)
+    throw new Error(`HTTP ${res.status.toString()}: ${res.statusText}`);
   return res.json();
 }
