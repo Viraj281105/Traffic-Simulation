@@ -40,20 +40,28 @@ export function App() {
     reset: singleReset,
   } = useSimulationPolling();
 
-  const lastCompletedDualRef = React.useRef<DualSnapshot | null>(null);
-  const lastCompletedSingleRef = React.useRef<LiveSnapshot | null>(null);
+  const [lastCompletedSnapshotDual, setLastCompletedSnapshotDual] = useState<DualSnapshot | null>(null);
+  const [lastCompletedSnapshotSingle, setLastCompletedSnapshotSingle] = useState<LiveSnapshot | null>(null);
+  const [prevDual, setPrevDual] = useState<DualSnapshot | null>(null);
+  const [prevSingle, setPrevSingle] = useState<LiveSnapshot | null>(null);
   const [prevConfigKey, setPrevConfigKey] = useState("");
 
   const dualSnapshot = snapshot && "signal" in snapshot ? snapshot : null;
   const singleSnapshot = snapshot && !("signal" in snapshot) ? snapshot : null;
 
   // Capture the last snapshot with valid metrics/vehicles to display when initialized/stopped
-  if (dualSnapshot && (dualSnapshot.signal.simulationStatus === "running" || dualSnapshot.signal.simulationStatus === "completed" || dualSnapshot.signal.simulationStatus === "paused")) {
-    lastCompletedDualRef.current = dualSnapshot;
+  if (dualSnapshot !== prevDual) {
+    setPrevDual(dualSnapshot);
+    if (dualSnapshot && (dualSnapshot.signal.simulationStatus === "running" || dualSnapshot.signal.simulationStatus === "completed" || dualSnapshot.signal.simulationStatus === "paused")) {
+      setLastCompletedSnapshotDual(dualSnapshot);
+    }
   }
 
-  if (singleSnapshot && (singleSnapshot.simulationStatus === "running" || singleSnapshot.simulationStatus === "completed" || singleSnapshot.simulationStatus === "paused")) {
-    lastCompletedSingleRef.current = singleSnapshot;
+  if (singleSnapshot !== prevSingle) {
+    setPrevSingle(singleSnapshot);
+    if (singleSnapshot && (singleSnapshot.simulationStatus === "running" || singleSnapshot.simulationStatus === "completed" || singleSnapshot.simulationStatus === "paused")) {
+      setLastCompletedSnapshotSingle(singleSnapshot);
+    }
   }
 
   // Canvas config state
@@ -88,8 +96,8 @@ export function App() {
 
   if (configKey !== prevConfigKey) {
     setPrevConfigKey(configKey);
-    lastCompletedDualRef.current = null;
-    lastCompletedSingleRef.current = null;
+    setLastCompletedSnapshotDual(null);
+    setLastCompletedSnapshotSingle(null);
   }
 
   // Determine displayed snapshot for metrics
@@ -97,24 +105,24 @@ export function App() {
   if (dualSnapshot) {
     if (
       (dualSnapshot.signal.simulationStatus === "initialized" || dualSnapshot.signal.simulationStatus === "stopped") &&
-      lastCompletedDualRef.current
+      lastCompletedSnapshotDual
     ) {
-      metricsSnapshotDual = lastCompletedDualRef.current;
+      metricsSnapshotDual = lastCompletedSnapshotDual;
     }
-  } else if (lastCompletedDualRef.current) {
-    metricsSnapshotDual = lastCompletedDualRef.current;
+  } else if (lastCompletedSnapshotDual) {
+    metricsSnapshotDual = lastCompletedSnapshotDual;
   }
 
   let metricsSnapshotSingle: LiveSnapshot | null = singleSnapshot;
   if (singleSnapshot) {
     if (
       (singleSnapshot.simulationStatus === "initialized" || singleSnapshot.simulationStatus === "stopped") &&
-      lastCompletedSingleRef.current
+      lastCompletedSnapshotSingle
     ) {
-      metricsSnapshotSingle = lastCompletedSingleRef.current;
+      metricsSnapshotSingle = lastCompletedSnapshotSingle;
     }
-  } else if (lastCompletedSingleRef.current) {
-    metricsSnapshotSingle = lastCompletedSingleRef.current;
+  } else if (lastCompletedSnapshotSingle) {
+    metricsSnapshotSingle = lastCompletedSnapshotSingle;
   }
 
   // Sync config with backend on change (debounced to prevent flooding)
