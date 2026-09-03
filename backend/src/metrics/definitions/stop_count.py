@@ -3,9 +3,7 @@ from typing import List
 from src.vehicles.vehicle import Vehicle
 
 
-def update_vehicle_stops(
-    vehicle: Vehicle, stop_speed_threshold: float = 0.1
-) -> None:
+def update_vehicle_stops(vehicle: Vehicle, stop_speed_threshold: float = 0.1) -> None:
     """Updates the stop count on a vehicle using speed hysteresis to prevent oscillation counting.
 
     - A stop is detected when speed drops below stop_speed_threshold.

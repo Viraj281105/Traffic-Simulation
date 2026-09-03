@@ -41,7 +41,10 @@ def test_snapshot_buffer(tmp_path) -> None:
 def test_snapshot_builder_active_and_exited_vehicles() -> None:
     config = {
         "simulation": {"warmupTime": 5.0, "timeStep": 0.1},
-        "geometry": {"intersectionType": "fixed_time_signal", "intersectionCenter": {"x": 0.0, "y": 0.0}},
+        "geometry": {
+            "intersectionType": "fixed_time_signal",
+            "intersectionCenter": {"x": 0.0, "y": 0.0},
+        },
         "roads": {"approachLength": 100.0, "laneWidth": 3.5, "lanesPerApproach": 2},
     }
     clock = Clock(0.1)
@@ -55,21 +58,66 @@ def test_snapshot_builder_active_and_exited_vehicles() -> None:
     lane_in = Lane("north_in_0", 0.0, 100.0, 0.0, 10.0)
 
     # 1. Crossing vehicle on conn lane
-    v_crossing = Vehicle("v_cross", 4.0, 2.0, 10.0, route=[lane_in, lane_conn], start_position=5.0, initial_speed=10.0, turn_intent=TurnIntent.STRAIGHT)
+    v_crossing = Vehicle(
+        "v_cross",
+        4.0,
+        2.0,
+        10.0,
+        route=[lane_in, lane_conn],
+        start_position=5.0,
+        initial_speed=10.0,
+        turn_intent=TurnIntent.STRAIGHT,
+    )
     v_crossing.lane = lane_conn
 
     # 2. In-roundabout vehicle
-    v_round = Vehicle("v_round", 4.0, 2.0, 10.0, route=[lane_round], start_position=5.0, initial_speed=8.0, turn_intent=TurnIntent.LEFT)
+    v_round = Vehicle(
+        "v_round",
+        4.0,
+        2.0,
+        10.0,
+        route=[lane_round],
+        start_position=5.0,
+        initial_speed=8.0,
+        turn_intent=TurnIntent.LEFT,
+    )
 
     # 3. Approaching & waiting vehicles
-    v_app = Vehicle("v_app", 4.0, 2.0, 10.0, route=[lane_in], start_position=5.0, initial_speed=10.0, turn_intent=TurnIntent.RIGHT)
-    v_wait = Vehicle("v_wait", 4.0, 2.0, 10.0, route=[lane_in], start_position=50.0, initial_speed=0.0, turn_intent=TurnIntent.STRAIGHT)
+    v_app = Vehicle(
+        "v_app",
+        4.0,
+        2.0,
+        10.0,
+        route=[lane_in],
+        start_position=5.0,
+        initial_speed=10.0,
+        turn_intent=TurnIntent.RIGHT,
+    )
+    v_wait = Vehicle(
+        "v_wait",
+        4.0,
+        2.0,
+        10.0,
+        route=[lane_in],
+        start_position=50.0,
+        initial_speed=0.0,
+        turn_intent=TurnIntent.STRAIGHT,
+    )
     v_wait.state = VehicleState.WAITING
 
     engine.pool.active_vehicles.extend([v_crossing, v_round, v_app, v_wait])
 
     # 4. Exited vehicle
-    v_exit = Vehicle("v_exit", 4.0, 2.0, 10.0, route=[lane_in], start_position=100.0, initial_speed=10.0, turn_intent=TurnIntent.STRAIGHT)
+    v_exit = Vehicle(
+        "v_exit",
+        4.0,
+        2.0,
+        10.0,
+        route=[lane_in],
+        start_position=100.0,
+        initial_speed=10.0,
+        turn_intent=TurnIntent.STRAIGHT,
+    )
     v_exit.state = VehicleState.EXITED
     v_exit.exit_time = 8.5
     engine.pool.exited_vehicles.append(v_exit)
@@ -82,7 +130,9 @@ def test_snapshot_builder_active_and_exited_vehicles() -> None:
 
     # Test KeyError on missing approach in network
     empty_engine = SimulationEngine(clock, duration=10.0)
-    builder_empty = SnapshotBuilder("sim_empty", "cfg_empty", empty_engine, collector, controller)
+    builder_empty = SnapshotBuilder(
+        "sim_empty", "cfg_empty", empty_engine, collector, controller
+    )
     snap_empty = builder_empty.build()
     assert len(snap_empty["intersection"]["approaches"]) == 4
 
@@ -111,5 +161,3 @@ def test_dual_simulation_orchestrator() -> None:
     snap = orchestrator.get_dual_snapshot()
     assert "signal" in snap
     assert "roundabout" in snap
-
-

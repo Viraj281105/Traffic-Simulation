@@ -2,6 +2,7 @@ import asyncio
 import csv
 import io
 import logging
+import random
 import traceback
 import uuid
 from pathlib import Path
@@ -18,10 +19,18 @@ from src.core.clock import Clock
 from src.core.config_models import ScenarioConfiguration
 from src.core.engine import SimulationEngine
 from src.core.enums import SimulationStatus
+from src.database.dao import RunMetricsDAO, SimulationRunDAO, SweepSessionDAO
+from src.database.db import DB_PATH, init_db
 from src.metrics.collector import MetricCollector
 from src.snapshot.buffer import SnapshotBuffer
 from src.snapshot.builder import SnapshotBuilder
 from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
+from src.study.report_generator import (
+    generate_study_report_csv,
+    generate_study_report_json,
+)
+from src.study.validation import run_invariant_checks, run_statistical_validation
+from src.study.volume_sweep import run_volume_sweep_experiment
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -46,7 +55,10 @@ def health_check() -> Dict[str, str]:
 
 # Load schemas for validation
 SCHEMA_PATHS = [
-    Path(__file__).resolve().parent.parent.parent / "shared" / "schemas" / "config.schema.json",
+    Path(__file__).resolve().parent.parent.parent
+    / "shared"
+    / "schemas"
+    / "config.schema.json",
     Path("shared/schemas/config.schema.json"),
 ]
 
@@ -189,7 +201,10 @@ def get_active_vehicles() -> list[dict[str, Any]]:
 @app.post("/api/v1/configs/validate")
 def validate_config(payload: Dict[str, Any]) -> Dict[str, Any]:
     if not CONFIG_SCHEMA:
-        return {"valid": True, "message": "Schema validation skipped (schema not found)"}
+        return {
+            "valid": True,
+            "message": "Schema validation skipped (schema not found)",
+        }
     try:
         jsonschema.validate(instance=payload, schema=CONFIG_SCHEMA)
         return {"valid": True, "errors": []}
@@ -218,6 +233,12 @@ def create_simulation(config: Dict[str, Any]) -> Dict[str, Any]:
     sim_id = str(uuid.uuid4())
     config_id = str(uuid.uuid4())
 
+    # Ensure simulation section has a randomSeed if not provided
+    if "simulation" not in config:
+        config["simulation"] = {}
+    if config["simulation"].get("randomSeed") is None:
+        config["simulation"]["randomSeed"] = random.randint(1, 10000000)
+
     # Instantiate clock, engine, collector, and controller
     clock = Clock(time_step=config.get("simulation", {}).get("timeStep", 0.1))
     duration = config.get("simulation", {}).get("duration", 300)
@@ -231,7 +252,9 @@ def create_simulation(config: Dict[str, Any]) -> Dict[str, Any]:
     buffer = SnapshotBuffer(max_frames=1000)
 
     # Register tick callback on engine to update collector and controller
-    engine.register_tick_callback(build_tick_callback(controller, clock, engine, collector, buffer, builder))
+    engine.register_tick_callback(
+        build_tick_callback(controller, clock, engine, collector, buffer, builder)
+    )
 
     simulations_db[sim_id] = {
         "engine": engine,
@@ -348,7 +371,9 @@ def get_simulation_report(sim_id: str, format: str = "csv") -> Any:  # noqa: A00
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=simulation_{sim_id}_report.csv"},
+        headers={
+            "Content-Disposition": f"attachment; filename=simulation_{sim_id}_report.csv"
+        },
     )
 
 
@@ -433,12 +458,14 @@ def get_or_create_live_simulation() -> Dict[str, Any]:
         engine = SimulationEngine(clock, duration=300, config=current_live_config)
         controller = create_controller(current_live_config, engine.network)
         engine.controller = controller
-        
+
         collector = MetricCollector(current_live_config)
         config_id = str(uuid.uuid4())
         builder = SnapshotBuilder("live_sim", config_id, engine, collector, controller)
 
-        engine.register_tick_callback(build_tick_callback(controller, clock, engine, collector))
+        engine.register_tick_callback(
+            build_tick_callback(controller, clock, engine, collector)
+        )
         live_sim_data["engine"] = engine
         live_sim_data["collector"] = collector
         live_sim_data["controller"] = controller
@@ -466,13 +493,25 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
             pass
         dual_sim_orchestrator = None
 
+    # Determine randomSeed (pick a fresh random integer if None or not provided)
+    raw_seed = payload.get("randomSeed")
+    if raw_seed is not None and str(raw_seed).strip() != "":
+        try:
+            seed_val = int(raw_seed)
+        except (ValueError, TypeError):
+            seed_val = random.randint(1, 10000000)
+    else:
+        seed_val = random.randint(1, 10000000)
+
     # Compile the config dictionary based on user payload
     current_live_config = {
         "simulation": {
             "timeStep": DEFAULT_CONFIG["simulation"]["timeStep"],
-            "duration": float(payload.get("duration", DEFAULT_CONFIG["simulation"]["duration"])),
+            "duration": float(
+                payload.get("duration", DEFAULT_CONFIG["simulation"]["duration"])
+            ),
             "warmupTime": DEFAULT_CONFIG["simulation"]["warmupTime"],
-            "randomSeed": int(payload.get("randomSeed", DEFAULT_CONFIG["simulation"].get("randomSeed", 42))),
+            "randomSeed": seed_val,
         },
         "geometry": {
             "intersectionType": payload.get("intersectionType", "fixed_time_signal"),
@@ -487,7 +526,7 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
                 "south": int(payload.get("lanesSouth", 2)),
                 "east": int(payload.get("lanesEast", 2)),
                 "west": int(payload.get("lanesWest", 2)),
-            }
+            },
         },
         "traffic": {
             "arrivalRate": float(payload.get("arrivalRate", 0.5)),
@@ -495,7 +534,8 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
         },
         "controller": (
             DEFAULT_CONFIG["controller"]
-            if payload.get("intersectionType", "fixed_time_signal") == "fixed_time_signal"
+            if payload.get("intersectionType", "fixed_time_signal")
+            == "fixed_time_signal"
             else {
                 "innerRadius": 10.0,
                 "outerRadius": 20.0,
@@ -519,25 +559,42 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
     # Pre-create the simulation with new configuration parameters
     get_or_create_live_simulation()
 
-    return {"status": "ok", "message": "Simulation configuration updated successfully"}
+    return {
+        "status": "ok",
+        "message": "Simulation configuration updated successfully",
+        "randomSeed": seed_val,
+    }
 
 
 @app.post("/api/simulation/play")
 def play_live_simulation() -> Dict[str, Any]:
     sim = get_or_create_live_simulation()
     engine = sim["engine"]
-    if engine.status == SimulationStatus.INITIALIZED:
+    if engine.status == SimulationStatus.COMPLETED:
+        # Re-randomize seed for the new run
+        current_live_config["simulation"]["randomSeed"] = random.randint(1, 10000000)
+        live_sim_data["engine"] = None
+        sim = get_or_create_live_simulation()
+        engine = sim["engine"]
+        engine.start()
+    elif engine.status == SimulationStatus.INITIALIZED:
         engine.start()
     elif engine.status == SimulationStatus.PAUSED:
         engine.resume()
-    return {"status": sim["engine"].status.value.lower(), "message": "Live simulation started/resumed"}
+    return {
+        "status": sim["engine"].status.value.lower(),
+        "message": "Live simulation started/resumed",
+    }
 
 
 @app.post("/api/simulation/pause")
 def pause_live_simulation() -> Dict[str, Any]:
     sim = get_or_create_live_simulation()
     sim["engine"].pause()
-    return {"status": sim["engine"].status.value.lower(), "message": "Live simulation paused"}
+    return {
+        "status": sim["engine"].status.value.lower(),
+        "message": "Live simulation paused",
+    }
 
 
 @app.websocket("/ws/simulation/live")
@@ -574,9 +631,21 @@ def get_or_create_dual_orchestrator() -> DualSimulationOrchestrator:
 
 @app.post("/api/simulation/dual/play")
 def play_dual_simulation() -> Dict[str, Any]:
+    global dual_sim_orchestrator
     orch = get_or_create_dual_orchestrator()
     status = orch.engine_signal.status
-    if status == SimulationStatus.INITIALIZED:
+    if status == SimulationStatus.COMPLETED:
+        # Re-randomize shared seed for next dual comparison run
+        if dual_sim_orchestrator is not None:
+            try:
+                dual_sim_orchestrator.stop()
+            except Exception:
+                pass
+        dual_sim_orchestrator = None
+        current_live_config["simulation"]["randomSeed"] = random.randint(1, 10000000)
+        orch = get_or_create_dual_orchestrator()
+        orch.start()
+    elif status == SimulationStatus.INITIALIZED:
         orch.start()
     elif status == SimulationStatus.PAUSED:
         orch.resume()
@@ -594,8 +663,13 @@ def pause_dual_simulation() -> Dict[str, Any]:
 def reset_dual_simulation() -> Dict[str, Any]:
     global dual_sim_orchestrator
     if dual_sim_orchestrator is not None:
-        dual_sim_orchestrator.stop()
+        try:
+            dual_sim_orchestrator.stop()
+        except Exception:
+            pass
     dual_sim_orchestrator = None
+    # Generate a fresh shared random seed for the next run
+    current_live_config["simulation"]["randomSeed"] = random.randint(1, 10000000)
     orch = get_or_create_dual_orchestrator()
     return {"status": orch.get_status(), "message": "Dual simulation reset"}
 
@@ -632,3 +706,141 @@ async def websocket_dual_stream(websocket: WebSocket) -> None:
             pass
 
 
+# ── Week 7 & Week 8: Study, Volume Sweeps, History & Validation Endpoints ────
+
+
+class VolumeSweepRequest(BaseModel):
+    arrivalRates: list[float] | None = None
+    duration: float = 60.0
+    randomSeed: int = 42
+    name: str = "Comparative Volume Sweep"
+    customConfig: Dict[str, Any] | None = None
+
+
+class MonteCarloValidationRequest(BaseModel):
+    numSeeds: int = 5
+    duration: float = 30.0
+    customConfig: Dict[str, Any] | None = None
+
+
+class RepeatabilityValidationRequest(BaseModel):
+    duration: float = 20.0
+    randomSeed: int = 12345
+
+
+@app.post("/api/v1/study/sweeps/run")
+def run_sweep_endpoint(payload: VolumeSweepRequest | None = None) -> Dict[str, Any]:
+    """Runs an automated traffic volume sweep comparing Signals vs. Roundabouts."""
+    req = payload or VolumeSweepRequest()
+    return run_volume_sweep_experiment(
+        arrival_rates=req.arrivalRates,
+        duration=req.duration,
+        random_seed=req.randomSeed,
+        custom_config=req.customConfig,
+        name=req.name,
+    )
+
+
+@app.get("/api/v1/study/sweeps")
+def list_sweeps_endpoint(limit: int = 20, offset: int = 0) -> list[Dict[str, Any]]:
+    """Lists past volume sweep benchmark experiments."""
+    init_db()
+    import sqlite3
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        return SweepSessionDAO.list_sessions(conn, limit=limit, offset=offset)
+    finally:
+        conn.close()
+
+
+@app.get("/api/v1/study/sweeps/{sweep_id}")
+def get_sweep_endpoint(sweep_id: str) -> Dict[str, Any]:
+    """Retrieves a specific volume sweep benchmark session."""
+    init_db()
+    import sqlite3
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        session = SweepSessionDAO.get(conn, sweep_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Sweep session not found")
+        return session
+    finally:
+        conn.close()
+
+
+@app.get("/api/v1/study/history/runs")
+def list_simulation_runs_endpoint(
+    limit: int = 50, offset: int = 0
+) -> list[Dict[str, Any]]:
+    """Lists past simulation runs with their status and execution times."""
+    init_db()
+    import sqlite3
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        return SimulationRunDAO.list_runs(conn, limit=limit, offset=offset)
+    finally:
+        conn.close()
+
+
+@app.get("/api/v1/study/history/runs/{run_id}")
+def get_simulation_run_endpoint(run_id: str) -> Dict[str, Any]:
+    """Retrieves metadata and time-series metrics for a specific simulation run."""
+    init_db()
+    import sqlite3
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        run = SimulationRunDAO.get(conn, run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="Simulation run not found")
+        metrics = RunMetricsDAO.get_all_for_run(conn, run_id)
+        return {"run": run, "metricsTimeline": metrics}
+    finally:
+        conn.close()
+
+
+@app.post("/api/v1/study/validate/repeatability")
+def validate_repeatability_endpoint(
+    payload: RepeatabilityValidationRequest | None = None,
+) -> Dict[str, Any]:
+    """Verifies physical invariants, mass conservation, and deterministic seed repeatability."""
+    req = payload or RepeatabilityValidationRequest()
+    return run_invariant_checks(
+        duration=req.duration,
+        random_seed=req.randomSeed,
+    )
+
+
+@app.post("/api/v1/study/validate/monte-carlo")
+def validate_monte_carlo_endpoint(
+    payload: MonteCarloValidationRequest | None = None,
+) -> Dict[str, Any]:
+    """Runs multi-seed Monte Carlo statistical validation with confidence intervals."""
+    req = payload or MonteCarloValidationRequest()
+    return run_statistical_validation(
+        config=req.customConfig,
+        num_seeds=req.numSeeds,
+        duration=req.duration,
+    )
+
+
+@app.get("/api/v1/study/export")
+def export_study_report_endpoint(format: str = "json") -> Any:  # noqa: A002
+    """Exports full comprehensive validated study dataset in JSON or CSV format."""
+    if format.lower() == "csv":
+        csv_content = generate_study_report_csv()
+        return StreamingResponse(
+            iter([csv_content]),
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": "attachment; filename=traffic_simulation_study_v1.csv"
+            },
+        )
+    return generate_study_report_json()

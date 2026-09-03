@@ -36,6 +36,7 @@ from src.vehicles.vehicle import Vehicle
 # Phase descriptor
 # ---------------------------------------------------------------------------
 
+
 class Phase:
     """Describes one phase of the signal cycle."""
 
@@ -60,6 +61,7 @@ class Phase:
 # Controller
 # ---------------------------------------------------------------------------
 
+
 class FixedTimeSignalController(BaseController):
     """Controls intersection traffic using a realistic multi-phase signal plan.
 
@@ -83,7 +85,9 @@ class FixedTimeSignalController(BaseController):
         ctrl_cfg = config.get("controller", {})
 
         # Configurable durations (seconds)
-        self.straight_right_duration: float = ctrl_cfg.get("straightRightDuration", 15.0)
+        self.straight_right_duration: float = ctrl_cfg.get(
+            "straightRightDuration", 15.0
+        )
         self.left_duration: float = ctrl_cfg.get("leftDuration", 5.0)
         self.yellow_duration: float = ctrl_cfg.get("yellowDuration", 3.0)
         self.all_red_duration: float = ctrl_cfg.get("allRedDuration", 2.0)
@@ -140,7 +144,11 @@ class FixedTimeSignalController(BaseController):
                 Phase(
                     name=f"{direction.value}_yellow",
                     direction=direction,
-                    allowed_turns=(TurnIntent.LEFT, TurnIntent.STRAIGHT, TurnIntent.RIGHT),
+                    allowed_turns=(
+                        TurnIntent.LEFT,
+                        TurnIntent.STRAIGHT,
+                        TurnIntent.RIGHT,
+                    ),
                     duration=self.yellow_duration,
                     color="yellow",
                 )
@@ -167,18 +175,22 @@ class FixedTimeSignalController(BaseController):
         """Determine which turn intents a lane serves based on its index.
 
         Policy:
-            - Left lane (0) serves LEFT and STRAIGHT.
-            - Right lane (total_lanes - 1) serves RIGHT and STRAIGHT.
-            - Middle lanes serve STRAIGHT.
+            - 1 lane: serves all movements (LEFT, STRAIGHT, RIGHT).
+            - 2 lanes: lane 0 = dedicated LEFT; lane 1 = STRAIGHT + RIGHT.
+            - 3+ lanes: lane 0 = dedicated LEFT; middle lanes = STRAIGHT; last lane = RIGHT.
         """
         if total_lanes <= 1:
             return (TurnIntent.LEFT, TurnIntent.STRAIGHT, TurnIntent.RIGHT)
-
-        if lane_index == 0:
-            return (TurnIntent.LEFT, TurnIntent.STRAIGHT)
-        elif lane_index == total_lanes - 1:
-            return (TurnIntent.RIGHT, TurnIntent.STRAIGHT)
-        return (TurnIntent.STRAIGHT,)
+        elif total_lanes == 2:
+            if lane_index == 0:
+                return (TurnIntent.LEFT,)
+            return (TurnIntent.STRAIGHT, TurnIntent.RIGHT)
+        else:
+            if lane_index == 0:
+                return (TurnIntent.LEFT,)
+            elif lane_index == total_lanes - 1:
+                return (TurnIntent.RIGHT,)
+            return (TurnIntent.STRAIGHT,)
 
     # ------------------------------------------------------------------
     # BaseController interface
@@ -254,7 +266,9 @@ class FixedTimeSignalController(BaseController):
             try:
                 self.network.get_incoming_approach(d)
             except KeyError:
-                signals.append({"direction": d.value, "color": "red", "allowedTurns": []})
+                signals.append(
+                    {"direction": d.value, "color": "red", "allowedTurns": []}
+                )
                 continue
 
             # lanes not needed

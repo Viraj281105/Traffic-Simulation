@@ -202,7 +202,10 @@ class RoadNetwork:
 
     @staticmethod
     def _resolve_exit_lane_index(
-        lane_index: int, total_in_lanes: int, total_out_lanes: int, turn_intent: TurnIntent
+        lane_index: int,
+        total_in_lanes: int,
+        total_out_lanes: int,
+        turn_intent: TurnIntent,
     ) -> int:
         if total_out_lanes <= 1:
             return 0
@@ -316,9 +319,7 @@ class RoadNetwork:
         return connection_lane
 
     @staticmethod
-    def _resolve_target_direction(
-        origin: Direction, turn: TurnIntent
-    ) -> Direction:
+    def _resolve_target_direction(origin: Direction, turn: TurnIntent) -> Direction:
         """Determine the exit direction given origin and turn intent.
 
         Convention (right-hand traffic, driving on the right):

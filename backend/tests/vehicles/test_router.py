@@ -64,24 +64,43 @@ def test_find_leader_conflict_manager_and_active_vehicles() -> None:
     cm.compute_conflict_points()
 
     # v1 approaching conn_a
-    v1 = Vehicle("v1", 4.0, 2.0, 10.0, [lane_in, conn_a], start_position=95.0, turn_intent=TurnIntent.LEFT)
+    v1 = Vehicle(
+        "v1",
+        4.0,
+        2.0,
+        10.0,
+        [lane_in, conn_a],
+        start_position=95.0,
+        turn_intent=TurnIntent.LEFT,
+    )
     # v2 on conn_b
-    v2 = Vehicle("v2", 4.0, 2.0, 10.0, [conn_b], start_position=5.0, turn_intent=TurnIntent.STRAIGHT)
+    v2 = Vehicle(
+        "v2",
+        4.0,
+        2.0,
+        10.0,
+        [conn_b],
+        start_position=5.0,
+        turn_intent=TurnIntent.STRAIGHT,
+    )
     v2.lane = conn_b
 
-    leader, gap = find_leader(v1, active_vehicles=[v1, v2], conflict_manager=cm, current_time=0.0)
+    leader, gap = find_leader(
+        v1, active_vehicles=[v1, v2], conflict_manager=cm, current_time=0.0
+    )
     assert leader is not None
 
     # Test when v1 is already on conn_a
     v1.lane = conn_a
     v1.position = 5.0
-    leader_conn, gap_conn = find_leader(v1, active_vehicles=[v1, v2], conflict_manager=cm, current_time=0.0)
+    leader_conn, gap_conn = find_leader(
+        v1, active_vehicles=[v1, v2], conflict_manager=cm, current_time=0.0
+    )
     assert leader_conn is not None
 
 
 def test_find_leader_emergency_proximity() -> None:
     lane1 = Lane("l1", 0.0, 0.0, 100.0, 0.0)
-
 
     # v_main at (10.0, 0.0) heading East
     v_main = Vehicle("v_main", 4.0, 2.0, 10.0, [lane1], start_position=10.0)
@@ -98,7 +117,9 @@ def test_find_leader_emergency_proximity() -> None:
     lane_far = Lane("l_far", 90.0, 0.0, 100.0, 0.0)
     v_far = Vehicle("v_far", 4.0, 2.0, 10.0, [lane_far], start_position=0.0)
 
-    leader, gap = find_leader(v_main, active_vehicles=[v_main, v_ahead, v_behind, v_far])
+    leader, gap = find_leader(
+        v_main, active_vehicles=[v_main, v_ahead, v_behind, v_far]
+    )
     assert leader is not None
     assert leader.vehicle_id == "virtual_stop_line"
 
@@ -112,14 +133,19 @@ def test_find_leader_roundabout_spacing() -> None:
     network.outer_radius = 20.0
 
     # R = 15.0. conn1 goes North to South (moves CCW through West)
-    conn1 = Lane("conn_n_0_straight", start_x=-1.75, start_y=20.0, end_x=1.75, end_y=-20.0, waypoints=[
-        (-1.75, 20.0), (-15.0, 0.0), (1.75, -20.0)
-    ])
-    
+    conn1 = Lane(
+        "conn_n_0_straight",
+        start_x=-1.75,
+        start_y=20.0,
+        end_x=1.75,
+        end_y=-20.0,
+        waypoints=[(-1.75, 20.0), (-15.0, 0.0), (1.75, -20.0)],
+    )
+
     # v1 is on conn1 at the beginning (North: angle ~ 95 degrees)
     v1 = Vehicle("v1", 4.0, 2.0, 10.0, [conn1], start_position=0.0)
     v1.lane = conn1
-    
+
     # v2 is ahead of v1 on the same connection lane (West: angle ~ 180 degrees)
     # The middle waypoint is (-15, 0), which is at start_position ~ 20.0. Let's put v2 at start_position=20.0
     v2 = Vehicle("v2", 4.0, 2.0, 10.0, [conn1], start_position=20.0)
@@ -129,5 +155,3 @@ def test_find_leader_roundabout_spacing() -> None:
     assert leader == v2
     assert gap > 0
     assert gap < 100.0
-
-

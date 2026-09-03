@@ -74,7 +74,13 @@ export function App() {
   // Extra configurations
   const [arrivalRate, setArrivalRate] = useState(0.3);
   const [duration, setDuration] = useState(300);
-  const [randomSeed, setRandomSeed] = useState(42);
+  const [randomSeed, setRandomSeed] = useState<number>(
+    () => Math.floor(Math.random() * 1000000) + 1,
+  );
+
+  const randomizeSeed = () => {
+    setRandomSeed(Math.floor(Math.random() * 1000000) + 1);
+  };
 
   // Dynamically compute width and intersection proportionally based on lanes count
   const lanesNorth = lanes;
@@ -182,6 +188,7 @@ export function App() {
   };
 
   const handleStop = () => {
+    randomizeSeed();
     if (viewMode === "single") {
       singleReset().catch(() => {});
     } else {
@@ -295,14 +302,40 @@ export function App() {
               step={10}
               onChange={setDuration}
             />
-            <ConfigSlider
-              label="Random Seed"
-              value={randomSeed}
-              min={1}
-              max={100}
-              step={1}
-              onChange={setRandomSeed}
-            />
+            <div className="config-item">
+              <label className="config-label">Random Seed</label>
+              <div className="config-input-row">
+                <input
+                  type="number"
+                  value={randomSeed}
+                  onChange={(e) => {
+                    setRandomSeed(parseInt(e.target.value, 10) || 1);
+                  }}
+                  className="config-num-input"
+                  style={{
+                    width: "90px",
+                    padding: "4px 8px",
+                    borderRadius: "4px",
+                    border: "1px solid #444",
+                    background: "#222",
+                    color: "#fff",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={randomizeSeed}
+                  className="pb-btn pb-secondary"
+                  style={{
+                    padding: "4px 8px",
+                    fontSize: "12px",
+                    marginLeft: "6px",
+                  }}
+                  title="Generate new random seed"
+                >
+                  🎲 Re-roll
+                </button>
+              </div>
+            </div>
             <ConfigToggle
               label="Stop Lines"
               value={showStopLines}

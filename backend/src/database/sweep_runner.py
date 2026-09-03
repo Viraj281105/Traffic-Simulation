@@ -93,15 +93,19 @@ def run_volume_sweep() -> Dict[str, Any]:
                 )
 
                 # Save Run and final metrics to DB
-                SimulationRunDAO.save(conn, run_id, "completed", clock.get_elapsed_time())
+                SimulationRunDAO.save(
+                    conn, run_id, "completed", clock.get_elapsed_time()
+                )
                 RunMetricsDAO.save(conn, run_id, 50, final_metrics)
 
-                results.append({
-                    "run_id": run_id,
-                    "arrival_rate": rate,
-                    "intersection_type": itype,
-                    "metrics": final_metrics,
-                })
+                results.append(
+                    {
+                        "run_id": run_id,
+                        "arrival_rate": rate,
+                        "intersection_type": itype,
+                        "metrics": final_metrics,
+                    }
+                )
 
         conn.commit()
     finally:

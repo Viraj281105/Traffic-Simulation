@@ -13,6 +13,7 @@ def calculate_directional_fairness(exited_vehicles: List[Vehicle]) -> float:
 
     # Group wait times by direction
     from typing import Dict
+
     waits: Dict[str, List[float]] = {"north": [], "south": [], "east": [], "west": []}
 
     for v in exited_vehicles:

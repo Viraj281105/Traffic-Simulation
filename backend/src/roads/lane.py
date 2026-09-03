@@ -109,4 +109,3 @@ class Lane:
 
     def get_vehicles(self) -> List[Any]:
         return self._vehicles
-

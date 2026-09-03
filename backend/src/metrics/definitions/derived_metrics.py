@@ -48,7 +48,7 @@ def calculate_space_footprint_consumed(config: Dict[str, Any]) -> float:
 
     if intersection_type == "roundabout":
         outer_radius = ctrl_cfg.get("outerRadius", 20.0)
-        return float(round(math.pi * (outer_radius ** 2), 2))
+        return float(round(math.pi * (outer_radius**2), 2))
     else:
         lanes = roads_cfg.get("lanesPerApproach", 2)
         lane_width = roads_cfg.get("laneWidth", 3.5)

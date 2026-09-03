@@ -25,23 +25,48 @@ class VehicleSpawner:
         sim_cfg = config.get("simulation", {})
         veh_gen_cfg = config.get("vehicleGeneration", {})
 
-        self.random_seed: int = sim_cfg.get("randomSeed", 42)
+        self.random_seed: int = sim_cfg.get("randomSeed", veh_gen_cfg.get("seed", None))
+        if self.random_seed is None:
+            self.random_seed = random.randint(1, 10000000)
         self.rng: random.Random = random.Random(self.random_seed)
 
         self.total_vehicles_limit: int = traffic_cfg.get("totalVehicles", 200)
-        self.arrival_rate: float = traffic_cfg.get("arrivalRate", 0.5)
+        self.arrival_rate: float = traffic_cfg.get(
+            "arrivalRate", veh_gen_cfg.get("arrivalRate", 0.5)
+        )
         self.arrival_distribution: str = traffic_cfg.get(
             "arrivalDistribution", "poisson"
         )
 
-        self.directional_split: Dict[str, float] = traffic_cfg.get(
-            "directionalSplit",
-            {"north": 0.25, "south": 0.25, "east": 0.25, "west": 0.25},
-        )
+        if (
+            "directionalSplit" in traffic_cfg
+            and traffic_cfg["directionalSplit"] is not None
+        ):
+            self.directional_split: Dict[str, float] = traffic_cfg["directionalSplit"]
+        else:
+            # Generate stochastic non-uniform weights for the 4 approaches
+            raw_weights = [self.rng.uniform(0.5, 2.0) for _ in Direction]
+            total_w = sum(raw_weights)
+            self.directional_split = {
+                d.value: raw_weights[i] / total_w for i, d in enumerate(Direction)
+            }
 
-        self.turn_probabilities: Dict[str, float] = traffic_cfg.get(
-            "turnProbabilities", {"left": 0.2, "straight": 0.6, "right": 0.2}
-        )
+        if (
+            "turnProbabilities" in traffic_cfg
+            and traffic_cfg["turnProbabilities"] is not None
+        ):
+            self.turn_probabilities: Dict[str, float] = traffic_cfg["turnProbabilities"]
+        else:
+            # Realistic randomized turn probabilities with natural variance per run
+            p_straight = self.rng.uniform(0.50, 0.70)
+            rem = 1.0 - p_straight
+            p_left = self.rng.uniform(0.3, 0.7) * rem
+            p_right = rem - p_left
+            self.turn_probabilities = {
+                "left": p_left,
+                "straight": p_straight,
+                "right": p_right,
+            }
 
         # Vehicle physical parameter bounds
         self.len_min: float = veh_gen_cfg.get("vehicleLength", {}).get("min", 4.0)
@@ -64,11 +89,38 @@ class VehicleSpawner:
         self.timers: Dict[Direction, float] = {}
         self.reset()
 
-    def reset(self) -> None:
+    def reset(self, new_seed: Optional[int] = None) -> None:
+        if new_seed is not None:
+            self.random_seed = new_seed
         self.rng = random.Random(self.random_seed)
         self.spawned_count = 0
         self._elapsed_time = 0.0
         self.timers.clear()
+
+        traffic_cfg = self.config.get("traffic", {})
+        if (
+            "directionalSplit" not in traffic_cfg
+            or traffic_cfg.get("directionalSplit") is None
+        ):
+            raw_weights = [self.rng.uniform(0.5, 2.0) for _ in Direction]
+            total_w = sum(raw_weights)
+            self.directional_split = {
+                d.value: raw_weights[i] / total_w for i, d in enumerate(Direction)
+            }
+        if (
+            "turnProbabilities" not in traffic_cfg
+            or traffic_cfg.get("turnProbabilities") is None
+        ):
+            p_straight = self.rng.uniform(0.50, 0.70)
+            rem = 1.0 - p_straight
+            p_left = self.rng.uniform(0.3, 0.7) * rem
+            p_right = rem - p_left
+            self.turn_probabilities = {
+                "left": p_left,
+                "straight": p_straight,
+                "right": p_right,
+            }
+
         for d in Direction:
             self.timers[d] = self._generate_next_arrival_time(d)
 
@@ -120,9 +172,7 @@ class VehicleSpawner:
 
         return new_vehicles
 
-    def _select_lane_for_turn(
-        self, lanes: List[Lane], turn: TurnIntent
-    ) -> int:
+    def _select_lane_for_turn(self, lanes: List[Lane], turn: TurnIntent) -> int:
         """Return the best lane index for the given turn intent.
 
         Policy (right-hand traffic):

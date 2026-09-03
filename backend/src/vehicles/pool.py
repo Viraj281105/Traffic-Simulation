@@ -21,7 +21,9 @@ logger = logging.getLogger(__name__)
 _COLLISION_THRESHOLD: float = 0.5  # meters
 
 
-def _check_sat_overlap(poly_a: List[Tuple[float, float]], poly_b: List[Tuple[float, float]]) -> bool:
+def _check_sat_overlap(
+    poly_a: List[Tuple[float, float]], poly_b: List[Tuple[float, float]]
+) -> bool:
     """Check if two convex polygons (oriented bounding boxes) overlap using the Separating Axis Theorem."""
     for poly in (poly_a, poly_b):
         for i in range(len(poly)):
@@ -99,7 +101,9 @@ class VehiclePool:
             )
 
         # Conflict manager is only active for unsignalized intersections
-        geom_type = config.get("geometry", {}).get("intersectionType", "fixed_time_signal")
+        geom_type = config.get("geometry", {}).get(
+            "intersectionType", "fixed_time_signal"
+        )
         if geom_type in ("fixed_time_signal", "roundabout"):
             conflict_manager = None
         else:
@@ -181,6 +185,7 @@ class VehiclePool:
                 # Skip parallel lanes of the same street (starting with same direction prefix)
                 id_a = va.lane.lane_id.lower()
                 id_b = vb.lane.lane_id.lower()
+
                 def get_dir(lane_id: str) -> str:
                     lid = lane_id.lower()
                     if lid.startswith("conn_"):
@@ -188,12 +193,17 @@ class VehiclePool:
                     if lid and lid[0] in ("n", "s", "e", "w"):
                         return lid[0]
                     return lane_id
+
                 if get_dir(id_a) == get_dir(id_b):
                     continue
 
                 # Skip vehicles that share any lane in their routes (same path)
-                va_lane_ids = {lane_obj.lane_id for lane_obj in va.route} if va.route else set()
-                vb_lane_ids = {lane_obj.lane_id for lane_obj in vb.route} if vb.route else set()
+                va_lane_ids = (
+                    {lane_obj.lane_id for lane_obj in va.route} if va.route else set()
+                )
+                vb_lane_ids = (
+                    {lane_obj.lane_id for lane_obj in vb.route} if vb.route else set()
+                )
                 if va_lane_ids & vb_lane_ids:
                     continue
 
@@ -248,7 +258,9 @@ class VehiclePool:
 
         return summary
 
-    def _attempt_lane_change(self, vehicle: Vehicle, current_time: float, engine: Any) -> None:
+    def _attempt_lane_change(
+        self, vehicle: Vehicle, current_time: float, engine: Any
+    ) -> None:
         """Attempt to perform a lane change if conditions permit and it is beneficial."""
         current_lane = vehicle.lane
         can_change_lane = (
@@ -257,7 +269,10 @@ class VehiclePool:
             and vehicle.route
             and current_lane == vehicle.route[0]
             and (current_lane.length - vehicle.position >= 20.0)
-            and (current_time - self._last_lane_change.get(vehicle.vehicle_id, -999.0) >= 3.0)
+            and (
+                current_time - self._last_lane_change.get(vehicle.vehicle_id, -999.0)
+                >= 3.0
+            )
         )
 
         if not (can_change_lane and current_lane is not None):
@@ -317,7 +332,11 @@ class VehiclePool:
                     is_blocked_by_light = True
 
             # We want to switch if our path is blocked or we are stuck behind a slower leader
-            is_slow_leader = curr_leader is not None and curr_leader.speed < vehicle.speed - 2.0 and curr_gap < 20.0
+            is_slow_leader = (
+                curr_leader is not None
+                and curr_leader.speed < vehicle.speed - 2.0
+                and curr_gap < 20.0
+            )
             if is_slow_leader or is_blocked_by_light:
                 best_target_idx = None
                 best_target_gap = -1.0
@@ -351,7 +370,9 @@ class VehiclePool:
                     safe_behind = True
                     if behind_veh is not None:
                         speed_diff = max(0.0, behind_veh.speed - vehicle.speed)
-                        safe_behind = behind_gap > (vehicle.length + 3.0 + speed_diff * 1.5)
+                        safe_behind = behind_gap > (
+                            vehicle.length + 3.0 + speed_diff * 1.5
+                        )
                     else:
                         safe_behind = behind_gap > (vehicle.length + 3.0)
 

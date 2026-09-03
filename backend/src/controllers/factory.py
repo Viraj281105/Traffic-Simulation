@@ -30,6 +30,7 @@ def build_tick_callback(
     builder: Optional[Any] = None,
 ) -> Any:
     """Builds a standardized tick callback to sync the controller and collector."""
+
     def tick_callback() -> None:
         signals_state = {}
         if isinstance(controller, FixedTimeSignalController):
@@ -52,4 +53,5 @@ def build_tick_callback(
 
         if buffer is not None and builder is not None:
             buffer.append(builder.build())
+
     return tick_callback

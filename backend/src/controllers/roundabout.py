@@ -59,11 +59,13 @@ class RoundaboutController(BaseController):
                     # The entry point of this lane is lane.end_coords.
                     entry_pt = lane.end_coords
                     theta_entry = math.atan2(entry_pt[1], entry_pt[0])
-                    
+
                     entering_lane_idx = int(lane.lane_id.split("_")[-1])
                     w_ring = self.outer_radius - self.inner_radius
-                    lane_radius = self.inner_radius + (entering_lane_idx + 0.5) * (w_ring / total_in_lanes)
-                    
+                    lane_radius = self.inner_radius + (entering_lane_idx + 0.5) * (
+                        w_ring / total_in_lanes
+                    )
+
                     should_yield = False
 
                     # Safe look-ahead distance threshold
@@ -101,25 +103,31 @@ class RoundaboutController(BaseController):
                                     }
                                     cv_origin = dir_map[cv_origin_dir_str]
                                     cv_turn = turn_map[cv_turn_str]
-                                    cv_target = self.network._resolve_target_direction(cv_origin, cv_turn)
+                                    cv_target = self.network._resolve_target_direction(
+                                        cv_origin, cv_turn
+                                    )
                                     if cv_target == d:
                                         continue
                             except (ValueError, IndexError):
                                 pass
 
                         cv_x, cv_y = cv.coords
-                        dist_to_entry_euclidean = ((cv_x - entry_pt[0]) ** 2 + (cv_y - entry_pt[1]) ** 2) ** 0.5
+                        dist_to_entry_euclidean = (
+                            (cv_x - entry_pt[0]) ** 2 + (cv_y - entry_pt[1]) ** 2
+                        ) ** 0.5
 
                         if dist_to_entry_euclidean < threshold:
                             theta_cv = math.atan2(cv_y, cv_x)
                             # Angular distance from circulating vehicle to entry point (counter-clockwise)
                             angular_gap = (theta_entry - theta_cv) % (2 * math.pi)
-                            
+
                             # If angular_gap < pi, it is upstream / approaching the entry point
                             if angular_gap < math.pi:
                                 dist_along_circle = lane_radius * angular_gap
                                 if dist_along_circle < threshold:
-                                    time_gap = dist_along_circle / self.circulating_speed
+                                    time_gap = (
+                                        dist_along_circle / self.circulating_speed
+                                    )
                                     if time_gap < self.critical_gap:
                                         should_yield = True
                                         break
