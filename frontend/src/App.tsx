@@ -27,7 +27,7 @@ export function App() {
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+    setTimeout(() => { setToastMessage(null); }, 3000);
   };
 
   const mode = viewMode === "comparative" ? "dual" : "single";
@@ -265,14 +265,14 @@ export function App() {
       traffic: { arrivalRate }
     };
     
-    let metricsToSave = {};
+    let metricsToSave: Record<string, unknown> = {};
     if (viewMode === "comparative" && metricsSnapshotDual) {
       metricsToSave = {
         signal: metricsSnapshotDual.signal.metrics,
         roundabout: metricsSnapshotDual.roundabout.metrics
       };
-    } else if (metricsSnapshotSingle) {
-      metricsToSave = (metricsSnapshotSingle as any).metrics || {};
+    } else if (viewMode !== "comparative" && metricsSnapshotSingle) {
+      metricsToSave = (metricsSnapshotSingle as unknown as { metrics: Record<string, unknown> }).metrics;
     }
 
     const payload = {
@@ -287,10 +287,10 @@ export function App() {
       body: JSON.stringify(payload)
     })
     .then(r => r.json())
-    .then(data => {
+    .then(() => {
       showToast("✅ Simulation saved to history!");
     })
-    .catch(e => console.error(e));
+    .catch((e: unknown) => { console.error(e); });
   };
 
   const handleReplay = (replay: SavedReplay) => {
@@ -558,11 +558,11 @@ export function App() {
             </div>
             <ComparativeDashboard
               snapshot={
-                activeReplay && viewMode === "comparative"
+                (activeReplay && activeReplay.metrics.signal && activeReplay.metrics.roundabout)
                   ? ({
                       signal: { metrics: activeReplay.metrics.signal },
                       roundabout: { metrics: activeReplay.metrics.roundabout },
-                    } as any)
+                    } as unknown as DualSnapshot)
                   : metricsSnapshotDual
               }
               connectionStatus={activeConnectionStatus}
@@ -611,8 +611,8 @@ export function App() {
             </div>
             <MetricsSidebar
               snapshot={
-                activeReplay && viewMode !== "comparative"
-                  ? ({ metrics: activeReplay.metrics } as any)
+                (activeReplay && viewMode !== "comparative" && "averageWaitTime" in activeReplay.metrics)
+                  ? ({ metrics: activeReplay.metrics } as unknown as LiveSnapshot)
                   : metricsSnapshotSingle
               }
               connectionStatus={activeConnectionStatus}

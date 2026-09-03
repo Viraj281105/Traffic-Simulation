@@ -1,11 +1,21 @@
 import React, { useEffect, useState } from "react";
 import "./HistoryDashboard.css";
 
+import { RunningMetrics } from "../types/simulation";
+
 export interface SavedReplay {
   id: string;
   name: string;
-  config: any;
-  metrics: any;
+  config: {
+    simulation?: { duration?: number; randomSeed?: number };
+    geometry?: { intersectionType?: string };
+    roads?: { lanesPerApproach?: { north?: number; south?: number; east?: number; west?: number } };
+    traffic?: { arrivalRate?: number };
+  };
+  metrics: {
+    signal?: RunningMetrics;
+    roundabout?: RunningMetrics;
+  } & Partial<RunningMetrics>;
   created_at: string;
 }
 
@@ -21,11 +31,11 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({ onReplay }) 
   useEffect(() => {
     fetch("http://localhost:8000/api/v1/replays")
       .then((res) => res.json())
-      .then((data) => {
+      .then((data: SavedReplay[]) => {
         setReplays(data);
         setLoading(false);
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         console.error("Failed to load replays:", err);
         setLoading(false);
       });
@@ -36,13 +46,13 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({ onReplay }) 
       method: "DELETE",
     })
       .then((res) => res.json())
-      .then((data) => {
+      .then((data: { status: string }) => {
         if (data.status === "ok") {
           setReplays((prev) => prev.filter((r) => r.id !== id));
           setDeletingId(null);
         }
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         console.error("Failed to delete replay:", err);
         setDeletingId(null);
       });
@@ -88,12 +98,12 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({ onReplay }) 
             
             let awt = "—";
             let throughput = "—";
-            if (isDual) {
+            if (isDual && r.metrics.signal && r.metrics.roundabout) {
                 awt = `S: ${r.metrics.signal.averageWaitTime.toFixed(1)} / R: ${r.metrics.roundabout.averageWaitTime.toFixed(1)}`;
-                throughput = `S: ${r.metrics.signal.throughput} / R: ${r.metrics.roundabout.throughput}`;
+                throughput = `S: ${String(r.metrics.signal.throughput)} / R: ${String(r.metrics.roundabout.throughput)}`;
             } else if (r.metrics.averageWaitTime !== undefined) {
                 awt = r.metrics.averageWaitTime.toFixed(1);
-                throughput = r.metrics.throughput.toString();
+                throughput = String(r.metrics.throughput ?? 0);
             }
 
             return (
@@ -101,15 +111,15 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({ onReplay }) 
                 <td>{date}</td>
                 <td><strong>{r.name}</strong></td>
                 <td>{displayType}</td>
-                <td style={{ fontFamily: "monospace" }}>{r.config.simulation?.randomSeed}</td>
+                <td style={{ fontFamily: "monospace" }}>{String(r.config.simulation?.randomSeed)}</td>
                 <td>{awt}</td>
                 <td>{throughput}</td>
                 <td>
                   <div style={{ display: "flex", gap: "8px" }}>
-                    <button className="pb-btn pb-primary" onClick={() => onReplay(r)}>
+                    <button className="pb-btn pb-primary" onClick={() => { onReplay(r); }}>
                       ▶ Replay
                     </button>
-                    <button className="pb-btn pb-danger" onClick={() => setDeletingId(r.id)}>
+                    <button className="pb-btn pb-danger" onClick={() => { setDeletingId(r.id); }}>
                       🗑 Delete
                     </button>
                   </div>
@@ -126,8 +136,8 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({ onReplay }) 
             <h4>Confirm Deletion</h4>
             <p>Are you sure you want to delete this simulation? This action cannot be undone.</p>
             <div className="modal-actions">
-              <button className="pb-btn" onClick={() => setDeletingId(null)}>Cancel</button>
-              <button className="pb-btn pb-danger" onClick={() => confirmDelete(deletingId)}>Delete</button>
+              <button className="pb-btn" onClick={() => { setDeletingId(null); }}>Cancel</button>
+              <button className="pb-btn pb-danger" onClick={() => { confirmDelete(deletingId); }}>Delete</button>
             </div>
           </div>
         </div>
