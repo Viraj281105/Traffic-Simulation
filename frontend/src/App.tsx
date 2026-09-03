@@ -626,15 +626,15 @@ export function App() {
           </div>
         </main>
       ) : viewMode === "history" ? (
-        <main className="app-main" style={{ overflow: "hidden" }}>
+        <main className="app-main full-screen" style={{ overflow: "hidden" }}>
           <HistoryDashboard onReplay={handleReplay} />
         </main>
       ) : viewMode === "volume" ? (
-        <main className="app-main" style={{ overflow: "hidden" }}>
+        <main className="app-main full-screen" style={{ overflow: "hidden" }}>
           <VolumeAnalysisDashboard />
         </main>
       ) : viewMode === "validation" ? (
-        <main className="app-main" style={{ overflow: "hidden" }}>
+        <main className="app-main full-screen" style={{ overflow: "hidden" }}>
           <ValidationDashboard />
         </main>
       ) : (
@@ -697,17 +697,19 @@ export function App() {
         </main>
       )}
 
-      {/* ── Playback controls ─────────────────────────────────────────── */}
-      <footer className="app-footer">
-        <PlaybackControls
-          snapshot={playbackEnvelope}
-          isPlaying={activeIsPlaying}
-          onPlay={handlePlay}
-          onPause={handlePause}
-          onStop={handleStop}
-        />
-        {activeError && <div className="error-banner">⚠ {activeError}</div>}
-      </footer>
+      {/* ── Playback controls (live simulation & replay views only) ──── */}
+      {viewMode !== "volume" && viewMode !== "validation" && (
+        <footer className="app-footer">
+          <PlaybackControls
+            snapshot={playbackEnvelope}
+            isPlaying={activeIsPlaying}
+            onPlay={handlePlay}
+            onPause={handlePause}
+            onStop={handleStop}
+          />
+          {activeError && <div className="error-banner">⚠ {activeError}</div>}
+        </footer>
+      )}
 
       {/* ── Toast Notification ────────────────────────────────────────── */}
       {toastMessage && <div className="toast-notification">{toastMessage}</div>}

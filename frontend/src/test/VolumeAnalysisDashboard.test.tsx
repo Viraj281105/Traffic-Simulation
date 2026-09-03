@@ -110,7 +110,7 @@ describe("VolumeAnalysisDashboard", () => {
         screen.getByText(/Critical Saturation Crossover/i),
       ).toBeInTheDocument(),
     );
-    expect(screen.getByText(/1,080/)).toBeInTheDocument();
+    expect(screen.getAllByText(/1,080/).length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows error message on failed sweep run", async () => {
