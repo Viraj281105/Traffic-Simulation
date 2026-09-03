@@ -611,7 +611,7 @@ export function App() {
             </div>
             <MetricsSidebar
               snapshot={
-                (activeReplay && viewMode !== "comparative" && "averageWaitTime" in activeReplay.metrics)
+                (activeReplay && "averageWaitTime" in activeReplay.metrics)
                   ? ({ metrics: activeReplay.metrics } as unknown as LiveSnapshot)
                   : metricsSnapshotSingle
               }
