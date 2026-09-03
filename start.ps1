@@ -1,5 +1,8 @@
 $ErrorActionPreference = "Stop"
 
+# Refresh PATH from registry so node/npm and python are always resolved
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $backend = Join-Path $root "backend"
 $frontend = Join-Path $root "frontend"
@@ -35,3 +38,6 @@ if (Test-PortInUse 5173) {
 
 Write-Host "Backend:  http://localhost:8000"
 Write-Host "Frontend: http://localhost:5173"
+
+Start-Sleep -Seconds 2
+Start-Process "http://localhost:5173"

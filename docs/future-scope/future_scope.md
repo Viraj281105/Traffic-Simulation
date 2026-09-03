@@ -1,5 +1,8 @@
 # Project Future Scope: Final Roadmap & Feature Dimensions
 
+> 💡 **Looking for the Next-Gen UI/UX & Google Maps-Grade Digital Twin Architecture?**
+> See the specialized blueprint: [Next-Gen UI/UX & Futuristic Simulation Architecture](./ui_ux_and_nextgen_innovations.md)
+
 This document outlines the finalized **8 Future-Scope Features** for the **Traffic Intersection Control Comparison Framework**. These extensions represent prioritized research and engineering enhancements to elevate the simulation framework into a higher-fidelity, multi-modal, and intelligent traffic management platform.
 
 ---

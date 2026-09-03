@@ -189,9 +189,40 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
       link.click();
       document.body.removeChild(link);
     } else if (snapshot && m) {
-      window.open(
-        `http://localhost:8000/api/v1/simulations/${(snapshot as LiveSnapshot).simulationId}/report`,
+      let csv = "Metric Name,Value\n";
+      const addRow = (label: string, val: number | undefined) => {
+        csv += `"${label}",${val !== undefined ? val.toFixed(2) : "—"}\n`;
+      };
+
+      addRow("Average Wait Time", m.averageWaitTime);
+      addRow("Throughput", m.throughput);
+      addRow("Throughput Rate", m.throughputRate);
+      addRow("Average Travel Speed", m.averageTravelSpeed);
+      addRow("Intersection Utilization", m.intersectionUtilization);
+      addRow("Max Queue Length", m.maxQueueLength);
+      addRow("Average Queue Length", m.averageQueueLength);
+      addRow("Queue Stability Index", m.queueStabilityIndex);
+      addRow("Congestion Recovery Time", m.congestionRecoveryTime);
+      addRow("Total Stops", m.totalStops);
+      addRow("Average Stops per Vehicle", m.averageStopsPerVehicle);
+      addRow("Speed Variance Index", m.speedVarianceIndex);
+      addRow("Travel Time Reliability", m.travelTimeReliability);
+      addRow("Directional Fairness Index", m.directionalFairnessIndex);
+      addRow("Idle Opportunity Loss", m.idleOpportunityLoss);
+      addRow("Land Footprint Area (m²)", m.spaceFootprintConsumed);
+      addRow("Total Vehicles Spawned", m.totalVehiclesSpawned);
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute(
+        "download",
+        `single_report_${Date.now().toString()}.csv`,
       );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 
