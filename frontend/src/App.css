@@ -222,6 +222,12 @@ body {
   gap: 0;
 }
 
+.app-main.full-screen {
+  flex-direction: column;
+  width: 100%;
+  height: calc(100vh - var(--header-h));
+}
+
 .canvas-wrapper {
   flex: 1;
   display: flex;
