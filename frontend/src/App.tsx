@@ -11,6 +11,7 @@ import {
 import { PlaybackControls } from "./components/PlaybackControls";
 import { HistoryDashboard, SavedReplay } from "./components/HistoryDashboard";
 import { updateSimulationConfig } from "./services/api";
+import { API_BASE_URL } from "./config";
 import type {
   LiveSnapshot,
   DualSnapshot,
