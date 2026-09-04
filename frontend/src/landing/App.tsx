@@ -4,13 +4,9 @@ import {
   ArrowDownRight,
   ArrowRight,
   BarChart3,
-  CarFront,
-  ChartNoAxesCombined,
   Code2,
-  GitCompareArrows,
   Moon,
   Orbit,
-  RadioTower,
   Sun,
   TrendingUp,
   Clock,
@@ -81,16 +77,18 @@ function useReveal() {
   useEffect(() => {
     const items = document.querySelectorAll<HTMLElement>('.reveal');
     const observer = new IntersectionObserver(
-      (entries) => entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('is-visible');
-          observer.unobserve(entry.target);
-        }
-      }),
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
       { threshold: 0.14 },
     );
-    items.forEach((item) => observer.observe(item));
-    return () => observer.disconnect();
+    items.forEach((item) => { observer.observe(item); });
+    return () => { observer.disconnect(); };
   }, []);
 }
 
@@ -113,10 +111,10 @@ function App() {
         return Math.min(1264, Math.max(1230, next));
       });
     }, 2200);
-    return () => window.clearInterval(timer);
+    return () => { window.clearInterval(timer); };
   }, []);
 
-  const toggleTheme = () => setIsLight((current) => !current);
+  const toggleTheme = () => { setIsLight((current) => !current); };
 
   return (
     <main className="site-shell">
@@ -158,7 +156,7 @@ function App() {
               <div className="road-mark road-v" />
               {buildings.map((building, index) => (
                 <div
-                  className={`building building-${index + 1}`}
+                  className={`building building-${String(index + 1)}`}
                   key={`${building.x}-${building.y}`}
                   style={{ '--w': building.w, '--h': building.h, '--x': building.x, '--y': building.y } as CSSProperties}
                 />
@@ -219,7 +217,7 @@ function App() {
           </div>
           <div className="capability-grid">
             {capabilities.map(({ icon: Icon, title, body }, index) => (
-              <article className="capability" key={title} data-testid={`card-capability-${index}`}>
+              <article className="capability" key={title} data-testid={`card-capability-${String(index)}`}>
                 <div className="capability-index mono">0{index + 1}</div>
                 <div className="capability-icon"><Icon size={24} strokeWidth={1.5} /></div>
                 <h3>{title}</h3>
@@ -243,7 +241,7 @@ function App() {
               <div className="metric-group" key={group.title}>
                 <div className="metric-group-title">{group.title}</div>
                 {group.metrics.map((metric) => (
-                  <div className="metric-row" key={metric.name} data-testid={`metric-row-${metric.name.toLowerCase().replaceAll(' ', '-')}`}>
+                  <div className="metric-row" key={metric.name} data-testid={`metric-row-${metric.name.toLowerCase().replace(/ /g, '-')}`}>
                     <span className="metric-name">{metric.name}</span>
                     <span className="metric-value">{metric.value}</span>
                     <span className="metric-bar" aria-hidden="true"><i className={metric.tone === 'orange' ? 'orange' : ''} style={{ '--value': metric.width } as CSSProperties} /></span>
