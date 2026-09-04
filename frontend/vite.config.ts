@@ -28,8 +28,10 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        main: resolve(__dirname, 'index.html'),
-        app: resolve(__dirname, 'app.html'),
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+        main: resolve(__dirname, "index.html"),
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+        app: resolve(__dirname, "app.html"),
       },
       output: {
         manualChunks(id) {
