@@ -1,6 +1,12 @@
-import React from "react";
+import React, { useState } from "react";
 import type { DualSnapshot, VehicleCounts } from "../types/simulation";
 import type { ConnectionStatus } from "../services/websocket";
+import {
+  WeightedScoringPanel,
+  DEFAULT_WEIGHTS,
+  ScoringWeights,
+  computeWeightedScore,
+} from "./WeightedScoringPanel";
 import "./ComparativeDashboard.css";
 
 interface ComparativeDashboardProps {
@@ -16,6 +22,8 @@ function fmt(val: number | undefined, decimals = 1): string {
 export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
   snapshot,
 }) => {
+  const [weights, setWeights] = useState<ScoringWeights>(DEFAULT_WEIGHTS);
+
   if (!snapshot) {
     return (
       <div className="comparative-dashboard empty">
@@ -28,12 +36,32 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
   const mRound = snapshot.roundabout.metrics;
 
   const handleDownloadReport = () => {
-    let csv = "Metric Name,Fixed-Time Signal,Roundabout,Winner,Delta (%)\n";
+    const scoreSig = computeWeightedScore(mSignal, weights);
+    const scoreRnd = computeWeightedScore(mRound, weights);
+    const overallWinner =
+      scoreRnd > scoreSig
+        ? "Roundabout"
+        : scoreSig > scoreRnd
+          ? "Signal"
+          : "Tie";
+
+    let csv = "=== CUSTOM WEIGHTED SCORING REPORT ===\n";
+    csv += `Wait Time Weight,${weights.weightWaitTime}%\n`;
+    csv += `Throughput Weight,${weights.weightThroughput}%\n`;
+    csv += `Queue Weight,${weights.weightQueue}%\n`;
+    csv += `Fairness Weight,${weights.weightFairness}%\n`;
+    csv += `Stops Weight,${weights.weightStops}%\n`;
+    csv += `Signal Score,${scoreSig.toFixed(1)}/100\n`;
+    csv += `Roundabout Score,${scoreRnd.toFixed(1)}/100\n`;
+    csv += `Overall Winner,${overallWinner}\n\n`;
+
+    csv += "=== DETAILED METRICS BREAKDOWN ===\n";
+    csv += "Metric Name,Fixed-Time Signal,Roundabout,Winner,Delta (%)\n";
     const addRow = (
       label: string,
       valA: number,
       valB: number,
-      lowerIsBetter = true,
+      lowerIsBetter = true
     ) => {
       const winner =
         valA === valB
@@ -52,26 +80,26 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
       "Average Wait Time",
       mSignal.averageWaitTime,
       mRound.averageWaitTime,
-      true,
+      true
     );
     addRow("Throughput", mSignal.throughput, mRound.throughput, false);
     addRow(
       "Average Speed",
       mSignal.averageTravelSpeed,
       mRound.averageTravelSpeed,
-      false,
+      false
     );
     addRow(
       "Average Queue Length",
       mSignal.averageQueueLength,
       mRound.averageQueueLength,
-      true,
+      true
     );
     addRow(
       "Max Queue Length",
       mSignal.maxQueueLength,
       mRound.maxQueueLength,
-      true,
+      true
     );
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -80,7 +108,7 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
     link.setAttribute("href", url);
     link.setAttribute(
       "download",
-      `comparative_report_${Date.now().toString()}.csv`,
+      `comparative_report_${Date.now().toString()}.csv`
     );
     document.body.appendChild(link);
     link.click();
@@ -89,6 +117,12 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
 
   return (
     <div className="comparative-dashboard">
+      <WeightedScoringPanel
+        metricsSignal={mSignal}
+        metricsRoundabout={mRound}
+        weights={weights}
+        onWeightsChange={setWeights}
+      />
       <div
         className="dashboard-header"
         style={{

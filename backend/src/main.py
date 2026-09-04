@@ -545,19 +545,47 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
             "arrivalDistribution": "poisson",
         },
         "controller": (
-            DEFAULT_CONFIG["controller"]
+            {
+                "straightRightDuration": float(
+                    payload.get(
+                        "greenDuration",
+                        DEFAULT_CONFIG["controller"]["straightRightDuration"],
+                    )
+                ),
+                "leftDuration": float(
+                    payload.get(
+                        "leftDuration", DEFAULT_CONFIG["controller"]["leftDuration"]
+                    )
+                ),
+                "yellowDuration": float(
+                    payload.get(
+                        "yellowDuration",
+                        DEFAULT_CONFIG["controller"]["yellowDuration"],
+                    )
+                ),
+                "allRedDuration": float(
+                    payload.get(
+                        "allRedDuration",
+                        DEFAULT_CONFIG["controller"]["allRedDuration"],
+                    )
+                ),
+            }
             if payload.get("intersectionType", "fixed_time_signal")
             == "fixed_time_signal"
             else {
                 "innerRadius": 10.0,
                 "outerRadius": 20.0,
                 "circulatingLanes": 1,
-                "criticalGap": 2.5,
-                "followUpTime": 1.5,
+                "criticalGap": float(payload.get("criticalGap", 2.5)),
+                "followUpTime": float(payload.get("followUpTime", 1.5)),
                 "entrySpeed": 5.0,
                 "circulatingSpeed": 8.0,
             }
         ),
+        "roundaboutController": {
+            "criticalGap": float(payload.get("criticalGap", 4.0)),
+            "followUpTime": float(payload.get("followUpTime", 2.5)),
+        },
         "vehicleGeneration": DEFAULT_CONFIG["vehicleGeneration"],
     }
 

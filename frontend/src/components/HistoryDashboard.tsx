@@ -9,7 +9,7 @@ export interface SavedReplay {
   name: string;
   config: {
     simulation?: { duration?: number; randomSeed?: number };
-    geometry?: { intersectionType?: string };
+    geometry?: { intersectionType?: string; laneWidth?: number };
     roads?: {
       lanesPerApproach?: {
         north?: number;

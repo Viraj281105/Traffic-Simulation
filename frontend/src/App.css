@@ -125,13 +125,62 @@ body {
   border-color: var(--accent-blue);
 }
 
-/* ── Config Panel ────────────────────────────────────────────────────────── */
-.config-panel {
-  background: var(--bg-secondary);
+.config-toggle-btn.active {
+  background: rgba(88, 166, 255, 0.15);
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+  box-shadow: 0 0 10px rgba(88, 166, 255, 0.2);
+}
+
+/* ── Quick Display Toggles & Status Bar ──────────────────────────────────── */
+.quick-toggles-bar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 8px 24px;
+  background: rgba(13, 17, 23, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
-  padding: 14px 20px;
+  font-size: 12px;
   flex-shrink: 0;
-  animation: slideDown 0.2s ease;
+}
+
+.quick-seed-group {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.seed-badge {
+  font-size: 11px;
+  font-family: "JetBrains Mono", monospace;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.seed-badge strong {
+  color: var(--accent-cyan);
+}
+
+.re-roll-btn {
+  padding: 4px 10px !important;
+  font-size: 11px !important;
+  background: var(--bg-tertiary) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
+}
+
+.re-roll-btn:hover {
+  background: var(--bg-hover) !important;
+  border-color: var(--accent-blue) !important;
 }
 
 @keyframes slideDown {
