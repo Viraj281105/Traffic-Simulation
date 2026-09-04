@@ -1,18 +1,7 @@
 import React, { useState, useMemo } from "react";
+import type { SimulationConfigValues } from "../types/config";
+import { DEFAULT_CONFIG_VALUES } from "../types/config";
 import "./ConfigurationSidebar.css";
-
-export interface SimulationConfigValues {
-  lanes: number;
-  laneWidth: number;
-  arrivalRate: number;
-  duration: number;
-  randomSeed: number;
-  greenDuration: number;
-  yellowDuration: number;
-  allRedDuration: number;
-  criticalGap: number;
-  followUpTime: number;
-}
 
 interface ConfigurationSidebarProps {
   isOpen: boolean;
@@ -27,19 +16,6 @@ interface ValidationAlert {
   message: string;
 }
 
-export const DEFAULT_CONFIG_VALUES: SimulationConfigValues = {
-  lanes: 2,
-  laneWidth: 3.5,
-  arrivalRate: 0.35,
-  duration: 300,
-  randomSeed: 42,
-  greenDuration: 15,
-  yellowDuration: 3,
-  allRedDuration: 2,
-  criticalGap: 4.0,
-  followUpTime: 2.5,
-};
-
 export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
   isOpen,
   onClose,
@@ -47,13 +23,15 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
   onApply,
   isRoundaboutMode = false,
 }) => {
+  const [prevConfig, setPrevConfig] = useState<SimulationConfigValues>(config);
   const [form, setForm] = useState<SimulationConfigValues>(config);
   const [isApplied, setIsApplied] = useState(false);
 
-  // Synchronize when outer config changes (e.g. on reset)
-  React.useEffect(() => {
+  // Synchronize when outer config changes (e.g. on reset or replay) without calling setState in an effect
+  if (config !== prevConfig) {
+    setPrevConfig(config);
     setForm(config);
-  }, [config]);
+  }
 
   // Check if dirty (unsaved changes)
   const isDirty = useMemo(() => {
@@ -68,12 +46,13 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
     if (form.laneWidth < 2.8) {
       alerts.push({
         type: "error",
-        message: "Lane width below 2.8m violates vehicle clearance safety limits.",
+        message:
+          "Lane width below 2.8m violates vehicle clearance safety limits.",
       });
     } else if (form.laneWidth > 4.5) {
       alerts.push({
         type: "warning",
-        message: "Lane width exceeds 4.5m; excessively wide lanes increase crossing distance.",
+        message: "Lane width > 4.5m encourages aggressive speeding.",
       });
     }
 
@@ -81,7 +60,8 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
     if (form.arrivalRate > 0.8) {
       alerts.push({
         type: "warning",
-        message: "Arrival rate > 0.8 veh/s creates extreme peak load that will induce queuing.",
+        message:
+          "Arrival rate > 0.8 veh/s creates extreme peak load that will induce queuing.",
       });
     }
 
@@ -89,13 +69,15 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
     if (form.greenDuration < 5) {
       alerts.push({
         type: "error",
-        message: "Signal green duration cannot be less than 5 seconds (insufficient clearance).",
+        message:
+          "Signal green duration cannot be less than 5 seconds (insufficient clearance).",
       });
     }
     if (form.yellowDuration < 2) {
       alerts.push({
         type: "error",
-        message: "Yellow phase duration cannot be less than 2 seconds (dilemma zone hazard).",
+        message:
+          "Yellow phase duration cannot be less than 2 seconds (dilemma zone hazard).",
       });
     }
 
@@ -103,13 +85,31 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
     if (form.criticalGap <= form.followUpTime) {
       alerts.push({
         type: "error",
-        message: "Critical gap must be strictly greater than follow-up headway time (criticalGap > followUpTime).",
+        message:
+          "Critical gap must be strictly greater than follow-up headway time (criticalGap > followUpTime).",
       });
     }
     if (form.criticalGap < 2.0) {
       alerts.push({
+        type: "error",
+        message:
+          "Critical gap < 2.0s is physically unrealistic and causes collision deadlocks.",
+      });
+    }
+    if (form.followUpTime < 1.0) {
+      alerts.push({
+        type: "error",
+        message:
+          "Follow-up time < 1.0s exceeds maximum vehicular acceleration capabilities.",
+      });
+    }
+
+    // Duration warning
+    if (form.duration > 600) {
+      alerts.push({
         type: "warning",
-        message: "Critical gap < 2.0s represents extremely aggressive yielding behavior.",
+        message:
+          "Durations over 600s may require substantial client rendering resources.",
       });
     }
 
@@ -120,10 +120,9 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
 
   const handleChange = <K extends keyof SimulationConfigValues>(
     key: K,
-    value: SimulationConfigValues[K]
+    value: SimulationConfigValues[K],
   ) => {
     setForm((prev) => ({ ...prev, [key]: value }));
-    setIsApplied(false);
   };
 
   const handleRerollSeed = () => {
@@ -136,21 +135,30 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
     setIsApplied(false);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.SyntheticEvent) => {
     e.preventDefault();
     if (hasErrors) return;
     onApply(form);
     setIsApplied(true);
-    setTimeout(() => setIsApplied(false), 2000);
+    setTimeout(() => {
+      setIsApplied(false);
+    }, 2000);
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="config-sidebar-overlay" onClick={onClose}>
+    <div
+      className="config-sidebar-overlay"
+      onClick={() => {
+        onClose();
+      }}
+    >
       <div
         className="config-sidebar-panel"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+        }}
       >
         {/* Header */}
         <div className="config-sidebar-header">
@@ -158,18 +166,32 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
             <span>⚙️ Scenario Configuration</span>
             {isDirty && <span className="config-dirty-badge">Unsaved</span>}
           </div>
-          <button className="config-close-btn" onClick={onClose} title="Close">
+          <button
+            className="config-close-btn"
+            onClick={() => {
+              onClose();
+            }}
+            title="Close"
+          >
             ✕
           </button>
         </div>
 
         {/* Form Body */}
-        <form className="config-sidebar-body" onSubmit={handleSubmit}>
+        <form
+          className="config-sidebar-body"
+          onSubmit={(e) => {
+            handleSubmit(e);
+          }}
+        >
           {/* Validation Alerts Section */}
           <div className="config-alerts-container">
             {validationAlerts.length === 0 ? (
               <div className="config-alert config-alert-valid">
-                <span>✓ All parameters meet standard geometric and kinematic constraints.</span>
+                <span>
+                  ✓ All parameters meet standard geometric and kinematic
+                  constraints.
+                </span>
               </div>
             ) : (
               validationAlerts.map((alert, idx) => (
@@ -208,9 +230,9 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
                 max="1.20"
                 step="0.05"
                 value={form.arrivalRate}
-                onChange={(e) =>
-                  handleChange("arrivalRate", parseFloat(e.target.value))
-                }
+                onChange={(e) => {
+                  handleChange("arrivalRate", parseFloat(e.target.value));
+                }}
               />
             </div>
 
@@ -226,9 +248,9 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
                 max="600"
                 step="10"
                 value={form.duration}
-                onChange={(e) =>
-                  handleChange("duration", parseInt(e.target.value, 10))
-                }
+                onChange={(e) => {
+                  handleChange("duration", parseInt(e.target.value, 10));
+                }}
               />
             </div>
 
@@ -241,17 +263,19 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
                   type="number"
                   className="config-seed-input"
                   value={form.randomSeed}
-                  onChange={(e) =>
+                  onChange={(e) => {
                     handleChange(
                       "randomSeed",
-                      parseInt(e.target.value, 10) || 1
-                    )
-                  }
+                      parseInt(e.target.value, 10) || 1,
+                    );
+                  }}
                 />
                 <button
                   type="button"
                   className="config-reroll-btn"
-                  onClick={handleRerollSeed}
+                  onClick={() => {
+                    handleRerollSeed();
+                  }}
                   title="Generate a new randomized seed"
                 >
                   🎲 Re-roll
@@ -278,9 +302,9 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
                 max="4"
                 step="1"
                 value={form.lanes}
-                onChange={(e) =>
-                  handleChange("lanes", parseInt(e.target.value, 10))
-                }
+                onChange={(e) => {
+                  handleChange("lanes", parseInt(e.target.value, 10));
+                }}
               />
             </div>
 
@@ -298,9 +322,9 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
                 max="4.8"
                 step="0.1"
                 value={form.laneWidth}
-                onChange={(e) =>
-                  handleChange("laneWidth", parseFloat(e.target.value))
-                }
+                onChange={(e) => {
+                  handleChange("laneWidth", parseFloat(e.target.value));
+                }}
               />
             </div>
           </div>
@@ -328,9 +352,9 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
                 max="60"
                 step="1"
                 value={form.greenDuration}
-                onChange={(e) =>
-                  handleChange("greenDuration", parseInt(e.target.value, 10))
-                }
+                onChange={(e) => {
+                  handleChange("greenDuration", parseInt(e.target.value, 10));
+                }}
               />
             </div>
 
@@ -348,9 +372,9 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
                 max="8"
                 step="1"
                 value={form.yellowDuration}
-                onChange={(e) =>
-                  handleChange("yellowDuration", parseInt(e.target.value, 10))
-                }
+                onChange={(e) => {
+                  handleChange("yellowDuration", parseInt(e.target.value, 10));
+                }}
               />
             </div>
 
@@ -368,9 +392,9 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
                 max="6"
                 step="1"
                 value={form.allRedDuration}
-                onChange={(e) =>
-                  handleChange("allRedDuration", parseInt(e.target.value, 10))
-                }
+                onChange={(e) => {
+                  handleChange("allRedDuration", parseInt(e.target.value, 10));
+                }}
               />
             </div>
           </div>
@@ -380,7 +404,9 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
             <div className="config-section-title">
               <span>🔄 Roundabout Gap Acceptance</span>
               {isRoundaboutMode && (
-                <span className="config-active-badge">Active in Roundabout</span>
+                <span className="config-active-badge">
+                  Active in Roundabout
+                </span>
               )}
             </div>
 
@@ -398,9 +424,9 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
                 max="6.0"
                 step="0.1"
                 value={form.criticalGap}
-                onChange={(e) =>
-                  handleChange("criticalGap", parseFloat(e.target.value))
-                }
+                onChange={(e) => {
+                  handleChange("criticalGap", parseFloat(e.target.value));
+                }}
               />
             </div>
 
@@ -418,9 +444,9 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
                 max="3.5"
                 step="0.1"
                 value={form.followUpTime}
-                onChange={(e) =>
-                  handleChange("followUpTime", parseFloat(e.target.value))
-                }
+                onChange={(e) => {
+                  handleChange("followUpTime", parseFloat(e.target.value));
+                }}
               />
             </div>
           </div>
@@ -431,7 +457,9 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
           <button
             type="button"
             className="config-reset-btn"
-            onClick={handleReset}
+            onClick={() => {
+              handleReset();
+            }}
           >
             Reset Defaults
           </button>
@@ -439,9 +467,15 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
             type="button"
             className="config-apply-btn"
             disabled={hasErrors}
-            onClick={handleSubmit}
+            onClick={(e) => {
+              handleSubmit(e);
+            }}
           >
-            {isApplied ? "✓ Applied!" : hasErrors ? "Fix Validation Errors" : "Apply Configuration"}
+            {isApplied
+              ? "✓ Applied!"
+              : hasErrors
+                ? "Fix Validation Errors"
+                : "Apply Configuration"}
           </button>
         </div>
       </div>

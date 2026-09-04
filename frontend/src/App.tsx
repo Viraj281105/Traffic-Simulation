@@ -12,10 +12,8 @@ import { PlaybackControls } from "./components/PlaybackControls";
 import { HistoryDashboard, SavedReplay } from "./components/HistoryDashboard";
 import { VolumeAnalysisDashboard } from "./components/VolumeAnalysisDashboard";
 import { ValidationDashboard } from "./components/ValidationDashboard";
-import {
-  ConfigurationSidebar,
-  SimulationConfigValues,
-} from "./components/ConfigurationSidebar";
+import { ConfigurationSidebar } from "./components/ConfigurationSidebar";
+import type { SimulationConfigValues } from "./types/config";
 import { updateSimulationConfig } from "./services/api";
 import { API_BASE_URL } from "./config";
 import type {
@@ -103,18 +101,20 @@ export function App() {
   }
 
   // Canvas & Simulation config state
-  const [configValues, setConfigValues] = useState<SimulationConfigValues>({
-    lanes: 2,
-    laneWidth: 3.5,
-    arrivalRate: 0.3,
-    duration: 300,
-    randomSeed: Math.floor(Math.random() * 1000000) + 1,
-    greenDuration: 25,
-    yellowDuration: 3,
-    allRedDuration: 2,
-    criticalGap: 4.5,
-    followUpTime: 2.8,
-  });
+  const [configValues, setConfigValues] = useState<SimulationConfigValues>(
+    () => ({
+      lanes: 2,
+      laneWidth: 3.5,
+      arrivalRate: 0.3,
+      duration: 300,
+      randomSeed: Math.floor(Math.random() * 1000000) + 1,
+      greenDuration: 25,
+      yellowDuration: 3,
+      allRedDuration: 2,
+      criticalGap: 4.5,
+      followUpTime: 2.8,
+    }),
+  );
   const [showStopLines, setShowStopLines] = useState(true);
   const [debug, setDebug] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
@@ -149,7 +149,7 @@ export function App() {
   const isDual = viewMode === "comparative";
 
   // Adjust state during render to avoid useEffect warnings
-  const configKey = `${lanes}_${laneWidth}_${greenDuration}_${criticalGap}`;
+  const configKey = `${lanes.toString()}_${laneWidth.toString()}_${greenDuration.toString()}_${criticalGap.toString()}`;
 
   if (configKey !== prevConfigKey) {
     setPrevConfigKey(configKey);
@@ -470,11 +470,7 @@ export function App() {
           value={showStopLines}
           onChange={setShowStopLines}
         />
-        <ConfigToggle
-          label="Debug Queues"
-          value={debug}
-          onChange={setDebug}
-        />
+        <ConfigToggle label="Debug Queues" value={debug} onChange={setDebug} />
         <div className="quick-seed-group">
           <span className="seed-badge" title="Active Random Seed">
             🎲 Seed: <strong>{randomSeed}</strong>
@@ -493,7 +489,9 @@ export function App() {
       {/* ── Interactive Configuration Sidebar ────────────────────────── */}
       <ConfigurationSidebar
         isOpen={configOpen}
-        onClose={() => setConfigOpen(false)}
+        onClose={() => {
+          setConfigOpen(false);
+        }}
         config={configValues}
         onApply={handleApplyConfig}
         isRoundaboutMode={viewMode === "roundabout"}

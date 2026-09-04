@@ -3,11 +3,9 @@
  */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import {
-  ConfigurationSidebar,
-  SimulationConfigValues,
-  DEFAULT_CONFIG_VALUES,
-} from "../components/ConfigurationSidebar";
+import { ConfigurationSidebar } from "../components/ConfigurationSidebar";
+import type { SimulationConfigValues } from "../types/config";
+import { DEFAULT_CONFIG_VALUES } from "../types/config";
 
 describe("ConfigurationSidebar", () => {
   const mockConfig: SimulationConfigValues = { ...DEFAULT_CONFIG_VALUES };
@@ -56,11 +54,15 @@ describe("ConfigurationSidebar", () => {
     );
 
     expect(
-      screen.getByText(/Critical gap must be strictly greater than follow-up headway time/),
+      screen.getByText(
+        /Critical gap must be strictly greater than follow-up headway time/,
+      ),
     ).toBeInTheDocument();
 
     // Apply button should be disabled when there are errors
-    const applyBtn = screen.getByRole("button", { name: /Fix Validation Errors/i });
+    const applyBtn = screen.getByRole("button", {
+      name: /Fix Validation Errors/i,
+    });
     expect(applyBtn).toBeDisabled();
   });
 
@@ -75,7 +77,9 @@ describe("ConfigurationSidebar", () => {
       />,
     );
 
-    const applyBtn = screen.getByRole("button", { name: /Apply Configuration/i });
+    const applyBtn = screen.getByRole("button", {
+      name: /Apply Configuration/i,
+    });
     expect(applyBtn).not.toBeDisabled();
     fireEvent.click(applyBtn);
 

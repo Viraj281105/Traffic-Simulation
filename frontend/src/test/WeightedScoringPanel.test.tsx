@@ -3,10 +3,8 @@
  */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import {
-  WeightedScoringPanel,
-  DEFAULT_WEIGHTS,
-} from "../components/WeightedScoringPanel";
+import { WeightedScoringPanel } from "../components/WeightedScoringPanel";
+import { DEFAULT_WEIGHTS } from "../types/scoring";
 import { RunningMetrics } from "../types/simulation";
 
 describe("WeightedScoringPanel", () => {
@@ -66,7 +64,9 @@ describe("WeightedScoringPanel", () => {
       />,
     );
 
-    expect(screen.getByText(/Custom Weighted Scoring Model/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Custom Weighted Scoring Model/i),
+    ).toBeInTheDocument();
     expect(screen.getByText("Overall Scoring Winner")).toBeInTheDocument();
     expect(screen.getByText("Modern Roundabout")).toBeInTheDocument();
     expect(screen.getByText("Average Wait Time")).toBeInTheDocument();
@@ -86,7 +86,9 @@ describe("WeightedScoringPanel", () => {
       />,
     );
 
-    const highThroughputBtn = screen.getByRole("button", { name: /High Throughput/i });
+    const highThroughputBtn = screen.getByRole("button", {
+      name: /High Throughput/i,
+    });
     fireEvent.click(highThroughputBtn);
 
     expect(onWeightsChange).toHaveBeenCalledWith(
@@ -109,7 +111,7 @@ describe("WeightedScoringPanel", () => {
 
     const sliders = screen.getAllByRole("slider");
     expect(sliders.length).toBeGreaterThanOrEqual(4);
-    
+
     // Change first slider (Wait Time)
     fireEvent.change(sliders[0], { target: { value: "45" } });
     expect(onWeightsChange).toHaveBeenCalledWith(

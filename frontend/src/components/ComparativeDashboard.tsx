@@ -1,12 +1,9 @@
 import React, { useState } from "react";
 import type { DualSnapshot, VehicleCounts } from "../types/simulation";
 import type { ConnectionStatus } from "../services/websocket";
-import {
-  WeightedScoringPanel,
-  DEFAULT_WEIGHTS,
-  ScoringWeights,
-  computeWeightedScore,
-} from "./WeightedScoringPanel";
+import { WeightedScoringPanel } from "./WeightedScoringPanel";
+import type { ScoringWeights } from "../types/scoring";
+import { DEFAULT_WEIGHTS, computeWeightedScore } from "../types/scoring";
 import "./ComparativeDashboard.css";
 
 interface ComparativeDashboardProps {
@@ -46,11 +43,11 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
           : "Tie";
 
     let csv = "=== CUSTOM WEIGHTED SCORING REPORT ===\n";
-    csv += `Wait Time Weight,${weights.weightWaitTime}%\n`;
-    csv += `Throughput Weight,${weights.weightThroughput}%\n`;
-    csv += `Queue Weight,${weights.weightQueue}%\n`;
-    csv += `Fairness Weight,${weights.weightFairness}%\n`;
-    csv += `Stops Weight,${weights.weightStops}%\n`;
+    csv += `Wait Time Weight,${weights.weightWaitTime.toString()}%\n`;
+    csv += `Throughput Weight,${weights.weightThroughput.toString()}%\n`;
+    csv += `Queue Weight,${weights.weightQueue.toString()}%\n`;
+    csv += `Fairness Weight,${weights.weightFairness.toString()}%\n`;
+    csv += `Stops Weight,${weights.weightStops.toString()}%\n`;
     csv += `Signal Score,${scoreSig.toFixed(1)}/100\n`;
     csv += `Roundabout Score,${scoreRnd.toFixed(1)}/100\n`;
     csv += `Overall Winner,${overallWinner}\n\n`;
@@ -61,7 +58,7 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
       label: string,
       valA: number,
       valB: number,
-      lowerIsBetter = true
+      lowerIsBetter = true,
     ) => {
       const winner =
         valA === valB
@@ -80,26 +77,26 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
       "Average Wait Time",
       mSignal.averageWaitTime,
       mRound.averageWaitTime,
-      true
+      true,
     );
     addRow("Throughput", mSignal.throughput, mRound.throughput, false);
     addRow(
       "Average Speed",
       mSignal.averageTravelSpeed,
       mRound.averageTravelSpeed,
-      false
+      false,
     );
     addRow(
       "Average Queue Length",
       mSignal.averageQueueLength,
       mRound.averageQueueLength,
-      true
+      true,
     );
     addRow(
       "Max Queue Length",
       mSignal.maxQueueLength,
       mRound.maxQueueLength,
-      true
+      true,
     );
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -108,7 +105,7 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
     link.setAttribute("href", url);
     link.setAttribute(
       "download",
-      `comparative_report_${Date.now().toString()}.csv`
+      `comparative_report_${Date.now().toString()}.csv`,
     );
     document.body.appendChild(link);
     link.click();
