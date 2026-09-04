@@ -13,6 +13,7 @@ import { HistoryDashboard, SavedReplay } from "./components/HistoryDashboard";
 import { VolumeAnalysisDashboard } from "./components/VolumeAnalysisDashboard";
 import { ValidationDashboard } from "./components/ValidationDashboard";
 import { ConfigurationSidebar } from "./components/ConfigurationSidebar";
+import { Sun, Moon } from "lucide-react";
 import type { SimulationConfigValues } from "./types/config";
 import { updateSimulationConfig } from "./services/api";
 import { API_BASE_URL } from "./config";
@@ -35,6 +36,15 @@ export function App() {
   >("comparative");
   const [activeReplay, setActiveReplay] = useState<SavedReplay | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isLight, setIsLight] = useState(
+    () => sessionStorage.getItem("signals-theme") === "light",
+  );
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("light", isLight);
+    document.documentElement.classList.toggle("dark", !isLight);
+    sessionStorage.setItem("signals-theme", isLight ? "light" : "dark");
+  }, [isLight]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -387,15 +397,10 @@ export function App() {
       {/* ── Header ────────────────────────────────────────────────────── */}
       <header className="app-header">
         <div className="header-left">
-          <div className="header-logo">
-            <span className="logo-icon">🚦</span>
-            <div>
-              <h1 className="header-title">Traffic Simulation Comparison</h1>
-              <p className="header-sub">
-                Fixed-Time Signal vs. Modern Roundabout
-              </p>
-            </div>
-          </div>
+          <a className="brand" href="/" data-testid="link-brand">
+            <span className="brand-mark" aria-hidden="true" />
+            <span className="brand-name">URBANFLOW</span>
+          </a>
         </div>
 
         {/* View Mode Tabs */}
@@ -450,7 +455,10 @@ export function App() {
           </button>
         </div>
 
-        <div className="header-right">
+        <div
+          className="header-right"
+          style={{ display: "flex", gap: "16px", alignItems: "center" }}
+        >
           <button
             className={`config-toggle-btn ${configOpen ? "active" : ""}`}
             onClick={() => {
@@ -459,6 +467,17 @@ export function App() {
             title="Configure traffic volume, widths, signal timings & critical gaps"
           >
             ⚙️ Scenario Settings
+          </button>
+          <button
+            className="theme-button"
+            type="button"
+            onClick={() => { setIsLight(c => !c); }}
+            aria-label={
+              isLight ? "Switch to dark mode" : "Switch to light mode"
+            }
+            data-testid="button-theme-toggle"
+          >
+            {isLight ? <Moon size={15} /> : <Sun size={15} />}
           </button>
         </div>
       </header>
