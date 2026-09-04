@@ -12,6 +12,8 @@ import { PlaybackControls } from "./components/PlaybackControls";
 import { HistoryDashboard, SavedReplay } from "./components/HistoryDashboard";
 import { VolumeAnalysisDashboard } from "./components/VolumeAnalysisDashboard";
 import { ValidationDashboard } from "./components/ValidationDashboard";
+import { ConfigurationSidebar } from "./components/ConfigurationSidebar";
+import type { SimulationConfigValues } from "./types/config";
 import { updateSimulationConfig } from "./services/api";
 import { API_BASE_URL } from "./config";
 import type {
@@ -98,22 +100,43 @@ export function App() {
     }
   }
 
-  // Canvas config state
-  const [lanes, setLanes] = useState(2);
+  // Canvas & Simulation config state
+  const [configValues, setConfigValues] = useState<SimulationConfigValues>(
+    () => ({
+      lanes: 2,
+      laneWidth: 3.5,
+      arrivalRate: 0.3,
+      duration: 300,
+      randomSeed: Math.floor(Math.random() * 1000000) + 1,
+      greenDuration: 25,
+      yellowDuration: 3,
+      allRedDuration: 2,
+      criticalGap: 4.5,
+      followUpTime: 2.8,
+    }),
+  );
   const [showStopLines, setShowStopLines] = useState(true);
   const [debug, setDebug] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
 
-  // Extra configurations
-  const [arrivalRate, setArrivalRate] = useState(0.3);
-  const [duration, setDuration] = useState(300);
-  const [randomSeed, setRandomSeed] = useState<number>(
-    () => Math.floor(Math.random() * 1000000) + 1,
-  );
+  // Derived config parameters
+  const lanes = configValues.lanes;
+  const laneWidth = configValues.laneWidth;
+  const arrivalRate = configValues.arrivalRate;
+  const duration = configValues.duration;
+  const randomSeed = configValues.randomSeed;
+  const greenDuration = configValues.greenDuration;
+  const yellowDuration = configValues.yellowDuration;
+  const allRedDuration = configValues.allRedDuration;
+  const criticalGap = configValues.criticalGap;
+  const followUpTime = configValues.followUpTime;
 
   const randomizeSeed = () => {
     setActiveReplay(null);
-    setRandomSeed(Math.floor(Math.random() * 1000000) + 1);
+    setConfigValues((prev) => ({
+      ...prev,
+      randomSeed: Math.floor(Math.random() * 1000000) + 1,
+    }));
   };
 
   // Dynamically compute width and intersection proportionally based on lanes count
@@ -121,13 +144,12 @@ export function App() {
   const lanesSouth = lanes;
   const lanesEast = lanes;
   const lanesWest = lanes;
-  const laneWidth = 3.0 + (lanes - 1) * 0.5;
   const intersectionSize = lanes * laneWidth * 2 + 4.0;
 
   const isDual = viewMode === "comparative";
 
   // Adjust state during render to avoid useEffect warnings
-  const configKey = lanes.toString();
+  const configKey = `${lanes.toString()}_${laneWidth.toString()}_${greenDuration.toString()}_${criticalGap.toString()}`;
 
   if (configKey !== prevConfigKey) {
     setPrevConfigKey(configKey);
@@ -162,7 +184,7 @@ export function App() {
     metricsSnapshotSingle = lastCompletedSnapshotSingle;
   }
 
-  // Sync config with backend on change (debounced to prevent flooding)
+  // Sync config with backend on change
   useEffect(() => {
     const intersectionType =
       viewMode === "roundabout" ? "roundabout" : "fixed_time_signal";
@@ -177,6 +199,11 @@ export function App() {
       arrivalRate,
       duration,
       randomSeed,
+      greenDuration,
+      yellowDuration,
+      allRedDuration,
+      criticalGap,
+      followUpTime,
     }).catch((err: unknown) => {
       console.error("Failed to update backend config:", err);
     });
@@ -192,7 +219,18 @@ export function App() {
     arrivalRate,
     duration,
     randomSeed,
+    greenDuration,
+    yellowDuration,
+    allRedDuration,
+    criticalGap,
+    followUpTime,
   ]);
+
+  const handleApplyConfig = (newConfig: SimulationConfigValues) => {
+    setActiveReplay(null);
+    setConfigValues(newConfig);
+    showToast("⚙️ Scenario configuration applied successfully!");
+  };
 
   // Map controls to appropriate hooks based on the active view mode
   const activeIsPlaying =
@@ -321,10 +359,17 @@ export function App() {
 
   const handleReplay = (replay: SavedReplay) => {
     setActiveReplay(replay);
-    setLanes(replay.config.roads?.lanesPerApproach?.north || 2);
-    setArrivalRate(replay.config.traffic?.arrivalRate || 0.3);
-    setDuration(replay.config.simulation?.duration || 300);
-    setRandomSeed(replay.config.simulation?.randomSeed || 42);
+    const replayLanes = replay.config.roads?.lanesPerApproach?.north || 2;
+    const replayWidth =
+      replay.config.geometry?.laneWidth || 3.0 + (replayLanes - 1) * 0.5;
+    setConfigValues((prev) => ({
+      ...prev,
+      lanes: replayLanes,
+      laneWidth: replayWidth,
+      arrivalRate: replay.config.traffic?.arrivalRate || 0.3,
+      duration: replay.config.simulation?.duration || 300,
+      randomSeed: replay.config.simulation?.randomSeed || 42,
+    }));
 
     const isDual =
       replay.metrics.signal !== undefined &&
@@ -407,91 +452,50 @@ export function App() {
 
         <div className="header-right">
           <button
-            className="config-toggle-btn"
+            className={`config-toggle-btn ${configOpen ? "active" : ""}`}
             onClick={() => {
               setConfigOpen((v) => !v);
             }}
+            title="Configure traffic volume, widths, signal timings & critical gaps"
           >
-            ⚙ Map Config
+            ⚙️ Scenario Settings
           </button>
         </div>
       </header>
 
-      {/* ── Config panel (collapsible) ────────────────────────────────── */}
-      {configOpen && (
-        <div className="config-panel">
-          <div className="config-grid">
-            <ConfigSlider
-              label="Lanes"
-              value={lanes}
-              min={1}
-              max={5}
-              step={1}
-              onChange={setLanes}
-            />
-            <ConfigSlider
-              label="Arrival Rate"
-              value={arrivalRate}
-              min={0.1}
-              max={1.0}
-              step={0.05}
-              onChange={setArrivalRate}
-            />
-            <ConfigSlider
-              label="Duration (s)"
-              value={duration}
-              min={60}
-              max={900}
-              step={10}
-              onChange={setDuration}
-            />
-            <div className="config-item">
-              <label className="config-label">Random Seed</label>
-              <div className="config-input-row">
-                <input
-                  type="number"
-                  value={randomSeed}
-                  onChange={(e) => {
-                    setRandomSeed(parseInt(e.target.value, 10) || 1);
-                  }}
-                  className="config-num-input"
-                  style={{
-                    width: "90px",
-                    padding: "4px 8px",
-                    borderRadius: "4px",
-                    border: "1px solid #444",
-                    background: "#222",
-                    color: "#fff",
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={randomizeSeed}
-                  className="pb-btn pb-secondary"
-                  style={{
-                    padding: "4px 8px",
-                    fontSize: "12px",
-                    marginLeft: "6px",
-                  }}
-                  title="Generate new random seed"
-                >
-                  🎲 Re-roll
-                </button>
-              </div>
-            </div>
-            <ConfigToggle
-              label="Stop Lines"
-              value={showStopLines}
-              onChange={setShowStopLines}
-            />
-            <ConfigToggle
-              label="Debug Queues"
-              value={debug}
-              onChange={setDebug}
-            />
-          </div>
+      {/* ── Quick Display Toggles & Status Bar ────────────────────────── */}
+      <div className="quick-toggles-bar">
+        <ConfigToggle
+          label="Stop Lines"
+          value={showStopLines}
+          onChange={setShowStopLines}
+        />
+        <ConfigToggle label="Debug Queues" value={debug} onChange={setDebug} />
+        <div className="quick-seed-group">
+          <span className="seed-badge" title="Active Random Seed">
+            🎲 Seed: <strong>{randomSeed}</strong>
+          </span>
+          <button
+            type="button"
+            className="pb-btn pb-secondary re-roll-btn"
+            onClick={randomizeSeed}
+            title="Roll new random seed"
+          >
+            Re-roll
+          </button>
         </div>
-      )}
+      </div>
+
+      {/* ── Interactive Configuration Sidebar ────────────────────────── */}
+      <ConfigurationSidebar
+        isOpen={configOpen}
+        onClose={() => {
+          setConfigOpen(false);
+        }}
+        config={configValues}
+        onApply={handleApplyConfig}
+        isRoundaboutMode={viewMode === "roundabout"}
+      />
 
       {/* ── Main content ──────────────────────────────────────────────── */}
       {viewMode === "comparative" ? (
@@ -718,42 +722,6 @@ export function App() {
 }
 
 // ── Config helpers ─────────────────────────────────────────────────────────
-
-function ConfigSlider({
-  label,
-  value,
-  min,
-  max,
-  step,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (v: number) => void;
-}) {
-  return (
-    <div className="config-item">
-      <label className="config-label">{label}</label>
-      <div className="config-input-row">
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          onChange={(e) => {
-            onChange(parseFloat(e.target.value));
-          }}
-          className="config-range"
-        />
-        <span className="config-val">{value}</span>
-      </div>
-    </div>
-  );
-}
 
 function ConfigToggle({
   label,

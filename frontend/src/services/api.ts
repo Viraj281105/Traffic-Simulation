@@ -82,6 +82,11 @@ export async function updateSimulationConfig(config: {
   arrivalRate?: number;
   duration?: number;
   randomSeed?: number;
+  greenDuration?: number;
+  yellowDuration?: number;
+  allRedDuration?: number;
+  criticalGap?: number;
+  followUpTime?: number;
 }): Promise<void> {
   const res = await fetch(`${BASE}/api/simulation/config`, {
     method: "POST",
