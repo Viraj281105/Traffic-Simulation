@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import type { SimulationConfigValues } from "../types/config";
-import { DEFAULT_CONFIG_VALUES } from "../types/config";
+import { DEFAULT_CONFIG_VALUES, SCENARIO_PRESETS } from "../types/config";
 import "./ConfigurationSidebar.css";
 
 interface ConfigurationSidebarProps {
@@ -184,6 +184,27 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
             handleSubmit(e);
           }}
         >
+          {/* Preset Selector */}
+          <div className="config-presets-container">
+            <span className="config-presets-label">Scenario Presets:</span>
+            <div className="config-presets-grid">
+              {SCENARIO_PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  className="config-preset-pill"
+                  title={preset.description}
+                  onClick={() => {
+                    setForm(preset.config);
+                  }}
+                >
+                  <span className="preset-emoji">{preset.emoji}</span>
+                  <span>{preset.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Validation Alerts Section */}
           <div className="config-alerts-container">
             {validationAlerts.length === 0 ? (
