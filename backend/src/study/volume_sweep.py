@@ -9,7 +9,7 @@ from src.database.dao import (
     SimulationRunDAO,
     SweepSessionDAO,
 )
-from src.database.db import DB_PATH, init_db
+from src.database.db import DB_PATH, get_db_connection, init_db
 from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
 
 logger = logging.getLogger(__name__)
@@ -91,8 +91,7 @@ def run_volume_sweep_experiment(
 
     crossover_rate: Optional[float] = None
 
-    conn = sqlite3.connect(DB_PATH)
-    try:
+    for conn in get_db_connection():
         for rate in rates:
             step_config = json.loads(json.dumps(base_config))
             step_config["traffic"]["arrivalRate"] = rate
@@ -160,10 +159,39 @@ def run_volume_sweep_experiment(
             sig_run_id = f"sweep_{session_id[:8]}_sig_{int(rate * 100)}"
             round_run_id = f"sweep_{session_id[:8]}_rnd_{int(rate * 100)}"
 
-            SimulationRunDAO.save(conn, sig_run_id, "completed", elapsed_sig)
+            sig_config = json.loads(json.dumps(step_config))
+            sig_config["geometry"] = {"intersectionType": "fixed_time_signal"}
+            round_config = json.loads(json.dumps(step_config))
+            round_config["geometry"] = {"intersectionType": "roundabout"}
+
+            SimulationRunDAO.save(
+                conn,
+                sig_run_id,
+                "completed",
+                elapsed_sig,
+                intersection_type="fixed_time_signal",
+                random_seed=random_seed,
+                arrival_rate=rate,
+                duration=duration,
+                batch_id=session_id,
+                config=sig_config,
+                summary_metrics=sig_metrics,
+            )
             RunMetricsDAO.save(conn, sig_run_id, steps_to_run, sig_metrics)
 
-            SimulationRunDAO.save(conn, round_run_id, "completed", elapsed_round)
+            SimulationRunDAO.save(
+                conn,
+                round_run_id,
+                "completed",
+                elapsed_round,
+                intersection_type="roundabout",
+                random_seed=random_seed,
+                arrival_rate=rate,
+                duration=duration,
+                batch_id=session_id,
+                config=round_config,
+                summary_metrics=round_metrics,
+            )
             RunMetricsDAO.save(conn, round_run_id, steps_to_run, round_metrics)
 
             runs_data.append(
@@ -230,7 +258,5 @@ def run_volume_sweep_experiment(
         # Persist session in DB
         SweepSessionDAO.save(conn, session_id, name, base_config, sweep_result)
         conn.commit()
-    finally:
-        conn.close()
 
     return sweep_result
