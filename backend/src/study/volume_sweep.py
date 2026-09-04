@@ -1,6 +1,5 @@
 import json
 import logging
-import sqlite3
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -9,7 +8,7 @@ from src.database.dao import (
     SimulationRunDAO,
     SweepSessionDAO,
 )
-from src.database.db import DB_PATH, get_db_connection, init_db
+from src.database.db import DB_PATH, get_db_connection, init_db  # noqa: F401
 from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
 
 logger = logging.getLogger(__name__)
@@ -126,7 +125,9 @@ def run_volume_sweep_experiment(
             )
 
             sig_delay = round(
-                sig_metrics.get("averageDelay", sig_metrics.get("averageWaitTime", 0.0)),
+                sig_metrics.get(
+                    "averageDelay", sig_metrics.get("averageWaitTime", 0.0)
+                ),
                 2,
             )
             round_delay = round(

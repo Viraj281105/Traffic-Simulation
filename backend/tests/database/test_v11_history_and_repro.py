@@ -1,5 +1,5 @@
-import json
 import sqlite3
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -133,7 +133,9 @@ def test_dao_enriched_persistence_and_filtering(test_db):
         assert fetched["summary_metrics"]["averageDelay"] == 12.5
 
         # 2. Filter by intersection_type
-        signals = SimulationRunDAO.list_runs(conn, intersection_type="fixed_time_signal")
+        signals = SimulationRunDAO.list_runs(
+            conn, intersection_type="fixed_time_signal"
+        )
         assert len(signals) == 1
         assert signals[0]["id"] == "run_sig_777"
 
@@ -167,7 +169,11 @@ def test_api_runs_compare_and_history(test_db):
             duration=20.0,
             batch_id="comp_batch",
             config={"simulation": {"randomSeed": 999}},
-            summary_metrics={"averageDelay": 20.0, "throughput": 100.0, "totalStops": 15},
+            summary_metrics={
+                "averageDelay": 20.0,
+                "throughput": 100.0,
+                "totalStops": 15,
+            },
         )
         SimulationRunDAO.save(
             conn,
@@ -180,12 +186,18 @@ def test_api_runs_compare_and_history(test_db):
             duration=20.0,
             batch_id="comp_batch",
             config={"simulation": {"randomSeed": 999}},
-            summary_metrics={"averageDelay": 12.0, "throughput": 120.0, "totalStops": 4},
+            summary_metrics={
+                "averageDelay": 12.0,
+                "throughput": 120.0,
+                "totalStops": 4,
+            },
         )
         conn.commit()
 
     # 1. Test filtered history endpoint
-    res_history = client.get("/api/v1/study/history/runs?intersection_type=fixed_time_signal")
+    res_history = client.get(
+        "/api/v1/study/history/runs?intersection_type=fixed_time_signal"
+    )
     assert res_history.status_code == 200
     runs = res_history.json()
     assert len(runs) >= 1

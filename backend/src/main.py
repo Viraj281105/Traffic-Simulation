@@ -54,7 +54,6 @@ except Exception as e:
     logger.error(f"Failed to initialize database: {e}")
 
 
-
 # ── Health check endpoint (used by Docker HEALTHCHECK) ───────────────────────
 @app.get("/health")
 def health_check() -> Dict[str, str]:
@@ -721,9 +720,7 @@ def reset_dual_simulation() -> Dict[str, Any]:
     dual_sim_orchestrator = None
     # Generate a fresh shared random seed only if not user-defined
     if not is_user_defined_seed:
-        current_live_config["simulation"]["randomSeed"] = random.randint(
-            1, 10000000
-        )
+        current_live_config["simulation"]["randomSeed"] = random.randint(1, 10000000)
     orch = get_or_create_dual_orchestrator()
     return {
         "status": orch.get_status(),
@@ -889,12 +886,8 @@ def compare_runs_endpoint(payload: RunComparisonRequest) -> Dict[str, Any]:
         metrics_a = run_a.get("summary_metrics", {})
         metrics_b = run_b.get("summary_metrics", {})
 
-        delay_a = metrics_a.get(
-            "averageDelay", metrics_a.get("averageWaitTime", 0.0)
-        )
-        delay_b = metrics_b.get(
-            "averageDelay", metrics_b.get("averageWaitTime", 0.0)
-        )
+        delay_a = metrics_a.get("averageDelay", metrics_a.get("averageWaitTime", 0.0))
+        delay_b = metrics_b.get("averageDelay", metrics_b.get("averageWaitTime", 0.0))
         tp_a = metrics_a.get("throughput", 0.0)
         tp_b = metrics_b.get("throughput", 0.0)
         queue_a = metrics_a.get("averageQueueLength", 0.0)
@@ -1092,6 +1085,7 @@ class SaveReplayRequest(BaseModel):
     name: str
     config: Dict[str, Any]
     metrics: Dict[str, Any]
+
 
 from src.database.replay_dao import ReplayDAO
 
