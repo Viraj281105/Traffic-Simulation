@@ -13,7 +13,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Annotated, Any, Dict, Optional
 
 import jsonschema
 from fastapi import (
@@ -27,7 +27,7 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.controllers.factory import (
     build_tick_callback,
@@ -1467,23 +1467,54 @@ async def websocket_dual_stream(websocket: WebSocket) -> None:
 # ── Week 7 & Week 8: Study, Volume Sweeps, History & Validation Endpoints ────
 
 
+# ── Bounds on study workloads ─────────────────────────────────────────────
+# These endpoints run whole simulations synchronously inside the request, and
+# their cost is the product of their parameters: a sweep runs two simulations
+# (signal and roundabout) per arrival rate, and Monte Carlo validation runs one
+# per seed. Unbounded, a single request could pin a worker for hours, which on
+# an open demo deployment is a denial of service with no exploit required.
+#
+# The caps are set well above every legitimate use: the default sweep uses 8
+# arrival rates at 60 s, and the documented study workflows stay inside these
+# limits. `duration` matches the ceiling SimulationSection.duration already
+# enforces everywhere else, so the study path is no longer the odd one out.
+MAX_STUDY_DURATION_SECONDS = 3600.0
+MIN_STUDY_DURATION_SECONDS = 1.0
+MAX_SWEEP_ARRIVAL_RATES = 20
+MAX_MONTE_CARLO_SEEDS = 30
+
+
+# Each swept arrival rate is bounded by the same range the scenario config
+# already enforces for traffic.arrivalRate, so a sweep cannot ask for a
+# workload the simulator would reject if configured directly.
+StudyArrivalRate = Annotated[float, Field(gt=0, le=10.0)]
+
+
 class VolumeSweepRequest(BaseModel):
-    arrivalRates: list[float] | None = None
-    duration: float = 60.0
-    randomSeed: int = 42
-    name: str = "Comparative Volume Sweep"
+    arrivalRates: list[StudyArrivalRate] | None = Field(
+        default=None, max_length=MAX_SWEEP_ARRIVAL_RATES
+    )
+    duration: float = Field(
+        default=60.0, ge=MIN_STUDY_DURATION_SECONDS, le=MAX_STUDY_DURATION_SECONDS
+    )
+    randomSeed: int = Field(default=42, ge=0)
+    name: str = Field(default="Comparative Volume Sweep", max_length=200)
     customConfig: Dict[str, Any] | None = None
 
 
 class MonteCarloValidationRequest(BaseModel):
-    numSeeds: int = 5
-    duration: float = 30.0
+    numSeeds: int = Field(default=5, ge=1, le=MAX_MONTE_CARLO_SEEDS)
+    duration: float = Field(
+        default=30.0, ge=MIN_STUDY_DURATION_SECONDS, le=MAX_STUDY_DURATION_SECONDS
+    )
     customConfig: Dict[str, Any] | None = None
 
 
 class RepeatabilityValidationRequest(BaseModel):
-    duration: float = 20.0
-    randomSeed: int = 12345
+    duration: float = Field(
+        default=20.0, ge=MIN_STUDY_DURATION_SECONDS, le=MAX_STUDY_DURATION_SECONDS
+    )
+    randomSeed: int = Field(default=12345, ge=0)
 
 
 @app.post("/api/v1/study/sweeps/run", dependencies=[Depends(require_api_key)])
