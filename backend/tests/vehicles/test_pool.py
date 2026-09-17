@@ -136,6 +136,72 @@ def test_vehicle_pool_collision_debounced_across_ticks() -> None:
     assert pool.collision_count == 2
 
 
+def test_collision_not_recounted_when_overlap_test_flickers() -> None:
+    """One continuous contact is one collision, even if SAT flickers.
+
+    Two vehicles resting against each other rock by centimetres and their
+    bounding-box headings swing as they follow a curve, so the overlap test can
+    alternate between hit and miss while the vehicles never actually separate.
+    Releasing the pair on the overlap test alone recounted that single contact
+    every time it flickered — one stalled pair logged eight "collisions" in
+    three seconds. The pair is released on distance instead.
+    """
+    lane_a = Lane("lane_a", 0.0, 0.0, 10.0, 0.0)
+    lane_b = Lane("lane_b", 5.0, -5.0, 5.0, 5.0)
+
+    va = Vehicle("va", 4.0, 2.0, 5.0, [lane_a], start_position=5.0, initial_speed=0.0)
+    vb = Vehicle("vb", 4.0, 2.0, 2.0, [lane_b], start_position=5.5, initial_speed=0.0)
+
+    pool = VehiclePool()
+    pool.add_vehicle(va)
+    pool.add_vehicle(vb)
+
+    pool._collision_audit()
+    assert pool.collision_count == 1
+
+    # Rotate one vehicle's box so the overlap test misses, while the vehicles
+    # stay exactly as close as they were. This must not end the contact.
+    original_heading = type(vb).heading
+    try:
+        type(vb).heading = property(lambda self: 45.0)  # type: ignore[assignment]
+        pool._collision_audit()
+        pool._collision_audit()
+    finally:
+        type(vb).heading = original_heading  # type: ignore[assignment]
+
+    # Back to overlapping: still the same contact, so still one collision.
+    pool._collision_audit()
+    assert pool.collision_count == 1
+
+
+def test_separated_vehicles_release_the_contact() -> None:
+    """Hysteresis must not suppress a genuine second impact.
+
+    Once the vehicles move beyond the contact radius the pair is released, so a
+    later overlap is counted as the new event it is.
+    """
+    lane_a = Lane("lane_a", 0.0, 0.0, 10.0, 0.0)
+    lane_b = Lane("lane_b", 5.0, -5.0, 5.0, 5.0)
+
+    va = Vehicle("va", 4.0, 2.0, 5.0, [lane_a], start_position=5.0, initial_speed=0.0)
+    vb = Vehicle("vb", 4.0, 2.0, 2.0, [lane_b], start_position=5.5, initial_speed=0.0)
+
+    pool = VehiclePool()
+    pool.add_vehicle(va)
+    pool.add_vehicle(vb)
+
+    pool._collision_audit()
+    assert pool.collision_count == 1
+
+    vb.position = 0.0  # 5 m apart, a full car length of clear space
+    pool._collision_audit()
+    assert pool._colliding_pairs == set(), "separated vehicles must be released"
+
+    vb.position = 5.5
+    pool._collision_audit()
+    assert pool.collision_count == 2
+
+
 def test_collision_audit_flags_different_lane_index_conn_pairs() -> None:
     """Regression for the collision-audit "parallel lane" skip bug: two
     conn_* vehicles from the same origin but a DIFFERENT circulating lane

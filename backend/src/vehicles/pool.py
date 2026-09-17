@@ -343,24 +343,21 @@ class VehiclePool:
                 dy = by - ay
                 dist_sq = dx * dx + dy * dy
                 max_radius = (va.length + vb.length) * 0.6
+
                 if dist_sq > max_radius * max_radius:
                     continue
+
+                pair_key = frozenset((va.vehicle_id, vb.vehicle_id))
+                was_colliding = pair_key in self._colliding_pairs
 
                 # Exact SAT collision check on Oriented Bounding Boxes
                 box_a = va.get_bounding_box()
                 box_b = vb.get_bounding_box()
                 if _check_sat_overlap(box_a, box_b):
-                    pair_key = frozenset((va.vehicle_id, vb.vehicle_id))
                     still_colliding.add(pair_key)
-                    is_new_collision = pair_key not in self._colliding_pairs
-                    if is_new_collision:
+
+                    if not was_colliding:
                         self._collision_count += 1
-
-                    slower = va if va.speed <= vb.speed else vb
-                    slower.speed = 0.0
-                    slower.acceleration = 0.0
-
-                    if is_new_collision:
                         logger.warning(
                             "Collision detected: %s ↔ %s (lanes: %s ↔ %s)",
                             va.vehicle_id,
@@ -368,6 +365,32 @@ class VehiclePool:
                             va.lane.lane_id,
                             vb.lane.lane_id,
                         )
+
+                    slower = va if va.speed <= vb.speed else vb
+                    slower.speed = 0.0
+                    slower.acceleration = 0.0
+                elif was_colliding:
+                    # Contact hysteresis. The boxes have parted, but the
+                    # vehicles are still inside the contact radius, so this is
+                    # the same ongoing contact rather than a fresh event.
+                    #
+                    # Two vehicles resting against each other used to recount
+                    # as a brand-new collision every time SAT flickered. They
+                    # rock by centimetres as they creep and their box headings
+                    # swing as they follow a curve, so the overlap test
+                    # alternates while the vehicles never actually separate —
+                    # one stalled pair logged eight "collisions" in three
+                    # seconds. Releasing on distance rather than on the
+                    # overlap test is what makes the existing debounce do what
+                    # it always said it did: count each physical collision
+                    # once, on the tick it begins.
+                    #
+                    # Detection is unchanged. A new collision still requires a
+                    # real SAT overlap between vehicles not already in
+                    # contact, and a pair that moves beyond the contact radius
+                    # is released by the check above, so a genuine second
+                    # impact is still counted separately.
+                    still_colliding.add(pair_key)
 
         self._colliding_pairs = still_colliding
 
