@@ -8,9 +8,35 @@ from src.roads.network import RoadNetwork
 from src.vehicles.vehicle import Vehicle
 
 # Distance from the entry point (lane end) within which a vehicle is
-# considered "at the roundabout entry" for both the entrySpeed cap and
-# follow-up-time bookkeeping below.
+# considered "at the roundabout entry" for follow-up-time bookkeeping below.
 _ENTRY_ZONE: float = 5.0
+
+# Distance from the entry point over which the ``entrySpeed`` cap is applied.
+#
+# This used to be _ENTRY_ZONE (5 m). A vehicle approaching at its free-flow
+# desired speed (VehicleSpawner's desiredSpeed max defaults to 25 m/s) cannot
+# physically shed that much speed in 5 m: at the default comfortDeceleration
+# of 3 m/s^2 it needs v^2/(2a) ~ 100 m. The cap was therefore applied far too
+# late to have any effect, and vehicles entered the ring at full approach
+# speed — which is what made circulating gap acceptance meaningless and
+# produced high-closing-speed conflicts inside the roundabout. Applying it
+# over a realistic braking distance instead lets IDM's free-road term bring
+# the vehicle down to entrySpeed *before* it reaches the give-way line,
+# which is what a real roundabout approach taper does.
+_ENTRY_APPROACH_ZONE: float = 60.0
+
+# Connection-lane ids are built as "conn_{direction.value}_{index}_{turn.value}"
+# (see RoadNetwork._get_or_create_connection_lane), so the tokens are the full
+# enum values — "east", not "e".
+#
+# These lookups were previously keyed by single letters, so every id lookup
+# raised KeyError. That escaped the inner handler (which caught only
+# ValueError/IndexError) and was swallowed by the outer `except KeyError` that
+# guards the whole per-direction block — silently abandoning entry-yield
+# evaluation for that entire approach as soon as any vehicle was circulating.
+# Entry yielding therefore almost never engaged when it mattered most.
+_DIRECTION_BY_NAME: Dict[str, Direction] = {d.value: d for d in Direction}
+_TURN_BY_NAME: Dict[str, TurnIntent] = {t.value: t for t in TurnIntent}
 
 
 class RoundaboutController(BaseController):
@@ -23,6 +49,12 @@ class RoundaboutController(BaseController):
         ctrl_cfg = config.get("controller", {})
         self.inner_radius: float = ctrl_cfg.get("innerRadius", 10.0)
         self.outer_radius: float = ctrl_cfg.get("outerRadius", 20.0)
+        # Reserved / future-only, and deliberately not read anywhere: the
+        # circulating ring count is derived from the approach lane count (see
+        # RoadNetwork's connection-lane radii). Kept so the accepted config
+        # value is still visible on the controller, and because asymmetric
+        # lanesPerApproach will need a genuine ring-lane count. See
+        # docs/architecture/06-scenario-configuration-contract.md section 2.6.2.
         self.circulating_lanes: int = ctrl_cfg.get("circulatingLanes", 1)
         self.critical_gap: float = ctrl_cfg.get("criticalGap", 4.0)
         self.follow_up_time: float = ctrl_cfg.get("followUpTime", 2.5)
@@ -85,7 +117,10 @@ class RoundaboutController(BaseController):
                 original_speed = self._pre_entry_desired_speed.pop(v.vehicle_id, None)
                 if original_speed is not None:
                     v.desired_speed = original_speed
-            elif "_in_" in lane_id and (v.lane.length - v.position) <= _ENTRY_ZONE:
+            elif (
+                "_in_" in lane_id
+                and (v.lane.length - v.position) <= _ENTRY_APPROACH_ZONE
+            ):
                 original_speed = self._pre_entry_desired_speed.get(v.vehicle_id)
                 if original_speed is None:
                     original_speed = v.desired_speed
@@ -115,6 +150,11 @@ class RoundaboutController(BaseController):
                     threshold = max(15.0, self.critical_gap * self.circulating_speed)
 
                     for cv in circulating_vehicles:
+                        # Ring the circulating vehicle is on; defaults to the
+                        # entering lane's own ring for hand-built lanes whose
+                        # id doesn't carry an index (see the except below).
+                        cv_ring_radius = lane_radius
+
                         # Match circulating lane index and ignore downstream/exiting vehicles
                         if cv.lane is not None:
                             try:
@@ -128,30 +168,49 @@ class RoundaboutController(BaseController):
                                     if cv_origin_dir_str == d.value:
                                         continue
 
-                                    # 2. Skip if the vehicle is in a different circulating lane index
-                                    if cv_lane_idx != entering_lane_idx:
+                                    # 2. Skip only circulating lanes this
+                                    #    entry path does NOT cross.
+                                    #
+                                    #    Ring radius grows with lane index
+                                    #    (see lane_radius above), so a
+                                    #    vehicle entering towards ring
+                                    #    `entering_lane_idx` comes from
+                                    #    outside and must cut across every
+                                    #    ring with an index >= its own.
+                                    #    Rings further in (a lower index)
+                                    #    are never crossed and are correctly
+                                    #    ignored.
+                                    #
+                                    #    This previously required an exact
+                                    #    index match, so a vehicle entering
+                                    #    towards an inner ring ignored the
+                                    #    outer ring(s) it had to drive
+                                    #    straight through, and pulled out in
+                                    #    front of circulating traffic.
+                                    if cv_lane_idx < entering_lane_idx:
                                         continue
 
+                                    # The gap must be judged on the ring the
+                                    # circulating vehicle is actually on, not
+                                    # on the entering vehicle's destination
+                                    # ring.
+                                    cv_ring_radius = self.inner_radius + (
+                                        cv_lane_idx + 0.5
+                                    ) * (w_ring / total_in_lanes)
+
                                     # 3. Skip if the vehicle is exiting at this approach
-                                    dir_map = {
-                                        "n": Direction.NORTH,
-                                        "s": Direction.SOUTH,
-                                        "e": Direction.EAST,
-                                        "w": Direction.WEST,
-                                    }
-                                    turn_map = {
-                                        "left": TurnIntent.LEFT,
-                                        "straight": TurnIntent.STRAIGHT,
-                                        "right": TurnIntent.RIGHT,
-                                    }
-                                    cv_origin = dir_map[cv_origin_dir_str]
-                                    cv_turn = turn_map[cv_turn_str]
+                                    cv_origin = _DIRECTION_BY_NAME[cv_origin_dir_str]
+                                    cv_turn = _TURN_BY_NAME[cv_turn_str]
                                     cv_target = self.network._resolve_target_direction(
                                         cv_origin, cv_turn
                                     )
                                     if cv_target == d:
                                         continue
-                            except (ValueError, IndexError):
+                            except (ValueError, IndexError, KeyError):
+                                # An unrecognised connection-lane id means we
+                                # cannot tell where this vehicle is heading, so
+                                # fall through and treat it as conflicting
+                                # traffic rather than ignoring it.
                                 pass
 
                         cv_x, cv_y = cv.coords
@@ -166,7 +225,7 @@ class RoundaboutController(BaseController):
 
                             # If angular_gap < pi, it is upstream / approaching the entry point
                             if angular_gap < math.pi:
-                                dist_along_circle = lane_radius * angular_gap
+                                dist_along_circle = cv_ring_radius * angular_gap
                                 if dist_along_circle < threshold:
                                     eff_speed = (
                                         max(cv.speed, 2.0)
@@ -186,8 +245,7 @@ class RoundaboutController(BaseController):
                     # capacity: critical gap + follow-up time).
                     last_entry = self._last_entry_time.get(lane.lane_id)
                     if last_entry is not None and (
-                        self.time_in_current_state - last_entry
-                        < self.follow_up_time
+                        self.time_in_current_state - last_entry < self.follow_up_time
                     ):
                         should_yield = True
 
@@ -210,9 +268,7 @@ class RoundaboutController(BaseController):
                         lane.lane_id, set()
                     )
                     if prev_zone_occupants - current_lane_vehicle_ids:
-                        self._last_entry_time[lane.lane_id] = (
-                            self.time_in_current_state
-                        )
+                        self._last_entry_time[lane.lane_id] = self.time_in_current_state
                     self._prev_zone_occupants[lane.lane_id] = {
                         v.vehicle_id
                         for v in lane.get_vehicles()

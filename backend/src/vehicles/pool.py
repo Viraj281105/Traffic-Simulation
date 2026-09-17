@@ -12,6 +12,10 @@ import math
 from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple
 
 from src.core.enums import Direction, TurnIntent, VehicleState
+from src.intersection.predictive_conflicts import (
+    PredictiveConflictResolver,
+    apply_predictive_constraint,
+)
 from src.vehicles.router import _conn_lane_index, find_leader
 from src.vehicles.vehicle import Vehicle
 
@@ -92,6 +96,10 @@ class VehiclePool:
         # used to count each physical collision once (on the tick it
         # starts) rather than once per tick the overlap persists.
         self._colliding_pairs: Set[FrozenSet[str]] = set()
+        # Predictive (trajectory-projection) conflict avoidance. Holds no
+        # per-run state of its own — see predictive_conflicts.py — so it is
+        # safe to keep across an engine reset.
+        self._predictive: PredictiveConflictResolver = PredictiveConflictResolver()
 
     def add_vehicle(self, vehicle: Vehicle) -> None:
         if vehicle not in self.active_vehicles:
@@ -163,6 +171,37 @@ class VehiclePool:
         if conflict_manager is not None:
             conflict_manager.update_reservations(current_time)
 
+        # Predictive conflict avoidance (see predictive_conflicts.py). Runs
+        # for every geometry, not just roundabouts: it is what actually
+        # prevents crossing/merging conflicts, whereas find_leader's Layer 4
+        # only reacts once vehicles are already within 2.5 m — too late to
+        # stop. Computed once per tick from the pre-update state so every
+        # vehicle in this tick sees the same, order-independent picture.
+        # On a SINGLE-ring roundabout the controller's gap acceptance at the
+        # give-way line is a complete account of entry: the entering vehicle
+        # crosses no ring other than the one it is joining. Re-deciding that
+        # here only rejects gaps the controller already accepted — measured at
+        # roughly a 75% throughput loss for no real safety gain.
+        #
+        # With two or more rings, entry means cutting across ring(s) the
+        # vehicle is not joining, and the predictive layer catches conflicts
+        # there that the controller's single give-way test does not, so it
+        # keeps arbitrating entry. A signalised junction has no gap logic at
+        # all, so it always arbitrates in full.
+        net = getattr(engine, "network", None)
+        single_ring_roundabout = (
+            geom_type == "roundabout"
+            and net is not None
+            and all(
+                len(approach.get_lanes()) <= 1
+                for approach in getattr(net, "_incoming", {}).values()
+            )
+        )
+        predictive_limits = self._predictive.compute_braking_distances(
+            self.active_vehicles,
+            entry_gated_by_controller=single_ring_roundabout,
+        )
+
         # Update each vehicle
         to_remove: List[Vehicle] = []
 
@@ -180,6 +219,13 @@ class VehiclePool:
                 self.active_vehicles,
                 conflict_manager=conflict_manager,
                 current_time=current_time,
+            )
+
+            # Fold in the predictive constraint, keeping whichever of the two
+            # is tighter. Expressed as an ordinary stationary obstacle so IDM
+            # brakes smoothly rather than clamping the speed directly.
+            leader, gap = apply_predictive_constraint(
+                gap, leader, predictive_limits.get(vehicle.vehicle_id)
             )
 
             # Calculate acceleration using IDM
