@@ -122,7 +122,7 @@ Every duration below has a **canonical** field name (matching `FixedTimeSignalCo
 | # | Field | Type | Required | Default | Description | Validation |
 |---|-------|------|----------|---------|-------------|------------|
 | 1 | `straightRightDuration` (canonical) / `greenDuration` / `greenTime` (aliases) | `number` | ❌ | `30` | Green phase duration for the straight+right movement of each direction | > 5, ≤ 120 seconds |
-| 2 | `leftDuration` | `number` | ❌ | `5` | Protected left-turn green phase duration | > 0, ≤ 60 seconds |
+| 2 | `leftDuration` | `number` | ❌ | `5` | Protected left-turn green phase duration. **Applies only to the default cycle** — see the note below §2.6.1 | > 0, ≤ 60 seconds |
 | 3 | `yellowDuration` (canonical) / `yellowTime` (alias) | `number` | ❌ | `4` | Yellow (amber) phase duration | > 2, ≤ 8 seconds |
 | 4 | `allRedDuration` (canonical) / `allRedTime` (alias) | `number` | ❌ | `2` | All-red clearance interval | ≥ 0, ≤ 5 seconds |
 | 5 | `phaseSequence` | `array<string>` | ❌ | `["ns_green", "ns_yellow", "all_red", "ew_green", "ew_yellow", "all_red"]` | Ordered phase sequence | See below |
@@ -133,6 +133,20 @@ Every duration below has a **canonical** field name (matching `FixedTimeSignalCo
 - Yellow: `yellowDuration` > `yellowTime`
 - All-red: `allRedDuration` > `allRedTime`
 - Left: `leftDuration` only — no alias exists for this field.
+
+> **`leftDuration` applies only to the default cycle.** It sets the protected
+> left-turn green in the one-direction-at-a-time cycle the controller builds
+> when `phaseSequence` is **omitted entirely**. A configured `phaseSequence`
+> has no protected-left phase — permissive lefts during a paired green are
+> arbitrated by the conflict layer instead — so `leftDuration` has no effect
+> whenever `phaseSequence` is present. Because `phaseSequence` carries its own
+> default (the paired NS/EW plan above), any config validated through the
+> schema or `ScenarioConfiguration` receives that default and therefore does
+> **not** use `leftDuration`. Setting it alongside a `phaseSequence` is
+> accepted and harmless, but changes nothing. The field is conditionally
+> applicable rather than dead: it is the only way to tune the default cycle's
+> protected left, which is still reachable by omitting `phaseSequence` when
+> constructing `FixedTimeSignalController` directly.
 
 If none of a duration's names are present, the hardcoded fallback (30 / 5 / 4 / 2 above) is used — chosen to match the canonical/alias defaults exactly, so the effective duration is the same regardless of which alias (or none) a given config uses.
 

@@ -113,6 +113,10 @@ class FixedTimeSignalController(BaseController):
         self.straight_right_duration: float = ctrl_cfg.get(
             "straightRightDuration", 30.0
         )
+        # Only consumed by the default one-direction-at-a-time cycle built in
+        # _build_phase_sequence(). A configured phaseSequence has no protected
+        # left phase at all, so this value is deliberately unused on that path
+        # — including when phaseSequence arrives via its own schema default.
         self.left_duration: float = ctrl_cfg.get("leftDuration", 5.0)
         self.yellow_duration: float = ctrl_cfg.get("yellowDuration", 4.0)
         self.all_red_duration: float = ctrl_cfg.get("allRedDuration", 2.0)
@@ -321,9 +325,7 @@ class FixedTimeSignalController(BaseController):
                 remaining -= time_left_in_phase
                 self.time_in_current_state = 0.0
                 old_idx = self.current_phase_idx
-                self.current_phase_idx = (self.current_phase_idx + 1) % len(
-                    self.phases
-                )
+                self.current_phase_idx = (self.current_phase_idx + 1) % len(self.phases)
                 if self.current_phase_idx < old_idx:
                     self.cycle_number += 1
 
