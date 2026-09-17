@@ -132,12 +132,10 @@ def test_live_session_nested_config_isolation() -> None:
         is not session2.current_live_config["simulation"]
     )
     assert (
-        session1.current_live_config["simulation"]
-        is not DEFAULT_CONFIG["simulation"]
+        session1.current_live_config["simulation"] is not DEFAULT_CONFIG["simulation"]
     )
     assert (
-        session2.current_live_config["simulation"]
-        is not DEFAULT_CONFIG["simulation"]
+        session2.current_live_config["simulation"] is not DEFAULT_CONFIG["simulation"]
     )
 
     assert (
@@ -167,9 +165,7 @@ def test_live_session_nested_config_isolation() -> None:
 
     # Spawner runs without pre-set randomSeed and generates one into its config dict
     spawner = VehicleSpawner(spawner_session.current_live_config, network)
-    generated_seed = spawner_session.current_live_config["simulation"].get(
-        "randomSeed"
-    )
+    generated_seed = spawner_session.current_live_config["simulation"].get("randomSeed")
     assert generated_seed is not None
     assert generated_seed == spawner.random_seed
 
@@ -178,10 +174,7 @@ def test_live_session_nested_config_isolation() -> None:
 
     # A subsequent fresh session must also be unpolluted
     subsequent_session = _LiveSession()
-    assert (
-        "randomSeed"
-        not in subsequent_session.current_live_config["simulation"]
-    )
+    assert "randomSeed" not in subsequent_session.current_live_config["simulation"]
 
 
 def test_update_simulation_config_nested_config_isolation() -> None:

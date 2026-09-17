@@ -427,7 +427,8 @@ def _evict_completed_simulations() -> None:
         evictable = [
             (sid, entry)
             for sid, entry in simulations_db.items()
-            if entry["engine"].status in (SimulationStatus.COMPLETED, SimulationStatus.ERROR)
+            if entry["engine"].status
+            in (SimulationStatus.COMPLETED, SimulationStatus.ERROR)
         ]
         evictable.sort(key=lambda item: item[1].get("created_at", 0.0))
 
@@ -1145,8 +1146,7 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
         raise HTTPException(
             status_code=400,
             detail=(
-                f"Invalid duration {duration_val}: must be between 1 and "
-                "3600 seconds."
+                f"Invalid duration {duration_val}: must be between 1 and 3600 seconds."
             ),
         )
 
@@ -1795,9 +1795,7 @@ def validate_repeatability_endpoint(
     )
 
 
-@app.post(
-    "/api/v1/study/validate/monte-carlo", dependencies=[Depends(require_api_key)]
-)
+@app.post("/api/v1/study/validate/monte-carlo", dependencies=[Depends(require_api_key)])
 def validate_monte_carlo_endpoint(
     payload: MonteCarloValidationRequest | None = None,
 ) -> Dict[str, Any]:

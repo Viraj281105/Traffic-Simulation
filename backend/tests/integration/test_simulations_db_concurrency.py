@@ -177,7 +177,9 @@ def test_simulations_lock_not_held_during_simulation_execution() -> None:
     sim_id = res.json()["simulationId"]
 
     # Start simulation
-    res_start = client.post(f"/api/v1/simulations/{sim_id}/control", json={"action": "start"})
+    res_start = client.post(
+        f"/api/v1/simulations/{sim_id}/control", json={"action": "start"}
+    )
     assert res_start.status_code == 200
 
     # simulations_lock must be free (not locked) while the simulation is running
