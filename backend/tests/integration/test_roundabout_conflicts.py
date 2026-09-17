@@ -32,7 +32,11 @@ from src.core.clock import Clock
 from src.core.engine import SimulationEngine
 from src.core.enums import Direction
 from src.metrics.collector import MetricCollector
-from src.roads.network import ROUNDABOUT_ENTRY_SETBACK, RoadNetwork
+from src.roads.network import (
+    ROUNDABOUT_ENTRY_SETBACK,
+    ROUNDABOUT_SPLITTER_HALF_WIDTH,
+    RoadNetwork,
+)
 
 ROUNDABOUT_CONFIG: Dict[str, Any] = {
     "simulation": {
@@ -274,19 +278,24 @@ def test_entry_yields_to_every_ring_it_crosses() -> None:
 
 _SEEDS: Tuple[int, ...] = (1, 2, 3, 4, 5, 6, 7, 8)
 
-# Collision budget across the whole seed set.
+# Collision budget across the whole seed set, at a demand (0.6 veh/s) that is
+# well beyond this roundabout's capacity — see
+# test_free_flow_demand_is_collision_free for the free-flowing case, which is
+# the regime the model actually represents.
 #
-# Measured totals for this exact workload (8 seeds x 120 s, arrivalRate 0.6)
-# are 10 / 16 / 30 for 1 / 2 / 3 lanes. Normalised to the same seed count and
-# duration, the pre-fix code produced roughly 29 / 91 / 78. These ceilings sit
-# above the current figures and far below the pre-fix ones, so they catch a
-# genuine regression without being brittle about the residual.
+# Measured totals for this workload (8 seeds x 120 s) are now 0 / 3 / 3 for
+# 1 / 2 / 3 lanes, against 10 / 16 / 30 before the circulating-speed, weaving
+# and splitter-island fixes, and roughly 29 / 91 / 78 before the earlier round
+# of geometry work.
 #
-# The residual is deliberately NOT asserted as zero. The remaining overlaps
-# occur where adjacent entry lanes of one approach diverge towards different
-# rings, which the simplified concentric-ring geometry cannot fully separate
-# without a lane-change/weaving model — see the module docstring.
-_ROUNDABOUT_COLLISION_BUDGET = {1: 20, 2: 28, 3: 45}
+# The residual is deliberately NOT asserted as zero, and is NOT a vehicle
+# genuinely driving into another. Every remaining case is a stationary pair
+# (both under 0.2 m/s) in adjacent entry channels of one approach whose path
+# centrelines stay a full lane width apart — see
+# test_adjacent_entry_channels_never_converge. It is a rigid-bounding-box
+# artefact: a 4.5 m rectangle turning through ~50 degrees at the mouth sweeps
+# into a neighbouring lane its centreline never approaches.
+_ROUNDABOUT_COLLISION_BUDGET = {1: 4, 2: 10, 3: 12}
 
 
 @pytest.mark.parametrize("lanes", [1, 2, 3])
@@ -333,3 +342,167 @@ def test_roundabout_runs_stay_deterministic_for_a_fixed_seed() -> None:
 
 def test_different_seeds_still_diverge() -> None:
     assert _run(ROUNDABOUT_CONFIG, 3, 2) != _run(ROUNDABOUT_CONFIG, 4, 2)
+
+
+# ── Speed regime and geometric separation ─────────────────────────────────
+
+
+def _circulating_samples(lanes: int, seed: int = 3) -> list:
+    """(speed, radius) for every vehicle-tick spent on the circulating ring."""
+    config = copy.deepcopy(ROUNDABOUT_CONFIG)
+    config["simulation"]["randomSeed"] = seed
+    config["roads"]["lanesPerApproach"] = lanes
+
+    clock = Clock(time_step=0.1)
+    engine = SimulationEngine(clock, duration=60, config=config)
+    controller = create_controller(config, engine.network)
+    engine.controller = controller
+    collector = MetricCollector(config)
+    engine.register_tick_callback(
+        build_tick_callback(controller, clock, engine, collector)
+    )
+
+    samples = []
+    while engine.status.value.lower() != "completed":
+        engine.step()
+        for v in engine.pool.active_vehicles:
+            if v.lane is not None and v.lane.lane_id.startswith("conn"):
+                samples.append((v.speed, math.hypot(*v.coords)))
+    return samples
+
+
+def test_circulating_speed_is_actually_enforced() -> None:
+    """circulatingSpeed must cap the ring, not merely be accepted.
+
+    Reaching a connection lane used to restore the vehicle's full free-flow
+    desired speed, so the parameter had no runtime effect at all and vehicles
+    circulated at more than twice it.
+    """
+    samples = _circulating_samples(lanes=2)
+    assert samples, "expected vehicles on the ring"
+
+    cap = ROUNDABOUT_CONFIG["controller"]["circulatingSpeed"]
+    fastest = max(speed for speed, _ in samples)
+    assert fastest <= cap + 0.5, (
+        f"vehicles circulated at {fastest:.2f} m/s against a {cap} m/s cap"
+    )
+
+
+def test_circulating_lateral_acceleration_is_physically_possible() -> None:
+    """Cornering must stay inside what a real vehicle can generate.
+
+    This is the physical statement behind the speed cap. Unenforced, vehicles
+    cornered at up to 18.3 m/s^2 — close to 2 g, which no car can do, and which
+    is why no gap-acceptance rule could keep the ring safe.
+    """
+    samples = _circulating_samples(lanes=2)
+    worst = max(speed**2 / radius for speed, radius in samples if radius > 1e-6)
+    assert worst <= 8.0, (
+        f"peak lateral acceleration {worst:.2f} m/s^2 exceeds tyre grip (~8)"
+    )
+
+
+@pytest.mark.parametrize("lanes", [1, 2])
+def test_entry_and_exit_carriageways_are_separated_by_a_splitter(
+    lanes: int,
+) -> None:
+    """An approach's entry and exit must be a splitter island apart.
+
+    They previously sat one lane width apart with no island. That is fine for
+    parallel travel but not at the mouth, where the paths diverge by ~50
+    degrees and a turning vehicle's rectangle sweeps into the neighbouring
+    channel — recording a collision between vehicles correctly in their own
+    lanes.
+    """
+    network = _roundabout_network(lanes)
+    incoming = network.get_incoming_approach(Direction.SOUTH).get_lanes()[0]
+    outgoing = network.get_outgoing_approach(Direction.SOUTH).get_lanes()[0]
+
+    separation = math.hypot(
+        incoming.end_coords[0] - outgoing.start_coords[0],
+        incoming.end_coords[1] - outgoing.start_coords[1],
+    )
+    assert separation >= 3.5 + 2 * ROUNDABOUT_SPLITTER_HALF_WIDTH - 1e-6
+
+
+def test_entry_paths_from_one_approach_genuinely_cross() -> None:
+    """Multi-lane entry paths cross, so they need real arbitration.
+
+    Documents why a multi-lane ring is harder than a single-lane one, and why
+    the residual contacts are concentrated there. Two vehicles entering from
+    adjacent lanes of one approach do not travel in separated channels: their
+    paths converge to within centimetres — a right-turner from either lane
+    heads for the same exit throat, and an inner-lane left-turner crosses an
+    outer-lane right-turner outright.
+
+    These are true conflict points that the predictive layer has to resolve,
+    not a geometry defect to be designed away. A single-lane roundabout has no
+    such crossing, which is exactly why it is collision-free.
+    """
+    from src.core.enums import TurnIntent
+
+    network = _roundabout_network(2)
+    paths = [
+        (idx, network._get_or_create_connection_lane(Direction.NORTH, idx, turn))
+        for idx in (0, 1)
+        for turn in (TurnIntent.LEFT, TurnIntent.STRAIGHT, TurnIntent.RIGHT)
+    ]
+
+    closest = min(
+        math.hypot(
+            pa.get_point_at_distance(da)[0] - pb.get_point_at_distance(db)[0],
+            pa.get_point_at_distance(da)[1] - pb.get_point_at_distance(db)[1],
+        )
+        for i, (ia, pa) in enumerate(paths)
+        for ib, pb in [(x[0], x[1]) for x in paths[i + 1 :]]
+        if ia != ib
+        for da in [x * 0.5 for x in range(0, 61)]
+        if da <= pa.length
+        for db in [x * 0.5 for x in range(0, 61)]
+        if db <= pb.length
+    )
+    assert closest < 1.0, (
+        "entry paths from one approach are expected to cross on a multi-lane "
+        f"ring; closest approach was {closest:.2f} m"
+    )
+
+
+def test_single_lane_roundabout_is_collision_free() -> None:
+    """With one entry lane and one ring there is no weaving, so no contacts.
+
+    The strongest statement the model supports: remove the crossing entry
+    paths and the roundabout is clean even at a demand well past its capacity.
+    """
+    total = sum(
+        _run(ROUNDABOUT_CONFIG, seed, lanes=1)["collisionCount"] for seed in _SEEDS
+    )
+    assert total == 0, f"single-lane roundabout produced {total} collisions"
+
+
+def test_free_flow_demand_is_collision_free() -> None:
+    """Below saturation the roundabout must be entirely collision-free.
+
+    This is the regime the model represents faithfully. The oversaturated
+    budget above covers a demand this roundabout cannot serve, where queues
+    back into the ring itself.
+    """
+    config = copy.deepcopy(ROUNDABOUT_CONFIG)
+    config["traffic"]["arrivalRate"] = 0.1
+
+    total = 0
+    for seed in (1, 2, 3, 4, 5):
+        run_config = copy.deepcopy(config)
+        run_config["simulation"]["randomSeed"] = seed
+        clock = Clock(time_step=0.1)
+        engine = SimulationEngine(clock, duration=120, config=run_config)
+        controller = create_controller(run_config, engine.network)
+        engine.controller = controller
+        collector = MetricCollector(run_config)
+        engine.register_tick_callback(
+            build_tick_callback(controller, clock, engine, collector)
+        )
+        while engine.status.value.lower() != "completed":
+            engine.step()
+        total += engine.pool.collision_count
+
+    assert total == 0, f"free-flowing roundabout produced {total} collisions"

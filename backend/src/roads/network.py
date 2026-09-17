@@ -27,6 +27,19 @@ ROUNDABOUT_ENTRY_SETBACK: float = 4.0
 # a fixed arc length rather than a fraction of each path's angular span.
 ROUNDABOUT_TRANSITION_ARC: float = 10.0
 
+# Half-width (metres) of the splitter island between a roundabout approach's
+# entry and exit carriageways.
+#
+# Real roundabout approaches are divided by a physical island; only signalised
+# approaches are separated by nothing more than a centreline. Without it the
+# entry and exit centrelines here sat one lane width (3.5 m) apart, which is
+# ample for two vehicles travelling parallel but not for the mouth, where the
+# two paths diverge by ~50 degrees. A 4.5 m vehicle turning through that angle
+# sweeps its rectangle into the neighbouring channel, so vehicles in correctly
+# separated lanes were recorded as colliding. Widening the separation to a
+# realistic island removes the cause instead of excusing the symptom.
+ROUNDABOUT_SPLITTER_HALF_WIDTH: float = 1.5
+
 
 class RoadNetwork:
     """Manages the network topology of the intersection, containing approaches and lanes.
@@ -111,10 +124,15 @@ class RoadNetwork:
                 else (lane_count * lane_width)
             )
 
+            # Roundabout approaches carry a splitter island between the entry
+            # and exit carriageways; signalised approaches do not, so their
+            # geometry is left exactly as it was.
+            splitter = ROUNDABOUT_SPLITTER_HALF_WIDTH if is_roundabout else 0.0
+
             for i in range(lane_count):
                 if d == Direction.NORTH:
                     # Incoming: North to South (moves down, x < 0)
-                    in_x = -(i + 0.5) * lane_width
+                    in_x = -((i + 0.5) * lane_width + splitter)
                     in_lane = Lane(
                         f"n_in_{i}",
                         start_x=in_x,
@@ -123,7 +141,7 @@ class RoadNetwork:
                         end_y=boundary,
                     )
                     # Outgoing: South to North (moves up, x > 0)
-                    out_x = (i + 0.5) * lane_width
+                    out_x = (i + 0.5) * lane_width + splitter
                     out_lane = Lane(
                         f"n_out_{i}",
                         start_x=out_x,
@@ -134,7 +152,7 @@ class RoadNetwork:
 
                 elif d == Direction.SOUTH:
                     # Incoming: South to North (moves up, x > 0)
-                    in_x = (i + 0.5) * lane_width
+                    in_x = (i + 0.5) * lane_width + splitter
                     in_lane = Lane(
                         f"s_in_{i}",
                         start_x=in_x,
@@ -143,7 +161,7 @@ class RoadNetwork:
                         end_y=-boundary,
                     )
                     # Outgoing: North to South (moves down, x < 0)
-                    out_x = -(i + 0.5) * lane_width
+                    out_x = -((i + 0.5) * lane_width + splitter)
                     out_lane = Lane(
                         f"s_out_{i}",
                         start_x=out_x,
@@ -154,7 +172,7 @@ class RoadNetwork:
 
                 elif d == Direction.EAST:
                     # Incoming: East to West (moves left, y > 0)
-                    in_y = (i + 0.5) * lane_width
+                    in_y = (i + 0.5) * lane_width + splitter
                     in_lane = Lane(
                         f"e_in_{i}",
                         start_x=approach_length,
@@ -163,7 +181,7 @@ class RoadNetwork:
                         end_y=in_y,
                     )
                     # Outgoing: West to East (moves right, y < 0)
-                    out_y = -(i + 0.5) * lane_width
+                    out_y = -((i + 0.5) * lane_width + splitter)
                     out_lane = Lane(
                         f"e_out_{i}",
                         start_x=boundary,
@@ -174,7 +192,7 @@ class RoadNetwork:
 
                 elif d == Direction.WEST:
                     # Incoming: West to East (moves right, y < 0)
-                    in_y = -(i + 0.5) * lane_width
+                    in_y = -((i + 0.5) * lane_width + splitter)
                     in_lane = Lane(
                         f"w_in_{i}",
                         start_x=-approach_length,
@@ -183,7 +201,7 @@ class RoadNetwork:
                         end_y=in_y,
                     )
                     # Outgoing: East to West (moves left, y > 0)
-                    out_y = (i + 0.5) * lane_width
+                    out_y = (i + 0.5) * lane_width + splitter
                     out_lane = Lane(
                         f"w_out_{i}",
                         start_x=-boundary,
