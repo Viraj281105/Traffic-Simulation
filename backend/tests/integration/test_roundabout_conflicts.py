@@ -73,7 +73,18 @@ SIGNAL_CONFIG: Dict[str, Any] = {
 }
 
 
+# Behavioural guards below sweep the same (config, seed, lanes) points from
+# several tests. Each point is a full 120 s simulation, so memoising turns a
+# multi-minute suite into a single pass over each distinct run.
+_RUN_CACHE: Dict[Tuple[str, int, int], Dict[str, Any]] = {}
+
+
 def _run(config: Dict[str, Any], seed: int, lanes: int = 2) -> Dict[str, Any]:
+    cache_key = (config["geometry"]["intersectionType"], seed, lanes)
+    cached = _RUN_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
     config = copy.deepcopy(config)
     config["simulation"]["randomSeed"] = seed
     config["roads"]["lanesPerApproach"] = lanes
@@ -92,13 +103,15 @@ def _run(config: Dict[str, Any], seed: int, lanes: int = 2) -> Dict[str, Any]:
     while engine.status.value.lower() != "completed":
         engine.step()
 
-    return collector.get_metrics(
+    metrics = collector.get_metrics(
         clock.get_elapsed_time(),
         engine.pool.active_vehicles,
         engine.pool.exited_vehicles,
         engine.spawner.spawned_count if engine.spawner else 0,
         engine.pool.collision_count,
     )
+    _RUN_CACHE[cache_key] = metrics
+    return metrics
 
 
 # ── Geometry invariants ───────────────────────────────────────────────────
