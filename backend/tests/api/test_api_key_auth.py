@@ -10,13 +10,15 @@ tests pin both halves of that contract: the backend's own enforcement, and the
 template that supplies the header.
 """
 
-import importlib
 import re
 from pathlib import Path
 from typing import Any, Dict, Iterator
 
 import pytest
 from fastapi.testclient import TestClient
+
+import src.main as main
+from src.main import app
 
 NGINX_TEMPLATE = (
     Path(__file__).resolve().parents[3]
@@ -35,20 +37,20 @@ def _valid_config() -> Dict[str, Any]:
 
 @pytest.fixture
 def secured_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    """A client against an app instance that requires an API key.
+    """A client against the app with the API key requirement switched on.
 
-    API_KEY is read at import time, so the module is reloaded under the patched
-    environment rather than poked afterwards.
+    ``require_api_key`` looks up the module-level API_KEY at call time, so
+    patching the attribute is sufficient and monkeypatch restores it after the
+    test.
+
+    Deliberately NOT importlib.reload(main): reloading rebinds the module's
+    globals (app, simulations_db, _live_sessions), while every other test module
+    still holds references to the originals imported at collection time. Those
+    tests then assert against objects the live app no longer uses, and fail —
+    which is exactly what happened when this fixture did reload the module.
     """
-    monkeypatch.setenv("API_KEY", "test-secret-key")
-    import src.main as main
-
-    importlib.reload(main)
-    try:
-        yield TestClient(main.app)
-    finally:
-        monkeypatch.delenv("API_KEY", raising=False)
-        importlib.reload(main)
+    monkeypatch.setattr(main, "API_KEY", "test-secret-key")
+    yield TestClient(app)
 
 
 # ── Backend enforcement ───────────────────────────────────────────────────
@@ -94,11 +96,13 @@ def test_read_only_route_stays_open(secured_client: TestClient) -> None:
     assert secured_client.get("/health").status_code == 200
 
 
-def test_auth_is_disabled_when_no_key_is_configured() -> None:
+def test_auth_is_disabled_when_no_key_is_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """The local-development default must stay frictionless."""
-    import src.main as main
+    monkeypatch.setattr(main, "API_KEY", "")
 
-    client = TestClient(main.app)
+    client = TestClient(app)
     response = client.post("/api/v1/simulations", json=_valid_config())
     assert response.status_code == 201
 
