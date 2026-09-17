@@ -127,7 +127,11 @@
         "allRedDuration": { "type": "number", "minimum": 0, "maximum": 5, "default": 2 },
         "phaseSequence": {
           "type": "array",
-          "items": { "type": "string" },
+          "description": "Ordered signal phase plan. Each entry is 'all_red' or '<group>_<green|yellow>', where <group> is a single approach (n/s/e/w) or an order-invariant paired group sharing one green (ns/sn, ew/we). Omit the property entirely to get the default one-direction-at-a-time cycle instead.",
+          "items": {
+            "type": "string",
+            "pattern": "^(all_red|(n|s|e|w|ns|sn|ew|we)_(green|yellow))$"
+          },
           "default": ["ns_green", "ns_yellow", "all_red", "ew_green", "ew_yellow", "all_red"]
         },
         "offset": { "type": "number", "minimum": 0, "default": 0 },

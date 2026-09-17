@@ -113,9 +113,13 @@ def test_api_simulations_green_duration_alias_reaches_controller() -> None:
 
 
 def test_api_simulation_invalid_phase_sequence_entry_returns_400() -> None:
-    """An unsupported phaseSequence entry (schema-valid as a plain string,
-    but not a recognized '<group>_<green|yellow>' or 'all_red' token) must
-    surface as a 400, not an unhandled 500."""
+    """An unsupported phaseSequence entry must surface as a 400, not an
+    unhandled 500.
+
+    Rejected twice over: the config schema now constrains each entry to the
+    '<group>_<green|yellow>' / 'all_red' vocabulary, and the controller raises
+    ValueError for anything that slips past schema validation.
+    """
     config: Dict[str, Any] = {
         "simulation": {"timeStep": 0.1, "duration": 300, "warmupTime": 30.0},
         "geometry": {"intersectionType": "fixed_time_signal"},
