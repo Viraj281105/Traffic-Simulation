@@ -448,8 +448,16 @@ def test_roundabout_circular_leader_detection() -> None:
 
 
 def test_roundabout_entry_speed_cap_and_restore() -> None:
-    """entrySpeed caps desired_speed only within the entry zone, and the
-    original desired_speed is restored once the vehicle is circulating."""
+    """The roundabout applies a three-stage speed regime.
+
+    approach -> entrySpeed, circulating -> circulatingSpeed, exit -> restored.
+
+    The circulating stage used to be missing: reaching a connection lane
+    restored the vehicle's full desired speed, so circulatingSpeed was accepted
+    and documented but never applied. Vehicles then circulated far faster than
+    the ring geometry permits, which is what made entry gap acceptance
+    meaningless.
+    """
     from src.roads.lane import Lane
 
     network = RoadNetwork()
@@ -503,11 +511,22 @@ def test_roundabout_entry_speed_cap_and_restore() -> None:
     controller.update(0.1, [veh, veh_slow])
     assert veh_slow.desired_speed == 3.0
 
-    # Once circulating, the original desired_speed is restored.
+    # Circulating: capped to circulatingSpeed, NOT restored to free-flow.
     lane.remove_vehicle(veh)
-    conn_lane = Lane("conn_n_0_straight", 0.0, 0.0, 10.0, 0.0)
+    conn_lane = Lane("conn_north_0_straight", 0.0, 0.0, 10.0, 0.0)
     veh.lane = conn_lane
     controller.update(0.1, [veh, veh_slow])
+    assert veh.desired_speed == 8.0
+
+    # A vehicle slower than the circulating cap keeps its own speed.
+    veh_slow.lane = conn_lane
+    controller.update(0.1, [veh, veh_slow])
+    assert veh_slow.desired_speed == 3.0
+
+    # Clear of the roundabout: the vehicle's own desired speed is restored.
+    out_lane = network.get_outgoing_approach(Direction.SOUTH).get_lanes()[0]
+    veh.lane = out_lane
+    controller.update(0.1, [veh])
     assert veh.desired_speed == 15.0
 
 

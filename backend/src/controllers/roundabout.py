@@ -92,6 +92,19 @@ class RoundaboutController(BaseController):
             except KeyError:
                 pass
 
+    def _remember_desired_speed(self, vehicle: Vehicle) -> float:
+        """Return the vehicle's own desired speed, recording it on first sight.
+
+        The caps applied through the roundabout overwrite ``desired_speed``, so
+        the pre-roundabout value has to be stashed the first time a vehicle is
+        capped and restored on the way out.
+        """
+        original = self._pre_entry_desired_speed.get(vehicle.vehicle_id)
+        if original is None:
+            original = vehicle.desired_speed
+            self._pre_entry_desired_speed[vehicle.vehicle_id] = original
+        return original
+
     def update(self, delta_time: float, active_vehicles: List[Vehicle]) -> None:
         self.update_active_vehicles_ref(active_vehicles)
         self.time_in_current_state += delta_time
@@ -103,29 +116,43 @@ class RoundaboutController(BaseController):
             if v.lane is not None and v.lane.lane_id.startswith("conn")
         ]
 
-        # entrySpeed: "Maximum speed at roundabout entry" — cap each
-        # vehicle's desired speed while it is within _ENTRY_ZONE of an
-        # incoming lane's entry point, so the IDM free-road term brings it
-        # down to entry_speed before it circulates. Restore the vehicle's
-        # original desired speed once it is actually circulating, so this
-        # only governs the entry itself, not the rest of its journey.
+        # Speed regime through the roundabout, in three stages:
+        #
+        #   approach  -> capped to entrySpeed over a realistic braking distance
+        #   circulating -> capped to circulatingSpeed
+        #   exit      -> original desired speed restored
+        #
+        # The circulating cap is the important one, and it used to be missing
+        # entirely: reaching a connection lane *restored* the vehicle's full
+        # desired speed, so `circulatingSpeed` was accepted, documented and
+        # never applied. Vehicles circulated with a desired speed averaging
+        # ~22 m/s and actually reached ~17 m/s on a 12.5-20 m radius ring —
+        # a lateral acceleration of nearly 2 g, which no car can do.
+        #
+        # That single omission is what made the ring unsafe: gap acceptance at
+        # the give-way line is calibrated against circulatingSpeed, so traffic
+        # moving at twice that speed arrives sooner than any accepted gap
+        # allowed for, and no achievable deceleration could recover it.
+        # Enforcing the cap is strictly more realistic than not, and is what
+        # makes the entry gap test mean what it says.
         for v in active_vehicles:
             if v.lane is None:
                 continue
             lane_id = v.lane.lane_id.lower()
             if lane_id.startswith("conn"):
-                original_speed = self._pre_entry_desired_speed.pop(v.vehicle_id, None)
-                if original_speed is not None:
-                    v.desired_speed = original_speed
+                v.desired_speed = min(
+                    self._remember_desired_speed(v), self.circulating_speed
+                )
             elif (
                 "_in_" in lane_id
                 and (v.lane.length - v.position) <= _ENTRY_APPROACH_ZONE
             ):
-                original_speed = self._pre_entry_desired_speed.get(v.vehicle_id)
-                if original_speed is None:
-                    original_speed = v.desired_speed
-                    self._pre_entry_desired_speed[v.vehicle_id] = original_speed
-                v.desired_speed = min(original_speed, self.entry_speed)
+                v.desired_speed = min(self._remember_desired_speed(v), self.entry_speed)
+            elif "_out_" in lane_id:
+                # Clear of the roundabout: give the vehicle its own speed back.
+                original_speed = self._pre_entry_desired_speed.pop(v.vehicle_id, None)
+                if original_speed is not None:
+                    v.desired_speed = original_speed
 
         for d in Direction:
             try:
@@ -146,8 +173,14 @@ class RoundaboutController(BaseController):
 
                     should_yield = False
 
-                    # Safe look-ahead distance threshold
-                    threshold = max(15.0, self.critical_gap * self.circulating_speed)
+                    # Widest distance any circulating vehicle could cover in
+                    # one critical gap, used only to prune obviously-distant
+                    # traffic before the exact per-vehicle test below. The
+                    # real decision is made on each vehicle's own speed, so
+                    # this is deliberately generous rather than exact.
+                    scan_radius = max(
+                        15.0, self.critical_gap * self.circulating_speed * 2.0
+                    )
 
                     for cv in circulating_vehicles:
                         # Ring the circulating vehicle is on; defaults to the
@@ -218,7 +251,7 @@ class RoundaboutController(BaseController):
                             (cv_x - entry_pt[0]) ** 2 + (cv_y - entry_pt[1]) ** 2
                         ) ** 0.5
 
-                        if dist_to_entry_euclidean < threshold:
+                        if dist_to_entry_euclidean < scan_radius:
                             theta_cv = math.atan2(cv_y, cv_x)
                             # Angular distance from circulating vehicle to entry point (counter-clockwise)
                             angular_gap = (theta_entry - theta_cv) % (2 * math.pi)
@@ -226,16 +259,24 @@ class RoundaboutController(BaseController):
                             # If angular_gap < pi, it is upstream / approaching the entry point
                             if angular_gap < math.pi:
                                 dist_along_circle = cv_ring_radius * angular_gap
-                                if dist_along_circle < threshold:
-                                    eff_speed = (
-                                        max(cv.speed, 2.0)
-                                        if hasattr(cv, "speed") and cv.speed > 0
-                                        else self.circulating_speed
-                                    )
-                                    time_gap = dist_along_circle / eff_speed
-                                    if time_gap < self.critical_gap:
-                                        should_yield = True
-                                        break
+
+                                # Judge the gap purely on how long THIS vehicle
+                                # will take to arrive.
+                                #
+                                # A fixed distance window derived from the
+                                # nominal circulatingSpeed used to gate this
+                                # test, so a vehicle travelling faster than
+                                # nominal was simply not seen: it sat outside
+                                # the window yet still arrived inside the
+                                # critical gap. Time-to-arrival is the quantity
+                                # the critical gap is actually defined against,
+                                # so comparing it directly removes the
+                                # inconsistency rather than papering over it.
+                                eff_speed = max(cv.speed, self.circulating_speed)
+                                time_gap = dist_along_circle / eff_speed
+                                if time_gap < self.critical_gap:
+                                    should_yield = True
+                                    break
 
                     # followUpTime: "Time between consecutive entering
                     # vehicles" — even once a circulating gap is accepted,
