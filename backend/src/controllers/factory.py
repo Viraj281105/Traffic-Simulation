@@ -52,6 +52,10 @@ def build_tick_callback(
     builder: Optional[Any] = None,
 ) -> Any:
     """Builds a standardized tick callback to sync the controller and collector."""
+    # Let the engine reach this collector directly, so SimulationEngine.reset()
+    # can clear its accumulated run state instead of leaving the previous run's
+    # queue history and tick counts in place.
+    engine.register_collector(collector)
 
     def tick_callback() -> None:
         collector.update(

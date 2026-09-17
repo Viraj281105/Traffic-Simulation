@@ -101,6 +101,24 @@ class VehiclePool:
         # safe to keep across an engine reset.
         self._predictive: PredictiveConflictResolver = PredictiveConflictResolver()
 
+    def reset(self) -> None:
+        """Clear every trace of the previous run.
+
+        Beyond the two vehicle lists, this drops the collision tally and the
+        debounce/lane-change bookkeeping keyed by vehicle id. Leaving those
+        behind meant a reset simulation started with the previous run's
+        collision count already on the board, and could mis-debounce a new
+        vehicle that happened to reuse an id from the old run.
+        """
+        for vehicle in self.active_vehicles:
+            if vehicle.lane is not None:
+                vehicle.lane.remove_vehicle(vehicle)
+        self.active_vehicles.clear()
+        self.exited_vehicles.clear()
+        self._collision_count = 0
+        self._colliding_pairs.clear()
+        self._last_lane_change.clear()
+
     def add_vehicle(self, vehicle: Vehicle) -> None:
         if vehicle not in self.active_vehicles:
             self.active_vehicles.append(vehicle)

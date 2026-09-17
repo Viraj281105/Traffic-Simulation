@@ -204,6 +204,17 @@ class ConflictManager:
         for key in expired:
             del self._reservations[key]
 
+    def reset_reservations(self) -> None:
+        """Drop every outstanding reservation.
+
+        Used when the simulation is reset: reservations are keyed by vehicle id
+        and expire against simulation time, which has just gone back to zero,
+        so any survivor would block the new run's vehicles out of zones that
+        nobody occupies. The pre-computed conflict points are geometry, not run
+        state, so they are deliberately kept.
+        """
+        self._reservations.clear()
+
     def release_vehicle(self, vehicle_id: str) -> None:
         """Immediately release all reservations held by a vehicle (e.g. on exit)."""
         to_del = [
