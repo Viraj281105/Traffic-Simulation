@@ -300,21 +300,36 @@ class PredictiveConflictResolver:
             # second, independent gate only rejects gaps it already accepted.
             return
 
-        if self.protect_circulating and self._inside_intersection(yielder):
+        other = vb if yielder is va else va
+        other_dist = dist_b if yielder is va else dist_a
+
+        if (
+            self.protect_circulating
+            and self._inside_intersection(yielder)
+            and not self._inside_intersection(other)
+        ):
             # Never ask a vehicle that is already inside the junction to stop
-            # for one that is merely *approaching* a shared point. Stopping
-            # mid-junction blocks the path of everything behind it, which on a
-            # roundabout means the ring seizes up: circulating traffic halts,
-            # so nobody can enter, so the halted traffic never clears. The
-            # conflict this would have resolved is instead prevented earlier,
-            # at the give-way line, where rule 2 of _select_yielder holds the
-            # entering vehicle back until the crossing is genuinely clear.
+            # for one that has not entered yet. Stopping mid-junction blocks
+            # the path of everything behind it, which on a roundabout means the
+            # ring seizes up: circulating traffic halts, so nobody can enter,
+            # so the halted traffic never clears. That conflict is prevented
+            # earlier instead, at the give-way line, where rule 2 of
+            # _select_yielder holds the entering vehicle back until the
+            # crossing is genuinely clear.
             #
-            # The one exception is a vehicle physically parked on the conflict
-            # point: that is an obstacle rather than a negotiation, and
-            # driving through it is never the better outcome.
-            other = vb if yielder is va else va
-            other_dist = dist_b if yielder is va else dist_a
+            # This deliberately does NOT apply when both vehicles are inside.
+            # Two circulating vehicles on converging paths — an inner-ring
+            # vehicle crossing the outer ring to reach its exit is the common
+            # one — are a real weaving conflict that only this layer can
+            # arbitrate: same-ring car-following ignores them because their
+            # ring indices differ, and ConflictManager is disabled for
+            # roundabouts. Exempting them left the conflict completely
+            # unarbitrated, and vehicles drove into each other at close to the
+            # full circulating speed with no braking applied at any point.
+            #
+            # The one exception to the exemption is a vehicle physically parked
+            # on the conflict point: that is an obstacle rather than a
+            # negotiation, and driving through it is never the better outcome.
             if not (other.speed <= _STOPPED_SPEED and other_dist <= 1e-9):
                 return
 
