@@ -111,10 +111,13 @@ jobs:
       # The coverage gate stays on this job because this is the job that
       # exercises the codebase broadly; --cov-fail-under comes from
       # pyproject.toml's addopts and is deliberately not overridden here.
+      # --durations keeps the job's own cost visible in its log. The backend
+      # suite reached 44 minutes here while taking well under a minute
+      # locally, and nothing in the output said which tests were responsible.
       - name: Run Backend Tests (fast suite)
         env:
           PYTHONPATH: .
-        run: pytest -m "not slow"
+        run: pytest -m "not slow" --durations=25
 
   # Not part of the PR/push gate: manual (workflow_dispatch) and nightly only.
   # Split by file because the two modules memoise their simulation runs
