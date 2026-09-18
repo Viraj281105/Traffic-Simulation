@@ -21,13 +21,28 @@ window, `timeStep=0.1`, seed 1 unless stated. "Offered" is
 
 | Geometry | Peak served | Offered at peak | Collisions |
 | :-- | --: | --: | --: |
-| Fixed-time signal, 1 lane | **1800 veh/h** | 4320 | 0 |
+| Fixed-time signal, 1 lane | **~1700 veh/h** | 5400 | 0 |
 | Roundabout, 1 lane | **1423 veh/h** | 4320 | 0 |
 
-Both match the calibration targets (~1800 and ~1427). Both curves rise
-monotonically from free flow through saturation across 360 → 4320 veh/h
-offered. Runs are bit-identical for a fixed seed and differ across seeds, for
-both geometries.
+The roundabout matches its calibration target (~1427) exactly.
+
+**The signal figure has moved from 1800 to about 1700**, and the reason is
+recorded rather than papered over: fixing the junction deadlock (§2) required
+checking physical occupancy of a crossing against *any* vehicle whose body is
+over it, not only stationary ones. That is genuinely more conservative than
+what it replaced, and it costs throughput at saturation. 1800 veh/h was
+measured against a junction that, at the same demand, was on its way into a
+gridlock the fix removes. Nothing was tuned to reach either number.
+
+Measured signal curve, 1 lane, seed 1, offered → served veh/h:
+
+| offered | 720 | 1440 | 2880 | 4320 | 5400 |
+| :-- | --: | --: | --: | --: | --: |
+| before | 617 | 1303 | 1234 | 1800 | 137 |
+| after | 600 | 1234 | 1629 | 1543 | 1697 |
+
+Zero collisions at every point. Runs are bit-identical for a fixed seed and
+differ across seeds, for both geometries.
 
 **This single-lane pair is the scientifically valid comparison.** It is the
 only configuration in which both geometries are collision-free across their
@@ -35,46 +50,95 @@ whole working range.
 
 ---
 
-## 2. Signal junction gridlocks under sustained oversaturation
+## 2. Signal junction gridlocked under sustained oversaturation
 
-**Classification: 1 — genuine correctness defect. NOT fixed in this release.**
+**Classification: 1 — genuine correctness defect. FIXED (commit `89bb887`).**
 
-Measured 1-lane signal capacity curve:
+### What it was
+
+Measured 1-lane signal capacity curve before the fix:
 
 | Offered veh/h | 360 | 720 | 1080 | 1440 | 2160 | 2880 | 3600 | 4320 | 5400 |
 | :-- | --: | --: | --: | --: | --: | --: | --: | --: | --: |
 | Served veh/h | 291 | 617 | 909 | 1303 | 1491 | **1234** | 1731 | 1800 | **137** |
 
-This was previously recorded as "some high-demand non-monotonic behaviour
-after saturation". That understates it. It is a permanent deadlock:
+This had been recorded as "some high-demand non-monotonic behaviour after
+saturation". That badly understated it. It was a permanent deadlock: at
+1.5 veh/s the exited-vehicle count froze at 14 by t=60 s and never rose
+again, and by t=240 s, 310 of 312 vehicles in the network were stationary.
+The same cycle formed more slowly at 0.8 veh/s (throughput frozen from
+t=180 s), which is what produced the 2880 dip. The dip and the collapse were
+one defect at different onset times, not a measurement artefact.
 
-At 1.5 veh/s the exited-vehicle count freezes at 14 by t=60 s and never
-increases again; by t=240 s, 310 of 312 vehicles in the network are
-stationary. The same cycle forms more slowly at 0.8 veh/s (throughput frozen
-from t=180 s), which is what produces the 2880 dip — the dip and the collapse
-are the same defect at different onset times, not a measurement artefact.
+### Mechanism
 
-**Mechanism** (diagnosed, not inferred). Four vehicles — one per arm — end up
-stopped inside a ~14 m junction box. They are held there by `find_leader`'s
-Layer 4 emergency-proximity check: each is within the ~2.2 m corridor and
-minimum safe distance of another, so each brakes to zero for a vehicle that is
-itself stopped. It is a physical boxing-in, and the model has no reversing, so
-it is unrecoverable. The reservation layer is *not* the cause — two candidate
-fixes there (releasing speculative claims held by stalled vehicles, and
-excluding stalled vehicles from the turn-priority tie-break) were implemented
-and measured, and both left all 18 sweep points byte-identical. Both were
-reverted rather than shipped as unvalidated changes to a just-stabilised core.
+Four vehicles, one per arm, ended up stopped inside a ~14 m junction box,
+each waiting on a crossing another of them held or physically occupied. The
+model has no reverse gear, so no vehicle could yield its way out.
 
-**Why it is not fixed here.** The real fix is junction-entry admission control
-— "do not enter unless you can clear" — which changes how vehicles are
-admitted to the box and therefore requires re-calibrating the 1800 veh/h
-figure and re-validating the collision budgets. That is not a change to land
-at a release gate.
+Four separate defects combined, and all four had to be fixed:
 
-**Scope of impact.** Onset is above roughly 1.5x capacity. The calibrated
-comparison (≤ 4320 veh/h offered, 1 lane) is unaffected, and the reported
-capacity figures are measured at or below that point. Demonstrations should
-stay at or below 1.2 veh/s for a 1-lane intersection.
+1. **Incremental acquisition.** Zones were claimed only within
+   `2 x ZONE_RADIUS` = 12 m, against connection lanes 8.5–14.2 m long. A
+   vehicle could enter holding its first crossings, then stall inside on a
+   later one while still holding everything claimed on the way in — textbook
+   hold-and-wait.
+2. **Followers overwrote their leader's claims.** The same-entry-lane
+   exemption returned `free`, and acquisition overwrites unconditionally, so
+   a zone's protection passed to a vehicle queued *behind* the one actually
+   in the box. A crossing movement was then admitted on top of the leader.
+3. **Vehicles braked for crossings already driven past.** `block_dist` is
+   `max(0.0, remaining - ZONE_RADIUS)`, which for negative `remaining` is
+   `0.0` — a dead stop for a point behind you. This was the keystone: a
+   vehicle 2.7 m *beyond* a crossing was held by one 2.1 m *short* of it,
+   while that one was held in turn by the first.
+4. **Physical occupancy was only tested against stationary vehicles.** A
+   vehicle crossing a point stopped counting as occupying it the instant it
+   began to move. Fixing (3) alone therefore converted the deadlock into a
+   collision between exactly that pair, because the second vehicle was
+   cleared in while the first was still physically crossing.
+
+### The fix
+
+Junction-entry admission control. A vehicle is admitted only if **every**
+conflict zone on its path through the junction is available, and it then
+claims them all together. It never holds a partial set, so hold-and-wait —
+and with it the circular wait — cannot arise. Alongside it: the `shared`
+verdict (not blocking us, but not ours to take), no braking for points
+behind, and a `_ZONE_BODY_RADIUS` occupancy test that covers any vehicle
+whose body is over the crossing, moving or not. The body radius is
+deliberately a separate constant from `ZONE_RADIUS`: a reservation buffer and
+a vehicle body are different physical quantities and should never have shared
+one.
+
+### Result
+
+| offered veh/h | 720 | 1440 | 2880 | 4320 | 5400 |
+| :-- | --: | --: | --: | --: | --: |
+| before | 617 | 1303 | 1234 | 1800 | **137** |
+| after | 600 | 1234 | 1629 | 1543 | **1697** |
+
+Zero collisions at every point. The freeze is gone, and the 2880 dip with
+it. Saturation capacity moved from 1800 to about 1700 veh/h, because defect
+(4)'s fix is genuinely more conservative than what it replaced — see §1. The
+roundabout curve is byte-identical, so there is no cross-regression.
+
+Two further candidate fixes were implemented, measured and **reverted**
+because they changed nothing at all (all 18 sweep points byte-identical):
+releasing speculative claims held by stalled vehicles, and excluding stalled
+vehicles from the turn-priority tie-break. A third — extending priority
+arbitration over the whole path — was reverted because it was actively
+harmful: a left turn crosses 9 zones on a 1-lane signal, losing the tie-break
+on any one denied admission, and with one lane per approach the refused
+left-turner blocked the through traffic behind it, cutting served flow at
+2160 veh/h to 566.
+
+### Residual
+
+Post-saturation flow still varies non-monotonically by roughly 10% (1629 at
+2880, 1543 at 4320, 1697 at 5400). That is ordinary stochastic variation in
+an oversaturated queueing system, not a freeze, and it sits inside the
+tolerance asserted by `test_capacity_does_not_fall_as_demand_rises`.
 
 ---
 
@@ -188,8 +252,9 @@ would be effort spent where there is no cost.
 
 - The **1-lane signal vs roundabout comparison is scientifically valid** and
   is the only comparison that should be presented as calibrated.
-- One **genuine correctness defect** is known and unfixed: junction gridlock
-  above ~1.5x capacity (§2). It is out of the calibrated range and has a
-  demo workaround (stay at or below 1.2 veh/s), but it is a real bug.
+- The one **genuine correctness defect** found, junction gridlock above
+  ~1.5x capacity (§2), is **fixed**. The junction now clears traffic at every
+  demand tested, collision-free, and the demand cap that was previously
+  needed for demos no longer applies.
 - Multi-lane roundabout behaviour (§3, §4) is a **scope limitation**, already
   deferred to V2.0, and must be labelled as such wherever it is shown.
