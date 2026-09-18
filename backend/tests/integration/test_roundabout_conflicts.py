@@ -278,6 +278,14 @@ def test_entry_yields_to_every_ring_it_crosses() -> None:
 
 _SEEDS: Tuple[int, ...] = (1, 2, 3, 4, 5, 6, 7, 8)
 
+# The subset the default (non-slow) suite exercises. Deliberately a prefix of
+# _SEEDS and pinned to lanes=1, so every run the fast guards need is a run the
+# full slow sweep needs anyway: _RUN_CACHE is shared across the module, so
+# running both costs exactly what running the sweep alone costs. Widening this
+# set, or pointing it at a lane count the sweep does not cover, would make the
+# slow job pay for the fast one twice.
+_SMOKE_SEEDS: Tuple[int, ...] = (1, 2)
+
 # Collision budget across the whole seed set, at a demand (0.6 veh/s) that is
 # well beyond this roundabout's capacity — see
 # test_free_flow_demand_is_collision_free for the free-flowing case, which is
@@ -298,6 +306,7 @@ _SEEDS: Tuple[int, ...] = (1, 2, 3, 4, 5, 6, 7, 8)
 _ROUNDABOUT_COLLISION_BUDGET = {1: 4, 2: 10, 3: 12}
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("lanes", [1, 2, 3])
 def test_roundabout_collision_rate_stays_far_below_the_pre_fix_baseline(
     lanes: int,
@@ -310,6 +319,7 @@ def test_roundabout_collision_rate_stays_far_below_the_pre_fix_baseline(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("lanes", [1, 2])
 def test_signal_junction_is_effectively_collision_free(lanes: int) -> None:
     """The signalised junction must stay clean across seeds."""
@@ -317,6 +327,7 @@ def test_signal_junction_is_effectively_collision_free(lanes: int) -> None:
     assert total <= 2
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("lanes", [1, 2, 3])
 def test_roundabout_still_moves_traffic(lanes: int) -> None:
     """Conflict avoidance must not be achieved by gridlocking the junction.
@@ -333,22 +344,77 @@ def test_roundabout_still_moves_traffic(lanes: int) -> None:
     assert sum(throughputs) >= 100, f"roundabout throughput collapsed: {throughputs}"
 
 
+# ── Fast representatives of the sweeps above ──────────────────────────────
+#
+# The guards above are the full-strength statements and stay that way; these
+# assert the same properties over _SMOKE_SEEDS at one lane count so the
+# default suite still exercises a real simulation end to end. They reuse
+# _RUN_CACHE entries the slow sweeps need anyway, so they add no simulation
+# time to the slow job.
+
+
+def test_single_lane_roundabout_is_collision_free_smoke() -> None:
+    """Fast representative of test_single_lane_roundabout_is_collision_free."""
+    total = sum(
+        _run(ROUNDABOUT_CONFIG, seed, lanes=1)["collisionCount"]
+        for seed in _SMOKE_SEEDS
+    )
+    assert total == 0, f"single-lane roundabout produced {total} collisions"
+
+
+def test_roundabout_still_moves_traffic_smoke() -> None:
+    """Fast representative of test_roundabout_still_moves_traffic.
+
+    Floor is scaled from the full sweep's: that asserts >= 100 vehicles over
+    8 seeds x 3 lane counts, i.e. a little over 4 per run, so 8 over 2 runs
+    is the same statement at the same strength per run.
+    """
+    throughputs = [
+        _run(ROUNDABOUT_CONFIG, seed, lanes=1)["throughput"] for seed in _SMOKE_SEEDS
+    ]
+    assert sum(throughputs) >= 8, f"roundabout throughput collapsed: {throughputs}"
+
+
 def test_roundabout_runs_stay_deterministic_for_a_fixed_seed() -> None:
-    """Conflict resolution must not depend on iteration order."""
-    first = _run(ROUNDABOUT_CONFIG, 3, 2)
-    second = _run(ROUNDABOUT_CONFIG, 3, 2)
+    """Conflict resolution must not depend on iteration order.
+
+    The cache entry has to be dropped between the two runs. _run memoises on
+    (type, seed, lanes) and returns the stored dict itself, so without the
+    eviction the second call hands back the first call's own object and the
+    assertion cannot fail — it compared a dict with itself. The second run
+    repopulates the cache, so the smoke guards above still pay nothing.
+    """
+    key = (ROUNDABOUT_CONFIG["geometry"]["intersectionType"], _SMOKE_SEEDS[0], 1)
+
+    _RUN_CACHE.pop(key, None)
+    first = dict(_run(ROUNDABOUT_CONFIG, _SMOKE_SEEDS[0], 1))
+    _RUN_CACHE.pop(key, None)
+    second = _run(ROUNDABOUT_CONFIG, _SMOKE_SEEDS[0], 1)
+
     assert first == second
 
 
 def test_different_seeds_still_diverge() -> None:
-    assert _run(ROUNDABOUT_CONFIG, 3, 2) != _run(ROUNDABOUT_CONFIG, 4, 2)
+    assert _run(ROUNDABOUT_CONFIG, _SMOKE_SEEDS[0], 1) != _run(
+        ROUNDABOUT_CONFIG, _SMOKE_SEEDS[1], 1
+    )
 
 
 # ── Speed regime and geometric separation ─────────────────────────────────
 
 
+# Both speed-regime tests below sample the same (lanes, seed) run, so it is
+# memoised for the same reason _RUN_CACHE exists: otherwise the identical
+# 60 s simulation is executed twice.
+_SAMPLE_CACHE: Dict[Tuple[int, int], list] = {}
+
+
 def _circulating_samples(lanes: int, seed: int = 3) -> list:
     """(speed, radius) for every vehicle-tick spent on the circulating ring."""
+    cached = _SAMPLE_CACHE.get((lanes, seed))
+    if cached is not None:
+        return cached
+
     config = copy.deepcopy(ROUNDABOUT_CONFIG)
     config["simulation"]["randomSeed"] = seed
     config["roads"]["lanesPerApproach"] = lanes
@@ -368,6 +434,8 @@ def _circulating_samples(lanes: int, seed: int = 3) -> list:
         for v in engine.pool.active_vehicles:
             if v.lane is not None and v.lane.lane_id.startswith("conn"):
                 samples.append((v.speed, math.hypot(*v.coords)))
+
+    _SAMPLE_CACHE[(lanes, seed)] = samples
     return samples
 
 
@@ -467,6 +535,7 @@ def test_entry_paths_from_one_approach_genuinely_cross() -> None:
     )
 
 
+@pytest.mark.slow
 def test_single_lane_roundabout_is_collision_free() -> None:
     """With one entry lane and one ring there is no weaving, so no contacts.
 

@@ -33,3 +33,10 @@ testpaths = [
     "tests",
 ]
 pythonpath = ["."]
+# A bare `pytest` still runs EVERYTHING, slow tests included — the marker
+# selects, it never hides. CI is what narrows the default job to
+# `-m "not slow"`; the full-strength sweeps run in their own named job
+# (see .github/workflows/ci.yml).
+markers = [
+    "slow: full-strength simulation sweep (many seeds x lane counts x demand levels). Each case is a complete 120-240 s simulation, so these dominate wall time. Run with `pytest -m slow`.",
+]

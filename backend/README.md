@@ -143,11 +143,31 @@ The API becomes available at `http://localhost:8000`. Interactive API Docs are s
 
 ### Testing
 
-Execute unit tests:
+Execute the whole suite — nothing is excluded by default:
 
 ```bash
 python -m pytest
 ```
+
+Tests carrying the `slow` marker are the full-strength simulation sweeps in
+`tests/integration/test_signal_capacity.py` and
+`tests/integration/test_roundabout_conflicts.py`: multi-seed, multi-lane and
+multi-demand regressions where every case is a complete 120-240 s simulation.
+They dominate wall time, so CI splits them off rather than running them on
+every push:
+
+```bash
+# What the "Backend CI" job runs on every PR/push. Includes the conflict
+# geometry pins and a single-seed representative of each sweep.
+python -m pytest -m "not slow"
+
+# What the "Backend Slow Simulation Regression" job runs nightly, and what
+# you can trigger by hand from the Actions tab. Run this before a release.
+python -m pytest -m slow
+```
+
+The sweeps are selected away in the fast job, never weakened or skipped, and
+`python -m pytest` with no marker filter remains the complete run.
 
 ---
 

@@ -141,7 +141,13 @@
           },
           "default": ["ns_green", "ns_yellow", "all_red", "ew_green", "ew_yellow", "all_red"]
         },
-        "offset": { "type": "number", "minimum": 0, "default": 0 },
+        "offset": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0,
+          "description": "Coordination offset in SECONDS: how far into its phase plan the controller already is at t=0. Applied once at reset, and taken modulo the total cycle length, so a value larger than one cycle is not an error and wraps. It shifts the starting point of the cycle only; it does not lengthen, shorten or reorder any phase.",
+          "$comment": "Single-intersection builds have nothing to coordinate against, so this is only meaningful once corridor coordination exists — see the Deferred log in docs/ROADMAP.md. It is fully implemented and honoured today: FixedTimeSignalController.reset advances the phase cursor by this amount."
+        },
         "innerRadius": { "type": "number", "exclusiveMinimum": 5, "maximum": 50, "default": 10 },
         "outerRadius": { "type": "number", "exclusiveMinimum": 5, "default": 20 },
         "circulatingLanes": {

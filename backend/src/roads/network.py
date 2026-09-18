@@ -40,6 +40,19 @@ ROUNDABOUT_TRANSITION_ARC: float = 10.0
 # realistic island removes the cause instead of excusing the symptom.
 ROUNDABOUT_SPLITTER_HALF_WIDTH: float = 1.5
 
+# Clearance (metres) between a signalised junction's conflict area and the
+# stop line where waiting vehicles are held.
+#
+# The conflict area was taken to end at lane_count * lane_width — 3.5 m from
+# the centre for a single-lane approach — and the stop line sat exactly on it.
+# A 4.5 m vehicle held there therefore had well over half its body inside the
+# junction box, directly on the paths of the turning movements crossing it, so
+# traffic running a legitimate green struck vehicles that were correctly
+# stopped at their own red. Real stop lines are set back from the conflict
+# area for the same reason. This is the signalised counterpart of
+# ROUNDABOUT_ENTRY_SETBACK above.
+SIGNAL_STOP_LINE_SETBACK: float = 3.5
+
 
 class RoadNetwork:
     """Manages the network topology of the intersection, containing approaches and lanes.
@@ -121,7 +134,7 @@ class RoadNetwork:
             boundary = (
                 (outer_radius + ROUNDABOUT_ENTRY_SETBACK)
                 if is_roundabout
-                else (lane_count * lane_width)
+                else (lane_count * lane_width + SIGNAL_STOP_LINE_SETBACK)
             )
 
             # Roundabout approaches carry a splitter island between the entry

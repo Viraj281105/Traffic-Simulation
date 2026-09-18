@@ -218,6 +218,7 @@ class VehiclePool:
         predictive_limits = self._predictive.compute_braking_distances(
             self.active_vehicles,
             entry_gated_by_controller=single_ring_roundabout,
+            junction_arbitrated_elsewhere=conflict_manager is not None,
         )
 
         # Update each vehicle
@@ -263,6 +264,19 @@ class VehiclePool:
                 if conflict_manager is not None:
                     conflict_manager.release_vehicle(vehicle.vehicle_id)
                 to_remove.append(vehicle)
+            elif conflict_manager is not None and vehicle.lane is not None:
+                # Release the moment the vehicle reaches its outgoing lane: it
+                # is physically clear of the junction and its conflict zones,
+                # whatever the reservation's nominal clearance timer says.
+                #
+                # Reservations previously survived until that timer expired,
+                # which is CLEARANCE_TIME (2 s) after the vehicle passed the
+                # conflict point. But the vehicle then drives 200 m down the
+                # outgoing approach, so for most of those 2 s it holds zones it
+                # left long ago, and the next vehicle in the queue is blocked
+                # behind a junction that is visibly empty.
+                if "_out_" in vehicle.lane.lane_id:
+                    conflict_manager.release_vehicle(vehicle.vehicle_id)
 
         # Move exited vehicles from active to exited list
         for vehicle in to_remove:

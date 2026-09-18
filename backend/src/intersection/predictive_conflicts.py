@@ -104,6 +104,14 @@ _MIN_SPEED_FOR_ETA: float = 0.5
 _BROAD_PHASE_RADIUS: float = 40.0
 
 
+def _vehicle_lane_on_other_route(leader: Vehicle, follower: Vehicle) -> bool:
+    """True when ``leader`` sits on a lane ``follower`` still has to travel."""
+    if leader.lane is None or not follower.route:
+        return False
+    leader_lane_id = leader.lane.lane_id
+    return any(lane.lane_id == leader_lane_id for lane in follower.route)
+
+
 def _footprint_radius(vehicle: Vehicle) -> float:
     """Circumscribed radius of the vehicle's bounding box."""
     return math.hypot(vehicle.length, vehicle.width) / 2.0
@@ -176,6 +184,7 @@ class PredictiveConflictResolver:
         self,
         active_vehicles: List[Vehicle],
         entry_gated_by_controller: bool = False,
+        junction_arbitrated_elsewhere: bool = False,
     ) -> Dict[str, float]:
         """Return ``{vehicle_id: distance it may still travel}`` for yielders.
 
@@ -261,6 +270,7 @@ class PredictiveConflictResolver:
                             samples,
                             constraints,
                             entry_gated_by_controller,
+                            junction_arbitrated_elsewhere,
                         )
 
         return constraints
@@ -277,6 +287,7 @@ class PredictiveConflictResolver:
         samples: Dict[str, Tuple[float, ...]],
         constraints: Dict[str, float],
         entry_gated_by_controller: bool = False,
+        junction_arbitrated_elsewhere: bool = False,
     ) -> None:
         if self._same_physical_path(va, vb):
             # Plain car-following on one shared path — already handled
@@ -286,6 +297,32 @@ class PredictiveConflictResolver:
         if self._parallel_approach_lanes(va, vb):
             # Neighbouring lanes of the same approach run side by side by
             # design and never need to yield to each other.
+            return
+
+        if junction_arbitrated_elsewhere:
+            # One arbitration system per junction.
+            #
+            # A signalised junction already resolves conflicts twice over: the
+            # phase plan separates conflicting movements in time, and
+            # ConflictManager reserves the crossing points between connection
+            # lanes. This layer exists only for geometry ConflictManager
+            # cannot model — a roundabout's curved arcs, where it is disabled
+            # — so on a signal it is a third, far blunter gate on a junction
+            # that is already governed, and it was the single largest cause of
+            # the signal's capacity collapse.
+            #
+            # What it did, measured over a 150 s run: 1138 emergency stops of
+            # vehicles crossing the box because a *stationary* vehicle waiting
+            # at another approach's stop line sat on their predicted path, and
+            # 1944 constraints between two vehicles that were both still on
+            # their approach lanes, held short of a stop line that had not
+            # even been reached. Capacity fell from about 1300 veh/h to
+            # 206 veh/h and kept falling as demand rose, because vehicles
+            # halted inside the box and blocked it.
+            #
+            # Deferring restores the signal's capacity curve. ConflictManager
+            # remains fully active and keeps doing the arbitration it was
+            # designed for.
             return
 
         hit = self._find_conflict(va, vb, projections, samples)
@@ -405,6 +442,11 @@ class PredictiveConflictResolver:
             "conn"
         )
 
+    @staticmethod
+    def _has_left_intersection(vehicle: Vehicle) -> bool:
+        """True once the vehicle is on an outgoing lane, i.e. on its way out."""
+        return vehicle.lane is not None and "_out_" in vehicle.lane.lane_id.lower()
+
     def _select_yielder(
         self, va: Vehicle, vb: Vehicle, dist_a: float, dist_b: float
     ) -> Tuple[Vehicle, float]:
@@ -428,10 +470,32 @@ class PredictiveConflictResolver:
             yielder = vb if a_blocking else va
             return yielder, (dist_b if a_blocking else dist_a)
 
+        # 2. A vehicle that has reached its outgoing lane has cleared the
+        #    junction and is driving away. It must never be the one to stop.
+        #
+        #    _inside_intersection is a binary "on a connection lane or not",
+        #    so a vehicle that had just left the box was lumped in with
+        #    traffic that had not yet entered it, and the next rule handed
+        #    priority to whatever was still crossing. The departing vehicle
+        #    was then braked to a standstill a few metres onto an empty exit
+        #    lane — leader None, gap infinite, emergency deceleration — where
+        #    it blocked the box behind it. That is the mechanism by which the
+        #    junction filled up and throughput fell as demand rose. Stopping a
+        #    vehicle that is leaving can only ever make a junction worse.
+        #
+        #    Where both are heading for the same exit this is also the correct
+        #    merge rule: the vehicle already established on the exit lane has
+        #    priority over one still crossing to reach it.
+        a_left = self._has_left_intersection(va)
+        b_left = self._has_left_intersection(vb)
+        if a_left != b_left:
+            yielder = vb if a_left else va
+            return yielder, (dist_b if a_left else dist_a)
+
         a_inside = self._inside_intersection(va)
         b_inside = self._inside_intersection(vb)
 
-        # 2. Traffic already inside the junction has right of way over traffic
+        # 3. Traffic already inside the junction has right of way over traffic
         #    still waiting to enter. Braking the vehicle that has not entered
         #    yet is also the only safe option: it can still stop at the
         #    give-way line, whereas stopping the one already crossing would
@@ -440,13 +504,13 @@ class PredictiveConflictResolver:
             yielder = vb if a_inside else va
             return yielder, (dist_b if a_inside else dist_a)
 
-        # 3. Both on the same side of the give-way line. The more committed
+        # 4. Both on the same side of the give-way line. The more committed
         #    vehicle (further along its current lane) keeps priority.
         if abs(va.position - vb.position) > 1e-9:
             yielder = va if va.position < vb.position else vb
             return yielder, (dist_a if yielder is va else dist_b)
 
-        # 4. Deterministic tiebreak — never depends on iteration order, so
+        # 5. Deterministic tiebreak — never depends on iteration order, so
         #    identical seeds keep producing identical runs.
         yielder = va if va.vehicle_id > vb.vehicle_id else vb
         return yielder, (dist_a if yielder is va else dist_b)
@@ -470,6 +534,26 @@ class PredictiveConflictResolver:
         if va.lane is None or vb.lane is None:
             return False
         if va.lane is vb.lane:
+            return True
+
+        # One vehicle is already on a lane the other still has to travel, so
+        # they are in single file on a shared path and car-following governs
+        # them. A junction's whole discharging platoon looks like this — one
+        # vehicle on the approach lane, one crossing on the connection lane,
+        # one already on the outgoing lane — and every pair of them spans two
+        # different lanes of the one route.
+        #
+        # Without this the layer read each of those pairs as a crossing
+        # conflict and commanded a full stop, so a signal discharged only two
+        # or three vehicles per green instead of a saturated platoon, and
+        # vehicles halted on an empty outgoing lane under emergency braking.
+        #
+        # This deliberately tests the *current* lanes, not whole routes.
+        # Two vehicles merging into a shared outgoing lane from different
+        # approaches do not satisfy it while they are still on their own
+        # approaches, so a genuine merge is still arbitrated; it only exempts
+        # them once the leader is demonstrably ahead on the shared path.
+        if _vehicle_lane_on_other_route(va, vb) or _vehicle_lane_on_other_route(vb, va):
             return True
 
         id_a = va.lane.lane_id.lower()

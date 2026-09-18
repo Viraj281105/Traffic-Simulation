@@ -2,9 +2,30 @@ name: Continuous Integration
 
 on:
   push:
-    branches: [ main, develop, backend, "backend*", "feature/*" ]
+    branches: [ main, develop, backend, "backend*", "feature/*", viraj-dev ]
   pull_request:
     branches: [ main, develop, backend, "backend*" ]
+  # The slow simulation sweeps are excluded from every PR/push run above and
+  # run here instead: on demand, and nightly against the default branch.
+  workflow_dispatch:
+    inputs:
+      run_slow_suite:
+        description: "Also run the slow simulation regression sweeps"
+        type: boolean
+        default: true
+  schedule:
+    # 02:30 UTC nightly.
+    - cron: "30 2 * * *"
+
+# A superseded run has nothing left to say, and the simulation jobs are long
+# enough that leaving them queued wastes a runner.
+#
+# event_name is part of the key on purpose: a manual slow-suite dispatch and
+# the push run for the same branch are different questions, and without it
+# starting one cancels the other.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
 
 jobs:
   validate-schemas:
@@ -22,8 +43,11 @@ jobs:
       - name: Run Schema Validator
         run: python scripts/validate_schemas.py
 
-  backend-lint-test:
-    name: Backend CI
+  # Split out of the test job so the static checks report in seconds instead of
+  # queueing behind the simulation tests, and so a lint failure and a test
+  # failure surface in the same run rather than one masking the other.
+  backend-lint:
+    name: Backend Lint & Types
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -36,11 +60,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
 
-      - name: Install Linting & Testing Tools
+      - name: Install Linting Tools
         run: |
           python -m pip install --upgrade pip
-          pip install ruff mypy pytest pytest-cov
+          pip install ruff mypy
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Run Ruff Linter
@@ -55,10 +81,95 @@ jobs:
       - name: Run MyPy Type Checker
         run: mypy src/
 
-      - name: Run Backend Tests
+  backend-test:
+    name: Backend CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install Testing Tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      # `-m "not slow"` deselects the full-strength simulation sweeps only —
+      # every other test, including the conflict-geometry pins and fast
+      # single-seed representatives of each sweep, runs here. The sweeps
+      # themselves are not weakened, skipped or deleted; they run at full
+      # strength in backend-slow-tests below. See backend/pyproject.toml for
+      # the marker definition and backend/README.md for how to run them.
+      #
+      # The coverage gate stays on this job because this is the job that
+      # exercises the codebase broadly; --cov-fail-under comes from
+      # pyproject.toml's addopts and is deliberately not overridden here.
+      # --durations keeps the job's own cost visible in its log. The backend
+      # suite reached 44 minutes here while taking well under a minute
+      # locally, and nothing in the output said which tests were responsible.
+      - name: Run Backend Tests (fast suite)
         env:
           PYTHONPATH: .
-        run: pytest
+        run: pytest -m "not slow" --durations=25
+
+  # Not part of the PR/push gate: manual (workflow_dispatch) and nightly only.
+  # Split by file because the two modules memoise their simulation runs
+  # independently, so they share nothing and can run concurrently without
+  # affecting each other's results. Tests are NOT parallelised within a file:
+  # each module's _RUN_CACHE is what keeps the sweeps from re-simulating the
+  # same (seed, lane, demand) point, and a process-per-test splitter would
+  # discard it and make the job slower, not faster.
+  backend-slow-tests:
+    name: Backend Slow Simulation Regression
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_slow_suite)
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: signal-capacity
+            path: tests/integration/test_signal_capacity.py
+          - name: roundabout-conflicts
+            path: tests/integration/test_roundabout_conflicts.py
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install Testing Tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      # --no-cov because this shard runs one test file: measuring project
+      # coverage from it would report a low figure that says nothing, and the
+      # --cov-fail-under in addopts would then fail the job for a reason that
+      # is not a regression. The real coverage gate lives on backend-test.
+      - name: Run Slow Simulation Sweeps (${{ matrix.name }})
+        env:
+          PYTHONPATH: .
+        run: pytest ${{ matrix.path }} -m slow --no-cov -v --durations=0
 
   frontend-lint-test:
     name: Frontend CI
@@ -74,6 +185,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install Dependencies
         run: npm ci
@@ -92,7 +205,7 @@ jobs:
 
   build-and-test:
     name: build-and-test
-    needs: [validate-schemas, backend-lint-test, frontend-lint-test]
+    needs: [validate-schemas, backend-lint, backend-test, frontend-lint-test]
     runs-on: ubuntu-latest
     steps:
       - name: Success

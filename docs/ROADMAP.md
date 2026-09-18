@@ -594,6 +594,12 @@ Looking further into the future, the platform can evolve into a full-scale smart
 
 ## 10. Deferred / Explicitly Not Now Log
 
+A per-item audit of what is actually known to be wrong or limited in the
+shipped V1 build, with each item classified and re-measured, lives in
+[V1 Known Limitations](reports/v1-known-limitations.md). Read that alongside
+this table: this table records *features* that were postponed, that one
+records *defects and scope limits* that were measured and triaged.
+
 This section records features that have been deliberately evaluated and postponed. 
 
 **Rule:** Do not implement or re-plan any item in this table without an explicit decision confirming that its activation conditions have been met.

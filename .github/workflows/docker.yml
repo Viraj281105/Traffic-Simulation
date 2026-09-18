@@ -2,9 +2,15 @@ name: Docker Container CI
 
 on:
   push:
-    branches: [ main, develop, backend, "backend*", "feature/*" ]
+    branches: [ main, develop, backend, "backend*", "feature/*", viraj-dev ]
   pull_request:
     branches: [ main, develop, backend, "backend*" ]
+
+# Image builds and the compose smoke test are the expensive part of this
+# workflow; a superseded push has nothing left to prove.
+concurrency:
+  group: docker-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate-compose:
