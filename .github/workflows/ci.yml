@@ -18,10 +18,13 @@ on:
     - cron: "30 2 * * *"
 
 # A superseded run has nothing left to say, and the simulation jobs are long
-# enough that leaving them queued wastes a runner for the better part of an
-# hour.
+# enough that leaving them queued wastes a runner.
+#
+# event_name is part of the key on purpose: a manual slow-suite dispatch and
+# the push run for the same branch are different questions, and without it
+# starting one cancels the other.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
