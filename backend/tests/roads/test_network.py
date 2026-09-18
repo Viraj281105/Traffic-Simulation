@@ -4,7 +4,7 @@ try:
     from src.core.enums import Direction, TurnIntent
     from src.roads.approach import Approach
     from src.roads.lane import Lane
-    from src.roads.network import RoadNetwork
+    from src.roads.network import SIGNAL_STOP_LINE_SETBACK, RoadNetwork
 except ImportError:
     pytest.skip("Network modules not implemented yet", allow_module_level=True)
 
@@ -39,12 +39,13 @@ def test_network_default_builder() -> None:
 
     # Innermost North incoming lane (index 0)
     # x = -0.5 * 3.5 = -1.75
-    # start_y = 100.0, end_y = 2 * 3.5 = 7.0
+    # start_y = 100.0, end_y = 2 * 3.5 + stop-line setback
+    boundary = 2 * 3.5 + SIGNAL_STOP_LINE_SETBACK
     lane_0 = n_in.get_lanes()[0]
     assert lane_0.lane_id == "n_in_0"
     assert lane_0.start_coords == (-1.75, 100.0)
-    assert lane_0.end_coords == (-1.75, 7.0)
-    assert lane_0.length == 93.0
+    assert lane_0.end_coords == (-1.75, boundary)
+    assert lane_0.length == 100.0 - boundary
 
 
 def test_network_route_generation() -> None:
@@ -63,19 +64,22 @@ def test_network_route_generation() -> None:
     incoming, connection, exit_lane = route
 
     # Incoming
+    # The stop line is held clear of the conflict area, so a vehicle waiting
+    # at it does not protrude into the junction box.
+    boundary = 2 * 3.5 + SIGNAL_STOP_LINE_SETBACK
     assert incoming.lane_id == "n_in_0"
-    assert incoming.end_coords == (-1.75, 7.0)
+    assert incoming.end_coords == (-1.75, boundary)
 
     # Exit: East outgoing lane 0 is innermost (closest to y=0 divider)
     # y = -0.5 * 3.5 = -1.75
-    # start_x = 2 * 3.5 = 7.0, end_x = 100.0
+    # start_x = boundary, end_x = 100.0
     assert exit_lane.lane_id == "e_out_0"
-    assert exit_lane.start_coords == (7.0, -1.75)
+    assert exit_lane.start_coords == (boundary, -1.75)
 
-    # Connection: goes from (-1.75, 7.0) to (7.0, -1.75)
+    # Connection: goes from (-1.75, boundary) to (boundary, -1.75)
     assert connection.lane_id == "conn_north_0_left"
-    assert connection.start_coords == (-1.75, 7.0)
-    assert connection.end_coords == (7.0, -1.75)
+    assert connection.start_coords == (-1.75, boundary)
+    assert connection.end_coords == (boundary, -1.75)
 
     # Straight route: North (incoming) -> South (exit)
     route_straight = network.generate_route(
@@ -85,10 +89,10 @@ def test_network_route_generation() -> None:
 
     assert exit_lane.lane_id == "s_out_0"
     # South outgoing moves North -> South on West side (x < 0)
-    # start_y = -ns_boundary = -7.0, end_y = -L = -100.0
-    assert exit_lane.start_coords == (-1.75, -7.0)
-    assert connection.start_coords == (-1.75, 7.0)
-    assert connection.end_coords == (-1.75, -7.0)
+    # start_y = -boundary, end_y = -L = -100.0
+    assert exit_lane.start_coords == (-1.75, -boundary)
+    assert connection.start_coords == (-1.75, boundary)
+    assert connection.end_coords == (-1.75, -boundary)
 
 
 def test_network_edge_cases_and_missing_approaches() -> None:
