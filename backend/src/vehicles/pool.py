@@ -218,6 +218,7 @@ class VehiclePool:
         predictive_limits = self._predictive.compute_braking_distances(
             self.active_vehicles,
             entry_gated_by_controller=single_ring_roundabout,
+            junction_arbitrated_elsewhere=conflict_manager is not None,
         )
 
         # Update each vehicle
