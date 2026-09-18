@@ -1070,6 +1070,20 @@ def _generate_random_seed() -> int:
     return random.Random().randint(1, 10_000_000)
 
 
+def _reseed_unless_user_pinned(session: "_LiveSession") -> None:
+    """Draw a fresh seed for the next live/dual run, unless the user pinned one.
+
+    The rule is the same at all three call sites that restart a run — live
+    play after completion, dual play after completion, and dual reset — and
+    it was written out at each of them. Stating it once keeps the three from
+    drifting: a seed the user supplied explicitly must survive a restart, or
+    the run they asked to reproduce is not the run they get.
+    """
+    if session.is_user_defined_seed:
+        return
+    session.current_live_config["simulation"]["randomSeed"] = _generate_random_seed()
+
+
 @app.post("/api/simulation/config", dependencies=[Depends(require_api_key)])
 def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
     # Unlike /api/v1/simulations and /api/simulation/new, this endpoint
@@ -1268,10 +1282,7 @@ def play_live_simulation() -> Dict[str, Any]:
     engine = sim["engine"]
     if engine.status == SimulationStatus.COMPLETED:
         # Re-randomize seed for the new run only if not explicitly user-defined
-        if not session.is_user_defined_seed:
-            session.current_live_config["simulation"]["randomSeed"] = (
-                _generate_random_seed()
-            )
+        _reseed_unless_user_pinned(session)
         session.live_sim_data["engine"] = None
         sim = get_or_create_live_simulation()
         engine = sim["engine"]
@@ -1366,10 +1377,7 @@ def play_dual_simulation() -> Dict[str, Any]:
             except Exception:
                 pass
         session.dual_sim_orchestrator = None
-        if not session.is_user_defined_seed:
-            session.current_live_config["simulation"]["randomSeed"] = (
-                _generate_random_seed()
-            )
+        _reseed_unless_user_pinned(session)
         orch = get_or_create_dual_orchestrator()
         orch.start()
     elif status == SimulationStatus.INITIALIZED:
@@ -1400,10 +1408,7 @@ def reset_dual_simulation() -> Dict[str, Any]:
             pass
     session.dual_sim_orchestrator = None
     # Generate a fresh shared random seed only if not user-defined
-    if not session.is_user_defined_seed:
-        session.current_live_config["simulation"]["randomSeed"] = (
-            _generate_random_seed()
-        )
+    _reseed_unless_user_pinned(session)
     orch = get_or_create_dual_orchestrator()
     return {
         "status": orch.get_status(),
