@@ -243,6 +243,7 @@ def find_leader(
                             ),
                             "connection_lane_id": av.lane.lane_id,
                             "position_on_lane": av.position,
+                            "speed": av.speed,
                         }
                     )
 
@@ -275,6 +276,8 @@ def find_leader(
                     vehicle_position_on_lane=pos_on_conn,
                     current_time=current_time,
                     all_vehicles_info=conn_vehicles_info,
+                    vehicle_speed=vehicle.speed,
+                    on_connection_lane=lane is vehicle.lane,
                 )
 
                 if block_dist < float("inf"):

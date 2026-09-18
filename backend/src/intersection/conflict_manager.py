@@ -45,6 +45,67 @@ def _segment_intersection(
     return None
 
 
+def _shares_entry_lane(lane_id_a: str, lane_id_b: str) -> bool:
+    """True when two connection lanes are fed by the same incoming lane.
+
+    Connection lane ids are ``conn_{origin}_{lane_index}_{turn}``, so matching
+    on origin and lane index identifies vehicles that queued in the same entry
+    lane and are therefore strictly one behind the other.
+    """
+    if not lane_id_a or not lane_id_b:
+        return False
+    parts_a = lane_id_a.split("_")
+    parts_b = lane_id_b.split("_")
+    if len(parts_a) < 3 or len(parts_b) < 3:
+        return False
+    return parts_a[:3] == parts_b[:3]
+
+
+# Centre-to-centre clearance (metres) below which two paths are treated as
+# sharing the same road. Sized to a vehicle width plus margin: closer than this
+# and two vehicles cannot occupy both paths at once.
+_PATH_CONFLICT_CLEARANCE: float = 3.0
+
+# Arc-length step (metres) used when sampling a connection lane's path. Fine
+# enough to locate a crossing to within half a vehicle length, coarse enough
+# that the one-off pairwise scan stays cheap.
+_PATH_SAMPLE_STEP: float = 0.75
+
+
+def _sample_lane(lane: Lane) -> List[Tuple[float, float, float]]:
+    """Sample a lane's path as ``(arc_distance, x, y)`` points."""
+    out: List[Tuple[float, float, float]] = []
+    steps = max(2, int(lane.length / _PATH_SAMPLE_STEP) + 1)
+    for i in range(steps + 1):
+        d = lane.length * i / steps
+        x, y = lane.get_point_at_distance(d)
+        out.append((d, x, y))
+    return out
+
+
+def _closest_approach(
+    samples_a: List[Tuple[float, float, float]],
+    samples_b: List[Tuple[float, float, float]],
+) -> Optional[Tuple[float, float, float, float]]:
+    """Closest point between two sampled paths, if within the clearance.
+
+    Returns ``(dist_along_a, dist_along_b, x, y)`` at the closest approach, or
+    ``None`` when the paths never come near enough to conflict.
+    """
+    best_sq = _PATH_CONFLICT_CLEARANCE * _PATH_CONFLICT_CLEARANCE
+    best: Optional[Tuple[float, float, float, float]] = None
+
+    for da, ax, ay in samples_a:
+        for db, bx, by in samples_b:
+            dx = ax - bx
+            dy = ay - by
+            gap_sq = dx * dx + dy * dy
+            if gap_sq < best_sq:
+                best_sq = gap_sq
+                best = (da, db, (ax + bx) / 2.0, (ay + by) / 2.0)
+    return best
+
+
 def _distance_along_lane(lane: Lane, point: Tuple[float, float]) -> float:
     """Return the distance along *lane* from its start to *point*."""
     dx = point[0] - lane.start_coords[0]
@@ -87,18 +148,30 @@ class ConflictPoint:
 
 
 class Reservation:
-    """Records which vehicle currently owns a conflict zone."""
+    """Records which vehicle currently owns a conflict zone.
 
-    __slots__ = ("vehicle_id", "clear_time")
+    ``lane_id`` is the connection lane the owner is travelling, kept so that a
+    follower approaching on the same entry lane can tell that the holder is
+    ahead of it in one queue rather than crossing its path.
+    """
 
-    def __init__(self, vehicle_id: str, clear_time: float) -> None:
+    __slots__ = ("vehicle_id", "clear_time", "lane_id")
+
+    def __init__(self, vehicle_id: str, clear_time: float, lane_id: str = "") -> None:
         self.vehicle_id = vehicle_id
         self.clear_time = clear_time
+        self.lane_id = lane_id
 
 
 # ---------------------------------------------------------------------------
 # Turn-intent priority (higher number = higher priority = goes first)
 # ---------------------------------------------------------------------------
+
+# Speed (m/s) at or below which a vehicle counts as stationary for the purpose
+# of holding a conflict-zone reservation. Matches the project-wide
+# stopSpeedThreshold default.
+_STOPPED_SPEED: float = 0.1
+
 
 _TURN_PRIORITY: Dict[TurnIntent, int] = {
     TurnIntent.STRAIGHT: 3,
@@ -155,38 +228,57 @@ class ConflictManager:
         self._connection_lanes[lane.lane_id] = lane
 
     def compute_conflict_points(self) -> None:
-        """Pre-compute all pairwise crossing points between connection lanes."""
+        """Pre-compute where each pair of connection lanes shares road.
+
+        Works on the lanes' actual paths, sampled by arc length, rather than
+        on the straight chord between their endpoints.
+
+        The chord approximation was wrong in both directions for a signalised
+        junction, whose turn paths are curves. It *missed* the conflict
+        between two opposing left turns — chords that never intersect, while
+        the real paths pass within 1.24 m of each other — so nothing arbitrated
+        the single most dangerous permissive movement at the junction. And it
+        *invented* a conflict between a left turn and the opposing through
+        movement, whose real paths stay 5.97 m apart, needlessly serialising
+        two movements that do not interact.
+
+        Sampling by arc length also makes ``dist_on_a``/``dist_on_b``
+        directly comparable with ``vehicle.position``, which a straight-line
+        distance from the lane start is not once a path curves.
+        """
         lane_ids = list(self._connection_lanes.keys())
         self._conflict_points.clear()
         self._lane_conflicts.clear()
+
+        samples = {
+            lane_id: _sample_lane(self._connection_lanes[lane_id])
+            for lane_id in lane_ids
+        }
 
         for i in range(len(lane_ids)):
             for j in range(i + 1, len(lane_ids)):
                 id_a = lane_ids[i]
                 id_b = lane_ids[j]
-                lane_a = self._connection_lanes[id_a]
-                lane_b = self._connection_lanes[id_b]
 
-                pt = _segment_intersection(
-                    lane_a.start_coords,
-                    lane_a.end_coords,
-                    lane_b.start_coords,
-                    lane_b.end_coords,
-                )
-                if pt is None:
+                hit = _closest_approach(samples[id_a], samples[id_b])
+                if hit is None:
                     continue
+                dist_a, dist_b, x, y = hit
 
                 key = (min(id_a, id_b), max(id_a, id_b))
-                cp = ConflictPoint(
+                if key[0] == id_a:
+                    da, db = dist_a, dist_b
+                else:
+                    da, db = dist_b, dist_a
+
+                self._conflict_points[key] = ConflictPoint(
                     lane_id_a=key[0],
                     lane_id_b=key[1],
-                    x=pt[0],
-                    y=pt[1],
-                    dist_on_a=_distance_along_lane(self._connection_lanes[key[0]], pt),
-                    dist_on_b=_distance_along_lane(self._connection_lanes[key[1]], pt),
+                    x=x,
+                    y=y,
+                    dist_on_a=da,
+                    dist_on_b=db,
                 )
-                self._conflict_points[key] = cp
-
                 self._lane_conflicts.setdefault(key[0], set()).add(key)
                 self._lane_conflicts.setdefault(key[1], set()).add(key)
 
@@ -237,6 +329,8 @@ class ConflictManager:
         vehicle_position_on_lane: float,
         current_time: float,
         all_vehicles_info: Optional[List[Dict[str, Any]]] = None,
+        vehicle_speed: float = 0.0,
+        on_connection_lane: bool = True,
     ) -> float:
         """Return the distance to the nearest *blocked* conflict zone, or inf.
 
@@ -288,6 +382,21 @@ class ConflictManager:
             if remaining < -self.ZONE_RADIUS:
                 continue
 
+            # Never drive into a conflict point that is physically occupied.
+            #
+            # A reservation says the zone is *claimed*, not that it is clear. A
+            # vehicle that yielded and came to rest on the crossing still sits
+            # there, and whoever held the claim would drive straight through
+            # it. That is how the remaining signal collisions happened: two
+            # opposing left-turners, one stopped mid-box, the other arriving at
+            # full speed with a valid reservation.
+            if self._zone_occupied_by_stalled_vehicle(
+                cp, connection_lane_id, vehicle_id, all_vehicles_info
+            ):
+                block_dist = max(0.0, remaining - self.ZONE_RADIUS)
+                min_block_dist = min(min_block_dist, block_dist)
+                continue
+
             # Check existing reservation
             reservation = self._reservations.get(key)
 
@@ -295,11 +404,44 @@ class ConflictManager:
                 if reservation.vehicle_id == vehicle_id:
                     # We own it — no block
                     continue
-                else:
-                    # Someone else owns it — we must yield
-                    block_dist = max(0.0, remaining - self.ZONE_RADIUS)
-                    min_block_dist = min(min_block_dist, block_dist)
+                if _shares_entry_lane(reservation.lane_id, connection_lane_id):
+                    # The holder entered from the same lane we did, so it is
+                    # ahead of us in a single-file queue, not crossing us.
+                    #
+                    # Yielding to it serialised every platoon through the
+                    # junction: each vehicle waited out its own leader's
+                    # clearance timer before it could move, which collapsed
+                    # saturation flow to a couple of vehicles per green. Two
+                    # vehicles from one entry lane can never be side by side,
+                    # so ordinary car-following is the correct and sufficient
+                    # model for the pair.
                     continue
+                # Someone else owns it — we must yield
+                block_dist = max(0.0, remaining - self.ZONE_RADIUS)
+                min_block_dist = min(min_block_dist, block_dist)
+                continue
+
+            # A stationary vehicle that has not yet entered the junction
+            # cannot hold the box.
+            #
+            # Reservations are taken while a vehicle is still approaching, so
+            # that it does not enter alongside a conflicting movement. But a
+            # vehicle that then stops — because something else is blocking it —
+            # used to keep that claim while queueing, locking crossing traffic
+            # out of a junction it had not entered and might not enter for
+            # many seconds. Cycles of that form deadlocked the intersection
+            # outright: a queued left-turner held the zone a crossing
+            # straight-goer needed, while itself waiting on a zone held by a
+            # third vehicle stranded in the box. Every approach then sat
+            # stationary through its own green.
+            #
+            # Once moving again it re-acquires normally, and a vehicle already
+            # inside the junction always keeps its claim.
+            queued_outside = not on_connection_lane and vehicle_speed <= _STOPPED_SPEED
+            if queued_outside:
+                held = self._reservations.get(key)
+                if held is not None and held.vehicle_id == vehicle_id:
+                    del self._reservations[key]
 
             # No reservation — attempt to acquire if we're close enough to
             # care (within 2× zone radius of the conflict point)
@@ -350,14 +492,53 @@ class ConflictManager:
                 if should_yield:
                     block_dist = max(0.0, remaining - self.ZONE_RADIUS)
                     min_block_dist = min(min_block_dist, block_dist)
-                else:
+                elif not queued_outside:
                     # Acquire reservation
                     clear_time = (
                         current_time + self.CLEARANCE_TIME + 5.0
                     )  # generous default
-                    self._reservations[key] = Reservation(vehicle_id, clear_time)
+                    self._reservations[key] = Reservation(
+                        vehicle_id, clear_time, connection_lane_id
+                    )
 
         return min_block_dist
+
+    def _zone_occupied_by_stalled_vehicle(
+        self,
+        cp: "ConflictPoint",
+        connection_lane_id: str,
+        vehicle_id: str,
+        all_vehicles_info: Optional[List[Dict[str, Any]]],
+    ) -> bool:
+        """True when a stationary vehicle is sitting on this conflict point.
+
+        Only the *other* lane of the pair is considered: a stopped vehicle on
+        our own lane is ordinary car-following, which find_leader handles with
+        an exact gap.
+        """
+        if not all_vehicles_info:
+            return False
+
+        for info in all_vehicles_info:
+            if info["vehicle_id"] == vehicle_id:
+                continue
+            other_lane = info.get("connection_lane_id", "")
+            if other_lane == connection_lane_id:
+                continue
+            if other_lane == cp.lane_id_a:
+                other_dist_to_cp = cp.dist_on_a
+            elif other_lane == cp.lane_id_b:
+                other_dist_to_cp = cp.dist_on_b
+            else:
+                continue
+
+            if info.get("speed", 0.0) > _STOPPED_SPEED:
+                continue
+            if abs(other_dist_to_cp - info.get("position_on_lane", 0.0)) <= (
+                self.ZONE_RADIUS
+            ):
+                return True
+        return False
 
     def update_reservation_clear_time(
         self, vehicle_id: str, connection_lane_id: str, current_time: float
