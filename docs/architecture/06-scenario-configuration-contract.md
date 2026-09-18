@@ -122,7 +122,7 @@ Every duration below has a **canonical** field name (matching `FixedTimeSignalCo
 | # | Field | Type | Required | Default | Description | Validation |
 |---|-------|------|----------|---------|-------------|------------|
 | 1 | `straightRightDuration` (canonical) / `greenDuration` / `greenTime` (aliases) | `number` | ❌ | `30` | Green phase duration for the straight+right movement of each direction | > 5, ≤ 120 seconds |
-| 2 | `leftDuration` | `number` | ❌ | `5` | Protected left-turn green phase duration | > 0, ≤ 60 seconds |
+| 2 | `leftDuration` | `number` | ❌ | `5` | Protected left-turn green phase duration. **Applies only to the default cycle** — see the note below §2.6.1 | > 0, ≤ 60 seconds |
 | 3 | `yellowDuration` (canonical) / `yellowTime` (alias) | `number` | ❌ | `4` | Yellow (amber) phase duration | > 2, ≤ 8 seconds |
 | 4 | `allRedDuration` (canonical) / `allRedTime` (alias) | `number` | ❌ | `2` | All-red clearance interval | ≥ 0, ≤ 5 seconds |
 | 5 | `phaseSequence` | `array<string>` | ❌ | `["ns_green", "ns_yellow", "all_red", "ew_green", "ew_yellow", "all_red"]` | Ordered phase sequence | See below |
@@ -133,6 +133,20 @@ Every duration below has a **canonical** field name (matching `FixedTimeSignalCo
 - Yellow: `yellowDuration` > `yellowTime`
 - All-red: `allRedDuration` > `allRedTime`
 - Left: `leftDuration` only — no alias exists for this field.
+
+> **`leftDuration` applies only to the default cycle.** It sets the protected
+> left-turn green in the one-direction-at-a-time cycle the controller builds
+> when `phaseSequence` is **omitted entirely**. A configured `phaseSequence`
+> has no protected-left phase — permissive lefts during a paired green are
+> arbitrated by the conflict layer instead — so `leftDuration` has no effect
+> whenever `phaseSequence` is present. Because `phaseSequence` carries its own
+> default (the paired NS/EW plan above), any config validated through the
+> schema or `ScenarioConfiguration` receives that default and therefore does
+> **not** use `leftDuration`. Setting it alongside a `phaseSequence` is
+> accepted and harmless, but changes nothing. The field is conditionally
+> applicable rather than dead: it is the only way to tune the default cycle's
+> protected left, which is still reachable by omitting `phaseSequence` when
+> constructing `FixedTimeSignalController` directly.
 
 If none of a duration's names are present, the hardcoded fallback (30 / 5 / 4 / 2 above) is used — chosen to match the canonical/alias defaults exactly, so the effective duration is the same regardless of which alias (or none) a given config uses.
 
@@ -148,7 +162,26 @@ If none of a duration's names are present, the hardcoded fallback (30 / 5 / 4 / 
 | 4 | `criticalGap` | `number` | ❌ | `4.0` | Minimum acceptable gap for entry | > 0, ≤ 10 seconds |
 | 5 | `followUpTime` | `number` | ❌ | `2.5` | Time between consecutive entering vehicles | > 0 seconds |
 | 6 | `entrySpeed` | `number` | ❌ | `5.0` | Maximum speed at roundabout entry | > 0 m/s |
-| 7 | `circulatingSpeed` | `number` | ❌ | `8.0` | Target speed within the roundabout | > 0, ≤ 15 m/s |
+| 7 | `circulatingSpeed` | `number` | ❌ | `8.0` | Speed cap on the circulating roadway — see the speed-regime note below | > 0, ≤ 15 m/s |
+
+> **Speed regime through a roundabout.** The three speed parameters apply in
+> sequence, and each is a cap rather than a target: `entrySpeed` over the
+> approach, `circulatingSpeed` on the circulating roadway, and the vehicle's own
+> desired speed once it reaches the exit lane.
+>
+> `circulatingSpeed` genuinely constrains the ring, and must: it is what keeps
+> cornering physically possible. On the default 10-20 m geometry the ring radii
+> are 12.5-17.5 m, so 8 m/s implies a lateral acceleration of about
+> 3.7-5.1 m/s², within what a vehicle's tyres and its occupants tolerate. It is
+> also the speed that `criticalGap` is judged against at the give-way line, so
+> raising it without raising `criticalGap` will make entry decisions optimistic.
+>
+> Measured saturation capacity with these defaults is about 1400 veh/h for a
+> single-lane ring, which sits in the published range for a single-lane
+> roundabout (roughly 1200-1400 veh/h). The defaults are therefore calibrated;
+> the fixed-time signal side is not (see
+> [09-engineering-standards.md](09-engineering-standards.md) if a comparison
+> study is being planned, and validate the signal's capacity curve first).
 
 > **`circulatingLanes` is reserved / future-only — it has no runtime effect today.** The value is accepted and schema-validated, and `RoundaboutController` stores it, but nothing in the engine ever reads it back out. The circulating lane count a roundabout actually uses is derived entirely from `roads.lanesPerApproach` (each approach's own incoming lane count doubles as its circulating lane count in `backend/src/roads/network.py` and `backend/src/controllers/roundabout.py`) — approach lanes, circulating lane indices, connection lanes, and exit lanes are all coupled through that one value, with no independent ring-lane-count path anywhere in the current implementation. `circulatingLanes` is being kept in the schema and Pydantic model (not removed or deprecated) because it is expected to become necessary once asymmetric `lanesPerApproach` (see §2.4 above) reaches roundabouts — a single ring can only have one physical lane count, independent of any one approach's lane count, so an asymmetric-lanes roundabout will need a real, independent ring-lane-count parameter. Making it functional will require explicit future design decisions for ring geometry and the approach-lane → ring-lane mapping; none of that exists yet.
 

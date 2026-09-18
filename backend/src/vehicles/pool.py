@@ -12,6 +12,10 @@ import math
 from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple
 
 from src.core.enums import Direction, TurnIntent, VehicleState
+from src.intersection.predictive_conflicts import (
+    PredictiveConflictResolver,
+    apply_predictive_constraint,
+)
 from src.vehicles.router import _conn_lane_index, find_leader
 from src.vehicles.vehicle import Vehicle
 
@@ -92,6 +96,28 @@ class VehiclePool:
         # used to count each physical collision once (on the tick it
         # starts) rather than once per tick the overlap persists.
         self._colliding_pairs: Set[FrozenSet[str]] = set()
+        # Predictive (trajectory-projection) conflict avoidance. Holds no
+        # per-run state of its own — see predictive_conflicts.py — so it is
+        # safe to keep across an engine reset.
+        self._predictive: PredictiveConflictResolver = PredictiveConflictResolver()
+
+    def reset(self) -> None:
+        """Clear every trace of the previous run.
+
+        Beyond the two vehicle lists, this drops the collision tally and the
+        debounce/lane-change bookkeeping keyed by vehicle id. Leaving those
+        behind meant a reset simulation started with the previous run's
+        collision count already on the board, and could mis-debounce a new
+        vehicle that happened to reuse an id from the old run.
+        """
+        for vehicle in self.active_vehicles:
+            if vehicle.lane is not None:
+                vehicle.lane.remove_vehicle(vehicle)
+        self.active_vehicles.clear()
+        self.exited_vehicles.clear()
+        self._collision_count = 0
+        self._colliding_pairs.clear()
+        self._last_lane_change.clear()
 
     def add_vehicle(self, vehicle: Vehicle) -> None:
         if vehicle not in self.active_vehicles:
@@ -163,6 +189,37 @@ class VehiclePool:
         if conflict_manager is not None:
             conflict_manager.update_reservations(current_time)
 
+        # Predictive conflict avoidance (see predictive_conflicts.py). Runs
+        # for every geometry, not just roundabouts: it is what actually
+        # prevents crossing/merging conflicts, whereas find_leader's Layer 4
+        # only reacts once vehicles are already within 2.5 m — too late to
+        # stop. Computed once per tick from the pre-update state so every
+        # vehicle in this tick sees the same, order-independent picture.
+        # On a SINGLE-ring roundabout the controller's gap acceptance at the
+        # give-way line is a complete account of entry: the entering vehicle
+        # crosses no ring other than the one it is joining. Re-deciding that
+        # here only rejects gaps the controller already accepted — measured at
+        # roughly a 75% throughput loss for no real safety gain.
+        #
+        # With two or more rings, entry means cutting across ring(s) the
+        # vehicle is not joining, and the predictive layer catches conflicts
+        # there that the controller's single give-way test does not, so it
+        # keeps arbitrating entry. A signalised junction has no gap logic at
+        # all, so it always arbitrates in full.
+        net = getattr(engine, "network", None)
+        single_ring_roundabout = (
+            geom_type == "roundabout"
+            and net is not None
+            and all(
+                len(approach.get_lanes()) <= 1
+                for approach in getattr(net, "_incoming", {}).values()
+            )
+        )
+        predictive_limits = self._predictive.compute_braking_distances(
+            self.active_vehicles,
+            entry_gated_by_controller=single_ring_roundabout,
+        )
+
         # Update each vehicle
         to_remove: List[Vehicle] = []
 
@@ -180,6 +237,13 @@ class VehiclePool:
                 self.active_vehicles,
                 conflict_manager=conflict_manager,
                 current_time=current_time,
+            )
+
+            # Fold in the predictive constraint, keeping whichever of the two
+            # is tighter. Expressed as an ordinary stationary obstacle so IDM
+            # brakes smoothly rather than clamping the speed directly.
+            leader, gap = apply_predictive_constraint(
+                gap, leader, predictive_limits.get(vehicle.vehicle_id)
             )
 
             # Calculate acceleration using IDM
@@ -279,24 +343,21 @@ class VehiclePool:
                 dy = by - ay
                 dist_sq = dx * dx + dy * dy
                 max_radius = (va.length + vb.length) * 0.6
+
                 if dist_sq > max_radius * max_radius:
                     continue
+
+                pair_key = frozenset((va.vehicle_id, vb.vehicle_id))
+                was_colliding = pair_key in self._colliding_pairs
 
                 # Exact SAT collision check on Oriented Bounding Boxes
                 box_a = va.get_bounding_box()
                 box_b = vb.get_bounding_box()
                 if _check_sat_overlap(box_a, box_b):
-                    pair_key = frozenset((va.vehicle_id, vb.vehicle_id))
                     still_colliding.add(pair_key)
-                    is_new_collision = pair_key not in self._colliding_pairs
-                    if is_new_collision:
+
+                    if not was_colliding:
                         self._collision_count += 1
-
-                    slower = va if va.speed <= vb.speed else vb
-                    slower.speed = 0.0
-                    slower.acceleration = 0.0
-
-                    if is_new_collision:
                         logger.warning(
                             "Collision detected: %s ↔ %s (lanes: %s ↔ %s)",
                             va.vehicle_id,
@@ -304,6 +365,32 @@ class VehiclePool:
                             va.lane.lane_id,
                             vb.lane.lane_id,
                         )
+
+                    slower = va if va.speed <= vb.speed else vb
+                    slower.speed = 0.0
+                    slower.acceleration = 0.0
+                elif was_colliding:
+                    # Contact hysteresis. The boxes have parted, but the
+                    # vehicles are still inside the contact radius, so this is
+                    # the same ongoing contact rather than a fresh event.
+                    #
+                    # Two vehicles resting against each other used to recount
+                    # as a brand-new collision every time SAT flickered. They
+                    # rock by centimetres as they creep and their box headings
+                    # swing as they follow a curve, so the overlap test
+                    # alternates while the vehicles never actually separate —
+                    # one stalled pair logged eight "collisions" in three
+                    # seconds. Releasing on distance rather than on the
+                    # overlap test is what makes the existing debounce do what
+                    # it always said it did: count each physical collision
+                    # once, on the tick it begins.
+                    #
+                    # Detection is unchanged. A new collision still requires a
+                    # real SAT overlap between vehicles not already in
+                    # contact, and a pair that moves beyond the contact radius
+                    # is released by the check above, so a genuine second
+                    # impact is still counted separately.
+                    still_colliding.add(pair_key)
 
         self._colliding_pairs = still_colliding
 

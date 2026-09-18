@@ -28,9 +28,25 @@ USER root
 # Remove default nginx static files
 RUN rm -rf /usr/share/nginx/html/*
 
-# Copy built static assets and config, owned by the non-root nginx user
+# Copy built static assets, owned by the non-root nginx user
 COPY --chown=nginx:nginx --from=builder /app/dist /usr/share/nginx/html
-COPY --chown=nginx:nginx nginx.conf /etc/nginx/conf.d/default.conf
+
+# The site config ships as a template rather than a finished .conf so the
+# entrypoint can substitute BACKEND_API_KEY into it at container start (see
+# templates/default.conf.template). The stock nginx entrypoint renders
+# /etc/nginx/templates/*.template into /etc/nginx/conf.d/ before nginx starts.
+COPY --chown=nginx:nginx templates/ /etc/nginx/templates/
+
+# Only BACKEND_API_KEY is substituted. Without this filter envsubst would also
+# eat nginx's own runtime variables ($host, $remote_addr, $http_upgrade, ...),
+# which are written with the same syntax and must survive verbatim.
+ENV NGINX_ENVSUBST_FILTER="^BACKEND_API_KEY$"
+ENV BACKEND_API_KEY=""
+
+# Empty by default, so the optional access-gate include matches nothing and the
+# demo is reachable without credentials. Mount a .conf (plus its htpasswd file)
+# here to require auth.
+RUN mkdir -p /etc/nginx/auth-gate && chown nginx:nginx /etc/nginx/auth-gate
 
 USER nginx
 

@@ -39,6 +39,10 @@ class SimulationEngine:
 
         self._tick_callbacks: List[Callable[[], None]] = []
         self._status_callbacks: List[Callable[[SimulationStatus], None]] = []
+        # Metric collectors driven by this engine. Tracked so reset() can
+        # clear their accumulated run state; the engine otherwise only ever
+        # reaches them indirectly, through a tick callback's closure.
+        self._collectors: List[Any] = []
 
         # Setup subsystems if config is provided
         self.network: RoadNetwork = RoadNetwork()
@@ -114,6 +118,17 @@ class SimulationEngine:
 
     def register_tick_callback(self, callback: Callable[[], None]) -> None:
         self._tick_callbacks.append(callback)
+
+    def register_collector(self, collector: Any) -> None:
+        """Track a metric collector so :meth:`reset` can clear it too.
+
+        Registering the same collector twice is a no-op, so wiring it up both
+        explicitly and via build_tick_callback stays safe.
+        """
+        if collector is not None and not any(
+            existing is collector for existing in self._collectors
+        ):
+            self._collectors.append(collector)
 
     def register_status_callback(
         self, callback: Callable[[SimulationStatus], None]
@@ -206,11 +221,32 @@ class SimulationEngine:
             thread_to_join.join()
 
         with self._lock:
+            # Every subsystem that carries run state must be returned to its
+            # initial condition, or a "reset" simulation silently continues
+            # the previous one. This used to reset only the clock, the spawner
+            # and the two vehicle lists, leaving the signal controller
+            # mid-cycle, the metric collector holding the previous run's
+            # queue history and tick counts, and the pool's collision tally
+            # already non-zero — so the first metrics read after a reset
+            # described a run that no longer existed.
             self.clock.reset()
+
             if self.spawner is not None:
                 self.spawner.reset()
-            self.pool.active_vehicles.clear()
-            self.pool.exited_vehicles.clear()
+
+            self.pool.reset()
+
+            # Conflict-zone reservations are keyed by vehicle id and expire on
+            # simulation time, which has just gone back to zero; stale entries
+            # would block the new run's vehicles out of zones nobody occupies.
+            self.conflict_manager.reset_reservations()
+
+            if self.controller is not None:
+                self.controller.reset()
+
+            for collector in self._collectors:
+                collector.reset()
+
             self._transition_to(SimulationStatus.INITIALIZED)
 
     def step(self) -> None:

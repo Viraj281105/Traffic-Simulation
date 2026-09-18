@@ -90,12 +90,12 @@ def test_validation_passes_actual_collision_count_to_metrics(
 
     assert len(captured_metrics) == 2  # 1 for signal, 1 for roundabout
     for coll_arg, collision_count in captured_metrics:
-        assert (
-            coll_arg >= 1
-        ), f"Expected non-zero collision_count passed, got {coll_arg}"
-        assert (
-            collision_count >= 1
-        ), f"Expected non-zero collisionCount in metrics, got {collision_count}"
+        assert coll_arg >= 1, (
+            f"Expected non-zero collision_count passed, got {coll_arg}"
+        )
+        assert collision_count >= 1, (
+            f"Expected non-zero collisionCount in metrics, got {collision_count}"
+        )
         assert coll_arg == collision_count
 
     # 2. Test run_invariant_checks (covers the two invariant-check call sites)
@@ -104,11 +104,10 @@ def test_validation_passes_actual_collision_count_to_metrics(
 
     assert len(captured_metrics) == 2  # orchestrator1 and orchestrator2
     for coll_arg, collision_count in captured_metrics:
-        assert (
-            coll_arg >= 1
-        ), f"Expected non-zero collision_count passed in invariants, got {coll_arg}"
-        assert (
-            collision_count >= 1
-        ), f"Expected non-zero collisionCount in invariant metrics, got {collision_count}"
+        assert coll_arg >= 1, (
+            f"Expected non-zero collision_count passed in invariants, got {coll_arg}"
+        )
+        assert collision_count >= 1, (
+            f"Expected non-zero collisionCount in invariant metrics, got {collision_count}"
+        )
         assert coll_arg == collision_count
-

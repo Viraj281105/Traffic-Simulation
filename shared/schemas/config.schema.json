@@ -120,20 +120,37 @@
         "greenTime": { "type": "number", "exclusiveMinimum": 5, "maximum": 120, "default": 30 },
         "yellowTime": { "type": "number", "exclusiveMinimum": 2, "maximum": 8, "default": 4 },
         "allRedTime": { "type": "number", "minimum": 0, "maximum": 5, "default": 2 },
-        "leftDuration": { "type": "number", "exclusiveMinimum": 0, "maximum": 60, "default": 5 },
+        "leftDuration": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 60,
+          "default": 5,
+          "description": "Protected left-turn green duration. Applies ONLY to the default one-direction-at-a-time cycle, which the controller builds when phaseSequence is omitted entirely. A configured phaseSequence has no protected-left phase — permissive lefts during a paired green are arbitrated by the conflict layer — so this value is unused whenever phaseSequence is present, including via its own default.",
+          "$comment": "Conditionally applicable, not dead: see docs/architecture/06-scenario-configuration-contract.md section 2.6.1."
+        },
         "straightRightDuration": { "type": "number", "exclusiveMinimum": 5, "maximum": 120, "default": 30 },
         "greenDuration": { "type": "number", "exclusiveMinimum": 5, "maximum": 120, "default": 30 },
         "yellowDuration": { "type": "number", "exclusiveMinimum": 2, "maximum": 8, "default": 4 },
         "allRedDuration": { "type": "number", "minimum": 0, "maximum": 5, "default": 2 },
         "phaseSequence": {
           "type": "array",
-          "items": { "type": "string" },
+          "description": "Ordered signal phase plan. Each entry is 'all_red' or '<group>_<green|yellow>', where <group> is a single approach (n/s/e/w) or an order-invariant paired group sharing one green (ns/sn, ew/we). Omit the property entirely to get the default one-direction-at-a-time cycle instead.",
+          "items": {
+            "type": "string",
+            "pattern": "^(all_red|(n|s|e|w|ns|sn|ew|we)_(green|yellow))$"
+          },
           "default": ["ns_green", "ns_yellow", "all_red", "ew_green", "ew_yellow", "all_red"]
         },
         "offset": { "type": "number", "minimum": 0, "default": 0 },
         "innerRadius": { "type": "number", "exclusiveMinimum": 5, "maximum": 50, "default": 10 },
         "outerRadius": { "type": "number", "exclusiveMinimum": 5, "default": 20 },
-        "circulatingLanes": { "type": "integer", "minimum": 1, "maximum": 3, "default": 1 },
+        "circulatingLanes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3,
+          "default": 1,
+          "description": "RESERVED / FUTURE-ONLY — accepted and validated, but has no runtime effect. A roundabout's circulating ring count is derived from roads.lanesPerApproach; there is no independent ring-lane-count path in the engine. Retained because asymmetric lanesPerApproach will need a real ring-lane count. See docs/architecture/06-scenario-configuration-contract.md section 2.6.2."
+        },
         "criticalGap": { "type": "number", "exclusiveMinimum": 0, "maximum": 10.0, "default": 4.0 },
         "followUpTime": { "type": "number", "exclusiveMinimum": 0, "default": 2.5 },
         "entrySpeed": { "type": "number", "exclusiveMinimum": 0, "default": 5.0 },

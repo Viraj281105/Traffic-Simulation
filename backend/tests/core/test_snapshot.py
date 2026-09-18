@@ -114,7 +114,9 @@ def test_snapshot_buffer_concurrent_append_and_read_no_corruption() -> None:
     for t in threads:
         t.join(timeout=10.0)
 
-    assert not any(t.is_alive() for t in threads), "a thread failed to finish (deadlock?)"
+    assert not any(t.is_alive() for t in threads), (
+        "a thread failed to finish (deadlock?)"
+    )
     if not errors.empty():
         raise errors.get()
 
@@ -149,7 +151,9 @@ def test_snapshot_buffer_no_deadlock_with_real_engine_tick_pattern() -> None:
     engine = SimulationEngine(clock, duration=100.0, config=config)
     collector = MetricCollector(config)
     controller = FixedTimeSignalController(config, engine.network)
-    builder = SnapshotBuilder("sim_concurrency", "cfg_concurrency", engine, collector, controller)
+    builder = SnapshotBuilder(
+        "sim_concurrency", "cfg_concurrency", engine, collector, controller
+    )
     buffer = SnapshotBuffer(max_frames=50)
 
     engine.register_tick_callback(

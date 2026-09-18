@@ -46,6 +46,12 @@ jobs:
       - name: Run Ruff Linter
         run: ruff check src/ tests/
 
+      # Mirrors the frontend's Prettier check. Without it, formatting drifts
+      # silently: `ruff format --check` was failing on 13 files before this
+      # step existed, because nothing ever ran it.
+      - name: Run Ruff Format Checker
+        run: ruff format --check src/ tests/
+
       - name: Run MyPy Type Checker
         run: mypy src/
 

@@ -206,7 +206,10 @@ def test_travel_time_reliability_null_is_schema_valid() -> None:
     assert metrics["travelTimeReliability"] is None
 
     schema_path = (
-        Path(__file__).resolve().parents[3] / "shared" / "schemas" / "snapshot.schema.json"
+        Path(__file__).resolve().parents[3]
+        / "shared"
+        / "schemas"
+        / "snapshot.schema.json"
     )
     with open(schema_path, "r", encoding="utf-8") as f:
         snapshot_schema = json.load(f)
@@ -379,9 +382,13 @@ def test_critical_saturation_volume_uses_post_warmup_spawned_count() -> None:
     }
 
     # Two vehicles spawned and exited entirely during warmup.
-    warmup_v1 = DummyVehicle(10.0, 0.0, 0, spawn_time=0.0, exit_time=3.0, route=[lane_n])
+    warmup_v1 = DummyVehicle(
+        10.0, 0.0, 0, spawn_time=0.0, exit_time=3.0, route=[lane_n]
+    )
     warmup_v1.vehicle_id = "warmup_1"
-    warmup_v2 = DummyVehicle(10.0, 0.0, 0, spawn_time=1.0, exit_time=4.0, route=[lane_n])
+    warmup_v2 = DummyVehicle(
+        10.0, 0.0, 0, spawn_time=1.0, exit_time=4.0, route=[lane_n]
+    )
     warmup_v2.vehicle_id = "warmup_2"
     # One vehicle spawned and exited post-warmup.
     post_v = DummyVehicle(10.0, 0.0, 0, spawn_time=6.0, exit_time=8.0, route=[lane_n])
@@ -425,7 +432,9 @@ def test_collision_count_metric_is_deterministic_and_safe_for_zero() -> None:
     assert metrics_default["collisionCount"] == 0
 
     # Explicit zero.
-    metrics_zero = collector.get_metrics(10.0, [], [], total_spawned=0, collision_count=0)
+    metrics_zero = collector.get_metrics(
+        10.0, [], [], total_spawned=0, collision_count=0
+    )
     assert metrics_zero["collisionCount"] == 0
 
     # Explicit nonzero value passes through exactly, unmodified.

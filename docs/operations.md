@@ -137,6 +137,72 @@ The SQLite path is controlled by `DB_PATH`. `backend/src/database/db.py` creates
 
 SQLite uses WAL mode, a five-second busy timeout, and foreign keys. Docker stores the database in the `traffic_data` named volume; deleting that volume deletes persisted studies and replays.
 
+## Access Control
+
+Two independent controls, answering two different questions.
+
+### `API_KEY` — what may talk to the backend
+
+When `API_KEY` is set, the backend requires `Authorization: Bearer <API_KEY>` on
+its mutating and compute-heavy routes. When it is unset or empty the check is
+disabled, which is the local-development default.
+
+The browser app never carries this key. Anything shipped in a JavaScript bundle
+is public, so a key embedded there would protect nothing. Instead nginx attaches
+the header to proxied `/api/` and `/ws/` requests on the server side, from its
+own `BACKEND_API_KEY` environment variable (see
+`frontend/templates/default.conf.template`). The production Compose file wires
+both from a single `API_KEY` value:
+
+```bash
+API_KEY="$(openssl rand -hex 32)" docker compose up -d
+```
+
+The dashboard keeps working unchanged, and the key never reaches a client.
+Earlier this was not the case: enabling `API_KEY` protected the backend but
+broke the browser demo, so the two were mutually exclusive.
+
+In the production topology the backend publishes no ports, so it is only
+reachable through nginx. `API_KEY` is defence in depth for anything that reaches
+it another way (a shared Docker network, a port published for debugging,
+a direct `docker exec`).
+
+### The access gate — who may use the demo
+
+`API_KEY` does not restrict *who* can drive the demo, because nginx adds the key
+for every visitor it proxies. A publicly reachable deployment is therefore open
+to anyone who has the URL: they can create simulations, run sweeps and write to
+the database.
+
+To restrict that, mount an auth config and its password file into the frontend
+container's `/etc/nginx/auth-gate/`:
+
+```bash
+htpasswd -c ./demo.htpasswd demo        # creates the password file
+```
+
+```yaml
+# docker-compose.override.yml
+services:
+  frontend:
+    volumes:
+      - ./demo.htpasswd:/etc/nginx/auth-gate/demo.htpasswd:ro
+      - ./auth.conf:/etc/nginx/auth-gate/auth.conf:ro
+```
+
+```nginx
+# auth.conf
+auth_basic "Traffic Simulation demo";
+auth_basic_user_file /etc/nginx/auth-gate/demo.htpasswd;
+```
+
+The server block includes `/etc/nginx/auth-gate/*.conf`, a glob that matches
+nothing by default — so the demo stays open unless a deployment opts in. The
+browser sends the credentials automatically, so no frontend change is needed.
+
+For a public EC2 demo, prefer restricting access at the security group as well,
+and treat the gate as the application-level backstop.
+
 ## Contracts and Metrics
 
 `shared/schemas/config.schema.json` is the validation schema for versioned configuration payloads. `snapshot.schema.json` and `vehicle_state.json` describe shared snapshot and vehicle shapes, although runtime route validation is currently centered on configuration validation. The authoritative metric names and formulas are implemented under `backend/src/metrics/definitions/` and aggregated by `MetricCollector`; the API exposes the resulting dictionary rather than a separate metric envelope.

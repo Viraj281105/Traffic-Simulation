@@ -44,8 +44,34 @@ export interface SnapshotVehicle {
 
 export type SignalColor = "red" | "yellow" | "green";
 export type SignalDirection = "north" | "south" | "east" | "west";
+/**
+ * Approach group that a configured `controller.phaseSequence` entry activates:
+ * a single approach, or an order-invariant pair sharing one green.
+ */
+export type SignalGroup = "n" | "s" | "e" | "w" | "ns" | "sn" | "ew" | "we";
+
+/**
+ * Name of the active signal phase, as reported in `controller.currentPhase`.
+ *
+ * The backend emits two vocabularies, and both must be represented here or the
+ * type silently misdescribes real snapshots (it previously listed only the
+ * paired-green names, so every snapshot from the default cycle was mistyped):
+ *
+ * - a configured `controller.phaseSequence` entry, e.g. `ns_green`, `w_yellow`,
+ *   `all_red`;
+ * - the default one-direction-at-a-time cycle used when `phaseSequence` is
+ *   omitted, e.g. `north_straight_right`, `north_left`, `north_yellow`.
+ *
+ * Kept in sync with the `currentPhase` pattern in
+ * `shared/schemas/snapshot.schema.json`.
+ */
 export type SignalPhase =
-  "ns_green" | "ns_yellow" | "ew_green" | "ew_yellow" | "all_red";
+  | "all_red"
+  | `${SignalGroup}_green`
+  | `${SignalGroup}_yellow`
+  | `${SignalDirection}_straight_right`
+  | `${SignalDirection}_left`
+  | `${SignalDirection}_yellow`;
 
 export interface SignalHead {
   direction: SignalDirection;

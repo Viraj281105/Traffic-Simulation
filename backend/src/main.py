@@ -13,7 +13,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Annotated, Any, Dict, Optional
 
 import jsonschema
 from fastapi import (
@@ -27,7 +27,7 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.controllers.factory import (
     build_tick_callback,
@@ -427,7 +427,8 @@ def _evict_completed_simulations() -> None:
         evictable = [
             (sid, entry)
             for sid, entry in simulations_db.items()
-            if entry["engine"].status in (SimulationStatus.COMPLETED, SimulationStatus.ERROR)
+            if entry["engine"].status
+            in (SimulationStatus.COMPLETED, SimulationStatus.ERROR)
         ]
         evictable.sort(key=lambda item: item[1].get("created_at", 0.0))
 
@@ -823,18 +824,131 @@ class _LiveSession:
             "config_id": None,
         }
         self.dual_sim_orchestrator: Optional[DualSimulationOrchestrator] = None
+        self.last_seen: float = time.time()
 
+    def touch(self) -> None:
+        self.last_seen = time.time()
+
+    def is_active(self) -> bool:
+        """True while this session still owns a live engine or orchestrator.
+
+        An active session is never evicted, so a visitor watching a running
+        simulation cannot have it pulled out from under them just because the
+        registry filled up.
+        """
+        engine = self.live_sim_data.get("engine")
+        if engine is not None and engine.status in (
+            SimulationStatus.RUNNING,
+            SimulationStatus.PAUSED,
+        ):
+            return True
+        orch = self.dual_sim_orchestrator
+        if orch is not None and orch.get_status() in ("running", "paused"):
+            return True
+        return False
+
+    def shutdown(self) -> None:
+        """Stop and drop this session's engines so its threads can exit.
+
+        Called on eviction. Every step is best-effort and independently
+        guarded: reclaiming a session must never raise into a request that
+        merely happened to trigger the sweep.
+        """
+        engine = self.live_sim_data.get("engine")
+        if engine is not None:
+            try:
+                engine.stop()
+            except Exception:
+                logger.exception("Failed to stop live engine during eviction")
+        orch = self.dual_sim_orchestrator
+        if orch is not None:
+            try:
+                orch.stop()
+            except Exception:
+                logger.exception("Failed to stop dual orchestrator during eviction")
+        self.live_sim_data = {
+            "engine": None,
+            "collector": None,
+            "controller": None,
+            "builder": None,
+            "config_id": None,
+        }
+        self.dual_sim_orchestrator = None
+
+
+# ── Live-session registry bounds ──────────────────────────────────────────
+# The registry mints a session per client cookie, and any request arriving
+# without one (a crawler, a health probe, curl, a browser that rejects
+# cookies) mints a fresh key that nothing will ever present again. Left
+# unbounded that is a memory and thread leak that a public deployment would
+# hit within hours: each session can own a live SimulationEngine, and each
+# running engine owns a background thread.
+#
+# Two bounds, deliberately both present: a TTL reclaims the common case of
+# abandoned single-use sessions, and a hard cap is the backstop for a burst
+# that arrives faster than the TTL can expire. Neither ever evicts a session
+# whose simulation is still running or paused (see _LiveSession.is_active).
+MAX_LIVE_SESSIONS = 100
+LIVE_SESSION_IDLE_TTL_SECONDS = 30 * 60
 
 _live_sessions: Dict[str, _LiveSession] = {_DEFAULT_SESSION_KEY: _LiveSession()}
+_live_sessions_lock: threading.RLock = threading.RLock()
 _live_session_var: "contextvars.ContextVar[Optional[_LiveSession]]" = (
     contextvars.ContextVar("live_session", default=None)
 )
 
 
+def _evict_stale_sessions(now: Optional[float] = None) -> int:
+    """Reclaim idle sessions. Returns how many were evicted.
+
+    The shared default session is never evicted — it is the fallback every
+    non-cookie caller (WebSocket handlers, tests, direct calls) resolves to.
+    """
+    current = time.time() if now is None else now
+    evicted = 0
+
+    with _live_sessions_lock:
+        # Pass 1 — anything idle for longer than the TTL.
+        for key in list(_live_sessions.keys()):
+            if key == _DEFAULT_SESSION_KEY:
+                continue
+            session = _live_sessions[key]
+            if session.is_active():
+                continue
+            if current - session.last_seen >= LIVE_SESSION_IDLE_TTL_SECONDS:
+                session.shutdown()
+                del _live_sessions[key]
+                evicted += 1
+
+        # Pass 2 — still over the cap, so drop the least recently used
+        # inactive sessions until it fits.
+        if len(_live_sessions) > MAX_LIVE_SESSIONS:
+            candidates = [
+                (session.last_seen, key)
+                for key, session in _live_sessions.items()
+                if key != _DEFAULT_SESSION_KEY and not session.is_active()
+            ]
+            candidates.sort()
+            overflow = len(_live_sessions) - MAX_LIVE_SESSIONS
+            for _, key in candidates[:overflow]:
+                _live_sessions[key].shutdown()
+                del _live_sessions[key]
+                evicted += 1
+
+    return evicted
+
+
 def _get_or_create_session(key: str) -> _LiveSession:
-    if key not in _live_sessions:
-        _live_sessions[key] = _LiveSession()
-    return _live_sessions[key]
+    with _live_sessions_lock:
+        session = _live_sessions.get(key)
+        if session is None:
+            # Reclaim before admitting a new session, so the registry is
+            # bounded at the moment of growth rather than after the fact.
+            _evict_stale_sessions()
+            session = _LiveSession()
+            _live_sessions[key] = session
+        session.touch()
+        return session
 
 
 def _current_session() -> _LiveSession:
@@ -1032,8 +1146,7 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
         raise HTTPException(
             status_code=400,
             detail=(
-                f"Invalid duration {duration_val}: must be between 1 and "
-                "3600 seconds."
+                f"Invalid duration {duration_val}: must be between 1 and 3600 seconds."
             ),
         )
 
@@ -1194,6 +1307,12 @@ async def websocket_live_stream(websocket: WebSocket) -> None:
 
     try:
         while True:
+            # An open stream is proof the client is still there, so keep the
+            # session fresh. Without this a viewer watching a finished run for
+            # longer than the idle TTL could have their session reclaimed out
+            # from under them (a completed engine does not count as active).
+            _current_session().touch()
+
             sim = get_or_create_live_simulation()
             engine = sim.get("engine")
             builder = sim.get("builder")
@@ -1313,6 +1432,9 @@ async def websocket_dual_stream(websocket: WebSocket) -> None:
 
     try:
         while True:
+            # See the live stream above: an open stream keeps the session alive.
+            _current_session().touch()
+
             # Re-fetch orchestrator each frame so config changes are reflected
             orch = get_or_create_dual_orchestrator()
             current_status = orch.get_status()
@@ -1345,23 +1467,54 @@ async def websocket_dual_stream(websocket: WebSocket) -> None:
 # ── Week 7 & Week 8: Study, Volume Sweeps, History & Validation Endpoints ────
 
 
+# ── Bounds on study workloads ─────────────────────────────────────────────
+# These endpoints run whole simulations synchronously inside the request, and
+# their cost is the product of their parameters: a sweep runs two simulations
+# (signal and roundabout) per arrival rate, and Monte Carlo validation runs one
+# per seed. Unbounded, a single request could pin a worker for hours, which on
+# an open demo deployment is a denial of service with no exploit required.
+#
+# The caps are set well above every legitimate use: the default sweep uses 8
+# arrival rates at 60 s, and the documented study workflows stay inside these
+# limits. `duration` matches the ceiling SimulationSection.duration already
+# enforces everywhere else, so the study path is no longer the odd one out.
+MAX_STUDY_DURATION_SECONDS = 3600.0
+MIN_STUDY_DURATION_SECONDS = 1.0
+MAX_SWEEP_ARRIVAL_RATES = 20
+MAX_MONTE_CARLO_SEEDS = 30
+
+
+# Each swept arrival rate is bounded by the same range the scenario config
+# already enforces for traffic.arrivalRate, so a sweep cannot ask for a
+# workload the simulator would reject if configured directly.
+StudyArrivalRate = Annotated[float, Field(gt=0, le=10.0)]
+
+
 class VolumeSweepRequest(BaseModel):
-    arrivalRates: list[float] | None = None
-    duration: float = 60.0
-    randomSeed: int = 42
-    name: str = "Comparative Volume Sweep"
+    arrivalRates: list[StudyArrivalRate] | None = Field(
+        default=None, max_length=MAX_SWEEP_ARRIVAL_RATES
+    )
+    duration: float = Field(
+        default=60.0, ge=MIN_STUDY_DURATION_SECONDS, le=MAX_STUDY_DURATION_SECONDS
+    )
+    randomSeed: int = Field(default=42, ge=0)
+    name: str = Field(default="Comparative Volume Sweep", max_length=200)
     customConfig: Dict[str, Any] | None = None
 
 
 class MonteCarloValidationRequest(BaseModel):
-    numSeeds: int = 5
-    duration: float = 30.0
+    numSeeds: int = Field(default=5, ge=1, le=MAX_MONTE_CARLO_SEEDS)
+    duration: float = Field(
+        default=30.0, ge=MIN_STUDY_DURATION_SECONDS, le=MAX_STUDY_DURATION_SECONDS
+    )
     customConfig: Dict[str, Any] | None = None
 
 
 class RepeatabilityValidationRequest(BaseModel):
-    duration: float = 20.0
-    randomSeed: int = 12345
+    duration: float = Field(
+        default=20.0, ge=MIN_STUDY_DURATION_SECONDS, le=MAX_STUDY_DURATION_SECONDS
+    )
+    randomSeed: int = Field(default=12345, ge=0)
 
 
 @app.post("/api/v1/study/sweeps/run", dependencies=[Depends(require_api_key)])
@@ -1642,9 +1795,7 @@ def validate_repeatability_endpoint(
     )
 
 
-@app.post(
-    "/api/v1/study/validate/monte-carlo", dependencies=[Depends(require_api_key)]
-)
+@app.post("/api/v1/study/validate/monte-carlo", dependencies=[Depends(require_api_key)])
 def validate_monte_carlo_endpoint(
     payload: MonteCarloValidationRequest | None = None,
 ) -> Dict[str, Any]:

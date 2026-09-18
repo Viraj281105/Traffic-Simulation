@@ -266,20 +266,14 @@ def test_dashboard_config_rejects_malformed_non_duration_numeric_field() -> None
     followUpTime) previously escaped a malformed value as an uncaught
     ValueError/TypeError -> raw 500. Spot-check representative fields from
     each affected section land as a 400 instead."""
-    res_lane_width = client.post(
-        "/api/simulation/config", json={"laneWidth": "wide"}
-    )
+    res_lane_width = client.post("/api/simulation/config", json={"laneWidth": "wide"})
     assert res_lane_width.status_code == 400
     assert "Invalid configuration" in res_lane_width.json()["error"]["message"]
 
-    res_lanes_north = client.post(
-        "/api/simulation/config", json={"lanesNorth": "many"}
-    )
+    res_lanes_north = client.post("/api/simulation/config", json={"lanesNorth": "many"})
     assert res_lanes_north.status_code == 400
 
-    res_arrival_rate = client.post(
-        "/api/simulation/config", json={"arrivalRate": {}}
-    )
+    res_arrival_rate = client.post("/api/simulation/config", json={"arrivalRate": {}})
     assert res_arrival_rate.status_code == 400
 
     res_green_duration = client.post(

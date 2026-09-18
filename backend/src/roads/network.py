@@ -5,6 +5,41 @@ from src.core.enums import Direction, TurnIntent
 from src.roads.approach import Approach
 from src.roads.lane import Lane
 
+# Radial clearance (metres) between the outer edge of a roundabout's
+# circulating ring and the point where an incoming lane ends (its give-way
+# line) / an outgoing lane begins.
+#
+# Without it, an incoming lane ended exactly at ``outer_radius`` — i.e. on
+# the ring's outer edge. A vehicle held at that give-way line has its centre
+# there and its *body* extends back along the lane, so roughly half its
+# length protruded radially into the outermost circulating lane. Circulating
+# traffic then physically overlapped stationary, correctly-yielding vehicles,
+# which the collision audit (rightly) counted as a collision even though no
+# controller had made a wrong decision. The setback covers half of the
+# longest vehicle the spawner generates (VehicleSpawner's vehicleLength max
+# defaults to 5.0 m -> 2.5 m) plus a small margin.
+ROUNDABOUT_ENTRY_SETBACK: float = 4.0
+
+# Arc length (metres) over which a roundabout connection lane transitions
+# radially between the entry point and its steady circulating radius (and
+# again between that radius and the exit point). See the derivation of
+# ``t_trans`` in _get_or_create_connection_lane for why this is anchored to
+# a fixed arc length rather than a fraction of each path's angular span.
+ROUNDABOUT_TRANSITION_ARC: float = 10.0
+
+# Half-width (metres) of the splitter island between a roundabout approach's
+# entry and exit carriageways.
+#
+# Real roundabout approaches are divided by a physical island; only signalised
+# approaches are separated by nothing more than a centreline. Without it the
+# entry and exit centrelines here sat one lane width (3.5 m) apart, which is
+# ample for two vehicles travelling parallel but not for the mouth, where the
+# two paths diverge by ~50 degrees. A 4.5 m vehicle turning through that angle
+# sweeps its rectangle into the neighbouring channel, so vehicles in correctly
+# separated lanes were recorded as colliding. Widening the separation to a
+# realistic island removes the cause instead of excusing the symptom.
+ROUNDABOUT_SPLITTER_HALF_WIDTH: float = 1.5
+
 
 class RoadNetwork:
     """Manages the network topology of the intersection, containing approaches and lanes.
@@ -83,12 +118,21 @@ class RoadNetwork:
             else:
                 lane_count = int(lanes_per_approach)
 
-            boundary = outer_radius if is_roundabout else (lane_count * lane_width)
+            boundary = (
+                (outer_radius + ROUNDABOUT_ENTRY_SETBACK)
+                if is_roundabout
+                else (lane_count * lane_width)
+            )
+
+            # Roundabout approaches carry a splitter island between the entry
+            # and exit carriageways; signalised approaches do not, so their
+            # geometry is left exactly as it was.
+            splitter = ROUNDABOUT_SPLITTER_HALF_WIDTH if is_roundabout else 0.0
 
             for i in range(lane_count):
                 if d == Direction.NORTH:
                     # Incoming: North to South (moves down, x < 0)
-                    in_x = -(i + 0.5) * lane_width
+                    in_x = -((i + 0.5) * lane_width + splitter)
                     in_lane = Lane(
                         f"n_in_{i}",
                         start_x=in_x,
@@ -97,7 +141,7 @@ class RoadNetwork:
                         end_y=boundary,
                     )
                     # Outgoing: South to North (moves up, x > 0)
-                    out_x = (i + 0.5) * lane_width
+                    out_x = (i + 0.5) * lane_width + splitter
                     out_lane = Lane(
                         f"n_out_{i}",
                         start_x=out_x,
@@ -108,7 +152,7 @@ class RoadNetwork:
 
                 elif d == Direction.SOUTH:
                     # Incoming: South to North (moves up, x > 0)
-                    in_x = (i + 0.5) * lane_width
+                    in_x = (i + 0.5) * lane_width + splitter
                     in_lane = Lane(
                         f"s_in_{i}",
                         start_x=in_x,
@@ -117,7 +161,7 @@ class RoadNetwork:
                         end_y=-boundary,
                     )
                     # Outgoing: North to South (moves down, x < 0)
-                    out_x = -(i + 0.5) * lane_width
+                    out_x = -((i + 0.5) * lane_width + splitter)
                     out_lane = Lane(
                         f"s_out_{i}",
                         start_x=out_x,
@@ -128,7 +172,7 @@ class RoadNetwork:
 
                 elif d == Direction.EAST:
                     # Incoming: East to West (moves left, y > 0)
-                    in_y = (i + 0.5) * lane_width
+                    in_y = (i + 0.5) * lane_width + splitter
                     in_lane = Lane(
                         f"e_in_{i}",
                         start_x=approach_length,
@@ -137,7 +181,7 @@ class RoadNetwork:
                         end_y=in_y,
                     )
                     # Outgoing: West to East (moves right, y < 0)
-                    out_y = -(i + 0.5) * lane_width
+                    out_y = -((i + 0.5) * lane_width + splitter)
                     out_lane = Lane(
                         f"e_out_{i}",
                         start_x=boundary,
@@ -148,7 +192,7 @@ class RoadNetwork:
 
                 elif d == Direction.WEST:
                     # Incoming: West to East (moves right, y < 0)
-                    in_y = -(i + 0.5) * lane_width
+                    in_y = -((i + 0.5) * lane_width + splitter)
                     in_lane = Lane(
                         f"w_in_{i}",
                         start_x=-approach_length,
@@ -157,7 +201,7 @@ class RoadNetwork:
                         end_y=in_y,
                     )
                     # Outgoing: East to West (moves left, y > 0)
-                    out_y = (i + 0.5) * lane_width
+                    out_y = (i + 0.5) * lane_width + splitter
                     out_lane = Lane(
                         f"w_out_{i}",
                         start_x=-boundary,
@@ -260,6 +304,42 @@ class RoadNetwork:
             w_ring = outer_r - inner_r
             target_r = inner_r + (lane_index + 0.5) * (w_ring / total_in_lanes)
 
+            # Straight tangential run from the give-way line to the ring
+            # itself, before any curvature begins.
+            #
+            # The path used to start curving immediately at the give-way line,
+            # so a vehicle pulling away swung sideways across the mouth while
+            # still alongside the queue in the neighbouring entry lane, and
+            # their bodies overlapped. A real entry runs straight up to the
+            # give-way line and only then turns, which is also what keeps
+            # adjacent entry lanes parallel through the mouth.
+            #
+            # ROUNDABOUT_ENTRY_SETBACK is exactly the distance by which the
+            # give-way line sits outside the ring, so advancing that far along
+            # the incoming lane's own heading lands on the ring's outer edge.
+            entry_vec_x, entry_vec_y = incoming_lane.vector
+            entry_vec_len = math.hypot(entry_vec_x, entry_vec_y) or 1.0
+            mouth_x = start_x + (entry_vec_x / entry_vec_len) * (
+                ROUNDABOUT_ENTRY_SETBACK
+            )
+            mouth_y = start_y + (entry_vec_y / entry_vec_len) * (
+                ROUNDABOUT_ENTRY_SETBACK
+            )
+
+            # Mirror image on the way out: leave the ring, then run straight
+            # down the outgoing lane's heading to where that lane begins.
+            exit_vec_x, exit_vec_y = exit_lane.vector
+            exit_vec_len = math.hypot(exit_vec_x, exit_vec_y) or 1.0
+            throat_x = end_x - (exit_vec_x / exit_vec_len) * (ROUNDABOUT_ENTRY_SETBACK)
+            throat_y = end_y - (exit_vec_y / exit_vec_len) * (ROUNDABOUT_ENTRY_SETBACK)
+
+            # The curved section now runs mouth -> throat; the straight stubs
+            # are prepended/appended to it below.
+            curve_start = (mouth_x, mouth_y)
+            curve_end = (throat_x, throat_y)
+            start_x, start_y = curve_start
+            end_x, end_y = curve_end
+
             # Polar angles
             angle_entry = math.atan2(start_y, start_x)
             angle_exit = math.atan2(end_y, end_x)
@@ -269,21 +349,48 @@ class RoadNetwork:
             if angle_exit <= angle_entry:
                 angle_exit += 2 * math.pi
 
+            entry_r = math.hypot(start_x, start_y)
+            exit_r = math.hypot(end_x, end_y)
+            angular_span = angle_exit - angle_entry
+
+            # Length of the radial entry/exit transition, expressed as a
+            # fraction of the path's angular span but derived from a FIXED
+            # arc length.
+            #
+            # This used to be a fixed fraction (t < 0.2 / t > 0.8) of each
+            # connection lane's own angular span. Because those spans differ
+            # enormously by turn intent (a right turn covers ~90 deg, a left
+            # ~270 deg), the same entry mouth produced wildly different
+            # radial profiles: a right-turner snapped onto its ring within a
+            # few metres while a left-turner from the SAME incoming lane was
+            # still drifting inward 15 m later. Two vehicles entering from
+            # one lane therefore occupied different radii at the same angle
+            # and overlapped, and — because they were on different Lane
+            # objects at different radii — neither the same-ring follower
+            # logic nor the collision audit's "parallel lanes" grouping
+            # treated them as the single physical channel they really are.
+            #
+            # Anchoring the transition to a fixed arc length instead makes
+            # every path leaving a given entry mouth share one radial
+            # profile, so vehicles from the same incoming lane genuinely
+            # follow one another through the entry taper.
+            steady_arc = max(1e-6, abs(angular_span) * target_r)
+            t_trans = min(0.35, ROUNDABOUT_TRANSITION_ARC / steady_arc)
+
             waypoints = []
             num_pts = 30
             for i in range(num_pts + 1):
                 t = i / float(num_pts)
-                angle = angle_entry + t * (angle_exit - angle_entry)
+                angle = angle_entry + t * angular_span
 
-                # Smoothly transition the radius from entry_radius to target_r, and then to exit_radius
-                entry_r = math.hypot(start_x, start_y)
-                exit_r = math.hypot(end_x, end_y)
-
-                if t < 0.2:
-                    u = t / 0.2
+                # Smoothly transition the radius from entry_radius to
+                # target_r, hold the steady circulating radius, then
+                # transition out to exit_radius.
+                if t < t_trans:
+                    u = t / t_trans
                     r = entry_r + u * (target_r - entry_r)
-                elif t > 0.8:
-                    u = (t - 0.8) / 0.2
+                elif t > 1.0 - t_trans:
+                    u = (t - (1.0 - t_trans)) / t_trans
                     r = target_r + u * (exit_r - target_r)
                 else:
                     r = target_r
@@ -291,6 +398,12 @@ class RoadNetwork:
                 px = r * math.cos(angle)
                 py = r * math.sin(angle)
                 waypoints.append((px, py))
+
+            # Bracket the arc with the straight entry and exit stubs, so the
+            # lane still spans give-way line -> outgoing lane start.
+            entry_point = incoming_lane.end_coords
+            exit_point = exit_lane.start_coords
+            waypoints = [entry_point] + waypoints + [exit_point]
         elif turn_intent in (TurnIntent.LEFT, TurnIntent.RIGHT):
             if origin_direction in (Direction.NORTH, Direction.SOUTH):
                 cx, cy = start_x, end_y
