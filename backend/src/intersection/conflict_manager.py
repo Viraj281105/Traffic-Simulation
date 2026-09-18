@@ -172,6 +172,13 @@ class Reservation:
 # stopSpeedThreshold default.
 _STOPPED_SPEED: float = 0.1
 
+# Arc distance from a conflict point within which a vehicle's BODY covers it:
+# half a 4.5 m vehicle plus a margin. Distinct from ZONE_RADIUS, which is the
+# reservation safety buffer -- two different physical quantities that must not
+# share a constant. A vehicle this close to a crossing is on it, whether it is
+# moving or not, and nothing may be driven through it.
+_ZONE_BODY_RADIUS: float = 3.0
+
 
 _TURN_PRIORITY: Dict[TurnIntent, int] = {
     TurnIntent.STRAIGHT: 3,
@@ -365,7 +372,13 @@ class ConflictManager:
         if not conflict_keys:
             return float("inf")
 
+        # -- Phase 1: judge every zone on this lane, commit to nothing ------
+        #
+        # Judgement is separated from acquisition because the admission
+        # decision below is all-or-nothing: it has to know about every zone on
+        # the path before it claims any of them.
         min_block_dist = float("inf")
+        verdicts: List[Tuple[Tuple[str, str], float, str]] = []
 
         for key in conflict_keys:
             cp = self._conflict_points[key]
@@ -378,130 +391,224 @@ class ConflictManager:
 
             remaining = dist_to_cp - vehicle_position_on_lane
 
-            # Vehicle has already passed this conflict point → skip
+            # Vehicle has already passed this conflict point -> skip
             if remaining < -self.ZONE_RADIUS:
                 continue
 
-            # Never drive into a conflict point that is physically occupied.
-            #
-            # A reservation says the zone is *claimed*, not that it is clear. A
-            # vehicle that yielded and came to rest on the crossing still sits
-            # there, and whoever held the claim would drive straight through
-            # it. That is how the remaining signal collisions happened: two
-            # opposing left-turners, one stopped mid-box, the other arriving at
-            # full speed with a valid reservation.
-            if self._zone_occupied_by_stalled_vehicle(
-                cp, connection_lane_id, vehicle_id, all_vehicles_info
-            ):
-                block_dist = max(0.0, remaining - self.ZONE_RADIUS)
-                min_block_dist = min(min_block_dist, block_dist)
-                continue
+            verdict = self._judge_zone(
+                key=key,
+                cp=cp,
+                connection_lane_id=connection_lane_id,
+                vehicle_id=vehicle_id,
+                vehicle_turn_intent=vehicle_turn_intent,
+                remaining=remaining,
+                all_vehicles_info=all_vehicles_info,
+            )
 
-            # Check existing reservation
-            reservation = self._reservations.get(key)
-
-            if reservation is not None:
-                if reservation.vehicle_id == vehicle_id:
-                    # We own it — no block
-                    continue
-                if _shares_entry_lane(reservation.lane_id, connection_lane_id):
-                    # The holder entered from the same lane we did, so it is
-                    # ahead of us in a single-file queue, not crossing us.
-                    #
-                    # Yielding to it serialised every platoon through the
-                    # junction: each vehicle waited out its own leader's
-                    # clearance timer before it could move, which collapsed
-                    # saturation flow to a couple of vehicles per green. Two
-                    # vehicles from one entry lane can never be side by side,
-                    # so ordinary car-following is the correct and sufficient
-                    # model for the pair.
-                    continue
-                # Someone else owns it — we must yield
-                block_dist = max(0.0, remaining - self.ZONE_RADIUS)
-                min_block_dist = min(min_block_dist, block_dist)
-                continue
-
-            # A stationary vehicle that has not yet entered the junction
-            # cannot hold the box.
+            # A conflict point BEHIND the vehicle cannot obstruct it going
+            # forward, so it must not brake for one.
             #
-            # Reservations are taken while a vehicle is still approaching, so
-            # that it does not enter alongside a conflicting movement. But a
-            # vehicle that then stops — because something else is blocking it —
-            # used to keep that claim while queueing, locking crossing traffic
-            # out of a junction it had not entered and might not enter for
-            # many seconds. Cycles of that form deadlocked the intersection
-            # outright: a queued left-turner held the zone a crossing
-            # straight-goer needed, while itself waiting on a zone held by a
-            # third vehicle stranded in the box. Every approach then sat
-            # stationary through its own green.
-            #
-            # Once moving again it re-acquires normally, and a vehicle already
-            # inside the junction always keeps its claim.
-            queued_outside = not on_connection_lane and vehicle_speed <= _STOPPED_SPEED
-            if queued_outside:
+            # Points within ZONE_RADIUS behind are still walked, because the
+            # vehicle is physically over them and must keep its claim until it
+            # is clear. They used to brake it as well: block_dist is
+            # max(0.0, remaining - ZONE_RADIUS), which for negative remaining
+            # is 0.0 -- a dead stop for a crossing already driven past. That
+            # is the keystone of the jam this whole change set is chasing. A
+            # vehicle 2.7 m beyond a crossing was held by the vehicle 2.1 m
+            # short of it, while that vehicle was held in turn by the first,
+            # each sitting inside the other's occupancy radius. Neither could
+            # ever move, and the arms behind them filled until the junction
+            # was solid. Freeing the vehicle that is on its way out is what
+            # breaks the cycle: it clears the box and everyone behind follows.
+            if verdict == "blocked" and remaining >= 0.0:
+                min_block_dist = min(
+                    min_block_dist, max(0.0, remaining - self.ZONE_RADIUS)
+                )
+
+            verdicts.append((key, remaining, verdict))
+
+        # -- Phase 2a: already in the junction, so committed ----------------
+        #
+        # A vehicle between the stop line and its exit cannot be un-admitted,
+        # so it keeps what it holds and picks up zones as it reaches them,
+        # exactly as before.
+        if on_connection_lane:
+            for key, remaining, verdict in verdicts:
+                if verdict == "free" and remaining <= self.ZONE_RADIUS * 2:
+                    self._acquire(key, vehicle_id, connection_lane_id, current_time)
+            return min_block_dist
+
+        # -- Phase 2b: still approaching, so admission control --------------
+        #
+        # This is the rule that makes the junction deadlock-free, and the one
+        # the old incremental scheme did not enforce. Zones used to be claimed
+        # only within 2x ZONE_RADIUS, which is 12 m against connection lanes
+        # 8.5-14.2 m long: a vehicle could enter holding its first crossings,
+        # then find a later one taken and stop inside the box, still holding
+        # everything it had claimed on the way in. Four vehicles doing that,
+        # one per arm, each waiting on a zone another of them held, is a
+        # circular wait that nothing can break -- the model has no reverse
+        # gear. At 1.5 veh/s it froze the entire network.
+        #
+        # So a vehicle is admitted only if EVERY zone on its path through the
+        # junction is available, and it then claims them all at once.
+        # Hold-and-wait cannot arise, because a vehicle never holds a partial
+        # set: if it cannot have all of them it takes none and waits at the
+        # stop line, outside the box, where waiting costs only its own delay.
+        if vehicle_speed <= _STOPPED_SPEED:
+            # Stopped short of the junction, so it holds nothing: a vehicle
+            # waiting outside the box must not lock crossing traffic out of a
+            # junction it has not entered and may not enter for many seconds.
+            # Cycles of that form deadlocked the approaches in their own
+            # right. It re-acquires normally once moving again.
+            for key, _remaining, _verdict in verdicts:
                 held = self._reservations.get(key)
                 if held is not None and held.vehicle_id == vehicle_id:
                     del self._reservations[key]
+            return min_block_dist
 
-            # No reservation — attempt to acquire if we're close enough to
-            # care (within 2× zone radius of the conflict point)
-            if remaining <= self.ZONE_RADIUS * 2:
-                # Check if another vehicle is also approaching this zone
-                should_yield = False
+        if min_block_dist != float("inf"):
+            # Not admitted. Claim nothing new -- taking the free part of the
+            # path is exactly the partial hold that deadlocked the box. What
+            # it already holds it keeps for now; it is braking for the stop
+            # line, and the release above fires as soon as it gets there.
+            return min_block_dist
 
-                if all_vehicles_info:
-                    for other_info in all_vehicles_info:
-                        other_id = other_info["vehicle_id"]
-                        if other_id == vehicle_id:
-                            continue
-
-                        other_conn = other_info.get("connection_lane_id", "")
-                        if other_conn not in (cp.lane_id_a, cp.lane_id_b):
-                            continue
-                        if other_conn == connection_lane_id:
-                            # Same lane — handled by lane-following, not conflict zones
-                            continue
-
-                        # Other vehicle is on the *other* lane of this conflict pair
-                        if other_conn == cp.lane_id_a:
-                            other_dist_to_cp = cp.dist_on_a
-                        else:
-                            other_dist_to_cp = cp.dist_on_b
-
-                        other_pos = other_info.get("position_on_lane", 0.0)
-                        other_remaining = other_dist_to_cp - other_pos
-
-                        # Only consider if other vehicle is also approaching
-                        if other_remaining < -self.ZONE_RADIUS:
-                            continue
-
-                        # Priority arbitration
-                        other_turn = other_info.get("turn_intent", TurnIntent.STRAIGHT)
-                        my_priority = _TURN_PRIORITY.get(vehicle_turn_intent, 2)
-                        other_priority = _TURN_PRIORITY.get(other_turn, 2)
-
-                        if other_priority > my_priority:
-                            should_yield = True
-                            break
-                        elif other_priority == my_priority:
-                            # Tiebreak: lower vehicle ID wins
-                            if other_id < vehicle_id:
-                                should_yield = True
-                                break
-
-                if should_yield:
-                    block_dist = max(0.0, remaining - self.ZONE_RADIUS)
-                    min_block_dist = min(min_block_dist, block_dist)
-                elif not queued_outside:
-                    # Acquire reservation
-                    clear_time = (
-                        current_time + self.CLEARANCE_TIME + 5.0
-                    )  # generous default
-                    self._reservations[key] = Reservation(
-                        vehicle_id, clear_time, connection_lane_id
-                    )
+        # Admitted: every zone on the path is available, so take them all in
+        # one go. A vehicle never holds a partial set, so hold-and-wait --
+        # and with it the circular wait -- cannot arise.
+        for key, _remaining, verdict in verdicts:
+            if verdict in ("free", "owned"):
+                self._acquire(key, vehicle_id, connection_lane_id, current_time)
 
         return min_block_dist
+
+    def _acquire(
+        self,
+        key: Tuple[str, str],
+        vehicle_id: str,
+        connection_lane_id: str,
+        current_time: float,
+    ) -> None:
+        """Claim one conflict zone for *vehicle_id*."""
+        self._reservations[key] = Reservation(
+            vehicle_id,
+            current_time + self.CLEARANCE_TIME + 5.0,  # generous default
+            connection_lane_id,
+        )
+
+    def _judge_zone(
+        self,
+        key: Tuple[str, str],
+        cp: "ConflictPoint",
+        connection_lane_id: str,
+        vehicle_id: str,
+        vehicle_turn_intent: TurnIntent,
+        remaining: float,
+        all_vehicles_info: Optional[List[Dict[str, Any]]],
+    ) -> str:
+        """Classify one conflict zone for this vehicle.
+
+        ``blocked``  someone crossing us holds or occupies it
+        ``owned``    we already hold it
+        ``shared``   held by a vehicle from our own entry lane: it does not
+                     block us, but it is not ours to claim
+        ``free``     unheld, and ours to claim
+
+
+        Reads reservation and vehicle state but changes neither, so that
+        :meth:`get_conflict_distance` can weigh every zone on a path before
+        claiming any of them.
+        """
+        # Never drive into a conflict point that is physically occupied.
+        #
+        # A reservation says the zone is *claimed*, not that it is clear. A
+        # vehicle that yielded and came to rest on the crossing still sits
+        # there, and whoever held the claim would drive straight through it.
+        # That is how the remaining signal collisions happened: two opposing
+        # left-turners, one stopped mid-box, the other arriving at full speed
+        # with a valid reservation.
+        if self._zone_occupied_by_stalled_vehicle(
+            cp, connection_lane_id, vehicle_id, all_vehicles_info
+        ):
+            return "blocked"
+
+        reservation = self._reservations.get(key)
+        if reservation is not None:
+            if reservation.vehicle_id == vehicle_id:
+                return "owned"
+            if _shares_entry_lane(reservation.lane_id, connection_lane_id):
+                # The holder entered from the same lane we did, so it is ahead
+                # of us in a single-file queue, not crossing us.
+                #
+                # Yielding to it serialised every platoon through the
+                # junction: each vehicle waited out its own leader's clearance
+                # timer before it could move, which collapsed saturation flow
+                # to a couple of vehicles per green. Two vehicles from one
+                # entry lane can never be side by side, so ordinary
+                # car-following is the correct and sufficient model.
+                #
+                # "shared", not "free": we are not blocked by our leader, but
+                # the zone is emphatically not ours to take. Claiming it would
+                # overwrite the claim of a vehicle that is still inside the
+                # junction and hand the zone's protection to one queued behind
+                # it, after which a crossing movement is admitted straight on
+                # top of the leader. That is how the box deadlocked even with
+                # admission control in force.
+                return "shared"
+            return "blocked"
+
+        # Unreserved. Arbitrate against others converging on the same zone,
+        # but only where the two are close enough for the order to matter.
+        # Applying the priority tie-break along the whole path instead cost
+        # more than the deadlock did: a left turn crosses 9 zones on a 1-lane
+        # signal, losing the tie-break on any one of them denied admission,
+        # and with one lane per approach the refused left-turner blocks the
+        # through traffic queued behind it. Served flow at 2160 veh/h offered
+        # fell to 566 veh/h that way, against 1491 before any of this.
+        if remaining > self.ZONE_RADIUS * 2:
+            return "free"
+
+        if not all_vehicles_info:
+            return "free"
+
+        my_priority = _TURN_PRIORITY.get(vehicle_turn_intent, 2)
+
+        for other_info in all_vehicles_info:
+            other_id = other_info["vehicle_id"]
+            if other_id == vehicle_id:
+                continue
+
+            other_conn = other_info.get("connection_lane_id", "")
+            if other_conn not in (cp.lane_id_a, cp.lane_id_b):
+                continue
+            if other_conn == connection_lane_id:
+                # Same lane -- handled by lane-following, not conflict zones
+                continue
+
+            # Other vehicle is on the *other* lane of this conflict pair
+            if other_conn == cp.lane_id_a:
+                other_dist_to_cp = cp.dist_on_a
+            else:
+                other_dist_to_cp = cp.dist_on_b
+
+            other_remaining = other_dist_to_cp - other_info.get("position_on_lane", 0.0)
+
+            # Only consider if the other vehicle is also approaching
+            if other_remaining < -self.ZONE_RADIUS:
+                continue
+
+            other_priority = _TURN_PRIORITY.get(
+                other_info.get("turn_intent", TurnIntent.STRAIGHT), 2
+            )
+
+            if other_priority > my_priority:
+                return "blocked"
+            if other_priority == my_priority and other_id < vehicle_id:
+                # Tiebreak: lower vehicle ID wins
+                return "blocked"
+
+        return "free"
 
     def _zone_occupied_by_stalled_vehicle(
         self,
@@ -510,7 +617,22 @@ class ConflictManager:
         vehicle_id: str,
         all_vehicles_info: Optional[List[Dict[str, Any]]],
     ) -> bool:
-        """True when a stationary vehicle is sitting on this conflict point.
+        """True when another vehicle is on this conflict point.
+
+        Two separate hazards, with different reaches:
+
+        * a vehicle whose *body* covers the point, moving or not, within
+          ``_ZONE_BODY_RADIUS``. Driving into one is a collision now. Checking
+          only stationary vehicles left exactly that gap: a vehicle crossing
+          the point stopped counting as occupying it the instant it began to
+          move, so a second vehicle was cleared to enter while the first was
+          still physically crossing, and the two met in the box.
+        * a *stationary* vehicle anywhere within the wider ``ZONE_RADIUS``
+          safety buffer. One that has come to rest near a crossing is a
+          standing hazard rather than a passing one, and it is what a
+          reservation alone fails to describe -- the holder of a claim would
+          otherwise drive straight through a car that had yielded and stopped
+          on the crossing.
 
         Only the *other* lane of the pair is considered: a stopped vehicle on
         our own lane is ordinary car-following, which find_leader handles with
@@ -532,11 +654,11 @@ class ConflictManager:
             else:
                 continue
 
-            if info.get("speed", 0.0) > _STOPPED_SPEED:
-                continue
-            if abs(other_dist_to_cp - info.get("position_on_lane", 0.0)) <= (
-                self.ZONE_RADIUS
-            ):
+            offset = abs(other_dist_to_cp - info.get("position_on_lane", 0.0))
+
+            if offset <= _ZONE_BODY_RADIUS:
+                return True
+            if info.get("speed", 0.0) <= _STOPPED_SPEED and offset <= self.ZONE_RADIUS:
                 return True
         return False
 
