@@ -233,6 +233,7 @@ def test_stop_line_is_clear_of_the_junction_conflict_area() -> None:
 # ── Capacity behaviour ────────────────────────────────────────────────────
 
 
+@pytest.mark.slow
 def test_capacity_does_not_fall_as_demand_rises() -> None:
     """The defining symptom: throughput used to go backwards.
 
@@ -248,6 +249,7 @@ def test_capacity_does_not_fall_as_demand_rises() -> None:
         )
 
 
+@pytest.mark.slow
 def test_saturation_capacity_is_in_the_expected_range() -> None:
     """A 4-arm fixed-time signal should carry roughly 1800-2400 veh/h.
 
@@ -259,18 +261,40 @@ def test_saturation_capacity_is_in_the_expected_range() -> None:
     )
 
 
+@pytest.mark.slow
 def test_junction_does_not_gridlock_at_high_demand() -> None:
     """Almost every vehicle used to end the run stationary in the network."""
     result = _run(1.2)
     assert result["served_veh_per_hour"] > 500.0
 
 
-@pytest.mark.parametrize("rate", [0.2, 0.4, 0.8])
+# Cost rises steeply with demand — a run at 1.2 veh/s carries several times
+# the vehicle-ticks of one at 0.2 — so the two cheap demand points stay in the
+# default suite and the saturated one moves to the slow job. Same assertion at
+# every rate; only where it runs differs.
+@pytest.mark.parametrize("rate", [0.2, 0.4, pytest.param(0.8, marks=pytest.mark.slow)])
 def test_signal_is_collision_free(rate: float) -> None:
     """Phase separation plus conflict reservation must keep the junction clean."""
     assert _run(rate)["collisions"] == 0
 
 
+def test_capacity_rises_with_demand_below_saturation() -> None:
+    """Fast representative of test_capacity_does_not_fall_as_demand_rises.
+
+    Both demand points are below saturation, where served flow should track
+    offered demand rather than plateau, so this is a strictly stronger
+    statement than the non-decreasing one over the same two rates — and it
+    reuses runs the full sweep needs anyway.
+    """
+    low = _run(0.2)["served_veh_per_hour"]
+    high = _run(0.4)["served_veh_per_hour"]
+
+    assert high > low, (
+        f"served flow did not rise with demand: {low:.0f} -> {high:.0f} veh/h"
+    )
+
+
+@pytest.mark.slow
 def test_signal_collisions_stay_negligible_across_seeds() -> None:
     """Across seeds the junction must stay essentially clean.
 
