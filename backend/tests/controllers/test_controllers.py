@@ -370,6 +370,243 @@ def test_fixed_time_signal_offset_shifts_initial_phase() -> None:
             assert sig["color"] == "red"
 
 
+def test_fixed_time_signal_ns_ew_override_absent_is_backward_compatible() -> None:
+    """Core backward-compatibility guard for asymmetric timing: a config
+    that sets neither nsGreenDuration nor ewGreenDuration must build the
+    exact same phases (same durations, in both the default cycle and a
+    configured phaseSequence) as before those fields existed."""
+    network = RoadNetwork()
+    network.setup_default_intersection(
+        approach_length=100.0, lane_width=3.5, lanes_per_approach=2
+    )
+
+    # Default (no phaseSequence) cycle.
+    default_ctrl = FixedTimeSignalController(
+        {"controller": {"straightRightDuration": 22.0}}, network
+    )
+    for phase in default_ctrl.phases:
+        if phase.name.endswith("_straight_right"):
+            assert phase.duration == 22.0
+
+    # phaseSequence-driven cycle.
+    seq_ctrl = FixedTimeSignalController(
+        {
+            "controller": {
+                "straightRightDuration": 22.0,
+                "phaseSequence": ["ns_green", "ns_yellow", "all_red", "ew_green"],
+            }
+        },
+        network,
+    )
+    assert seq_ctrl.phases[0].duration == 22.0  # ns_green
+    assert seq_ctrl.phases[3].duration == 22.0  # ew_green
+
+
+def test_fixed_time_signal_asymmetric_ns_ew_default_cycle() -> None:
+    """NS legs (north, south) use nsGreenDuration; EW legs (east, west) use
+    ewGreenDuration; left/yellow/all-red are untouched by either override."""
+    network = RoadNetwork()
+    network.setup_default_intersection(
+        approach_length=100.0, lane_width=3.5, lanes_per_approach=2
+    )
+    config = {
+        "controller": {
+            "straightRightDuration": 30.0,  # must be ignored for N/S/E/W green
+            "nsGreenDuration": 30.0,
+            "ewGreenDuration": 20.0,
+            "leftDuration": 5.0,
+            "yellowDuration": 4.0,
+            "allRedDuration": 2.0,
+        }
+    }
+    ctrl = FixedTimeSignalController(config, network)
+
+    durations_by_phase = {p.name: p.duration for p in ctrl.phases}
+    assert durations_by_phase["north_straight_right"] == 30.0
+    assert durations_by_phase["south_straight_right"] == 30.0
+    assert durations_by_phase["east_straight_right"] == 20.0
+    assert durations_by_phase["west_straight_right"] == 20.0
+
+    # Left/yellow/all-red durations are unaffected by the NS/EW overrides.
+    for phase in ctrl.phases:
+        if phase.name.endswith("_left"):
+            assert phase.duration == 5.0
+        elif phase.name.endswith("_yellow"):
+            assert phase.duration == 4.0
+        elif phase.name == "all_red":
+            assert phase.duration == 2.0
+
+
+def test_fixed_time_signal_asymmetric_ns_ew_phase_sequence() -> None:
+    """Paired ns_green/ew_green groups in a configured phaseSequence pick up
+    the matching corridor override; yellow/all_red stay uniform."""
+    network = RoadNetwork()
+    network.setup_default_intersection(
+        approach_length=100.0, lane_width=3.5, lanes_per_approach=2
+    )
+    config = {
+        "controller": {
+            "nsGreenDuration": 35.0,
+            "ewGreenDuration": 18.0,
+            "yellowDuration": 4.0,
+            "allRedDuration": 2.0,
+            "phaseSequence": [
+                "ns_green",
+                "ns_yellow",
+                "all_red",
+                "ew_green",
+                "ew_yellow",
+                "all_red",
+            ],
+        }
+    }
+    ctrl = FixedTimeSignalController(config, network)
+
+    assert ctrl.phases[0].name == "ns_green"
+    assert ctrl.phases[0].duration == 35.0
+    assert ctrl.phases[1].name == "ns_yellow"
+    assert ctrl.phases[1].duration == 4.0  # unaffected by nsGreenDuration
+    assert ctrl.phases[2].duration == 2.0  # all_red unaffected
+
+    assert ctrl.phases[3].name == "ew_green"
+    assert ctrl.phases[3].duration == 18.0
+    assert ctrl.phases[4].name == "ew_yellow"
+    assert ctrl.phases[4].duration == 4.0
+
+
+def test_fixed_time_signal_asymmetric_single_direction_groups() -> None:
+    """Single-direction phaseSequence groups (n/s/e/w, not just paired
+    ns/ew) still resolve to the correct corridor override: n and s both use
+    nsGreenDuration, e and w both use ewGreenDuration."""
+    network = RoadNetwork()
+    network.setup_default_intersection(
+        approach_length=100.0, lane_width=3.5, lanes_per_approach=2
+    )
+    config = {
+        "controller": {
+            "nsGreenDuration": 25.0,
+            "ewGreenDuration": 15.0,
+            "phaseSequence": ["n_green", "s_green", "e_green", "w_green"],
+        }
+    }
+    ctrl = FixedTimeSignalController(config, network)
+    assert [p.duration for p in ctrl.phases] == [25.0, 25.0, 15.0, 15.0]
+
+
+def test_fixed_time_signal_asymmetric_phase_transitions() -> None:
+    """Dynamic behavioural check: update() must actually honour the
+    asymmetric durations tick by tick, not just when phases are built."""
+    network = RoadNetwork()
+    network.setup_default_intersection(
+        approach_length=100.0, lane_width=3.5, lanes_per_approach=2
+    )
+    config = {
+        "controller": {
+            "nsGreenDuration": 30.0,
+            "ewGreenDuration": 20.0,
+            "yellowDuration": 4.0,
+            "allRedDuration": 2.0,
+            "phaseSequence": [
+                "ns_green",
+                "ns_yellow",
+                "all_red",
+                "ew_green",
+                "ew_yellow",
+                "all_red",
+            ],
+        }
+    }
+    ctrl = FixedTimeSignalController(config, network)
+
+    assert ctrl.current_phase.name == "ns_green"
+    assert ctrl.phase_time_remaining == 30.0
+
+    ctrl.update(29.9, [])
+    assert ctrl.current_phase.name == "ns_green"
+    assert pytest.approx(ctrl.phase_time_remaining, abs=1e-6) == 0.1
+
+    ctrl.update(0.1, [])  # exactly the 30s NS-green boundary
+    assert ctrl.current_phase.name == "ns_yellow"
+
+    ctrl.update(4.0, [])  # ns_yellow (4s) -> all_red
+    assert ctrl.current_phase.name == "all_red"
+
+    ctrl.update(2.0, [])  # all_red (2s) -> ew_green
+    assert ctrl.current_phase.name == "ew_green"
+    assert ctrl.phase_time_remaining == 20.0
+
+    ctrl.update(19.9, [])
+    assert ctrl.current_phase.name == "ew_green"
+    ctrl.update(0.1, [])  # exactly the 20s EW-green boundary
+    assert ctrl.current_phase.name == "ew_yellow"
+
+
+def test_fixed_time_signal_offset_with_asymmetric_durations() -> None:
+    """The offset math (_advance_by) must work correctly when the two green
+    phases it is stepping through have unequal durations -- the existing
+    offset test only ever used equal (10s/10s) phases."""
+    network = RoadNetwork()
+    network.setup_default_intersection(
+        approach_length=100.0, lane_width=3.5, lanes_per_approach=2
+    )
+    controller_config = {
+        "nsGreenDuration": 30.0,
+        "ewGreenDuration": 20.0,
+        "phaseSequence": ["ns_green", "ew_green"],
+    }
+    # Total cycle = 30 + 20 = 50s.
+
+    # An offset landing inside the (longer) NS phase.
+    offset_15 = FixedTimeSignalController(
+        {"controller": {**controller_config, "offset": 15.0}}, network
+    )
+    assert offset_15.current_phase_idx == 0
+    assert offset_15.current_phase.name == "ns_green"
+    assert offset_15.time_in_current_state == 15.0
+    assert offset_15.phase_time_remaining == 15.0
+
+    # An offset landing inside the (shorter) EW phase.
+    offset_35 = FixedTimeSignalController(
+        {"controller": {**controller_config, "offset": 35.0}}, network
+    )
+    assert offset_35.current_phase_idx == 1
+    assert offset_35.current_phase.name == "ew_green"
+    assert offset_35.time_in_current_state == 5.0
+    assert offset_35.phase_time_remaining == 15.0
+
+    # Offset wraps modulo the (asymmetric) 50s cycle: 65 == 50 + 15 must
+    # match offset_15 exactly.
+    offset_65 = FixedTimeSignalController(
+        {"controller": {**controller_config, "offset": 65.0}}, network
+    )
+    assert offset_65.current_phase_idx == offset_15.current_phase_idx
+    assert offset_65.time_in_current_state == offset_15.time_in_current_state
+
+
+def test_fixed_time_signal_ns_ew_duration_invalid_values_rejected_by_schema() -> None:
+    """The controller itself performs no runtime bounds-checking on any
+    duration field (matching existing behaviour for straightRightDuration
+    etc.) -- validation for zero/negative values is enforced at the
+    schema/Pydantic layer, exercised here directly against CONFIG_SCHEMA."""
+    import jsonschema
+
+    from src.main import CONFIG_SCHEMA
+
+    base_config = {
+        "simulation": {"duration": 60, "timeStep": 0.1},
+        "geometry": {"intersectionType": "fixed_time_signal"},
+    }
+
+    for invalid_value in (0, -5.0):
+        for field in ("nsGreenDuration", "ewGreenDuration"):
+            bad_config = {
+                **base_config,
+                "controller": {field: invalid_value},
+            }
+            with pytest.raises(jsonschema.ValidationError):
+                jsonschema.validate(instance=bad_config, schema=CONFIG_SCHEMA)
+
+
 def test_roundabout_missing_approach_and_yielding_metrics() -> None:
     network = RoadNetwork()
     network.setup_default_intersection(

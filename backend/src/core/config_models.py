@@ -92,6 +92,13 @@ class ControllerSection(BaseModel):
     greenDuration: Optional[float] = Field(None, gt=5, le=120)
     yellowDuration: Optional[float] = Field(None, gt=2, le=8)
     allRedDuration: Optional[float] = Field(None, ge=0, le=5)
+    # Optional per-corridor green overrides (asymmetric NS/EW timing). Same
+    # bounds as straightRightDuration, which they override when set. Both
+    # default to None (unset): a config that omits them keeps using
+    # straightRightDuration for every direction, exactly as before these
+    # fields existed. See FixedTimeSignalController._green_duration_for.
+    nsGreenDuration: Optional[float] = Field(None, gt=5, le=120)
+    ewGreenDuration: Optional[float] = Field(None, gt=5, le=120)
     phaseSequence: List[str] = Field(
         default_factory=lambda: [
             "ns_green",

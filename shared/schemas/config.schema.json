@@ -132,6 +132,18 @@
         "greenDuration": { "type": "number", "exclusiveMinimum": 5, "maximum": 120, "default": 30 },
         "yellowDuration": { "type": "number", "exclusiveMinimum": 2, "maximum": 8, "default": 4 },
         "allRedDuration": { "type": "number", "minimum": 0, "maximum": 5, "default": 2 },
+        "nsGreenDuration": {
+          "type": "number",
+          "exclusiveMinimum": 5,
+          "maximum": 120,
+          "description": "Optional per-corridor override of straightRightDuration for the North/South green phase only (the n, s, ns and sn phaseSequence groups, and the N/S legs of the default one-direction-at-a-time cycle). Omit for the previous, symmetric behaviour: NS phases then use straightRightDuration like every other direction."
+        },
+        "ewGreenDuration": {
+          "type": "number",
+          "exclusiveMinimum": 5,
+          "maximum": 120,
+          "description": "Optional per-corridor override of straightRightDuration for the East/West green phase only (the e, w, ew and we phaseSequence groups, and the E/W legs of the default cycle). Omit for the previous, symmetric behaviour: EW phases then use straightRightDuration like every other direction."
+        },
         "phaseSequence": {
           "type": "array",
           "description": "Ordered signal phase plan. Each entry is 'all_red' or '<group>_<green|yellow>', where <group> is a single approach (n/s/e/w) or an order-invariant paired group sharing one green (ns/sn, ew/we). Omit the property entirely to get the default one-direction-at-a-time cycle instead.",

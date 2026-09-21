@@ -122,3 +122,45 @@ def test_config_models_validation_errors() -> None:
 
     with pytest.raises(ValidationError):
         RoadsSection(approachLength=10.0)  # gt=50
+
+
+def test_controller_section_ns_ew_green_duration_defaults_to_unset() -> None:
+    """Backward compatibility: omitting nsGreenDuration/ewGreenDuration must
+    leave both as None (not e.g. falling back to straightRightDuration's own
+    value at the model layer) -- the "unset means use straightRightDuration"
+    behaviour lives in FixedTimeSignalController, not here."""
+    ctrl = ControllerSection()
+    assert ctrl.nsGreenDuration is None
+    assert ctrl.ewGreenDuration is None
+
+
+def test_controller_section_ns_ew_green_duration_accepts_valid_values() -> None:
+    ctrl = ControllerSection(nsGreenDuration=30.0, ewGreenDuration=20.0)
+    assert ctrl.nsGreenDuration == 30.0
+    assert ctrl.ewGreenDuration == 20.0
+
+
+def test_controller_section_ns_ew_green_duration_rejects_invalid_values() -> None:
+    # Same bounds as straightRightDuration: > 5, <= 120.
+    for invalid_value in (0, -5.0, 3.0, 121.0):
+        with pytest.raises(ValidationError):
+            ControllerSection(nsGreenDuration=invalid_value)
+        with pytest.raises(ValidationError):
+            ControllerSection(ewGreenDuration=invalid_value)
+
+
+def test_controller_section_ns_ew_green_duration_serialization_round_trip() -> None:
+    """Reproducibility/serialization: when set, the fields survive
+    model_dump(exclude_none=True) (the path POST /api/simulation/new and
+    run persistence both use); when unset, they are excluded entirely
+    rather than serialized as null, matching every other Optional duration
+    field's existing behaviour."""
+    with_override = ControllerSection(nsGreenDuration=30.0, ewGreenDuration=20.0)
+    dumped = with_override.model_dump(exclude_none=True)
+    assert dumped["nsGreenDuration"] == 30.0
+    assert dumped["ewGreenDuration"] == 20.0
+
+    without_override = ControllerSection()
+    dumped_default = without_override.model_dump(exclude_none=True)
+    assert "nsGreenDuration" not in dumped_default
+    assert "ewGreenDuration" not in dumped_default
