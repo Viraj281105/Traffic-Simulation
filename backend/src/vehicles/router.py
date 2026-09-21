@@ -30,6 +30,22 @@ _SENSOR_RANGE: float = 30.0  # meters — max 360° sensor reach
 _LOOK_AHEAD_LANES: int = 3  # how many route lanes to scan forward
 
 
+def _conn_lane_index(lane_id: str) -> Optional[int]:
+    """Extract the circulating lane index from a roundabout connection lane id.
+
+    Connection lane ids follow ``conn_{origin}_{lane_idx}_{turn}`` (see
+    RoadNetwork._get_or_create_connection_lane). Returns ``None`` if the id
+    doesn't match that shape.
+    """
+    parts = lane_id.split("_")
+    if len(parts) >= 3:
+        try:
+            return int(parts[2])
+        except ValueError:
+            return None
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -96,9 +112,20 @@ def find_leader(
         # Special logic for roundabouts: connection lanes circle the same roundabout, so
         # vehicles can be on different connection lane objects but physically follow each other if they are in the same lane index.
         if getattr(network, "is_roundabout", False) and lane.lane_id.startswith("conn"):
+            # Fallback only, for lanes with no circulating_radius metadata
+            # (e.g. hand-built Lane objects in tests that bypass
+            # RoadNetwork._get_or_create_connection_lane). A real roundabout
+            # connection lane always carries its own circulating_radius
+            # (see Lane.circulating_radius / network.py), which is what the
+            # cross-lane-object same-index case below actually uses — each
+            # circulating lane index has its own true radius, not the ring's
+            # overall average.
             inner_r = getattr(network, "inner_radius", 10.0)
             outer_r = getattr(network, "outer_radius", 20.0)
             avg_radius = (inner_r + outer_r) / 2.0
+            same_index_radius = getattr(lane, "circulating_radius", None)
+            if same_index_radius is None:
+                same_index_radius = avg_radius
 
             try:
                 my_lane_idx = int(lane.lane_id.split("_")[2])
@@ -129,23 +156,32 @@ def find_leader(
                 except (ValueError, IndexError):
                     pass
 
-                v_x, v_y = v.coords
-                theta_v = math.atan2(v_y, v_x)
+                if v.lane is vehicle.lane:
+                    # Exact arc-length distance: vehicle.position/v.position
+                    # already share the same coordinate system on the
+                    # identical connection-lane object, so no polar-angle/
+                    # avg_radius estimate is needed (or as precise) here.
+                    v_dist = dist_to_lane_start + (v.position - vehicle.position)
+                else:
+                    v_x, v_y = v.coords
+                    theta_v = math.atan2(v_y, v_x)
 
-                # Counter-clockwise angular distance from theta_self to theta_v
-                diff = (theta_v - theta_self) % (2 * math.pi)
+                    # Counter-clockwise angular distance from theta_self to theta_v
+                    diff = (theta_v - theta_self) % (2 * math.pi)
 
-                # Only consider vehicles that are actually ahead of us (within 270 degrees)
-                if diff < 1.5 * math.pi:
-                    arc_dist = avg_radius * diff
+                    # Only consider vehicles that are actually ahead of us in forward circular flow (within 180 degrees)
+                    if not (0.0 < diff <= math.pi):
+                        continue
+
+                    arc_dist = same_index_radius * diff
                     v_dist = dist_to_lane_start + arc_dist
 
-                    if v_dist > 0:
-                        gap = v_dist - (vehicle.length / 2.0 + v.length / 2.0)
-                        gap = max(0.0, gap)
-                        if gap < best_gap:
-                            best_gap = gap
-                            best_leader = v
+                if v_dist > 0:
+                    gap = v_dist - (vehicle.length / 2.0 + v.length / 2.0)
+                    gap = max(0.0, gap)
+                    if gap < best_gap:
+                        best_gap = gap
+                        best_leader = v
         else:
             # Scan vehicles on this lane
             for v in lane.get_vehicles():
@@ -162,13 +198,25 @@ def find_leader(
         # ── Layer 2: Virtual obstacles (signal stop-lines) ─────────────
         virtual_obs = getattr(lane, "virtual_obstacle", None)
         if virtual_obs is not None:
-            obs_dist = accumulated_dist + virtual_obs.position
-            if obs_dist > 0:
-                gap = obs_dist - (vehicle.length / 2.0 + virtual_obs.length / 2.0)
-                gap = max(0.0, gap)
-                if gap < best_gap:
-                    best_gap = gap
-                    best_leader = virtual_obs
+            # Check if this is a yellow clearance obstacle
+            is_yellow = getattr(virtual_obs, "is_yellow", False)
+            if is_yellow and i == curr_idx:
+                # Dilemma zone calculation: if vehicle cannot safely stop comfortably before line, permit clearance
+                stopping_dist = (vehicle.speed**2) / (
+                    2.0 * max(getattr(vehicle, "comfort_deceleration", 3.0), 1.0)
+                )
+                dist_to_line = max(0.0, virtual_obs.position - vehicle.position)
+                if dist_to_line <= stopping_dist + vehicle.length:
+                    virtual_obs = None
+
+            if virtual_obs is not None:
+                obs_dist = accumulated_dist + virtual_obs.position
+                if obs_dist > 0:
+                    gap = obs_dist - (vehicle.length / 2.0 + virtual_obs.length / 2.0)
+                    gap = max(0.0, gap)
+                    if gap < best_gap:
+                        best_gap = gap
+                        best_leader = virtual_obs
 
         # If we already found something on this lane, no need to look further
         if best_leader is not None and i == curr_idx:
@@ -195,6 +243,7 @@ def find_leader(
                             ),
                             "connection_lane_id": av.lane.lane_id,
                             "position_on_lane": av.position,
+                            "speed": av.speed,
                         }
                     )
 
@@ -227,6 +276,8 @@ def find_leader(
                     vehicle_position_on_lane=pos_on_conn,
                     current_time=current_time,
                     all_vehicles_info=conn_vehicles_info,
+                    vehicle_speed=vehicle.speed,
+                    on_connection_lane=lane is vehicle.lane,
                 )
 
                 if block_dist < float("inf"):
@@ -267,10 +318,21 @@ def find_leader(
             id_a = vehicle.lane.lane_id.lower()
             id_b = other.lane.lane_id.lower()
             if getattr(network, "is_roundabout", False):
-                # In a roundabout, skip straight-line emergency check if either vehicle is on a connection lane
-                # because they are already tracked by the circular/arc-length logic in Layer 1.
-                if id_a.startswith("conn") or id_b.startswith("conn"):
-                    continue
+                # In a roundabout, vehicles circulating in the SAME lane
+                # index are already tracked by the angular arc-length logic
+                # in Layer 1 above, so skip them here to avoid double
+                # braking. Vehicles on DIFFERENT circulating lane indices
+                # (e.g. weaving between inner/outer rings near entries and
+                # exits) are NOT covered by Layer 1's same-lane-index
+                # restriction and are not handled by ConflictManager either
+                # (its straight-chord conflict points don't apply to curved
+                # circulating arcs — see vehicles/pool.py) — let this
+                # Euclidean proximity scan catch those cross-lane conflicts.
+                if id_a.startswith("conn") and id_b.startswith("conn"):
+                    idx_a = _conn_lane_index(id_a)
+                    idx_b = _conn_lane_index(id_b)
+                    if idx_a is not None and idx_a == idx_b:
+                        continue
             else:
                 if not id_a.startswith("conn") and not id_b.startswith("conn"):
                     if id_a[0] in ("n", "s", "e", "w") and id_a[:2] == id_b[:2]:

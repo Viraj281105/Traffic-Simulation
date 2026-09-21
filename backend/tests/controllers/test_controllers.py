@@ -159,6 +159,25 @@ def test_base_controller_abstract_methods() -> None:
     dummy.reset()
 
 
+def test_fixed_time_signal_default_durations_match_canonical_contract() -> None:
+    """With no duration keys present at all, the controller's fallback
+    defaults must match the documented/canonical greenTime=30,
+    yellowTime=4, allRedTime=2
+    (docs/architecture/06-scenario-configuration-contract.md,
+    ControllerSection, CONFIG_SCHEMA) — not the previously-mismatched
+    straightRightDuration=15/yellowDuration=3 the controller used to fall
+    back to when neither alias was present."""
+    network = RoadNetwork()
+    network.setup_default_intersection(
+        approach_length=100.0, lane_width=3.5, lanes_per_approach=2
+    )
+    ctrl = FixedTimeSignalController({}, network)
+    assert ctrl.straight_right_duration == 30.0
+    assert ctrl.yellow_duration == 4.0
+    assert ctrl.all_red_duration == 2.0
+    assert ctrl.left_duration == 5.0
+
+
 def test_fixed_time_signal_legacy_config_and_lane_intents() -> None:
     network = RoadNetwork()
     network.setup_default_intersection(
@@ -188,7 +207,10 @@ def test_fixed_time_signal_legacy_config_and_lane_intents() -> None:
     # Test _lane_turn_intent
     assert len(FixedTimeSignalController._lane_turn_intent(0, 1)) == 3
     assert FixedTimeSignalController._lane_turn_intent(0, 2) == (TurnIntent.LEFT,)
-    assert FixedTimeSignalController._lane_turn_intent(1, 2) == (TurnIntent.STRAIGHT, TurnIntent.RIGHT)
+    assert FixedTimeSignalController._lane_turn_intent(1, 2) == (
+        TurnIntent.STRAIGHT,
+        TurnIntent.RIGHT,
+    )
     assert FixedTimeSignalController._lane_turn_intent(0, 3) == (TurnIntent.LEFT,)
     assert FixedTimeSignalController._lane_turn_intent(1, 3) == (TurnIntent.STRAIGHT,)
     assert FixedTimeSignalController._lane_turn_intent(2, 3) == (TurnIntent.RIGHT,)
@@ -214,6 +236,138 @@ def test_fixed_time_signal_cycle_wrap_and_missing_approach() -> None:
     for p in ctrl.phases:
         ctrl.update(p.duration + 0.01, [])
     assert ctrl.cycle_number > initial_cycles
+
+
+def test_fixed_time_signal_phase_sequence_single_direction_groups() -> None:
+    """phaseSequence entries n/s/e/w each activate exactly one approach."""
+    network = RoadNetwork()
+    network.setup_default_intersection(
+        approach_length=100.0, lane_width=3.5, lanes_per_approach=2
+    )
+    config = {
+        "controller": {
+            "straightRightDuration": 10,
+            "yellowDuration": 3,
+            "allRedDuration": 2,
+            "phaseSequence": ["n_green", "n_yellow", "all_red", "e_green"],
+        }
+    }
+    controller = FixedTimeSignalController(config, network)
+    names = [p.name for p in controller.phases]
+    assert names == ["n_green", "n_yellow", "all_red", "e_green"]
+    assert controller.phases[0].directions == (Direction.NORTH,)
+    assert controller.phases[0].color == "green"
+    assert controller.phases[0].duration == 10.0
+    assert controller.phases[1].color == "yellow"
+    assert controller.phases[1].duration == 3.0
+    assert controller.phases[2].directions == ()
+    assert controller.phases[2].duration == 2.0
+    assert controller.phases[3].directions == (Direction.EAST,)
+
+
+def test_fixed_time_signal_phase_sequence_paired_group_synonyms() -> None:
+    """ns/sn and ew/we are order-invariant synonyms for the same paired
+    approach group."""
+    network = RoadNetwork()
+    network.setup_default_intersection(
+        approach_length=100.0, lane_width=3.5, lanes_per_approach=2
+    )
+    config = {
+        "controller": {
+            "phaseSequence": ["ns_green", "sn_green", "ew_green", "we_green"],
+        }
+    }
+    controller = FixedTimeSignalController(config, network)
+    assert controller.phases[0].directions == (Direction.NORTH, Direction.SOUTH)
+    assert controller.phases[1].directions == (Direction.NORTH, Direction.SOUTH)
+    assert controller.phases[2].directions == (Direction.EAST, Direction.WEST)
+    assert controller.phases[3].directions == (Direction.EAST, Direction.WEST)
+    # All turn intents (including permissive left) are allowed in a paired
+    # group phase — arbitrated by ConflictManager, not a protected sub-phase.
+    assert set(controller.phases[0].allowed_turns) == {
+        TurnIntent.LEFT,
+        TurnIntent.STRAIGHT,
+        TurnIntent.RIGHT,
+    }
+
+
+def test_fixed_time_signal_phase_sequence_invalid_entry_raises() -> None:
+    network = RoadNetwork()
+    network.setup_default_intersection(
+        approach_length=100.0, lane_width=3.5, lanes_per_approach=2
+    )
+    config = {"controller": {"phaseSequence": ["ns_green", "bogus_entry"]}}
+    with pytest.raises(ValueError, match="Unsupported phaseSequence entry"):
+        FixedTimeSignalController(config, network)
+
+
+def test_fixed_time_signal_offset_shifts_initial_phase() -> None:
+    """A non-zero `offset` seeds the controller's phase cursor forward at
+    construction time (reset() calls `_advance_by(offset % total_cycle)`),
+    so two controllers built from the identical phaseSequence/durations but
+    different offsets must actually start the simulation at different
+    points in the signal cycle -- not merely store/parse the offset value.
+
+    Cycle: ["ns_green" (10s), "ew_green" (10s)] -> total duration 20s.
+    """
+    network = RoadNetwork()
+    network.setup_default_intersection(
+        approach_length=100.0, lane_width=3.5, lanes_per_approach=2
+    )
+
+    controller_config = {
+        "straightRightDuration": 10.0,
+        "phaseSequence": ["ns_green", "ew_green"],
+    }
+
+    # No offset: cycle starts at the first configured phase, elapsed 0s.
+    baseline = FixedTimeSignalController({"controller": controller_config}, network)
+    assert baseline.current_phase_idx == 0
+    assert baseline.current_phase.name == "ns_green"
+    assert baseline.current_phase.directions == (Direction.NORTH, Direction.SOUTH)
+    assert baseline.time_in_current_state == 0.0
+
+    # offset == exactly one full phase duration (10s): the controller must
+    # start one phase ahead of the baseline, at 0s elapsed into that phase.
+    offset_10 = FixedTimeSignalController(
+        {"controller": {**controller_config, "offset": 10.0}}, network
+    )
+    assert offset_10.current_phase_idx == 1
+    assert offset_10.current_phase.name == "ew_green"
+    assert offset_10.current_phase.directions == (Direction.EAST, Direction.WEST)
+    assert offset_10.time_in_current_state == 0.0
+    assert offset_10.phase_time_remaining == 10.0
+
+    # A partial-phase offset (14s = one full phase + 4s) must leave a
+    # matching remainder of time_in_current_state within the next phase,
+    # not just snap to the next phase boundary.
+    offset_14 = FixedTimeSignalController(
+        {"controller": {**controller_config, "offset": 14.0}}, network
+    )
+    assert offset_14.current_phase_idx == 1
+    assert offset_14.current_phase.name == "ew_green"
+    assert offset_14.time_in_current_state == 4.0
+    assert offset_14.phase_time_remaining == 6.0
+
+    # offset wraps modulo the total cycle duration (20s): offset=30
+    # (== 20 + 10) must land at exactly the same state as offset=10.
+    offset_30 = FixedTimeSignalController(
+        {"controller": {**controller_config, "offset": 30.0}}, network
+    )
+    assert offset_30.current_phase_idx == offset_10.current_phase_idx
+    assert offset_30.current_phase.name == offset_10.current_phase.name
+    assert offset_30.time_in_current_state == offset_10.time_in_current_state
+
+    # The offset's effect is externally visible through get_state(), which
+    # is what the API/frontend actually observe -- not just internal state.
+    state = offset_10.get_state()
+    assert state["currentPhase"] == "ew_green"
+    assert state["activeDirection"] == "east+west"
+    for sig in state["signals"]:
+        if sig["direction"] in ("east", "west"):
+            assert sig["color"] == "green"
+        else:
+            assert sig["color"] == "red"
 
 
 def test_roundabout_missing_approach_and_yielding_metrics() -> None:
@@ -291,3 +445,154 @@ def test_roundabout_circular_leader_detection() -> None:
     leader, gap = find_leader(veh_b, network=network, active_vehicles=[veh_a, veh_b])
     # It should identify veh_a as the leader
     assert leader is veh_a
+
+
+def test_roundabout_entry_speed_cap_and_restore() -> None:
+    """The roundabout applies a three-stage speed regime.
+
+    approach -> entrySpeed, circulating -> circulatingSpeed, exit -> restored.
+
+    The circulating stage used to be missing: reaching a connection lane
+    restored the vehicle's full desired speed, so circulatingSpeed was accepted
+    and documented but never applied. Vehicles then circulated far faster than
+    the ring geometry permits, which is what made entry gap acceptance
+    meaningless.
+    """
+    from src.roads.lane import Lane
+
+    network = RoadNetwork()
+    network.setup_default_intersection(
+        approach_length=100.0, lane_width=3.5, lanes_per_approach=1
+    )
+    config = {
+        "controller": {
+            "innerRadius": 10.0,
+            "outerRadius": 20.0,
+            "criticalGap": 4.0,
+            "followUpTime": 0.0,
+            "entrySpeed": 5.0,
+            "circulatingSpeed": 8.0,
+        }
+    }
+    controller = RoundaboutController(config, network)
+
+    lane = network.get_incoming_approach(Direction.NORTH).get_lanes()[0]
+
+    # Far from the entry: desired_speed is untouched.
+    veh = Vehicle(
+        "v_entry",
+        length=4.0,
+        width=2.0,
+        desired_speed=15.0,
+        route=[lane],
+        start_position=0.0,
+        initial_speed=10.0,
+    )
+    lane.add_vehicle(veh)
+    controller.update(0.1, [veh])
+    assert veh.desired_speed == 15.0
+
+    # Within the entry zone: desired_speed is capped at entrySpeed.
+    veh.position = lane.length - 2.0
+    controller.update(0.1, [veh])
+    assert veh.desired_speed == 5.0
+
+    # A slower vehicle's desired_speed is left alone (cap, not a floor).
+    veh_slow = Vehicle(
+        "v_slow",
+        length=4.0,
+        width=2.0,
+        desired_speed=3.0,
+        route=[lane],
+        start_position=lane.length - 1.0,
+        initial_speed=3.0,
+    )
+    lane.add_vehicle(veh_slow)
+    controller.update(0.1, [veh, veh_slow])
+    assert veh_slow.desired_speed == 3.0
+
+    # Circulating: capped to circulatingSpeed, NOT restored to free-flow.
+    lane.remove_vehicle(veh)
+    conn_lane = Lane("conn_north_0_straight", 0.0, 0.0, 10.0, 0.0)
+    veh.lane = conn_lane
+    controller.update(0.1, [veh, veh_slow])
+    assert veh.desired_speed == 8.0
+
+    # A vehicle slower than the circulating cap keeps its own speed.
+    veh_slow.lane = conn_lane
+    controller.update(0.1, [veh, veh_slow])
+    assert veh_slow.desired_speed == 3.0
+
+    # Clear of the roundabout: the vehicle's own desired speed is restored.
+    out_lane = network.get_outgoing_approach(Direction.SOUTH).get_lanes()[0]
+    veh.lane = out_lane
+    controller.update(0.1, [veh])
+    assert veh.desired_speed == 15.0
+
+
+def test_roundabout_follow_up_time_gates_consecutive_entries() -> None:
+    """followUpTime holds the next vehicle at a lane's entry for a spacing
+    period after the previous vehicle from that lane completed its entry
+    (actually left the lane), even with no conflicting circulating
+    traffic."""
+    network = RoadNetwork()
+    network.setup_default_intersection(
+        approach_length=100.0, lane_width=3.5, lanes_per_approach=1
+    )
+    config = {
+        "controller": {
+            "innerRadius": 10.0,
+            "outerRadius": 20.0,
+            "criticalGap": 4.0,
+            "followUpTime": 2.0,
+            "entrySpeed": 5.0,
+            "circulatingSpeed": 8.0,
+        }
+    }
+    controller = RoundaboutController(config, network)
+    lane = network.get_incoming_approach(Direction.NORTH).get_lanes()[0]
+
+    veh_a = Vehicle(
+        "v_a",
+        length=4.0,
+        width=2.0,
+        desired_speed=5.0,
+        route=[lane],
+        start_position=lane.length - 1.0,
+        initial_speed=5.0,
+    )
+    lane.add_vehicle(veh_a)
+
+    # No circulating traffic, so the gap-acceptance check alone clears
+    # veh_a to enter.
+    controller.update(0.1, [veh_a])
+    assert lane.virtual_obstacle is None
+
+    # veh_a actually crosses into the roundabout (leaves this lane), and
+    # veh_b arrives right behind it at the entry.
+    lane.remove_vehicle(veh_a)
+    veh_b = Vehicle(
+        "v_b",
+        length=4.0,
+        width=2.0,
+        desired_speed=5.0,
+        route=[lane],
+        start_position=lane.length - 1.0,
+        initial_speed=5.0,
+    )
+    lane.add_vehicle(veh_b)
+
+    # veh_a's departure is only detected at the end of this tick (after
+    # this tick's yield decision is made from the pre-departure state), so
+    # veh_b is still cleared on this one tick.
+    controller.update(0.1, [veh_b])
+    assert lane.virtual_obstacle is None
+
+    # From the next tick on, follow_up_time (measured from veh_a's
+    # detected departure) gates veh_b even with no circulating conflict.
+    controller.update(0.1, [veh_b])
+    assert lane.virtual_obstacle is not None
+
+    # After follow_up_time has elapsed, entry is clear again.
+    controller.update(2.5, [veh_b])
+    assert lane.virtual_obstacle is None

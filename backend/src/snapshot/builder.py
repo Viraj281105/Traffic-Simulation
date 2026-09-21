@@ -25,6 +25,17 @@ class SnapshotBuilder:
 
     def build(self) -> Dict[str, Any]:
         """Assembles a state dictionary conforming to snapshot.schema.json."""
+        # Hold the engine's lock for the whole build so this never reads a
+        # torn tick or has pool.active_vehicles/exited_vehicles mutated out
+        # from under it mid-iteration (see SimulationEngine.lock / .step()).
+        # Safe to call both from a REST/WebSocket handler (a different
+        # thread acquiring the lock) and from a tick callback running
+        # synchronously inside step() itself (RLock allows the reentrant
+        # acquisition on that same thread).
+        with self.engine.lock:
+            return self._build_locked()
+
+    def _build_locked(self) -> Dict[str, Any]:
         clock = self.engine.clock
         elapsed = clock.get_elapsed_time()
         dt = clock.time_step
@@ -40,12 +51,24 @@ class SnapshotBuilder:
             "exited": len(self.engine.pool.exited_vehicles),
         }
 
+        dir_map = {
+            "n": "north",
+            "s": "south",
+            "e": "east",
+            "w": "west",
+            "north": "north",
+            "south": "south",
+            "east": "east",
+            "west": "west",
+        }
+        is_roundabout = getattr(self.engine.network, "is_roundabout", False)
+
         # Active vehicles
         for v in self.engine.pool.active_vehicles:
             cx, cy = v.coords
             state_str = v.state.value.lower()
             if v.lane and v.lane.lane_id.startswith("conn"):
-                state_str = "crossing"
+                state_str = "in_roundabout" if is_roundabout else "crossing"
             elif v.lane and "roundabout" in v.lane.lane_id:
                 state_str = "in_roundabout"
 
@@ -59,10 +82,11 @@ class SnapshotBuilder:
             elif state_str == "in_roundabout":
                 counts["inRoundabout"] += 1
 
-            # Infer direction and turn intent
+            # Infer direction and turn intent conforming to schema enum (north, south, east, west)
             direction_str = "north"
             if v.route:
-                direction_str = v.route[0].lane_id.split("_")[0]
+                raw_dir = v.route[0].lane_id.split("_")[0].lower()
+                direction_str = dir_map.get(raw_dir, "north")
 
             # Turn intent
             turn_str = "straight"
@@ -96,11 +120,17 @@ class SnapshotBuilder:
                 }
             )
 
-        # Exited vehicles
-        for v in self.engine.pool.exited_vehicles:
+        # Exited vehicles - serialize up to the most recent 50 to keep payload bounded
+        # while snapshot["vehicleCounts"]["exited"] accurately records the full cumulative total
+        exited_to_serialize = self.engine.pool.exited_vehicles
+        if len(exited_to_serialize) > 50:
+            exited_to_serialize = exited_to_serialize[-50:]
+
+        for v in exited_to_serialize:
             direction_str = "north"
             if v.route:
-                direction_str = v.route[0].lane_id.split("_")[0]
+                raw_dir = v.route[0].lane_id.split("_")[0].lower()
+                direction_str = dir_map.get(raw_dir, "north")
             turn_str = "straight"
             turn_intent = getattr(v, "turn_intent", None)
             if turn_intent is not None:
@@ -144,6 +174,7 @@ class SnapshotBuilder:
             self.engine.pool.active_vehicles,
             self.engine.pool.exited_vehicles,
             self.engine.spawner.spawned_count if self.engine.spawner else 0,
+            self.engine.pool.collision_count,
         )
 
         # Map current queues for intersection object

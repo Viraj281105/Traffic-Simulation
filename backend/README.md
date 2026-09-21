@@ -1,6 +1,6 @@
 # Simulation Backend & Engine
 
-The simulation backend is a high-performance Python 3.11+ application. It features a physics-based simulation engine utilizing the **Intelligent Driver Model (IDM)**, custom traffic intersection controllers, live metrics collection, persistent SQLite storage, and a FastAPI wrapper providing REST controls and WebSocket streams.
+The simulation backend is a Python 3.11+ FastAPI application. It features a discrete-time simulation engine using the **Intelligent Driver Model (IDM)**, fixed-time signal and roundabout controllers, live metric collection, SQLite-backed study persistence, REST routes, and WebSocket snapshot streams. The complete current API workflow is in [../docs/operations.md](../docs/operations.md).
 
 **Owner:** Viraj Jadhao (Simulation/Data)
 **Tech Stack:** Python 3.11+, FastAPI, Uvicorn, Pydantic, SQLite, Pytest
@@ -21,14 +21,11 @@ backend/
 │   │   ├── base.py               # Abstract base class for controllers
 │   │   ├── fixed_time_signal.py  # Standard cyclic traffic signal phase generator
 │   │   ├── roundabout.py         # Yield-at-entry circular controller
-│   │   └── registry.py           # Controller instantiation mapper
 │   ├── database/                 # SQLite storage layer
-│   │   ├── db.py                 # SQLite engine & session generators
-│   │   ├── dao.py                # Database Access Object for runs & configs
-│   │   └── sweep_runner.py       # Parameter sweep scripting across volumes
-│   ├── intersection/             # Spatial intersection geometries
-│   │   ├── conflict_zones.py     # Yielding points and overlaps prevention
-│   │   └── geometry.py           # Coordinate converters and intersections
+│   │   ├── db.py                 # SQLite engine & connection context manager
+│   │   └── dao.py                # Database Access Object for runs & configs
+│   ├── intersection/             # Spatial intersection support
+│   │   └── conflict_manager.py   # Conflict-zone reservations
 │   ├── roads/                    # Topological road definitions
 │   │   ├── approach.py           # N/S/E/W entry/exit roads
 │   │   ├── lane.py               # Spatially oriented driving lanes
@@ -36,8 +33,7 @@ backend/
 │   ├── snapshot/                 # Simulation state serialization
 │   │   ├── buffer.py             # Windowed cache storing historical snapshots
 │   │   ├── builder.py            # Assembles snapshot models from live components
-│   │   ├── serializer.py         # Encodes snapshots to JSON compatible schemas
-│   │   └── dual_orchestrator.py  # Lockstep runner for side-by-side comparisons
+│   │   └── dual_orchestrator.py  # Parallel signal/roundabout comparison runner
 │   ├── vehicles/                 # Vehicle modeling & routing
 │   │   ├── idm.py                # Intelligent Driver Model math equations
 │   │   ├── pool.py               # Active vehicles manager (spawns & exits)
@@ -48,7 +44,7 @@ backend/
 │   │   ├── definitions/          # Standardized metric formulas
 │   │   │   ├── fairness.py       # Directional Fairness Index (DFI)
 │   │   │   ├── idle_loss.py      # Idle Opportunity Loss calculation
-│   │   │   ├── new_metrics.py    # Extended statistics (utilization, saturation)
+│   │   │   ├── derived_metrics.py # Derived speed, stability, and footprint metrics
 │   │   │   ├── queue_length.py   # Mean & Max Queue Sizes
 │   │   │   ├── speed_variance.py # Velocity variability checks
 │   │   │   ├── stop_count.py     # Hysteresis-based vehicle stops count
@@ -57,7 +53,7 @@ backend/
 │   │   │   └── wait_time.py      # Delay time spent below 1.0 m/s threshold
 │   │   ├── collector.py          # Central aggregator computing periodic metrics
 │   │   └── efficiency.py         # Normalized Master Efficiency Score calculator
-│   └── main.py                   # FastAPI routing, app bootsrapper, & socket server
+│   └── main.py                   # FastAPI routes, application startup, and sockets
 ├── tests/                        # Comprehensive unit & system test packages
 ├── requirements.txt              # Production pip dependencies
 ├── pyproject.toml                # Project configurations and black/ruff configurations
@@ -87,7 +83,7 @@ Where:
 ### 3. Snapshot Builder & Dual Orchestrator
 
 - **State Snapshots**: Periodically captures the physical coordinates, velocities, and light statuses at 10Hz and validates the output against `shared/schemas/snapshot.schema.json`.
-- **Lockstep Dual Simulation**: Runs the Fixed-Time and Roundabout simulation engines concurrently. Both engines consume identical seed streams ensuring the exact same vehicle generation intervals for mathematical parity.
+- **Dual Simulation**: Runs Fixed-Time and Roundabout engines concurrently with the same configured seed for comparative experiments; the engines are stepped independently rather than under a strict lockstep scheduler.
 
 ---
 
@@ -99,15 +95,20 @@ The database is built on SQLite (`simulation.db`) using raw SQL scripts managed 
 - **`simulation_runs` Table**: Records metadata (seed, controller type, status, simulation time, duration).
 - **`run_metrics` Table**: Keeps historical logs of the 10 performance metrics.
 
-### Automated Sweeper Script
+### Automated Volume Sweep
 
-To perform a sensitivity analysis across arrival rates ($0.1, 0.3, 0.5, 0.7$ vehicles/sec):
+To perform a sensitivity analysis across arrival rates, call the study API
+(implemented in `src/study/volume_sweep.py`):
 
 ```bash
-python -m src.database.sweep_runner
+curl -X POST http://localhost:8000/api/v1/study/sweeps/run \
+  -H "Content-Type: application/json" \
+  -d '{"arrivalRates": [0.1, 0.3, 0.5, 0.7]}'
 ```
 
-This stores all resulting metrics back to SQLite for comparisons.
+This stores all resulting metrics back to SQLite (`sweep_sessions` and
+`simulation_runs`) for comparisons, and the session can be retrieved later
+via `GET /api/v1/study/sweeps/{sessionId}`.
 
 ---
 
@@ -135,18 +136,38 @@ This stores all resulting metrics back to SQLite for comparisons.
 Run the FastAPI Web API:
 
 ```bash
-python -m src.main
+.venv\Scripts\python.exe -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 The API becomes available at `http://localhost:8000`. Interactive API Docs are served at `http://localhost:8000/docs`.
 
 ### Testing
 
-Execute unit tests:
+Execute the whole suite — nothing is excluded by default:
 
 ```bash
 python -m pytest
 ```
+
+Tests carrying the `slow` marker are the full-strength simulation sweeps in
+`tests/integration/test_signal_capacity.py` and
+`tests/integration/test_roundabout_conflicts.py`: multi-seed, multi-lane and
+multi-demand regressions where every case is a complete 120-240 s simulation.
+They dominate wall time, so CI splits them off rather than running them on
+every push:
+
+```bash
+# What the "Backend CI" job runs on every PR/push. Includes the conflict
+# geometry pins and a single-seed representative of each sweep.
+python -m pytest -m "not slow"
+
+# What the "Backend Slow Simulation Regression" job runs nightly, and what
+# you can trigger by hand from the Actions tab. Run this before a release.
+python -m pytest -m slow
+```
+
+The sweeps are selected away in the fast job, never weakened or skipped, and
+`python -m pytest` with no marker filter remains the complete run.
 
 ---
 
@@ -154,12 +175,12 @@ python -m pytest
 
 ### REST Control Endpoints
 
-- `POST /api/simulation/new`: Starts a new single-vehicle tracking simulation run using the input configuration.
+- `POST /api/simulation/new`: Creates a versioned in-memory simulation from a full scenario configuration.
 - `POST /api/simulation/start`: Activates the polling engine clock.
 - `POST /api/simulation/stop`: Pauses the running simulation engine.
 - `POST /api/simulation/reset`: Reinitializes the simulation state.
-- `POST /api/simulation/dual/play`: Boots lockstep dual simulations.
-- `POST /api/simulation/dual/pause`: Pauses lockstep dual simulations.
+- `POST /api/simulation/dual/play`: Starts or resumes the dual simulation.
+- `POST /api/simulation/dual/pause`: Pauses the dual simulation.
 - `POST /api/simulation/dual/reset`: Recreates both roundabout and signal configurations.
 
 ### WebSockets Stream Endpoints

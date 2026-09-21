@@ -108,7 +108,11 @@
       "properties": {
         "type": { "type": "string", "enum": ["fixed_time_signal", "roundabout"] },
         "timeInCurrentState": { "type": "number", "minimum": 0 },
-        "currentPhase": { "type": "string", "enum": ["ns_green", "ns_yellow", "ew_green", "ew_yellow", "all_red"] },
+        "currentPhase": {
+          "type": "string",
+          "description": "Name of the signal phase currently active. Covers both phase-plan vocabularies the controller can emit: a configured controller.phaseSequence entry ('all_red' or '<n|s|e|w|ns|sn|ew|we>_<green|yellow>'), and the default one-direction-at-a-time cycle used when phaseSequence is omitted ('<north|south|east|west>_<straight_right|left|yellow>' and 'all_red'). See docs/architecture/06-scenario-configuration-contract.md.",
+          "pattern": "^(all_red|(n|s|e|w|ns|sn|ew|we)_(green|yellow)|(north|south|east|west)_(straight_right|left|yellow))$"
+        },
         "phaseTimeRemaining": { "type": "number", "minimum": 0 },
         "cycleNumber": { "type": "integer", "minimum": 0 },
         "signals": {
@@ -151,7 +155,7 @@
         "totalStops": { "type": "integer", "minimum": 0 },
         "averageStopsPerVehicle": { "type": "number", "minimum": 0 },
         "speedVarianceIndex": { "type": "number", "minimum": 0 },
-        "travelTimeReliability": { "type": "number", "minimum": 0 },
+        "travelTimeReliability": { "type": ["number", "null"], "minimum": 0 },
         "idleOpportunityLoss": { "type": "number", "minimum": 0, "maximum": 1 },
         "directionalFairnessIndex": { "type": "number", "minimum": 0, "maximum": 1 },
         "activeVehicleCount": { "type": "integer", "minimum": 0 },

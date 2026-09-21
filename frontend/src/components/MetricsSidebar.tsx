@@ -20,8 +20,15 @@ const DIR_LABEL: Record<SignalDirection, string> = {
   west: "W",
 };
 
-function fmt(val: number | undefined, decimals = 1): string {
-  if (val === undefined) return "—";
+function fmt(val: number | null | undefined, decimals = 1): string {
+  if (
+    val === undefined ||
+    val === null ||
+    Number.isNaN(val) ||
+    !Number.isFinite(val)
+  ) {
+    return "—";
+  }
   return val.toFixed(decimals);
 }
 
@@ -72,7 +79,12 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
   );
 
   // Helper to compare metrics (true if A is better than B)
-  const compareBetter = (valA: number, valB: number, lowerIsBetter = true) => {
+  const compareBetter = (
+    valA: number | null,
+    valB: number | null,
+    lowerIsBetter = true,
+  ) => {
+    if (valA === null || valB === null) return null;
     if (valA === valB) return null;
     return lowerIsBetter
       ? valA < valB
@@ -88,10 +100,14 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
       let csv = "Metric Name,Fixed-Time Signal,Roundabout,Winner,Delta (%)\n";
       const addRow = (
         label: string,
-        valA: number,
-        valB: number,
+        valA: number | null,
+        valB: number | null,
         lowerIsBetter = true,
       ) => {
+        if (valA === null || valB === null) {
+          csv += `"${label}",—,—,N/A,—\n`;
+          return;
+        }
         const winner =
           valA === valB
             ? "Tie"
@@ -190,8 +206,8 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
       document.body.removeChild(link);
     } else if (snapshot && m) {
       let csv = "Metric Name,Value\n";
-      const addRow = (label: string, val: number | undefined) => {
-        csv += `"${label}",${val !== undefined ? val.toFixed(2) : "—"}\n`;
+      const addRow = (label: string, val: number | null | undefined) => {
+        csv += `"${label}",${val !== undefined && val !== null ? val.toFixed(2) : "—"}\n`;
       };
 
       addRow("Average Wait Time", m.averageWaitTime);

@@ -39,6 +39,10 @@ class SimulationEngine:
 
         self._tick_callbacks: List[Callable[[], None]] = []
         self._status_callbacks: List[Callable[[SimulationStatus], None]] = []
+        # Metric collectors driven by this engine. Tracked so reset() can
+        # clear their accumulated run state; the engine otherwise only ever
+        # reaches them indirectly, through a tick callback's closure.
+        self._collectors: List[Any] = []
 
         # Setup subsystems if config is provided
         self.network: RoadNetwork = RoadNetwork()
@@ -91,10 +95,40 @@ class SimulationEngine:
 
         self._thread: Optional[threading.Thread] = None
         self._stop_event: threading.Event = threading.Event()
-        self._lock: threading.Lock = threading.Lock()
+        # RLock (not Lock): step() holds this for its entire body, and tick
+        # callbacks invoked from within step() (e.g. SnapshotBuilder.build(),
+        # see snapshot/builder.py) re-acquire it on the same thread. A plain
+        # Lock would deadlock in that case.
+        self._lock: threading.RLock = threading.RLock()
+
+    @property
+    def lock(self) -> threading.RLock:
+        """Public accessor for the engine's synchronization lock.
+
+        Any code that reads live simulation state (``pool.active_vehicles``,
+        ``pool.exited_vehicles``, or anything derived from them) from outside
+        the simulation's own background thread — REST handlers, snapshot
+        builders, WebSocket loops — must hold this lock for the duration of
+        the read. ``step()`` mutates that state while holding the same lock,
+        so this guarantees readers only ever see a fully-completed tick, not
+        a torn/partially-updated one, and never iterate a list while it is
+        being mutated.
+        """
+        return self._lock
 
     def register_tick_callback(self, callback: Callable[[], None]) -> None:
         self._tick_callbacks.append(callback)
+
+    def register_collector(self, collector: Any) -> None:
+        """Track a metric collector so :meth:`reset` can clear it too.
+
+        Registering the same collector twice is a no-op, so wiring it up both
+        explicitly and via build_tick_callback stays safe.
+        """
+        if collector is not None and not any(
+            existing is collector for existing in self._collectors
+        ):
+            self._collectors.append(collector)
 
     def register_status_callback(
         self, callback: Callable[[SimulationStatus], None]
@@ -187,37 +221,64 @@ class SimulationEngine:
             thread_to_join.join()
 
         with self._lock:
+            # Every subsystem that carries run state must be returned to its
+            # initial condition, or a "reset" simulation silently continues
+            # the previous one. This used to reset only the clock, the spawner
+            # and the two vehicle lists, leaving the signal controller
+            # mid-cycle, the metric collector holding the previous run's
+            # queue history and tick counts, and the pool's collision tally
+            # already non-zero — so the first metrics read after a reset
+            # described a run that no longer existed.
             self.clock.reset()
+
             if self.spawner is not None:
                 self.spawner.reset()
-            self.pool.active_vehicles.clear()
-            self.pool.exited_vehicles.clear()
+
+            self.pool.reset()
+
+            # Conflict-zone reservations are keyed by vehicle id and expire on
+            # simulation time, which has just gone back to zero; stale entries
+            # would block the new run's vehicles out of zones nobody occupies.
+            self.conflict_manager.reset_reservations()
+
+            if self.controller is not None:
+                self.controller.reset()
+
+            for collector in self._collectors:
+                collector.reset()
+
             self._transition_to(SimulationStatus.INITIALIZED)
 
     def step(self) -> None:
-        if self.status == SimulationStatus.COMPLETED:
-            raise RuntimeError("Cannot step simulation in 'completed' status")
+        # Holding the lock for the whole tick ensures any concurrent reader
+        # (REST handlers, SnapshotBuilder, WebSocket loops — see the `lock`
+        # property above) either observes the fully-completed previous tick
+        # or waits for this one to finish; it never sees pool.active_vehicles
+        # mid-mutation or changing size while being iterated.
+        with self._lock:
+            if self.status == SimulationStatus.COMPLETED:
+                raise RuntimeError("Cannot step simulation in 'completed' status")
 
-        self.clock.tick()
+            self.clock.tick()
 
-        # Generate new arrivals
-        if self.spawner is not None:
-            new_vehs = self.spawner.step(self.clock.time_step)
-            for v in new_vehs:
-                self.pool.add_vehicle(v)
+            # Generate new arrivals
+            if self.spawner is not None:
+                new_vehs = self.spawner.step(self.clock.time_step)
+                for v in new_vehs:
+                    self.pool.add_vehicle(v)
 
-        # Update controller BEFORE physics update to ensure zero-latency yield/signal response
-        controller = getattr(self, "controller", None)
-        if controller is not None:
-            controller.update(self.clock.time_step, self.pool.active_vehicles)
+            # Update controller BEFORE physics update to ensure zero-latency yield/signal response
+            controller = getattr(self, "controller", None)
+            if controller is not None:
+                controller.update(self.clock.time_step, self.pool.active_vehicles)
 
-        # Update spatial states of all vehicles (pool reads conflict_manager from engine)
-        self.pool.update(self.clock.time_step, self)
+            # Update spatial states of all vehicles (pool reads conflict_manager from engine)
+            self.pool.update(self.clock.time_step, self)
 
-        # Run registered tick callbacks
-        for cb in self._tick_callbacks:
-            cb()
+            # Run registered tick callbacks
+            for cb in self._tick_callbacks:
+                cb()
 
-        # Stop conditions check
-        if self.clock.get_elapsed_time() >= self.duration:
-            self._transition_to(SimulationStatus.COMPLETED)
+            # Stop conditions check
+            if self.clock.get_elapsed_time() >= self.duration:
+                self._transition_to(SimulationStatus.COMPLETED)

@@ -9,10 +9,15 @@ class ConfigurationDAO:
     @staticmethod
     def save(conn: sqlite3.Connection, config_id: str, config: Dict[str, Any]) -> None:
         cursor = conn.cursor()
-        cursor.execute(
-            "INSERT OR REPLACE INTO configurations (id, config_json) VALUES (?, ?);",
-            (config_id, json.dumps(config)),
-        )
+        try:
+            cursor.execute(
+                "INSERT OR REPLACE INTO configurations (id, config_json) VALUES (?, ?);",
+                (config_id, json.dumps(config)),
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
 
     @staticmethod
     def get(conn: sqlite3.Connection, config_id: str) -> Optional[Dict[str, Any]]:
@@ -27,41 +32,134 @@ class ConfigurationDAO:
 
 
 class SimulationRunDAO:
-    """DAO for tracking simulation runs."""
+    """DAO for tracking simulation runs with rich metadata, seeds, configs, and summary metrics."""
 
     @staticmethod
     def save(
-        conn: sqlite3.Connection, run_id: str, status: str, elapsed: float
+        conn: sqlite3.Connection,
+        run_id: str,
+        status: str,
+        elapsed: float,
+        intersection_type: str = "unknown",
+        random_seed: Optional[int] = None,
+        arrival_rate: float = 0.5,
+        duration: Optional[float] = None,
+        batch_id: Optional[str] = None,
+        config: Optional[Dict[str, Any]] = None,
+        summary_metrics: Optional[Dict[str, Any]] = None,
     ) -> None:
         cursor = conn.cursor()
-        cursor.execute(
-            "INSERT OR REPLACE INTO simulation_runs (id, status, elapsed) VALUES (?, ?, ?);",
-            (run_id, status, elapsed),
+        config_str = json.dumps(config) if config is not None else "{}"
+        metrics_str = (
+            json.dumps(summary_metrics) if summary_metrics is not None else "{}"
         )
+        seed_val = random_seed if random_seed is not None else 0
+        dur_val = duration if duration is not None else elapsed
+
+        try:
+            cursor.execute(
+                """
+                INSERT OR REPLACE INTO simulation_runs (
+                    id, status, elapsed, intersection_type, random_seed, arrival_rate,
+                    duration, batch_id, config_json, summary_metrics_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                """,
+                (
+                    run_id,
+                    status,
+                    elapsed,
+                    intersection_type,
+                    seed_val,
+                    arrival_rate,
+                    dur_val,
+                    batch_id,
+                    config_str,
+                    metrics_str,
+                ),
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
 
     @staticmethod
     def get(conn: sqlite3.Connection, run_id: str) -> Optional[Dict[str, Any]]:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT id, status, elapsed, created_at FROM simulation_runs WHERE id = ?;",
+            """
+            SELECT id, status, elapsed, intersection_type, random_seed, arrival_rate,
+                   duration, batch_id, config_json, summary_metrics_json, created_at
+            FROM simulation_runs WHERE id = ?;
+            """,
             (run_id,),
         )
         row = cursor.fetchone()
         if row:
-            return dict(row)
+            data = dict(row)
+            try:
+                data["config"] = json.loads(data.get("config_json") or "{}")
+            except Exception:
+                data["config"] = {}
+            try:
+                data["summary_metrics"] = json.loads(
+                    data.get("summary_metrics_json") or "{}"
+                )
+            except Exception:
+                data["summary_metrics"] = {}
+            return data
         return None
 
     @staticmethod
     def list_runs(
-        conn: sqlite3.Connection, limit: int = 50, offset: int = 0
+        conn: sqlite3.Connection,
+        limit: int = 50,
+        offset: int = 0,
+        intersection_type: Optional[str] = None,
+        seed: Optional[int] = None,
+        batch_id: Optional[str] = None,
     ) -> list[Dict[str, Any]]:
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT id, status, elapsed, created_at FROM simulation_runs ORDER BY created_at DESC LIMIT ? OFFSET ?;",
-            (limit, offset),
-        )
+        query = """
+            SELECT id, status, elapsed, intersection_type, random_seed, arrival_rate,
+                   duration, batch_id, config_json, summary_metrics_json, created_at
+            FROM simulation_runs
+        """
+        conditions = []
+        params: list[Any] = []
+
+        if intersection_type:
+            conditions.append("intersection_type = ?")
+            params.append(intersection_type)
+        if seed is not None:
+            conditions.append("random_seed = ?")
+            params.append(seed)
+        if batch_id:
+            conditions.append("batch_id = ?")
+            params.append(batch_id)
+
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+
+        query += " ORDER BY created_at DESC LIMIT ? OFFSET ?;"
+        params.extend([limit, offset])
+
+        cursor.execute(query, tuple(params))
         rows = cursor.fetchall()
-        return [dict(r) for r in rows]
+        result = []
+        for r in rows:
+            item = dict(r)
+            try:
+                item["config"] = json.loads(item.get("config_json") or "{}")
+            except Exception:
+                item["config"] = {}
+            try:
+                item["summary_metrics"] = json.loads(
+                    item.get("summary_metrics_json") or "{}"
+                )
+            except Exception:
+                item["summary_metrics"] = {}
+            result.append(item)
+        return result
 
 
 class RunMetricsDAO:
@@ -72,10 +170,15 @@ class RunMetricsDAO:
         conn: sqlite3.Connection, run_id: str, tick: int, metrics: Dict[str, Any]
     ) -> None:
         cursor = conn.cursor()
-        cursor.execute(
-            "INSERT OR REPLACE INTO run_metrics (run_id, tick, metrics_json) VALUES (?, ?, ?);",
-            (run_id, tick, json.dumps(metrics)),
-        )
+        try:
+            cursor.execute(
+                "INSERT OR REPLACE INTO run_metrics (run_id, tick, metrics_json) VALUES (?, ?, ?);",
+                (run_id, tick, json.dumps(metrics)),
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
 
     @staticmethod
     def get_all_for_run(conn: sqlite3.Connection, run_id: str) -> list[Dict[str, Any]]:
@@ -123,10 +226,15 @@ class SweepSessionDAO:
         results: Dict[str, Any],
     ) -> None:
         cursor = conn.cursor()
-        cursor.execute(
-            "INSERT OR REPLACE INTO sweep_sessions (id, name, config_json, results_json) VALUES (?, ?, ?, ?);",
-            (session_id, name, json.dumps(config), json.dumps(results)),
-        )
+        try:
+            cursor.execute(
+                "INSERT OR REPLACE INTO sweep_sessions (id, name, config_json, results_json) VALUES (?, ?, ?, ?);",
+                (session_id, name, json.dumps(config), json.dumps(results)),
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
 
     @staticmethod
     def get(conn: sqlite3.Connection, session_id: str) -> Optional[Dict[str, Any]]:

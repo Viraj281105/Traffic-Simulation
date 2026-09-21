@@ -1,0 +1,114 @@
+server {
+    listen 8080;
+    listen [::]:8080;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Hide the nginx version from the Server response header.
+    server_tokens off;
+
+    # Baseline security headers.
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    # 'unsafe-inline' is kept for style-src only (React/Recharts inline
+    # style attributes for layout/SVG), not for script-src, to avoid
+    # breaking the app while still blocking injected <script> execution.
+    # connect-src covers both the proxied REST calls and the /ws/*
+    # WebSocket streams (same-origin, see the proxy blocks below).
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'self'; frame-ancestors 'none';" always;
+
+    # Gzip Compression for fast delivery over network
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types
+        text/plain
+        text/css
+        text/xml
+        text/javascript
+        application/json
+        application/javascript
+        application/x-javascript
+        application/xml
+        image/svg+xml;
+
+    # Static assets caching
+    location ~* \.(?:css|js|jpg|jpeg|gif|png|ico|cur|gz|svg|svgz|mp4|ogg|ogv|webm|htc|woff|woff2)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+
+    # Frontend Single Page App routing fallback
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Optional access gate.
+    #
+    # Anything dropped into /etc/nginx/auth-gate/ as a .conf file is included
+    # here — typically an `auth_basic` + `auth_basic_user_file` pair, to put the
+    # whole demo behind a password. The glob matches nothing by default, so the
+    # demo stays open unless a deployment chooses otherwise. See
+    # docs/operations.md.
+    include /etc/nginx/auth-gate/*.conf;
+
+    # Backend REST API reverse proxy
+    location /api/ {
+        proxy_pass http://backend:8000/api/;
+        proxy_http_version 1.1;
+
+        # Attach the backend's API key on the server side.
+        #
+        # The backend can require `Authorization: Bearer <API_KEY>` on its
+        # mutating and compute-heavy routes, but the browser app cannot supply
+        # it: anything the bundle carries is public, so shipping the key to the
+        # client would be no protection at all. Previously that made API_KEY and
+        # a working browser demo mutually exclusive — enabling one broke the
+        # other.
+        #
+        # Injecting the header at the proxy resolves that. The key never leaves
+        # the server, the frontend needs no change, and the backend is protected
+        # against anything that reaches it directly rather than through here
+        # (in the production compose topology the backend publishes no ports at
+        # all). Restricting *who* may use the demo through this proxy is the
+        # separate concern handled by the access gate above.
+        #
+        # Substituted from BACKEND_API_KEY at container start; when that is
+        # empty the header is inert, because the backend disables the check
+        # when its own API_KEY is unset.
+        proxy_set_header Authorization "Bearer ${BACKEND_API_KEY}";
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Backend WebSocket reverse proxy
+    location /ws/ {
+        proxy_pass http://backend:8000/ws/;
+        proxy_http_version 1.1;
+        # Same server-side key injection as /api/ above.
+        proxy_set_header Authorization "Bearer ${BACKEND_API_KEY}";
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+    }
+
+    # Health check endpoint proxy
+    location /health {
+        proxy_pass http://backend:8000/health;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+}

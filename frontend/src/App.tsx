@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useWebSocketSnapshot } from "./hooks/useWebSocketSnapshot";
 import { useSimulationPolling } from "./hooks/useSimulationPolling";
+import { useContainerSize } from "./hooks/useContainerSize";
 import { IntersectionMap } from "./components/IntersectionMap";
 import { RoundaboutMap } from "./components/RoundaboutMap";
 import { MetricsSidebar } from "./components/MetricsSidebar";
@@ -10,8 +11,12 @@ import {
 } from "./components/ComparativeDashboard";
 import { PlaybackControls } from "./components/PlaybackControls";
 import { HistoryDashboard, SavedReplay } from "./components/HistoryDashboard";
-import { updateSimulationConfig } from "./services/api";
-import { API_BASE_URL } from "./config";
+import { VolumeAnalysisDashboard } from "./components/VolumeAnalysisDashboard";
+import { ValidationDashboard } from "./components/ValidationDashboard";
+import { ConfigurationSidebar } from "./components/ConfigurationSidebar";
+import { Sun, Moon } from "lucide-react";
+import type { SimulationConfigValues } from "./types/config";
+import { saveReplay, updateSimulationConfig } from "./services/api";
 import type {
   LiveSnapshot,
   DualSnapshot,
@@ -21,10 +26,26 @@ import "./App.css";
 
 export function App() {
   const [viewMode, setViewMode] = useState<
-    "signal" | "roundabout" | "comparative" | "single" | "history"
+    | "signal"
+    | "roundabout"
+    | "comparative"
+    | "single"
+    | "history"
+    | "volume"
+    | "validation"
   >("comparative");
   const [activeReplay, setActiveReplay] = useState<SavedReplay | null>(null);
+  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isLight, setIsLight] = useState(
+    () => sessionStorage.getItem("signals-theme") === "light",
+  );
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("light", isLight);
+    document.documentElement.classList.toggle("dark", !isLight);
+    sessionStorage.setItem("signals-theme", isLight ? "light" : "dark");
+  }, [isLight]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -90,22 +111,43 @@ export function App() {
     }
   }
 
-  // Canvas config state
-  const [lanes, setLanes] = useState(2);
+  // Canvas & Simulation config state
+  const [configValues, setConfigValues] = useState<SimulationConfigValues>(
+    () => ({
+      lanes: 2,
+      laneWidth: 3.5,
+      arrivalRate: 0.3,
+      duration: 300,
+      randomSeed: Math.floor(Math.random() * 1000000) + 1,
+      greenDuration: 25,
+      yellowDuration: 3,
+      allRedDuration: 2,
+      criticalGap: 4.5,
+      followUpTime: 2.8,
+    }),
+  );
   const [showStopLines, setShowStopLines] = useState(true);
   const [debug, setDebug] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
 
-  // Extra configurations
-  const [arrivalRate, setArrivalRate] = useState(0.3);
-  const [duration, setDuration] = useState(300);
-  const [randomSeed, setRandomSeed] = useState<number>(
-    () => Math.floor(Math.random() * 1000000) + 1,
-  );
+  // Derived config parameters
+  const lanes = configValues.lanes;
+  const laneWidth = configValues.laneWidth;
+  const arrivalRate = configValues.arrivalRate;
+  const duration = configValues.duration;
+  const randomSeed = configValues.randomSeed;
+  const greenDuration = configValues.greenDuration;
+  const yellowDuration = configValues.yellowDuration;
+  const allRedDuration = configValues.allRedDuration;
+  const criticalGap = configValues.criticalGap;
+  const followUpTime = configValues.followUpTime;
 
   const randomizeSeed = () => {
     setActiveReplay(null);
-    setRandomSeed(Math.floor(Math.random() * 1000000) + 1);
+    setConfigValues((prev) => ({
+      ...prev,
+      randomSeed: Math.floor(Math.random() * 1000000) + 1,
+    }));
   };
 
   // Dynamically compute width and intersection proportionally based on lanes count
@@ -113,13 +155,25 @@ export function App() {
   const lanesSouth = lanes;
   const lanesEast = lanes;
   const lanesWest = lanes;
-  const laneWidth = 3.0 + (lanes - 1) * 0.5;
   const intersectionSize = lanes * laneWidth * 2 + 4.0;
 
   const isDual = viewMode === "comparative";
 
+  // Measure canvas containers so maps fill available space
+  const [singleCanvasRef, singleCanvasSize] = useContainerSize();
+  const [compLeftRef, compLeftSize] = useContainerSize();
+  const [compRightRef, compRightSize] = useContainerSize();
+
+  // Compute square-free dimensions: take the full container width, limit height
+  // to the available height minus a small padding to avoid scrollbars.
+  const PADDING = 16;
+  const toCanvasSize = (w: number, h: number) => ({
+    width: Math.max(320, w - PADDING * 2),
+    height: Math.max(280, h - PADDING * 2),
+  });
+
   // Adjust state during render to avoid useEffect warnings
-  const configKey = lanes.toString();
+  const configKey = `${lanes.toString()}_${laneWidth.toString()}_${greenDuration.toString()}_${criticalGap.toString()}`;
 
   if (configKey !== prevConfigKey) {
     setPrevConfigKey(configKey);
@@ -154,7 +208,7 @@ export function App() {
     metricsSnapshotSingle = lastCompletedSnapshotSingle;
   }
 
-  // Sync config with backend on change (debounced to prevent flooding)
+  // Sync config with backend on change
   useEffect(() => {
     const intersectionType =
       viewMode === "roundabout" ? "roundabout" : "fixed_time_signal";
@@ -169,6 +223,11 @@ export function App() {
       arrivalRate,
       duration,
       randomSeed,
+      greenDuration,
+      yellowDuration,
+      allRedDuration,
+      criticalGap,
+      followUpTime,
     }).catch((err: unknown) => {
       console.error("Failed to update backend config:", err);
     });
@@ -184,7 +243,18 @@ export function App() {
     arrivalRate,
     duration,
     randomSeed,
+    greenDuration,
+    yellowDuration,
+    allRedDuration,
+    criticalGap,
+    followUpTime,
   ]);
+
+  const handleApplyConfig = (newConfig: SimulationConfigValues) => {
+    setActiveReplay(null);
+    setConfigValues(newConfig);
+    showToast("⚙️ Scenario configuration applied successfully!");
+  };
 
   // Map controls to appropriate hooks based on the active view mode
   const activeIsPlaying =
@@ -200,6 +270,7 @@ export function App() {
       : connectionStatus;
 
   const handlePlay = () => {
+    setActiveReplay(null);
     if (viewMode === "single") {
       singleStart().catch(() => {});
     } else {
@@ -297,12 +368,7 @@ export function App() {
       metrics: metricsToSave,
     };
 
-    fetch("http://localhost:8000/api/v1/replays", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-      .then((r) => r.json())
+    saveReplay(payload)
       .then(() => {
         showToast("✅ Simulation saved to history!");
       })
@@ -313,10 +379,17 @@ export function App() {
 
   const handleReplay = (replay: SavedReplay) => {
     setActiveReplay(replay);
-    setLanes(replay.config.roads?.lanesPerApproach?.north || 2);
-    setArrivalRate(replay.config.traffic?.arrivalRate || 0.3);
-    setDuration(replay.config.simulation?.duration || 300);
-    setRandomSeed(replay.config.simulation?.randomSeed || 42);
+    const replayLanes = replay.config.roads?.lanesPerApproach?.north || 2;
+    const replayWidth =
+      replay.config.geometry?.laneWidth || 3.0 + (replayLanes - 1) * 0.5;
+    setConfigValues((prev) => ({
+      ...prev,
+      lanes: replayLanes,
+      laneWidth: replayWidth,
+      arrivalRate: replay.config.traffic?.arrivalRate || 0.3,
+      duration: replay.config.simulation?.duration || 300,
+      randomSeed: replay.config.simulation?.randomSeed || 42,
+    }));
 
     const isDual =
       replay.metrics.signal !== undefined &&
@@ -334,15 +407,10 @@ export function App() {
       {/* ── Header ────────────────────────────────────────────────────── */}
       <header className="app-header">
         <div className="header-left">
-          <div className="header-logo">
-            <span className="logo-icon">🚦</span>
-            <div>
-              <h1 className="header-title">Traffic Simulation Comparison</h1>
-              <p className="header-sub">
-                Fixed-Time Signal vs. Modern Roundabout
-              </p>
-            </div>
-          </div>
+          <a className="brand" href="/" data-testid="link-brand">
+            <span className="brand-mark" aria-hidden="true" />
+            <span className="brand-name">URBANFLOW</span>
+          </a>
         </div>
 
         {/* View Mode Tabs */}
@@ -379,95 +447,86 @@ export function App() {
           >
             📚 History
           </button>
+          <button
+            className={`tab-btn ${viewMode === "volume" ? "active" : ""}`}
+            onClick={() => {
+              setViewMode("volume");
+            }}
+          >
+            📈 Volume Analysis
+          </button>
+          <button
+            className={`tab-btn ${viewMode === "validation" ? "active" : ""}`}
+            onClick={() => {
+              setViewMode("validation");
+            }}
+          >
+            🔬 Validation
+          </button>
         </div>
 
-        <div className="header-right">
+        <div
+          className="header-right"
+          style={{ display: "flex", gap: "16px", alignItems: "center" }}
+        >
           <button
-            className="config-toggle-btn"
+            className={`config-toggle-btn ${configOpen ? "active" : ""}`}
             onClick={() => {
               setConfigOpen((v) => !v);
             }}
+            title="Configure traffic volume, widths, signal timings & critical gaps"
           >
-            ⚙ Map Config
+            ⚙️ Scenario Settings
+          </button>
+          <button
+            className="theme-button"
+            type="button"
+            onClick={() => { setIsLight(c => !c); }}
+            aria-label={
+              isLight ? "Switch to dark mode" : "Switch to light mode"
+            }
+            data-testid="button-theme-toggle"
+          >
+            {isLight ? <Moon size={15} /> : <Sun size={15} />}
           </button>
         </div>
       </header>
 
-      {/* ── Config panel (collapsible) ────────────────────────────────── */}
-      {configOpen && (
-        <div className="config-panel">
-          <div className="config-grid">
-            <ConfigSlider
-              label="Lanes"
-              value={lanes}
-              min={1}
-              max={5}
-              step={1}
-              onChange={setLanes}
-            />
-            <ConfigSlider
-              label="Arrival Rate"
-              value={arrivalRate}
-              min={0.1}
-              max={1.0}
-              step={0.05}
-              onChange={setArrivalRate}
-            />
-            <ConfigSlider
-              label="Duration (s)"
-              value={duration}
-              min={60}
-              max={900}
-              step={10}
-              onChange={setDuration}
-            />
-            <div className="config-item">
-              <label className="config-label">Random Seed</label>
-              <div className="config-input-row">
-                <input
-                  type="number"
-                  value={randomSeed}
-                  onChange={(e) => {
-                    setRandomSeed(parseInt(e.target.value, 10) || 1);
-                  }}
-                  className="config-num-input"
-                  style={{
-                    width: "90px",
-                    padding: "4px 8px",
-                    borderRadius: "4px",
-                    border: "1px solid #444",
-                    background: "#222",
-                    color: "#fff",
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={randomizeSeed}
-                  className="pb-btn pb-secondary"
-                  style={{
-                    padding: "4px 8px",
-                    fontSize: "12px",
-                    marginLeft: "6px",
-                  }}
-                  title="Generate new random seed"
-                >
-                  🎲 Re-roll
-                </button>
-              </div>
-            </div>
-            <ConfigToggle
-              label="Stop Lines"
-              value={showStopLines}
-              onChange={setShowStopLines}
-            />
-            <ConfigToggle
-              label="Debug Queues"
-              value={debug}
-              onChange={setDebug}
-            />
+      {/* ── Quick Display Toggles & Status Bar ────────────────────────── */}
+      {viewMode !== "volume" && viewMode !== "validation" && viewMode !== "history" && (
+        <div className="quick-toggles-bar">
+          <ConfigToggle
+            label="Stop Lines"
+            value={showStopLines}
+            onChange={setShowStopLines}
+          />
+          <ConfigToggle label="Debug Queues" value={debug} onChange={setDebug} />
+          <div className="quick-seed-group">
+            <span className="seed-badge" title="Active Random Seed">
+              🎲 Seed: <strong>{randomSeed}</strong>
+            </span>
+            <button
+              type="button"
+              className="pb-btn pb-secondary re-roll-btn"
+              onClick={randomizeSeed}
+              title="Roll new random seed"
+            >
+              Re-roll
+            </button>
           </div>
         </div>
       )}
+
+      {/* ── Interactive Configuration Sidebar ────────────────────────── */}
+      <ConfigurationSidebar
+        isOpen={configOpen}
+        onClose={() => {
+          setConfigOpen(false);
+        }}
+        config={configValues}
+        onApply={handleApplyConfig}
+        isRoundaboutMode={viewMode === "roundabout"}
+      />
 
       {/* ── Main content ──────────────────────────────────────────────── */}
       {viewMode === "comparative" ? (
@@ -477,7 +536,7 @@ export function App() {
         >
           <div
             className="comparison-maps-row"
-            style={{ display: "flex", flex: 1.2, minHeight: 0 }}
+            style={{ display: "flex", flex: 1, minHeight: 0 }}
           >
             {/* Left Column: Fixed-Time Signal */}
             <div className="comparison-column" style={{ flex: 1 }}>
@@ -487,6 +546,7 @@ export function App() {
                 </span>
               </div>
               <div
+                ref={compLeftRef}
                 className="canvas-wrapper"
                 style={{
                   display: "flex",
@@ -494,6 +554,8 @@ export function App() {
                   alignItems: "flex-start",
                   gap: "16px",
                   padding: "0 16px",
+                  flex: 1,
+                  minHeight: 0,
                 }}
               >
                 <IntersectionMap
@@ -507,8 +569,9 @@ export function App() {
                   showCrosswalks={true}
                   showStopLines={showStopLines}
                   debug={debug}
-                  width={600}
-                  height={450}
+                  {...(compLeftSize.width > 0
+                    ? toCanvasSize(compLeftSize.width, compLeftSize.height)
+                    : { width: 520, height: 420 })}
                 />
                 {metricsSnapshotDual && (
                   <CompactVehicleStatePanel
@@ -524,6 +587,7 @@ export function App() {
                 <span className="column-title">🔄 Modern Roundabout</span>
               </div>
               <div
+                ref={compRightRef}
                 className="canvas-wrapper"
                 style={{
                   display: "flex",
@@ -531,15 +595,19 @@ export function App() {
                   alignItems: "flex-start",
                   gap: "16px",
                   padding: "0 16px",
+                  flex: 1,
+                  minHeight: 0,
                 }}
               >
                 <RoundaboutMap
                   snapshot={dualSnapshot?.roundabout ?? null}
                   laneWidth={laneWidth}
+                  lanes={lanesNorth}
                   showCrosswalks={false}
                   debug={debug}
-                  width={600}
-                  height={450}
+                  {...(compRightSize.width > 0
+                    ? toCanvasSize(compRightSize.width, compRightSize.height)
+                    : { width: 520, height: 420 })}
                 />
                 {metricsSnapshotDual && (
                   <CompactVehicleStatePanel
@@ -556,36 +624,27 @@ export function App() {
             </div>
           </div>
 
-          <div
-            className="comparison-metrics-row"
-            style={{
-              flex: 1,
-              minHeight: 0,
-              borderTop: "1px solid var(--border)",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <div
-              style={{
-                padding: "8px 16px",
-                display: "flex",
-                justifyContent: "flex-end",
-              }}
+          <div className="comparative-actions-bar">
+            <button
+              className="pb-btn pb-primary"
+              onClick={handleSaveHistory}
+              disabled={activeIsPlaying || activeReplay !== null}
+              title={
+                activeReplay
+                  ? "Cannot save a replay"
+                  : "Save this simulation to history"
+              }
             >
-              <button
-                className="pb-btn pb-primary"
-                onClick={handleSaveHistory}
-                disabled={activeIsPlaying || activeReplay !== null}
-                title={
-                  activeReplay
-                    ? "Cannot save a replay"
-                    : "Save this simulation to history"
-                }
-              >
-                💾 Save to History
-              </button>
-            </div>
+              💾 Save to History
+            </button>
+            <button
+              className="pb-btn pb-secondary"
+              onClick={() => { setShowAnalyticsModal(true); }}
+            >
+              📊 Comparison Analytics
+            </button>
+          </div>
+          {showAnalyticsModal && (
             <ComparativeDashboard
               snapshot={
                 activeReplay &&
@@ -598,22 +657,35 @@ export function App() {
                   : metricsSnapshotDual
               }
               connectionStatus={activeConnectionStatus}
+              onClose={() => { setShowAnalyticsModal(false); }}
             />
-          </div>
+          )}
         </main>
       ) : viewMode === "history" ? (
-        <main className="app-main" style={{ overflow: "hidden" }}>
+        <main className="app-main full-screen" style={{ overflow: "hidden" }}>
           <HistoryDashboard onReplay={handleReplay} />
+        </main>
+      ) : viewMode === "volume" ? (
+        <main className="app-main full-screen" style={{ overflow: "hidden" }}>
+          <VolumeAnalysisDashboard />
+        </main>
+      ) : viewMode === "validation" ? (
+        <main className="app-main full-screen" style={{ overflow: "hidden" }}>
+          <ValidationDashboard />
         </main>
       ) : (
         <main className="app-main">
-          <div className="canvas-wrapper">
+          <div ref={singleCanvasRef} className="canvas-wrapper">
             {viewMode === "roundabout" ? (
               <RoundaboutMap
                 snapshot={singleSnapshot}
                 laneWidth={laneWidth}
+                lanes={lanesNorth}
                 showCrosswalks={false}
                 debug={debug}
+                {...(singleCanvasSize.width > 0
+                  ? toCanvasSize(singleCanvasSize.width, singleCanvasSize.height)
+                  : { width: 680, height: 580 })}
               />
             ) : (
               <IntersectionMap
@@ -627,10 +699,13 @@ export function App() {
                 showCrosswalks={true}
                 showStopLines={showStopLines}
                 debug={debug}
+                {...(singleCanvasSize.width > 0
+                  ? toCanvasSize(singleCanvasSize.width, singleCanvasSize.height)
+                  : { width: 680, height: 580 })}
               />
             )}
           </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
             <div
               style={{
                 padding: "8px 16px",
@@ -665,17 +740,19 @@ export function App() {
         </main>
       )}
 
-      {/* ── Playback controls ─────────────────────────────────────────── */}
-      <footer className="app-footer">
-        <PlaybackControls
-          snapshot={playbackEnvelope}
-          isPlaying={activeIsPlaying}
-          onPlay={handlePlay}
-          onPause={handlePause}
-          onStop={handleStop}
-        />
-        {activeError && <div className="error-banner">⚠ {activeError}</div>}
-      </footer>
+      {/* ── Playback controls (live simulation & replay views only) ──── */}
+      {viewMode !== "volume" && viewMode !== "validation" && (
+        <footer className="app-footer">
+          <PlaybackControls
+            snapshot={playbackEnvelope}
+            isPlaying={activeIsPlaying}
+            onPlay={handlePlay}
+            onPause={handlePause}
+            onStop={handleStop}
+          />
+          {activeError && <div className="error-banner">⚠ {activeError}</div>}
+        </footer>
+      )}
 
       {/* ── Toast Notification ────────────────────────────────────────── */}
       {toastMessage && <div className="toast-notification">{toastMessage}</div>}
@@ -684,42 +761,6 @@ export function App() {
 }
 
 // ── Config helpers ─────────────────────────────────────────────────────────
-
-function ConfigSlider({
-  label,
-  value,
-  min,
-  max,
-  step,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (v: number) => void;
-}) {
-  return (
-    <div className="config-item">
-      <label className="config-label">{label}</label>
-      <div className="config-input-row">
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          onChange={(e) => {
-            onChange(parseFloat(e.target.value));
-          }}
-          className="config-range"
-        />
-        <span className="config-val">{value}</span>
-      </div>
-    </div>
-  );
-}
 
 function ConfigToggle({
   label,

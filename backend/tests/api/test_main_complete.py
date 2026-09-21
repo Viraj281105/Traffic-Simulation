@@ -86,7 +86,7 @@ def test_simulations_lifecycle_and_tick_callbacks() -> None:
         },
     }
     res_sig = client.post("/api/v1/simulations", json=cfg_signal)
-    assert res_sig.status_code == 200
+    assert res_sig.status_code == 201
     sig_sim_id = res_sig.json()["simulationId"]
 
     # Step engine to invoke tick_callback
@@ -160,6 +160,135 @@ def test_simulations_lifecycle_and_tick_callbacks() -> None:
     assert client.get("/api/v1/simulations/unknown_id/report").status_code == 404
 
 
+def test_dashboard_config_rejects_unknown_intersection_type() -> None:
+    """/api/simulation/config previously accepted any intersectionType
+    string silently: the controller-config shape it builds is chosen by
+    `== "fixed_time_signal"`, while create_controller() separately checks
+    `== "roundabout"` — the two checks disagree for anything else, so a
+    typo silently discarded the submitted signal-timing parameters instead
+    of failing. It must now reject unrecognized values with a 400, like
+    the versioned creation endpoints already do."""
+    res = client.post("/api/simulation/config", json={"intersectionType": "bogus"})
+    assert res.status_code == 400
+    error = res.json()["error"]
+    assert "bogus" in error["message"]
+    assert "fixed_time_signal" in error["message"]
+    assert "roundabout" in error["message"]
+
+    # A missing intersectionType still falls back to the documented default.
+    res_default = client.post("/api/simulation/config", json={})
+    assert res_default.status_code == 200
+
+
+def test_dashboard_config_default_signal_durations_match_canonical_contract() -> None:
+    """A fixed-time-signal dashboard config with no greenDuration/
+    yellowDuration must resolve to the same canonical defaults
+    (greenTime=30, yellowTime=4) as the versioned creation endpoints —
+    DEFAULT_CONFIG previously used mismatched values (15/3)."""
+    res = client.post(
+        "/api/simulation/config", json={"intersectionType": "fixed_time_signal"}
+    )
+    assert res.status_code == 200
+    live_sim = get_or_create_live_simulation()
+    controller = live_sim["controller"]
+    assert controller.straight_right_duration == 30.0
+    assert controller.yellow_duration == 4.0
+    assert controller.all_red_duration == 2.0
+
+
+def test_dashboard_config_rejects_malformed_duration() -> None:
+    """A non-numeric `duration` previously escaped as an uncaught
+    ValueError -> raw 500 (float("not-a-number") raises). It must be
+    rejected as a 400 client error, matching how /api/v1/simulations
+    already surfaces a bad config as a 400 instead of a 500."""
+    res = client.post("/api/simulation/config", json={"duration": "not-a-number"})
+    assert res.status_code == 400
+    error = res.json()["error"]
+    assert "duration" in error["message"].lower()
+
+    # A non-numeric type entirely (e.g. a list) must also be a 400, not a
+    # TypeError leaking out as a 500.
+    res_list = client.post("/api/simulation/config", json={"duration": [1, 2]})
+    assert res_list.status_code == 400
+
+
+def test_dashboard_config_rejects_out_of_range_duration() -> None:
+    """duration must be bounded to [1, 3600] seconds, the same range the
+    versioned API enforces via SimulationSection.duration (ge=1, le=3600).
+    This legacy endpoint builds its config by hand rather than through
+    that Pydantic model, so it previously accepted any value at all."""
+    below_min = client.post("/api/simulation/config", json={"duration": 0.5})
+    assert below_min.status_code == 400
+    assert "duration" in below_min.json()["error"]["message"].lower()
+
+    above_max = client.post("/api/simulation/config", json={"duration": 3601})
+    assert above_max.status_code == 400
+    assert "duration" in above_max.json()["error"]["message"].lower()
+
+
+def test_dashboard_config_accepts_boundary_durations() -> None:
+    """The bounds are inclusive: exactly 1 and exactly 3600 seconds must
+    both still be accepted and applied to the live config as-is. Calls
+    update_simulation_config() directly against a dedicated session
+    (rather than through the shared TestClient, whose cookie-scoped
+    session isn't the same one a bare `get_or_create_live_simulation()`
+    call would read back) for a precise, deterministic assertion on the
+    resulting duration."""
+    from src.main import (
+        _get_or_create_session,
+        _live_session_var,
+        update_simulation_config,
+    )
+
+    session_min = _get_or_create_session("test-duration-boundary-min")
+    token_min = _live_session_var.set(session_min)
+    try:
+        result_min = update_simulation_config({"duration": 1})
+    finally:
+        _live_session_var.reset(token_min)
+    assert result_min["status"] == "ok"
+    assert session_min.current_live_config["simulation"]["duration"] == 1.0
+
+    session_max = _get_or_create_session("test-duration-boundary-max")
+    token_max = _live_session_var.set(session_max)
+    try:
+        result_max = update_simulation_config({"duration": 3600})
+    finally:
+        _live_session_var.reset(token_max)
+    assert result_max["status"] == "ok"
+    assert session_max.current_live_config["simulation"]["duration"] == 3600.0
+
+
+def test_dashboard_config_rejects_malformed_non_duration_numeric_field() -> None:
+    """Every other numeric field this endpoint coerces by hand
+    (laneWidth, lanesNorth/South/East/West, arrivalRate, intersectionSize,
+    greenDuration/leftDuration/yellowDuration/allRedDuration, criticalGap,
+    followUpTime) previously escaped a malformed value as an uncaught
+    ValueError/TypeError -> raw 500. Spot-check representative fields from
+    each affected section land as a 400 instead."""
+    res_lane_width = client.post("/api/simulation/config", json={"laneWidth": "wide"})
+    assert res_lane_width.status_code == 400
+    assert "Invalid configuration" in res_lane_width.json()["error"]["message"]
+
+    res_lanes_north = client.post("/api/simulation/config", json={"lanesNorth": "many"})
+    assert res_lanes_north.status_code == 400
+
+    res_arrival_rate = client.post("/api/simulation/config", json={"arrivalRate": {}})
+    assert res_arrival_rate.status_code == 400
+
+    res_green_duration = client.post(
+        "/api/simulation/config",
+        json={"intersectionType": "fixed_time_signal", "greenDuration": "long"},
+    )
+    assert res_green_duration.status_code == 400
+
+    res_critical_gap = client.post(
+        "/api/simulation/config",
+        json={"intersectionType": "roundabout", "criticalGap": "wide"},
+    )
+    assert res_critical_gap.status_code == 400
+
+
 def test_live_simulation_and_dual_simulation_endpoints() -> None:
     # 1. Get active vehicles
     act_res = client.get("/api/simulation/active-vehicles")
@@ -224,7 +353,7 @@ def test_websocket_streams() -> None:
         },
     }
     res = client.post("/api/v1/simulations", json=cfg)
-    assert res.status_code == 200
+    assert res.status_code == 201
     sim_id = res.json()["simulationId"]
 
     with client.websocket_connect(f"/ws/v1/stream?simulationId={sim_id}") as ws:
