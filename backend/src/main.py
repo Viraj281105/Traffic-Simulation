@@ -34,6 +34,7 @@ from src.controllers.factory import (
     create_controller,
     derive_signals_state,
 )
+from src.controllers.fixed_time_signal import FixedTimeSignalController
 from src.core.clock import Clock
 from src.core.config_models import ScenarioConfiguration
 from src.core.engine import SimulationEngine
@@ -1727,11 +1728,20 @@ def reproduce_run_endpoint(run_id: str) -> Dict[str, Any]:
             # controller's phase/follow-up timing at double the rate of the
             # original run, breaking reproduction. Only read its resulting
             # state, exactly like build_tick_callback does for ordinary runs.
+            #
+            # conflict_manager mirrors build_tick_callback's own gating:
+            # PET is only geometrically valid for fixed_time_signal (see
+            # metrics/definitions/safety_conflicts.py).
             collector.update(
                 clock.get_elapsed_time(),
                 engine.pool.active_vehicles,
                 engine.pool.exited_vehicles,
                 derive_signals_state(controller),
+                conflict_manager=(
+                    engine.conflict_manager
+                    if isinstance(controller, FixedTimeSignalController)
+                    else None
+                ),
             )
 
         engine.register_tick_callback(tick_callback)

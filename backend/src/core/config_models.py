@@ -125,6 +125,15 @@ class MetricsSection(BaseModel):
     rollingWindowSize: float = Field(60.0, gt=0)
     waitSpeedThreshold: float = Field(0.5, ge=0)
     stopSpeedThreshold: float = Field(0.1, ge=0)
+    # TTC/PET thresholds (see metrics/definitions/safety_conflicts.py).
+    # Only affect which observed values are counted as "events" for
+    # reporting -- never simulation behaviour. Defaults are commonly-cited
+    # literature values (TTC: Hayward 1972 and widely reused since; PET:
+    # common SSAM-style conflict-study default), not values this project
+    # has validated itself.
+    ttcThresholdSeconds: float = Field(1.5, gt=0)
+    petThresholdSeconds: float = Field(5.0, gt=0)
+    ttcSearchRadius: float = Field(50.0, gt=0)
 
 
 class VisualizationSection(BaseModel):
