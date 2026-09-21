@@ -26,8 +26,101 @@ def _calculate_stats(values: List[float]) -> Dict[str, float]:
     }
 
 
+def _log_beta(a: float, b: float) -> float:
+    return math.lgamma(a) + math.lgamma(b) - math.lgamma(a + b)
+
+
+def _betacf(a: float, b: float, x: float) -> float:
+    """Continued-fraction evaluation used by the regularized incomplete beta
+    function (the standard algorithm; see e.g. Numerical Recipes §6.4)."""
+    max_iterations = 200
+    eps = 3e-12
+    fpmin = 1e-300
+
+    qab = a + b
+    qap = a + 1.0
+    qam = a - 1.0
+    c = 1.0
+    d = 1.0 - qab * x / qap
+    if abs(d) < fpmin:
+        d = fpmin
+    d = 1.0 / d
+    h = d
+
+    for m in range(1, max_iterations + 1):
+        m2 = 2 * m
+        aa = m * (b - m) * x / ((qam + m2) * (a + m2))
+        d = 1.0 + aa * d
+        if abs(d) < fpmin:
+            d = fpmin
+        c = 1.0 + aa / c
+        if abs(c) < fpmin:
+            c = fpmin
+        d = 1.0 / d
+        h *= d * c
+
+        aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2))
+        d = 1.0 + aa * d
+        if abs(d) < fpmin:
+            d = fpmin
+        c = 1.0 + aa / c
+        if abs(c) < fpmin:
+            c = fpmin
+        d = 1.0 / d
+        delta = d * c
+        h *= delta
+
+        if abs(delta - 1.0) < eps:
+            break
+
+    return h
+
+
+def _regularized_incomplete_beta(a: float, b: float, x: float) -> float:
+    """I_x(a, b): the regularized incomplete beta function, restricted to
+    the domain this module needs it for (0 <= x <= 1, a, b > 0)."""
+    if x <= 0.0:
+        return 0.0
+    if x >= 1.0:
+        return 1.0
+
+    log_front = -_log_beta(a, b) + a * math.log(x) + b * math.log(1.0 - x)
+    front = math.exp(log_front)
+
+    if x < (a + 1.0) / (a + b + 2.0):
+        return front * _betacf(a, b, x) / a
+    return 1.0 - front * _betacf(b, a, 1.0 - x) / b
+
+
+def _student_t_two_tailed_p_value(t_stat: float, degrees_of_freedom: float) -> float:
+    """Two-tailed p-value for Student's t-distribution.
+
+    Uses the standard identity P(|T| > t) = I_{df/(df+t^2)}(df/2, 1/2)
+    (Abramowitz & Stegun 26.7.5), evaluated with the regularized incomplete
+    beta function above -- a textbook closed form, not new statistical
+    machinery. This lets small-sample comparisons (this project's Monte
+    Carlo studies commonly run 5 seeds per condition) use the correct
+    fatter-tailed distribution instead of a normal-distribution
+    approximation that understates the p-value at low n.
+    """
+    if degrees_of_freedom <= 0:
+        return 1.0
+    x = degrees_of_freedom / (degrees_of_freedom + t_stat * t_stat)
+    return _regularized_incomplete_beta(degrees_of_freedom / 2.0, 0.5, x)
+
+
 def _compare_groups(a: List[float], b: List[float]) -> Dict[str, Any]:
-    """Computes Cohen's d and a two-sample z-test significance flag (alpha=0.05)."""
+    """Computes Cohen's d and a Welch's t-test significance flag (alpha=0.05).
+
+    Historically this used a normal-distribution (z) approximation, which is
+    only valid for large n per group. This project's default seed count is
+    5 (see run_statistical_validation's num_seeds default), so the
+    small-sample-correct approach is used instead: Student's t-distribution
+    with Welch-Satterthwaite degrees of freedom, which has fatter tails than
+    the normal approximation and therefore does not understate p-values at
+    low n. At large n the two converge, so this does not change behaviour
+    for studies that already run with many seeds.
+    """
     n_a, n_b = len(a), len(b)
     if n_a < 2 or n_b < 2:
         return {"cohensD": 0.0, "pValue": None, "significant": False}
@@ -40,19 +133,31 @@ def _compare_groups(a: List[float], b: List[float]) -> Dict[str, Any]:
     pooled_std = math.sqrt((var_a + var_b) / 2.0)
     cohens_d = (mean_a - mean_b) / pooled_std if pooled_std > 0 else 0.0
 
-    # Welch z-approximation (valid for large n per group)
-    se = math.sqrt(var_a / n_a + var_b / n_b)
+    se_sq_a = var_a / n_a
+    se_sq_b = var_b / n_b
+    se = math.sqrt(se_sq_a + se_sq_b)
     if se == 0:
         return {"cohensD": round(cohens_d, 3), "pValue": 1.0, "significant": False}
-    z = abs(mean_a - mean_b) / se
-    # Two-tailed p-value approximation using complementary error function
-    p_value = 2.0 * (0.5 * math.erfc(z / math.sqrt(2)))
+    t_stat = abs(mean_a - mean_b) / se
+
+    # Welch-Satterthwaite degrees of freedom.
+    denom = 0.0
+    if n_a > 1:
+        denom += (se_sq_a**2) / (n_a - 1)
+    if n_b > 1:
+        denom += (se_sq_b**2) / (n_b - 1)
+    degrees_of_freedom = (
+        ((se_sq_a + se_sq_b) ** 2) / denom if denom > 0 else float(n_a + n_b - 2)
+    )
+
+    p_value = _student_t_two_tailed_p_value(t_stat, degrees_of_freedom)
     significant = p_value < 0.05
 
     return {
         "cohensD": round(cohens_d, 3),
         "pValue": round(p_value, 4),
         "significant": significant,
+        "degreesOfFreedom": round(degrees_of_freedom, 2),
     }
 
 

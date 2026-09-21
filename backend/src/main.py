@@ -38,6 +38,7 @@ from src.core.clock import Clock
 from src.core.config_models import ScenarioConfiguration
 from src.core.engine import SimulationEngine
 from src.core.enums import SimulationStatus
+from src.core.provenance import GIT_COMMIT_HASH, PYTHON_VERSION
 from src.database.dao import RunMetricsDAO, SimulationRunDAO, SweepSessionDAO
 from src.database.db import DB_PATH, get_db_connection, init_db  # noqa: F401
 from src.database.replay_dao import ReplayDAO
@@ -1782,6 +1783,13 @@ def reproduce_run_endpoint(run_id: str) -> Dict[str, Any]:
             "originalMetrics": original_metrics,
             "reproducedMetrics": reproduced_metrics,
             "discrepancies": discrepancies,
+            # Best-effort provenance (src/core/provenance.py): "unknown"
+            # rather than a failure wherever .git isn't available, e.g. the
+            # production Docker image.
+            "provenance": {
+                "gitCommitHash": GIT_COMMIT_HASH,
+                "pythonVersion": PYTHON_VERSION,
+            },
         }
     raise HTTPException(status_code=500, detail="Database connection error")
 
