@@ -2,6 +2,16 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import "./HistoryDashboard.css";
 import { deleteReplay, listReplays } from "../services/api";
 import type { RunReproducibility } from "../services/api";
+import { commitLabel, configLabel } from "../runs/savedRun";
+import {
+  MAX_COMPARE_RUNS,
+  comparePath,
+  followLink,
+  navigate,
+  runPath,
+} from "../routing";
+import { Tags } from "./RunTags";
+import "./RunPages.css";
 
 import type { RunningMetrics } from "../types/simulation";
 import type { SimulationConfigValues } from "../types/config";
@@ -58,43 +68,6 @@ function seedOf(r: SavedReplay): string {
   return seed === undefined ? "—" : String(seed);
 }
 
-function commitCell(rep: RunReproducibility | null | undefined): {
-  text: string;
-  title: string;
-} {
-  const hash = rep?.gitCommitHash;
-  if (!hash) {
-    return { text: "—", title: "Not recorded for this run" };
-  }
-  if (hash === "unknown") {
-    return {
-      text: "unknown",
-      title:
-        "The backend could not read its git commit when this run was saved",
-    };
-  }
-  return { text: hash.slice(0, 7), title: hash };
-}
-
-function configCell(rep: RunReproducibility | null | undefined): {
-  text: string;
-  title: string;
-} {
-  if (rep?.exactConfig) {
-    return {
-      text: "Exact",
-      title: "The exact configuration the simulation ran with is stored",
-    };
-  }
-  if (rep?.configAvailable) {
-    return {
-      text: "Settings",
-      title: "Only the dashboard settings were stored for this run",
-    };
-  }
-  return { text: "—", title: "No configuration recorded for this run" };
-}
-
 const KIND_LABEL = {
   comparative: "📊 Comparison",
   roundabout: "🔄 Roundabout",
@@ -121,6 +94,8 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  // Runs ticked for comparison, in the order they were ticked.
+  const [selected, setSelected] = useState<string[]>([]);
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   // State changes happen in the fetch callbacks, never synchronously in the
@@ -168,6 +143,7 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
       .then((data: { status: string }) => {
         if (data.status === "ok") {
           setReplays((prev) => prev.filter((r) => r.id !== id));
+          setSelected((prev) => prev.filter((s) => s !== id));
         }
         setDeletingId(null);
       })
@@ -186,11 +162,30 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
         <h1>Saved runs</h1>
         <p>
           Runs saved from the simulation views, each with its run ID, seed and
-          the code commit it ran on. Opening one restores its settings and seed
-          and shows the metrics recorded when it was saved; press Play to run it
-          again.
+          the code commit it ran on. Select a name for the run&apos;s own page
+          (configuration, provenance, notes, exports). Opening one restores its
+          settings and seed and shows the metrics recorded when it was saved;
+          press Play to run it again.
         </p>
       </header>
+
+      {replays.length > 0 && (
+        <div className="run-actions">
+          <button
+            type="button"
+            className="pb-btn pb-primary"
+            disabled={selected.length < 2}
+            onClick={() => {
+              navigate(comparePath(selected));
+            }}
+          >
+            Compare selected ({selected.length})
+          </button>
+          <span className="run-hint">
+            Tick 2 to {MAX_COMPARE_RUNS} runs to compare their stored metrics.
+          </span>
+        </div>
+      )}
 
       {deleteError && (
         <p className="history-status error" role="alert">
@@ -225,6 +220,9 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
             </caption>
             <thead>
               <tr>
+                <th scope="col">
+                  <span className="sr-only">Select for comparison</span>
+                </th>
                 <th scope="col">Saved</th>
                 <th scope="col">Run ID</th>
                 <th scope="col">Name</th>
@@ -254,10 +252,28 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
               {replays.map((r) => {
                 const saved = parseStoredTimestamp(r.created_at);
                 const kind = kindOf(r);
-                const commit = commitCell(r.reproducibility);
-                const config = configCell(r.reproducibility);
+                const commit = commitLabel(r.reproducibility?.gitCommitHash);
+                const config = configLabel(r.reproducibility);
+                const isSelected = selected.includes(r.id);
                 return (
                   <tr key={r.id}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        disabled={
+                          !isSelected && selected.length >= MAX_COMPARE_RUNS
+                        }
+                        onChange={() => {
+                          setSelected((prev) =>
+                            isSelected
+                              ? prev.filter((s) => s !== r.id)
+                              : [...prev, r.id],
+                          );
+                        }}
+                        aria-label={`Select ${r.name} for comparison`}
+                      />
+                    </td>
                     <td>
                       {Number.isNaN(saved.getTime()) ? (
                         r.created_at
@@ -271,7 +287,15 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
                       {r.id.slice(0, 8)}
                     </td>
                     <th scope="row" className="run-name">
-                      {r.name}
+                      <a
+                        href={runPath(r.id)}
+                        onClick={(event) => {
+                          followLink(event, runPath(r.id));
+                        }}
+                      >
+                        {r.name}
+                      </a>
+                      <Tags tags={r.reproducibility?.tags ?? []} />
                     </th>
                     <td>{KIND_LABEL[kind]}</td>
                     <td className="mono">{seedOf(r)}</td>
@@ -280,7 +304,11 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
                     </td>
                     <td title={config.title}>{config.text}</td>
                     <td className="mono">
-                      {num(r.config.simulation?.elapsed, 0)}
+                      {num(
+                        r.reproducibility?.timing.elapsed ??
+                          r.config.simulation?.elapsed,
+                        0,
+                      )}
                     </td>
                     <td className="mono">
                       {pair(r, (m) => m.averageDelay, 1)}

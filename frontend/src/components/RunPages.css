@@ -1,0 +1,273 @@
+/* Saved-run page and run comparison. Builds on HistoryDashboard.css (page
+   frame, status boxes, tables) and uses the app's theme tokens only. */
+
+.run-page {
+  gap: 14px;
+}
+
+.run-back-link {
+  align-self: flex-start;
+  font-size: 13px;
+  color: var(--accent-blue);
+  text-decoration: none;
+}
+
+.run-back-link:hover,
+.run-back-link:focus-visible {
+  text-decoration: underline;
+}
+
+.run-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.run-title-row h1 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.run-subtitle {
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.run-page .mono {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+.run-card {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.run-card .metric-group {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.run-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.run-card-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.run-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.run-actions .pb-btn {
+  text-decoration: none;
+}
+
+.run-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.run-status {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  padding: 8px 10px;
+  border-left: 3px solid var(--border-color);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+}
+
+.run-status.is-exact {
+  border-left-color: var(--accent-green);
+}
+
+.run-facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px 20px;
+}
+
+.run-fact {
+  min-width: 0;
+}
+
+.run-fact dt {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.run-fact dd {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.run-repro {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.run-repro-result {
+  font-size: 13px;
+  color: var(--text-primary);
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+}
+
+.run-repro-result p {
+  margin: 0 0 6px;
+}
+
+.run-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.run-metadata {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 640px;
+}
+
+.run-metadata label,
+.run-picker label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.run-input,
+.run-picker select,
+.run-card-head select {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  min-width: 0;
+}
+
+.run-title-row .run-input {
+  flex: 1 1 240px;
+  font-size: 18px;
+}
+
+.run-notes {
+  resize: vertical;
+}
+
+.run-field-error {
+  margin: 0;
+  font-size: 12px;
+  color: var(--accent-red);
+}
+
+.run-config {
+  margin: 0;
+  max-height: 420px;
+  overflow: auto;
+  padding: 12px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  white-space: pre;
+}
+
+.run-config:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+.run-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.run-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.run-tag {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+}
+
+.column-side {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.compare-facts {
+  margin-top: 4px;
+}
+
+.history-table .run-name a {
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.history-table .run-name a:hover,
+.history-table .run-name a:focus-visible {
+  color: var(--accent-blue);
+  text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .run-card {
+    padding: 12px;
+  }
+}

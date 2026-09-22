@@ -81,7 +81,7 @@ docker compose up --build -d
 ```
 
 - **Frontend landing page**: [http://localhost](http://localhost) (or [http://localhost:3000](http://localhost:3000))
-- **Simulation dashboard**: [http://localhost/app/comparative](http://localhost/app/comparative) — each view has its own URL (`/app/comparative`, `/app/signal`, `/app/roundabout`, `/app/history`, `/app/volume`, `/app/validation`), so refresh, bookmarks and back/forward work; the old `/app.html` link still redirects
+- **Simulation dashboard**: [http://localhost/app/comparative](http://localhost/app/comparative) — each view has its own URL (`/app/comparative`, `/app/signal`, `/app/roundabout`, `/app/history`, `/app/volume`, `/app/validation`), so refresh, bookmarks and back/forward work; the old `/app.html` link still redirects. Each saved run has its own page at `/app/runs/<runId>` (configuration, seed, provenance, metrics, notes/tags, exports, re-run), and `/app/compare?runs=<id>,<id>` compares stored runs
 - **Backend API & Swagger Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
 - **Health Check**: [http://localhost/health](http://localhost/health)
 

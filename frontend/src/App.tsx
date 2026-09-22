@@ -1,5 +1,5 @@
 import { useState, useEffect, useId, useLayoutEffect } from "react";
-import type { MouseEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useWebSocketSnapshot } from "./hooks/useWebSocketSnapshot";
 import { useSimulationPolling } from "./hooks/useSimulationPolling";
 import { IntersectionMap } from "./components/IntersectionMap";
@@ -14,6 +14,8 @@ import { HistoryDashboard, SavedReplay } from "./components/HistoryDashboard";
 import { VolumeAnalysisDashboard } from "./components/VolumeAnalysisDashboard";
 import { ValidationDashboard } from "./components/ValidationDashboard";
 import { ConfigurationSidebar } from "./components/ConfigurationSidebar";
+import { RunPage } from "./components/RunPage";
+import { ComparePage } from "./components/ComparePage";
 import { Sun, Moon } from "lucide-react";
 import type { SimulationConfigValues } from "./types/config";
 import { DEFAULT_CONFIG_VALUES } from "./types/config";
@@ -25,6 +27,7 @@ import type {
 } from "./types/simulation";
 import {
   VIEW_ROUTES,
+  followLink,
   navigate,
   resolveRoute,
   usePathname,
@@ -50,6 +53,17 @@ export function App() {
 
   if (route.kind === "notFound") return <NotFound path={route.path} />;
   if (route.kind === "redirect") return null;
+  // Saved-run pages belong to the History section. They render inside the
+  // same Dashboard element as every view, so moving between them and the
+  // simulation keeps its configuration and live stream mounted.
+  if (route.kind === "run") {
+    return (
+      <Dashboard viewMode="history" page={{ kind: "run", runId: route.runId }} />
+    );
+  }
+  if (route.kind === "compare") {
+    return <Dashboard viewMode="history" page={{ kind: "compare" }} />;
+  }
   return <Dashboard viewMode={route.view} />;
 }
 
@@ -80,7 +94,15 @@ function configFromReplay(
   };
 }
 
-function Dashboard({ viewMode: routedView }: { viewMode: RoutedView }) {
+type HistoryPage = { kind: "run"; runId: string } | { kind: "compare" };
+
+function Dashboard({
+  viewMode: routedView,
+  page,
+}: {
+  viewMode: RoutedView;
+  page?: HistoryPage;
+}) {
   const viewMode = routedView as ViewMode;
   const setViewMode = (view: RoutedView) => {
     navigate(VIEW_ROUTES[view]);
@@ -563,7 +585,17 @@ function Dashboard({ viewMode: routedView }: { viewMode: RoutedView }) {
         </main>
       ) : viewMode === "history" ? (
         <main className="app-main full-screen page-scroll">
-          <HistoryDashboard onReplay={handleReplay} />
+          {page?.kind === "run" ? (
+            <RunPage
+              key={page.runId}
+              runId={page.runId}
+              onOpenInSimulator={handleReplay}
+            />
+          ) : page?.kind === "compare" ? (
+            <ComparePage />
+          ) : (
+            <HistoryDashboard onReplay={handleReplay} />
+          )}
         </main>
       ) : viewMode === "volume" ? (
         <main className="app-main full-screen page-scroll">
@@ -665,20 +697,6 @@ function Dashboard({ viewMode: routedView }: { viewMode: RoutedView }) {
 
 /** Client-side navigation for a same-document link, leaving modified clicks
  *  (new tab/window) to the browser. */
-function followLink(event: MouseEvent<HTMLAnchorElement>, to: string) {
-  if (
-    event.button !== 0 ||
-    event.metaKey ||
-    event.ctrlKey ||
-    event.shiftKey ||
-    event.altKey
-  ) {
-    return;
-  }
-  event.preventDefault();
-  navigate(to);
-}
-
 function ViewTab({
   view,
   active,

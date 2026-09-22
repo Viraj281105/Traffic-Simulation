@@ -196,7 +196,7 @@ def test_save_without_session_records_client_config_and_no_invented_seed(test_db
     assert rep["summaryMetrics"] == {"averageDelay": 2.0}
 
 
-def test_dual_comparison_save_records_mode_and_refuses_single_reproduce(test_db):
+def test_dual_comparison_save_records_mode_and_reproduces_both_sides(test_db):
     client = TestClient(app)
     res = client.post(
         "/api/simulation/config", json={**DASHBOARD_CONFIG, "randomSeed": 77}
@@ -204,12 +204,17 @@ def test_dual_comparison_save_records_mode_and_refuses_single_reproduce(test_db)
     assert res.status_code == 200
     assert client.post("/api/simulation/dual/reset").status_code == 200
     orch = _session_for(client).dual_sim_orchestrator
-    for _ in range(10):
+    for _ in range(25):  # paused part-way: 2.5 s of a 3 s run
         orch.step()
-    metrics = {"signal": {"averageDelay": 1.0}, "roundabout": {"averageDelay": 2.0}}
+    # Whatever the client claims, the stored metrics are the engines' own at
+    # the recorded elapsed time.
+    client_metrics = {
+        "signal": {"averageDelay": 1.0},
+        "roundabout": {"averageDelay": 2.0},
+    }
 
     run_id = client.post(
-        "/api/v1/replays", json=_replay_payload(77, metrics, mode="dual")
+        "/api/v1/replays", json=_replay_payload(77, client_metrics, mode="dual")
     ).json()["runId"]
     rep = client.get(f"/api/v1/study/history/runs/{run_id}/reproducibility").json()
     assert rep["runMode"] == "dual"
@@ -217,10 +222,26 @@ def test_dual_comparison_save_records_mode_and_refuses_single_reproduce(test_db)
     assert rep["configSource"] == "engine"
     assert rep["seed"] == 77
     assert rep["config"] == orch.config
-    assert rep["summaryMetrics"] == metrics
+    assert rep["timing"]["elapsed"] == pytest.approx(2.5)
+    stored = rep["summaryMetrics"]
+    assert set(stored) == {"signal", "roundabout"}
+    assert stored["signal"]["totalVehiclesSpawned"] == (
+        orch.engine_signal.spawner.spawned_count
+    )
 
     res = client.post(f"/api/v1/study/history/runs/{run_id}/reproduce")
-    assert res.status_code == 400
+    assert res.status_code == 200
+    body = res.json()
+    assert body["mode"] == "dual"
+    assert body["reproducedElapsed"] == pytest.approx(2.5)
+    assert body["isDeterministic"] is True
+    assert "signal.throughput" in body["comparedMetrics"]
+    assert "roundabout.throughput" in body["comparedMetrics"]
+    for side in ("signal", "roundabout"):
+        assert (
+            body["reproducedMetrics"][side]["totalVehiclesSpawned"]
+            == stored[side]["totalVehiclesSpawned"]
+        )
 
 
 def test_auto_persisted_api_run_records_provenance(test_db):

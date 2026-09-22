@@ -169,3 +169,90 @@ export function ComparisonSections({
     </div>
   );
 }
+
+/** Every backend metric for any number of stored runs (or comparison
+ *  sides), one column each. Under each non-baseline value is its plain
+ *  difference from the baseline column (column − baseline) in the metric's
+ *  own units; nothing is ranked or coloured as better or worse. */
+export function MultiRunSections({
+  columns,
+  baselineIndex = 0,
+  collapsed = DEFAULT_COLLAPSED,
+}: {
+  columns: { key: string; heading: React.ReactNode; ctx: MetricContext }[];
+  baselineIndex?: number;
+  collapsed?: MetricGroupId[];
+}) {
+  const baseline = columns[baselineIndex];
+  const labelSource = columns.find((c) => c.ctx.metrics)?.ctx.metrics;
+  return (
+    <div className="metric-sections">
+      {METRIC_GROUPS.map((group) => (
+        <GroupFrame
+          key={group.id}
+          id={group.id}
+          title={group.title}
+          blurb={group.blurb}
+          collapsed={collapsed.includes(group.id)}
+        >
+          <div className="multi-run-scroll">
+            <table className="comparison-grid multi-run-grid">
+              <thead>
+                <tr>
+                  <th scope="col">Metric</th>
+                  {columns.map((c, i) => (
+                    <th scope="col" key={c.key}>
+                      {c.heading}
+                      {i === baselineIndex && (
+                        <span className="baseline-tag">baseline</span>
+                      )}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {METRICS_BY_GROUP[group.id].map((def) => (
+                  <tr
+                    key={def.key}
+                    title={def.description}
+                    data-metric={def.key}
+                  >
+                    <th scope="row">
+                      {metricLabel(def, labelSource ?? undefined)}
+                      {def.unit && (
+                        <span className="unit-suffix"> ({def.unit})</span>
+                      )}
+                    </th>
+                    {columns.map((c, i) => {
+                      const state = metricState(def, c.ctx);
+                      return (
+                        <td
+                          key={c.key}
+                          className={
+                            state.kind === "none" ? "is-empty" : undefined
+                          }
+                        >
+                          {formatMetric(def, c.ctx, false)}
+                          <CellNote note={state.note} />
+                          {i !== baselineIndex && (
+                            <span className="diff multi-run-diff">
+                              Δ{" "}
+                              {formatDifference(
+                                def,
+                                metricDifference(def, baseline.ctx, c.ctx),
+                              )}
+                            </span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </GroupFrame>
+      ))}
+    </div>
+  );
+}

@@ -93,3 +93,31 @@ def test_get_python_version_returns_a_dotted_version_string() -> None:
     parts = version.split(".")
     assert len(parts) >= 2
     assert all(part.isdigit() for part in parts[:2])
+
+
+def test_git_commit_env_fallback_is_used_only_without_git(tmp_path, monkeypatch):
+    """Images built without .git (the production Docker image) can pass the
+    commit at build time; a readable repository always takes precedence and
+    a malformed value is never recorded."""
+    from src.core.provenance import UNKNOWN, resolve_git_commit_hash
+
+    no_repo = tmp_path / "no_repo"
+    no_repo.mkdir()
+    commit = "0123456789abcdef0123456789abcdef01234567"
+
+    monkeypatch.delenv("GIT_COMMIT", raising=False)
+    assert resolve_git_commit_hash(no_repo) == UNKNOWN
+
+    monkeypatch.setenv("GIT_COMMIT", commit.upper())
+    assert resolve_git_commit_hash(no_repo) == commit
+
+    for bad in ("", "not-a-hash", "abc", "g" * 40, commit + "0"):
+        monkeypatch.setenv("GIT_COMMIT", bad)
+        assert resolve_git_commit_hash(no_repo) == UNKNOWN
+
+    # With a repository present, HEAD wins over the environment.
+    repo = tmp_path / "repo"
+    (repo / ".git").mkdir(parents=True)
+    (repo / ".git" / "HEAD").write_text("fedcba9876543210fedcba9876543210fedcba98\n")
+    monkeypatch.setenv("GIT_COMMIT", commit)
+    assert resolve_git_commit_hash(repo) == "fedcba9876543210fedcba9876543210fedcba98"

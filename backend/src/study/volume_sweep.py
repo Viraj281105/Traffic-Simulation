@@ -3,6 +3,7 @@ import logging
 import uuid
 from typing import Any, Dict, List, Optional
 
+from src.core.provenance import build_run_provenance
 from src.database.dao import (
     RunMetricsDAO,
     SimulationRunDAO,
@@ -202,10 +203,27 @@ def run_volume_sweep_experiment(
             sig_run_id = f"sweep_{session_id[:8]}_sig_{int(rate * 100)}"
             round_run_id = f"sweep_{session_id[:8]}_rnd_{int(rate * 100)}"
 
-            sig_config = json.loads(json.dumps(step_config))
-            sig_config["geometry"] = {"intersectionType": "fixed_time_signal"}
-            round_config = json.loads(json.dumps(step_config))
-            round_config["geometry"] = {"intersectionType": "roundabout"}
+            # Each stored run carries the exact config its own engine ran
+            # with (the orchestrator's per-geometry copy, including the
+            # controller settings it injects), so the run can be reproduced
+            # on its own. Timing is read from the engines, not the request:
+            # the orchestrator's clocks step at their own fixed time step.
+            sig_config = json.loads(json.dumps(orchestrator.config_signal))
+            round_config = json.loads(json.dumps(orchestrator.config_roundabout))
+            sig_provenance = build_run_provenance(
+                config_source="engine",
+                run_mode="single",
+                time_step=orchestrator.clock_signal.time_step,
+                duration=orchestrator.engine_signal.duration,
+                warmup_time=orchestrator.collector_signal.warmup_time,
+            )
+            round_provenance = build_run_provenance(
+                config_source="engine",
+                run_mode="single",
+                time_step=orchestrator.clock_roundabout.time_step,
+                duration=orchestrator.engine_roundabout.duration,
+                warmup_time=orchestrator.collector_roundabout.warmup_time,
+            )
 
             SimulationRunDAO.save(
                 conn,
@@ -219,6 +237,7 @@ def run_volume_sweep_experiment(
                 batch_id=session_id,
                 config=sig_config,
                 summary_metrics=sig_metrics,
+                provenance=sig_provenance,
             )
             RunMetricsDAO.save(conn, sig_run_id, steps_to_run, sig_metrics)
 
@@ -234,6 +253,7 @@ def run_volume_sweep_experiment(
                 batch_id=session_id,
                 config=round_config,
                 summary_metrics=round_metrics,
+                provenance=round_provenance,
             )
             RunMetricsDAO.save(conn, round_run_id, steps_to_run, round_metrics)
 

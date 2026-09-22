@@ -195,3 +195,48 @@
   color: var(--text-muted);
   white-space: nowrap;
 }
+
+/* ── Stored runs: any number of columns ──────────────────────────────── */
+
+.multi-run-scroll {
+  overflow-x: auto;
+}
+
+.multi-run-grid {
+  table-layout: auto;
+  min-width: 520px;
+}
+
+.multi-run-grid th[scope="row"],
+.multi-run-grid thead th:first-child {
+  width: auto;
+  min-width: 180px;
+}
+
+.multi-run-grid thead th {
+  vertical-align: bottom;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11px;
+}
+
+.multi-run-grid td {
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.multi-run-diff {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.baseline-tag {
+  display: block;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-blue);
+}
