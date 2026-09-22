@@ -325,11 +325,17 @@ function Dashboard({ viewMode: routedView }: { viewMode: RoutedView }) {
       name: `${label} · seed ${String(randomSeed)} · ${liveTimestamp.toFixed(0)} s`,
       config: configToSave,
       metrics: metricsToSave,
+      mode: isDual ? ("dual" as const) : ("single" as const),
     };
 
     saveReplay(payload)
-      .then(() => {
-        showToast("Run saved to History.");
+      .then((saved: { runId?: string } | undefined) => {
+        const runId = saved?.runId;
+        showToast(
+          runId
+            ? `Run ${runId.slice(0, 8)} saved to History.`
+            : "Run saved to History.",
+        );
       })
       .catch((e: unknown) => {
         console.error(e);

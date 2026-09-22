@@ -130,11 +130,44 @@ export async function runMonteCarlo(params: {
   return post("/api/v1/study/validate/monte-carlo", params);
 }
 
+/** Compact reproducibility record of a saved run
+ *  (backend describe_reproducibility, include_payload=False). Fields a run
+ *  never recorded — runs saved before provenance tracking — are null. */
+export interface RunReproducibility {
+  runId: string;
+  createdAt: string | null;
+  status: string | null;
+  intersectionType: string | null;
+  provenanceRecorded: boolean;
+  runMode: "single" | "dual" | null;
+  seed: number | null;
+  /** "unknown" when the backend could not read its git state. */
+  gitCommitHash: string | null;
+  pythonVersion: string | null;
+  /** "engine": the exact config the simulation ran with;
+   *  "client": the dashboard's own summary of it. */
+  configSource: "engine" | "client" | null;
+  configAvailable: boolean;
+  exactConfig: boolean;
+  timing: {
+    timeStep: number | null;
+    duration: number | null;
+    warmupTime: number | null;
+    elapsed: number | null;
+  };
+}
+
 export async function saveReplay(payload: {
   name: string;
   config: Record<string, unknown>;
   metrics: Record<string, unknown>;
-}): Promise<{ status: string; replay_id: string }> {
+  mode?: "single" | "dual";
+}): Promise<{
+  status: string;
+  replay_id: string;
+  runId?: string;
+  reproducibility?: RunReproducibility | null;
+}> {
   return post("/api/v1/replays", payload);
 }
 

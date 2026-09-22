@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import "./HistoryDashboard.css";
 import { deleteReplay, listReplays } from "../services/api";
+import type { RunReproducibility } from "../services/api";
 
 import type { RunningMetrics } from "../types/simulation";
 import type { SimulationConfigValues } from "../types/config";
@@ -29,6 +30,8 @@ export interface SavedReplay {
     roundabout?: RunningMetrics;
   } & Partial<RunningMetrics>;
   created_at: string;
+  /** Null for saves that have no run record (older saves). */
+  reproducibility?: RunReproducibility | null;
 }
 
 interface HistoryDashboardProps {
@@ -46,6 +49,50 @@ function kindOf(r: SavedReplay): "comparative" | "roundabout" | "signal" {
   return r.config.geometry?.intersectionType === "roundabout"
     ? "roundabout"
     : "signal";
+}
+
+/** The recorded seed, falling back to the one older saves kept in their
+ *  config; "—" when neither recorded one. */
+function seedOf(r: SavedReplay): string {
+  const seed = r.reproducibility?.seed ?? r.config.simulation?.randomSeed;
+  return seed === undefined ? "—" : String(seed);
+}
+
+function commitCell(rep: RunReproducibility | null | undefined): {
+  text: string;
+  title: string;
+} {
+  const hash = rep?.gitCommitHash;
+  if (!hash) {
+    return { text: "—", title: "Not recorded for this run" };
+  }
+  if (hash === "unknown") {
+    return {
+      text: "unknown",
+      title:
+        "The backend could not read its git commit when this run was saved",
+    };
+  }
+  return { text: hash.slice(0, 7), title: hash };
+}
+
+function configCell(rep: RunReproducibility | null | undefined): {
+  text: string;
+  title: string;
+} {
+  if (rep?.exactConfig) {
+    return {
+      text: "Exact",
+      title: "The exact configuration the simulation ran with is stored",
+    };
+  }
+  if (rep?.configAvailable) {
+    return {
+      text: "Settings",
+      title: "Only the dashboard settings were stored for this run",
+    };
+  }
+  return { text: "—", title: "No configuration recorded for this run" };
 }
 
 const KIND_LABEL = {
@@ -138,9 +185,10 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
       <header className="history-header">
         <h1>Saved runs</h1>
         <p>
-          Runs saved from the simulation views. Opening one restores its
-          settings and seed and shows the metrics recorded when it was saved;
-          press Play to run it again.
+          Runs saved from the simulation views, each with its run ID, seed and
+          the code commit it ran on. Opening one restores its settings and seed
+          and shows the metrics recorded when it was saved; press Play to run it
+          again.
         </p>
       </header>
 
@@ -178,9 +226,16 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
             <thead>
               <tr>
                 <th scope="col">Saved</th>
+                <th scope="col">Run ID</th>
                 <th scope="col">Name</th>
                 <th scope="col">Type</th>
                 <th scope="col">Seed</th>
+                <th scope="col" title="Git commit of the code that ran it">
+                  Commit
+                </th>
+                <th scope="col" title="Stored configuration">
+                  Config
+                </th>
                 <th scope="col" title="Simulated time when saved">
                   Sim time (s)
                 </th>
@@ -199,6 +254,8 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
               {replays.map((r) => {
                 const saved = parseStoredTimestamp(r.created_at);
                 const kind = kindOf(r);
+                const commit = commitCell(r.reproducibility);
+                const config = configCell(r.reproducibility);
                 return (
                   <tr key={r.id}>
                     <td>
@@ -210,13 +267,18 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
                         </time>
                       )}
                     </td>
+                    <td className="mono" title={r.id}>
+                      {r.id.slice(0, 8)}
+                    </td>
                     <th scope="row" className="run-name">
                       {r.name}
                     </th>
                     <td>{KIND_LABEL[kind]}</td>
-                    <td className="mono">
-                      {r.config.simulation?.randomSeed ?? "—"}
+                    <td className="mono">{seedOf(r)}</td>
+                    <td className="mono" title={commit.title}>
+                      {commit.text}
                     </td>
+                    <td title={config.title}>{config.text}</td>
                     <td className="mono">
                       {num(r.config.simulation?.elapsed, 0)}
                     </td>

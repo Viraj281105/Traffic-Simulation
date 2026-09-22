@@ -13,7 +13,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated, Any, Dict, Optional
+from typing import Annotated, Any, Dict, Literal, Optional
 
 import jsonschema
 from fastapi import (
@@ -39,8 +39,17 @@ from src.core.clock import Clock
 from src.core.config_models import ScenarioConfiguration
 from src.core.engine import SimulationEngine
 from src.core.enums import SimulationStatus
-from src.core.provenance import GIT_COMMIT_HASH, PYTHON_VERSION
-from src.database.dao import RunMetricsDAO, SimulationRunDAO, SweepSessionDAO
+from src.core.provenance import (
+    GIT_COMMIT_HASH,
+    PYTHON_VERSION,
+    build_run_provenance,
+)
+from src.database.dao import (
+    RunMetricsDAO,
+    SimulationRunDAO,
+    SweepSessionDAO,
+    describe_reproducibility,
+)
 from src.database.db import DB_PATH, get_db_connection, init_db  # noqa: F401
 from src.database.replay_dao import ReplayDAO
 from src.metrics.collector import MetricCollector
@@ -408,6 +417,13 @@ def _persist_completed_run(
                 duration=elapsed,
                 config=config,
                 summary_metrics=final_metrics,
+                provenance=build_run_provenance(
+                    config_source="engine",
+                    run_mode="single",
+                    time_step=engine.clock.time_step,
+                    duration=engine.duration,
+                    warmup_time=collector.warmup_time,
+                ),
             )
     except Exception:
         logger.exception("Failed to persist simulation run %s to history", sim_id)
@@ -1633,6 +1649,20 @@ def get_simulation_run_endpoint(run_id: str) -> Dict[str, Any]:
     raise HTTPException(status_code=500, detail="Database connection error")
 
 
+@app.get("/api/v1/study/history/runs/{run_id}/reproducibility")
+def get_run_reproducibility_endpoint(run_id: str) -> Dict[str, Any]:
+    """Everything needed to re-run a stored experiment exactly: its config
+    (seed pinned), seed, git commit, Python version, timing and summary
+    metrics. Fields a run never recorded (runs saved before V1.1) are null."""
+    init_db()
+    with get_db_connection() as conn:
+        run = SimulationRunDAO.get(conn, run_id)
+        if not run:
+            raise HTTPException(status_code=404, detail="Simulation run not found")
+        return describe_reproducibility(run)
+    raise HTTPException(status_code=500, detail="Database connection error")
+
+
 @app.post("/api/v1/study/history/runs/compare")
 def compare_runs_endpoint(payload: RunComparisonRequest) -> Dict[str, Any]:
     """Compares two historical simulation runs side-by-side with delta analysis."""
@@ -1722,6 +1752,19 @@ def reproduce_run_endpoint(run_id: str) -> Dict[str, Any]:
         if not run:
             raise HTTPException(
                 status_code=404, detail=f"Simulation run '{run_id}' not found"
+            )
+
+        if (run.get("provenance") or {}).get("runMode") == "dual":
+            # The headless re-run below drives a single engine, while a dual
+            # comparison's metrics are split into signal/roundabout: the
+            # comparison would match nothing and report success. Refuse
+            # rather than claim determinism.
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Run '{run_id}' is a signal-vs-roundabout comparison; "
+                    "headless reproduction supports single-intersection runs only."
+                ),
             )
 
         config = run.get("config")
@@ -1878,33 +1921,159 @@ class SaveReplayRequest(BaseModel):
     name: str
     config: Dict[str, Any]
     metrics: Dict[str, Any]
+    # "dual" for a signal-vs-roundabout comparison. Optional for older
+    # clients: inferred from the metrics shape ({signal, roundabout}).
+    mode: Optional[Literal["single", "dual"]] = None
+
+
+def _find_live_session(request: Request) -> Optional[_LiveSession]:
+    """The caller's existing live session, looked up (never created) from
+    its session cookie. /api/v1/replays is outside the live-session
+    middleware's prefix, so it resolves the session itself, as the
+    WebSocket handlers do. No cookie -> None: never guess at another
+    client's (or the shared default) session."""
+    key = request.cookies.get(LIVE_SESSION_COOKIE)
+    if not key:
+        return None
+    with _live_sessions_lock:
+        return _live_sessions.get(key)
+
+
+def _capture_engine_run(
+    session: Optional[_LiveSession], mode: str, claimed_seed: Any
+) -> Optional[Dict[str, Any]]:
+    """Reads the exact config, seed, elapsed time and timing of the run the
+    caller is saving from its live engine (or dual orchestrator).
+
+    Returns None -- the caller then falls back to the client-supplied
+    config -- when no engine has actually run, or when the engine's seed is
+    not the seed the client says it is saving, so a stale or different
+    engine's configuration is never attributed to this run.
+    """
+    if session is None:
+        return None
+    engine: Optional[SimulationEngine]
+    collector: Optional[MetricCollector]
+    if mode == "dual":
+        orch = session.dual_sim_orchestrator
+        if orch is None:
+            return None
+        engine = orch.engine_signal
+        clock = orch.clock_signal
+        collector = orch.collector_signal
+        # The orchestrator derives both engines' configs from this one.
+        config = orch.config
+    else:
+        engine = session.live_sim_data.get("engine")
+        collector = session.live_sim_data.get("collector")
+        if engine is None or collector is None:
+            return None
+        clock = engine.clock
+        config = engine.config
+    elapsed = clock.get_elapsed_time()
+    seed = engine.spawner.random_seed if engine.spawner is not None else None
+    if elapsed <= 0 or seed is None:
+        return None
+    if claimed_seed is not None and claimed_seed != seed:
+        return None
+    exact_config = copy.deepcopy(config)
+    exact_config.setdefault("simulation", {})["randomSeed"] = seed
+    return {
+        "config": exact_config,
+        "seed": seed,
+        "elapsed": elapsed,
+        "timeStep": clock.time_step,
+        "duration": engine.duration,
+        "warmupTime": collector.warmup_time,
+    }
+
+
+def _with_reproducibility(
+    replays: list[Dict[str, Any]], conn: Any
+) -> list[Dict[str, Any]]:
+    """Attaches each saved replay's compact reproducibility summary from its
+    simulation_runs row (same id); None where no such row exists."""
+    runs = SimulationRunDAO.get_many(conn, [r["id"] for r in replays])
+    for replay in replays:
+        run = runs.get(replay["id"])
+        replay["reproducibility"] = (
+            describe_reproducibility(run, include_payload=False) if run else None
+        )
+    return replays
 
 
 @app.post("/api/v1/replays", dependencies=[Depends(require_api_key)])
-def save_replay(payload: SaveReplayRequest) -> Dict[str, Any]:
+def save_replay(payload: SaveReplayRequest, request: Request) -> Dict[str, Any]:
     init_db()
+    mode = payload.mode or (
+        "dual"
+        if "signal" in payload.metrics and "roundabout" in payload.metrics
+        else "single"
+    )
+    client_sim = payload.config.get("simulation", {})
+    captured = _capture_engine_run(
+        _find_live_session(request), mode, client_sim.get("randomSeed")
+    )
+    if captured is not None:
+        run_config = captured["config"]
+        seed = captured["seed"]
+        duration = captured["duration"]
+        elapsed = captured["elapsed"]
+        provenance = build_run_provenance(
+            config_source="engine",
+            run_mode=mode,
+            time_step=captured["timeStep"],
+            duration=duration,
+            warmup_time=captured["warmupTime"],
+        )
+    else:
+        # No engine to read from: keep the client's summary, as before, and
+        # say so in the provenance rather than presenting it as exact.
+        run_config = payload.config
+        seed = client_sim.get("randomSeed")
+        duration = client_sim.get("duration", 60.0)
+        elapsed = client_sim.get("elapsed", duration)
+        provenance = build_run_provenance(
+            config_source="client",
+            run_mode=mode,
+            time_step=client_sim.get("timeStep"),
+            duration=client_sim.get("duration"),
+            warmup_time=client_sim.get("warmupTime"),
+        )
+    itype = (
+        "comparative"
+        if mode == "dual"
+        else run_config.get("geometry", {}).get("intersectionType", "unknown")
+    )
+    arr_rate = run_config.get("traffic", {}).get("arrivalRate", 0.5)
     with get_db_connection() as conn:
         replay_id = ReplayDAO.save(conn, payload.name, payload.config, payload.metrics)
-        # Also persist to simulation_runs for history and reproducible comparison
-        itype = payload.config.get("geometry", {}).get("intersectionType", "unknown")
-        seed = payload.config.get("simulation", {}).get("randomSeed", 0)
-        arr_rate = payload.config.get("traffic", {}).get("arrivalRate", 0.5)
-        duration = payload.config.get("simulation", {}).get("duration", 60.0)
+        # Also persist to simulation_runs (same id) for history, reproducible
+        # comparison and the reproducibility record.
         SimulationRunDAO.save(
             conn,
             replay_id,
             "completed",
-            duration,
+            elapsed,
             intersection_type=itype,
             random_seed=seed,
             arrival_rate=arr_rate,
             duration=duration,
             batch_id="replay",
-            config=payload.config,
+            config=run_config,
             summary_metrics=payload.metrics,
+            provenance=provenance,
         )
         conn.commit()
-        return {"status": "ok", "replay_id": replay_id}
+        run = SimulationRunDAO.get(conn, replay_id)
+        return {
+            "status": "ok",
+            "replay_id": replay_id,
+            "runId": replay_id,
+            "reproducibility": (
+                describe_reproducibility(run, include_payload=False) if run else None
+            ),
+        }
     raise HTTPException(status_code=500, detail="Database connection error")
 
 
@@ -1912,7 +2081,9 @@ def save_replay(payload: SaveReplayRequest) -> Dict[str, Any]:
 def list_replays(limit: int = 50, offset: int = 0) -> list[Dict[str, Any]]:
     init_db()
     with get_db_connection() as conn:
-        return ReplayDAO.list_all(conn, limit=limit, offset=offset)
+        return _with_reproducibility(
+            ReplayDAO.list_all(conn, limit=limit, offset=offset), conn
+        )
     return []
 
 
@@ -1923,7 +2094,7 @@ def get_replay(replay_id: str) -> Dict[str, Any]:
         replay = ReplayDAO.get(conn, replay_id)
         if not replay:
             raise HTTPException(status_code=404, detail="Replay not found")
-        return replay
+        return _with_reproducibility([replay], conn)[0]
     raise HTTPException(status_code=500, detail="Database connection error")
 
 

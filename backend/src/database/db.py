@@ -47,6 +47,8 @@ def init_db() -> None:
             batch_id TEXT,
             config_json TEXT NOT NULL DEFAULT '{}',
             summary_metrics_json TEXT NOT NULL DEFAULT '{}',
+            git_commit TEXT,
+            provenance_json TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """
@@ -63,6 +65,13 @@ def init_db() -> None:
         ("batch_id", "TEXT"),
         ("config_json", "TEXT NOT NULL DEFAULT '{}'"),
         ("summary_metrics_json", "TEXT NOT NULL DEFAULT '{}'"),
+        # Reproducibility provenance (V1.1). Deliberately nullable with no
+        # default: NULL means "not recorded" (a run saved before these
+        # existed), never a fabricated value. New rows always set both;
+        # git_commit may be "unknown" where .git is absent (see
+        # src/core/provenance.py).
+        ("git_commit", "TEXT"),
+        ("provenance_json", "TEXT"),
     ]
     for col_name, col_def in columns_to_add:
         if col_name not in existing_cols:
