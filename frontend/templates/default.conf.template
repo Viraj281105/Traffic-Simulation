@@ -58,6 +58,16 @@ server {
         try_files /app.html =404;
     }
 
+    # Saved-run pages: /app/runs/<runId> and /app/compare(?runs=...); bare
+    # /app/runs is served too and redirects client-side to History. The id
+    # pattern matches RUN_ID_PATTERN in frontend/src/routing.ts and the
+    # backend's run-id validation; a malformed id falls through to the 404
+    # below. An unknown but well-formed id is served the dashboard, which
+    # shows its own "run not found" state from the API's 404.
+    location ~ "^/app/(runs(/[A-Za-z0-9_-]{1,128})?|compare)/?$" {
+        try_files /app.html =404;
+    }
+
     # Bare /app (and the legacy /app.html) load the dashboard, which redirects
     # client-side to its default view.
     location ~ ^/app/?$ {

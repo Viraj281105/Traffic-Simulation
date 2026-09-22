@@ -42,6 +42,25 @@ def _loads_dict(raw: Optional[str]) -> Optional[Dict[str, Any]]:
     return parsed if isinstance(parsed, dict) else None
 
 
+_RUN_COLUMNS = (
+    "id, status, elapsed, intersection_type, random_seed, arrival_rate, "
+    "duration, batch_id, config_json, summary_metrics_json, git_commit, "
+    "provenance_json, name, notes, tags_json, created_at"
+)
+
+
+def _loads_tags(raw: Optional[str]) -> list[str]:
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, ValueError):
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return [t for t in parsed if isinstance(t, str)]
+
+
 def _decode_run_row(row: sqlite3.Row) -> Dict[str, Any]:
     """A simulation_runs row as a dict, with its JSON columns decoded
     alongside the raw ones (``config``, ``summary_metrics`` and
@@ -50,6 +69,7 @@ def _decode_run_row(row: sqlite3.Row) -> Dict[str, Any]:
     data["config"] = _loads_dict(data.get("config_json")) or {}
     data["summary_metrics"] = _loads_dict(data.get("summary_metrics_json")) or {}
     data["provenance"] = _loads_dict(data.get("provenance_json"))
+    data["tags"] = _loads_tags(data.get("tags_json"))
     return data
 
 
@@ -70,6 +90,7 @@ class SimulationRunDAO:
         config: Optional[Dict[str, Any]] = None,
         summary_metrics: Optional[Dict[str, Any]] = None,
         provenance: Optional[Dict[str, Any]] = None,
+        name: Optional[str] = None,
     ) -> None:
         """Inserts or replaces a run.
 
@@ -94,8 +115,8 @@ class SimulationRunDAO:
                 INSERT OR REPLACE INTO simulation_runs (
                     id, status, elapsed, intersection_type, random_seed, arrival_rate,
                     duration, batch_id, config_json, summary_metrics_json,
-                    git_commit, provenance_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                    git_commit, provenance_json, name
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
                 """,
                 (
                     run_id,
@@ -110,6 +131,7 @@ class SimulationRunDAO:
                     metrics_str,
                     git_commit,
                     provenance_str,
+                    name,
                 ),
             )
             conn.commit()
@@ -121,12 +143,7 @@ class SimulationRunDAO:
     def get(conn: sqlite3.Connection, run_id: str) -> Optional[Dict[str, Any]]:
         cursor = conn.cursor()
         cursor.execute(
-            """
-            SELECT id, status, elapsed, intersection_type, random_seed, arrival_rate,
-                   duration, batch_id, config_json, summary_metrics_json,
-                   git_commit, provenance_json, created_at
-            FROM simulation_runs WHERE id = ?;
-            """,
+            f"SELECT {_RUN_COLUMNS} FROM simulation_runs WHERE id = ?;",
             (run_id,),
         )
         row = cursor.fetchone()
@@ -142,12 +159,7 @@ class SimulationRunDAO:
         batch_id: Optional[str] = None,
     ) -> list[Dict[str, Any]]:
         cursor = conn.cursor()
-        query = """
-            SELECT id, status, elapsed, intersection_type, random_seed, arrival_rate,
-                   duration, batch_id, config_json, summary_metrics_json,
-                   git_commit, provenance_json, created_at
-            FROM simulation_runs
-        """
+        query = f"SELECT {_RUN_COLUMNS} FROM simulation_runs"
         conditions = []
         params: list[Any] = []
 
@@ -181,15 +193,67 @@ class SimulationRunDAO:
         placeholders = ", ".join("?" for _ in run_ids)
         cursor = conn.cursor()
         cursor.execute(
-            f"""
-            SELECT id, status, elapsed, intersection_type, random_seed, arrival_rate,
-                   duration, batch_id, config_json, summary_metrics_json,
-                   git_commit, provenance_json, created_at
-            FROM simulation_runs WHERE id IN ({placeholders});
-            """,
+            f"SELECT {_RUN_COLUMNS} FROM simulation_runs WHERE id IN ({placeholders});",
             tuple(run_ids),
         )
         return {r["id"]: _decode_run_row(r) for r in cursor.fetchall()}
+
+    @staticmethod
+    def update_metadata(
+        conn: sqlite3.Connection,
+        run_id: str,
+        *,
+        name: Optional[str] = None,
+        notes: Optional[str] = None,
+        tags: Optional[list[str]] = None,
+        set_name: bool = False,
+        set_notes: bool = False,
+        set_tags: bool = False,
+    ) -> bool:
+        """Updates the user-entered labels of a run; only the fields flagged
+        with ``set_*`` are written (so a field can also be cleared to NULL).
+        Returns False when the run does not exist."""
+        assignments: list[str] = []
+        params: list[Any] = []
+        if set_name:
+            assignments.append("name = ?")
+            params.append(name)
+        if set_notes:
+            assignments.append("notes = ?")
+            params.append(notes)
+        if set_tags:
+            assignments.append("tags_json = ?")
+            params.append(json.dumps(tags) if tags else None)
+        cursor = conn.cursor()
+        try:
+            if assignments:
+                cursor.execute(
+                    f"UPDATE simulation_runs SET {', '.join(assignments)} WHERE id = ?;",
+                    (*params, run_id),
+                )
+                updated = cursor.rowcount > 0
+            else:
+                cursor.execute("SELECT 1 FROM simulation_runs WHERE id = ?;", (run_id,))
+                updated = cursor.fetchone() is not None
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        return updated
+
+    @staticmethod
+    def delete(conn: sqlite3.Connection, run_id: str) -> bool:
+        """Deletes a run (its run_metrics rows cascade). Returns whether a
+        row was removed."""
+        cursor = conn.cursor()
+        try:
+            cursor.execute("DELETE FROM simulation_runs WHERE id = ?;", (run_id,))
+            removed = cursor.rowcount > 0
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        return removed
 
 
 def describe_reproducibility(
@@ -228,6 +292,10 @@ def describe_reproducibility(
     timing = (provenance or {}).get("timing") or {}
     record: Dict[str, Any] = {
         "runId": run.get("id"),
+        "name": run.get("name"),
+        "notes": run.get("notes"),
+        "tags": run.get("tags") or [],
+        "batchId": run.get("batch_id"),
         "createdAt": run.get("created_at"),
         "status": run.get("status"),
         "intersectionType": run.get("intersection_type"),

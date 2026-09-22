@@ -3,6 +3,10 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+      args:
+        # Commit recorded with saved runs; see backend/Dockerfile. Export
+        # GIT_COMMIT=$(git rev-parse HEAD) before building, or it is "unknown".
+        GIT_COMMIT: ${GIT_COMMIT:-}
     # No `ports:` mapping — the backend is reachable from the frontend
     # container over the compose-internal network at http://backend:8000
     # (see frontend/nginx.conf's proxy_pass blocks), and does not need to

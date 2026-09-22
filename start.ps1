@@ -40,6 +40,9 @@ Write-Host "========================================================"
 # ---------------------------------------------------------------------
 if ($Docker) {
     Write-Host "Starting full Docker stack (docker compose up -d)..."
+    # Record the code version with saved runs (backend/Dockerfile GIT_COMMIT).
+    $commit = git rev-parse HEAD 2>$null
+    if ($LASTEXITCODE -eq 0 -and $commit) { $env:GIT_COMMIT = $commit.Trim() }
     docker compose up -d
 
     Write-Host "--------------------------------------------------------"

@@ -647,6 +647,51 @@ export function comparisonCsv(
   return rows.join("\n") + "\n";
 }
 
+/** CSV of every metric for any number of runs (or comparison sides). Each
+ *  difference column is that column minus the baseline column, in the
+ *  metric's unit (percentage points for %); a difference is left empty
+ *  whenever either value is unavailable. No column ranks the runs. */
+export function multiRunCsv(
+  columns: { label: string; ctx: MetricContext }[],
+  header: string[],
+  baselineIndex = 0,
+): string {
+  const baseline = columns[baselineIndex];
+  const others = columns.filter((_, i) => i !== baselineIndex);
+  const rows = [
+    ...header.map((h) => `# ${h}`),
+    [
+      "group",
+      "metric",
+      "key",
+      "unit",
+      ...columns.map((c) => c.label),
+      ...others.map((c) => `${c.label} minus ${baseline.label}`),
+    ]
+      .map(csvCell)
+      .join(","),
+  ];
+  for (const def of METRICS) {
+    const labelSource = columns.find((c) => c.ctx.metrics)?.ctx.metrics;
+    rows.push(
+      [
+        def.group,
+        metricLabel(def, labelSource ?? undefined),
+        def.key,
+        def.unit,
+        ...columns.map((c) => rawCell(def, c.ctx)),
+        ...others.map((c) => {
+          const diff = metricDifference(def, baseline.ctx, c.ctx);
+          return diff === null ? "" : String(diff);
+        }),
+      ]
+        .map(csvCell)
+        .join(","),
+    );
+  }
+  return rows.join("\n") + "\n";
+}
+
 /** Triggers a browser download of text content. */
 export function downloadText(filename: string, content: string, type: string) {
   const url = URL.createObjectURL(new Blob([content], { type }));

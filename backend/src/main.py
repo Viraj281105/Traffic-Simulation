@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import random
+import re
 import secrets
 import threading
 import time
@@ -1649,18 +1650,211 @@ def get_simulation_run_endpoint(run_id: str) -> Dict[str, Any]:
     raise HTTPException(status_code=500, detail="Database connection error")
 
 
+# Run ids are UUIDs, "sweep_<8 hex>_<sig|rnd>_<rate>" or other simple slugs.
+# Anything else (spaces, dots, slashes, unicode) cannot name a stored run and
+# is rejected up front as malformed rather than looked up.
+_RUN_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+
+
+def _validate_run_id(run_id: str) -> None:
+    if not _RUN_ID_PATTERN.fullmatch(run_id):
+        raise HTTPException(status_code=400, detail="Malformed run ID")
+
+
+def _run_record(conn: Any, run_id: str) -> Dict[str, Any]:
+    """The full reproducibility record of a run plus what the saved-run page
+    needs: its name (falling back to the saved replay's name for runs saved
+    before names were stored on the run) and whether a dashboard replay
+    exists to restore it from. 404 when the run does not exist."""
+    run = SimulationRunDAO.get(conn, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Simulation run not found")
+    record = describe_reproducibility(run)
+    replay = ReplayDAO.get(conn, run_id)
+    if record["name"] is None and replay is not None:
+        record["name"] = replay["name"]
+    record["savedReplay"] = replay is not None
+    return record
+
+
 @app.get("/api/v1/study/history/runs/{run_id}/reproducibility")
 def get_run_reproducibility_endpoint(run_id: str) -> Dict[str, Any]:
     """Everything needed to re-run a stored experiment exactly: its config
     (seed pinned), seed, git commit, Python version, timing and summary
-    metrics. Fields a run never recorded (runs saved before V1.1) are null."""
+    metrics, plus its name, notes and tags. Fields a run never recorded
+    (runs saved before V1.1) are null."""
+    _validate_run_id(run_id)
     init_db()
     with get_db_connection() as conn:
-        run = SimulationRunDAO.get(conn, run_id)
-        if not run:
-            raise HTTPException(status_code=404, detail="Simulation run not found")
-        return describe_reproducibility(run)
+        return _run_record(conn, run_id)
     raise HTTPException(status_code=500, detail="Database connection error")
+
+
+_MAX_TAGS = 20
+
+
+class RunMetadataUpdate(BaseModel):
+    """User-entered labels. Omitted fields are left unchanged; ``notes`` and
+    ``tags`` can be cleared with null / an empty value."""
+
+    name: Optional[str] = Field(default=None, max_length=120)
+    notes: Optional[str] = Field(default=None, max_length=4000)
+    tags: Optional[list[Annotated[str, Field(max_length=32)]]] = Field(
+        default=None, max_length=_MAX_TAGS
+    )
+
+
+def _clean_tags(tags: Optional[list[str]]) -> list[str]:
+    """Trimmed, non-empty, de-duplicated (case-insensitively, first spelling
+    kept) tags in their given order."""
+    seen: set[str] = set()
+    cleaned: list[str] = []
+    for tag in tags or []:
+        t = " ".join(tag.split())
+        if t and t.lower() not in seen:
+            seen.add(t.lower())
+            cleaned.append(t)
+    return cleaned
+
+
+@app.patch(
+    "/api/v1/study/history/runs/{run_id}",
+    dependencies=[Depends(require_api_key)],
+)
+def update_run_metadata_endpoint(
+    run_id: str, payload: RunMetadataUpdate
+) -> Dict[str, Any]:
+    """Renames a run and sets its notes/tags. Touches only these labels --
+    never the stored configuration, seed, provenance or metrics."""
+    _validate_run_id(run_id)
+    provided = payload.model_fields_set
+    name: Optional[str] = None
+    if "name" in provided:
+        name = (payload.name or "").strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="Run name cannot be empty")
+    notes = (payload.notes or "").strip() or None
+    tags = _clean_tags(payload.tags)
+    init_db()
+    with get_db_connection() as conn:
+        found = SimulationRunDAO.update_metadata(
+            conn,
+            run_id,
+            name=name,
+            notes=notes,
+            tags=tags,
+            set_name="name" in provided,
+            set_notes="notes" in provided,
+            set_tags="tags" in provided,
+        )
+        if not found:
+            raise HTTPException(status_code=404, detail="Simulation run not found")
+        if name is not None:
+            # Keep the History list (saved_replays) showing the same name.
+            ReplayDAO.rename(conn, run_id, name)
+        return _run_record(conn, run_id)
+    raise HTTPException(status_code=500, detail="Database connection error")
+
+
+def _flatten(prefix: str, value: Any, out: list[tuple[str, str]]) -> None:
+    """Dotted-path rows for nested dicts; lists are kept as JSON."""
+    if isinstance(value, dict):
+        for k, v in value.items():
+            _flatten(f"{prefix}.{k}" if prefix else str(k), v, out)
+    else:
+        out.append((prefix, _csv_value(value)))
+
+
+def _csv_value(value: Any) -> str:
+    """A cell for one value. Missing values stay empty -- never 0."""
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (list, dict)):
+        return json.dumps(value)
+    return str(value)
+
+
+def _run_export_csv(record: Dict[str, Any]) -> str:
+    rows: list[tuple[str, str, str]] = []
+    for key in (
+        "runId",
+        "name",
+        "createdAt",
+        "status",
+        "intersectionType",
+        "runMode",
+        "batchId",
+    ):
+        rows.append(("run", key, _csv_value(record.get(key))))
+    rows.append(("run", "tags", "; ".join(record.get("tags") or [])))
+    rows.append(("run", "notes", _csv_value(record.get("notes"))))
+    for key in (
+        "seed",
+        "provenanceRecorded",
+        "configSource",
+        "exactConfig",
+        "configAvailable",
+        "gitCommitHash",
+        "pythonVersion",
+    ):
+        rows.append(("reproducibility", key, _csv_value(record.get(key))))
+    for key, value in (record.get("timing") or {}).items():
+        rows.append(("timing", key, _csv_value(value)))
+    for section, payload in (
+        ("config", record.get("config") or {}),
+        ("metrics", record.get("summaryMetrics") or {}),
+    ):
+        flat: list[tuple[str, str]] = []
+        _flatten("", payload, flat)
+        rows.extend((section, k, v) for k, v in flat)
+
+    output = io.StringIO()
+    writer = csv.writer(output, lineterminator="\n")
+    writer.writerow(["section", "key", "value"])
+    writer.writerows(rows)
+    return output.getvalue()
+
+
+@app.get("/api/v1/study/history/runs/{run_id}/export")
+def export_run_endpoint(run_id: str, format: str = "json") -> Any:  # noqa: A002
+    """Downloads one stored run as JSON or CSV: identity, name/notes/tags,
+    seed, provenance, timing, the exact stored configuration and its stored
+    metrics (raw backend keys and units; see the metric catalog for labels).
+    Values the run never recorded are null (JSON) or empty (CSV)."""
+    _validate_run_id(run_id)
+    fmt = format.lower()
+    if fmt not in ("json", "csv"):
+        raise HTTPException(status_code=400, detail="format must be 'json' or 'csv'")
+    init_db()
+    with get_db_connection() as conn:
+        record = _run_record(conn, run_id)
+        timeline = RunMetricsDAO.get_all_for_run(conn, run_id)
+    filename = f"run_{run_id}.{fmt}"
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    if fmt == "csv":
+        return StreamingResponse(
+            iter([_run_export_csv(record)]),
+            media_type="text/csv; charset=utf-8",
+            headers=headers,
+        )
+    return JSONResponse(
+        content={
+            "exportFormat": "traffic-simulation-run",
+            "exportVersion": 1,
+            "exportedAt": datetime.now(timezone.utc).isoformat(),
+            # The server producing this file -- distinct from the run's own
+            # recorded provenance inside "run".
+            "exportedBy": {
+                "gitCommitHash": GIT_COMMIT_HASH,
+                "pythonVersion": PYTHON_VERSION,
+            },
+            "run": record,
+            "metricsTimeline": timeline,
+        },
+        headers=headers,
+    )
 
 
 @app.post("/api/v1/study/history/runs/compare")
@@ -1740,139 +1934,246 @@ def compare_runs_endpoint(payload: RunComparisonRequest) -> Dict[str, Any]:
     raise HTTPException(status_code=500, detail="Database connection error")
 
 
+# Tolerances for the determinism check (unchanged from the original
+# endpoint): absolute differences in seconds of delay and vehicles served.
+_REPRO_DELAY_TOLERANCE_S = 0.05
+_REPRO_THROUGHPUT_TOLERANCE_VEH = 0.1
+
+
+def _reproduce_single(
+    run_config: Dict[str, Any], time_step: float, duration: float, steps: int
+) -> Dict[str, Any]:
+    """Re-runs one engine headlessly for `steps` ticks; its final metrics."""
+    clock = Clock(time_step=time_step)
+    engine = SimulationEngine(clock, duration=duration, config=run_config)
+    controller = create_controller(run_config, engine.network)
+    engine.controller = controller
+    collector = MetricCollector(run_config)
+
+    def tick_callback() -> None:
+        # engine.step() already calls controller.update() once per tick
+        # (via engine.controller, set above) before running tick
+        # callbacks — calling it again here would advance the
+        # controller's phase/follow-up timing at double the rate of the
+        # original run, breaking reproduction. Only read its resulting
+        # state, exactly like build_tick_callback does for ordinary runs.
+        #
+        # conflict_manager mirrors build_tick_callback's own gating:
+        # PET is only geometrically valid for fixed_time_signal (see
+        # metrics/definitions/safety_conflicts.py).
+        collector.update(
+            clock.get_elapsed_time(),
+            engine.pool.active_vehicles,
+            engine.pool.exited_vehicles,
+            derive_signals_state(controller),
+            conflict_manager=(
+                engine.conflict_manager
+                if isinstance(controller, FixedTimeSignalController)
+                else None
+            ),
+        )
+
+    engine.register_tick_callback(tick_callback)
+    for _ in range(steps):
+        if engine.status == SimulationStatus.COMPLETED:
+            break
+        engine.step()
+    return dict(_engine_metrics(engine, collector))
+
+
+def _reproduce_dual(run_config: Dict[str, Any], steps: int) -> Dict[str, Any]:
+    """Re-runs a signal-vs-roundabout comparison headlessly through the same
+    DualSimulationOrchestrator the live comparison uses (one lockstep step
+    per tick, as its run loop does); both sides' final metrics."""
+    orch = DualSimulationOrchestrator(run_config)
+    for _ in range(steps):
+        if orch.engine_signal.status == SimulationStatus.COMPLETED:
+            break
+        orch.step()
+    return {
+        "signal": dict(_engine_metrics(orch.engine_signal, orch.collector_signal)),
+        "roundabout": dict(
+            _engine_metrics(orch.engine_roundabout, orch.collector_roundabout)
+        ),
+    }
+
+
+def _compare_key_metrics(
+    original: Dict[str, Any], reproduced: Dict[str, Any], prefix: str = ""
+) -> tuple[list[str], list[str]]:
+    """Compares delay and vehicles served; returns (compared, discrepancies).
+    A metric is compared only when both sides actually have a value."""
+    compared: list[str] = []
+    discrepancies: list[str] = []
+    orig_delay = original.get("averageDelay", original.get("averageWaitTime"))
+    repro_delay = reproduced.get("averageDelay", reproduced.get("averageWaitTime"))
+    if orig_delay is not None and repro_delay is not None:
+        compared.append(f"{prefix}averageDelay")
+        if abs(orig_delay - repro_delay) > _REPRO_DELAY_TOLERANCE_S:
+            discrepancies.append(
+                f"{prefix}Delay mismatch: original={orig_delay}, "
+                f"reproduced={repro_delay}"
+            )
+    orig_tp = original.get("throughput")
+    repro_tp = reproduced.get("throughput")
+    if orig_tp is not None and repro_tp is not None:
+        compared.append(f"{prefix}throughput")
+        if abs(orig_tp - repro_tp) > _REPRO_THROUGHPUT_TOLERANCE_VEH:
+            discrepancies.append(
+                f"{prefix}Throughput mismatch: original={orig_tp}, "
+                f"reproduced={repro_tp}"
+            )
+    return compared, discrepancies
+
+
+def _reproduction_limitations(
+    provenance: Optional[Dict[str, Any]], compared: list[str]
+) -> list[str]:
+    """Every reason a reproduction result should be read with care."""
+    limitations: list[str] = []
+    if provenance is None:
+        limitations.append(
+            "This run was saved before provenance was recorded: its code "
+            "version, timing and configuration source are unknown, and it is "
+            "re-run to its full duration."
+        )
+    elif provenance.get("configSource") != "engine":
+        limitations.append(
+            "The stored configuration is the dashboard's summary, not the "
+            "exact engine configuration; anything it omits is re-run with "
+            "backend defaults."
+        )
+    recorded = (provenance or {}).get("gitCommitHash")
+    if recorded == "unknown" or (recorded and GIT_COMMIT_HASH == "unknown"):
+        limitations.append(
+            "The code version of the recording or of this server is unknown, "
+            "so it cannot be confirmed that both ran the same code."
+        )
+    elif recorded and recorded != GIT_COMMIT_HASH:
+        limitations.append(
+            f"The run was recorded at commit {recorded[:12]}; this server runs "
+            f"{GIT_COMMIT_HASH[:12]}. Code changes can explain differences."
+        )
+    if not compared:
+        limitations.append(
+            "The stored run has no delay or throughput values to compare "
+            "against, so determinism was not assessed."
+        )
+    return limitations
+
+
 @app.post(
     "/api/v1/study/history/runs/{run_id}/reproduce",
     dependencies=[Depends(require_api_key)],
 )
 def reproduce_run_endpoint(run_id: str) -> Dict[str, Any]:
-    """Re-executes the exact run headlessly using its stored configuration and seed to verify determinism."""
+    """Re-executes a stored run headlessly from its stored configuration and
+    seed, up to its recorded elapsed time, and compares key metrics.
+
+    Never modifies the stored run. ``isDeterministic`` is null when there
+    was nothing to compare, and ``limitations`` lists every reason a match
+    (or mismatch) should be read with care, rather than claiming more than
+    the stored record supports.
+    """
     init_db()
     with get_db_connection() as conn:
         run = SimulationRunDAO.get(conn, run_id)
-        if not run:
-            raise HTTPException(
-                status_code=404, detail=f"Simulation run '{run_id}' not found"
-            )
+    if not run:
+        raise HTTPException(
+            status_code=404, detail=f"Simulation run '{run_id}' not found"
+        )
 
-        if (run.get("provenance") or {}).get("runMode") == "dual":
-            # The headless re-run below drives a single engine, while a dual
-            # comparison's metrics are split into signal/roundabout: the
-            # comparison would match nothing and report success. Refuse
-            # rather than claim determinism.
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"Run '{run_id}' is a signal-vs-roundabout comparison; "
-                    "headless reproduction supports single-intersection runs only."
-                ),
-            )
+    config = run.get("config")
+    if not config or not isinstance(config, dict) or len(config) == 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Run '{run_id}' does not have a saved configuration to reproduce.",
+        )
 
-        config = run.get("config")
-        if not config or not isinstance(config, dict) or len(config) == 0:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Run '{run_id}' does not have a saved configuration to reproduce.",
-            )
+    provenance = run.get("provenance")
+    mode = (provenance or {}).get("runMode") or "single"
+    original_metrics = run.get("summary_metrics", {})
+    if mode == "dual" and not (
+        isinstance(original_metrics.get("signal"), dict)
+        and isinstance(original_metrics.get("roundabout"), dict)
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Run '{run_id}' is a comparison but has no per-geometry "
+                "metrics to compare against."
+            ),
+        )
 
-        random_seed = run.get("random_seed", 0)
-        time_step = config.get("simulation", {}).get("timeStep", 0.1)
-        duration = run.get("duration") or run.get("elapsed", 30.0)
+    random_seed = run.get("random_seed", 0)
+    timing = (provenance or {}).get("timing") or {}
+    time_step = timing.get("timeStep") or config.get("simulation", {}).get(
+        "timeStep", 0.1
+    )
+    duration = timing.get("duration") or run.get("duration") or run.get("elapsed", 30.0)
+    elapsed = run.get("elapsed") or 0.0
 
-        # Clone config and ensure seed, timeStep, duration match
-        run_config = json.loads(json.dumps(config))
-        if "simulation" not in run_config:
-            run_config["simulation"] = {}
-        run_config["simulation"]["randomSeed"] = random_seed
-        run_config["simulation"]["timeStep"] = time_step
-        run_config["simulation"]["duration"] = duration
-
-        clock = Clock(time_step=time_step)
-        engine = SimulationEngine(clock, duration=duration, config=run_config)
-        controller = create_controller(run_config, engine.network)
-        engine.controller = controller
-        collector = MetricCollector(run_config)
-
-        def tick_callback() -> None:
-            # engine.step() already calls controller.update() once per tick
-            # (via engine.controller, set above) before running tick
-            # callbacks — calling it again here would advance the
-            # controller's phase/follow-up timing at double the rate of the
-            # original run, breaking reproduction. Only read its resulting
-            # state, exactly like build_tick_callback does for ordinary runs.
-            #
-            # conflict_manager mirrors build_tick_callback's own gating:
-            # PET is only geometrically valid for fixed_time_signal (see
-            # metrics/definitions/safety_conflicts.py).
-            collector.update(
-                clock.get_elapsed_time(),
-                engine.pool.active_vehicles,
-                engine.pool.exited_vehicles,
-                derive_signals_state(controller),
-                conflict_manager=(
-                    engine.conflict_manager
-                    if isinstance(controller, FixedTimeSignalController)
-                    else None
-                ),
-            )
-
-        engine.register_tick_callback(tick_callback)
-
+    # Runs with recorded provenance also recorded the engine's true elapsed
+    # time, so a run saved part-way through is reproduced to that instant.
+    # Older runs did not (replay saves stored the duration there), so they
+    # keep the original full-duration behaviour.
+    if provenance is not None and 0 < elapsed < duration:
+        target_elapsed = elapsed
+        steps = int(round(elapsed / time_step))
+    else:
+        target_elapsed = duration
         steps = int(duration / time_step)
-        for _ in range(steps):
-            engine.step()
 
-        reproduced_metrics = collector.get_metrics(
-            clock.get_elapsed_time(),
-            engine.pool.active_vehicles,
-            engine.pool.exited_vehicles,
-            engine.spawner.spawned_count if engine.spawner else 0,
-            engine.pool.collision_count,
+    # Clone config and ensure seed, timeStep, duration match
+    run_config = json.loads(json.dumps(config))
+    if "simulation" not in run_config:
+        run_config["simulation"] = {}
+    run_config["simulation"]["randomSeed"] = random_seed
+    run_config["simulation"]["timeStep"] = time_step
+    run_config["simulation"]["duration"] = duration
+
+    compared: list[str] = []
+    discrepancies: list[str] = []
+    if mode == "dual":
+        reproduced_metrics = _reproduce_dual(run_config, steps)
+        for side in ("signal", "roundabout"):
+            c, d = _compare_key_metrics(
+                original_metrics[side], reproduced_metrics[side], f"{side}."
+            )
+            compared += c
+            discrepancies += d
+    else:
+        reproduced_metrics = _reproduce_single(run_config, time_step, duration, steps)
+        compared, discrepancies = _compare_key_metrics(
+            original_metrics, reproduced_metrics
         )
 
-        original_metrics = run.get("summary_metrics", {})
-
-        # Compare determinism on key metrics
-        orig_delay = original_metrics.get(
-            "averageDelay", original_metrics.get("averageWaitTime")
-        )
-        repro_delay = reproduced_metrics.get(
-            "averageDelay", reproduced_metrics.get("averageWaitTime")
-        )
-        orig_tp = original_metrics.get("throughput")
-        repro_tp = reproduced_metrics.get("throughput")
-
-        discrepancies = []
-        if orig_delay is not None and repro_delay is not None:
-            if abs(orig_delay - repro_delay) > 0.05:
-                discrepancies.append(
-                    f"Delay mismatch: original={orig_delay}, reproduced={repro_delay}"
-                )
-        if orig_tp is not None and repro_tp is not None:
-            if abs(orig_tp - repro_tp) > 0.1:
-                discrepancies.append(
-                    f"Throughput mismatch: original={orig_tp}, reproduced={repro_tp}"
-                )
-
-        is_deterministic = len(discrepancies) == 0
-
-        return {
-            "runId": run_id,
-            "seed": random_seed,
-            "intersectionType": run.get("intersection_type"),
-            "duration": duration,
-            "isDeterministic": is_deterministic,
-            "originalMetrics": original_metrics,
-            "reproducedMetrics": reproduced_metrics,
-            "discrepancies": discrepancies,
-            # Best-effort provenance (src/core/provenance.py): "unknown"
-            # rather than a failure wherever .git isn't available, e.g. the
-            # production Docker image.
-            "provenance": {
-                "gitCommitHash": GIT_COMMIT_HASH,
-                "pythonVersion": PYTHON_VERSION,
-            },
-        }
-    raise HTTPException(status_code=500, detail="Database connection error")
+    return {
+        "runId": run_id,
+        "mode": mode,
+        "seed": random_seed,
+        "intersectionType": run.get("intersection_type"),
+        "duration": duration,
+        "reproducedElapsed": round(target_elapsed, 6),
+        "isDeterministic": (len(discrepancies) == 0) if compared else None,
+        "comparedMetrics": compared,
+        "tolerances": {
+            "averageDelaySeconds": _REPRO_DELAY_TOLERANCE_S,
+            "throughputVehicles": _REPRO_THROUGHPUT_TOLERANCE_VEH,
+        },
+        "originalMetrics": original_metrics,
+        "reproducedMetrics": reproduced_metrics,
+        "discrepancies": discrepancies,
+        "limitations": _reproduction_limitations(provenance, compared),
+        "recordedGitCommitHash": (provenance or {}).get("gitCommitHash"),
+        # Best-effort provenance (src/core/provenance.py): "unknown"
+        # rather than a failure wherever .git isn't available, e.g. the
+        # production Docker image.
+        "provenance": {
+            "gitCommitHash": GIT_COMMIT_HASH,
+            "pythonVersion": PYTHON_VERSION,
+        },
+    }
 
 
 @app.post(
@@ -1939,11 +2240,30 @@ def _find_live_session(request: Request) -> Optional[_LiveSession]:
         return _live_sessions.get(key)
 
 
+def _engine_metrics(engine: SimulationEngine, collector: MetricCollector) -> Any:
+    """The collector's metrics for the engine's current state -- the same
+    call that produces every snapshot's "metrics" -- read under the engine
+    lock so a concurrent tick cannot interleave."""
+    with engine.lock:
+        return collector.get_metrics(
+            engine.clock.get_elapsed_time(),
+            engine.pool.active_vehicles,
+            engine.pool.exited_vehicles,
+            engine.spawner.spawned_count if engine.spawner else 0,
+            engine.pool.collision_count,
+        )
+
+
 def _capture_engine_run(
     session: Optional[_LiveSession], mode: str, claimed_seed: Any
 ) -> Optional[Dict[str, Any]]:
-    """Reads the exact config, seed, elapsed time and timing of the run the
-    caller is saving from its live engine (or dual orchestrator).
+    """Reads the exact config, seed, elapsed time, timing and metrics of the
+    run the caller is saving from its live engine (or dual orchestrator).
+
+    The metrics are computed here, at the recorded elapsed time, rather than
+    taken from the client: the last snapshot a client received can trail the
+    engine by a tick or more, and stored metrics must describe the same
+    instant as the stored elapsed time for the run to be reproducible.
 
     Returns None -- the caller then falls back to the client-supplied
     config -- when no engine has actually run, or when the engine's seed is
@@ -1963,6 +2283,14 @@ def _capture_engine_run(
         collector = orch.collector_signal
         # The orchestrator derives both engines' configs from this one.
         config = orch.config
+
+        def read_metrics() -> Dict[str, Any]:
+            return {
+                "signal": _engine_metrics(orch.engine_signal, orch.collector_signal),
+                "roundabout": _engine_metrics(
+                    orch.engine_roundabout, orch.collector_roundabout
+                ),
+            }
     else:
         engine = session.live_sim_data.get("engine")
         collector = session.live_sim_data.get("collector")
@@ -1970,6 +2298,11 @@ def _capture_engine_run(
             return None
         clock = engine.clock
         config = engine.config
+        live_engine, live_collector = engine, collector
+
+        def read_metrics() -> Dict[str, Any]:
+            return dict(_engine_metrics(live_engine, live_collector))
+
     elapsed = clock.get_elapsed_time()
     seed = engine.spawner.random_seed if engine.spawner is not None else None
     if elapsed <= 0 or seed is None:
@@ -1985,6 +2318,7 @@ def _capture_engine_run(
         "timeStep": clock.time_step,
         "duration": engine.duration,
         "warmupTime": collector.warmup_time,
+        "metrics": read_metrics(),
     }
 
 
@@ -2014,8 +2348,10 @@ def save_replay(payload: SaveReplayRequest, request: Request) -> Dict[str, Any]:
     captured = _capture_engine_run(
         _find_live_session(request), mode, client_sim.get("randomSeed")
     )
+    metrics = payload.metrics
     if captured is not None:
         run_config = captured["config"]
+        metrics = captured["metrics"]
         seed = captured["seed"]
         duration = captured["duration"]
         elapsed = captured["elapsed"]
@@ -2047,7 +2383,7 @@ def save_replay(payload: SaveReplayRequest, request: Request) -> Dict[str, Any]:
     )
     arr_rate = run_config.get("traffic", {}).get("arrivalRate", 0.5)
     with get_db_connection() as conn:
-        replay_id = ReplayDAO.save(conn, payload.name, payload.config, payload.metrics)
+        replay_id = ReplayDAO.save(conn, payload.name, payload.config, metrics)
         # Also persist to simulation_runs (same id) for history, reproducible
         # comparison and the reproducibility record.
         SimulationRunDAO.save(
@@ -2061,8 +2397,10 @@ def save_replay(payload: SaveReplayRequest, request: Request) -> Dict[str, Any]:
             duration=duration,
             batch_id="replay",
             config=run_config,
-            summary_metrics=payload.metrics,
+            summary_metrics=metrics,
             provenance=provenance,
+            # Same fallback as ReplayDAO.save, so both tables agree.
+            name=(payload.name or "").strip() or "Saved Replay",
         )
         conn.commit()
         run = SimulationRunDAO.get(conn, replay_id)
@@ -2105,5 +2443,9 @@ def delete_replay(replay_id: str) -> Dict[str, Any]:
         success = ReplayDAO.delete(conn, replay_id)
         if not success:
             raise HTTPException(status_code=404, detail="Replay not found")
+        # The replay and its simulation_runs record are one saved experiment
+        # (same id): remove both, so "deleted" also means its run page and
+        # exports are gone rather than lingering as an orphan record.
+        SimulationRunDAO.delete(conn, replay_id)
         return {"status": "ok"}
     raise HTTPException(status_code=500, detail="Database connection error")

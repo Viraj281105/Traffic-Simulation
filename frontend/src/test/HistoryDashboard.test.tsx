@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { SavedReplay } from "../components/HistoryDashboard";
@@ -23,6 +24,10 @@ const recorded: SavedReplay = {
   created_at: "2026-09-22 10:00:00",
   reproducibility: {
     runId: "0f3c9a1e-1111-4222-8333-944445555666",
+    name: "Signal · seed 1234 · 120 s",
+    notes: null,
+    tags: ["baseline"],
+    batchId: "replay",
     createdAt: "2026-09-22 10:00:00",
     status: "completed",
     intersectionType: "fixed_time_signal",
@@ -48,9 +53,11 @@ const legacy: SavedReplay = {
   reproducibility: null,
 };
 
+/** A run's row, found through its name link (the row header also holds
+ *  the run's tags). */
 function rowFor(name: string): HTMLElement {
-  const header = screen.getByRole("rowheader", { name });
-  const row = header.closest("tr");
+  const link = screen.getByRole("link", { name });
+  const row = link.closest("tr");
   if (!row) throw new Error("row not found");
   return row;
 }
@@ -63,7 +70,7 @@ describe("HistoryDashboard reproducibility columns", () => {
   it("shows run ID, seed, commit and config status for a recorded run", async () => {
     listReplays.mockResolvedValue([recorded]);
     render(<HistoryDashboard onReplay={vi.fn()} />);
-    await screen.findByRole("rowheader", { name: recorded.name });
+    await screen.findByRole("link", { name: recorded.name });
 
     const row = within(rowFor(recorded.name));
     expect(row.getByText("0f3c9a1e")).toHaveAttribute("title", recorded.id);
@@ -80,7 +87,7 @@ describe("HistoryDashboard reproducibility columns", () => {
   it("shows — for metadata an older run never recorded", async () => {
     listReplays.mockResolvedValue([legacy]);
     render(<HistoryDashboard onReplay={vi.fn()} />);
-    await screen.findByRole("rowheader", { name: legacy.name });
+    await screen.findByRole("link", { name: legacy.name });
 
     const cells = within(rowFor(legacy.name)).getAllByRole("cell");
     const texts = cells.map((c) => c.textContent);
@@ -103,10 +110,48 @@ describe("HistoryDashboard reproducibility columns", () => {
       },
     ]);
     render(<HistoryDashboard onReplay={vi.fn()} />);
-    await screen.findByRole("rowheader", { name: recorded.name });
+    await screen.findByRole("link", { name: recorded.name });
 
     const row = within(rowFor(recorded.name));
     expect(row.getByText("unknown")).toBeInTheDocument();
     expect(row.getByText("Settings")).toBeInTheDocument();
+  });
+
+  it("links each run to its page and shows its tags", async () => {
+    listReplays.mockResolvedValue([recorded]);
+    render(<HistoryDashboard onReplay={vi.fn()} />);
+    const link = await screen.findByRole("link", { name: recorded.name });
+    expect(link).toHaveAttribute("href", `/app/runs/${recorded.id}`);
+    expect(within(rowFor(recorded.name)).getByText("baseline")).toBeVisible();
+  });
+});
+
+describe("HistoryDashboard comparison selection", () => {
+  it("enables Compare selected for two runs and opens the comparison", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState(null, "", "/app/history");
+    listReplays.mockResolvedValue([recorded, legacy]);
+    render(<HistoryDashboard onReplay={vi.fn()} />);
+    await screen.findByRole("link", { name: legacy.name });
+
+    const compare = screen.getByRole("button", { name: /compare selected/i });
+    expect(compare).toBeDisabled();
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: `Select ${legacy.name} for comparison`,
+      }),
+    );
+    expect(compare).toBeDisabled();
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: `Select ${recorded.name} for comparison`,
+      }),
+    );
+    expect(compare).toBeEnabled();
+    await user.click(compare);
+    expect(window.location.pathname).toBe("/app/compare");
+    expect(new URLSearchParams(window.location.search).get("runs")).toBe(
+      `${legacy.id},${recorded.id}`,
+    );
   });
 });

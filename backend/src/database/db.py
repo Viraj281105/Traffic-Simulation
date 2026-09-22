@@ -49,6 +49,9 @@ def init_db() -> None:
             summary_metrics_json TEXT NOT NULL DEFAULT '{}',
             git_commit TEXT,
             provenance_json TEXT,
+            name TEXT,
+            notes TEXT,
+            tags_json TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """
@@ -72,6 +75,11 @@ def init_db() -> None:
         # src/core/provenance.py).
         ("git_commit", "TEXT"),
         ("provenance_json", "TEXT"),
+        # Experiment management (V1.1). User-entered labels only; NULL until
+        # someone sets them. Never used by any computation.
+        ("name", "TEXT"),
+        ("notes", "TEXT"),
+        ("tags_json", "TEXT"),
     ]
     for col_name, col_def in columns_to_add:
         if col_name not in existing_cols:

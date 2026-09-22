@@ -92,9 +92,13 @@ POST /api/v1/study/history/runs/compare
 {"runIdA":"...", "runIdB":"..."}
 ```
 
-`POST /api/v1/study/history/runs/{runId}/reproduce` reruns a saved configuration and seed and reports whether key delay and throughput values match within the implementation tolerances. It supports single-intersection runs; a saved signal-vs-roundabout comparison returns `400`.
+`POST /api/v1/study/history/runs/{runId}/reproduce` re-runs a stored run headlessly from its stored configuration and seed and compares average delay (±0.05 s) and vehicles served (±0.1). It never modifies the stored run. Runs with recorded provenance are re-run to their recorded `elapsed` time (so a run saved part-way through is compared at the same instant) using their recorded time step and duration; older runs keep the full-duration behaviour. Signal-vs-roundabout comparison runs are re-run through the same lockstep orchestrator the live comparison uses and both sides are compared. The response reports `mode`, `reproducedElapsed`, `comparedMetrics`, `discrepancies` and `limitations` (e.g. legacy runs, dashboard-summary configurations, a different or unknown code version); `isDeterministic` is `null` when the stored run had nothing to compare against.
 
-`GET /api/v1/study/history/runs/{runId}/reproducibility` returns what is needed to re-run a stored experiment: `runId`, `createdAt`, `intersectionType`, `runMode` (`single`/`dual`), `seed`, `gitCommitHash`, `pythonVersion`, `configSource` (`engine`: the exact config the engine ran with; `client`: the dashboard's summary, used only when no engine was available), `exactConfig`, `timing` (`timeStep`, `duration`, `warmupTime`, `elapsed`), the stored `config` with `simulation.randomSeed` pinned to the recorded seed, and `summaryMetrics`. Unknown IDs return `404`. Runs saved before this record existed return `null` for anything they did not record; `gitCommitHash` is `"unknown"` when the backend could not read its git state (e.g. the Docker image, which excludes `.git`).
+`GET /api/v1/study/history/runs/{runId}/reproducibility` returns the stored run record: `runId`, `name`, `notes`, `tags`, `batchId`, `createdAt`, `status`, `intersectionType`, `runMode` (`single`/`dual`), `seed`, `gitCommitHash`, `pythonVersion`, `configSource` (`engine`: the exact config the engine ran with; `client`: the dashboard's summary, used only when no engine was available), `exactConfig`, `configAvailable`, `timing` (`timeStep`, `duration`, `warmupTime`, `elapsed`), the stored `config` with `simulation.randomSeed` pinned to the recorded seed, `summaryMetrics`, and `savedReplay` (whether its dashboard settings can be restored). Run IDs must match `[A-Za-z0-9_-]{1,128}` (otherwise `400`); unknown IDs return `404`. Runs saved before this record existed return `null` for anything they did not record; `gitCommitHash` is `"unknown"` when the backend could not read its git state (e.g. the Docker image, which excludes `.git`).
+
+`PATCH /api/v1/study/history/runs/{runId}` sets a run's user labels only — `{"name": "...", "notes": "...", "tags": ["..."]}`, each optional (name 1–120 characters, notes up to 4000, at most 20 tags of up to 32 characters, trimmed and de-duplicated). Omitted fields are unchanged; `null`/`[]` clears notes/tags. It never changes the configuration, seed, provenance or metrics, and a rename also updates the History entry.
+
+`GET /api/v1/study/history/runs/{runId}/export?format=json|csv` downloads the run record. JSON contains `exportVersion`, `exportedAt`, `exportedBy` (the exporting server's commit and Python version, distinct from the run's own recorded provenance), `run` (the record above) and `metricsTimeline`. CSV has `section,key,value` rows for the run identity, reproducibility fields, timing, every configuration value (dotted paths; lists as JSON) and every stored metric (raw backend keys; comparison runs as `signal.*` / `roundabout.*`). Values a run did not record are `null` in JSON and empty in CSV — never 0. For catalog labels and units, use the saved-run page's metrics table export.
 
 Validation endpoints are:
 
@@ -127,17 +131,21 @@ Save a completed result with `POST /api/v1/replays`:
 }
 ```
 
-List with `GET /api/v1/replays`, delete with `DELETE /api/v1/replays/{replayId}`. Saving a replay also creates a completed historical run with batch ID `replay` and the same ID (returned as `runId`). An optional `"mode": "single" | "dual"` marks a comparison; without it, metrics shaped `{signal, roundabout}` imply `dual`. When the request carries the caller's live-session cookie and that session's engine ran with the saved seed, the run stores the engine's exact configuration, seed, elapsed time and timing; otherwise it stores the request's `config`. Every save records the git commit and Python version. Replay responses include a compact `reproducibility` summary (`null` for saves with no run record).
+List with `GET /api/v1/replays`, delete with `DELETE /api/v1/replays/{replayId}`. Saving a replay also creates a completed historical run with batch ID `replay` and the same ID (returned as `runId`). An optional `"mode": "single" | "dual"` marks a comparison; without it, metrics shaped `{signal, roundabout}` imply `dual`. When the request carries the caller's live-session cookie and that session's engine ran with the saved seed, the run stores the engine's exact configuration, seed, elapsed time and timing; otherwise it stores the request's `config`. Every save records the git commit and Python version. Replay responses include a compact `reproducibility` summary (`null` for saves with no run record). When the engine was read, the stored metrics are also the engine's own at the recorded elapsed time (the same collector call that produces every snapshot), not the last snapshot the client happened to receive. Deleting a replay also deletes its run record (same ID).
+
+Volume-sweep runs store each engine's exact configuration (including the controller settings the comparison orchestrator injects) with provenance, so each sweep point can be reproduced on its own.
 
 The SQLite path is controlled by `DB_PATH`. `backend/src/database/db.py` creates these tables on startup:
 
 - `configurations`: JSON configuration records.
-- `simulation_runs`: status, elapsed/duration, controller type, seed, arrival rate, batch ID, configuration JSON, summary metrics, timestamp, and (nullable, added in place on older databases) `git_commit` and `provenance_json` — the reproducibility record described above.
+- `simulation_runs`: status, elapsed/duration, controller type, seed, arrival rate, batch ID, configuration JSON, summary metrics, timestamp, and (nullable, added in place on older databases) `git_commit` and `provenance_json` — the reproducibility record described above — plus user labels `name`, `notes` and `tags_json`.
 - `run_metrics`: one JSON metrics record per run and tick.
 - `sweep_sessions`: sweep configuration and complete results JSON.
 - `saved_replays`: named configuration and metrics JSON.
 
 SQLite uses WAL mode, a five-second busy timeout, and foreign keys. Docker stores the database in the `traffic_data` named volume; deleting that volume deletes persisted studies and replays.
+
+Saved runs record the git commit of the code that produced them. The Docker build context excludes `.git`, so pass the commit at build time or runs built into the image record `"unknown"`: `GIT_COMMIT=$(git rev-parse HEAD) docker compose up -d --build` (`start.ps1 -Docker` sets it automatically). The value is used only when `.git` is not readable, and must be a 7–40 character hex hash.
 
 ## Access Control
 

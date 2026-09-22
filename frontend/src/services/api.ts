@@ -2,12 +2,20 @@ import { API_BASE_URL } from "../config";
 
 const BASE = API_BASE_URL;
 
+/** A non-2xx API response; `status` lets callers tell "not found" apart. */
+export class ApiError extends Error {
+  readonly status: number;
+  constructor(status: number, statusText: string) {
+    super(`HTTP ${status.toString()}: ${statusText}`);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${BASE}${path}`, init);
   if (!response.ok) {
-    throw new Error(
-      `HTTP ${response.status.toString()}: ${response.statusText}`,
-    );
+    throw new ApiError(response.status, response.statusText);
   }
   return response.json() as Promise<T>;
 }
@@ -135,6 +143,12 @@ export async function runMonteCarlo(params: {
  *  never recorded — runs saved before provenance tracking — are null. */
 export interface RunReproducibility {
   runId: string;
+  /** User-entered labels (V1.1); null/empty until someone sets them. */
+  name: string | null;
+  notes: string | null;
+  tags: string[];
+  /** "replay" for runs saved from the dashboard; a sweep id for sweep runs. */
+  batchId: string | null;
   createdAt: string | null;
   status: string | null;
   intersectionType: string | null;
@@ -177,4 +191,64 @@ export async function listReplays<T>(): Promise<T> {
 
 export async function deleteReplay(id: string): Promise<{ status: string }> {
   return request(`/api/v1/replays/${id}`, { method: "DELETE" });
+}
+
+/** Full stored record of one run (GET …/runs/{id}/reproducibility). */
+export interface RunRecord extends RunReproducibility {
+  /** Stored configuration with simulation.randomSeed pinned to `seed`;
+   *  null when the run recorded none. */
+  config: Record<string, unknown> | null;
+  /** Metrics as stored: one metrics object, or {signal, roundabout} for a
+   *  comparison run. Empty when none were recorded. */
+  summaryMetrics: Record<string, unknown>;
+  /** A History (dashboard) save exists, so its settings can be restored. */
+  savedReplay: boolean;
+}
+
+function runUrl(runId: string): string {
+  return `/api/v1/study/history/runs/${encodeURIComponent(runId)}`;
+}
+
+export async function getRunRecord(runId: string): Promise<RunRecord> {
+  return get(`${runUrl(runId)}/reproducibility`);
+}
+
+export async function updateRunMetadata(
+  runId: string,
+  changes: { name?: string; notes?: string | null; tags?: string[] },
+): Promise<RunRecord> {
+  return request(runUrl(runId), {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(changes),
+  });
+}
+
+/** Result of POST …/runs/{id}/reproduce. `isDeterministic` is null when the
+ *  stored run had nothing to compare against. */
+export interface ReproductionResult {
+  runId: string;
+  mode: "single" | "dual";
+  seed: number;
+  reproducedElapsed: number;
+  isDeterministic: boolean | null;
+  comparedMetrics: string[];
+  tolerances: { averageDelaySeconds: number; throughputVehicles: number };
+  discrepancies: string[];
+  limitations: string[];
+  recordedGitCommitHash: string | null;
+  provenance: { gitCommitHash: string; pythonVersion: string };
+}
+
+export async function reproduceRun(runId: string): Promise<ReproductionResult> {
+  return post(`${runUrl(runId)}/reproduce`);
+}
+
+/** Download URL of a run export (served as an attachment). */
+export function runExportUrl(runId: string, format: "json" | "csv"): string {
+  return `${BASE}${runUrl(runId)}/export?format=${format}`;
+}
+
+export async function getReplay<T>(id: string): Promise<T> {
+  return get<T>(`/api/v1/replays/${encodeURIComponent(id)}`);
 }

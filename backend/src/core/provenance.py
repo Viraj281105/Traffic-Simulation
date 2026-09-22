@@ -11,10 +11,14 @@ Git state is read directly from the ``.git`` directory (no subprocess /
 ``git`` binary dependency), so this also degrades safely wherever ``.git``
 isn't present at all -- e.g. the production Docker image, whose
 ``.dockerignore`` deliberately excludes ``.git`` from the build context
-(see ``backend/Dockerfile``).
+(see ``backend/Dockerfile``). Such builds can instead pass the commit in as
+the ``GIT_COMMIT`` build argument / environment variable, which is used
+only when ``.git`` cannot be read.
 """
 
+import os
 import platform
+import re
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -78,9 +82,24 @@ def get_python_version() -> str:
         return UNKNOWN
 
 
+_COMMIT_PATTERN = re.compile(r"^[0-9a-f]{7,40}$")
+
+
+def resolve_git_commit_hash(start: Optional[Path] = None) -> str:
+    """The running code's commit: HEAD of the enclosing repository when one
+    is readable, else the ``GIT_COMMIT`` environment variable (set at image
+    build time, see backend/Dockerfile) when it holds a plausible hex hash,
+    else "unknown". A malformed value is ignored rather than recorded."""
+    from_git = get_git_commit_hash(start)
+    if from_git != UNKNOWN:
+        return from_git
+    env = os.environ.get("GIT_COMMIT", "").strip().lower()
+    return env if _COMMIT_PATTERN.fullmatch(env) else UNKNOWN
+
+
 # Computed once per process: git HEAD doesn't move during a run, and this
 # avoids repeated filesystem reads on every /reproduce call.
-GIT_COMMIT_HASH: str = get_git_commit_hash()
+GIT_COMMIT_HASH: str = resolve_git_commit_hash()
 PYTHON_VERSION: str = get_python_version()
 
 

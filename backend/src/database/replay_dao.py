@@ -85,6 +85,15 @@ class ReplayDAO:
         ]
 
     @staticmethod
+    def rename(conn: sqlite3.Connection, replay_id: str, name: str) -> bool:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE saved_replays SET name = ? WHERE id = ?;", (name, replay_id)
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+
+    @staticmethod
     def delete(conn: sqlite3.Connection, replay_id: str) -> bool:
         cursor = conn.cursor()
         cursor.execute("DELETE FROM saved_replays WHERE id = ?;", (replay_id,))
