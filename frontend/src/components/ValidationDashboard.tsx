@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { API_BASE_URL } from "../config";
 import "./ValidationDashboard.css";
+import { IntegrityCheck } from "./IntegrityCheck";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -42,15 +43,20 @@ interface ValidationResult {
     queue: StatResult;
   };
   comparison: {
-    delay: { pValue: number | null; significant: boolean; cohensD: number };
-    throughput: {
-      pValue: number | null;
-      significant: boolean;
-      cohensD: number;
-    };
-    queue: { pValue: number | null; significant: boolean; cohensD: number };
+    delay: GroupComparison;
+    throughput: GroupComparison;
+    queue: GroupComparison;
   };
   seedRuns: SeedRun[];
+}
+
+/** Welch's t-test result from the backend (_compare_groups). */
+interface GroupComparison {
+  pValue: number | null;
+  significant: boolean;
+  cohensD: number;
+  /** Welch-Satterthwaite degrees of freedom (absent for degenerate cases). */
+  degreesOfFreedom?: number;
 }
 
 const METRIC_KEYS = ["delay", "throughput", "queue"] as const;
@@ -380,7 +386,7 @@ export const ValidationDashboard: React.FC = () => {
       "Roundabout Throughput (veh)",
       "Signal Queue (veh)",
       "Roundabout Queue (veh)",
-      "Seed Winner",
+      "Lower delay",
     ];
 
     const rows = result.seedRuns.map((r) => [
@@ -392,7 +398,11 @@ export const ValidationDashboard: React.FC = () => {
       r.roundabout.throughput.toFixed(1),
       r.signal.queue.toFixed(2),
       r.roundabout.queue.toFixed(2),
-      r.roundabout.delay < r.signal.delay ? "Roundabout" : "Signal",
+      r.roundabout.delay < r.signal.delay
+        ? "Roundabout"
+        : r.roundabout.delay > r.signal.delay
+          ? "Signal"
+          : "Equal",
     ]);
 
     const csvContent =
@@ -468,7 +478,7 @@ export const ValidationDashboard: React.FC = () => {
           <p className="header-subtitle">
             Stochastic paired-seed simulation evaluating Fixed-Time Signal vs.
             Modern Roundabout under identical randomized traffic arrivals using
-            Welch’s two-sample test and Cohen’s d effect sizes.
+            Welch’s two-sample t-test and Cohen’s d effect sizes.
           </p>
         </div>
 
@@ -476,8 +486,9 @@ export const ValidationDashboard: React.FC = () => {
           {/* Inline Seeds & Duration selector in the same line as heading */}
           <div className="header-inline-controls">
             <div className="inline-param">
-              <label>Seeds</label>
+              <label htmlFor="validation-seeds">Seeds</label>
               <input
+                id="validation-seeds"
                 type="number"
                 min={2}
                 max={30}
@@ -489,9 +500,10 @@ export const ValidationDashboard: React.FC = () => {
               />
             </div>
             <div className="inline-param">
-              <label>Duration</label>
+              <label htmlFor="validation-duration">Duration</label>
               <div className="inline-unit-wrap">
                 <input
+                  id="validation-duration"
                   type="number"
                   min={10}
                   max={300}
@@ -951,20 +963,20 @@ export const ValidationDashboard: React.FC = () => {
           <div className="empty-icon-halo">🔬</div>
           <h3>Stochastic Validation Engine Ready</h3>
           <p className="empty-desc">
-            Standard single-run simulations can suffer from arrival jitter.
-            Monte Carlo validation runs replicated seeds in synchronized
-            parallel pairs to prove whether performance advantages are
-            statistically genuine with 95% confidence intervals.
+            A single run reflects one random arrival sequence. Monte Carlo
+            validation repeats the comparison over several seeds (both controls
+            share each seed) and tests whether the differences in mean delay,
+            throughput and queue are statistically significant, with 95%
+            confidence intervals.
           </p>
 
           <div className="preflight-grid">
-            <div
+            <button
+              type="button"
               className="preflight-card"
               onClick={() => {
                 handleLaunchPreset(3, 20);
               }}
-              role="button"
-              tabIndex={0}
             >
               <div className="preflight-header">
                 <span className="preflight-badge quick">⚡ Quick Check</span>
@@ -972,19 +984,18 @@ export const ValidationDashboard: React.FC = () => {
               </div>
               <h4>3 Seeds × 20 Seconds</h4>
               <p>
-                Fast sanity check to verify baseline stability across initial
-                randomized arrival sequences.
+                A fast look at seed-to-seed variation. Too few seeds for strong
+                conclusions.
               </p>
               <span className="preflight-cta">Launch Quick Check →</span>
-            </div>
+            </button>
 
-            <div
+            <button
+              type="button"
               className="preflight-card featured"
               onClick={() => {
                 handleLaunchPreset(5, 30);
               }}
-              role="button"
-              tabIndex={0}
             >
               <div className="preflight-header">
                 <span className="preflight-badge standard">🧪 Recommended</span>
@@ -992,19 +1003,18 @@ export const ValidationDashboard: React.FC = () => {
               </div>
               <h4>5 Seeds × 30 Seconds</h4>
               <p>
-                Standard engineering validation providing solid statistical
-                power with Welch’s z-test verification.
+                A reasonable default: enough seeds for a first Welch t-test,
+                still quick to run.
               </p>
               <span className="preflight-cta">Launch Standard Rigor →</span>
-            </div>
+            </button>
 
-            <div
+            <button
+              type="button"
               className="preflight-card"
               onClick={() => {
                 handleLaunchPreset(10, 60);
               }}
-              role="button"
-              tabIndex={0}
             >
               <div className="preflight-header">
                 <span className="preflight-badge rigor">🔬 High Rigor</span>
@@ -1012,11 +1022,11 @@ export const ValidationDashboard: React.FC = () => {
               </div>
               <h4>10 Seeds × 60 Seconds</h4>
               <p>
-                Publication-grade sample size minimizing standard error for
-                definitive comparative research.
+                More seeds and longer runs give narrower confidence intervals;
+                slower to run.
               </p>
               <span className="preflight-cta">Launch High Rigor →</span>
-            </div>
+            </button>
           </div>
         </div>
       )}
@@ -1205,6 +1215,17 @@ export const ValidationDashboard: React.FC = () => {
                                     </strong>
                                   </span>
                                 )}
+                                {cmp.degreesOfFreedom !== undefined && (
+                                  <span
+                                    className="stat-badge-chip"
+                                    title="Welch–Satterthwaite degrees of freedom"
+                                  >
+                                    df:{" "}
+                                    <strong>
+                                      {cmp.degreesOfFreedom.toFixed(1)}
+                                    </strong>
+                                  </span>
+                                )}
                               </div>
                               <div className="stats-footer-right">
                                 <span
@@ -1369,7 +1390,9 @@ export const ValidationDashboard: React.FC = () => {
                       <th>Rnd Tput</th>
                       <th>Signal Queue</th>
                       <th>Rnd Queue</th>
-                      <th>Trial Winner</th>
+                      <th title="Lower mean delay for this seed">
+                        Lower delay
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1379,7 +1402,9 @@ export const ValidationDashboard: React.FC = () => {
                       const winner =
                         run.roundabout.delay < run.signal.delay
                           ? "roundabout"
-                          : "signal";
+                          : run.roundabout.delay > run.signal.delay
+                            ? "signal"
+                            : "tie";
 
                       return (
                         <tr key={run.seed}>
@@ -1418,7 +1443,9 @@ export const ValidationDashboard: React.FC = () => {
                             >
                               {winner === "roundabout"
                                 ? "🔄 Roundabout"
-                                : "🚦 Signal"}
+                                : winner === "signal"
+                                  ? "🚦 Signal"
+                                  : "Equal"}
                             </span>
                           </td>
                         </tr>
@@ -1486,6 +1513,8 @@ export const ValidationDashboard: React.FC = () => {
           )}
         </>
       )}
+
+      <IntegrityCheck />
     </div>
   );
 };

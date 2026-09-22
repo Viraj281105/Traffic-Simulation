@@ -11,7 +11,9 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { API_BASE_URL } from "../config";
+import type { RunningMetrics } from "../types/simulation";
 import "./VolumeAnalysisDashboard.css";
+import { TierMetrics } from "./TierMetrics";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -34,6 +36,8 @@ interface SweepRun {
     queue: number;
     queueMax?: number;
     queueStdDev?: number;
+    /** Full collector metrics for this tier's run (same set as live). */
+    metrics?: RunningMetrics;
   };
   roundabout: {
     delay: number;
@@ -47,6 +51,7 @@ interface SweepRun {
     queue: number;
     queueMax?: number;
     queueStdDev?: number;
+    metrics?: RunningMetrics;
   };
 }
 
@@ -90,6 +95,58 @@ interface SavedSweep {
   id: string;
   name: string;
   created_at: string;
+}
+
+/**
+ * Offered demand in veh/h is always derived from each tier's arrivalRate
+ * (the whole junction's rate, split across the four approaches by the
+ * spawner): veh/h = rate x 3600. Sweeps saved before the backend fix
+ * stored rate x 3600 x 4, overstating demand four-fold, so stored hourly
+ * values are recomputed rather than trusted.
+ */
+function withOfferedVolumes(session: SweepSession): SweepSession {
+  const vph = (rate: number) => Math.round(rate * 3600);
+  return {
+    ...session,
+    runs: session.runs.map((r) => ({
+      ...r,
+      hourlyVolumeVehPerHour: vph(r.arrivalRate),
+    })),
+    curves: {
+      ...session.curves,
+      volumesVehPerHour: session.curves.rates.map(vph),
+      crossoverHourlyVolume:
+        session.curves.crossoverArrivalRate === null
+          ? null
+          : vph(session.curves.crossoverArrivalRate),
+    },
+  };
+}
+
+const CONTROL_NAME = { signal: "signal", roundabout: "roundabout" } as const;
+
+/** Describes the sweep's crossover from the data itself: which control had
+ *  the lower mean delay on each side, rather than assuming a direction. */
+function crossoverSummary(runs: SweepRun[], crossover: number | null): string {
+  const decided = runs.filter((r) => r.winner !== "tie");
+  if (crossover !== null) {
+    const below = decided.filter((r) => r.hourlyVolumeVehPerHour < crossover);
+    const last = below.length > 0 ? below[below.length - 1] : undefined;
+    if (!last || last.winner === "tie") {
+      return `The control with lower mean delay changes at ≈${crossover.toLocaleString()} veh/h (this sweep, one seed per tier).`;
+    }
+    const first = CONTROL_NAME[last.winner];
+    const other = last.winner === "signal" ? "roundabout" : "signal";
+    return `Lower mean delay: ${first} below ≈${crossover.toLocaleString()} veh/h, ${other} from there (this sweep, one seed per tier).`;
+  }
+  if (decided.length === 0) {
+    return "Mean delays were within the tie band at every tier.";
+  }
+  const kinds = new Set(decided.map((r) => r.winner));
+  if (kinds.size === 1) {
+    return `The ${CONTROL_NAME[decided[0].winner as "signal" | "roundabout"]} had the lower mean delay at every tier outside the tie band.`;
+  }
+  return "No single crossover: the lower-delay control changed more than once.";
 }
 
 type StudioTab = "curves" | "matrix" | "insights";
@@ -261,9 +318,9 @@ const CustomTooltip = ({
         {raw?.winner && (
           <span className={`tooltip-winner-badge winner-${raw.winner}`}>
             {raw.winner === "roundabout"
-              ? "🔄 Roundabout Advantage"
+              ? "🔄 Lower delay: roundabout"
               : raw.winner === "signal"
-                ? "🚦 Signal Advantage"
+                ? "🚦 Lower delay: signal"
                 : "⚖️ Parity / Tie"}
           </span>
         )}
@@ -363,9 +420,9 @@ const CustomTooltip = ({
               }}
             >
               {raw.delayDeltaPercent > 0
-                ? `+${raw.delayDeltaPercent.toFixed(1)}% (Signal Advantage)`
+                ? `+${raw.delayDeltaPercent.toFixed(1)}% (signal lower)`
                 : raw.delayDeltaPercent < 0
-                  ? `${raw.delayDeltaPercent.toFixed(1)}% (Roundabout Advantage)`
+                  ? `${raw.delayDeltaPercent.toFixed(1)}% (roundabout lower)`
                   : "0.0% (Parity)"}
             </span>
           </div>
@@ -520,7 +577,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
           curves,
           runs,
         };
-        setActiveSession(session);
+        setActiveSession(withOfferedVolumes(session));
         setScrubberVolumeOverride(null);
         setLoadingSession(false);
       })
@@ -646,7 +703,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
           curves,
           runs,
         };
-        setActiveSession(session);
+        setActiveSession(withOfferedVolumes(session));
         setSelectedId(session.sessionId);
         setScrubberVolumeOverride(null);
         setIsRunning(false);
@@ -720,8 +777,17 @@ export const VolumeAnalysisDashboard: React.FC = () => {
   const signalWins = runsList.filter((r) => r.winner === "signal").length;
   const tieWins = runsList.filter((r) => r.winner === "tie").length;
   const totalRuns = runsList.length;
-  const roundaboutWinPct =
-    totalRuns > 0 ? Math.round((roundaboutWins / totalRuns) * 100) : 0;
+
+  // Tier with the largest absolute mean-delay difference (roundabout − signal).
+  const largestGap = runsList.reduce<{ run: SweepRun; diff: number } | null>(
+    (best, run) => {
+      const diff = run.roundabout.delay - run.signal.delay;
+      return !best || Math.abs(diff) > Math.abs(best.diff)
+        ? { run, diff }
+        : best;
+    },
+    null,
+  );
 
   // Filtered runs for table
   const filteredRuns = useMemo(() => {
@@ -731,7 +797,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
 
   // Scrubber min/max & closest run computation
   const minVol = runsList[0]?.hourlyVolumeVehPerHour ?? 360;
-  const maxVol = runsList[runsList.length - 1]?.hourlyVolumeVehPerHour ?? 11520;
+  const maxVol = runsList[runsList.length - 1]?.hourlyVolumeVehPerHour ?? 2880;
 
   const currentScrubberVolume = useMemo(() => {
     if (scrubberVolumeOverride !== null) return scrubberVolumeOverride;
@@ -1393,48 +1459,42 @@ export const VolumeAnalysisDashboard: React.FC = () => {
               </span>
               <span className="kpi-hint">
                 {crossover
-                  ? `< ${crossover.toLocaleString()} veh/h Roundabout Advantage · > ${crossover.toLocaleString()} veh/h Signal Advantage`
-                  : "Roundabout maintained lower delay across all tiers"}
+                  ? crossoverSummary(runsList, crossover)
+                  : crossoverSummary(runsList, null)}
               </span>
             </div>
 
             <div className="kpi-card">
               <div className="kpi-top">
-                <span className="kpi-icon-badge">🏆</span>
-                <span className="kpi-category">Dominant Architecture</span>
+                <span className="kpi-icon-badge">⚖️</span>
+                <span className="kpi-category">Tier tally</span>
               </div>
-              <span className="kpi-label">Winning Strategy</span>
-              <span
-                className="kpi-value"
-                style={{
-                  color: roundaboutWins >= signalWins ? "#10b981" : "#38bdf8",
-                }}
-              >
-                {roundaboutWins > signalWins
-                  ? `Roundabout (${roundaboutWinPct.toString()}%)`
-                  : signalWins > roundaboutWins
-                    ? "Signal Control"
-                    : "Balanced Parity"}
+              <span className="kpi-label">Lower mean delay, by tier</span>
+              <span className="kpi-value">
+                🔄 {roundaboutWins.toString()} · 🚦 {signalWins.toString()} · ⚖️{" "}
+                {tieWins.toString()}
               </span>
               <span className="kpi-hint">
-                Roundabout wins {roundaboutWins.toString()} of{" "}
-                {totalRuns.toString()} demand brackets
+                Roundabout · signal · within the tie band (≤0.2 s or &lt;2%), of{" "}
+                {totalRuns.toString()} tiers — one seed each
               </span>
             </div>
 
             <div className="kpi-card">
               <div className="kpi-top">
                 <span className="kpi-icon-badge">⏱️</span>
-                <span className="kpi-category">Efficiency Peak</span>
+                <span className="kpi-category">Largest gap</span>
               </div>
-              <span className="kpi-label">Max Delay Reduction</span>
-              <span className="kpi-value" style={{ color: "#10b981" }}>
-                {runsList.length > 0
-                  ? `${Math.abs(Math.min(...runsList.map((r) => r.delayDeltaPercent))).toFixed(1)}%`
+              <span className="kpi-label">Largest mean-delay difference</span>
+              <span className="kpi-value">
+                {largestGap
+                  ? `${Math.abs(largestGap.diff).toFixed(1)} s`
                   : "N/A"}
               </span>
               <span className="kpi-hint">
-                Observed under low to moderate demand
+                {largestGap
+                  ? `Lower for the ${largestGap.diff < 0 ? "roundabout" : "signal"} at ${largestGap.run.hourlyVolumeVehPerHour.toLocaleString()} veh/h (one seed)`
+                  : "No tiers yet"}
               </span>
             </div>
 
@@ -1447,7 +1507,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
               <span className="kpi-value highlight-blue">
                 {activeSession.curves.volumesVehPerHour.length > 0
                   ? `${Math.max(...activeSession.curves.volumesVehPerHour).toLocaleString()} veh/h`
-                  : "11,520 veh/h"}
+                  : "—"}
               </span>
               <span className="kpi-hint">
                 Highest capacity stress tier analyzed
@@ -1579,9 +1639,9 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                     >
                       <span className="verdict-name">
                         {currentScrubberRun.winner === "roundabout"
-                          ? "🔄 Roundabout Advantage"
+                          ? "🔄 Lower delay: roundabout"
                           : currentScrubberRun.winner === "signal"
-                            ? "🚦 Signal Advantage"
+                            ? "🚦 Lower delay: signal"
                             : "⚖️ Parity / Tie"}
                       </span>
                       <span className="verdict-delta">
@@ -2213,7 +2273,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                           <Line
                             type="monotone"
                             dataKey="delayDeltaPercent"
-                            name="Delay Δ % (+ = Signal Advantage, - = Roundabout Advantage)"
+                            name="Delay Δ % (+ = signal lower, − = roundabout lower)"
                             stroke="#8b5cf6"
                             strokeWidth={2.5}
                             dot={{ r: 4, fill: "#8b5cf6" }}
@@ -2221,7 +2281,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                           <Line
                             type="monotone"
                             dataKey="queueDeltaPercent"
-                            name="Queue Δ % (+ = Signal Advantage, - = Roundabout Advantage)"
+                            name="Queue Δ % (+ = signal lower, − = roundabout lower)"
                             stroke="#f59e0b"
                             strokeWidth={2}
                             strokeDasharray="4 2"
@@ -2302,7 +2362,9 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                       <th>Roundabout Delay & LOS</th>
                       <th>Throughput</th>
                       <th>Queues</th>
-                      <th>Winner</th>
+                      <th title="Lower mean delay at this tier; tie when within 0.2 s or 2%">
+                        Lower mean delay
+                      </th>
                       <th>Δ Delay</th>
                     </tr>
                   </thead>
@@ -2502,9 +2564,9 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                               }}
                               title={
                                 run.delayDeltaPercent > 0
-                                  ? `+${run.delayDeltaPercent.toFixed(1)}% Signal Advantage`
+                                  ? `+${run.delayDeltaPercent.toFixed(1)}% (signal lower)`
                                   : run.delayDeltaPercent < 0
-                                    ? `${run.delayDeltaPercent.toFixed(1)}% Roundabout Advantage`
+                                    ? `${run.delayDeltaPercent.toFixed(1)}% (roundabout lower)`
                                     : "0.0% Parity"
                               }
                             >
@@ -2518,6 +2580,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+              <TierMetrics runs={runsList} />
             </div>
           )}
 

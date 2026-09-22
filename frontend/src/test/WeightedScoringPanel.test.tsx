@@ -4,122 +4,139 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { WeightedScoringPanel } from "../components/WeightedScoringPanel";
-import { DEFAULT_WEIGHTS } from "../types/scoring";
-import { RunningMetrics } from "../types/simulation";
+import { DEFAULT_WEIGHTS, computeWeightedScore } from "../types/scoring";
+import type { RunningMetrics } from "../types/simulation";
+
+function metrics(overrides: Partial<RunningMetrics>): RunningMetrics {
+  return {
+    averageDelay: 0,
+    medianDelay: 0,
+    minDelay: 0,
+    maxDelay: 0,
+    p95Delay: 0,
+    delayStdDev: 0,
+    averageWaitTime: 0,
+    throughput: 0,
+    throughputRate: 0,
+    currentQueueLengths: { north: 0, south: 0, east: 0, west: 0 },
+    maxQueueLength: 0,
+    averageQueueLength: 0,
+    activeAverageQueueLength: 0,
+    queueStdDev: 0,
+    totalStops: 0,
+    averageStopsPerVehicle: 0,
+    speedVarianceIndex: 0,
+    travelTimeReliability: 1,
+    idleOpportunityLoss: 0,
+    directionalFairnessIndex: 1,
+    activeVehicleCount: 0,
+    totalVehiclesSpawned: 0,
+    averageTravelSpeed: 0,
+    queueStabilityIndex: 0,
+    congestionRecoveryTime: 0,
+    spaceFootprintConsumed: 0,
+    intersectionUtilization: 0,
+    criticalSaturationVolume: 0,
+    collisionCount: 0,
+    ...overrides,
+  };
+}
 
 describe("WeightedScoringPanel", () => {
-  const mockSignalMetrics: RunningMetrics = {
+  const signal = metrics({
     averageWaitTime: 24.5,
-    throughput: 120,
-    throughputRate: 1.2,
-    currentQueueLengths: { north: 3, south: 2, east: 1, west: 0 },
-    maxQueueLength: 6,
+    throughputRate: 20,
     averageQueueLength: 3.2,
-    totalStops: 40,
     averageStopsPerVehicle: 1.8,
-    speedVarianceIndex: 0.15,
-    travelTimeReliability: 0.85,
-    idleOpportunityLoss: 0.12,
     directionalFairnessIndex: 0.72,
-    activeVehicleCount: 15,
-    totalVehiclesSpawned: 150,
-    averageTravelSpeed: 9.5,
-    queueStabilityIndex: 0.8,
-    congestionRecoveryTime: 12.0,
-    spaceFootprintConsumed: 450.0,
-    intersectionUtilization: 0.65,
-    criticalSaturationVolume: 1200,
-    collisionCount: 0,
-  };
-
-  const mockRoundaboutMetrics: RunningMetrics = {
+  });
+  const roundabout = metrics({
     averageWaitTime: 12.3,
-    throughput: 145,
-    throughputRate: 1.8,
-    currentQueueLengths: { north: 1, south: 1, east: 0, west: 0 },
-    maxQueueLength: 3,
+    throughputRate: 24,
     averageQueueLength: 1.1,
-    totalStops: 10,
     averageStopsPerVehicle: 0.4,
-    speedVarianceIndex: 0.08,
-    travelTimeReliability: 0.94,
-    idleOpportunityLoss: 0.04,
     directionalFairnessIndex: 0.91,
-    activeVehicleCount: 8,
-    totalVehiclesSpawned: 155,
-    averageTravelSpeed: 11.2,
-    queueStabilityIndex: 0.95,
-    congestionRecoveryTime: 4.0,
-    spaceFootprintConsumed: 500.0,
-    intersectionUtilization: 0.55,
-    criticalSaturationVolume: 1400,
-    collisionCount: 0,
-  };
+  });
 
-  it("renders scoring panel with winner banner and default weights", () => {
+  it("shows both scores and a neutral summary, never a 'winner'", () => {
     render(
       <WeightedScoringPanel
-        metricsSignal={mockSignalMetrics}
-        metricsRoundabout={mockRoundaboutMetrics}
+        metricsSignal={signal}
+        metricsRoundabout={roundabout}
         weights={DEFAULT_WEIGHTS}
         onWeightsChange={vi.fn()}
       />,
     );
 
     expect(
-      screen.getByText(/Custom Weighted Scoring Model/i),
+      screen.getByRole("heading", {
+        name: /Weighted score \(your priorities\)/i,
+      }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Overall Scoring Winner")).toBeInTheDocument();
-    expect(screen.getByText("Modern Roundabout")).toBeInTheDocument();
-    expect(screen.getByText("Average Wait Time")).toBeInTheDocument();
-    expect(screen.getByText("Throughput Volume")).toBeInTheDocument();
-    expect(screen.getByText("Queue Clearance")).toBeInTheDocument();
-    expect(screen.getByText("Directional Fairness")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Under these weights the roundabout scores/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/winner/i)).toBeNull();
+    expect(screen.queryByText(/lead/i)).toBeNull();
+    // Sliders are reachable by their labels.
+    expect(screen.getByLabelText(/Average queued time/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Directional fairness/i)).toBeInTheDocument();
   });
 
-  it("changes weight presets when preset buttons are clicked", () => {
+  it("applies presets", () => {
     const onWeightsChange = vi.fn();
     render(
       <WeightedScoringPanel
-        metricsSignal={mockSignalMetrics}
-        metricsRoundabout={mockRoundaboutMetrics}
+        metricsSignal={signal}
+        metricsRoundabout={roundabout}
         weights={DEFAULT_WEIGHTS}
         onWeightsChange={onWeightsChange}
       />,
     );
 
-    const highThroughputBtn = screen.getByRole("button", {
-      name: /High Throughput/i,
+    fireEvent.click(screen.getByRole("button", { name: /Throughput first/i }));
+
+    expect(onWeightsChange).toHaveBeenCalledWith(
+      expect.objectContaining({ weightThroughput: 50 }),
+    );
+  });
+
+  it("reports individual slider changes", () => {
+    const onWeightsChange = vi.fn();
+    render(
+      <WeightedScoringPanel
+        metricsSignal={signal}
+        metricsRoundabout={roundabout}
+        weights={DEFAULT_WEIGHTS}
+        onWeightsChange={onWeightsChange}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/Average queued time/i), {
+      target: { value: "45" },
     });
-    fireEvent.click(highThroughputBtn);
-
     expect(onWeightsChange).toHaveBeenCalledWith(
-      expect.objectContaining({
-        weightThroughput: 50,
-      }),
+      expect.objectContaining({ weightWaitTime: 45 }),
     );
   });
+});
 
-  it("allows individual slider adjustments and invokes onWeightsChange", () => {
-    const onWeightsChange = vi.fn();
-    render(
-      <WeightedScoringPanel
-        metricsSignal={mockSignalMetrics}
-        metricsRoundabout={mockRoundaboutMetrics}
-        weights={DEFAULT_WEIGHTS}
-        onWeightsChange={onWeightsChange}
-      />,
-    );
-
-    const sliders = screen.getAllByRole("slider");
-    expect(sliders.length).toBeGreaterThanOrEqual(4);
-
-    // Change first slider (Wait Time)
-    fireEvent.change(sliders[0], { target: { value: "45" } });
-    expect(onWeightsChange).toHaveBeenCalledWith(
-      expect.objectContaining({
-        weightWaitTime: 45,
-      }),
-    );
+describe("computeWeightedScore", () => {
+  it("always reads throughputRate as vehicles per minute", () => {
+    const onlyThroughput = {
+      weightWaitTime: 0,
+      weightThroughput: 100,
+      weightQueue: 0,
+      weightFairness: 0,
+      weightStops: 0,
+    };
+    // 1.2 veh/min is 0.02 veh/s -> 1% of the 2 veh/s cap. It used to be
+    // read as 1.2 veh/s (60% of the cap) because it was <= 2.
+    expect(
+      computeWeightedScore(metrics({ throughputRate: 1.2 }), onlyThroughput),
+    ).toBe(1);
+    expect(
+      computeWeightedScore(metrics({ throughputRate: 60 }), onlyThroughput),
+    ).toBe(50);
   });
 });

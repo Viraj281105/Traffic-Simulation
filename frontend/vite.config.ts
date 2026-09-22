@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Connect, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { resolve } from "path";
@@ -13,9 +13,43 @@ declare module "vite" {
   }
 }
 
+/**
+ * History-API fallback for the two-document build, matching production nginx
+ * (templates/default.conf.template): "/" is the landing page (index.html) and
+ * every other page navigation is served the dashboard document (app.html),
+ * whose client router shows the requested view — or its not-found page.
+ * Without this, Vite's default fallback serves index.html, so refreshing a
+ * dashboard URL would land on the landing page.
+ */
+function dashboardFallback(): Plugin {
+  const passthrough = /^\/(?:api|ws|health|@|src\/|node_modules\/)/;
+  const rewrite: Connect.NextHandleFunction = (req, _res, next) => {
+    const path = (req.url ?? "/").split("?")[0];
+    const isPageNavigation =
+      (req.method === "GET" || req.method === "HEAD") &&
+      (req.headers.accept ?? "").includes("text/html") &&
+      !passthrough.test(path) &&
+      !path.split("/").pop()?.includes(".");
+    if (isPageNavigation && path !== "/") req.url = "/app.html";
+    next();
+  };
+  return {
+    name: "dashboard-history-fallback",
+    configureServer(server) {
+      server.middlewares.use(rewrite);
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(rewrite);
+    },
+  };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  // Two HTML entry points with page routing handled by dashboardFallback();
+  // Vite's own SPA fallback would answer every unknown path with index.html.
+  appType: "mpa",
+  plugins: [react(), tailwindcss(), dashboardFallback()],
   server: {
     port: 5173,
     strictPort: true,

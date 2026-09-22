@@ -81,7 +81,7 @@ docker compose up --build -d
 ```
 
 - **Frontend landing page**: [http://localhost](http://localhost) (or [http://localhost:3000](http://localhost:3000))
-- **Simulation dashboard**: [http://localhost/app.html](http://localhost/app.html)
+- **Simulation dashboard**: [http://localhost/app/comparative](http://localhost/app/comparative) — each view has its own URL (`/app/comparative`, `/app/signal`, `/app/roundabout`, `/app/history`, `/app/volume`, `/app/validation`), so refresh, bookmarks and back/forward work; the old `/app.html` link still redirects
 - **Backend API & Swagger Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
 - **Health Check**: [http://localhost/health](http://localhost/health)
 
@@ -110,7 +110,7 @@ You can run both services natively on your host machine:
   npm install
   npm run dev
   ```
-  Visit [http://localhost:5173](http://localhost:5173) for the landing page or [http://localhost:5173/app.html](http://localhost:5173/app.html) for the dashboard.
+  Visit [http://localhost:5173](http://localhost:5173) for the landing page or [http://localhost:5173/app/comparative](http://localhost:5173/app/comparative) for the dashboard.
 
 ### AWS Free Tier Cloud Deployment
 

@@ -44,9 +44,29 @@ server {
         try_files $uri =404;
     }
 
-    # Frontend Single Page App routing fallback
+    # Page routing.
+    #
+    # "/" is the landing page (index.html). The simulation dashboard (app.html)
+    # is a single-page app whose views each have their own URL; a refresh or a
+    # direct link to one must be served app.html so its client-side router can
+    # show that view. The view list mirrors VIEW_ROUTES in
+    # frontend/src/routing.ts (routing.test.ts keeps the two in step).
+    #
+    # Unknown paths are a real 404, not a silent redirect to the landing page:
+    # the 404 body is app.html, whose router renders a "page not found" view.
+    location ~ ^/app/(comparative|signal|roundabout|history|volume|validation)/?$ {
+        try_files /app.html =404;
+    }
+
+    # Bare /app (and the legacy /app.html) load the dashboard, which redirects
+    # client-side to its default view.
+    location ~ ^/app/?$ {
+        try_files /app.html =404;
+    }
+
     location / {
-        try_files $uri $uri/ /index.html;
+        try_files $uri $uri/ =404;
+        error_page 404 /app.html;
     }
 
     # Optional access gate.

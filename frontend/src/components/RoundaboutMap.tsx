@@ -1,5 +1,17 @@
-import React, { useEffect, useRef } from "react";
-import type { LiveSnapshot, SnapshotVehicle } from "../types/simulation";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useContainerSize } from "../hooks/useContainerSize";
+import type { LiveSnapshot } from "../types/simulation";
+import {
+  ROUNDABOUT_SPLITTER_HALF_WIDTH,
+  roundaboutCarriagewayEdge,
+  roundaboutGiveWayRadius,
+  roundaboutLaneDividers,
+  roundaboutRingDividers,
+  roundaboutTaperHalfWidth,
+  roundaboutTaperPaths,
+  mapScale,
+} from "./mapGeometry";
+import { SnapshotInterpolator, type VehiclePose } from "./snapshotInterpolator";
 
 interface RoundaboutMapProps {
   snapshot: LiveSnapshot | null;
@@ -13,25 +25,35 @@ interface RoundaboutMapProps {
 
 export const RoundaboutMap: React.FC<RoundaboutMapProps> = ({
   snapshot,
-  width = 800,
-  height = 680,
+  width: fallbackWidth = 800,
+  height: fallbackHeight = 680,
   laneWidth = 3.5,
   lanes = 2,
   showCrosswalks = true,
   debug = false,
 }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animFrameIdRef = useRef<number | null>(null);
-
-  const snapshotRef = useRef<LiveSnapshot | null>(null);
-  const prevSnapshotRef = useRef<LiveSnapshot | null>(null);
-  const lastSnapshotTimeRef = useRef<number>(0);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  // Draw at the canvas's displayed size (CSS sizes it to its container), so
+  // the picture is never stretched out of proportion; the size props are
+  // only used until it has been measured.
+  const [measureCanvas, displayed] = useContainerSize();
+  const setCanvas = useCallback(
+    (node: HTMLCanvasElement | null) => {
+      canvasRef.current = node;
+      measureCanvas(node);
+    },
+    [measureCanvas],
+  );
+  const width = displayed.width || fallbackWidth;
+  const height = displayed.height || fallbackHeight;
+  // Backing store in device pixels (sharp on high-DPI screens); all drawing
+  // below stays in CSS pixels via the context transform.
+  const dpr = typeof window === "undefined" ? 1 : window.devicePixelRatio || 1;
+  const [interpolator] = useState(() => new SnapshotInterpolator());
 
   useEffect(() => {
-    prevSnapshotRef.current = snapshotRef.current;
-    snapshotRef.current = snapshot;
-    lastSnapshotTimeRef.current = performance.now();
-  }, [snapshot]);
+    interpolator.push(snapshot, performance.now());
+  }, [snapshot, interpolator]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -39,39 +61,51 @@ export const RoundaboutMap: React.FC<RoundaboutMapProps> = ({
     if (!canvas || !ctx) return;
 
     let active = true;
+    let frameId = 0;
+    // Whether the canvas currently shows the empty (no data) state or a
+    // snapshot. A (re)started effect has drawn neither, so it paints once.
+    let drewEmpty = false;
+    let drewFrame = false;
+    // Taper geometry depends only on the ring radii (from the snapshot) and
+    // this effect's lane props, so it is computed once per ring.
+    let tapers: { key: string; paths: Array<Array<[number, number]>> } | null =
+      null;
 
     const render = () => {
       if (!active) return;
+      frameId = requestAnimationFrame(render);
 
-      const current = snapshotRef.current;
-      const previous = prevSnapshotRef.current;
-      const lastTime = lastSnapshotTimeRef.current;
-
-      if (!current) {
-        // Draw grass background while waiting for data
-        ctx.fillStyle = "#557d35";
-        ctx.fillRect(0, 0, width, height);
-        animFrameIdRef.current = requestAnimationFrame(render);
+      const frame = interpolator.sample(performance.now());
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (!frame) {
+        if (!drewEmpty) {
+          // Draw grass background while waiting for data
+          ctx.fillStyle = "#557d35";
+          ctx.fillRect(0, 0, width, height);
+          drewEmpty = true;
+          drewFrame = false;
+        }
         return;
       }
+      // Nothing moved (paused/stopped/completed and no new snapshot).
+      if (!frame.changed && drewFrame) return;
+      drewFrame = true;
+      drewEmpty = false;
+      const current = frame.snapshot;
 
       const controller = current.controller;
       const innerRadius =
         controller.type === "roundabout" ? controller.innerRadius : 10;
       const outerRadius =
         controller.type === "roundabout" ? controller.outerRadius : 20;
-      const initialArmReach = outerRadius + 42;
-      const scale = Math.min(width, height) / (initialArmReach * 2);
+      // Same pixels-per-metre as the signal map (see mapScale), so both
+      // render at the same scale side by side.
+      const scale = mapScale(width, height);
       const armReach = Math.max(width, height) / scale + 10;
       const toCanvas = (x: number, y: number): [number, number] => [
         width / 2 + x * scale,
         height / 2 - y * scale,
       ];
-
-      // Interpolate factor t
-      const elapsed = performance.now() - lastTime;
-      const stepDuration = current.deltaTime ? current.deltaTime * 1000 : 100;
-      const t = Math.max(0, Math.min(1, elapsed / stepDuration));
 
       ctx.fillStyle = "#557d35";
       ctx.fillRect(0, 0, width, height);
@@ -84,63 +118,89 @@ export const RoundaboutMap: React.FC<RoundaboutMapProps> = ({
         ctx.stroke();
       }
 
-      const armWidth = laneWidth * (lanes * 2);
+      // Roads are laid out exactly as the backend lays out vehicle lanes
+      // (see mapGeometry.ts): each carriageway sits outside the splitter
+      // island, and every entry lane ends at the give-way line.
+      const edge = roundaboutCarriagewayEdge(lanes, laneWidth);
+      const giveWay = roundaboutGiveWayRadius(outerRadius);
+
+      // Arms run in from the centre so they meet the ring without gaps where
+      // entry/exit paths cross from the arm onto the circulating carriageway.
       ctx.fillStyle = "#343b42";
-      fillWorldRect(
-        ctx,
-        toCanvas,
-        -armWidth / 2,
-        outerRadius,
-        armWidth,
-        armReach - outerRadius,
-      );
-      fillWorldRect(
-        ctx,
-        toCanvas,
-        -armWidth / 2,
-        -armReach,
-        armWidth,
-        armReach - outerRadius,
-      );
-      fillWorldRect(
-        ctx,
-        toCanvas,
-        outerRadius,
-        -armWidth / 2,
-        armReach - outerRadius,
-        armWidth,
-      );
-      fillWorldRect(
-        ctx,
-        toCanvas,
-        -armReach,
-        -armWidth / 2,
-        armReach - outerRadius,
-        armWidth,
-      );
+      fillWorldRect(ctx, toCanvas, -edge, 0, edge * 2, armReach);
+      fillWorldRect(ctx, toCanvas, -edge, -armReach, edge * 2, armReach);
+      fillWorldRect(ctx, toCanvas, 0, -edge, armReach, edge * 2);
+      fillWorldRect(ctx, toCanvas, -armReach, -edge, armReach, edge * 2);
 
       const [cx, cy] = toCanvas(0, 0);
       ctx.fillStyle = "#343b42";
       ctx.beginPath();
       ctx.arc(cx, cy, outerRadius * scale, 0, Math.PI * 2);
       ctx.fill();
+
+      // Outer ring edge, broken where the arms join it. (The tapers drawn
+      // next also break it wherever traffic crosses it between arms.)
       ctx.strokeStyle = "#e5eaed";
       ctx.lineWidth = 2;
       ctx.setLineDash([]);
-      ctx.stroke();
+      if (edge < outerRadius) {
+        const gap = Math.asin(edge / outerRadius);
+        for (let q = 0; q < 4; q += 1) {
+          ctx.beginPath();
+          ctx.arc(
+            cx,
+            cy,
+            outerRadius * scale,
+            (q * Math.PI) / 2 + gap,
+            ((q + 1) * Math.PI) / 2 - gap,
+          );
+          ctx.stroke();
+        }
+      }
 
-      ctx.beginPath();
-      ctx.arc(
-        cx,
-        cy,
-        ((innerRadius + outerRadius) / 2) * scale,
-        0,
-        Math.PI * 2,
-      );
+      // Entry/exit tapers: where paths blend between approach lanes and the
+      // ring they sweep across the corners between arms, so that is road.
+      const taperKey = `${String(innerRadius)}:${String(outerRadius)}`;
+      if (tapers?.key !== taperKey) {
+        tapers = {
+          key: taperKey,
+          paths: roundaboutTaperPaths(
+            innerRadius,
+            outerRadius,
+            lanes,
+            laneWidth,
+          ),
+        };
+      }
+      ctx.strokeStyle = "#343b42";
+      ctx.lineWidth = roundaboutTaperHalfWidth(laneWidth) * 2 * scale;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      for (const path of tapers.paths) {
+        ctx.beginPath();
+        path.forEach(([x, y], i) => {
+          const [px, py] = toCanvas(x, y);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        });
+        ctx.stroke();
+      }
+      ctx.lineCap = "butt";
+      ctx.lineJoin = "miter";
+
+      // Markings between circulating lanes (one lane per approach lane).
       ctx.strokeStyle = "rgba(229, 234, 237, 0.65)";
       ctx.lineWidth = 1.5;
       ctx.setLineDash([6, 8]);
-      ctx.stroke();
+      for (const radius of roundaboutRingDividers(
+        innerRadius,
+        outerRadius,
+        lanes,
+      )) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * scale, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       ctx.setLineDash([]);
 
       ctx.fillStyle = "#557d35";
@@ -156,66 +216,41 @@ export const RoundaboutMap: React.FC<RoundaboutMapProps> = ({
         toCanvas,
         outerRadius,
         armReach,
-        armWidth,
+        lanes,
+        laneWidth,
         showCrosswalks,
       );
-      drawEntryYieldSigns(ctx, toCanvas, outerRadius, armReach, armWidth);
+      drawEntryYieldSigns(ctx, toCanvas, giveWay, edge);
 
-      // Interpolate vehicle positions
-      const prevVehiclesMap = new Map<string, SnapshotVehicle>();
-      if (previous) {
-        for (const pv of previous.vehicles) {
-          prevVehiclesMap.set(pv.id, pv);
-        }
-      }
-
-      for (const vehicle of current.vehicles) {
-        if (vehicle.state === "exited") continue;
-
-        let renderX = vehicle.x;
-        let renderY = vehicle.y;
-        let renderHeading = vehicle.heading;
-
-        const prevVehicle = prevVehiclesMap.get(vehicle.id);
-        if (prevVehicle) {
-          renderX = prevVehicle.x + t * (vehicle.x - prevVehicle.x);
-          renderY = prevVehicle.y + t * (vehicle.y - prevVehicle.y);
-
-          // Interpolate heading along shortest angular path
-          let diff = vehicle.heading - prevVehicle.heading;
-          while (diff < -180) diff += 360;
-          while (diff > 180) diff -= 360;
-          renderHeading = (prevVehicle.heading + t * diff + 360) % 360;
-        }
-
-        drawRoundaboutVehicle(
-          ctx,
-          { ...vehicle, x: renderX, y: renderY, heading: renderHeading },
-          toCanvas,
-          scale,
-        );
+      for (const pose of frame.vehicles) {
+        drawRoundaboutVehicle(ctx, pose, toCanvas, scale);
       }
 
       if (debug) drawDebugLabel(ctx, current, width);
-
-      animFrameIdRef.current = requestAnimationFrame(render);
     };
 
     render();
 
     return () => {
       active = false;
-      if (animFrameIdRef.current) {
-        cancelAnimationFrame(animFrameIdRef.current);
-      }
+      cancelAnimationFrame(frameId);
     };
-  }, [width, height, laneWidth, lanes, showCrosswalks, debug]);
+  }, [
+    width,
+    height,
+    dpr,
+    laneWidth,
+    lanes,
+    showCrosswalks,
+    debug,
+    interpolator,
+  ]);
 
   return (
     <canvas
-      ref={canvasRef}
-      width={width}
-      height={height}
+      ref={setCanvas}
+      width={Math.round(width * dpr)}
+      height={Math.round(height * dpr)}
       style={{ display: "block", borderRadius: "8px" }}
     />
   );
@@ -239,68 +274,78 @@ function drawApproachMarkings(
   toCanvas: (x: number, y: number) => [number, number],
   radius: number,
   armReach: number,
-  armWidth: number,
+  lanes: number,
+  laneWidth: number,
   showCrosswalks: boolean,
 ) {
+  const island = ROUNDABOUT_SPLITTER_HALF_WIDTH;
+  const edge = roundaboutCarriagewayEdge(lanes, laneWidth);
+
+  // Draws a line at lateral `offset` along all four arms, from the ring's
+  // edge outwards. Inside that, paths curve across lane lines and road edges
+  // as they blend onto the ring, so no arm marking continues there.
+  const alongArms = (offset: number) => {
+    for (const side of [-1, 1]) {
+      const o = side * offset;
+      drawWorldLine(ctx, toCanvas, o, radius, o, armReach);
+      drawWorldLine(ctx, toCanvas, o, -radius, o, -armReach);
+      drawWorldLine(ctx, toCanvas, radius, o, armReach, o);
+      drawWorldLine(ctx, toCanvas, -radius, o, -armReach, o);
+    }
+  };
+
+  // Splitter island between the entry and exit carriageways.
+  const length = armReach - radius;
+  ctx.fillStyle = "#557d35";
+  fillWorldRect(ctx, toCanvas, -island, radius, island * 2, length);
+  fillWorldRect(ctx, toCanvas, -island, -armReach, island * 2, length);
+  fillWorldRect(ctx, toCanvas, radius, -island, length, island * 2);
+  fillWorldRect(ctx, toCanvas, -armReach, -island, length, island * 2);
+
+  ctx.setLineDash([]);
   ctx.strokeStyle = "#d7dde0";
   ctx.lineWidth = 1.5;
-  ctx.setLineDash([]);
-  const edge = armWidth / 2;
-  for (const x of [-edge, edge]) {
-    drawWorldLine(ctx, toCanvas, x, radius, x, armReach);
-    drawWorldLine(ctx, toCanvas, x, -radius, x, -armReach);
-  }
-  for (const y of [-edge, edge]) {
-    drawWorldLine(ctx, toCanvas, radius, y, armReach, y);
-    drawWorldLine(ctx, toCanvas, -radius, y, -armReach, y);
-  }
+  alongArms(edge);
+  alongArms(island);
+
+  ctx.strokeStyle = "rgba(255,255,255,.7)";
   ctx.lineWidth = 1.4;
-  for (const offset of [
-    -laneWidthForArm(armWidth),
-    0,
-    laneWidthForArm(armWidth),
-  ]) {
-    ctx.strokeStyle = offset === 0 ? "#e7bd2e" : "rgba(255,255,255,.7)";
-    ctx.setLineDash(offset === 0 ? [] : [8, 10]);
-    drawWorldLine(ctx, toCanvas, offset, radius, offset, armReach);
-    drawWorldLine(ctx, toCanvas, offset, -radius, offset, -armReach);
-    drawWorldLine(ctx, toCanvas, radius, offset, armReach, offset);
-    drawWorldLine(ctx, toCanvas, -radius, offset, -armReach, offset);
+  ctx.setLineDash([8, 10]);
+  for (const offset of roundaboutLaneDividers(lanes, laneWidth)) {
+    alongArms(offset);
   }
   ctx.setLineDash([]);
+
   if (!showCrosswalks) return;
   ctx.fillStyle = "rgba(255,255,255,.78)";
+  const distance = roundaboutGiveWayRadius(radius) + 3;
   for (let i = -5; i <= 5; i += 1) {
-    const offset = i * (armWidth / 12);
-    const [x1, y1] = toCanvas(offset, radius + 1.5);
+    const offset = i * (edge / 6);
+    const [x1, y1] = toCanvas(offset, distance);
     ctx.fillRect(x1 - 3, y1 - 5, 6, 10);
-    const [x2, y2] = toCanvas(offset, -radius - 1.5);
+    const [x2, y2] = toCanvas(offset, -distance);
     ctx.fillRect(x2 - 3, y2 - 5, 6, 10);
-    const [x3, y3] = toCanvas(radius + 1.5, offset);
+    const [x3, y3] = toCanvas(distance, offset);
     ctx.fillRect(x3 - 5, y3 - 3, 10, 6);
-    const [x4, y4] = toCanvas(-radius - 1.5, offset);
+    const [x4, y4] = toCanvas(-distance, offset);
     ctx.fillRect(x4 - 5, y4 - 3, 10, 6);
   }
-}
-
-function laneWidthForArm(armWidth: number): number {
-  return armWidth / 4;
 }
 
 function drawEntryYieldSigns(
   ctx: CanvasRenderingContext2D,
   toCanvas: (x: number, y: number) => [number, number],
-  radius: number,
-  armReach: number,
-  armWidth: number,
+  giveWay: number,
+  edge: number,
 ) {
-  const edge = armWidth / 2;
+  const island = ROUNDABOUT_SPLITTER_HALF_WIDTH;
+  // Signs stand on the splitter island at the give-way line.
   const entries: Array<[number, number, "north" | "south" | "east" | "west"]> =
     [
-      [0, radius + 3, "north"],
-      [0, -radius - 3, "south"],
-      [radius + 3, 0, "east"],
-      [-radius - 3, 0, "west"],
+      [0, giveWay, "north"],
+      [0, -giveWay, "south"],
+      [giveWay, 0, "east"],
+      [-giveWay, 0, "west"],
     ];
   for (const [x, y, direction] of entries) {
     const [cx, cy] = toCanvas(x, y);
@@ -321,13 +366,17 @@ function drawEntryYieldSigns(
     ctx.fill();
     ctx.stroke();
   }
-  ctx.strokeStyle = "rgba(255,255,255,.55)";
-  ctx.lineWidth = 1;
-  ctx.setLineDash([5, 7]);
-  drawWorldLine(ctx, toCanvas, -edge, armReach, edge, armReach);
-  drawWorldLine(ctx, toCanvas, -edge, -armReach, edge, -armReach);
-  drawWorldLine(ctx, toCanvas, armReach, -edge, armReach, edge);
-  drawWorldLine(ctx, toCanvas, -armReach, -edge, -armReach, edge);
+
+  // Give-way lines across each entry carriageway, where its lanes end and
+  // yielding vehicles are held. Traffic keeps right, so each arm's entry
+  // carriageway is the one on the driver's right approaching the ring.
+  ctx.strokeStyle = "rgba(255,255,255,.85)";
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 5]);
+  drawWorldLine(ctx, toCanvas, -island, giveWay, -edge, giveWay);
+  drawWorldLine(ctx, toCanvas, island, -giveWay, edge, -giveWay);
+  drawWorldLine(ctx, toCanvas, giveWay, island, giveWay, edge);
+  drawWorldLine(ctx, toCanvas, -giveWay, -island, -giveWay, -edge);
   ctx.setLineDash([]);
 }
 
@@ -364,16 +413,17 @@ function carColor(id: string): string {
 
 function drawRoundaboutVehicle(
   ctx: CanvasRenderingContext2D,
-  vehicle: SnapshotVehicle,
+  pose: VehiclePose,
   toCanvas: (x: number, y: number) => [number, number],
   scale: number,
 ) {
-  const [cx, cy] = toCanvas(vehicle.x, vehicle.y);
+  const { vehicle } = pose;
+  const [cx, cy] = toCanvas(pose.x, pose.y);
   const length = Math.max(4.5, vehicle.length) * scale;
   const width = Math.max(2, vehicle.width) * scale;
   ctx.save();
   ctx.translate(cx, cy);
-  ctx.rotate((vehicle.heading * Math.PI) / 180);
+  ctx.rotate((pose.heading * Math.PI) / 180);
 
   ctx.fillStyle = carColor(vehicle.id);
   ctx.strokeStyle = "#172027";

@@ -11,6 +11,8 @@
 
 The frontend is a **React 19 + TypeScript** application with a landing-page entry (`index.html`) and a dashboard entry (`app.html`). Current API routes and setup are documented in [../operations.md](../operations.md).
 
+The dashboard is a single-page app with one URL per view — `/app/comparative`, `/app/signal`, `/app/roundabout`, `/app/history`, `/app/volume` and `/app/validation` (`src/routing.ts`). `/app` and the legacy `/app.html` redirect to `/app/comparative`; any other path renders a not-found page. nginx (`templates/default.conf.template`) serves `app.html` for exactly those view paths and answers anything else with a 404 whose body is that not-found page; the Vite dev/preview server mirrors this (`vite.config.ts`).
+
 It provides:
 
 1. A real-time **simulation visualization** using HTML5 Canvas
@@ -18,6 +20,8 @@ It provides:
 3. **Scenario configuration** through forms
 4. **Playback controls** for simulation review
 5. **Side-by-side comparison** of Fixed-Time Signal vs. Roundabout results
+
+Every metric shown or exported is described once in `src/metrics/catalog.ts` (label, unit, precision, group, applicability, definition). The live sidebar, the comparative panel and dialog, the volume-sweep tier view and all CSV exports render from it. The catalog never computes a metric; it only decides how a backend value is presented, including "—" during warm-up (`LiveSnapshot.warmupTime`) or before any vehicle has exited, and "N/A" where a metric is not measured (PET and idle green loss on the roundabout). `src/test/metricCatalog.test.ts` fails if the backend collector emits a metric the catalog does not describe.
 
 The frontend **never runs simulations**. It receives structured snapshot data from the backend over WebSocket and renders it. All metric values arrive pre-computed — the frontend only formats and displays them.
 

@@ -1033,6 +1033,10 @@ button {
   font: 13px var(--app-font-mono);
   color: hsl(var(--foreground));
 }
+.metric-desc {
+  font-size: 12px;
+  color: hsl(var(--foreground) / 0.62);
+}
 .metric-bar {
   height: 3px;
   background: hsl(var(--foreground) / 0.1);
@@ -1383,6 +1387,10 @@ button {
   .metric-bar {
     grid-column: 1 / -1;
     margin-bottom: 10px;
+  }
+  .metric-desc {
+    grid-column: 1 / -1;
+    margin: -6px 0 10px;
   }
   .score-card {
     gap: 38px;

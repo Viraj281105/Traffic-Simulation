@@ -266,9 +266,12 @@ def run_volume_sweep_experiment(
             runs_data.append(
                 {
                     "arrivalRate": rate,
-                    "hourlyVolumeVehPerHour": int(
-                        rate * 3600 * 4
-                    ),  # 4 approaches total
+                    # arrivalRate is the whole junction's rate (the
+                    # spawner splits it across the four approaches), so
+                    # offered demand is rate x 3600 -- the same convention as
+                    # docs/reports/comparative_report.md. This previously
+                    # multiplied by 4 again, overstating demand four-fold.
+                    "hourlyVolumeVehPerHour": int(round(rate * 3600)),
                     "signal": {
                         "runId": sig_run_id,
                         "delay": sig_delay,
@@ -308,7 +311,7 @@ def run_volume_sweep_experiment(
 
         summary_curves = {
             "rates": rates,
-            "volumesVehPerHour": [int(r * 3600 * 4) for r in rates],
+            "volumesVehPerHour": [int(round(r * 3600)) for r in rates],
             "signal": {
                 "delays": signal_delays,
                 "delayStds": signal_delay_stds,
@@ -330,7 +333,7 @@ def run_volume_sweep_experiment(
                 "queueMaxs": roundabout_queue_maxs,
             },
             "crossoverArrivalRate": crossover_rate,
-            "crossoverHourlyVolume": int(crossover_rate * 3600 * 4)
+            "crossoverHourlyVolume": int(round(crossover_rate * 3600))
             if crossover_rate
             else None,
         }

@@ -38,6 +38,11 @@
       "type": "number",
       "exclusiveMinimum": 0
     },
+    "warmupTime": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Simulated seconds excluded from most metrics before they start accumulating"
+    },
     "simulationStatus": {
       "type": "string",
       "enum": ["initialized", "running", "paused", "completed", "error"]
@@ -159,7 +164,33 @@
         "idleOpportunityLoss": { "type": "number", "minimum": 0, "maximum": 1 },
         "directionalFairnessIndex": { "type": "number", "minimum": 0, "maximum": 1 },
         "activeVehicleCount": { "type": "integer", "minimum": 0 },
-        "totalVehiclesSpawned": { "type": "integer", "minimum": 0 }
+        "totalVehiclesSpawned": { "type": "integer", "minimum": 0 },
+        "averageDelay": { "type": "number", "minimum": 0, "description": "Mean control delay (s) of post-warmup exited vehicles" },
+        "medianDelay": { "type": "number", "minimum": 0 },
+        "minDelay": { "type": "number", "minimum": 0 },
+        "maxDelay": { "type": "number", "minimum": 0 },
+        "p95Delay": { "type": "number", "minimum": 0 },
+        "delayStdDev": { "type": "number", "minimum": 0 },
+        "activeAverageQueueLength": { "type": "number", "minimum": 0 },
+        "queueStdDev": { "type": "number", "minimum": 0 },
+        "travelTimeReliabilityLowSampleSize": { "type": "boolean" },
+        "averageTravelSpeed": { "type": "number", "minimum": 0, "description": "Mean instantaneous speed (m/s) of active vehicles" },
+        "queueStabilityIndex": { "type": "number", "minimum": 0 },
+        "congestionRecoveryTime": { "type": "number", "minimum": 0, "description": "Post-warmup time (s) with more than 5 vehicles queued in total" },
+        "spaceFootprintConsumed": { "type": "number", "minimum": 0, "description": "Intersection footprint area (m^2) from the configured geometry" },
+        "intersectionUtilization": { "type": "number", "minimum": 0, "maximum": 100, "description": "Percent of post-warmup ticks with demand in which vehicles were moving" },
+        "criticalSaturationVolume": { "type": "number", "minimum": 0, "description": "Estimated saturation volume (veh/s)" },
+        "masterEfficiencyScore": { "type": "number", "minimum": 0, "maximum": 100 },
+        "collisionCount": { "type": "integer", "minimum": 0 },
+        "minTTC": { "type": ["number", "null"], "minimum": 0, "description": "Minimum time-to-collision (s); null when no TTC observation was made" },
+        "ttcEventCount": { "type": "integer", "minimum": 0 },
+        "ttcSampleCount": { "type": "integer", "minimum": 0 },
+        "ttcThresholdSeconds": { "type": "number", "minimum": 0 },
+        "minPET": { "type": ["number", "null"], "minimum": 0, "description": "Minimum post-encroachment time (s); null when not measured" },
+        "petEventCount": { "type": "integer", "minimum": 0 },
+        "petSampleCount": { "type": "integer", "minimum": 0 },
+        "petThresholdSeconds": { "type": "number", "minimum": 0 },
+        "petApplicable": { "type": "boolean", "description": "False where PET is not measured (roundabout geometry)" }
       },
       "required": [
         "averageWaitTime", "throughput", "throughputRate", "currentQueueLengths",

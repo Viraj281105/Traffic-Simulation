@@ -442,3 +442,74 @@
   background: var(--bg-hover);
   color: var(--text-primary);
 }
+
+/* ── Semantic form structure ────────────────────────────────────────────── */
+fieldset.config-section {
+  margin: 0;
+  min-width: 0;
+}
+
+legend.config-section-title {
+  float: left;
+  width: 100%;
+  padding: 0;
+  margin-bottom: 2px;
+}
+
+legend.config-section-title + * {
+  clear: both;
+}
+
+h2.config-sidebar-title {
+  margin: 0;
+}
+
+.config-intro {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.config-hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.config-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.config-checkbox-row input {
+  accent-color: var(--accent-blue);
+  width: 16px;
+  height: 16px;
+}
+
+.config-slider:focus-visible,
+.config-seed-input:focus-visible,
+.config-checkbox-row input:focus-visible,
+.config-sidebar-panel button:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+.config-sidebar-panel:focus {
+  outline: none;
+}
+
+.config-apply-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.light .config-control-header,
+.light .config-checkbox-row {
+  color: var(--text-secondary);
+}

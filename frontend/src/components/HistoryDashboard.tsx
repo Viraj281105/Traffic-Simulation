@@ -1,14 +1,18 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import "./HistoryDashboard.css";
 import { deleteReplay, listReplays } from "../services/api";
 
-import { RunningMetrics } from "../types/simulation";
+import type { RunningMetrics } from "../types/simulation";
+import type { SimulationConfigValues } from "../types/config";
+import { parseStoredTimestamp } from "../utils/time";
 
 export interface SavedReplay {
   id: string;
   name: string;
   config: {
-    simulation?: { duration?: number; randomSeed?: number };
+    /** Exact dashboard configuration (saves made since this was added). */
+    ui?: SimulationConfigValues;
+    simulation?: { duration?: number; randomSeed?: number; elapsed?: number };
     geometry?: { intersectionType?: string; laneWidth?: number };
     roads?: {
       lanesPerApproach?: {
@@ -31,14 +35,50 @@ interface HistoryDashboardProps {
   onReplay: (replay: SavedReplay) => void;
 }
 
+function num(v: number | undefined, decimals: number): string {
+  return v === undefined || !Number.isFinite(v) ? "—" : v.toFixed(decimals);
+}
+
+function kindOf(r: SavedReplay): "comparative" | "roundabout" | "signal" {
+  if (r.metrics.signal !== undefined && r.metrics.roundabout !== undefined) {
+    return "comparative";
+  }
+  return r.config.geometry?.intersectionType === "roundabout"
+    ? "roundabout"
+    : "signal";
+}
+
+const KIND_LABEL = {
+  comparative: "📊 Comparison",
+  roundabout: "🔄 Roundabout",
+  signal: "🚦 Signal",
+} as const;
+
+/** "S / R" for a comparison, the single value otherwise. */
+function pair(
+  r: SavedReplay,
+  pick: (m: Partial<RunningMetrics>) => number | undefined,
+  decimals: number,
+): string {
+  if (r.metrics.signal && r.metrics.roundabout) {
+    return `${num(pick(r.metrics.signal), decimals)} / ${num(pick(r.metrics.roundabout), decimals)}`;
+  }
+  return num(pick(r.metrics), decimals);
+}
+
 export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
   onReplay,
 }) => {
   const [replays, setReplays] = useState<SavedReplay[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
+  // State changes happen in the fetch callbacks, never synchronously in the
+  // effect; `loading` starts true for the initial fetch.
+  const fetchReplays = useCallback(() => {
     listReplays<SavedReplay[]>()
       .then((data) => {
         setReplays(data);
@@ -46,132 +86,194 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
       })
       .catch((err: unknown) => {
         console.error("Failed to load replays:", err);
+        setLoadError(
+          "Saved runs could not be loaded. Check that the backend is running.",
+        );
         setLoading(false);
       });
   }, []);
 
+  useEffect(() => {
+    fetchReplays();
+  }, [fetchReplays]);
+
+  const retry = () => {
+    setLoading(true);
+    setLoadError(null);
+    fetchReplays();
+  };
+
+  useEffect(() => {
+    if (!deletingId) return;
+    cancelRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDeletingId(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [deletingId]);
+
   const confirmDelete = (id: string) => {
+    setDeleteError(null);
     deleteReplay(id)
       .then((data: { status: string }) => {
         if (data.status === "ok") {
           setReplays((prev) => prev.filter((r) => r.id !== id));
-          setDeletingId(null);
         }
+        setDeletingId(null);
       })
       .catch((err: unknown) => {
         console.error("Failed to delete replay:", err);
+        setDeleteError("The run could not be deleted. Try again.");
         setDeletingId(null);
       });
   };
 
-  if (loading) {
-    return (
-      <div className="history-dashboard">
-        <p>Loading history...</p>
-      </div>
-    );
-  }
-
-  if (replays.length === 0) {
-    return (
-      <div className="history-dashboard empty">
-        <p>No saved simulations found.</p>
-        <p className="hint">
-          Run a simulation and click "Save to History" to see it here.
-        </p>
-      </div>
-    );
-  }
+  const deleting = replays.find((r) => r.id === deletingId);
 
   return (
     <div className="history-dashboard">
-      <div className="dashboard-header">
-        <h3>📚 Saved Simulations</h3>
-        <p>Replay past runs deterministically with their exact random seeds.</p>
-      </div>
-      <table className="history-table">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Seed</th>
-            <th>Avg Wait Time (s)</th>
-            <th>Throughput</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {replays.map((r) => {
-            const date = new Date(r.created_at).toLocaleString();
-            const type =
-              r.config.geometry?.intersectionType === "roundabout"
-                ? "🔄 Roundabout"
-                : "🚦 Signal";
-            const isDual =
-              r.metrics.signal !== undefined &&
-              r.metrics.roundabout !== undefined;
-            const displayType = isDual ? "📊 Comparative" : type;
+      <header className="history-header">
+        <h1>Saved runs</h1>
+        <p>
+          Runs saved from the simulation views. Opening one restores its
+          settings and seed and shows the metrics recorded when it was saved;
+          press Play to run it again.
+        </p>
+      </header>
 
-            let awt = "—";
-            let throughput = "—";
-            if (isDual && r.metrics.signal && r.metrics.roundabout) {
-              awt = `S: ${r.metrics.signal.averageWaitTime.toFixed(1)} / R: ${r.metrics.roundabout.averageWaitTime.toFixed(1)}`;
-              throughput = `S: ${String(r.metrics.signal.throughput)} / R: ${String(r.metrics.roundabout.throughput)}`;
-            } else if (r.metrics.averageWaitTime !== undefined) {
-              awt = r.metrics.averageWaitTime.toFixed(1);
-              throughput = String(r.metrics.throughput ?? 0);
-            }
+      {deleteError && (
+        <p className="history-status error" role="alert">
+          {deleteError}
+        </p>
+      )}
 
-            return (
-              <tr key={r.id}>
-                <td>{date}</td>
-                <td>
-                  <strong>{r.name}</strong>
-                </td>
-                <td>{displayType}</td>
-                <td style={{ fontFamily: "monospace" }}>
-                  {String(r.config.simulation?.randomSeed)}
-                </td>
-                <td>{awt}</td>
-                <td>{throughput}</td>
-                <td>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <button
-                      className="pb-btn pb-primary"
-                      onClick={() => {
-                        onReplay(r);
-                      }}
-                    >
-                      ▶ Replay
-                    </button>
-                    <button
-                      className="pb-btn pb-danger"
-                      onClick={() => {
-                        setDeletingId(r.id);
-                      }}
-                    >
-                      🗑 Delete
-                    </button>
-                  </div>
-                </td>
+      {loading ? (
+        <p className="history-status" role="status">
+          Loading saved runs…
+        </p>
+      ) : loadError ? (
+        <div className="history-status error" role="alert">
+          <p>{loadError}</p>
+          <button type="button" className="pb-btn pb-secondary" onClick={retry}>
+            Retry
+          </button>
+        </div>
+      ) : replays.length === 0 ? (
+        <div className="history-status empty">
+          <p>No saved runs yet.</p>
+          <p className="hint">
+            Run a simulation, pause it or let it finish, then choose “Save to
+            History”.
+          </p>
+        </div>
+      ) : (
+        <div className="history-table-wrap">
+          <table className="history-table">
+            <caption className="sr-only">
+              Saved runs. For comparisons, values read signal / roundabout.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Saved</th>
+                <th scope="col">Name</th>
+                <th scope="col">Type</th>
+                <th scope="col">Seed</th>
+                <th scope="col" title="Simulated time when saved">
+                  Sim time (s)
+                </th>
+                <th scope="col" title="Signal / roundabout for comparisons">
+                  Avg delay (s)
+                </th>
+                <th scope="col" title="Signal / roundabout for comparisons">
+                  Vehicles served
+                </th>
+                <th scope="col">
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
-            );
-          })}
-        </tbody>
-      </table>
+            </thead>
+            <tbody>
+              {replays.map((r) => {
+                const saved = parseStoredTimestamp(r.created_at);
+                const kind = kindOf(r);
+                return (
+                  <tr key={r.id}>
+                    <td>
+                      {Number.isNaN(saved.getTime()) ? (
+                        r.created_at
+                      ) : (
+                        <time dateTime={saved.toISOString()}>
+                          {saved.toLocaleString()}
+                        </time>
+                      )}
+                    </td>
+                    <th scope="row" className="run-name">
+                      {r.name}
+                    </th>
+                    <td>{KIND_LABEL[kind]}</td>
+                    <td className="mono">
+                      {r.config.simulation?.randomSeed ?? "—"}
+                    </td>
+                    <td className="mono">
+                      {num(r.config.simulation?.elapsed, 0)}
+                    </td>
+                    <td className="mono">
+                      {pair(r, (m) => m.averageDelay, 1)}
+                    </td>
+                    <td className="mono">{pair(r, (m) => m.throughput, 0)}</td>
+                    <td>
+                      <div className="row-actions">
+                        <button
+                          type="button"
+                          className="pb-btn pb-primary"
+                          onClick={() => {
+                            onReplay(r);
+                          }}
+                          aria-label={`Open ${r.name}`}
+                        >
+                          Open
+                        </button>
+                        <button
+                          type="button"
+                          className="pb-btn pb-danger"
+                          onClick={() => {
+                            setDeletingId(r.id);
+                          }}
+                          aria-label={`Delete ${r.name}`}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {deletingId && (
         <div className="modal-overlay">
-          <div className="modal-content">
-            <h4>Confirm Deletion</h4>
-            <p>
-              Are you sure you want to delete this simulation? This action
-              cannot be undone.
+          <div
+            className="modal-content"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-title"
+            aria-describedby="delete-desc"
+          >
+            <h2 id="delete-title">Delete this run?</h2>
+            <p id="delete-desc">
+              “{deleting?.name ?? "This run"}” will be removed permanently.
             </p>
             <div className="modal-actions">
               <button
-                className="pb-btn"
+                ref={cancelRef}
+                type="button"
+                className="pb-btn pb-secondary"
                 onClick={() => {
                   setDeletingId(null);
                 }}
@@ -179,6 +281,7 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
                 Cancel
               </button>
               <button
+                type="button"
                 className="pb-btn pb-danger"
                 onClick={() => {
                   confirmDelete(deletingId);
