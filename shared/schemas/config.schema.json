@@ -132,6 +132,18 @@
         "greenDuration": { "type": "number", "exclusiveMinimum": 5, "maximum": 120, "default": 30 },
         "yellowDuration": { "type": "number", "exclusiveMinimum": 2, "maximum": 8, "default": 4 },
         "allRedDuration": { "type": "number", "minimum": 0, "maximum": 5, "default": 2 },
+        "nsGreenDuration": {
+          "type": "number",
+          "exclusiveMinimum": 5,
+          "maximum": 120,
+          "description": "Optional per-corridor override of straightRightDuration for the North/South green phase only (the n, s, ns and sn phaseSequence groups, and the N/S legs of the default one-direction-at-a-time cycle). Omit for the previous, symmetric behaviour: NS phases then use straightRightDuration like every other direction."
+        },
+        "ewGreenDuration": {
+          "type": "number",
+          "exclusiveMinimum": 5,
+          "maximum": 120,
+          "description": "Optional per-corridor override of straightRightDuration for the East/West green phase only (the e, w, ew and we phaseSequence groups, and the E/W legs of the default cycle). Omit for the previous, symmetric behaviour: EW phases then use straightRightDuration like every other direction."
+        },
         "phaseSequence": {
           "type": "array",
           "description": "Ordered signal phase plan. Each entry is 'all_red' or '<group>_<green|yellow>', where <group> is a single approach (n/s/e/w) or an order-invariant paired group sharing one green (ns/sn, ew/we). Omit the property entirely to get the default one-direction-at-a-time cycle instead.",
@@ -170,7 +182,25 @@
         "updateFrequency": { "type": "number", "exclusiveMinimum": 0, "default": 1.0 },
         "rollingWindowSize": { "type": "number", "exclusiveMinimum": 0, "default": 60 },
         "waitSpeedThreshold": { "type": "number", "minimum": 0, "default": 0.5 },
-        "stopSpeedThreshold": { "type": "number", "minimum": 0, "default": 0.1 }
+        "stopSpeedThreshold": { "type": "number", "minimum": 0, "default": 0.1 },
+        "ttcThresholdSeconds": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1.5,
+          "description": "Time-to-Collision (seconds) at or below which an observed TTC is counted as an event. Measurement-only -- affects only reported counts, never simulation behaviour. Default is a commonly-cited conservative literature value (Hayward 1972 and widely reused since), not a value this project has itself validated."
+        },
+        "petThresholdSeconds": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 5.0,
+          "description": "Post-Encroachment Time (seconds) at or below which an observed PET is counted as an event. Measurement-only. Default is a commonly-cited conservative literature value from SSAM-style conflict studies, not validated by this project. Only measurable for fixed_time_signal geometry -- see petApplicable in the metrics output."
+        },
+        "ttcSearchRadius": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 50.0,
+          "description": "Euclidean radius (meters) within which a pair of vehicles on different lanes is considered for a TTC observation. Bounds the per-tick cost; does not affect simulation behaviour."
+        }
       }
     },
     "visualization": {

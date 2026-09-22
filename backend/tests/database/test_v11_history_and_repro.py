@@ -308,6 +308,16 @@ def test_api_run_reproduce(test_db):
     assert len(second_data["discrepancies"]) == 0
     assert second_data["seed"] == 54321
 
+    # Provenance is best-effort and additive: present on every reproduction,
+    # never causes the endpoint to fail, and matches this environment's
+    # actual git HEAD / interpreter rather than a placeholder.
+    from src.core.provenance import get_git_commit_hash, get_python_version
+
+    provenance = second_data["provenance"]
+    assert provenance["gitCommitHash"] == get_git_commit_hash()
+    assert provenance["pythonVersion"] == get_python_version()
+    assert provenance == first_data["provenance"]
+
 
 def test_reproduce_drives_controller_at_the_same_rate_as_a_normal_run(
     test_db, monkeypatch

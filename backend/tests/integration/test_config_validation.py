@@ -112,6 +112,73 @@ def test_api_simulations_green_duration_alias_reaches_controller() -> None:
     assert controller.straight_right_duration == 22.0
 
 
+def test_api_simulation_new_ns_ew_green_duration_reaches_controller() -> None:
+    """Asymmetric NS/EW green durations, submitted through the typed
+    POST /api/simulation/new path, must reach the actual controller
+    instance with the exact values submitted -- same pattern as the
+    existing straightRightDuration/yellowDuration/allRedDuration
+    regression test above."""
+    config: Dict[str, Any] = {
+        "simulation": {"timeStep": 0.1, "duration": 300, "warmupTime": 30.0},
+        "geometry": {"intersectionType": "fixed_time_signal"},
+        "controller": {
+            "nsGreenDuration": 30.0,
+            "ewGreenDuration": 20.0,
+        },
+    }
+    response = client.post("/api/simulation/new", json=config)
+    assert response.status_code == 200
+    sim_id = response.json()["simulationId"]
+
+    controller = simulations_db[sim_id]["controller"]
+    assert controller.ns_green_duration == 30.0
+    assert controller.ew_green_duration == 20.0
+    # Backward-compatible default (straightRightDuration=30) is untouched.
+    assert controller.straight_right_duration == 30.0
+
+
+def test_api_simulation_new_without_ns_ew_green_duration_is_unaffected() -> None:
+    """A config that never mentions nsGreenDuration/ewGreenDuration must
+    leave the controller exactly as it behaved before those fields existed
+    -- both overrides None, straightRightDuration used uniformly."""
+    config: Dict[str, Any] = {
+        "simulation": {"timeStep": 0.1, "duration": 300, "warmupTime": 30.0},
+        "geometry": {"intersectionType": "fixed_time_signal"},
+        "controller": {"straightRightDuration": 22.0},
+    }
+    response = client.post("/api/simulation/new", json=config)
+    assert response.status_code == 200
+    sim_id = response.json()["simulationId"]
+
+    controller = simulations_db[sim_id]["controller"]
+    assert controller.ns_green_duration is None
+    assert controller.ew_green_duration is None
+    assert controller.straight_right_duration == 22.0
+
+
+def test_api_simulation_new_invalid_ns_ew_green_duration_returns_422() -> None:
+    config: Dict[str, Any] = {
+        "simulation": {"timeStep": 0.1, "duration": 300, "warmupTime": 30.0},
+        "geometry": {"intersectionType": "fixed_time_signal"},
+        "controller": {"nsGreenDuration": -5.0},
+    }
+    response = client.post("/api/simulation/new", json=config)
+    assert response.status_code == 422
+
+
+def test_api_simulations_invalid_ew_green_duration_returns_400() -> None:
+    """Same invalid value, but through the raw-dict/schema-validated
+    POST /api/v1/simulations path -- must be a 400, matching the existing
+    phaseSequence-validation test's status code for that path."""
+    config: Dict[str, Any] = {
+        "simulation": {"timeStep": 0.1, "duration": 300, "warmupTime": 30.0},
+        "geometry": {"intersectionType": "fixed_time_signal"},
+        "controller": {"ewGreenDuration": 0},
+    }
+    response = client.post("/api/v1/simulations", json=config)
+    assert response.status_code == 400
+
+
 def test_api_simulation_invalid_phase_sequence_entry_returns_400() -> None:
     """An unsupported phaseSequence entry must surface as a 400, not an
     unhandled 500.

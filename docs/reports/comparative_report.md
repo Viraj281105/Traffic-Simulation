@@ -86,15 +86,41 @@ support a comparative claim, so they are marked as such rather than asserted.
 | **Jain's Fairness Index** *(not yet measured)* | Both expected $\approx 1.0$ | Both expected $\approx 0.95$ | Signal expected higher — cyclic green guarantees each arm a turn |
 | **Idle Capacity Loss** *(analytical)* | Signal has high loss | Signal has medium loss | Roundabout has minimal idle loss |
 
-> **Note on the delay row.** The classical expectation is that a roundabout
-> has lower delay than a signal at low demand, because there is no red light
-> to wait at when the ring is empty. The measurements hold that at
-> $360\,\text{veh/h}$ ($15.1$ vs $16.0$ s) but reverse it at $720$ and
-> $1080$. This is a **single-seed** result and the differences are a few
-> seconds, so it is reported rather than concluded: confirming or overturning
-> it needs the multi-seed Monte Carlo path in `src/study/validation.py`, which
-> has not been run for this comparison. Do not present the reversal as a
-> finding until it has been.
+> **Note on the delay row — multi-seed result.** The classical expectation is
+> that a roundabout has lower delay than a signal at low demand, because
+> there is no red light to wait at when the ring is empty. Seed 1 alone
+> reads that way at $360\,\text{veh/h}$ ($15.1$ vs $16.0$ s) and reverses it
+> at $720$ and $1080$ — but seed 1 is a single point, and it is not
+> representative.
+>
+> A 5-seed Monte Carlo study (seeds $1$–$5$, identical $1$-lane /
+> $240\,\text{s}$ / $30\,\text{s}$-warmup / $210\,\text{s}$-window
+> configuration, using `src/study/validation.py`'s existing
+> `_calculate_stats` / `_compare_groups` statistics) was run at all three
+> points to check whether the reversal holds:
+>
+> | Offered veh/h | Signal delay (mean ± 95% CI) | Roundabout delay (mean ± 95% CI) | Cohen's d | p-value | Significant? |
+> | ---: | :--- | :--- | ---: | ---: | :--- |
+> | 360 | $13.97 \pm 2.13$ s | $15.07 \pm 1.21$ s | $-0.56$ | $0.38$ | No |
+> | 720 | $18.82 \pm 6.45$ s | $18.73 \pm 0.90$ s | $0.02$ | $0.98$ | No |
+> | 1080 | $19.91 \pm 4.38$ s | $23.82 \pm 1.59$ s | $-1.04$ | $0.10$ | No |
+>
+> **The reversal is not supported as a finding at any of the three points.**
+> At $360\,\text{veh/h}$ the 5-seed mean actually points the *opposite*
+> direction from the seed-1 reading above (signal lower, not roundabout),
+> and the difference is well within noise. At $720\,\text{veh/h}$ the two
+> geometries are statistically indistinguishable across seeds (signal delay
+> alone ranged $14.7$–$31.9\,\text{s}$ across the 5 seeds) — the seed-1
+> "signal is lower" reading was one point in a genuinely noisy distribution,
+> not a systematic effect. At $1080\,\text{veh/h}$ the seed-1 direction
+> (signal lower) does hold in $4$ of $5$ seeds with a sizable effect size,
+> but does not reach significance at $n=5$; more seeds would sharpen this
+> rather than overturn the trend seen so far.
+>
+> The seed-1 figures reported above are accurate as measured and are
+> unchanged — only their interpretation as a finding is retracted. Throughput
+> differences at these three points were also not significant in the same
+> study (p $= 0.60$ / $0.70$ / $0.48$).
 
 ---
 
@@ -134,6 +160,14 @@ At saturation the roundabout's entry capacity becomes the binding constraint.
 
 ## 5. Revision History
 
+*   **2026-09-21** — Ran the 5-seed Monte Carlo validation §3's delay-row note
+    called for and updated that note with the result: the single-seed delay
+    reversal at $360$/$720$/$1080\,\text{veh/h}$ is **not supported** across
+    seeds (not significant at any of the three points; the $360\,\text{veh/h}$
+    direction actually reverses in the 5-seed mean). No other figures in this
+    report changed — only the interpretation of the delay row at these three
+    points. Saturation-regime claims ($\ge 2160\,\text{veh/h}$) remain
+    single-seed and are unaffected by this update.
 *   **2026-09-18** — Added measured capacity (§2) and rewrote §3–§4 against it.
     Signal capacity is $\approx 1700\,\text{veh/h}$; an earlier figure of
     $1800$ was measured against a junction that was already sliding into a

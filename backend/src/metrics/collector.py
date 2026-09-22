@@ -1,6 +1,6 @@
 import itertools
 import math
-from typing import Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from src.core.enums import Direction
 from src.metrics.definitions.derived_metrics import (
@@ -12,6 +12,10 @@ from src.metrics.definitions.derived_metrics import (
 from src.metrics.definitions.fairness import calculate_directional_fairness
 from src.metrics.definitions.idle_loss import calculate_idle_loss_tick
 from src.metrics.definitions.queue_length import get_current_queue_lengths
+from src.metrics.definitions.safety_conflicts import (
+    ConflictZoneOccupancyTracker,
+    find_ttc_events,
+)
 from src.metrics.definitions.speed_variance import calculate_speed_variance_index
 from src.metrics.definitions.stop_count import update_vehicle_stops
 from src.metrics.definitions.throughput import (
@@ -25,6 +29,9 @@ from src.metrics.definitions.travel_time import (
 from src.metrics.definitions.wait_time import calculate_average_wait_time
 from src.metrics.efficiency import calculate_master_efficiency_score
 from src.vehicles.vehicle import Vehicle
+
+if TYPE_CHECKING:
+    from src.intersection.conflict_manager import ConflictManager
 
 
 class MetricCollector:
@@ -48,6 +55,22 @@ class MetricCollector:
         veh_gen = config.get("vehicleGeneration", {})
         self.stop_speed_threshold: float = veh_gen.get("stopSpeedThreshold", 0.1)
         self.wait_speed_threshold: float = veh_gen.get("waitSpeedThreshold", 0.5)
+
+        # TTC/PET configuration (see metrics/definitions/safety_conflicts.py).
+        # Measurement-only: these thresholds only affect which observed
+        # TTC/PET values get counted as "events" for reporting purposes,
+        # never simulation/vehicle behaviour.
+        #
+        # Threshold defaults are commonly-cited conservative values from
+        # the surrogate-safety-measure literature (TTC: Hayward 1972 and
+        # widely reused since as a critical/conservative cutoff; PET:
+        # commonly used in SSAM-style conflict studies), not values this
+        # project has itself validated -- see get_metrics()'s "not yet
+        # validated" note on the resulting counts.
+        metrics_cfg = config.get("metrics", {})
+        self.ttc_threshold_seconds: float = metrics_cfg.get("ttcThresholdSeconds", 1.5)
+        self.pet_threshold_seconds: float = metrics_cfg.get("petThresholdSeconds", 5.0)
+        self.ttc_search_radius: float = metrics_cfg.get("ttcSearchRadius", 50.0)
 
         self.reset()
 
@@ -73,14 +96,39 @@ class MetricCollector:
         self._warmup_baseline_stops: Dict[str, int] = {}
         self._warmup_baseline_captured: bool = False
 
+        # TTC/PET accumulators (post-warmup only, matching every other
+        # per-tick metric). Min values are None until at least one
+        # observation exists -- see get_metrics() for how that's reported.
+        self._min_ttc: Optional[float] = None
+        self._ttc_event_count: int = 0
+        self._ttc_sample_count: int = 0
+
+        self._min_pet: Optional[float] = None
+        self._pet_event_count: int = 0
+        self._pet_sample_count: int = 0
+        self._pet_applicable: bool = False
+        self._zone_tracker: ConflictZoneOccupancyTracker = (
+            ConflictZoneOccupancyTracker()
+        )
+
     def update(
         self,
         current_time: float,
         active_vehicles: List[Vehicle],
         exited_vehicles: List[Vehicle],
         signals_state: Dict[Direction, str],
+        conflict_manager: Optional["ConflictManager"] = None,
     ) -> None:
-        """Ticks the metrics state checks (e.g. updating vehicle stop count hysteresis)."""
+        """Ticks the metrics state checks (e.g. updating vehicle stop count hysteresis).
+
+        ``conflict_manager`` is optional and additive: when supplied (only
+        meaningful for fixed_time_signal geometry -- see
+        metrics/definitions/safety_conflicts.py), PET is measured using its
+        existing pre-computed conflict points. Omitting it (the default)
+        simply means PET stays unmeasured for this run, exactly as it was
+        before this parameter existed; TTC is unaffected either way, since
+        it needs no conflict-manager geometry.
+        """
         # Always update stop count states regardless of warmup to keep vehicle state correct
         for v in active_vehicles:
             update_vehicle_stops(v, self.stop_speed_threshold)
@@ -132,6 +180,36 @@ class MetricCollector:
         # Congestion Recovery: increment recovery time if total queue length across all approaches > 5
         if sum(current_queues.values()) > 5:
             self.congestion_recovery_time += self.time_step
+
+        # TTC: computed every tick regardless of geometry (needs only
+        # vehicle kinematics). See safety_conflicts.py for the candidate
+        # pair filter and formula.
+        for _va_id, _vb_id, ttc in find_ttc_events(
+            active_vehicles, self.ttc_search_radius
+        ):
+            self._ttc_sample_count += 1
+            if self._min_ttc is None or ttc < self._min_ttc:
+                self._min_ttc = ttc
+            if ttc <= self.ttc_threshold_seconds:
+                self._ttc_event_count += 1
+
+        # PET: only measurable where real conflict-point geometry exists
+        # (fixed_time_signal). A None/absent conflict_manager leaves PET
+        # unmeasured for this tick and this run -- see get_metrics()'s
+        # petApplicable flag.
+        if conflict_manager is not None:
+            self._pet_applicable = True
+            for pet in self._zone_tracker.update(
+                current_time,
+                active_vehicles,
+                conflict_manager.get_all_conflict_points(),
+                conflict_manager.ZONE_RADIUS,
+            ):
+                self._pet_sample_count += 1
+                if self._min_pet is None or pet < self._min_pet:
+                    self._min_pet = pet
+                if pet <= self.pet_threshold_seconds:
+                    self._pet_event_count += 1
 
     def get_metrics(
         self,
@@ -380,6 +458,26 @@ class MetricCollector:
                 post_warmup_spawned_count,
             ),
             "collisionCount": collision_count,
+            # Surrogate safety metrics (measurement-only; see
+            # metrics/definitions/safety_conflicts.py). Thresholds are
+            # commonly-cited literature defaults, not values this project
+            # has validated -- event counts below are exploratory
+            # measurements, not a validated safety comparison between
+            # geometries. min*=None means zero observations were made
+            # (never a synonym for "zero risk").
+            "minTTC": self._min_ttc,
+            "ttcEventCount": self._ttc_event_count,
+            "ttcSampleCount": self._ttc_sample_count,
+            "ttcThresholdSeconds": self.ttc_threshold_seconds,
+            "minPET": self._min_pet,
+            "petEventCount": self._pet_event_count,
+            "petSampleCount": self._pet_sample_count,
+            "petThresholdSeconds": self.pet_threshold_seconds,
+            # False for roundabout geometry (no validated conflict-area
+            # geometry exists there yet -- see module docstring): PET
+            # fields above are "not measured" on those runs, not "no
+            # conflicts found".
+            "petApplicable": self._pet_applicable,
         }
         base_metrics["masterEfficiencyScore"] = calculate_master_efficiency_score(
             base_metrics
