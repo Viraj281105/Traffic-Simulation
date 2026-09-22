@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { useWebSocketSnapshot } from "./hooks/useWebSocketSnapshot";
 import { useSimulationPolling } from "./hooks/useSimulationPolling";
 import { useContainerSize } from "./hooks/useContainerSize";
@@ -22,18 +23,41 @@ import type {
   DualSnapshot,
   SimulationStatus,
 } from "./types/simulation";
+import {
+  VIEW_ROUTES,
+  navigate,
+  resolveRoute,
+  usePathname,
+  type RoutedView,
+} from "./routing";
 import "./App.css";
 
+type ViewMode = RoutedView | "single";
+
+/**
+ * Router shell. The URL is the source of truth for which view is shown, so a
+ * refresh, a direct link or back/forward all land on the same view. The
+ * dashboard stays mounted across view changes, keeping its configuration and
+ * live stream exactly as when views were plain React state.
+ */
 export function App() {
-  const [viewMode, setViewMode] = useState<
-    | "signal"
-    | "roundabout"
-    | "comparative"
-    | "single"
-    | "history"
-    | "volume"
-    | "validation"
-  >("comparative");
+  const route = resolveRoute(usePathname());
+  const redirectTo = route.kind === "redirect" ? route.to : null;
+
+  useLayoutEffect(() => {
+    if (redirectTo) navigate(redirectTo, { replace: true });
+  }, [redirectTo]);
+
+  if (route.kind === "notFound") return <NotFound path={route.path} />;
+  if (route.kind === "redirect") return null;
+  return <Dashboard viewMode={route.view} />;
+}
+
+function Dashboard({ viewMode: routedView }: { viewMode: RoutedView }) {
+  const viewMode = routedView as ViewMode;
+  const setViewMode = (view: RoutedView) => {
+    navigate(VIEW_ROUTES[view]);
+  };
   const [activeReplay, setActiveReplay] = useState<SavedReplay | null>(null);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -414,56 +438,26 @@ export function App() {
         </div>
 
         {/* View Mode Tabs */}
-        <div className="header-tabs">
-          <button
-            className={`tab-btn ${viewMode === "signal" ? "active" : ""}`}
-            onClick={() => {
-              setViewMode("signal");
-            }}
-          >
+        <nav className="header-tabs" aria-label="Views">
+          <ViewTab view="signal" active={viewMode}>
             🚦 Fixed-Time Signal Only
-          </button>
-          <button
-            className={`tab-btn ${viewMode === "roundabout" ? "active" : ""}`}
-            onClick={() => {
-              setViewMode("roundabout");
-            }}
-          >
+          </ViewTab>
+          <ViewTab view="roundabout" active={viewMode}>
             🔄 Roundabout Only
-          </button>
-          <button
-            className={`tab-btn ${viewMode === "comparative" ? "active" : ""}`}
-            onClick={() => {
-              setViewMode("comparative");
-            }}
-          >
+          </ViewTab>
+          <ViewTab view="comparative" active={viewMode}>
             📊 Comparative View
-          </button>
-          <button
-            className={`tab-btn ${viewMode === "history" ? "active" : ""}`}
-            onClick={() => {
-              setViewMode("history");
-            }}
-          >
+          </ViewTab>
+          <ViewTab view="history" active={viewMode}>
             📚 History
-          </button>
-          <button
-            className={`tab-btn ${viewMode === "volume" ? "active" : ""}`}
-            onClick={() => {
-              setViewMode("volume");
-            }}
-          >
+          </ViewTab>
+          <ViewTab view="volume" active={viewMode}>
             📈 Volume Analysis
-          </button>
-          <button
-            className={`tab-btn ${viewMode === "validation" ? "active" : ""}`}
-            onClick={() => {
-              setViewMode("validation");
-            }}
-          >
+          </ViewTab>
+          <ViewTab view="validation" active={viewMode}>
             🔬 Validation
-          </button>
-        </div>
+          </ViewTab>
+        </nav>
 
         <div
           className="header-right"
@@ -756,6 +750,91 @@ export function App() {
 
       {/* ── Toast Notification ────────────────────────────────────────── */}
       {toastMessage && <div className="toast-notification">{toastMessage}</div>}
+    </div>
+  );
+}
+
+// ── Navigation ─────────────────────────────────────────────────────────────
+
+/** Client-side navigation for a same-document link, leaving modified clicks
+ *  (new tab/window) to the browser. */
+function followLink(event: MouseEvent<HTMLAnchorElement>, to: string) {
+  if (
+    event.button !== 0 ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    event.altKey
+  ) {
+    return;
+  }
+  event.preventDefault();
+  navigate(to);
+}
+
+function ViewTab({
+  view,
+  active,
+  children,
+}: {
+  view: RoutedView;
+  active: ViewMode;
+  children: ReactNode;
+}) {
+  const href = VIEW_ROUTES[view];
+  const isActive = view === active;
+  return (
+    <a
+      href={href}
+      className={`tab-btn ${isActive ? "active" : ""}`}
+      aria-current={isActive ? "page" : undefined}
+      onClick={(event) => {
+        followLink(event, href);
+      }}
+    >
+      {children}
+    </a>
+  );
+}
+
+function NotFound({ path }: { path: string }) {
+  useEffect(() => {
+    const isLight = sessionStorage.getItem("signals-theme") === "light";
+    document.documentElement.classList.toggle("light", isLight);
+    document.documentElement.classList.toggle("dark", !isLight);
+  }, []);
+
+  const home = VIEW_ROUTES.comparative;
+  return (
+    <div className="app">
+      <header className="app-header">
+        <div className="header-left">
+          <a className="brand" href="/" data-testid="link-brand">
+            <span className="brand-mark" aria-hidden="true" />
+            <span className="brand-name">URBANFLOW</span>
+          </a>
+        </div>
+      </header>
+      <main className="app-main full-screen not-found" role="main">
+        <h1>Page not found</h1>
+        <p>
+          There is no page at <code>{path}</code>.
+        </p>
+        <p className="not-found-links">
+          <a
+            href={home}
+            className="pb-btn pb-primary"
+            onClick={(event) => {
+              followLink(event, home);
+            }}
+          >
+            Open the simulation dashboard
+          </a>
+          <a href="/" className="pb-btn pb-secondary">
+            Back to the landing page
+          </a>
+        </p>
+      </main>
     </div>
   );
 }

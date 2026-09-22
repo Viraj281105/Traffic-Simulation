@@ -937,6 +937,40 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
+/* View tabs are links (each view has its own URL); keep the button look. */
+a.tab-btn {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+/* ── Not-found page ─────────────────────────────────────────────────────── */
+.app-main.not-found {
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.app-main.not-found h1 {
+  margin: 0;
+  font-size: 24px;
+  color: var(--text-primary);
+}
+
+.not-found-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+.not-found-links a {
+  text-decoration: none;
+}
+
 /* ── Toast Notification ─────────────────────────────────────────────────── */
 .toast-notification {
   position: fixed;

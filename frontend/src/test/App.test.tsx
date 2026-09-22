@@ -10,7 +10,7 @@
  * a re-test of the stream client (see websocket.test.ts) or the hook (see
  * useWebSocketSnapshot.test.tsx).
  */
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -33,6 +33,8 @@ vi.mock("../services/api", () => ({
   fetchSweeps: vi.fn().mockResolvedValue([]),
   fetchRuns: vi.fn().mockResolvedValue([]),
   fetchReplays: vi.fn().mockResolvedValue([]),
+  listReplays: vi.fn().mockResolvedValue([]),
+  deleteReplay: vi.fn().mockResolvedValue({ status: "ok" }),
 }));
 
 const wsState = {
@@ -62,7 +64,7 @@ vi.mock("../hooks/useSimulationPolling", () => ({
 }));
 
 vi.mock("../hooks/useContainerSize", () => ({
-  useContainerSize: () => [{ current: null }, { width: 800, height: 600 }],
+  useContainerSize: () => [() => undefined, { width: 800, height: 600 }],
 }));
 
 import { App } from "../App";
@@ -75,6 +77,7 @@ beforeEach(() => {
   wsState.isPlaying = false;
   wsState.error = null;
   sessionStorage.clear();
+  window.history.replaceState(null, "", "/app/comparative");
 });
 
 describe("App", () => {
@@ -134,14 +137,9 @@ describe("App", () => {
       expect(updateSimulationConfig).toHaveBeenCalled();
     });
 
-    const roundaboutControl = screen
-      .queryAllByRole("button")
-      .find((b) => /roundabout/i.test(b.textContent));
-    if (!roundaboutControl) {
-      // The shell renders its view switcher differently across layouts; the
-      // config-sync contract is still covered by the mount test above.
-      return;
-    }
+    const roundaboutControl = screen.getByRole("link", {
+      name: /roundabout only/i,
+    });
 
     updateSimulationConfig.mockClear();
     await user.click(roundaboutControl);
@@ -171,5 +169,59 @@ describe("App", () => {
 
     expect(() => render(<App />)).not.toThrow();
     expect(document.documentElement.classList.contains("light")).toBe(false);
+  });
+
+  it("shows the view named by the URL, so a refresh stays on it", () => {
+    window.history.replaceState(null, "", "/app/history");
+
+    render(<App />);
+
+    expect(screen.getByRole("link", { name: /history/i })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  it("gives every view tab its own URL and follows back/forward", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("link", { name: /volume analysis/i }));
+    expect(window.location.pathname).toBe("/app/volume");
+    expect(
+      screen.getByRole("link", { name: /volume analysis/i }),
+    ).toHaveAttribute("aria-current", "page");
+
+    act(() => {
+      window.history.replaceState(null, "", "/app/signal");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    expect(
+      screen.getByRole("link", { name: /fixed-time signal only/i }),
+    ).toHaveAttribute("aria-current", "page");
+  });
+
+  it("redirects the legacy /app.html entry to the default view", async () => {
+    window.history.replaceState(null, "", "/app.html");
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe("/app/comparative");
+    });
+    expect(
+      screen.getByRole("link", { name: /comparative view/i }),
+    ).toHaveAttribute("aria-current", "page");
+  });
+
+  it("renders a not-found page for unknown routes instead of a dashboard", () => {
+    window.history.replaceState(null, "", "/app/does-not-exist");
+
+    render(<App />);
+
+    expect(
+      screen.getByRole("heading", { name: /page not found/i }),
+    ).toBeInTheDocument();
+    expect(updateSimulationConfig).not.toHaveBeenCalled();
   });
 });

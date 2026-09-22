@@ -204,7 +204,7 @@ function App() {
             <div className="hero-actions">
               <a
                 className="primary-btn"
-                href="/app.html"
+                href="/app/comparative"
                 data-testid="link-explore-simulation"
               >
                 Launch simulation <ArrowDownRight size={15} />
@@ -597,7 +597,7 @@ function App() {
           </p>
           <a
             className="primary-btn"
-            href="/app.html"
+            href="/app/comparative"
             data-testid="link-run-another-scenario"
           >
             Launch simulation <ArrowRight size={15} />
