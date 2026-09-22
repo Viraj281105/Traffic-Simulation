@@ -16,7 +16,7 @@ isn't present at all -- e.g. the production Docker image, whose
 
 import platform
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Optional
 
 UNKNOWN = "unknown"
 
@@ -82,3 +82,39 @@ def get_python_version() -> str:
 # avoids repeated filesystem reads on every /reproduce call.
 GIT_COMMIT_HASH: str = get_git_commit_hash()
 PYTHON_VERSION: str = get_python_version()
+
+
+# Version of the per-run provenance record below; bump if its shape changes.
+RUN_PROVENANCE_SCHEMA_VERSION = 1
+
+
+def build_run_provenance(
+    *,
+    config_source: str,
+    run_mode: str,
+    time_step: Optional[float],
+    duration: Optional[float],
+    warmup_time: Optional[float],
+) -> Dict[str, Any]:
+    """The reproducibility record stored with each saved run (V1.1).
+
+    ``config_source`` says where the stored configuration came from:
+    ``"engine"`` -- the exact config dict the simulation engine ran with --
+    or ``"client"`` -- the client-supplied summary, used only when no engine
+    was available to read it from. ``run_mode`` is ``"single"`` or ``"dual"``
+    (the lockstep signal-vs-roundabout comparison). The timing fields are
+    the values the engine actually used, not config defaults re-derived
+    later; None when they could not be read.
+    """
+    return {
+        "schemaVersion": RUN_PROVENANCE_SCHEMA_VERSION,
+        "gitCommitHash": GIT_COMMIT_HASH,
+        "pythonVersion": PYTHON_VERSION,
+        "configSource": config_source,
+        "runMode": run_mode,
+        "timing": {
+            "timeStep": time_step,
+            "duration": duration,
+            "warmupTime": warmup_time,
+        },
+    }

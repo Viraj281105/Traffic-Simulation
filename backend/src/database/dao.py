@@ -31,6 +31,28 @@ class ConfigurationDAO:
         return None
 
 
+def _loads_dict(raw: Optional[str]) -> Optional[Dict[str, Any]]:
+    """Decodes a JSON object column; None for NULL, empty or malformed."""
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+def _decode_run_row(row: sqlite3.Row) -> Dict[str, Any]:
+    """A simulation_runs row as a dict, with its JSON columns decoded
+    alongside the raw ones (``config``, ``summary_metrics`` and
+    ``provenance`` -- the latter None for runs saved before it existed)."""
+    data = dict(row)
+    data["config"] = _loads_dict(data.get("config_json")) or {}
+    data["summary_metrics"] = _loads_dict(data.get("summary_metrics_json")) or {}
+    data["provenance"] = _loads_dict(data.get("provenance_json"))
+    return data
+
+
 class SimulationRunDAO:
     """DAO for tracking simulation runs with rich metadata, seeds, configs, and summary metrics."""
 
@@ -47,8 +69,18 @@ class SimulationRunDAO:
         batch_id: Optional[str] = None,
         config: Optional[Dict[str, Any]] = None,
         summary_metrics: Optional[Dict[str, Any]] = None,
+        provenance: Optional[Dict[str, Any]] = None,
     ) -> None:
+        """Inserts or replaces a run.
+
+        ``provenance`` (see src/core/provenance.py ``build_run_provenance``)
+        is optional so existing callers keep working; when omitted, the
+        ``git_commit``/``provenance_json`` columns stay NULL ("not
+        recorded") rather than being filled with a guessed value.
+        """
         cursor = conn.cursor()
+        git_commit = provenance.get("gitCommitHash") if provenance else None
+        provenance_str = json.dumps(provenance) if provenance else None
         config_str = json.dumps(config) if config is not None else "{}"
         metrics_str = (
             json.dumps(summary_metrics) if summary_metrics is not None else "{}"
@@ -61,8 +93,9 @@ class SimulationRunDAO:
                 """
                 INSERT OR REPLACE INTO simulation_runs (
                     id, status, elapsed, intersection_type, random_seed, arrival_rate,
-                    duration, batch_id, config_json, summary_metrics_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                    duration, batch_id, config_json, summary_metrics_json,
+                    git_commit, provenance_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
                 """,
                 (
                     run_id,
@@ -75,6 +108,8 @@ class SimulationRunDAO:
                     batch_id,
                     config_str,
                     metrics_str,
+                    git_commit,
+                    provenance_str,
                 ),
             )
             conn.commit()
@@ -88,26 +123,14 @@ class SimulationRunDAO:
         cursor.execute(
             """
             SELECT id, status, elapsed, intersection_type, random_seed, arrival_rate,
-                   duration, batch_id, config_json, summary_metrics_json, created_at
+                   duration, batch_id, config_json, summary_metrics_json,
+                   git_commit, provenance_json, created_at
             FROM simulation_runs WHERE id = ?;
             """,
             (run_id,),
         )
         row = cursor.fetchone()
-        if row:
-            data = dict(row)
-            try:
-                data["config"] = json.loads(data.get("config_json") or "{}")
-            except Exception:
-                data["config"] = {}
-            try:
-                data["summary_metrics"] = json.loads(
-                    data.get("summary_metrics_json") or "{}"
-                )
-            except Exception:
-                data["summary_metrics"] = {}
-            return data
-        return None
+        return _decode_run_row(row) if row else None
 
     @staticmethod
     def list_runs(
@@ -121,7 +144,8 @@ class SimulationRunDAO:
         cursor = conn.cursor()
         query = """
             SELECT id, status, elapsed, intersection_type, random_seed, arrival_rate,
-                   duration, batch_id, config_json, summary_metrics_json, created_at
+                   duration, batch_id, config_json, summary_metrics_json,
+                   git_commit, provenance_json, created_at
             FROM simulation_runs
         """
         conditions = []
@@ -144,22 +168,93 @@ class SimulationRunDAO:
         params.extend([limit, offset])
 
         cursor.execute(query, tuple(params))
-        rows = cursor.fetchall()
-        result = []
-        for r in rows:
-            item = dict(r)
-            try:
-                item["config"] = json.loads(item.get("config_json") or "{}")
-            except Exception:
-                item["config"] = {}
-            try:
-                item["summary_metrics"] = json.loads(
-                    item.get("summary_metrics_json") or "{}"
-                )
-            except Exception:
-                item["summary_metrics"] = {}
-            result.append(item)
-        return result
+        return [_decode_run_row(r) for r in cursor.fetchall()]
+
+    @staticmethod
+    def get_many(
+        conn: sqlite3.Connection, run_ids: list[str]
+    ) -> Dict[str, Dict[str, Any]]:
+        """Fetches several runs by id in one query, keyed by id. Missing
+        ids are simply absent from the result."""
+        if not run_ids:
+            return {}
+        placeholders = ", ".join("?" for _ in run_ids)
+        cursor = conn.cursor()
+        cursor.execute(
+            f"""
+            SELECT id, status, elapsed, intersection_type, random_seed, arrival_rate,
+                   duration, batch_id, config_json, summary_metrics_json,
+                   git_commit, provenance_json, created_at
+            FROM simulation_runs WHERE id IN ({placeholders});
+            """,
+            tuple(run_ids),
+        )
+        return {r["id"]: _decode_run_row(r) for r in cursor.fetchall()}
+
+
+def describe_reproducibility(
+    run: Dict[str, Any], include_payload: bool = True
+) -> Dict[str, Any]:
+    """The reproducibility view of a decoded simulation_runs row.
+
+    Never invents a value: anything a run did not record is None.
+
+    * Runs saved before V1.1 have no provenance, so commit, Python version,
+      config source, run mode and timing are None. Their seed column is
+      reported as stored, except where the row also has no configuration --
+      those rows predate seed/config capture altogether, and their seed is
+      only the migration's column default, not a recorded value.
+    * A run whose stored config came from the client rather than the
+      engine reports the seed only if that config carries one.
+
+    With ``include_payload`` the stored ``config`` (with
+    ``simulation.randomSeed`` pinned to the recorded seed, so it restores
+    the same arrivals even when the seed was auto-generated at run time)
+    and ``summaryMetrics`` are included; without it, only a compact
+    summary for listings.
+    """
+    provenance = run.get("provenance") or None
+    config = run.get("config") or {}
+    config_available = bool(config)
+    config_seed = (config.get("simulation") or {}).get("randomSeed")
+
+    if provenance is None:
+        seed = run.get("random_seed") if config_available else None
+    elif provenance.get("configSource") == "engine":
+        seed = run.get("random_seed")
+    else:
+        seed = config_seed
+
+    timing = (provenance or {}).get("timing") or {}
+    record: Dict[str, Any] = {
+        "runId": run.get("id"),
+        "createdAt": run.get("created_at"),
+        "status": run.get("status"),
+        "intersectionType": run.get("intersection_type"),
+        "provenanceRecorded": provenance is not None,
+        "runMode": (provenance or {}).get("runMode"),
+        "seed": seed,
+        "gitCommitHash": (provenance or {}).get("gitCommitHash"),
+        "pythonVersion": (provenance or {}).get("pythonVersion"),
+        "configSource": (provenance or {}).get("configSource"),
+        "configAvailable": config_available,
+        "exactConfig": (provenance or {}).get("configSource") == "engine",
+        "timing": {
+            "timeStep": timing.get("timeStep"),
+            "duration": timing.get("duration"),
+            "warmupTime": timing.get("warmupTime"),
+            "elapsed": run.get("elapsed") if provenance is not None else None,
+        },
+    }
+    if include_payload:
+        restorable: Optional[Dict[str, Any]] = None
+        if config_available:
+            restorable = json.loads(json.dumps(config))
+            if seed is not None:
+                restorable.setdefault("simulation", {})["randomSeed"] = seed
+        record["config"] = restorable
+        record["summaryMetrics"] = run.get("summary_metrics") or {}
+    return record
 
 
 class RunMetricsDAO:

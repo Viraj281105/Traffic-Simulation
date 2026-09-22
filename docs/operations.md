@@ -92,7 +92,9 @@ POST /api/v1/study/history/runs/compare
 {"runIdA":"...", "runIdB":"..."}
 ```
 
-`POST /api/v1/study/history/runs/{runId}/reproduce` reruns a saved configuration and seed and reports whether key delay and throughput values match within the implementation tolerances.
+`POST /api/v1/study/history/runs/{runId}/reproduce` reruns a saved configuration and seed and reports whether key delay and throughput values match within the implementation tolerances. It supports single-intersection runs; a saved signal-vs-roundabout comparison returns `400`.
+
+`GET /api/v1/study/history/runs/{runId}/reproducibility` returns what is needed to re-run a stored experiment: `runId`, `createdAt`, `intersectionType`, `runMode` (`single`/`dual`), `seed`, `gitCommitHash`, `pythonVersion`, `configSource` (`engine`: the exact config the engine ran with; `client`: the dashboard's summary, used only when no engine was available), `exactConfig`, `timing` (`timeStep`, `duration`, `warmupTime`, `elapsed`), the stored `config` with `simulation.randomSeed` pinned to the recorded seed, and `summaryMetrics`. Unknown IDs return `404`. Runs saved before this record existed return `null` for anything they did not record; `gitCommitHash` is `"unknown"` when the backend could not read its git state (e.g. the Docker image, which excludes `.git`).
 
 Validation endpoints are:
 
@@ -125,12 +127,12 @@ Save a completed result with `POST /api/v1/replays`:
 }
 ```
 
-List with `GET /api/v1/replays`, delete with `DELETE /api/v1/replays/{replayId}`. Saving a replay also creates a completed historical run with batch ID `replay`.
+List with `GET /api/v1/replays`, delete with `DELETE /api/v1/replays/{replayId}`. Saving a replay also creates a completed historical run with batch ID `replay` and the same ID (returned as `runId`). An optional `"mode": "single" | "dual"` marks a comparison; without it, metrics shaped `{signal, roundabout}` imply `dual`. When the request carries the caller's live-session cookie and that session's engine ran with the saved seed, the run stores the engine's exact configuration, seed, elapsed time and timing; otherwise it stores the request's `config`. Every save records the git commit and Python version. Replay responses include a compact `reproducibility` summary (`null` for saves with no run record).
 
 The SQLite path is controlled by `DB_PATH`. `backend/src/database/db.py` creates these tables on startup:
 
 - `configurations`: JSON configuration records.
-- `simulation_runs`: status, elapsed/duration, controller type, seed, arrival rate, batch ID, configuration JSON, summary metrics, and timestamp.
+- `simulation_runs`: status, elapsed/duration, controller type, seed, arrival rate, batch ID, configuration JSON, summary metrics, timestamp, and (nullable, added in place on older databases) `git_commit` and `provenance_json` — the reproducibility record described above.
 - `run_metrics`: one JSON metrics record per run and tick.
 - `sweep_sessions`: sweep configuration and complete results JSON.
 - `saved_replays`: named configuration and metrics JSON.
