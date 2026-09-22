@@ -1,0 +1,197 @@
+/* Grouped metric presentation shared by the live sidebar, the comparative
+   panel and the comparison modal. Uses the app's theme tokens only. */
+
+.metric-sections {
+  display: flex;
+  flex-direction: column;
+}
+
+.metric-group {
+  border-bottom: 1px solid var(--border-color);
+  padding: 10px 16px 12px;
+}
+
+.metric-group > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-radius: var(--radius-sm);
+}
+
+.metric-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.metric-group > summary::after {
+  content: "▸";
+  color: var(--text-muted);
+  font-size: 11px;
+  transition: transform 0.15s ease;
+}
+
+.metric-group[open] > summary::after {
+  transform: rotate(90deg);
+}
+
+.metric-group > summary:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+.metric-group-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.metric-group-blurb {
+  margin: 4px 0 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+/* ── Single run: definition list ─────────────────────────────────────── */
+
+.metric-dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.metric-dl-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 5px 0;
+  border-bottom: 1px dashed hsl(var(--border) / 0.5);
+}
+
+.metric-dl-row:last-child {
+  border-bottom: none;
+}
+
+.metric-dl-row dt {
+  font-size: 12px;
+  color: var(--text-secondary);
+  min-width: 0;
+}
+
+.metric-dl-row dd {
+  margin: 0;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: right;
+  white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.metric-dl-row dd.is-empty,
+.comparison-grid td.is-empty {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.metric-note {
+  font-family: "Inter", sans-serif;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* ── Comparison: table ───────────────────────────────────────────────── */
+
+.comparison-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  table-layout: fixed;
+}
+
+.comparison-grid th,
+.comparison-grid td {
+  padding: 5px 4px;
+  border-bottom: 1px dashed hsl(var(--border) / 0.5);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.comparison-grid thead th {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.comparison-grid th[scope="row"],
+.comparison-grid thead th:first-child {
+  text-align: left;
+  font-weight: 400;
+  color: var(--text-secondary);
+  width: 40%;
+}
+
+.comparison-grid thead th:first-child {
+  font-weight: 600;
+}
+
+.comparison-grid td {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.comparison-grid td.diff {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.comparison-grid tbody tr:last-child th,
+.comparison-grid tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.metric-sections.compact .comparison-grid {
+  font-size: 11px;
+}
+
+.metric-sections.compact .comparison-grid th[scope="row"] {
+  width: 38%;
+}
+
+.comparison-grid td {
+  white-space: nowrap;
+}
+
+.comparison-grid td .metric-note {
+  display: block;
+  white-space: normal;
+}
+
+.metric-sections.compact .comparison-grid thead th {
+  font-size: 9px;
+  letter-spacing: 0.02em;
+}
+
+.metric-sections.compact .comparison-grid th,
+.metric-sections.compact .comparison-grid td {
+  padding: 5px 3px;
+}
+
+.unit-suffix {
+  color: var(--text-muted);
+  white-space: nowrap;
+}

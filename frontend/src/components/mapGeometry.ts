@@ -1,12 +1,13 @@
 /**
- * Roundabout road geometry, derived from the same rules the backend uses to
- * lay out vehicle lanes (backend/src/roads/network.py).
+ * Map geometry, derived from the same rules the backend uses to lay out
+ * vehicle lanes (backend/src/roads/network.py).
  *
  * The renderer must draw roads where vehicles actually drive. The backend
- * offsets every roundabout lane by a splitter island and ends each entry lane
- * short of the ring; if the renderer draws its own idea of the roads instead,
- * vehicles end up straddling lane markings and road edges. The two constants
- * below mirror the backend's and are pinned to it by mapGeometry.test.ts.
+ * offsets every roundabout lane by a splitter island, ends each entry lane
+ * short of the ring, and holds signal traffic back from the conflict area; if
+ * the renderer draws its own idea of the roads instead, vehicles straddle
+ * lane markings and stop in the wrong place. The constants below mirror the
+ * backend's and are pinned to it by mapGeometry.test.ts.
  */
 
 /** Half-width (m) of the splitter island between entry and exit carriageways.
@@ -20,6 +21,29 @@ export const ROUNDABOUT_ENTRY_SETBACK = 4.0;
 /** Arc length (m) over which a path blends radially between an approach lane
  *  and its circulating lane. Mirrors ROUNDABOUT_TRANSITION_ARC. */
 export const ROUNDABOUT_TRANSITION_ARC = 10.0;
+
+/** Clearance (m) between a signalised junction's conflict area and the stop
+ *  line where waiting vehicles are held. Mirrors SIGNAL_STOP_LINE_SETBACK. */
+export const SIGNAL_STOP_LINE_SETBACK = 3.5;
+
+/** Distance (m) from the centre to a signal approach's stop line: where the
+ *  backend ends each incoming lane and holds vehicles on red. */
+export function signalStopLineDistance(
+  lanes: number,
+  laneWidth: number,
+): number {
+  return lanes * laneWidth + SIGNAL_STOP_LINE_SETBACK;
+}
+
+/** Half the width (m) of the square of world both maps show, so the signal
+ *  and roundabout render at the same scale when shown side by side. Sized to
+ *  fit the roundabout ring (20 m) plus its approaches. */
+export const MAP_VIEW_HALF_EXTENT_M = 62;
+
+/** Pixels per metre for a canvas of the given CSS size. */
+export function mapScale(width: number, height: number): number {
+  return Math.min(width, height) / (MAP_VIEW_HALF_EXTENT_M * 2);
+}
 
 /** Lateral offsets (m, from the approach axis) of each lane's centreline on
  *  one carriageway, innermost (next to the island) first. */

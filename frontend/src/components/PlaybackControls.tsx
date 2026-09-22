@@ -23,75 +23,80 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   const hz = snapshot?.samplingFrequency ?? 10;
   const status = snapshot?.simulationStatus ?? "stopped";
 
+  const statusTone =
+    status === "running"
+      ? "var(--accent-green)"
+      : status === "paused"
+        ? "var(--accent-yellow)"
+        : "var(--text-secondary)";
+
   return (
-    <div className="playback-bar">
-      {/* Play / Pause / Stop */}
+    <div className="playback-bar" role="group" aria-label="Playback">
       <div className="playback-btns">
         <button
           id="btn-play"
+          type="button"
           className={`pb-btn pb-primary ${isPlaying ? "active" : ""}`}
           onClick={onPlay}
           disabled={disabled || isPlaying}
           title={
-            status === "completed" ? "Run simulation again" : "Play simulation"
+            status === "completed"
+              ? "Run the same scenario again"
+              : "Start or resume the simulation"
           }
         >
-          {status === "completed" ? "▶ Run Again" : "▶ Play"}
+          <span aria-hidden="true">▶ </span>
+          {status === "completed" ? "Run again" : "Play"}
         </button>
         <button
           id="btn-pause"
+          type="button"
           className={`pb-btn pb-secondary ${!isPlaying ? "active" : ""}`}
           onClick={onPause}
           disabled={disabled || !isPlaying || status === "completed"}
-          title="Pause simulation"
+          title="Pause the simulation"
         >
-          ⏸ Pause
+          <span aria-hidden="true">⏸ </span>Pause
         </button>
         <button
           id="btn-stop"
+          type="button"
           className="pb-btn pb-danger"
           onClick={onStop}
-          disabled={disabled || status === "completed"}
-          title="Stop simulation"
+          disabled={disabled}
+          title="Stop and reset the simulation with a new random seed"
         >
-          ⏹ Stop
+          <span aria-hidden="true">⏹ </span>Reset
         </button>
       </div>
 
-      {/* Time info */}
-      <div className="playback-info">
+      <dl className="playback-info">
         <div className="pb-stat">
-          <span className="pb-stat-label">SIM TIME</span>
-          <span className="pb-stat-value">{simTime.toFixed(1)}s</span>
+          <dt className="pb-stat-label">Sim time</dt>
+          <dd className="pb-stat-value">{simTime.toFixed(1)} s</dd>
         </div>
-        <div className="pb-divider" />
+        <div className="pb-divider" aria-hidden="true" />
         <div className="pb-stat">
-          <span className="pb-stat-label">TICK</span>
-          <span className="pb-stat-value">{tick}</span>
+          <dt className="pb-stat-label">Tick</dt>
+          <dd className="pb-stat-value">{tick}</dd>
         </div>
-        <div className="pb-divider" />
-        <div className="pb-stat">
-          <span className="pb-stat-label">FREQ</span>
-          <span className="pb-stat-value">{hz} Hz</span>
+        <div className="pb-divider" aria-hidden="true" />
+        <div className="pb-stat" title="Simulation steps per simulated second">
+          <dt className="pb-stat-label">Tick rate</dt>
+          <dd className="pb-stat-value">{hz} Hz</dd>
         </div>
-        <div className="pb-divider" />
+        <div className="pb-divider" aria-hidden="true" />
         <div className="pb-stat">
-          <span className="pb-stat-label">STATUS</span>
-          <span
+          <dt className="pb-stat-label">Status</dt>
+          <dd
             className="pb-stat-value"
-            style={{
-              color:
-                status === "running"
-                  ? "#2ecc40"
-                  : status === "paused"
-                    ? "#ffdc00"
-                    : "#888",
-            }}
+            style={{ color: statusTone }}
+            aria-live="polite"
           >
             {status.toUpperCase()}
-          </span>
+          </dd>
         </div>
-      </div>
+      </dl>
     </div>
   );
 };

@@ -21,6 +21,8 @@ It provides:
 4. **Playback controls** for simulation review
 5. **Side-by-side comparison** of Fixed-Time Signal vs. Roundabout results
 
+Every metric shown or exported is described once in `src/metrics/catalog.ts` (label, unit, precision, group, applicability, definition). The live sidebar, the comparative panel and dialog, the volume-sweep tier view and all CSV exports render from it. The catalog never computes a metric; it only decides how a backend value is presented, including "—" during warm-up (`LiveSnapshot.warmupTime`) or before any vehicle has exited, and "N/A" where a metric is not measured (PET and idle green loss on the roundabout). `src/test/metricCatalog.test.ts` fails if the backend collector emits a metric the catalog does not describe.
+
 The frontend **never runs simulations**. It receives structured snapshot data from the backend over WebSocket and renders it. All metric values arrive pre-computed — the frontend only formats and displays them.
 
 ---

@@ -9,6 +9,7 @@ import {
   roundaboutRingDividers,
   roundaboutTaperHalfWidth,
   roundaboutTaperPaths,
+  mapScale,
 } from "./mapGeometry";
 import { SnapshotInterpolator, type VehiclePose } from "./snapshotInterpolator";
 
@@ -45,6 +46,9 @@ export const RoundaboutMap: React.FC<RoundaboutMapProps> = ({
   );
   const width = displayed.width || fallbackWidth;
   const height = displayed.height || fallbackHeight;
+  // Backing store in device pixels (sharp on high-DPI screens); all drawing
+  // below stays in CSS pixels via the context transform.
+  const dpr = typeof window === "undefined" ? 1 : window.devicePixelRatio || 1;
   const [interpolator] = useState(() => new SnapshotInterpolator());
 
   useEffect(() => {
@@ -72,6 +76,7 @@ export const RoundaboutMap: React.FC<RoundaboutMapProps> = ({
       frameId = requestAnimationFrame(render);
 
       const frame = interpolator.sample(performance.now());
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       if (!frame) {
         if (!drewEmpty) {
           // Draw grass background while waiting for data
@@ -93,8 +98,9 @@ export const RoundaboutMap: React.FC<RoundaboutMapProps> = ({
         controller.type === "roundabout" ? controller.innerRadius : 10;
       const outerRadius =
         controller.type === "roundabout" ? controller.outerRadius : 20;
-      const initialArmReach = outerRadius + 42;
-      const scale = Math.min(width, height) / (initialArmReach * 2);
+      // Same pixels-per-metre as the signal map (see mapScale), so both
+      // render at the same scale side by side.
+      const scale = mapScale(width, height);
       const armReach = Math.max(width, height) / scale + 10;
       const toCanvas = (x: number, y: number): [number, number] => [
         width / 2 + x * scale,
@@ -229,13 +235,22 @@ export const RoundaboutMap: React.FC<RoundaboutMapProps> = ({
       active = false;
       cancelAnimationFrame(frameId);
     };
-  }, [width, height, laneWidth, lanes, showCrosswalks, debug, interpolator]);
+  }, [
+    width,
+    height,
+    dpr,
+    laneWidth,
+    lanes,
+    showCrosswalks,
+    debug,
+    interpolator,
+  ]);
 
   return (
     <canvas
       ref={setCanvas}
-      width={width}
-      height={height}
+      width={Math.round(width * dpr)}
+      height={Math.round(height * dpr)}
       style={{ display: "block", borderRadius: "8px" }}
     />
   );

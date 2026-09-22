@@ -1,142 +1,259 @@
-import React, { useState } from "react";
-import type { DualSnapshot, VehicleCounts } from "../types/simulation";
+import React, { useEffect, useRef, useState } from "react";
+import type { DualSnapshot, LiveSnapshot } from "../types/simulation";
 import type { ConnectionStatus } from "../services/websocket";
 import { WeightedScoringPanel } from "./WeightedScoringPanel";
 import type { ScoringWeights } from "../types/scoring";
-import { DEFAULT_WEIGHTS, computeWeightedScore } from "../types/scoring";
+import { DEFAULT_WEIGHTS } from "../types/scoring";
+import {
+  comparisonCsv,
+  downloadText,
+  isInWarmup,
+  type MetricContext,
+} from "../metrics/catalog";
+import { ComparisonSections } from "./MetricSections";
+import { ConnectionBadge } from "./MetricsSidebar";
 import "./ComparativeDashboard.css";
+
+function contexts(snapshot: DualSnapshot | null): {
+  signal: MetricContext;
+  roundabout: MetricContext;
+} {
+  const warm = (s: LiveSnapshot | undefined) =>
+    isInWarmup(s?.timestamp, s?.warmupTime);
+  return {
+    signal: {
+      metrics: snapshot?.signal.metrics,
+      geometry: "fixed_time_signal",
+      inWarmup: warm(snapshot?.signal),
+    },
+    roundabout: {
+      metrics: snapshot?.roundabout.metrics,
+      geometry: "roundabout",
+      inWarmup: warm(snapshot?.roundabout),
+    },
+  };
+}
+
+/** Simulated time of a snapshot. Saved-run snapshots carry metrics only,
+ *  so this can be absent even though live snapshots always have it. */
+function simTime(s: LiveSnapshot | undefined): number | undefined {
+  return (s as Partial<LiveSnapshot> | undefined)?.timestamp;
+}
+
+function exportComparison(snapshot: DualSnapshot, source: string) {
+  const { signal, roundabout } = contexts(snapshot);
+  const t = simTime(snapshot.signal);
+  const header = [
+    `Signal vs roundabout — ${source}`,
+    t !== undefined
+      ? `Simulated time: ${t.toFixed(1)} s (both run in lockstep with the same seed)`
+      : "",
+    snapshot.signal.warmupTime !== undefined
+      ? `Warm-up excluded: ${snapshot.signal.warmupTime.toFixed(0)} s`
+      : "",
+  ].filter(Boolean);
+  downloadText(
+    `comparison_${Date.now().toString()}.csv`,
+    comparisonCsv(signal, roundabout, header),
+    "text/csv;charset=utf-8",
+  );
+}
+
+/** Live side-by-side metrics beside the two maps. */
+export function ComparisonPanel({
+  snapshot,
+  connectionStatus,
+  replayName,
+  canSave,
+  onSave,
+  onOpenDetails,
+}: {
+  snapshot: DualSnapshot | null;
+  connectionStatus: ConnectionStatus;
+  replayName: string | null;
+  canSave: boolean;
+  onSave: () => void;
+  onOpenDetails: () => void;
+}) {
+  const { signal, roundabout } = contexts(snapshot);
+  const sig = snapshot?.signal;
+  const rnd = snapshot?.roundabout;
+  const warmupLeft =
+    sig?.warmupTime !== undefined && signal.inWarmup
+      ? Math.max(0, sig.warmupTime - sig.timestamp)
+      : null;
+
+  return (
+    <aside
+      className="comparison-side-panel metrics-sidebar"
+      aria-labelledby="comparison-panel-title"
+    >
+      <div className="sidebar-header">
+        <h2 className="sidebar-title" id="comparison-panel-title">
+          {replayName ? "Saved comparison" : "Live comparison"}
+        </h2>
+        {!replayName && <ConnectionBadge status={connectionStatus} />}
+      </div>
+      {replayName && <p className="replay-note">{replayName}</p>}
+      {warmupLeft !== null && sig?.warmupTime !== undefined && (
+        <p className="warmup-notice" role="status">
+          Warm-up: most metrics start at {sig.warmupTime.toFixed(0)} s of
+          simulated time ({warmupLeft.toFixed(0)} s to go).
+        </p>
+      )}
+
+      {sig?.vehicleCounts !== undefined && rnd?.vehicleCounts !== undefined && (
+        <section className="sidebar-section" aria-label="Vehicles now">
+          <h3 className="section-title">Vehicles now</h3>
+          <table className="comparison-grid counts">
+            <thead>
+              <tr>
+                <th scope="col">State</th>
+                <th scope="col">Signal</th>
+                <th scope="col">Roundabout</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">In network</th>
+                <td>{sig.vehicleCounts.active}</td>
+                <td>{rnd.vehicleCounts.active}</td>
+              </tr>
+              <tr>
+                <th scope="row">Waiting</th>
+                <td>{sig.vehicleCounts.waiting}</td>
+                <td>{rnd.vehicleCounts.waiting}</td>
+              </tr>
+              <tr>
+                <th scope="row">In junction</th>
+                <td>{sig.vehicleCounts.crossing}</td>
+                <td>
+                  {rnd.vehicleCounts.crossing + rnd.vehicleCounts.inRoundabout}
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Exited (whole run)</th>
+                <td>{sig.vehicleCounts.exited}</td>
+                <td>{rnd.vehicleCounts.exited}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      )}
+
+      {snapshot ? (
+        <ComparisonSections
+          signal={signal}
+          roundabout={roundabout}
+          compact
+          collapsed={["flow", "capacity", "diagnostic"]}
+        />
+      ) : (
+        <p className="sidebar-empty">
+          Metrics appear once the comparison stream connects. Press Play to run
+          both controls on the same seed and demand.
+        </p>
+      )}
+
+      <div className="sidebar-actions stacked">
+        <button
+          type="button"
+          className="pb-btn pb-secondary"
+          onClick={onOpenDetails}
+          disabled={!snapshot}
+        >
+          Full comparison &amp; weighting
+        </button>
+        {snapshot && (
+          <button
+            type="button"
+            className="pb-btn pb-secondary"
+            onClick={() => {
+              exportComparison(snapshot, replayName ?? "live run");
+            }}
+          >
+            Download all metrics (CSV)
+          </button>
+        )}
+        {!replayName && (
+          <button
+            type="button"
+            className="pb-btn pb-primary"
+            onClick={onSave}
+            disabled={!canSave}
+            title={
+              canSave
+                ? "Save this comparison to History"
+                : "Pause or finish the run (after it has started) to save it"
+            }
+          >
+            Save to History
+          </button>
+        )}
+      </div>
+    </aside>
+  );
+}
 
 interface ComparativeDashboardProps {
   snapshot: DualSnapshot | null;
-  connectionStatus: ConnectionStatus;
-  onClose?: () => void;
+  replayName: string | null;
+  onClose: () => void;
 }
 
-function fmt(val: number | undefined, decimals = 1): string {
-  if (val === undefined) return "—";
-  return val.toFixed(decimals);
-}
-
+/** Full comparison dialog: every metric, distributions expanded, and the
+ *  user-weighted score. */
 export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
   snapshot,
+  replayName,
   onClose,
 }) => {
   const [weights, setWeights] = useState<ScoringWeights>(DEFAULT_WEIGHTS);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
-  if (!snapshot) {
-    return (
-      <div className="analytics-modal-overlay" onClick={onClose}>
-        <div
-          className="analytics-modal-content comparative-dashboard empty"
-          onClick={(e) => {
-            e.stopPropagation();
-          }}
-        >
-          <p>Waiting for simulation data...</p>
-        </div>
-      </div>
-    );
-  }
-
-  const mSignal = snapshot.signal.metrics;
-  const mRound = snapshot.roundabout.metrics;
-
-  const handleDownloadReport = () => {
-    const scoreSig = computeWeightedScore(mSignal, weights);
-    const scoreRnd = computeWeightedScore(mRound, weights);
-    const overallWinner =
-      scoreRnd > scoreSig
-        ? "Roundabout"
-        : scoreSig > scoreRnd
-          ? "Signal"
-          : "Tie";
-
-    let csv = "=== CUSTOM WEIGHTED SCORING REPORT ===\n";
-    csv += `Wait Time Weight,${weights.weightWaitTime.toString()}%\n`;
-    csv += `Throughput Weight,${weights.weightThroughput.toString()}%\n`;
-    csv += `Queue Weight,${weights.weightQueue.toString()}%\n`;
-    csv += `Fairness Weight,${weights.weightFairness.toString()}%\n`;
-    csv += `Stops Weight,${weights.weightStops.toString()}%\n`;
-    csv += `Signal Score,${scoreSig.toFixed(1)}/100\n`;
-    csv += `Roundabout Score,${scoreRnd.toFixed(1)}/100\n`;
-    csv += `Overall Winner,${overallWinner}\n\n`;
-
-    csv += "=== DETAILED METRICS BREAKDOWN ===\n";
-    csv += "Metric Name,Fixed-Time Signal,Roundabout,Winner,Delta (%)\n";
-    const addRow = (
-      label: string,
-      valA: number | undefined | null,
-      valB: number | undefined | null,
-      lowerIsBetter = true,
-    ) => {
-      const a = typeof valA === "number" && Number.isFinite(valA) ? valA : 0;
-      const b = typeof valB === "number" && Number.isFinite(valB) ? valB : 0;
-      const winner =
-        a === b
-          ? "Tie"
-          : lowerIsBetter
-            ? a < b
-              ? "Signal"
-              : "Roundabout"
-            : a > b
-              ? "Signal"
-              : "Roundabout";
-      const delta = a === 0 ? 0 : ((b - a) / a) * 100;
-      csv += `"${label}",${a.toFixed(2)},${b.toFixed(2)},${winner},${delta.toFixed(1)}%\n`;
+  // Escape closes; focus moves into the dialog and back out on close. onClose
+  // is read through a ref so live snapshot re-renders don't re-run this.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    dialogRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCloseRef.current();
     };
-    addRow(
-      "Average Wait Time",
-      mSignal.averageWaitTime,
-      mRound.averageWaitTime,
-      true,
-    );
-    addRow("Throughput", mSignal.throughput, mRound.throughput, false);
-    addRow(
-      "Average Speed",
-      mSignal.averageTravelSpeed,
-      mRound.averageTravelSpeed,
-      false,
-    );
-    addRow(
-      "Average Queue Length",
-      mSignal.averageQueueLength,
-      mRound.averageQueueLength,
-      true,
-    );
-    addRow(
-      "Max Queue Length",
-      mSignal.maxQueueLength,
-      mRound.maxQueueLength,
-      true,
-    );
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      previous?.focus();
+    };
+  }, []);
 
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `comparative_report_${Date.now().toString()}.csv`,
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  const { signal, roundabout } = contexts(snapshot);
 
   return (
     <div className="analytics-modal-overlay" onClick={onClose}>
       <div
+        ref={dialogRef}
         className="analytics-modal-content comparative-dashboard"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="comparison-dialog-title"
+        tabIndex={-1}
         onClick={(e) => {
           e.stopPropagation();
         }}
       >
         <div className="modal-header">
-          <h2 className="modal-title">📊 Comparison Analytics</h2>
+          <h2 className="modal-title" id="comparison-dialog-title">
+            Signal vs roundabout — full comparison
+          </h2>
           <button
+            type="button"
             className="modal-close-btn"
             onClick={onClose}
-            aria-label="Close Analytics"
+            aria-label="Close comparison"
           >
             <svg
               width="24"
@@ -147,259 +264,57 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
+              aria-hidden="true"
             >
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
           </button>
         </div>
-        <div
-          className="modal-body"
-          style={{ display: "flex", flexDirection: "column", gap: "16px" }}
-        >
-          <WeightedScoringPanel
-            metricsSignal={mSignal}
-            metricsRoundabout={mRound}
-            weights={weights}
-            onWeightsChange={setWeights}
-          />
-          <div
-            className="dashboard-header"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "16px",
-            }}
-          >
-            <div className="dashboard-insights">
-              <h3
-                style={{
-                  margin: 0,
-                  fontSize: "14px",
-                  color: "var(--text-primary)",
-                }}
-              >
-                Performance Insights
-              </h3>
-              <p
-                style={{
-                  margin: "4px 0 0 0",
-                  fontSize: "12px",
-                  color: "var(--text-secondary)",
-                }}
-              >
-                Observe how the Roundabout typically reduces Average Wait Time
-                and Queues during low-to-medium traffic, while the Fixed-Time
-                Signal may offer better fairness or throughput under heavy,
-                directional loads.
-              </p>
-            </div>
-            <button
-              className="pb-btn pb-primary"
-              onClick={handleDownloadReport}
-              style={{
-                padding: "8px 12px",
-                fontSize: "12px",
-                borderRadius: "4px",
-                whiteSpace: "nowrap",
-              }}
-            >
-              📥 Export CSV
-            </button>
-          </div>
-
-          <table className="comparison-table">
-            <thead>
-              <tr>
-                <th>Performance Metric</th>
-                <th>🚦 Signal</th>
-                <th>🔄 Roundabout</th>
-                <th>Improvement %</th>
-              </tr>
-            </thead>
-            <tbody>
-              <ComparisonRow
-                label="Avg Wait Time (s)"
-                valA={mSignal.averageWaitTime}
-                valB={mRound.averageWaitTime}
-                lowerIsBetter={true}
-                formatter={(v) => fmt(v)}
-                insight="Roundabouts minimize wait times in light-to-moderate traffic."
+        <div className="modal-body">
+          {!snapshot ? (
+            <p className="comparison-empty">
+              No comparison data yet. Start a comparative run first.
+            </p>
+          ) : (
+            <>
+              <div className="comparison-intro">
+                <p>
+                  Both controls run in lockstep on the same random seed and
+                  demand
+                  {replayName ? ` (saved run: ${replayName})` : ""}
+                  {simTime(snapshot.signal) !== undefined
+                    ? `, here at ${String(simTime(snapshot.signal)?.toFixed(1))} s of simulated time`
+                    : ""}
+                  . Differences are roundabout minus signal in each metric's own
+                  units; a single seed is one sample, so use the Validation page
+                  for statistical comparisons.
+                </p>
+                <button
+                  type="button"
+                  className="pb-btn pb-secondary"
+                  onClick={() => {
+                    exportComparison(snapshot, replayName ?? "live run");
+                  }}
+                >
+                  Download all metrics (CSV)
+                </button>
+              </div>
+              <ComparisonSections
+                signal={signal}
+                roundabout={roundabout}
+                collapsed={[]}
               />
-              <ComparisonRow
-                label="Throughput (veh)"
-                valA={mSignal.throughput}
-                valB={mRound.throughput}
-                lowerIsBetter={false}
-                formatter={(v) => fmt(v, 0)}
-                insight="Total vehicles successfully processed."
+              <WeightedScoringPanel
+                metricsSignal={snapshot.signal.metrics}
+                metricsRoundabout={snapshot.roundabout.metrics}
+                weights={weights}
+                onWeightsChange={setWeights}
               />
-              <ComparisonRow
-                label="Avg Speed (m/s)"
-                valA={mSignal.averageTravelSpeed}
-                valB={mRound.averageTravelSpeed}
-                lowerIsBetter={false}
-                formatter={(v) => fmt(v)}
-                insight="Higher average speed indicates better flow."
-              />
-              <ComparisonRow
-                label="Average Queue"
-                valA={mSignal.averageQueueLength}
-                valB={mRound.averageQueueLength}
-                lowerIsBetter={true}
-                formatter={(v) => fmt(v)}
-                insight="Signals usually have longer queues due to red phases."
-              />
-              <ComparisonRow
-                label="Max Queue"
-                valA={mSignal.maxQueueLength}
-                valB={mRound.maxQueueLength}
-                lowerIsBetter={true}
-                formatter={(v) => fmt(v, 0)}
-                insight="Peak congestion impact on approaches."
-              />
-            </tbody>
-          </table>
+            </>
+          )}
         </div>
       </div>
     </div>
   );
 };
-
-export function CompactVehicleStatePanel({
-  counts,
-}: {
-  counts: VehicleCounts | null | undefined;
-}) {
-  if (!counts) return null;
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "8px",
-        background: "var(--bg-secondary)",
-        padding: "12px",
-        borderRadius: "8px",
-        minWidth: "70px",
-        boxShadow: "var(--shadow-sm)",
-      }}
-    >
-      <VerticalStateBox label="Active" value={counts.active} color="#3b82f6" />
-      <VerticalStateBox
-        label="Appr."
-        value={counts.approaching}
-        color="#8b5cf6"
-      />
-      <VerticalStateBox label="Wait" value={counts.waiting} color="#ef4444" />
-      <VerticalStateBox label="Cross" value={counts.crossing} color="#f59e0b" />
-      <VerticalStateBox label="Exit" value={counts.exited} color="#10b981" />
-    </div>
-  );
-}
-
-function VerticalStateBox({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: number;
-  color: string;
-}) {
-  return (
-    <div
-      style={{
-        background: "var(--bg-tertiary)",
-        borderRadius: "4px",
-        padding: "6px 4px",
-        textAlign: "center",
-        borderLeft: `3px solid ${color}`,
-      }}
-    >
-      <div
-        style={{
-          fontSize: "14px",
-          fontWeight: "bold",
-          color: "var(--text-primary)",
-        }}
-      >
-        {value}
-      </div>
-      <div
-        style={{
-          fontSize: "10px",
-          color: "var(--text-secondary)",
-          textTransform: "uppercase",
-          letterSpacing: "0.2px",
-          marginTop: "2px",
-        }}
-      >
-        {label}
-      </div>
-    </div>
-  );
-}
-
-function ComparisonRow({
-  label,
-  valA,
-  valB,
-  lowerIsBetter,
-  formatter,
-  insight,
-}: {
-  label: string;
-  valA: number;
-  valB: number;
-  lowerIsBetter: boolean;
-  formatter: (v: number) => string;
-  insight: string;
-}) {
-  const diff = valB - valA;
-  const pct = valA === 0 ? 0 : Math.abs((diff / valA) * 100);
-
-  let winner = "";
-  if (valA !== valB) {
-    if (lowerIsBetter) winner = valA < valB ? "sig" : "round";
-    else winner = valA > valB ? "sig" : "round";
-  }
-
-  const isBetterDiff = lowerIsBetter ? diff < 0 : diff > 0;
-  const diffColorClass = diff === 0 ? "neutral" : isBetterDiff ? "good" : "bad";
-
-  return (
-    <tr>
-      <td className="metric-name">
-        <div>{label}</div>
-        <div
-          style={{
-            fontSize: "11px",
-            color: "var(--text-secondary)",
-            fontWeight: "normal",
-            marginTop: "2px",
-          }}
-        >
-          {insight}
-        </div>
-      </td>
-      <td className={winner === "sig" ? "winner-cell" : ""}>
-        {formatter(valA)}
-      </td>
-      <td className={winner === "round" ? "winner-cell" : ""}>
-        {formatter(valB)}
-      </td>
-      <td className="diff-cell">
-        <span className={`diff-badge ${diffColorClass}`}>
-          {pct > 0 && winner === "round"
-            ? "+"
-            : pct > 0 && winner === "sig"
-              ? "-"
-              : ""}
-          {fmt(pct)}%
-        </span>
-      </td>
-    </tr>
-  );
-}

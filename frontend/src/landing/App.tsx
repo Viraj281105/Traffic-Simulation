@@ -39,7 +39,7 @@ const capabilities: { icon: IconComponent; title: string; body: string }[] = [
   {
     icon: BarChart3,
     title: "Comprehensive analytics",
-    body: "Ten metrics spanning efficiency, flow, system load, fairness and physical constraints — logged per run.",
+    body: "Delay distributions, throughput, queues, stops, reliability, fairness and surrogate safety (TTC, PET), computed by the simulation for every run.",
   },
 ];
 
@@ -54,67 +54,67 @@ const buildings = [
   { w: "10%", h: "18%", x: "86%", y: "67%" },
 ];
 
+// What the simulation actually reports (see frontend/src/metrics/catalog.ts
+// and backend/src/metrics/collector.py). Names and units only: results come
+// from running the simulation, not from this page.
 const metricGroups = [
   {
-    title: "Efficiency",
+    title: "Performance",
     metrics: [
-      { name: "Average delay", value: "8.4 s", width: "82%", tone: "cyan" },
       {
-        name: "Travel time index",
-        value: "1.08",
-        width: "76%",
-        tone: "orange",
+        name: "Control delay",
+        unit: "s",
+        desc: "Mean, median and 95th percentile",
       },
-      { name: "Fuel consumption", value: "−14.2%", width: "70%", tone: "cyan" },
+      { name: "Throughput", unit: "veh, veh/min", desc: "Vehicles served" },
+      {
+        name: "Planning time index",
+        unit: "ratio",
+        desc: "Travel-time reliability",
+      },
     ],
   },
   {
     title: "Traffic flow",
     metrics: [
-      { name: "Throughput", value: "1,842 veh/h", width: "91%", tone: "cyan" },
-      { name: "Queue length", value: "17.6 m", width: "63%", tone: "orange" },
+      { name: "Queue length", unit: "veh", desc: "Average and maximum" },
+      { name: "Stops per vehicle", unit: "count", desc: "Stop-and-go" },
       {
-        name: "Stop frequency",
-        value: "0.41 / veh",
-        width: "59%",
-        tone: "cyan",
+        name: "Directional fairness",
+        unit: "index",
+        desc: "Jain's index across approaches",
       },
     ],
   },
   {
-    title: "System performance",
+    title: "Safety",
     metrics: [
+      { name: "Collisions", unit: "count", desc: "Vehicle overlaps" },
       {
-        name: "Capacity utilization",
-        value: "68.7%",
-        width: "87%",
-        tone: "cyan",
+        name: "Time to collision",
+        unit: "s",
+        desc: "Minimum and low-TTC events",
       },
-      { name: "Control stability", value: "0.93", width: "93%", tone: "cyan" },
+      {
+        name: "Post-encroachment time",
+        unit: "s",
+        desc: "Signal conflict points",
+      },
     ],
   },
   {
-    title: "Fairness / stability",
+    title: "Capacity & demand",
     metrics: [
       {
-        name: "95th percentile delay",
-        value: "21.3 s",
-        width: "73%",
-        tone: "orange",
+        name: "Saturation volume",
+        unit: "veh/s",
+        desc: "Estimated capacity",
       },
-      { name: "Delay variance", value: "4.8 s²", width: "67%", tone: "cyan" },
-    ],
-  },
-  {
-    title: "Physical constraints",
-    metrics: [
       {
-        name: "Pedestrian exposure",
-        value: "2.1 / min",
-        width: "52%",
-        tone: "orange",
+        name: "Idle green loss",
+        unit: "%",
+        desc: "Green time with no one to serve",
       },
-      { name: "Conflict proxy", value: "0.06", width: "25%", tone: "cyan" },
     ],
   },
 ];
@@ -125,25 +125,12 @@ function App() {
   const [isLight, setIsLight] = useState(
     () => sessionStorage.getItem("signals-theme") === "light",
   );
-  const [liveFlow, setLiveFlow] = useState(1247);
   useEffect(() => {
     document.title = "UrbanFlow — Signals vs. Roundabouts";
     document.documentElement.classList.toggle("light", isLight);
     document.documentElement.classList.toggle("dark", !isLight);
     sessionStorage.setItem("signals-theme", isLight ? "light" : "dark");
   }, [isLight]);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setLiveFlow((current) => {
-        const next = current + (Math.random() > 0.5 ? 3 : -2);
-        return Math.min(1264, Math.max(1230, next));
-      });
-    }, 2200);
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, []);
 
   const toggleTheme = () => {
     setIsLight((current) => !current);
@@ -197,8 +184,8 @@ function App() {
             </Reveal>
             <Reveal delay={0.2}>
               <p className="hero-sub">
-                A data-driven traffic simulation framework for evaluating
-                intersection performance under real-world traffic conditions.
+                A traffic simulation for comparing a fixed-time signal and a
+                roundabout under the same demand, geometry and random seed.
               </p>
             </Reveal>
             <div className="hero-actions">
@@ -217,18 +204,15 @@ function App() {
                 Read the method <ArrowRight size={14} />
               </a>
             </div>
-            <div className="hero-meta" aria-label="Simulation status">
+            <div className="hero-meta" aria-label="At a glance">
               <span>
-                <strong className="mono" data-testid="text-live-flow">
-                  {liveFlow.toLocaleString()}
-                </strong>{" "}
-                vehicles / hour
+                <strong className="mono">2</strong> control strategies
               </span>
               <span>
-                <strong className="mono">IDM 4.2</strong> physics core
+                <strong className="mono">IDM</strong> car-following
               </span>
               <span>
-                <strong className="mono">2 × 10</strong> control metrics
+                <strong className="mono">1 seed</strong> shared per comparison
               </span>
             </div>
           </div>
@@ -389,8 +373,8 @@ function App() {
                 </h2>
               </div>
               <p>
-                Not an animation. A calibrated system of vehicles, rules, and
-                observations running together.
+                Not an animation. Vehicles, control rules and measurements
+                running together in one simulation.
               </p>
             </div>
             <div className="capability-grid">
@@ -423,23 +407,25 @@ function App() {
             <div className="metrics-intro">
               <div className="eyebrow">03 / The evidence</div>
               <h2 id="metrics-title" className="display">
-                Ten ways
+                Measured,
                 <br />
-                to measure
+                not
                 <br />
-                <em>better.</em>
+                <em>asserted.</em>
               </h2>
               <p>
-                Performance is more than speed. We score what the driver feels,
-                what the network absorbs, and what the street can safely hold.
+                Every run reports the same metric set for both controls,
+                computed by the simulation after a warm-up period. Which control
+                does better depends on the demand and geometry you choose, so
+                run it and see.
               </p>
               <div className="hero-actions" style={{ marginTop: 30 }}>
                 <a
                   className="ghost-btn"
-                  href="#winner"
+                  href="/app/comparative"
                   data-testid="link-see-result"
                 >
-                  See the result <ArrowDownRight size={14} />
+                  Run a comparison <ArrowDownRight size={14} />
                 </a>
               </div>
             </div>
@@ -454,58 +440,12 @@ function App() {
                       data-testid={`metric-row-${metric.name.toLowerCase().replace(/ /g, "-")}`}
                     >
                       <span className="metric-name">{metric.name}</span>
-                      <span className="metric-value">{metric.value}</span>
-                      <span className="metric-bar" aria-hidden="true">
-                        <i
-                          className={metric.tone === "orange" ? "orange" : ""}
-                          style={{ "--value": metric.width } as CSSProperties}
-                        />
-                      </span>
+                      <span className="metric-value">{metric.unit}</span>
+                      <span className="metric-desc">{metric.desc}</span>
                     </div>
                   ))}
                 </div>
               ))}
-            </div>
-          </div>
-        </Reveal>
-      </section>
-
-      <section
-        className="section-wrap section-space"
-        id="winner"
-        aria-labelledby="winner-title"
-      >
-        <Reveal width="100%">
-          <div className="score-card">
-            <div>
-              <div className="eyebrow">04 / Master Efficiency Score</div>
-              <h2 id="winner-title" className="display">
-                The roundabout
-                <br />
-                <em>takes the lead.</em>
-              </h2>
-              <p>
-                A weighted composite across throughput, delay, fuel, stability,
-                and fairness. The score keeps the trade-offs visible — then
-                makes the decision legible.
-              </p>
-              <div className="score-vs">
-                <span>
-                  SIGNAL CONTROL <b>64.8</b>
-                </span>
-                <ArrowRight size={13} />
-                <span>
-                  ROUNDABOUT <b>78.6</b>
-                </span>
-              </div>
-            </div>
-            <div>
-              <div className="score-number" data-testid="text-winning-score">
-                78.6
-              </div>
-              <div className="score-caption mono">
-                MASTER EFFICIENCY SCORE / 100
-              </div>
             </div>
           </div>
         </Reveal>
@@ -519,7 +459,7 @@ function App() {
         <Reveal width="100%">
           <div className="methodology">
             <div className="methodology-copy">
-              <div className="eyebrow">05 / Under the hood</div>
+              <div className="eyebrow">04 / Under the hood</div>
               <h2 id="method-title" className="display">
                 Make the
                 <br />
@@ -529,13 +469,13 @@ function App() {
               </h2>
               <p>
                 Signals vs. Roundabouts turns a familiar planning argument into
-                a repeatable experiment. Identical arrival profiles enter the
-                same geometry; an Intelligent Driver Model gives each agent a
-                human-scale response; the controller is the only variable.
+                a repeatable experiment. Identical arrival sequences (same
+                random seed) enter the same geometry; an Intelligent Driver
+                Model drives every vehicle; the controller is the only variable.
               </p>
               <p>
-                Then the twin records every stop, gap, and second — so a design
-                decision has a trail back to the street.
+                Every stop, delay and queue is recorded, and a saved run can be
+                reopened with its exact settings and seed.
               </p>
             </div>
             <div className="tech-stack" aria-label="Technology context">
@@ -556,7 +496,7 @@ function App() {
                 <span>
                   IDM vehicle dynamics
                   <br />
-                  calibrated acceleration
+                  car-following &amp; braking
                 </span>
               </div>
               <div className="tech-item">
@@ -576,7 +516,7 @@ function App() {
                 <span>
                   Metric pipeline
                   <br />
-                  decision-ready output
+                  computed server-side
                 </span>
               </div>
             </div>
@@ -586,14 +526,15 @@ function App() {
 
       <section className="section-wrap final-cta" aria-labelledby="final-title">
         <Reveal width="100%">
-          <div className="eyebrow">06 / Your next junction</div>
+          <div className="eyebrow">05 / Your next junction</div>
           <h2 id="final-title" className="display">
             Stop arguing.
             <br />
             <em>Start observing.</em>
           </h2>
           <p>
-            Put the intersection in motion. Let the evidence choose the rule.
+            Put the intersection in motion and compare the two controls on your
+            own scenario.
           </p>
           <a
             className="primary-btn"

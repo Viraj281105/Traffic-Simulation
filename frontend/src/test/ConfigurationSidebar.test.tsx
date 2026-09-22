@@ -17,29 +17,65 @@ describe("ConfigurationSidebar", () => {
         onClose={vi.fn()}
         config={mockConfig}
         onApply={vi.fn()}
+        mode="comparative"
       />,
     );
     expect(container.querySelector(".config-sidebar-panel")).toBeNull();
   });
 
-  it("renders when isOpen is true with control sections and sliders", () => {
+  it("shows every section in the comparative view as a labelled dialog", () => {
     render(
       <ConfigurationSidebar
         isOpen={true}
         onClose={vi.fn()}
         config={mockConfig}
         onApply={vi.fn()}
+        mode="comparative"
       />,
     );
 
-    expect(screen.getByText(/Scenario Configuration/i)).toBeInTheDocument();
-    expect(screen.getByText(/Traffic & Demand/i)).toBeInTheDocument();
-    expect(screen.getByText(/Geometry & Widths/i)).toBeInTheDocument();
-    expect(screen.getByText(/Fixed-Time Signal Timings/i)).toBeInTheDocument();
-    expect(screen.getByText(/Roundabout Gap Acceptance/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("dialog", { name: /Scenario settings/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Traffic & demand/i)).toBeInTheDocument();
+    expect(screen.getByText(/^Geometry$/)).toBeInTheDocument();
+    expect(screen.getByText(/Fixed-time signal timing/i)).toBeInTheDocument();
+    expect(screen.getByText(/Roundabout gap acceptance/i)).toBeInTheDocument();
+    // Every slider is reachable by its visible label.
+    expect(
+      screen.getByLabelText(/Arrival rate \(whole junction\)/i),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/Lane width/i)).toBeInTheDocument();
   });
 
-  it("displays validation alert when invalid parameter entered", () => {
+  it("shows only the settings that apply to a single-control view", () => {
+    const { unmount } = render(
+      <ConfigurationSidebar
+        isOpen={true}
+        onClose={vi.fn()}
+        config={mockConfig}
+        onApply={vi.fn()}
+        mode="roundabout"
+      />,
+    );
+    expect(screen.queryByText(/Fixed-time signal timing/i)).toBeNull();
+    expect(screen.getByText(/Roundabout gap acceptance/i)).toBeInTheDocument();
+    unmount();
+
+    render(
+      <ConfigurationSidebar
+        isOpen={true}
+        onClose={vi.fn()}
+        config={mockConfig}
+        onApply={vi.fn()}
+        mode="signal"
+      />,
+    );
+    expect(screen.getByText(/Fixed-time signal timing/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Roundabout gap acceptance/i)).toBeNull();
+  });
+
+  it("blocks applying an invalid gap-acceptance pair", () => {
     render(
       <ConfigurationSidebar
         isOpen={true}
@@ -50,23 +86,21 @@ describe("ConfigurationSidebar", () => {
           followUpTime: 3.5, // criticalGap < followUpTime -> error!
         }}
         onApply={vi.fn()}
+        mode="roundabout"
       />,
     );
 
     expect(
       screen.getByText(
-        /Critical gap must be strictly greater than follow-up headway time/,
+        /Critical gap must be longer than the follow-up headway/,
       ),
     ).toBeInTheDocument();
-
-    // Apply button should be disabled when there are errors
-    const applyBtn = screen.getByRole("button", {
-      name: /Fix Validation Errors/i,
-    });
-    expect(applyBtn).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /Fix the errors above/i }),
+    ).toBeDisabled();
   });
 
-  it("calls onApply with updated configuration when applied", () => {
+  it("applies a changed configuration and resets the run with it", () => {
     const onApply = vi.fn();
     render(
       <ConfigurationSidebar
@@ -74,25 +108,55 @@ describe("ConfigurationSidebar", () => {
         onClose={vi.fn()}
         config={mockConfig}
         onApply={onApply}
+        mode="signal"
       />,
     );
 
-    const applyBtn = screen.getByRole("button", {
-      name: /Apply Configuration/i,
+    expect(screen.getByRole("button", { name: /No changes/i })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText(/Lanes per approach/i), {
+      target: { value: "3" },
     });
-    expect(applyBtn).not.toBeDisabled();
-    fireEvent.click(applyBtn);
+    fireEvent.click(screen.getByRole("button", { name: /Apply & reset run/i }));
 
     expect(onApply).toHaveBeenCalledTimes(1);
     expect(onApply).toHaveBeenCalledWith(
       expect.objectContaining({
-        lanes: mockConfig.lanes,
+        lanes: 3,
         arrivalRate: mockConfig.arrivalRate,
       }),
     );
   });
 
-  it("resets form when Reset Defaults button is clicked", () => {
+  it("offers separate north-south and east-west greens", () => {
+    const onApply = vi.fn();
+    render(
+      <ConfigurationSidebar
+        isOpen={true}
+        onClose={vi.fn()}
+        config={mockConfig}
+        onApply={onApply}
+        mode="signal"
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByLabelText(/Separate north–south and east–west greens/i),
+    );
+    fireEvent.change(screen.getByLabelText(/North–south green/i), {
+      target: { value: "40" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Apply & reset run/i }));
+
+    expect(onApply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nsGreenDuration: 40,
+        ewGreenDuration: mockConfig.greenDuration,
+      }),
+    );
+  });
+
+  it("resets the form to the dashboard defaults", () => {
     const customConfig: SimulationConfigValues = {
       ...mockConfig,
       lanes: 4,
@@ -105,13 +169,29 @@ describe("ConfigurationSidebar", () => {
         onClose={vi.fn()}
         config={customConfig}
         onApply={vi.fn()}
+        mode="comparative"
       />,
     );
 
-    const resetBtn = screen.getByRole("button", { name: /Reset Defaults/i });
-    fireEvent.click(resetBtn);
+    fireEvent.click(screen.getByRole("button", { name: /Reset to defaults/i }));
 
-    // After reset, lanes should be reset to default (2)
-    expect(screen.getByText("2 lanes")).toBeInTheDocument();
+    expect(screen.getByLabelText(/Lanes per approach/i)).toHaveValue(
+      String(DEFAULT_CONFIG_VALUES.lanes),
+    );
+  });
+
+  it("closes on Escape", () => {
+    const onClose = vi.fn();
+    render(
+      <ConfigurationSidebar
+        isOpen={true}
+        onClose={onClose}
+        config={mockConfig}
+        onApply={vi.fn()}
+        mode="comparative"
+      />,
+    );
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

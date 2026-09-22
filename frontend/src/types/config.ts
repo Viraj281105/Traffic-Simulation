@@ -4,24 +4,32 @@ export interface SimulationConfigValues {
   arrivalRate: number;
   duration: number;
   randomSeed: number;
+  /** Shared green for both corridors (backend straightRightDuration). */
   greenDuration: number;
   yellowDuration: number;
   allRedDuration: number;
   criticalGap: number;
   followUpTime: number;
+  /** Optional per-corridor greens (backend nsGreenDuration/ewGreenDuration).
+   *  null/absent means both corridors use greenDuration. */
+  nsGreenDuration?: number | null;
+  ewGreenDuration?: number | null;
 }
 
+/** The scenario the dashboard starts with and "Reset defaults" restores. */
 export const DEFAULT_CONFIG_VALUES: SimulationConfigValues = {
   lanes: 2,
   laneWidth: 3.5,
   arrivalRate: 0.3,
   duration: 300,
   randomSeed: 42,
-  greenDuration: 15,
+  greenDuration: 25,
   yellowDuration: 3,
   allRedDuration: 2,
-  criticalGap: 4.0,
-  followUpTime: 2.5,
+  criticalGap: 4.5,
+  followUpTime: 2.8,
+  nsGreenDuration: null,
+  ewGreenDuration: null,
 };
 
 export interface ScenarioPreset {
@@ -35,9 +43,10 @@ export interface ScenarioPreset {
 export const SCENARIO_PRESETS: ScenarioPreset[] = [
   {
     id: "hcm-standard",
-    name: "HCM Baseline",
+    name: "Baseline",
     emoji: "🏛️",
-    description: "Highway Capacity Manual standard geometry and balanced flow",
+    description:
+      "The dashboard's default scenario: two 3.5 m lanes per approach, balanced demand",
     config: { ...DEFAULT_CONFIG_VALUES },
   },
   {

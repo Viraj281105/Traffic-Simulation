@@ -119,36 +119,81 @@ export interface IntersectionState {
 // ── Running metrics ────────────────────────────────────────────────────────
 
 export interface RunningMetrics {
+  // Every field below is computed by the backend MetricCollector
+  // (backend/src/metrics/collector.py). Unless noted, values cover
+  // post-warmup activity only — see LiveSnapshot.warmupTime.
+
+  // Delay (seconds) of post-warmup exited vehicles: actual minus free-flow
+  // travel time.
+  averageDelay: number;
+  medianDelay: number;
+  minDelay: number;
+  maxDelay: number;
+  p95Delay: number;
+  delayStdDev: number;
   averageWaitTime: number;
+  /** Vehicles exited after warmup (a count). */
   throughput: number;
+  /** Exits per minute over the most recent 60 s (a rate). */
   throughputRate: number;
+  /** Vehicles queued right now, per approach (instantaneous). */
   currentQueueLengths: Record<SignalDirection, number>;
   maxQueueLength: number;
   averageQueueLength: number;
+  /** Mean total queue over ticks where any queue existed. */
+  activeAverageQueueLength: number;
+  queueStdDev: number;
   totalStops: number;
   averageStopsPerVehicle: number;
   speedVarianceIndex: number;
-  // null for a genuine zero-median-travel-time case — see
+  // Planning Time Index (95th percentile / median travel time). null for a
+  // genuine zero-median-travel-time case — see
   // calculate_travel_time_reliability() in the backend, which returns None
   // (not a fabricated 1.0) when real travel-time data exists but the
   // computed median is exactly 0.
   travelTimeReliability: number | null;
+  /** True when fewer than 20 exited vehicles back the reliability value. */
+  travelTimeReliabilityLowSampleSize?: boolean;
+  /** Fraction (0-1) of post-warmup ticks where a red approach had a queue
+   *  while every green approach was empty. Signal-only by construction. */
   idleOpportunityLoss: number;
+  /** Jain's index (0.25-1) across the four approaches' mean waits. */
   directionalFairnessIndex: number;
+  /** Vehicles in the network right now (instantaneous). */
   activeVehicleCount: number;
+  /** All vehicles spawned since the run began (not warmup-limited). */
   totalVehiclesSpawned: number;
+  /** Mean instantaneous speed (m/s) of vehicles in the network right now. */
   averageTravelSpeed: number;
   queueStabilityIndex: number;
+  /** Post-warmup time (s) with more than 5 vehicles queued in total. */
   congestionRecoveryTime: number;
+  /** Intersection footprint area (m²) from the configured geometry. */
   spaceFootprintConsumed: number;
+  /** Percent (0-100) of post-warmup ticks with demand in which vehicles
+   *  were moving on average. */
   intersectionUtilization: number;
+  /** Estimated saturation volume in vehicles per second. */
   criticalSaturationVolume: number;
   masterEfficiencyScore?: number;
   // Running total of debounced collision events (VehiclePool.collision_count
   // — one event per overlapping vehicle pair, counted once when the overlap
   // begins, not once per tick it persists). 0 when no collision has
-  // occurred, including the zero-vehicle case.
+  // occurred, including the zero-vehicle case. Not warmup-limited.
   collisionCount: number;
+  // Surrogate safety measures (measurement-only; thresholds are literature
+  // defaults, not validated for this model). min* is null when nothing was
+  // observed — never a synonym for "no risk".
+  minTTC?: number | null;
+  ttcEventCount?: number;
+  ttcSampleCount?: number;
+  ttcThresholdSeconds?: number;
+  minPET?: number | null;
+  petEventCount?: number;
+  petSampleCount?: number;
+  petThresholdSeconds?: number;
+  /** False where PET is not measured at all (roundabout geometry). */
+  petApplicable?: boolean;
 }
 
 // ── Vehicle counts ─────────────────────────────────────────────────────────
@@ -183,6 +228,9 @@ export interface LiveSnapshot {
   wallClockTime: string;
   samplingFrequency: number;
   deltaTime: number;
+  /** Simulated seconds before most metrics start accumulating. Optional
+   *  because snapshots from older backends omit it. */
+  warmupTime?: number;
   vehicles: SnapshotVehicle[];
   intersection: IntersectionState;
   controller: ControllerState;

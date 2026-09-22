@@ -39,6 +39,11 @@ def test_volume_sweep_execution(tmp_path, monkeypatch) -> None:
     assert len(curves["signal"]["throughputs"]) == 2
     assert len(curves["roundabout"]["throughputs"]) == 2
 
+    # Offered demand: arrivalRate is the whole junction's rate, so veh/h is
+    # rate x 3600 (not x 4 again) -- see docs/reports/comparative_report.md.
+    assert curves["volumesVehPerHour"] == [720, 2160]
+    assert [r["hourlyVolumeVehPerHour"] for r in res["runs"]] == [720, 2160]
+
     # Check runs distribution data
     first_run = res["runs"][0]
     assert "delayMedian" in first_run["signal"]

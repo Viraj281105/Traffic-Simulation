@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useContainerSize } from "../hooks/useContainerSize";
 import type { LiveSnapshot, SignalDirection } from "../types/simulation";
 import { SnapshotInterpolator, type VehiclePose } from "./snapshotInterpolator";
+import { mapScale, signalStopLineDistance } from "./mapGeometry";
 
 export interface IntersectionMapProps {
   snapshot: LiveSnapshot | null;
@@ -12,10 +13,11 @@ export interface IntersectionMapProps {
   lanesEast?: number;
   lanesWest?: number;
   laneWidth?: number;
-  intersectionSize?: number;
   showCrosswalks?: boolean;
   showStopLines?: boolean;
   debug?: boolean;
+  /** Pixels per metre. Defaults to the scale shared with the roundabout map
+   *  (see mapScale), so the two render at the same size side by side. */
   ppm?: number;
 }
 
@@ -57,11 +59,10 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
   lanesEast = 2,
   lanesWest = 2,
   laneWidth = 3.5,
-  intersectionSize = 15,
   showCrosswalks = true,
   showStopLines = true,
   debug = false,
-  ppm = 7,
+  ppm: ppmOverride,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   // Draw at the canvas's displayed size (CSS sizes it to its container), so
@@ -77,6 +78,10 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
   );
   const width = displayed.width || fallbackWidth;
   const height = displayed.height || fallbackHeight;
+  // Backing store in device pixels (sharp on high-DPI screens); all drawing
+  // below stays in CSS pixels via the context transform.
+  const dpr = typeof window === "undefined" ? 1 : window.devicePixelRatio || 1;
+  const ppm = ppmOverride ?? mapScale(width, height);
   const [interpolator] = useState(() => new SnapshotInterpolator());
 
   useEffect(() => {
@@ -100,6 +105,7 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
       frameId = requestAnimationFrame(render);
 
       const frame = interpolator.sample(performance.now());
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       if (!frame) {
         if (!drewEmpty) {
           // Draw grass background while waiting for data
@@ -120,7 +126,12 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
         x * ppm + width / 2,
         -y * ppm + height / 2,
       ];
-      const half = intersectionSize / 2;
+      // The junction box ends at the stop line, where the backend ends each
+      // incoming lane and holds traffic on red (see mapGeometry.ts).
+      const half = signalStopLineDistance(
+        Math.max(lanesNorth, lanesSouth, lanesEast, lanesWest),
+        laneWidth,
+      );
       const widths: Widths = {
         north: lanesNorth * laneWidth * 2,
         south: lanesSouth * laneWidth * 2,
@@ -234,7 +245,6 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
           ppm,
           point,
         );
-      drawHud(ctx, current, width);
     };
 
     render();
@@ -251,19 +261,19 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
     lanesEast,
     lanesWest,
     laneWidth,
-    intersectionSize,
     showCrosswalks,
     showStopLines,
     debug,
     ppm,
+    dpr,
     interpolator,
   ]);
 
   return (
     <canvas
       ref={setCanvas}
-      width={width}
-      height={height}
+      width={Math.round(width * dpr)}
+      height={Math.round(height * dpr)}
       style={{ display: "block", borderRadius: "8px" }}
     />
   );
@@ -316,13 +326,17 @@ function drawSignals(
   };
   for (const signal of signals) {
     const [x, y] = point(...positions[signal.direction]);
+    // Sized in metres (about 2.4 m x 4.4 m) so heads keep their proportion
+    // to the road at any map scale, with a legible minimum.
+    const w = Math.max(9, ppm * 2.4);
+    const h = Math.max(16, ppm * 4.4);
     ctx.fillStyle = "#171b1f";
-    ctx.fillRect(x - 9, y - 16, 18, 32);
+    ctx.fillRect(x - w / 2, y - h / 2, w, h);
     ctx.fillStyle = signalColor(signal.color);
     ctx.shadowColor = ctx.fillStyle;
     ctx.shadowBlur = 9;
     ctx.beginPath();
-    ctx.arc(x, y, Math.max(5, ppm * 0.7), 0, Math.PI * 2);
+    ctx.arc(x, y, Math.max(3.5, ppm * 0.8), 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
   }
@@ -400,26 +414,4 @@ function drawQueues(
     ctx.textBaseline = "middle";
     ctx.fillText(`Q ${String(approach.queueLength)}`, x, y);
   }
-}
-
-function drawHud(
-  ctx: CanvasRenderingContext2D,
-  snapshot: LiveSnapshot | null,
-  width: number,
-) {
-  const status = snapshot?.simulationStatus ?? "disconnected";
-  const timestamp = snapshot ? snapshot.timestamp.toFixed(1) : "0.0";
-  ctx.fillStyle = "rgba(15,20,24,.86)";
-  ctx.fillRect(width - 190, 14, 176, 48);
-  ctx.fillStyle = status === "running" ? "#55d66b" : "#ffd166";
-  ctx.beginPath();
-  ctx.arc(width - 174, 30, 5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#fff";
-  ctx.font = "bold 11px sans-serif";
-  ctx.textAlign = "left";
-  ctx.fillText(status.toUpperCase(), width - 162, 34);
-  ctx.fillStyle = "rgba(255,255,255,.7)";
-  ctx.font = "10px monospace";
-  ctx.fillText(`T ${timestamp}s`, width - 174, 51);
 }

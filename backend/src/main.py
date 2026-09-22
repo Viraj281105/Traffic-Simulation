@@ -1166,6 +1166,33 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
             ),
         )
 
+    # Optional asymmetric corridor greens (see FixedTimeSignalController.
+    # _green_duration_for): when present, the NS or EW corridor uses its own
+    # green instead of greenDuration/straightRightDuration. Same bounds as
+    # ControllerSection.nsGreenDuration/ewGreenDuration (gt=5, le=120).
+    # Omitted or null keeps the single shared green exactly as before.
+    corridor_greens: Dict[str, float] = {}
+    for corridor_key in ("nsGreenDuration", "ewGreenDuration"):
+        raw_green = payload.get(corridor_key)
+        if raw_green is None:
+            continue
+        try:
+            green_val = float(raw_green)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid {corridor_key} {raw_green!r}: must be a number.",
+            ) from exc
+        if not (5.0 < green_val <= 120.0):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Invalid {corridor_key} {green_val}: must be greater than 5 "
+                    "and at most 120 seconds."
+                ),
+            )
+        corridor_greens[corridor_key] = green_val
+
     # Compile the config dictionary based on user payload. The remaining
     # numeric fields are coerced directly from the raw payload (same as
     # duration above); wrap them the same way create_simulation() already
@@ -1236,6 +1263,7 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
                     "phaseSequence": copy.deepcopy(
                         DEFAULT_CONFIG["controller"]["phaseSequence"]
                     ),
+                    **corridor_greens,
                 }
                 if payload.get("intersectionType", "fixed_time_signal")
                 == "fixed_time_signal"
