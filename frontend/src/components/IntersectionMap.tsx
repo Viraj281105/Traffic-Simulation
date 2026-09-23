@@ -379,13 +379,6 @@ function drawVehicle(
     ctx.fill();
   }
 
-  ctx.fillStyle = "#fff";
-  ctx.beginPath();
-  ctx.moveTo(0, -length / 2 - 4);
-  ctx.lineTo(-4, -length / 2 + 3);
-  ctx.lineTo(4, -length / 2 + 3);
-  ctx.closePath();
-  ctx.fill();
   ctx.restore();
 }
 
