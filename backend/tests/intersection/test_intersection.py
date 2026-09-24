@@ -222,3 +222,75 @@ def test_conflict_manager_full_lifecycle_and_arbitration() -> None:
     assert cm.get_reservation_count() == 1
     cm.release_vehicle("v_to_release")
     assert cm.get_reservation_count() == 0
+
+
+def _signal_conflict_manager(lanes: int = 1) -> tuple:  # type: ignore[type-arg]
+    network = RoadNetwork()
+    network.setup_default_intersection(
+        approach_length=200.0, lane_width=3.5, lanes_per_approach=lanes
+    )
+    cm = ConflictManager()
+    for cl in network.get_all_connection_lanes():
+        cm.register_connection_lane(cl)
+    cm.compute_conflict_points()
+    return cm, network
+
+
+def test_refused_vehicle_is_held_at_the_stop_line_not_inside_the_box() -> None:
+    """Regression: a vehicle refused admission was stopped ZONE_RADIUS short of
+    the first blocked conflict point — which on a turning path can lie several
+    metres INSIDE the junction — so it entered the box holding no reservations
+    and parked on crossings others held (3-lane signal, 0.8 veh/s, seed 1:
+    frozen from t = 95 s). Refused means held at the connection-lane start."""
+    from src.intersection.conflict_manager import _shares_entry_lane
+
+    cm, network = _signal_conflict_manager(lanes=3)
+    left = network.generate_route(Direction.SOUTH, 0, TurnIntent.LEFT)[1]
+
+    def dist_on_left(key: tuple) -> float:  # type: ignore[type-arg]
+        cp = cm._conflict_points[key]
+        return cp.dist_on_a if cp.lane_id_a == left.lane_id else cp.dist_on_b
+
+    # Only the crossings well inside the box are held by someone else: the
+    # old rule then stopped the refused vehicle past the stop line.
+    far = [
+        k
+        for k in cm._lane_conflicts[left.lane_id]
+        if not _shares_entry_lane(k[0], k[1])
+        and dist_on_left(k) > ConflictManager.ZONE_RADIUS + 1.0
+    ]
+    assert far, "geometry no longer has a crossing deep inside the box"
+    for key in far:
+        other = key[0] if key[1] == left.lane_id else key[1]
+        cm._acquire(key, "holder", other, current_time=0.0)
+
+    for speed in (5.0, 0.0):  # still rolling, and already stopped
+        block = cm.get_conflict_distance(
+            vehicle_id="left_turner",
+            vehicle_turn_intent=TurnIntent.LEFT,
+            connection_lane_id=left.lane_id,
+            vehicle_position_on_lane=0.0,
+            current_time=0.0,
+            all_vehicles_info=[],
+            vehicle_speed=speed,
+            on_connection_lane=False,
+        )
+        assert block == 0.0, (speed, block)
+    # ...and it claimed nothing while refused.
+    assert all(r.vehicle_id == "holder" for r in cm._reservations.values())
+
+
+def test_admitted_vehicle_is_not_held() -> None:
+    cm, network = _signal_conflict_manager()
+    left = network.generate_route(Direction.SOUTH, 0, TurnIntent.LEFT)[1]
+    block = cm.get_conflict_distance(
+        vehicle_id="left_turner",
+        vehicle_turn_intent=TurnIntent.LEFT,
+        connection_lane_id=left.lane_id,
+        vehicle_position_on_lane=0.0,
+        current_time=0.0,
+        all_vehicles_info=[],
+        vehicle_speed=5.0,
+        on_connection_lane=False,
+    )
+    assert block == float("inf")

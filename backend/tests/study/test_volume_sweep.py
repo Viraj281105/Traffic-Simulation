@@ -66,3 +66,27 @@ def test_volume_sweep_execution(tmp_path, monkeypatch) -> None:
         assert len(session["results"]["runs"]) == 2
     finally:
         conn.close()
+
+
+def test_sweep_run_ids_are_unique_and_correctly_labelled(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """Regression: run ids ended in int(rate * 100), so 0.29 was labelled 28
+    and rates in the same hundredth shared one id — INSERT OR REPLACE then
+    overwrote the earlier runs (3 rates -> 2 rows instead of 6)."""
+    import src.database.db as db
+    from src.database.db import get_db_connection
+    from src.study.volume_sweep import run_volume_sweep_experiment
+
+    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "sweep.db"))
+    result = run_volume_sweep_experiment([0.285, 0.289, 0.29], duration=2.0)
+    ids = [
+        r[side]["runId"] for r in result["runs"] for side in ("signal", "roundabout")
+    ]
+    assert len(set(ids)) == 6, ids
+    suffixes = [r["signal"]["runId"].split("_sig_")[1] for r in result["runs"]]
+    assert suffixes == ["28", "29", "29_2"]
+    with get_db_connection() as conn:
+        rows = conn.execute(
+            "SELECT COUNT(*) FROM simulation_runs WHERE batch_id = ?",
+            (result["sessionId"],),
+        ).fetchone()[0]
+    assert rows == 6

@@ -51,6 +51,23 @@ def _conn_lane_index(lane_id: str) -> Optional[int]:
 # ---------------------------------------------------------------------------
 
 
+def commits_through_yellow(vehicle: Vehicle, virtual_obs: Any) -> bool:
+    """True when *vehicle* may run the yellow obstacle *virtual_obs* on its lane.
+
+    The dilemma-zone rule: a vehicle that cannot stop comfortably before the
+    line is allowed to clear the junction on yellow. Shared by find_leader's
+    Layer 2 (which then ignores the obstacle) and is_blocked_before_lane (which
+    must ignore it too — see there).
+    """
+    if not getattr(virtual_obs, "is_yellow", False):
+        return False
+    stopping_dist = (vehicle.speed**2) / (
+        2.0 * max(getattr(vehicle, "comfort_deceleration", 3.0), 1.0)
+    )
+    dist_to_line = max(0.0, virtual_obs.position - vehicle.position)
+    return bool(dist_to_line <= stopping_dist + vehicle.length)
+
+
 def is_blocked_before_lane(vehicle: Vehicle, target_lane: Any) -> bool:
     """Check if there is a vehicle or virtual obstacle on the route before target_lane."""
     if vehicle.lane is None:
@@ -64,8 +81,22 @@ def is_blocked_before_lane(vehicle: Vehicle, target_lane: Any) -> bool:
     accumulated_dist = -vehicle.position
     for i in range(curr_idx, target_idx):
         lane = vehicle.route[i]
-        # Check for virtual obstacle on this intermediate lane
-        if getattr(lane, "virtual_obstacle", None) is not None:
+        # Check for virtual obstacle on this intermediate lane.
+        #
+        # Except a yellow the vehicle is committed to running. Layer 2 of
+        # find_leader waives that obstacle and the vehicle drives on into the
+        # junction — but this check still called it "blocked", so Layer 3
+        # skipped the vehicle's conflict-zone admission entirely. Every
+        # yellow-runner (and every permissive left-turner released from the
+        # stop line at yellow onset) therefore entered the box holding no
+        # reservations and stopped inside it on top of crossings others held.
+        # At saturation that circular wait froze the whole junction for the
+        # rest of the run (1-lane signal, 1.5 veh/s, seed 1: nothing left
+        # after t = 178 s).
+        virtual_obs = getattr(lane, "virtual_obstacle", None)
+        if virtual_obs is not None and not (
+            i == curr_idx and commits_through_yellow(vehicle, virtual_obs)
+        ):
             return True
         # Check for any vehicles ahead of us on this intermediate lane
         for v in lane.get_vehicles():
@@ -199,15 +230,10 @@ def find_leader(
         virtual_obs = getattr(lane, "virtual_obstacle", None)
         if virtual_obs is not None:
             # Check if this is a yellow clearance obstacle
-            is_yellow = getattr(virtual_obs, "is_yellow", False)
-            if is_yellow and i == curr_idx:
-                # Dilemma zone calculation: if vehicle cannot safely stop comfortably before line, permit clearance
-                stopping_dist = (vehicle.speed**2) / (
-                    2.0 * max(getattr(vehicle, "comfort_deceleration", 3.0), 1.0)
-                )
-                dist_to_line = max(0.0, virtual_obs.position - vehicle.position)
-                if dist_to_line <= stopping_dist + vehicle.length:
-                    virtual_obs = None
+            # Dilemma zone: if the vehicle cannot safely stop comfortably
+            # before the line, permit clearance.
+            if i == curr_idx and commits_through_yellow(vehicle, virtual_obs):
+                virtual_obs = None
 
             if virtual_obs is not None:
                 obs_dist = accumulated_dist + virtual_obs.position

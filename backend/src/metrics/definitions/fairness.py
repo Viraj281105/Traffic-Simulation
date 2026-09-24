@@ -29,13 +29,19 @@ def calculate_directional_fairness(exited_vehicles: List[Vehicle]) -> float:
             if direction in waits:
                 waits[direction].append(v.wait_time)
 
-    # Average wait time per approach
-    x = []
-    for d in ["north", "south", "east", "west"]:
-        if waits[d]:
-            x.append(sum(waits[d]) / len(waits[d]))
-        else:
-            x.append(0.0)
+    # Average wait time per approach. An approach with no vehicles has no
+    # average wait at all and is left out, with n adjusted to match
+    # (docs/architecture/07-metric-contract.md §5.1 edge cases). It used to be
+    # entered as a 0.0 s average, so a scenario with traffic on one approach
+    # only scored J = 0.25 — "maximally unfair" — for a junction serving its
+    # only approach perfectly evenly.
+    x = [
+        sum(waits[d]) / len(waits[d])
+        for d in ["north", "south", "east", "west"]
+        if waits[d]
+    ]
+    if not x:
+        return 1.0
 
     sum_x = sum(x)
     if sum_x <= 0:

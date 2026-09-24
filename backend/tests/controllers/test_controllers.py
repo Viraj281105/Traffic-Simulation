@@ -734,22 +734,24 @@ def _run_until_congested(controller, lane) -> None:
 
 
 def test_roundabout_free_flow_entry_speed_cap() -> None:
-    """Free-flowing approach: untouched far out, entrySpeed over the last 60 m.
+    """Free-flowing approach: untouched far out, a comfortable-braking taper
+    down to entrySpeed at the zone boundary, entrySpeed over the last 60 m.
 
-    No traffic, so the congestion cap must stay out of it: the behaviour is
-    exactly the fixed entry-zone cap.
+    No traffic, so the congestion cap must stay out of it.
     """
-    from src.controllers.roundabout import _ENTRY_APPROACH_ZONE
+    from src.controllers.roundabout import _APPROACH_DECEL, _ENTRY_APPROACH_ZONE
 
     _, controller, lane = _entry_controller()
 
     veh = _vehicle("far", lane, 0.0, 20.0, desired=15.0)
     controller.update(0.1, [veh])
-    assert veh.desired_speed == 15.0  # far from the line
+    assert veh.desired_speed == 15.0  # far from the line: taper above 15 m/s
 
+    # Just outside the zone the ceiling is already close to entrySpeed: it is
+    # the speed from which 1 m of braking at _APPROACH_DECEL reaches it.
     veh.position = lane.length - _ENTRY_APPROACH_ZONE - 1.0
     controller.update(0.1, [veh])
-    assert veh.desired_speed == 15.0  # just outside the zone
+    assert veh.desired_speed == pytest.approx((5.0**2 + 2.0 * _APPROACH_DECEL) ** 0.5)
 
     for dist in (_ENTRY_APPROACH_ZONE, 30.0, 2.0):
         veh.position = lane.length - dist
@@ -793,10 +795,10 @@ def test_roundabout_short_or_discharging_queue_does_not_trigger_cap() -> None:
     """A short standing queue, or a long one that is discharging, is normal."""
     _, controller, lane = _entry_controller()
     _build_stalled_queue(lane, count=2)  # tail ~8 m: below the trigger distance
-    approaching = _vehicle("app", lane, lane.length - 70.0, 20.0)
+    approaching = _vehicle("app", lane, lane.length - 170.0, 20.0)
     for _ in range(200):  # 20 s
         controller.update(0.1, list(lane.get_vehicles()))
-    assert approaching.desired_speed == 25.0
+    assert approaching.desired_speed == 25.0  # beyond the free-flow taper
     assert controller._congested.get("north") is False
 
     # Long queue, but the ring keeps discharging it: never stalled.
@@ -813,10 +815,13 @@ def test_roundabout_congestion_caps_approach_at_the_queue_tail() -> None:
     from src.controllers.roundabout import _APPROACH_DECEL
 
     _, controller, lane = _entry_controller()
-    queue = _build_stalled_queue(lane, count=6)
+    # The queue has to reach beyond the entry zone for the congestion taper to
+    # be the binding one: up to there the free-flow taper already delivers
+    # vehicles at entrySpeed.
+    queue = _build_stalled_queue(lane, count=16)
     tail_dist = lane.length - queue[-1].position
-    assert tail_dist > 20.0
-    approaching = _vehicle("app", lane, lane.length - 70.0, 20.0)
+    assert tail_dist > 60.0
+    approaching = _vehicle("app", lane, lane.length - 170.0, 20.0)
 
     # Before the stall time elapses nothing is congested.
     controller.update(0.1, list(lane.get_vehicles()))
@@ -838,8 +843,8 @@ def test_roundabout_congestion_releases_with_hysteresis() -> None:
     """Held inside the hysteresis band; released once the queue is gone, and the
     vehicle's own desired speed is restored."""
     _, controller, lane = _entry_controller()
-    queue = _build_stalled_queue(lane, count=6)
-    approaching = _vehicle("app", lane, lane.length - 70.0, 20.0)
+    queue = _build_stalled_queue(lane, count=16)
+    approaching = _vehicle("app", lane, lane.length - 170.0, 20.0)
     _run_until_congested(controller, lane)
     assert controller._congested["north"] is True
     capped = approaching.desired_speed
@@ -964,3 +969,32 @@ def test_roundabout_follow_up_time_gates_consecutive_entries() -> None:
     # After follow_up_time has elapsed, entry is clear again.
     controller.update(2.5, [veh_b])
     assert lane.virtual_obstacle is None
+
+
+def test_roundabout_approach_cap_does_not_force_emergency_braking() -> None:
+    """Regression: the entrySpeed cap was a step at 60 m, so a lone 18-25 m/s
+    vehicle had its desired speed cut to 5 m/s in one tick and IDM braked at
+    the 9 m/s^2 hard limit — at a lightly loaded roundabout, 55 of 56 vehicles
+    did so. With the taper an unimpeded vehicle peaks at ~5.5 m/s^2 (IDM's
+    free-road term lags a falling desired speed), well clear of the limit."""
+    from src.controllers.factory import create_controller
+    from src.core.clock import Clock
+    from src.core.engine import SimulationEngine
+
+    for seed in (1, 2, 3):
+        config = {
+            "simulation": {"duration": 30, "timeStep": 0.1, "randomSeed": seed},
+            "geometry": {"intersectionType": "roundabout"},
+            "roads": {"lanesPerApproach": 1},
+            "traffic": {"arrivalRate": 0.5, "totalVehicles": 1},
+        }
+        engine = SimulationEngine(Clock(0.1), duration=30, config=config)
+        engine.controller = create_controller(config, engine.network)
+        hardest = 0.0
+        while engine.status.value.lower() != "completed":
+            engine.step()
+            for v in engine.pool.active_vehicles:
+                if "_in_" in v.lane_id:
+                    hardest = min(hardest, v.acceleration)
+        assert engine.spawner is not None and engine.spawner.spawned_count == 1
+        assert hardest > -6.0, (seed, hardest)

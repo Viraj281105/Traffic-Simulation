@@ -455,6 +455,16 @@ class ConflictManager:
         # Hold-and-wait cannot arise, because a vehicle never holds a partial
         # set: if it cannot have all of them it takes none and waits at the
         # stop line, outside the box, where waiting costs only its own delay.
+        # A vehicle that is refused admission is held AT THE STOP LINE — the
+        # start of its connection lane (block distance 0) — not just short of
+        # the blocked conflict point. That point lies up to ~10 m inside the
+        # box on a turning path, so stopping ZONE_RADIUS before it still put
+        # a refused vehicle 1-4 m into the junction, holding no reservations
+        # and parked on crossings other vehicles had been admitted to. That
+        # is the partial occupation this admission rule exists to prevent; it
+        # froze a 3-lane signal at 0.8 veh/s (seed 1) from t = 95 s.
+        refused_at = 0.0 if min_block_dist != float("inf") else float("inf")
+
         if vehicle_speed <= _STOPPED_SPEED:
             # Stopped short of the junction, so it holds nothing: a vehicle
             # waiting outside the box must not lock crossing traffic out of a
@@ -465,14 +475,14 @@ class ConflictManager:
                 held = self._reservations.get(key)
                 if held is not None and held.vehicle_id == vehicle_id:
                     del self._reservations[key]
-            return min_block_dist
+            return refused_at
 
         if min_block_dist != float("inf"):
             # Not admitted. Claim nothing new -- taking the free part of the
             # path is exactly the partial hold that deadlocked the box. What
             # it already holds it keeps for now; it is braking for the stop
             # line, and the release above fires as soon as it gets there.
-            return min_block_dist
+            return refused_at
 
         # Admitted: every zone on the path is available, so take them all in
         # one go. A vehicle never holds a partial set, so hold-and-wait --

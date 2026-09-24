@@ -42,6 +42,7 @@ if "DB_PATH" not in os.environ:
 
 from src.database.db import init_db
 from src.study.report_generator import (
+    _summarize_sweep_verdict,
     generate_study_report_csv,
     generate_study_report_json,
 )
@@ -86,7 +87,7 @@ def parse_args() -> argparse.Namespace:
         "--rates",
         type=str,
         default=None,
-        help="Comma-separated arrival rates in veh/s/approach (e.g. '0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8')",
+        help="Comma-separated whole-junction arrival rates in veh/s (e.g. '0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8')",
     )
     parser.add_argument(
         "--output-csv",
@@ -159,9 +160,13 @@ def main() -> int:
 
     # ── 1. Multi-Volume Parameter Sweep ────────────────────────────────────────
     print("\n[Step 2/3] Executing Multi-Volume Sensitivity Sweep...")
-    print(f"  - Arrival Rates:     {rates} veh/s/approach")
+    # arrivalRate is the whole junction's rate (the spawner splits it across
+    # the four approaches), so offered demand is rate x 3600 -- the same
+    # convention as src/study/volume_sweep.py. This used to print
+    # rate x 3600 x 4 as the "total intersection" volume, four times too high.
+    print(f"  - Arrival Rates:     {rates} veh/s (whole junction)")
     print(
-        f"  - Hourly Volumes:    {[round(r * 3600 * 4) for r in rates]} veh/h (total intersection)"
+        f"  - Hourly Volumes:    {[round(r * 3600) for r in rates]} veh/h (total intersection)"
     )
     print(
         f"  - Duration per Tier: {args.sweep_duration}s (dt = {args.time_step}s)"
@@ -226,12 +231,10 @@ def main() -> int:
         print(
             f"\n  🎯 CRITICAL SATURATION CROSSOVER THRESHOLD: {crossover:.2f} veh/s (~{crossover_h:,d} veh/h)"
         )
-        print(
-            f"     • Below {crossover_h:,d} veh/h: Roundabout yields up to 50% lower vehicular delay (no red-phase wait)."
-        )
-        print(
-            f"     • Above {crossover_h:,d} veh/h: Roundabout entry yields experience starvation; Signal provides better queue fairness."
-        )
+        # The conclusion is the sweep's own measured verdict. This used to
+        # print fixed claims ("up to 50% lower delay", "better queue
+        # fairness") that no part of this run measured.
+        print(f"     • {_summarize_sweep_verdict(sweep_results)['text']}")
     else:
         print("\n  🎯 CROSSOVER STATUS: No saturation transition detected.")
         if roundabout_wins > signal_wins:

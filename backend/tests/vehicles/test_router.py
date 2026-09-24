@@ -304,3 +304,83 @@ def test_find_leader_roundabout_different_lane_index_not_matched() -> None:
     )
     assert leader is None
     assert gap == float("inf")
+
+
+def _signal_route_with_yellow() -> tuple:  # type: ignore[type-arg]
+    from src.controllers.virtual_obstacle import VirtualObstacle
+    from src.core.enums import Direction, TurnIntent
+    from src.roads.network import RoadNetwork
+
+    network = RoadNetwork()
+    network.setup_default_intersection(200.0, 3.5, 1)
+    route = network.generate_route(Direction.SOUTH, 0, TurnIntent.STRAIGHT)
+    route[0].virtual_obstacle = VirtualObstacle(
+        position=route[0].length, is_yellow=True
+    )
+    return route
+
+
+def test_vehicle_committed_to_yellow_is_not_treated_as_blocked_before_junction() -> (
+    None
+):
+    """Regression: Layer 2 lets a vehicle that cannot stop run the yellow, but
+    is_blocked_before_lane still saw the yellow obstacle as "blocked", so Layer 3
+    skipped conflict-zone admission and the vehicle entered the junction with no
+    reservations — the entry that froze the 1-lane signal at 1.5 veh/s."""
+    from src.vehicles.router import commits_through_yellow, is_blocked_before_lane
+
+    route = _signal_route_with_yellow()
+    incoming, conn = route[0], route[1]
+    # 3 m before the line at 10 m/s: cannot stop comfortably -> runs the yellow.
+    runner = Vehicle(
+        "runner",
+        4.5,
+        2.0,
+        15.0,
+        route,
+        start_position=incoming.length - 3.0,
+        initial_speed=10.0,
+    )
+    assert commits_through_yellow(runner, incoming.virtual_obstacle)
+    assert is_blocked_before_lane(runner, conn) is False
+
+    # Far back and slow: it will stop for the yellow, so it is still blocked.
+    incoming.remove_vehicle(runner)
+    stopper = Vehicle(
+        "stopper", 4.5, 2.0, 15.0, route, start_position=50.0, initial_speed=5.0
+    )
+    assert not commits_through_yellow(stopper, incoming.virtual_obstacle)
+    assert is_blocked_before_lane(stopper, conn) is True
+    incoming.virtual_obstacle = None
+
+
+@pytest.mark.slow
+def test_saturated_signal_does_not_freeze_after_yellow_entries() -> None:
+    """End to end: the recorded lock-up (1 lane, 1.5 veh/s, seed 1). Before the
+    fix nothing left the junction after t = 178 s."""
+    import copy
+
+    from src.controllers.factory import create_controller
+    from src.core.clock import Clock
+    from src.core.engine import SimulationEngine
+
+    config = {
+        "simulation": {"duration": 240.0, "timeStep": 0.1, "randomSeed": 1},
+        "geometry": {"intersectionType": "fixed_time_signal"},
+        "roads": {"lanesPerApproach": 1},
+        "traffic": {"arrivalRate": 1.5, "totalVehicles": 5000},
+        "controller": {
+            "phaseSequence": copy.deepcopy(
+                ["ns_green", "ns_yellow", "all_red", "ew_green", "ew_yellow", "all_red"]
+            )
+        },
+    }
+    engine = SimulationEngine(Clock(0.1), 240.0, config)
+    engine.controller = create_controller(config, engine.network)
+    exited_at_180 = None
+    while engine.status.value.lower() != "completed":
+        engine.step()
+        if exited_at_180 is None and engine.clock.get_elapsed_time() >= 180.0:
+            exited_at_180 = len(engine.pool.exited_vehicles)
+    assert exited_at_180 is not None
+    assert len(engine.pool.exited_vehicles) - exited_at_180 >= 15

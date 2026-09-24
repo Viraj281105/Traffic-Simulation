@@ -142,6 +142,16 @@ jobs:
             path: tests/integration/test_signal_capacity.py
           - name: roundabout-conflicts
             path: tests/integration/test_roundabout_conflicts.py
+          - name: roundabout-lockup
+            path: tests/integration/test_roundabout_lockup.py
+          # Every file holding @pytest.mark.slow tests needs an entry here:
+          # the default job deselects them, so a file missing from this list
+          # never runs its slow tests anywhere. The published-curve pins and
+          # the saturated-signal lock-up regression were both in that state.
+          - name: calibrated-capacity
+            path: tests/integration/test_calibrated_capacity_regression.py
+          - name: signal-lockup
+            path: tests/vehicles/test_router.py
     defaults:
       run:
         working-directory: backend

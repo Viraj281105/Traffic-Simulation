@@ -79,7 +79,12 @@ def run_volume_sweep_experiment(
             else:
                 base_config[k] = v
 
-    steps_to_run = int(duration / time_step)
+    # The request's duration is the authoritative one (it is the bounded,
+    # validated field). A customConfig that also set simulation.duration used
+    # to win in the engine while the loop below still counted the request's
+    # duration — a shorter one completed the engine mid-loop and the next step
+    # raised (HTTP 500).
+    base_config["simulation"]["duration"] = duration
     runs_data: List[Dict[str, Any]] = []
 
     signal_delays: List[float] = []
@@ -101,13 +106,18 @@ def run_volume_sweep_experiment(
 
     crossover_rate: Optional[float] = None
 
+    used_rate_labels: set[str] = set()
+
     with get_db_connection() as conn:
-        for rate in rates:
+        for rate_index, rate in enumerate(rates):
             step_config = json.loads(json.dumps(base_config))
             step_config["traffic"]["arrivalRate"] = rate
             step_config["simulation"]["randomSeed"] = random_seed
 
             orchestrator = DualSimulationOrchestrator(step_config)
+            # Counted with the engines' own clock, so a configured timeStep
+            # (see DualSimulationOrchestrator) runs the same simulated time.
+            steps_to_run = orchestrator.clock_signal.ticks_for_duration(duration)
 
             # Fast headless simulation execution
             for _ in range(steps_to_run):
@@ -199,9 +209,20 @@ def run_volume_sweep_experiment(
                 ):
                     crossover_rate = rate
 
-            # Save to database
-            sig_run_id = f"sweep_{session_id[:8]}_sig_{int(rate * 100)}"
-            round_run_id = f"sweep_{session_id[:8]}_rnd_{int(rate * 100)}"
+            # Save to database.
+            #
+            # The id used to end in int(rate * 100): truncation, so 0.29 was
+            # labelled "_28", and any two rates in the same hundredth (0.285
+            # and 0.289, or a rate listed twice) got the same id — and
+            # INSERT OR REPLACE then silently overwrote the earlier run. The
+            # label is now rounded, and a clash gets the rate's position
+            # appended, so every run in the sweep keeps its own row.
+            rate_label = str(int(round(rate * 100)))
+            if rate_label in used_rate_labels:
+                rate_label = f"{rate_label}_{rate_index}"
+            used_rate_labels.add(rate_label)
+            sig_run_id = f"sweep_{session_id[:8]}_sig_{rate_label}"
+            round_run_id = f"sweep_{session_id[:8]}_rnd_{rate_label}"
 
             # Each stored run carries the exact config its own engine ran
             # with (the orchestrator's per-geometry copy, including the

@@ -231,7 +231,23 @@ class RoundaboutController(BaseController):
         of the two.
         """
         dist_to_line = max(0.0, lane.length - position)
-        limit = self.entry_speed if dist_to_line <= _ENTRY_APPROACH_ZONE else math.inf
+        # Outside the zone the ceiling is the speed from which the vehicle can
+        # still brake at _APPROACH_DECEL down to entrySpeed by the time it
+        # reaches the zone. It used to be a step — unlimited, then entrySpeed
+        # the instant a vehicle crossed the 60 m mark — which dropped the
+        # desired speed of a 20-25 m/s vehicle to 5 m/s in one tick. IDM's
+        # free-road term answers that with -a(v/v0)^4, i.e. the 9 m/s^2 hard
+        # limit: 55 of 56 vehicles at a lightly loaded roundabout were doing
+        # emergency stops on every approach. The taper is continuous with the
+        # zone's own cap and with the congested taper below, and changes
+        # nothing inside the zone.
+        if dist_to_line <= _ENTRY_APPROACH_ZONE:
+            limit = self.entry_speed
+        else:
+            limit = math.sqrt(
+                self.entry_speed**2
+                + 2.0 * _APPROACH_DECEL * (dist_to_line - _ENTRY_APPROACH_ZONE)
+            )
         congested, tail_dist = self._approach_ctx.get(lane.lane_id, (False, 0.0))
         if congested:
             dist_to_tail = max(0.0, dist_to_line - tail_dist)

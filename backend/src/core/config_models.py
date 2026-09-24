@@ -72,6 +72,18 @@ class VehicleGenerationSection(BaseModel):
     idmDelta: float = Field(4.0, gt=0)
 
 
+# The canonical paired NS/EW signal plan (ControllerSection.phaseSequence's
+# default), shared with code that needs it without building a model.
+DEFAULT_PHASE_SEQUENCE: List[str] = [
+    "ns_green",
+    "ns_yellow",
+    "all_red",
+    "ew_green",
+    "ew_yellow",
+    "all_red",
+]
+
+
 class ControllerSection(BaseModel):
     greenTime: float = Field(30.0, gt=5, le=120)
     leftDuration: float = Field(5.0, gt=0, le=60)
@@ -100,14 +112,7 @@ class ControllerSection(BaseModel):
     nsGreenDuration: Optional[float] = Field(None, gt=5, le=120)
     ewGreenDuration: Optional[float] = Field(None, gt=5, le=120)
     phaseSequence: List[str] = Field(
-        default_factory=lambda: [
-            "ns_green",
-            "ns_yellow",
-            "all_red",
-            "ew_green",
-            "ew_yellow",
-            "all_red",
-        ]
+        default_factory=lambda: list(DEFAULT_PHASE_SEQUENCE)
     )
     offset: float = Field(0.0, ge=0)
     innerRadius: float = Field(10.0, gt=5, le=50)

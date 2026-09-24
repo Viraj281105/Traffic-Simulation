@@ -114,7 +114,8 @@ def test_verdict_crossover_reversal_uses_measured_crossover_value() -> None:
     verdict = _summarize_sweep_verdict(sweep)
 
     assert verdict["crossoverArrivalRate"] == 0.3
-    assert "0.300 veh/s/approach" in verdict["text"]
+    # 0.3 veh/s <-> 1080 veh/h: the rate is the whole junction's, not per approach.
+    assert "0.300 veh/s (whole junction)" in verdict["text"]
     assert "1,080" in verdict["text"] or "1080" in verdict["text"]
     assert "roundabout had the lower measured delay (2 of 3" in verdict["text"]
     assert "signal did (1 of 3" in verdict["text"]
@@ -152,3 +153,30 @@ def test_recommendation_is_never_the_old_fixed_template() -> None:
     assert "Modern roundabouts" not in recommendation
     assert report["summary"]["signalOptimalCount"] == 3
     assert report["summary"]["roundaboutOptimalCount"] == 0
+
+
+def test_report_labels_match_the_reported_quantities() -> None:
+    """Regression: the CSV labelled the sweep's vehicle-count throughput as
+    veh/h, and the verdict called the whole-junction arrival rate
+    "veh/s/approach"."""
+    from src.study.report_generator import (
+        _summarize_sweep_verdict,
+        generate_study_report_csv,
+    )
+
+    sweep = {
+        "runs": [
+            {
+                "arrivalRate": 0.2,
+                "winner": "roundabout",
+                "signal": {},
+                "roundabout": {},
+            },
+            {"arrivalRate": 0.6, "winner": "signal", "signal": {}, "roundabout": {}},
+        ],
+        "curves": {"crossoverArrivalRate": 0.6, "crossoverHourlyVolume": 2160},
+    }
+    assert "veh/s/approach" not in _summarize_sweep_verdict(sweep)["text"]
+    csv_text = generate_study_report_csv(sweep, {"signal": {}, "roundabout": {}})
+    assert "Throughput (veh/h)" not in csv_text
+    assert "Throughput (vehicles served)" in csv_text
