@@ -166,7 +166,7 @@ export const RoundaboutMap: React.FC<RoundaboutMapProps> = ({
         ctx.beginPath();
         const [armStartX, armStartY] = tx(edge, armReach);
         ctx.moveTo(armStartX, armStartY);
-        
+
         const [flareStartX, flareStartY] = tx(edge, outerRadius + 15);
         ctx.lineTo(flareStartX, flareStartY);
 
@@ -288,8 +288,7 @@ function drawApproachMarkings(
     const angle = (i * Math.PI) / 2;
     const c = Math.round(Math.cos(angle));
     const s = Math.round(Math.sin(angle));
-    const tx = (x: number, y: number) =>
-      toCanvas(x * c - y * s, x * s + y * c);
+    const tx = (x: number, y: number) => toCanvas(x * c - y * s, x * s + y * c);
 
     ctx.fillStyle = "#557d35";
     ctx.beginPath();
