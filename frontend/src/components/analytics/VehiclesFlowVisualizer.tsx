@@ -72,12 +72,16 @@ export function VehiclesFlowVisualizer({
   ];
 
   // Proportions for the live flow bar
-  const sigWaitingPct = sigCounts.active > 0 ? (sigCounts.waiting / sigCounts.active) * 100 : 0;
-  const sigJunctionPct = sigCounts.active > 0 ? (sigInJunction / sigCounts.active) * 100 : 0;
+  const sigWaitingPct =
+    sigCounts.active > 0 ? (sigCounts.waiting / sigCounts.active) * 100 : 0;
+  const sigJunctionPct =
+    sigCounts.active > 0 ? (sigInJunction / sigCounts.active) * 100 : 0;
   const sigMovingPct = Math.max(0, 100 - sigWaitingPct - sigJunctionPct);
 
-  const rndWaitingPct = rndCounts.active > 0 ? (rndCounts.waiting / rndCounts.active) * 100 : 0;
-  const rndJunctionPct = rndCounts.active > 0 ? (rndInJunction / rndCounts.active) * 100 : 0;
+  const rndWaitingPct =
+    rndCounts.active > 0 ? (rndCounts.waiting / rndCounts.active) * 100 : 0;
+  const rndJunctionPct =
+    rndCounts.active > 0 ? (rndInJunction / rndCounts.active) * 100 : 0;
   const rndMovingPct = Math.max(0, 100 - rndWaitingPct - rndJunctionPct);
 
   return (
@@ -92,7 +96,9 @@ export function VehiclesFlowVisualizer({
                 <span className="stage-icon">{stage.icon}</span>
                 <div className="stage-meta">
                   <span className="stage-name">{stage.label}</span>
-                  {!compact && <span className="stage-sublabel">{stage.sublabel}</span>}
+                  {!compact && (
+                    <span className="stage-sublabel">{stage.sublabel}</span>
+                  )}
                 </div>
                 {idx < stages.length - 1 && (
                   <span className="stage-flow-arrow" aria-hidden="true">
@@ -108,14 +114,23 @@ export function VehiclesFlowVisualizer({
                   <span className="val-unit">{stage.unit}</span>
                 </div>
                 <div className="stage-val-item roundabout-val">
-                  <span className="control-dot roundabout-dot" title="Roundabout" />
+                  <span
+                    className="control-dot roundabout-dot"
+                    title="Roundabout"
+                  />
                   <span className="val-number">{stage.rndVal}</span>
                   <span className="val-unit">{stage.unit}</span>
                 </div>
                 <div className="stage-val-delta">
                   <span className="delta-label">Δ</span>
-                  <span className={`delta-val ${delta > 0 ? "positive" : delta < 0 ? "negative" : "zero"}`}>
-                    {delta > 0 ? `+${String(delta)}` : delta === 0 ? "0" : `−${String(Math.abs(delta))}`}
+                  <span
+                    className={`delta-val ${delta > 0 ? "positive" : delta < 0 ? "negative" : "zero"}`}
+                  >
+                    {delta > 0
+                      ? `+${String(delta)}`
+                      : delta === 0
+                        ? "0"
+                        : `−${String(Math.abs(delta))}`}
                   </span>
                 </div>
               </div>
@@ -128,7 +143,9 @@ export function VehiclesFlowVisualizer({
       {!compact && (
         <div className="flow-distribution-section">
           <div className="flow-dist-header">
-            <span className="flow-dist-title">In-Network Vehicle State Distribution</span>
+            <span className="flow-dist-title">
+              In-Network Vehicle State Distribution
+            </span>
             <div className="flow-legend">
               <span className="legend-item waiting">
                 <span className="legend-box wait-box" /> Waiting
@@ -145,22 +162,50 @@ export function VehiclesFlowVisualizer({
           <div className="flow-bars-wrapper">
             <div className="flow-bar-row">
               <span className="control-tag signal-tag">🚦 Signal</span>
-              <div className="flow-bar-track" title={`Waiting: ${sigWaitingPct.toFixed(1)}%, Junction: ${sigJunctionPct.toFixed(1)}%, Cruising: ${sigMovingPct.toFixed(1)}%`}>
-                <div className="flow-bar-seg seg-waiting" style={{ width: `${String(sigWaitingPct)}%` }} />
-                <div className="flow-bar-seg seg-junction" style={{ width: `${String(sigJunctionPct)}%` }} />
-                <div className="flow-bar-seg seg-moving" style={{ width: `${String(sigMovingPct)}%` }} />
+              <div
+                className="flow-bar-track"
+                title={`Waiting: ${sigWaitingPct.toFixed(1)}%, Junction: ${sigJunctionPct.toFixed(1)}%, Cruising: ${sigMovingPct.toFixed(1)}%`}
+              >
+                <div
+                  className="flow-bar-seg seg-waiting"
+                  style={{ width: `${String(sigWaitingPct)}%` }}
+                />
+                <div
+                  className="flow-bar-seg seg-junction"
+                  style={{ width: `${String(sigJunctionPct)}%` }}
+                />
+                <div
+                  className="flow-bar-seg seg-moving"
+                  style={{ width: `${String(sigMovingPct)}%` }}
+                />
               </div>
-              <span className="flow-total-badge">{sigCounts.active} active</span>
+              <span className="flow-total-badge">
+                {sigCounts.active} active
+              </span>
             </div>
 
             <div className="flow-bar-row">
               <span className="control-tag roundabout-tag">🔄 Roundabout</span>
-              <div className="flow-bar-track" title={`Waiting: ${rndWaitingPct.toFixed(1)}%, Junction: ${rndJunctionPct.toFixed(1)}%, Cruising: ${rndMovingPct.toFixed(1)}%`}>
-                <div className="flow-bar-seg seg-waiting" style={{ width: `${String(rndWaitingPct)}%` }} />
-                <div className="flow-bar-seg seg-junction" style={{ width: `${String(rndJunctionPct)}%` }} />
-                <div className="flow-bar-seg seg-moving" style={{ width: `${String(rndMovingPct)}%` }} />
+              <div
+                className="flow-bar-track"
+                title={`Waiting: ${rndWaitingPct.toFixed(1)}%, Junction: ${rndJunctionPct.toFixed(1)}%, Cruising: ${rndMovingPct.toFixed(1)}%`}
+              >
+                <div
+                  className="flow-bar-seg seg-waiting"
+                  style={{ width: `${String(rndWaitingPct)}%` }}
+                />
+                <div
+                  className="flow-bar-seg seg-junction"
+                  style={{ width: `${String(rndJunctionPct)}%` }}
+                />
+                <div
+                  className="flow-bar-seg seg-moving"
+                  style={{ width: `${String(rndMovingPct)}%` }}
+                />
               </div>
-              <span className="flow-total-badge">{rndCounts.active} active</span>
+              <span className="flow-total-badge">
+                {rndCounts.active} active
+              </span>
             </div>
           </div>
         </div>

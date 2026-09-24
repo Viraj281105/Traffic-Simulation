@@ -110,8 +110,15 @@
 }
 
 @keyframes pulse-dot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(0.85); }
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
 }
 
 /* ── Vehicles Now 4-Stage Pipeline ────────────────────────────────────────── */
@@ -295,9 +302,15 @@
   border-radius: 2px;
 }
 
-.legend-box.wait-box { background: #ef4444; }
-.legend-box.junc-box { background: #f59e0b; }
-.legend-box.move-box { background: #10b981; }
+.legend-box.wait-box {
+  background: #ef4444;
+}
+.legend-box.junc-box {
+  background: #f59e0b;
+}
+.legend-box.move-box {
+  background: #10b981;
+}
 
 .flow-bars-wrapper {
   display: flex;
@@ -318,8 +331,12 @@
   flex-shrink: 0;
 }
 
-.control-tag.signal-tag { color: #f59e0b; }
-.control-tag.roundabout-tag { color: #06b6d4; }
+.control-tag.signal-tag {
+  color: #f59e0b;
+}
+.control-tag.roundabout-tag {
+  color: #06b6d4;
+}
 
 .flow-bar-track {
   flex: 1;
@@ -335,9 +352,15 @@
   transition: width 0.3s ease;
 }
 
-.flow-bar-seg.seg-waiting { background: #ef4444; }
-.flow-bar-seg.seg-junction { background: #f59e0b; }
-.flow-bar-seg.seg-moving { background: #10b981; }
+.flow-bar-seg.seg-waiting {
+  background: #ef4444;
+}
+.flow-bar-seg.seg-junction {
+  background: #f59e0b;
+}
+.flow-bar-seg.seg-moving {
+  background: #10b981;
+}
 
 .flow-total-badge {
   font-size: 10px;
@@ -417,8 +440,12 @@
   font-variant-numeric: tabular-nums;
 }
 
-.kpi-val.signal { color: #f59e0b; }
-.kpi-val.roundabout { color: #06b6d4; }
+.kpi-val.signal {
+  color: #f59e0b;
+}
+.kpi-val.roundabout {
+  color: #06b6d4;
+}
 
 .kpi-divider {
   font-size: 10px;
@@ -566,8 +593,12 @@
   transition: width 0.25s ease;
 }
 
-.approach-bar-fill.signal { background: #f59e0b; }
-.approach-bar-fill.roundabout { background: #06b6d4; }
+.approach-bar-fill.signal {
+  background: #f59e0b;
+}
+.approach-bar-fill.roundabout {
+  background: #06b6d4;
+}
 
 .approach-bar-num {
   font-size: 9px;
@@ -646,8 +677,12 @@
   font-weight: 800;
 }
 
-.gauge-val.signal { color: #f59e0b; }
-.gauge-val.roundabout { color: #06b6d4; }
+.gauge-val.signal {
+  color: #f59e0b;
+}
+.gauge-val.roundabout {
+  color: #06b6d4;
+}
 
 .gauge-label {
   font-size: 9px;
@@ -684,9 +719,17 @@
   font-variant-numeric: tabular-nums;
 }
 
-.val-signal { color: #f59e0b; }
-.val-roundabout { color: #06b6d4; }
-.val-vs { color: var(--text-muted); font-size: 10px; font-weight: 400; }
+.val-signal {
+  color: #f59e0b;
+}
+.val-roundabout {
+  color: #06b6d4;
+}
+.val-vs {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 400;
+}
 
 /* ── Safety Analytics & Collision Timeline ───────────────────────────────── */
 .safety-analytics-section {
@@ -727,8 +770,12 @@
   font-weight: 700;
 }
 
-.control-pill.signal { color: #f59e0b; }
-.control-pill.roundabout { color: #06b6d4; }
+.control-pill.signal {
+  color: #f59e0b;
+}
+.control-pill.roundabout {
+  color: #06b6d4;
+}
 
 .collision-type {
   font-size: 9px;
@@ -787,8 +834,12 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.timeline-chip.signal { border-color: rgba(245, 158, 11, 0.4); }
-.timeline-chip.roundabout { border-color: rgba(6, 182, 212, 0.4); }
+.timeline-chip.signal {
+  border-color: rgba(245, 158, 11, 0.4);
+}
+.timeline-chip.roundabout {
+  border-color: rgba(6, 182, 212, 0.4);
+}
 
 .ttc-trend-card {
   background: var(--bg-primary);
@@ -824,8 +875,12 @@
   font-size: 11px;
 }
 
-.ttc-readout.signal { color: #f59e0b; }
-.ttc-readout.roundabout { color: #06b6d4; }
+.ttc-readout.signal {
+  color: #f59e0b;
+}
+.ttc-readout.roundabout {
+  color: #06b6d4;
+}
 
 .safety-surrogates-grid {
   display: grid;
@@ -965,11 +1020,19 @@
   transition: width 0.3s ease;
 }
 
-.balance-fill.served.signal { background: #f59e0b; }
-.balance-fill.active.signal { background: rgba(245, 158, 11, 0.4); }
+.balance-fill.served.signal {
+  background: #f59e0b;
+}
+.balance-fill.active.signal {
+  background: rgba(245, 158, 11, 0.4);
+}
 
-.balance-fill.served.roundabout { background: #06b6d4; }
-.balance-fill.active.roundabout { background: rgba(6, 182, 212, 0.4); }
+.balance-fill.served.roundabout {
+  background: #06b6d4;
+}
+.balance-fill.active.roundabout {
+  background: rgba(6, 182, 212, 0.4);
+}
 
 .balance-numbers {
   display: flex;
@@ -1021,8 +1084,12 @@
   font-weight: 800;
 }
 
-.ring-val.signal { color: #f59e0b; }
-.ring-val.roundabout { color: #06b6d4; }
+.ring-val.signal {
+  color: #f59e0b;
+}
+.ring-val.roundabout {
+  color: #06b6d4;
+}
 
 .ring-label {
   font-size: 9px;
@@ -1055,8 +1122,12 @@
   font-variant-numeric: tabular-nums;
 }
 
-.stat-val.signal { color: #f59e0b; }
-.stat-val.roundabout { color: #06b6d4; }
+.stat-val.signal {
+  color: #f59e0b;
+}
+.stat-val.roundabout {
+  color: #06b6d4;
+}
 
 .card-explanation {
   font-size: 10px;
@@ -1169,8 +1240,12 @@
   height: 2px;
 }
 
-.whisker-range-line.signal { background: rgba(245, 158, 11, 0.5); }
-.whisker-range-line.roundabout { background: rgba(6, 182, 212, 0.5); }
+.whisker-range-line.signal {
+  background: rgba(245, 158, 11, 0.5);
+}
+.whisker-range-line.roundabout {
+  background: rgba(6, 182, 212, 0.5);
+}
 
 .whisker-iqr-box {
   position: absolute;
@@ -1179,8 +1254,14 @@
   border-radius: 3px;
 }
 
-.whisker-iqr-box.signal { background: #f59e0b; opacity: 0.7; }
-.whisker-iqr-box.roundabout { background: #06b6d4; opacity: 0.7; }
+.whisker-iqr-box.signal {
+  background: #f59e0b;
+  opacity: 0.7;
+}
+.whisker-iqr-box.roundabout {
+  background: #06b6d4;
+  opacity: 0.7;
+}
 
 .whisker-mean-dot {
   position: absolute;
@@ -1192,8 +1273,12 @@
   transform: translateX(-50%);
 }
 
-.whisker-mean-dot.signal { background: #f59e0b; }
-.whisker-mean-dot.roundabout { background: #06b6d4; }
+.whisker-mean-dot.signal {
+  background: #f59e0b;
+}
+.whisker-mean-dot.roundabout {
+  background: #06b6d4;
+}
 
 .diag-grid {
   display: grid;
@@ -1218,10 +1303,21 @@
   align-items: center;
 }
 
-.d-label { color: var(--text-secondary); }
-.d-val.signal { color: #f59e0b; font-weight: 700; }
-.d-val.roundabout { color: #06b6d4; font-weight: 700; }
-.d-vs { color: var(--text-muted); font-size: 10px; }
+.d-label {
+  color: var(--text-secondary);
+}
+.d-val.signal {
+  color: #f59e0b;
+  font-weight: 700;
+}
+.d-val.roundabout {
+  color: #06b6d4;
+  font-weight: 700;
+}
+.d-vs {
+  color: var(--text-muted);
+  font-size: 10px;
+}
 
 .score-dials-row {
   display: flex;

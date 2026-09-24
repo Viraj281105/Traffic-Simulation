@@ -187,7 +187,9 @@ class RoundaboutController(BaseController):
                 continue
             key = d.value
 
-            tail_dist = max((self._queue_tail_distance(ln) for ln in lanes), default=0.0)
+            tail_dist = max(
+                (self._queue_tail_distance(ln) for ln in lanes), default=0.0
+            )
             if tail_dist > 0.0:
                 self._queue_since.setdefault(key, now)
             else:

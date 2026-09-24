@@ -10,11 +10,15 @@ interface TrafficFlowVisualizerProps {
 
 const avgQDef = METRICS.find((m) => m.key === "averageQueueLength")!;
 const maxQDef = METRICS.find((m) => m.key === "maxQueueLength")!;
-const activeAvgQDef = METRICS.find((m) => m.key === "activeAverageQueueLength")!;
+const activeAvgQDef = METRICS.find(
+  (m) => m.key === "activeAverageQueueLength",
+)!;
 const stopsPerVehDef = METRICS.find((m) => m.key === "averageStopsPerVehicle")!;
 const totalStopsDef = METRICS.find((m) => m.key === "totalStops")!;
 const fairnessDef = METRICS.find((m) => m.key === "directionalFairnessIndex")!;
-const congestionTimeDef = METRICS.find((m) => m.key === "congestionRecoveryTime")!;
+const congestionTimeDef = METRICS.find(
+  (m) => m.key === "congestionRecoveryTime",
+)!;
 const queueStabilityDef = METRICS.find((m) => m.key === "queueStabilityIndex")!;
 
 const DIRECTIONS: SignalDirection[] = ["north", "south", "east", "west"];
@@ -27,13 +31,25 @@ export function TrafficFlowVisualizer({
   const sigMetrics = signalCtx.metrics;
   const rndMetrics = roundaboutCtx.metrics;
 
-  const sigQueues = sigMetrics?.currentQueueLengths ?? { north: 0, south: 0, east: 0, west: 0 };
-  const rndQueues = rndMetrics?.currentQueueLengths ?? { north: 0, south: 0, east: 0, west: 0 };
+  const sigQueues = sigMetrics?.currentQueueLengths ?? {
+    north: 0,
+    south: 0,
+    east: 0,
+    west: 0,
+  };
+  const rndQueues = rndMetrics?.currentQueueLengths ?? {
+    north: 0,
+    south: 0,
+    east: 0,
+    west: 0,
+  };
 
   const sigFairnessState = metricState(fairnessDef, signalCtx);
   const rndFairnessState = metricState(fairnessDef, roundaboutCtx);
-  const sigFairnessVal = sigFairnessState.kind === "value" ? sigFairnessState.value : null;
-  const rndFairnessVal = rndFairnessState.kind === "value" ? rndFairnessState.value : null;
+  const sigFairnessVal =
+    sigFairnessState.kind === "value" ? sigFairnessState.value : null;
+  const rndFairnessVal =
+    rndFairnessState.kind === "value" ? rndFairnessState.value : null;
 
   // Max queue for scaling the approach bars (at least 5 for pleasant scale)
   const maxApproachQueue = Math.max(
@@ -42,12 +58,18 @@ export function TrafficFlowVisualizer({
   );
 
   return (
-    <div className={`traffic-flow-analytics-section ${compact ? "compact" : ""}`}>
+    <div
+      className={`traffic-flow-analytics-section ${compact ? "compact" : ""}`}
+    >
       {/* 4-Way Approach Directional Queue Visualizer */}
       <div className="flow-radar-card">
         <div className="section-subheading">
-          <span className="subheading-title">Approach Queue Distribution (Real-Time)</span>
-          <span className="subheading-hint">Vehicles queued right now (N, S, E, W)</span>
+          <span className="subheading-title">
+            Approach Queue Distribution (Real-Time)
+          </span>
+          <span className="subheading-hint">
+            Vehicles queued right now (N, S, E, W)
+          </span>
         </div>
 
         <div className="approach-grid">
@@ -61,12 +83,24 @@ export function TrafficFlowVisualizer({
               <div className="approach-row" key={dir}>
                 <span className="approach-label">{dir.toUpperCase()}</span>
                 <div className="approach-bars-pair">
-                  <div className="approach-bar-track signal" title={`Signal ${dir}: ${String(sigQ)} veh`}>
-                    <div className="approach-bar-fill signal" style={{ width: `${String(sigWidthNum)}%` }} />
+                  <div
+                    className="approach-bar-track signal"
+                    title={`Signal ${dir}: ${String(sigQ)} veh`}
+                  >
+                    <div
+                      className="approach-bar-fill signal"
+                      style={{ width: `${String(sigWidthNum)}%` }}
+                    />
                     <span className="approach-bar-num">{sigQ}</span>
                   </div>
-                  <div className="approach-bar-track roundabout" title={`Roundabout ${dir}: ${String(rndQ)} veh`}>
-                    <div className="approach-bar-fill roundabout" style={{ width: `${String(rndWidthNum)}%` }} />
+                  <div
+                    className="approach-bar-track roundabout"
+                    title={`Roundabout ${dir}: ${String(rndQ)} veh`}
+                  >
+                    <div
+                      className="approach-bar-fill roundabout"
+                      style={{ width: `${String(rndWidthNum)}%` }}
+                    />
                     <span className="approach-bar-num">{rndQ}</span>
                   </div>
                 </div>
@@ -104,7 +138,14 @@ export function TrafficFlowVisualizer({
                     strokeWidth="8"
                     strokeLinecap="round"
                     strokeDasharray="110"
-                    strokeDashoffset={110 * (1 - Math.max(0, Math.min(1, (sigFairnessVal - 0.25) / 0.75)))}
+                    strokeDashoffset={
+                      110 *
+                      (1 -
+                        Math.max(
+                          0,
+                          Math.min(1, (sigFairnessVal - 0.25) / 0.75),
+                        ))
+                    }
                   />
                 )}
               </svg>
@@ -134,7 +175,14 @@ export function TrafficFlowVisualizer({
                     strokeWidth="8"
                     strokeLinecap="round"
                     strokeDasharray="110"
-                    strokeDashoffset={110 * (1 - Math.max(0, Math.min(1, (rndFairnessVal - 0.25) / 0.75)))}
+                    strokeDashoffset={
+                      110 *
+                      (1 -
+                        Math.max(
+                          0,
+                          Math.min(1, (rndFairnessVal - 0.25) / 0.75),
+                        ))
+                    }
                   />
                 )}
               </svg>
@@ -146,7 +194,10 @@ export function TrafficFlowVisualizer({
               </div>
             </div>
           </div>
-          <p className="card-note">1.00 = equal delay across approaches; 0.25 = all delay on one approach.</p>
+          <p className="card-note">
+            1.00 = equal delay across approaches; 0.25 = all delay on one
+            approach.
+          </p>
         </div>
 
         {/* Queue Lengths Summary */}
@@ -160,36 +211,54 @@ export function TrafficFlowVisualizer({
             <div className="queue-item">
               <span className="queue-item-label">Avg Queue per Approach:</span>
               <div className="queue-item-vals">
-                <span className="val-signal">{formatMetric(avgQDef, signalCtx)}</span>
+                <span className="val-signal">
+                  {formatMetric(avgQDef, signalCtx)}
+                </span>
                 <span className="val-vs">vs</span>
-                <span className="val-roundabout">{formatMetric(avgQDef, roundaboutCtx)}</span>
+                <span className="val-roundabout">
+                  {formatMetric(avgQDef, roundaboutCtx)}
+                </span>
               </div>
             </div>
 
             <div className="queue-item">
               <span className="queue-item-label">Maximum Queue Observed:</span>
               <div className="queue-item-vals">
-                <span className="val-signal">{formatMetric(maxQDef, signalCtx)}</span>
+                <span className="val-signal">
+                  {formatMetric(maxQDef, signalCtx)}
+                </span>
                 <span className="val-vs">vs</span>
-                <span className="val-roundabout">{formatMetric(maxQDef, roundaboutCtx)}</span>
+                <span className="val-roundabout">
+                  {formatMetric(maxQDef, roundaboutCtx)}
+                </span>
               </div>
             </div>
 
             <div className="queue-item">
-              <span className="queue-item-label">Avg Total Queue when Queued:</span>
+              <span className="queue-item-label">
+                Avg Total Queue when Queued:
+              </span>
               <div className="queue-item-vals">
-                <span className="val-signal">{formatMetric(activeAvgQDef, signalCtx)}</span>
+                <span className="val-signal">
+                  {formatMetric(activeAvgQDef, signalCtx)}
+                </span>
                 <span className="val-vs">vs</span>
-                <span className="val-roundabout">{formatMetric(activeAvgQDef, roundaboutCtx)}</span>
+                <span className="val-roundabout">
+                  {formatMetric(activeAvgQDef, roundaboutCtx)}
+                </span>
               </div>
             </div>
 
             <div className="queue-item">
               <span className="queue-item-label">Queue Stability Index:</span>
               <div className="queue-item-vals">
-                <span className="val-signal">{formatMetric(queueStabilityDef, signalCtx)}</span>
+                <span className="val-signal">
+                  {formatMetric(queueStabilityDef, signalCtx)}
+                </span>
                 <span className="val-vs">vs</span>
-                <span className="val-roundabout">{formatMetric(queueStabilityDef, roundaboutCtx)}</span>
+                <span className="val-roundabout">
+                  {formatMetric(queueStabilityDef, roundaboutCtx)}
+                </span>
               </div>
             </div>
           </div>
@@ -204,29 +273,45 @@ export function TrafficFlowVisualizer({
 
           <div className="queue-summary-list">
             <div className="queue-item">
-              <span className="queue-item-label">Stops per Exited Vehicle:</span>
+              <span className="queue-item-label">
+                Stops per Exited Vehicle:
+              </span>
               <div className="queue-item-vals">
-                <span className="val-signal">{formatMetric(stopsPerVehDef, signalCtx)}</span>
+                <span className="val-signal">
+                  {formatMetric(stopsPerVehDef, signalCtx)}
+                </span>
                 <span className="val-vs">vs</span>
-                <span className="val-roundabout">{formatMetric(stopsPerVehDef, roundaboutCtx)}</span>
+                <span className="val-roundabout">
+                  {formatMetric(stopsPerVehDef, roundaboutCtx)}
+                </span>
               </div>
             </div>
 
             <div className="queue-item">
               <span className="queue-item-label">Total Stops Made:</span>
               <div className="queue-item-vals">
-                <span className="val-signal">{formatMetric(totalStopsDef, signalCtx)}</span>
+                <span className="val-signal">
+                  {formatMetric(totalStopsDef, signalCtx)}
+                </span>
                 <span className="val-vs">vs</span>
-                <span className="val-roundabout">{formatMetric(totalStopsDef, roundaboutCtx)}</span>
+                <span className="val-roundabout">
+                  {formatMetric(totalStopsDef, roundaboutCtx)}
+                </span>
               </div>
             </div>
 
             <div className="queue-item">
-              <span className="queue-item-label">Time Congested (&gt;5 veh):</span>
+              <span className="queue-item-label">
+                Time Congested (&gt;5 veh):
+              </span>
               <div className="queue-item-vals">
-                <span className="val-signal">{formatMetric(congestionTimeDef, signalCtx)}</span>
+                <span className="val-signal">
+                  {formatMetric(congestionTimeDef, signalCtx)}
+                </span>
                 <span className="val-vs">vs</span>
-                <span className="val-roundabout">{formatMetric(congestionTimeDef, roundaboutCtx)}</span>
+                <span className="val-roundabout">
+                  {formatMetric(congestionTimeDef, roundaboutCtx)}
+                </span>
               </div>
             </div>
           </div>

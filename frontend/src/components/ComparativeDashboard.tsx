@@ -67,12 +67,7 @@ function exportComparison(snapshot: DualSnapshot, source: string) {
 }
 
 type PanelCategory =
-  | "overview"
-  | "performance"
-  | "flow"
-  | "safety"
-  | "capacity"
-  | "table";
+  "overview" | "performance" | "flow" | "safety" | "capacity" | "table";
 
 /** Live side-by-side metrics beside the two maps. */
 export function ComparisonPanel({
@@ -98,7 +93,8 @@ export function ComparisonPanel({
       ? Math.max(0, sig.warmupTime - sig.timestamp)
       : null;
 
-  const [activeCategory, setActiveCategory] = useState<PanelCategory>("overview");
+  const [activeCategory, setActiveCategory] =
+    useState<PanelCategory>("overview");
   const { history, collisionEvents } = useLiveComparisonHistory(snapshot);
 
   return (
@@ -118,7 +114,8 @@ export function ComparisonPanel({
         <div className="warmup-notice" role="status">
           <span className="warmup-dot-pulse" aria-hidden="true" />
           <span>
-            Warm-up: metrics accumulate after {sig.warmupTime.toFixed(0)} s of simulated time ({warmupLeft.toFixed(0)} s to go).
+            Warm-up: metrics accumulate after {sig.warmupTime.toFixed(0)} s of
+            simulated time ({warmupLeft.toFixed(0)} s to go).
           </span>
         </div>
       )}
@@ -128,42 +125,54 @@ export function ComparisonPanel({
         <button
           type="button"
           className={`cat-pill ${activeCategory === "overview" ? "active" : ""}`}
-          onClick={() => { setActiveCategory("overview"); }}
+          onClick={() => {
+            setActiveCategory("overview");
+          }}
         >
           Flow
         </button>
         <button
           type="button"
           className={`cat-pill ${activeCategory === "performance" ? "active" : ""}`}
-          onClick={() => { setActiveCategory("performance"); }}
+          onClick={() => {
+            setActiveCategory("performance");
+          }}
         >
           Performance
         </button>
         <button
           type="button"
           className={`cat-pill ${activeCategory === "flow" ? "active" : ""}`}
-          onClick={() => { setActiveCategory("flow"); }}
+          onClick={() => {
+            setActiveCategory("flow");
+          }}
         >
           Queues
         </button>
         <button
           type="button"
           className={`cat-pill ${activeCategory === "safety" ? "active" : ""}`}
-          onClick={() => { setActiveCategory("safety"); }}
+          onClick={() => {
+            setActiveCategory("safety");
+          }}
         >
           Safety
         </button>
         <button
           type="button"
           className={`cat-pill ${activeCategory === "capacity" ? "active" : ""}`}
-          onClick={() => { setActiveCategory("capacity"); }}
+          onClick={() => {
+            setActiveCategory("capacity");
+          }}
         >
           Capacity
         </button>
         <button
           type="button"
           className={`cat-pill ${activeCategory === "table" ? "active" : ""}`}
-          onClick={() => { setActiveCategory("table"); }}
+          onClick={() => {
+            setActiveCategory("table");
+          }}
         >
           Table
         </button>
@@ -173,8 +182,8 @@ export function ComparisonPanel({
       <div className="panel-content-scroll">
         {!snapshot ? (
           <p className="sidebar-empty">
-            Metrics appear once the comparison stream connects. Press Play to run
-            both controls on the same seed and demand.
+            Metrics appear once the comparison stream connects. Press Play to
+            run both controls on the same seed and demand.
           </p>
         ) : (
           <>
@@ -200,7 +209,10 @@ export function ComparisonPanel({
             )}
 
             {activeCategory === "performance" && (
-              <section className="sidebar-section" aria-label="Performance trends">
+              <section
+                className="sidebar-section"
+                aria-label="Performance trends"
+              >
                 <PerformanceCharts
                   history={history}
                   signalCtx={signal}
@@ -211,7 +223,10 @@ export function ComparisonPanel({
             )}
 
             {activeCategory === "flow" && (
-              <section className="sidebar-section" aria-label="Traffic flow and queues">
+              <section
+                className="sidebar-section"
+                aria-label="Traffic flow and queues"
+              >
                 <TrafficFlowVisualizer
                   signalCtx={signal}
                   roundaboutCtx={roundabout}
@@ -221,7 +236,10 @@ export function ComparisonPanel({
             )}
 
             {activeCategory === "safety" && (
-              <section className="sidebar-section" aria-label="Safety analytics">
+              <section
+                className="sidebar-section"
+                aria-label="Safety analytics"
+              >
                 <SafetyTimelineVisualizer
                   history={history}
                   collisionEvents={collisionEvents}
@@ -233,7 +251,10 @@ export function ComparisonPanel({
             )}
 
             {activeCategory === "capacity" && (
-              <section className="sidebar-section" aria-label="Capacity and demand">
+              <section
+                className="sidebar-section"
+                aria-label="Capacity and demand"
+              >
                 <CapacityDemandVisualizer
                   signalCtx={signal}
                   roundaboutCtx={roundabout}
@@ -357,18 +378,26 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
             <h2 className="modal-title" id="comparison-dialog-title">
               Signal vs roundabout — full comparison
             </h2>
-            <div className="modal-view-toggle" role="group" aria-label="Dashboard view">
+            <div
+              className="modal-view-toggle"
+              role="group"
+              aria-label="Dashboard view"
+            >
               <button
                 type="button"
                 className={`toggle-tab-btn ${viewMode === "visual" ? "active" : ""}`}
-                onClick={() => { setViewMode("visual"); }}
+                onClick={() => {
+                  setViewMode("visual");
+                }}
               >
                 📊 Visual Analytics
               </button>
               <button
                 type="button"
                 className={`toggle-tab-btn ${viewMode === "table" ? "active" : ""}`}
-                onClick={() => { setViewMode("table"); }}
+                onClick={() => {
+                  setViewMode("table");
+                }}
               >
                 📋 Data Table
               </button>
@@ -413,9 +442,9 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
                   {simTime(snapshot.signal) !== undefined
                     ? `, here at ${String(simTime(snapshot.signal)?.toFixed(1))} s of simulated time`
                     : ""}
-                  . Differences are roundabout minus signal in each metric&apos;s own
-                  units; a single seed is one sample, so use the Validation page
-                  for statistical comparisons.
+                  . Differences are roundabout minus signal in each
+                  metric&apos;s own units; a single seed is one sample, so use
+                  the Validation page for statistical comparisons.
                 </p>
                 <button
                   type="button"
@@ -432,7 +461,9 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
                 <div className="modal-visual-sections">
                   {/* Section 1: Vehicles Now */}
                   <div className="modal-section-card">
-                    <h3 className="modal-section-title">Vehicles Now &amp; Pipeline Flow</h3>
+                    <h3 className="modal-section-title">
+                      Vehicles Now &amp; Pipeline Flow
+                    </h3>
                     <VehiclesFlowVisualizer
                       signal={snapshot.signal}
                       roundabout={snapshot.roundabout}
@@ -442,7 +473,9 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
 
                   {/* Section 2: Performance Dynamics */}
                   <div className="modal-section-card">
-                    <h3 className="modal-section-title">Performance &amp; Service Dynamics</h3>
+                    <h3 className="modal-section-title">
+                      Performance &amp; Service Dynamics
+                    </h3>
                     <PerformanceCharts
                       history={history}
                       signalCtx={signal}
@@ -453,7 +486,9 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
 
                   {/* Section 3: Traffic Flow & Queues */}
                   <div className="modal-section-card">
-                    <h3 className="modal-section-title">Traffic Flow, Queues &amp; Approach Fairness</h3>
+                    <h3 className="modal-section-title">
+                      Traffic Flow, Queues &amp; Approach Fairness
+                    </h3>
                     <TrafficFlowVisualizer
                       signalCtx={signal}
                       roundaboutCtx={roundabout}
@@ -463,7 +498,9 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
 
                   {/* Section 4: Safety & Surrogate Measures */}
                   <div className="modal-section-card">
-                    <h3 className="modal-section-title">Safety &amp; Surrogate Conflict Measures</h3>
+                    <h3 className="modal-section-title">
+                      Safety &amp; Surrogate Conflict Measures
+                    </h3>
                     <SafetyTimelineVisualizer
                       history={history}
                       collisionEvents={collisionEvents}
@@ -475,7 +512,9 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
 
                   {/* Section 5: Capacity & Demand */}
                   <div className="modal-section-card">
-                    <h3 className="modal-section-title">Capacity, Service Utilization &amp; Demand Balance</h3>
+                    <h3 className="modal-section-title">
+                      Capacity, Service Utilization &amp; Demand Balance
+                    </h3>
                     <CapacityDemandVisualizer
                       signalCtx={signal}
                       roundaboutCtx={roundabout}
@@ -485,7 +524,9 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
 
                   {/* Section 6: Diagnostics */}
                   <div className="modal-section-card">
-                    <h3 className="modal-section-title">Distribution Spread &amp; Diagnostics</h3>
+                    <h3 className="modal-section-title">
+                      Distribution Spread &amp; Diagnostics
+                    </h3>
                     <DistributionDiagnosticsVisualizer
                       signalCtx={signal}
                       roundaboutCtx={roundabout}
@@ -495,7 +536,9 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
 
                   {/* Section 7: User-Weighted Scoring Panel */}
                   <div className="modal-section-card">
-                    <h3 className="modal-section-title">Multi-Criteria Evaluation (User-Configured Weights)</h3>
+                    <h3 className="modal-section-title">
+                      Multi-Criteria Evaluation (User-Configured Weights)
+                    </h3>
                     <WeightedScoringPanel
                       metricsSignal={snapshot.signal.metrics}
                       metricsRoundabout={snapshot.roundabout.metrics}

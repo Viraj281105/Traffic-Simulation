@@ -33,11 +33,23 @@ export function CapacityDemandVisualizer({
   const rndActive = rndM?.activeVehicleCount ?? 0;
 
   // Demand fulfillment ratio (% of offered demand that has exited post-warmup)
-  const sigServedRate = sigSpawned > 0 && !signalCtx.inWarmup ? Math.min(100, (sigThroughput / sigSpawned) * 100) : 0;
-  const rndServedRate = rndSpawned > 0 && !roundaboutCtx.inWarmup ? Math.min(100, (rndThroughput / rndSpawned) * 100) : 0;
+  const sigServedRate =
+    sigSpawned > 0 && !signalCtx.inWarmup
+      ? Math.min(100, (sigThroughput / sigSpawned) * 100)
+      : 0;
+  const rndServedRate =
+    rndSpawned > 0 && !roundaboutCtx.inWarmup
+      ? Math.min(100, (rndThroughput / rndSpawned) * 100)
+      : 0;
 
-  const sigActivePct = sigSpawned > 0 ? Math.min(100 - sigServedRate, (sigActive / sigSpawned) * 100) : 0;
-  const rndActivePct = rndSpawned > 0 ? Math.min(100 - rndServedRate, (rndActive / rndSpawned) * 100) : 0;
+  const sigActivePct =
+    sigSpawned > 0
+      ? Math.min(100 - sigServedRate, (sigActive / sigSpawned) * 100)
+      : 0;
+  const rndActivePct =
+    rndSpawned > 0
+      ? Math.min(100 - rndServedRate, (rndActive / rndSpawned) * 100)
+      : 0;
 
   const sigUtilState = metricState(utilDef, signalCtx);
   const rndUtilState = metricState(utilDef, roundaboutCtx);
@@ -53,7 +65,9 @@ export function CapacityDemandVisualizer({
       <div className="capacity-card demand-balance-card">
         <div className="capacity-card-header">
           <span className="card-title">Demand vs. Served Balance</span>
-          <span className="card-subtitle">Offered demand vs. exited vehicles</span>
+          <span className="card-subtitle">
+            Offered demand vs. exited vehicles
+          </span>
         </div>
 
         <div className="demand-bars-pair">
@@ -62,10 +76,15 @@ export function CapacityDemandVisualizer({
             <div className="demand-row-meta">
               <span className="control-label signal">🚦 Fixed-Time Signal</span>
               <span className="rate-badge">
-                {signalCtx.inWarmup ? "Warm-up" : `${sigServedRate.toFixed(1)}% served`}
+                {signalCtx.inWarmup
+                  ? "Warm-up"
+                  : `${sigServedRate.toFixed(1)}% served`}
               </span>
             </div>
-            <div className="balance-track" title={`Served: ${String(sigThroughput)}, In Network: ${String(sigActive)}, Remaining: ${String(Math.max(0, sigSpawned - sigThroughput - sigActive))}`}>
+            <div
+              className="balance-track"
+              title={`Served: ${String(sigThroughput)}, In Network: ${String(sigActive)}, Remaining: ${String(Math.max(0, sigSpawned - sigThroughput - sigActive))}`}
+            >
               <div
                 className="balance-fill served signal"
                 style={{ width: `${String(sigServedRate)}%` }}
@@ -85,12 +104,19 @@ export function CapacityDemandVisualizer({
           {/* Roundabout Balance */}
           <div className="demand-bar-row">
             <div className="demand-row-meta">
-              <span className="control-label roundabout">🔄 Modern Roundabout</span>
+              <span className="control-label roundabout">
+                🔄 Modern Roundabout
+              </span>
               <span className="rate-badge">
-                {roundaboutCtx.inWarmup ? "Warm-up" : `${rndServedRate.toFixed(1)}% served`}
+                {roundaboutCtx.inWarmup
+                  ? "Warm-up"
+                  : `${rndServedRate.toFixed(1)}% served`}
               </span>
             </div>
-            <div className="balance-track" title={`Served: ${String(rndThroughput)}, In Network: ${String(rndActive)}, Remaining: ${String(Math.max(0, rndSpawned - rndThroughput - rndActive))}`}>
+            <div
+              className="balance-track"
+              title={`Served: ${String(rndThroughput)}, In Network: ${String(rndActive)}, Remaining: ${String(Math.max(0, rndSpawned - rndThroughput - rndActive))}`}
+            >
               <div
                 className="balance-fill served roundabout"
                 style={{ width: `${String(rndServedRate)}%` }}
@@ -121,7 +147,14 @@ export function CapacityDemandVisualizer({
           <div className="util-rings-row">
             <div className="util-ring-box">
               <svg viewBox="0 0 80 80" className="radial-ring-svg">
-                <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="7" />
+                <circle
+                  cx="40"
+                  cy="40"
+                  r="32"
+                  fill="none"
+                  stroke="rgba(255,255,255,0.1)"
+                  strokeWidth="7"
+                />
                 {sigUtilVal !== null && (
                   <circle
                     cx="40"
@@ -138,14 +171,23 @@ export function CapacityDemandVisualizer({
                 )}
               </svg>
               <div className="ring-reading">
-                <span className="ring-val signal">{sigUtilVal !== null ? `${sigUtilVal.toFixed(1)}%` : "—"}</span>
+                <span className="ring-val signal">
+                  {sigUtilVal !== null ? `${sigUtilVal.toFixed(1)}%` : "—"}
+                </span>
                 <span className="ring-label">Signal</span>
               </div>
             </div>
 
             <div className="util-ring-box">
               <svg viewBox="0 0 80 80" className="radial-ring-svg">
-                <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="7" />
+                <circle
+                  cx="40"
+                  cy="40"
+                  r="32"
+                  fill="none"
+                  stroke="rgba(255,255,255,0.1)"
+                  strokeWidth="7"
+                />
                 {rndUtilVal !== null && (
                   <circle
                     cx="40"
@@ -162,12 +204,16 @@ export function CapacityDemandVisualizer({
                 )}
               </svg>
               <div className="ring-reading">
-                <span className="ring-val roundabout">{rndUtilVal !== null ? `${rndUtilVal.toFixed(1)}%` : "—"}</span>
+                <span className="ring-val roundabout">
+                  {rndUtilVal !== null ? `${rndUtilVal.toFixed(1)}%` : "—"}
+                </span>
                 <span className="ring-label">Roundabout</span>
               </div>
             </div>
           </div>
-          <p className="util-subtext">Share of ticks with demand where vehicle speeds exceeded 0.5 m/s.</p>
+          <p className="util-subtext">
+            Share of ticks with demand where vehicle speeds exceeded 0.5 m/s.
+          </p>
         </div>
 
         {/* Critical Saturation Volume */}
@@ -179,15 +225,20 @@ export function CapacityDemandVisualizer({
           <div className="stat-comparison-block">
             <div className="stat-row">
               <span className="stat-name">Signal:</span>
-              <span className="stat-val signal">{formatMetric(satVolDef, signalCtx)}</span>
+              <span className="stat-val signal">
+                {formatMetric(satVolDef, signalCtx)}
+              </span>
             </div>
             <div className="stat-row">
               <span className="stat-name">Roundabout:</span>
-              <span className="stat-val roundabout">{formatMetric(satVolDef, roundaboutCtx)}</span>
+              <span className="stat-val roundabout">
+                {formatMetric(satVolDef, roundaboutCtx)}
+              </span>
             </div>
           </div>
           <p className="card-explanation">
-            Estimated saturation rate based on throughput vs. offered arrival rate.
+            Estimated saturation rate based on throughput vs. offered arrival
+            rate.
           </p>
         </div>
 
@@ -199,7 +250,9 @@ export function CapacityDemandVisualizer({
           </div>
           <div className="idle-loss-body">
             <div className="idle-val-box">
-              <span className="idle-pct-num">{sigIdleVal !== null ? `${sigIdleVal.toFixed(1)}%` : "—"}</span>
+              <span className="idle-pct-num">
+                {sigIdleVal !== null ? `${sigIdleVal.toFixed(1)}%` : "—"}
+              </span>
               <span className="idle-desc">wasted green phase time</span>
             </div>
             <div className="idle-progress-track">
@@ -210,7 +263,8 @@ export function CapacityDemandVisualizer({
             </div>
           </div>
           <p className="card-explanation">
-            Ticks where red approach had a queue while green approach was completely empty.
+            Ticks where red approach had a queue while green approach was
+            completely empty.
           </p>
         </div>
 
@@ -223,15 +277,20 @@ export function CapacityDemandVisualizer({
           <div className="stat-comparison-block">
             <div className="stat-row">
               <span className="stat-name">Signal:</span>
-              <span className="stat-val signal">{formatMetric(footprintDef, signalCtx)}</span>
+              <span className="stat-val signal">
+                {formatMetric(footprintDef, signalCtx)}
+              </span>
             </div>
             <div className="stat-row">
               <span className="stat-name">Roundabout:</span>
-              <span className="stat-val roundabout">{formatMetric(footprintDef, roundaboutCtx)}</span>
+              <span className="stat-val roundabout">
+                {formatMetric(footprintDef, roundaboutCtx)}
+              </span>
             </div>
           </div>
           <p className="card-explanation">
-            Geometric area required (crossing box vs. circular roundabout envelope).
+            Geometric area required (crossing box vs. circular roundabout
+            envelope).
           </p>
         </div>
       </div>

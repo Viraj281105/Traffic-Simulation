@@ -76,7 +76,9 @@ function formatSimTime(seconds: number): string {
 
 export function useLiveComparisonHistory(snapshot: DualSnapshot | null) {
   const [history, setHistory] = useState<ComparisonHistoryPoint[]>([]);
-  const [collisionEvents, setCollisionEvents] = useState<CollisionEventRecord[]>([]);
+  const [collisionEvents, setCollisionEvents] = useState<
+    CollisionEventRecord[]
+  >([]);
 
   const lastRecordedTimeRef = useRef<number>(-1);
   const prevCollisionsRef = useRef<{ signal: number; roundabout: number }>({
@@ -99,7 +101,8 @@ export function useLiveComparisonHistory(snapshot: DualSnapshot | null) {
     const t = snapshot.elapsed;
     const simId = sig.simulationId;
 
-    const isRestart = simId !== prevSimIdRef.current || t < lastRecordedTimeRef.current - 1.0;
+    const isRestart =
+      simId !== prevSimIdRef.current || t < lastRecordedTimeRef.current - 1.0;
     if (isRestart) {
       lastRecordedTimeRef.current = -1;
       prevCollisionsRef.current = {
@@ -110,7 +113,11 @@ export function useLiveComparisonHistory(snapshot: DualSnapshot | null) {
     }
 
     // Sample approximately once per second of simulated time
-    if (!isRestart && lastRecordedTimeRef.current >= 0 && Math.abs(t - lastRecordedTimeRef.current) < 0.8) {
+    if (
+      !isRestart &&
+      lastRecordedTimeRef.current >= 0 &&
+      Math.abs(t - lastRecordedTimeRef.current) < 0.8
+    ) {
       return;
     }
     lastRecordedTimeRef.current = t;

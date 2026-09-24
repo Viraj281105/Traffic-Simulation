@@ -9,7 +9,10 @@ import {
   Legend,
   ReferenceLine,
 } from "recharts";
-import type { ComparisonHistoryPoint, CollisionEventRecord } from "../../hooks/useLiveComparisonHistory";
+import type {
+  ComparisonHistoryPoint,
+  CollisionEventRecord,
+} from "../../hooks/useLiveComparisonHistory";
 import type { MetricContext } from "../../metrics/catalog";
 import { formatMetric, METRICS } from "../../metrics/catalog";
 
@@ -44,14 +47,17 @@ export function SafetyTimelineVisualizer({
   const sigCollisions = sigM?.collisionCount ?? 0;
   const rndCollisions = rndM?.collisionCount ?? 0;
 
-  const ttcThreshold = sigM?.ttcThresholdSeconds ?? rndM?.ttcThresholdSeconds ?? 1.5;
+  const ttcThreshold =
+    sigM?.ttcThresholdSeconds ?? rndM?.ttcThresholdSeconds ?? 1.5;
   const petThreshold = sigM?.petThresholdSeconds ?? 5.0;
 
   return (
     <div className={`safety-analytics-section ${compact ? "compact" : ""}`}>
       {/* Prominent Collision Counter / Timeline */}
       <div className="collision-highlight-row">
-        <div className={`collision-card signal ${sigCollisions > 0 ? "has-events" : "zero-events"}`}>
+        <div
+          className={`collision-card signal ${sigCollisions > 0 ? "has-events" : "zero-events"}`}
+        >
           <div className="collision-card-header">
             <span className="control-pill signal">🚦 Fixed-Time Signal</span>
             <span className="collision-type">Distinct Overlaps</span>
@@ -59,20 +65,28 @@ export function SafetyTimelineVisualizer({
           <div className="collision-stat-body">
             <span className="collision-count">{sigCollisions}</span>
             <span className="collision-status-text">
-              {sigCollisions === 0 ? "Zero collisions recorded" : "Collision events observed"}
+              {sigCollisions === 0
+                ? "Zero collisions recorded"
+                : "Collision events observed"}
             </span>
           </div>
         </div>
 
-        <div className={`collision-card roundabout ${rndCollisions > 0 ? "has-events" : "zero-events"}`}>
+        <div
+          className={`collision-card roundabout ${rndCollisions > 0 ? "has-events" : "zero-events"}`}
+        >
           <div className="collision-card-header">
-            <span className="control-pill roundabout">🔄 Modern Roundabout</span>
+            <span className="control-pill roundabout">
+              🔄 Modern Roundabout
+            </span>
             <span className="collision-type">Distinct Overlaps</span>
           </div>
           <div className="collision-stat-body">
             <span className="collision-count">{rndCollisions}</span>
             <span className="collision-status-text">
-              {rndCollisions === 0 ? "Zero collisions recorded" : "Collision events observed"}
+              {rndCollisions === 0
+                ? "Zero collisions recorded"
+                : "Collision events observed"}
             </span>
           </div>
         </div>
@@ -85,7 +99,10 @@ export function SafetyTimelineVisualizer({
           <div className="timeline-chips">
             {collisionEvents.map((evt) => (
               <span key={evt.id} className={`timeline-chip ${evt.control}`}>
-                <strong>{evt.control === "signal" ? "🚦 Signal" : "🔄 Roundabout"}</strong> at {evt.timeFormatted} (count #{evt.newCount})
+                <strong>
+                  {evt.control === "signal" ? "🚦 Signal" : "🔄 Roundabout"}
+                </strong>{" "}
+                at {evt.timeFormatted} (count #{evt.newCount})
               </span>
             ))}
           </div>
@@ -97,14 +114,17 @@ export function SafetyTimelineVisualizer({
         <div className="ttc-trend-header">
           <div>
             <span className="ttc-title">Minimum Time-to-Collision (TTC)</span>
-            <span className="ttc-sub">Threshold: {ttcThreshold.toFixed(1)} s (Hayward critical cutoff)</span>
+            <span className="ttc-sub">
+              Threshold: {ttcThreshold.toFixed(1)} s (Hayward critical cutoff)
+            </span>
           </div>
           <div className="ttc-current-readouts">
             <span className="ttc-readout signal">
               Signal: <strong>{formatMetric(minTtcDef, signalCtx)}</strong>
             </span>
             <span className="ttc-readout roundabout">
-              Roundabout: <strong>{formatMetric(minTtcDef, roundaboutCtx)}</strong>
+              Roundabout:{" "}
+              <strong>{formatMetric(minTtcDef, roundaboutCtx)}</strong>
             </span>
           </div>
         </div>
@@ -116,12 +136,23 @@ export function SafetyTimelineVisualizer({
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={history} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+              <LineChart
+                data={history}
+                margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="rgba(255,255,255,0.08)"
+                />
                 <XAxis dataKey="timeFormatted" stroke="#8892b0" fontSize={11} />
                 <YAxis stroke="#8892b0" fontSize={11} unit=" s" />
                 <Tooltip
-                  contentStyle={{ backgroundColor: "#1e2230", borderColor: "#333c56", borderRadius: 8, fontSize: 12 }}
+                  contentStyle={{
+                    backgroundColor: "#1e2230",
+                    borderColor: "#333c56",
+                    borderRadius: 8,
+                    fontSize: 12,
+                  }}
                 />
                 <Legend height={32} wrapperStyle={{ top: 0, fontSize: 11 }} />
                 <ReferenceLine
@@ -165,29 +196,44 @@ export function SafetyTimelineVisualizer({
       {/* Low-TTC & PET Surrogate Conflict Metrics Grid */}
       <div className="safety-surrogates-grid">
         <div className="surrogate-metric-card">
-          <span className="surrogate-card-title">Low-TTC Critical Events (TTC ≤ {ttcThreshold.toFixed(1)} s)</span>
+          <span className="surrogate-card-title">
+            Low-TTC Critical Events (TTC ≤ {ttcThreshold.toFixed(1)} s)
+          </span>
           <div className="surrogate-values-row">
             <div className="surrogate-val-group">
               <span className="val-control">Signal:</span>
-              <span className="val-strong">{formatMetric(ttcEventsDef, signalCtx)}</span>
-              <span className="val-note">/ {formatMetric(ttcSamplesDef, signalCtx)} obs</span>
+              <span className="val-strong">
+                {formatMetric(ttcEventsDef, signalCtx)}
+              </span>
+              <span className="val-note">
+                / {formatMetric(ttcSamplesDef, signalCtx)} obs
+              </span>
             </div>
             <div className="surrogate-val-group">
               <span className="val-control">Roundabout:</span>
-              <span className="val-strong">{formatMetric(ttcEventsDef, roundaboutCtx)}</span>
-              <span className="val-note">/ {formatMetric(ttcSamplesDef, roundaboutCtx)} obs</span>
+              <span className="val-strong">
+                {formatMetric(ttcEventsDef, roundaboutCtx)}
+              </span>
+              <span className="val-note">
+                / {formatMetric(ttcSamplesDef, roundaboutCtx)} obs
+              </span>
             </div>
           </div>
         </div>
 
         <div className="surrogate-metric-card">
-          <span className="surrogate-card-title">Post-Encroachment Time (PET ≤ {petThreshold.toFixed(1)} s)</span>
+          <span className="surrogate-card-title">
+            Post-Encroachment Time (PET ≤ {petThreshold.toFixed(1)} s)
+          </span>
           <div className="surrogate-values-row">
             <div className="surrogate-val-group">
               <span className="val-control">Signal:</span>
-              <span className="val-strong">{formatMetric(minPetDef, signalCtx)}</span>
+              <span className="val-strong">
+                {formatMetric(minPetDef, signalCtx)}
+              </span>
               <span className="val-note">
-                ({formatMetric(petEventsDef, signalCtx)} events / {formatMetric(petSamplesDef, signalCtx)} obs)
+                ({formatMetric(petEventsDef, signalCtx)} events /{" "}
+                {formatMetric(petSamplesDef, signalCtx)} obs)
               </span>
             </div>
             <div className="surrogate-val-group">
@@ -203,7 +249,10 @@ export function SafetyTimelineVisualizer({
       <div className="safety-disclaimer-banner">
         <span className="disclaimer-icon">ℹ️</span>
         <p className="disclaimer-text">
-          <strong>Surrogate Safety Measures Notice:</strong> Surrogate safety measures (TTC, PET) are exploratory research metrics based on literature defaults. Event counts are surrogate indicators and do not constitute a validated safety ranking between geometries.
+          <strong>Surrogate Safety Measures Notice:</strong> Surrogate safety
+          measures (TTC, PET) are exploratory research metrics based on
+          literature defaults. Event counts are surrogate indicators and do not
+          constitute a validated safety ranking between geometries.
         </p>
       </div>
     </div>

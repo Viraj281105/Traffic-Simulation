@@ -36,11 +36,15 @@ export function DistributionDiagnosticsVisualizer({
   const rndScore = rndScoreState.kind === "value" ? rndScoreState.value : null;
 
   return (
-    <div className={`diagnostics-analytics-section ${compact ? "compact" : ""}`}>
+    <div
+      className={`diagnostics-analytics-section ${compact ? "compact" : ""}`}
+    >
       {/* Delay Distribution Range Whisker Visualizer */}
       <div className="diag-card delay-spread-card">
         <div className="diag-card-header">
-          <span className="card-title">Delay Distribution Spread (Min — Median — P95 — Max)</span>
+          <span className="card-title">
+            Delay Distribution Spread (Min — Median — P95 — Max)
+          </span>
           <span className="card-badge">seconds</span>
         </div>
 
@@ -50,7 +54,11 @@ export function DistributionDiagnosticsVisualizer({
             <div className="whisker-meta">
               <span className="control-label signal">🚦 Signal</span>
               <span className="whisker-stats-text">
-                Min: {formatMetric(minDelayDef, signalCtx)} | Med: {formatMetric(medDelayDef, signalCtx)} | Avg: {formatMetric(avgDelayDef, signalCtx)} | P95: {formatMetric(p95DelayDef, signalCtx)} | Max: {formatMetric(maxDelayDef, signalCtx)}
+                Min: {formatMetric(minDelayDef, signalCtx)} | Med:{" "}
+                {formatMetric(medDelayDef, signalCtx)} | Avg:{" "}
+                {formatMetric(avgDelayDef, signalCtx)} | P95:{" "}
+                {formatMetric(p95DelayDef, signalCtx)} | Max:{" "}
+                {formatMetric(maxDelayDef, signalCtx)}
               </span>
             </div>
             <div className="whisker-track">
@@ -76,7 +84,9 @@ export function DistributionDiagnosticsVisualizer({
                   <div
                     className="whisker-mean-dot signal"
                     title={`Average: ${String(sigM.averageDelay)} s`}
-                    style={{ left: `${String((sigM.averageDelay / maxDelayScale) * 100)}%` }}
+                    style={{
+                      left: `${String((sigM.averageDelay / maxDelayScale) * 100)}%`,
+                    }}
                   />
                 </>
               )}
@@ -88,7 +98,11 @@ export function DistributionDiagnosticsVisualizer({
             <div className="whisker-meta">
               <span className="control-label roundabout">🔄 Roundabout</span>
               <span className="whisker-stats-text">
-                Min: {formatMetric(minDelayDef, roundaboutCtx)} | Med: {formatMetric(medDelayDef, roundaboutCtx)} | Avg: {formatMetric(avgDelayDef, roundaboutCtx)} | P95: {formatMetric(p95DelayDef, roundaboutCtx)} | Max: {formatMetric(maxDelayDef, roundaboutCtx)}
+                Min: {formatMetric(minDelayDef, roundaboutCtx)} | Med:{" "}
+                {formatMetric(medDelayDef, roundaboutCtx)} | Avg:{" "}
+                {formatMetric(avgDelayDef, roundaboutCtx)} | P95:{" "}
+                {formatMetric(p95DelayDef, roundaboutCtx)} | Max:{" "}
+                {formatMetric(maxDelayDef, roundaboutCtx)}
               </span>
             </div>
             <div className="whisker-track">
@@ -114,7 +128,9 @@ export function DistributionDiagnosticsVisualizer({
                   <div
                     className="whisker-mean-dot roundabout"
                     title={`Average: ${String(rndM.averageDelay)} s`}
-                    style={{ left: `${String((rndM.averageDelay / maxDelayScale) * 100)}%` }}
+                    style={{
+                      left: `${String((rndM.averageDelay / maxDelayScale) * 100)}%`,
+                    }}
                   />
                 </>
               )}
@@ -127,33 +143,51 @@ export function DistributionDiagnosticsVisualizer({
       <div className="diag-grid">
         <div className="diag-card">
           <div className="diag-card-header">
-            <span className="card-title">Dispersion &amp; Standard Deviations</span>
+            <span className="card-title">
+              Dispersion &amp; Standard Deviations
+            </span>
             <span className="card-badge">sample σ</span>
           </div>
           <div className="dispersion-list">
             <div className="dispersion-item">
               <span className="d-label">Delay Std Dev:</span>
-              <span className="d-val signal">{formatMetric(delayStdDevDef, signalCtx)}</span>
+              <span className="d-val signal">
+                {formatMetric(delayStdDevDef, signalCtx)}
+              </span>
               <span className="d-vs">vs</span>
-              <span className="d-val roundabout">{formatMetric(delayStdDevDef, roundaboutCtx)}</span>
+              <span className="d-val roundabout">
+                {formatMetric(delayStdDevDef, roundaboutCtx)}
+              </span>
             </div>
             <div className="dispersion-item">
               <span className="d-label">Queue Std Dev:</span>
-              <span className="d-val signal">{formatMetric(queueStdDevDef, signalCtx)}</span>
+              <span className="d-val signal">
+                {formatMetric(queueStdDevDef, signalCtx)}
+              </span>
               <span className="d-vs">vs</span>
-              <span className="d-val roundabout">{formatMetric(queueStdDevDef, roundaboutCtx)}</span>
+              <span className="d-val roundabout">
+                {formatMetric(queueStdDevDef, roundaboutCtx)}
+              </span>
             </div>
             <div className="dispersion-item">
               <span className="d-label">Queue Stability Index:</span>
-              <span className="d-val signal">{formatMetric(queueStabilityDef, signalCtx)}</span>
+              <span className="d-val signal">
+                {formatMetric(queueStabilityDef, signalCtx)}
+              </span>
               <span className="d-vs">vs</span>
-              <span className="d-val roundabout">{formatMetric(queueStabilityDef, roundaboutCtx)}</span>
+              <span className="d-val roundabout">
+                {formatMetric(queueStabilityDef, roundaboutCtx)}
+              </span>
             </div>
             <div className="dispersion-item">
               <span className="d-label">Speed Variance Index:</span>
-              <span className="d-val signal">{formatMetric(sviDef, signalCtx)}</span>
+              <span className="d-val signal">
+                {formatMetric(sviDef, signalCtx)}
+              </span>
               <span className="d-vs">vs</span>
-              <span className="d-val roundabout">{formatMetric(sviDef, roundaboutCtx)}</span>
+              <span className="d-val roundabout">
+                {formatMetric(sviDef, roundaboutCtx)}
+              </span>
             </div>
           </div>
         </div>
@@ -168,7 +202,9 @@ export function DistributionDiagnosticsVisualizer({
           <div className="score-dials-row">
             <div className="score-dial-item">
               <div className="score-badge signal">
-                <span className="score-num">{sigScore !== null ? sigScore.toFixed(1) : "—"}</span>
+                <span className="score-num">
+                  {sigScore !== null ? sigScore.toFixed(1) : "—"}
+                </span>
                 <span className="score-max">/100</span>
               </div>
               <span className="score-label">Signal</span>
@@ -176,14 +212,17 @@ export function DistributionDiagnosticsVisualizer({
 
             <div className="score-dial-item">
               <div className="score-badge roundabout">
-                <span className="score-num">{rndScore !== null ? rndScore.toFixed(1) : "—"}</span>
+                <span className="score-num">
+                  {rndScore !== null ? rndScore.toFixed(1) : "—"}
+                </span>
                 <span className="score-max">/100</span>
               </div>
               <span className="score-label">Roundabout</span>
             </div>
           </div>
           <p className="card-explanation">
-            Fixed-weight backend composite of throughput rate, queued time, stops, fairness and idle loss. A weighting choice, not a verdict.
+            Fixed-weight backend composite of throughput rate, queued time,
+            stops, fairness and idle loss. A weighting choice, not a verdict.
           </p>
         </div>
       </div>

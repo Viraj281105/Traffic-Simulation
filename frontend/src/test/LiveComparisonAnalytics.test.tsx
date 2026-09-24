@@ -258,7 +258,9 @@ describe("Live Comparison Analytics Visualizers", () => {
     expect(screen.getByText("Mean Speed")).toBeInTheDocument();
     expect(screen.getByText("Planning Time Index")).toBeInTheDocument();
 
-    const speedTabBtn = screen.getByRole("button", { name: /mean travel speed/i });
+    const speedTabBtn = screen.getByRole("button", {
+      name: /mean travel speed/i,
+    });
     await user.click(speedTabBtn);
     expect(speedTabBtn).toHaveClass("active");
   });
@@ -272,7 +274,9 @@ describe("Live Comparison Analytics Visualizers", () => {
       />,
     );
 
-    expect(screen.getByText(/approach queue distribution/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/approach queue distribution/i),
+    ).toBeInTheDocument();
     expect(screen.getByText("NORTH")).toBeInTheDocument();
     expect(screen.getByText("SOUTH")).toBeInTheDocument();
     expect(screen.getByText("EAST")).toBeInTheDocument();
@@ -301,7 +305,9 @@ describe("Live Comparison Analytics Visualizers", () => {
 
     expect(screen.getAllByText(/distinct overlaps/i).length).toBe(2);
     expect(screen.getByText(/zero collisions recorded/i)).toBeInTheDocument();
-    expect(screen.getByText(/surrogate safety measures notice/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/surrogate safety measures notice/i),
+    ).toBeInTheDocument();
     expect(screen.getByText(/event timeline/i)).toBeInTheDocument();
   });
 
@@ -331,7 +337,9 @@ describe("Live Comparison Analytics Visualizers", () => {
     );
 
     expect(screen.getByText(/delay distribution spread/i)).toBeInTheDocument();
-    expect(screen.getByText("Composite Score (Fixed Weights)")).toBeInTheDocument();
+    expect(
+      screen.getByText("Composite Score (Fixed Weights)"),
+    ).toBeInTheDocument();
     expect(screen.getByText("78.4")).toBeInTheDocument();
     expect(screen.getByText("86.2")).toBeInTheDocument();
   });

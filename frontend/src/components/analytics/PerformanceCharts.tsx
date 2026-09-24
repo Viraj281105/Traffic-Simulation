@@ -70,7 +70,11 @@ export function PerformanceCharts({
   const rndServed = formatMetric(servedDef, roundaboutCtx, false);
 
   const sigThroughputRate = formatMetric(throughputRateDef, signalCtx, false);
-  const rndThroughputRate = formatMetric(throughputRateDef, roundaboutCtx, false);
+  const rndThroughputRate = formatMetric(
+    throughputRateDef,
+    roundaboutCtx,
+    false,
+  );
 
   const sigSpeed = formatMetric(speedDef, signalCtx, false);
   const rndSpeed = formatMetric(speedDef, roundaboutCtx, false);
@@ -79,16 +83,21 @@ export function PerformanceCharts({
   const rndPti = formatMetric(ptiDef, roundaboutCtx, false);
 
   const lowSampleSig = signalCtx.metrics?.travelTimeReliabilityLowSampleSize;
-  const lowSampleRnd = roundaboutCtx.metrics?.travelTimeReliabilityLowSampleSize;
+  const lowSampleRnd =
+    roundaboutCtx.metrics?.travelTimeReliabilityLowSampleSize;
 
   return (
-    <div className={`performance-analytics-section ${compact ? "compact" : ""}`}>
+    <div
+      className={`performance-analytics-section ${compact ? "compact" : ""}`}
+    >
       {/* Warm-up banner if applicable */}
       {inWarmup && (
         <div className="analytics-warmup-notice" role="status">
           <span className="warmup-pulse-dot" />
           <span>
-            <strong>Warm-up active:</strong> Exited vehicle delay &amp; rate metrics accumulate post-warmup (after 30s). Current speed and instantaneous telemetry remain live.
+            <strong>Warm-up active:</strong> Exited vehicle delay &amp; rate
+            metrics accumulate post-warmup (after 30s). Current speed and
+            instantaneous telemetry remain live.
           </span>
         </div>
       )}
@@ -97,7 +106,9 @@ export function PerformanceCharts({
       <div className="perf-kpi-grid">
         <div
           className={`perf-kpi-card ${activeTab === "delays" ? "active" : ""}`}
-          onClick={() => { setActiveTab("delays"); }}
+          onClick={() => {
+            setActiveTab("delays");
+          }}
           role="button"
           tabIndex={0}
         >
@@ -106,18 +117,25 @@ export function PerformanceCharts({
             <span className="kpi-unit">s</span>
           </div>
           <div className="kpi-values-row">
-            <span className="kpi-val signal" title="Signal">{sigAvgDelay}</span>
+            <span className="kpi-val signal" title="Signal">
+              {sigAvgDelay}
+            </span>
             <span className="kpi-divider">vs</span>
-            <span className="kpi-val roundabout" title="Roundabout">{rndAvgDelay}</span>
+            <span className="kpi-val roundabout" title="Roundabout">
+              {rndAvgDelay}
+            </span>
           </div>
           <div className="kpi-subtext">
-            Median: {sigMedDelay} vs {rndMedDelay} · P95: {sigP95Delay} vs {rndP95Delay}
+            Median: {sigMedDelay} vs {rndMedDelay} · P95: {sigP95Delay} vs{" "}
+            {rndP95Delay}
           </div>
         </div>
 
         <div
           className={`perf-kpi-card ${activeTab === "queuedTime" ? "active" : ""}`}
-          onClick={() => { setActiveTab("queuedTime"); }}
+          onClick={() => {
+            setActiveTab("queuedTime");
+          }}
           role="button"
           tabIndex={0}
         >
@@ -126,16 +144,22 @@ export function PerformanceCharts({
             <span className="kpi-unit">s</span>
           </div>
           <div className="kpi-values-row">
-            <span className="kpi-val signal" title="Signal">{sigWait}</span>
+            <span className="kpi-val signal" title="Signal">
+              {sigWait}
+            </span>
             <span className="kpi-divider">vs</span>
-            <span className="kpi-val roundabout" title="Roundabout">{rndWait}</span>
+            <span className="kpi-val roundabout" title="Roundabout">
+              {rndWait}
+            </span>
           </div>
           <div className="kpi-subtext">Mean time spent &lt; 0.5 m/s</div>
         </div>
 
         <div
           className={`perf-kpi-card ${activeTab === "served" ? "active" : ""}`}
-          onClick={() => { setActiveTab("served"); }}
+          onClick={() => {
+            setActiveTab("served");
+          }}
           role="button"
           tabIndex={0}
         >
@@ -144,16 +168,22 @@ export function PerformanceCharts({
             <span className="kpi-unit">veh</span>
           </div>
           <div className="kpi-values-row">
-            <span className="kpi-val signal" title="Signal">{sigServed}</span>
+            <span className="kpi-val signal" title="Signal">
+              {sigServed}
+            </span>
             <span className="kpi-divider">vs</span>
-            <span className="kpi-val roundabout" title="Roundabout">{rndServed}</span>
+            <span className="kpi-val roundabout" title="Roundabout">
+              {rndServed}
+            </span>
           </div>
           <div className="kpi-subtext">Cumulative post-warmup exits</div>
         </div>
 
         <div
           className={`perf-kpi-card ${activeTab === "throughputRate" ? "active" : ""}`}
-          onClick={() => { setActiveTab("throughputRate"); }}
+          onClick={() => {
+            setActiveTab("throughputRate");
+          }}
           role="button"
           tabIndex={0}
         >
@@ -162,16 +192,22 @@ export function PerformanceCharts({
             <span className="kpi-unit">veh/min</span>
           </div>
           <div className="kpi-values-row">
-            <span className="kpi-val signal" title="Signal">{sigThroughputRate}</span>
+            <span className="kpi-val signal" title="Signal">
+              {sigThroughputRate}
+            </span>
             <span className="kpi-divider">vs</span>
-            <span className="kpi-val roundabout" title="Roundabout">{rndThroughputRate}</span>
+            <span className="kpi-val roundabout" title="Roundabout">
+              {rndThroughputRate}
+            </span>
           </div>
           <div className="kpi-subtext">Rolling 60 s exit rate</div>
         </div>
 
         <div
           className={`perf-kpi-card ${activeTab === "speed" ? "active" : ""}`}
-          onClick={() => { setActiveTab("speed"); }}
+          onClick={() => {
+            setActiveTab("speed");
+          }}
           role="button"
           tabIndex={0}
         >
@@ -180,16 +216,22 @@ export function PerformanceCharts({
             <span className="kpi-unit">m/s</span>
           </div>
           <div className="kpi-values-row">
-            <span className="kpi-val signal" title="Signal">{sigSpeed}</span>
+            <span className="kpi-val signal" title="Signal">
+              {sigSpeed}
+            </span>
             <span className="kpi-divider">vs</span>
-            <span className="kpi-val roundabout" title="Roundabout">{rndSpeed}</span>
+            <span className="kpi-val roundabout" title="Roundabout">
+              {rndSpeed}
+            </span>
           </div>
           <div className="kpi-subtext">Current in-network mean</div>
         </div>
 
         <div
           className={`perf-kpi-card ${activeTab === "reliability" ? "active" : ""}`}
-          onClick={() => { setActiveTab("reliability"); }}
+          onClick={() => {
+            setActiveTab("reliability");
+          }}
           role="button"
           tabIndex={0}
         >
@@ -198,13 +240,22 @@ export function PerformanceCharts({
             <span className="kpi-unit">ratio</span>
           </div>
           <div className="kpi-values-row">
-            <span className="kpi-val signal" title="Signal">{sigPti}</span>
+            <span className="kpi-val signal" title="Signal">
+              {sigPti}
+            </span>
             <span className="kpi-divider">vs</span>
-            <span className="kpi-val roundabout" title="Roundabout">{rndPti}</span>
+            <span className="kpi-val roundabout" title="Roundabout">
+              {rndPti}
+            </span>
           </div>
           <div className="kpi-subtext">
             {lowSampleSig || lowSampleRnd ? (
-              <span className="low-sample-warning" title="Fewer than 20 vehicles exited">⚠️ Low sample (n &lt; 20)</span>
+              <span
+                className="low-sample-warning"
+                title="Fewer than 20 vehicles exited"
+              >
+                ⚠️ Low sample (n &lt; 20)
+              </span>
             ) : (
               "P95 / Median travel time"
             )}
@@ -217,42 +268,54 @@ export function PerformanceCharts({
         <button
           type="button"
           className={`chart-tab-btn ${activeTab === "delays" ? "active" : ""}`}
-          onClick={() => { setActiveTab("delays"); }}
+          onClick={() => {
+            setActiveTab("delays");
+          }}
         >
           📈 Delay Dynamics (Avg, Median, P95)
         </button>
         <button
           type="button"
           className={`chart-tab-btn ${activeTab === "queuedTime" ? "active" : ""}`}
-          onClick={() => { setActiveTab("queuedTime"); }}
+          onClick={() => {
+            setActiveTab("queuedTime");
+          }}
         >
           ⏱️ Queued Time Trend
         </button>
         <button
           type="button"
           className={`chart-tab-btn ${activeTab === "served" ? "active" : ""}`}
-          onClick={() => { setActiveTab("served"); }}
+          onClick={() => {
+            setActiveTab("served");
+          }}
         >
           📊 Cumulative Vehicles Served
         </button>
         <button
           type="button"
           className={`chart-tab-btn ${activeTab === "throughputRate" ? "active" : ""}`}
-          onClick={() => { setActiveTab("throughputRate"); }}
+          onClick={() => {
+            setActiveTab("throughputRate");
+          }}
         >
           🚀 Throughput Rate
         </button>
         <button
           type="button"
           className={`chart-tab-btn ${activeTab === "speed" ? "active" : ""}`}
-          onClick={() => { setActiveTab("speed"); }}
+          onClick={() => {
+            setActiveTab("speed");
+          }}
         >
           ⚡ Mean Travel Speed (m/s)
         </button>
         <button
           type="button"
           className={`chart-tab-btn ${activeTab === "reliability" ? "active" : ""}`}
-          onClick={() => { setActiveTab("reliability"); }}
+          onClick={() => {
+            setActiveTab("reliability");
+          }}
         >
           🎯 Planning Time Index (PTI)
         </button>
@@ -263,18 +326,35 @@ export function PerformanceCharts({
         {history.length === 0 ? (
           <div className="chart-empty-state">
             <p>Waiting for live stream data points…</p>
-            <span className="chart-empty-sub">Time-series history starts plotting as the simulation advances.</span>
+            <span className="chart-empty-sub">
+              Time-series history starts plotting as the simulation advances.
+            </span>
           </div>
         ) : (
           <div style={{ width: "100%", height: compact ? 220 : 280 }}>
             {activeTab === "delays" && (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={history} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                  <XAxis dataKey="timeFormatted" stroke="#8892b0" fontSize={11} />
+                <LineChart
+                  data={history}
+                  margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="rgba(255,255,255,0.08)"
+                  />
+                  <XAxis
+                    dataKey="timeFormatted"
+                    stroke="#8892b0"
+                    fontSize={11}
+                  />
                   <YAxis stroke="#8892b0" fontSize={11} unit=" s" />
                   <Tooltip
-                    contentStyle={{ backgroundColor: "#1e2230", borderColor: "#333c56", borderRadius: 8, fontSize: 12 }}
+                    contentStyle={{
+                      backgroundColor: "#1e2230",
+                      borderColor: "#333c56",
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
                   />
                   <Legend height={36} wrapperStyle={{ top: 0, fontSize: 11 }} />
                   <Line
@@ -343,12 +423,27 @@ export function PerformanceCharts({
 
             {activeTab === "queuedTime" && (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={history} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                  <XAxis dataKey="timeFormatted" stroke="#8892b0" fontSize={11} />
+                <LineChart
+                  data={history}
+                  margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="rgba(255,255,255,0.08)"
+                  />
+                  <XAxis
+                    dataKey="timeFormatted"
+                    stroke="#8892b0"
+                    fontSize={11}
+                  />
                   <YAxis stroke="#8892b0" fontSize={11} unit=" s" />
                   <Tooltip
-                    contentStyle={{ backgroundColor: "#1e2230", borderColor: "#333c56", borderRadius: 8, fontSize: 12 }}
+                    contentStyle={{
+                      backgroundColor: "#1e2230",
+                      borderColor: "#333c56",
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
                   />
                   <Legend height={36} wrapperStyle={{ top: 0, fontSize: 11 }} />
                   <Line
@@ -375,22 +470,65 @@ export function PerformanceCharts({
 
             {activeTab === "served" && (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={history} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                <AreaChart
+                  data={history}
+                  margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+                >
                   <defs>
-                    <linearGradient id="sigServedGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={SIGNAL_COLOR} stopOpacity={0.4} />
-                      <stop offset="95%" stopColor={SIGNAL_COLOR} stopOpacity={0.0} />
+                    <linearGradient
+                      id="sigServedGrad"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="5%"
+                        stopColor={SIGNAL_COLOR}
+                        stopOpacity={0.4}
+                      />
+                      <stop
+                        offset="95%"
+                        stopColor={SIGNAL_COLOR}
+                        stopOpacity={0.0}
+                      />
                     </linearGradient>
-                    <linearGradient id="rndServedGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={ROUNDABOUT_COLOR} stopOpacity={0.4} />
-                      <stop offset="95%" stopColor={ROUNDABOUT_COLOR} stopOpacity={0.0} />
+                    <linearGradient
+                      id="rndServedGrad"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="5%"
+                        stopColor={ROUNDABOUT_COLOR}
+                        stopOpacity={0.4}
+                      />
+                      <stop
+                        offset="95%"
+                        stopColor={ROUNDABOUT_COLOR}
+                        stopOpacity={0.0}
+                      />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                  <XAxis dataKey="timeFormatted" stroke="#8892b0" fontSize={11} />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="rgba(255,255,255,0.08)"
+                  />
+                  <XAxis
+                    dataKey="timeFormatted"
+                    stroke="#8892b0"
+                    fontSize={11}
+                  />
                   <YAxis stroke="#8892b0" fontSize={11} unit=" veh" />
                   <Tooltip
-                    contentStyle={{ backgroundColor: "#1e2230", borderColor: "#333c56", borderRadius: 8, fontSize: 12 }}
+                    contentStyle={{
+                      backgroundColor: "#1e2230",
+                      borderColor: "#333c56",
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
                   />
                   <Legend height={36} wrapperStyle={{ top: 0, fontSize: 11 }} />
                   <Area
@@ -419,12 +557,27 @@ export function PerformanceCharts({
 
             {activeTab === "throughputRate" && (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={history} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                  <XAxis dataKey="timeFormatted" stroke="#8892b0" fontSize={11} />
+                <LineChart
+                  data={history}
+                  margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="rgba(255,255,255,0.08)"
+                  />
+                  <XAxis
+                    dataKey="timeFormatted"
+                    stroke="#8892b0"
+                    fontSize={11}
+                  />
                   <YAxis stroke="#8892b0" fontSize={11} unit=" v/m" />
                   <Tooltip
-                    contentStyle={{ backgroundColor: "#1e2230", borderColor: "#333c56", borderRadius: 8, fontSize: 12 }}
+                    contentStyle={{
+                      backgroundColor: "#1e2230",
+                      borderColor: "#333c56",
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
                   />
                   <Legend height={36} wrapperStyle={{ top: 0, fontSize: 11 }} />
                   <Line
@@ -451,15 +604,45 @@ export function PerformanceCharts({
 
             {activeTab === "speed" && (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={history} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                  <XAxis dataKey="timeFormatted" stroke="#8892b0" fontSize={11} />
-                  <YAxis stroke="#8892b0" fontSize={11} unit=" m/s" domain={[0, "auto"]} />
+                <LineChart
+                  data={history}
+                  margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="rgba(255,255,255,0.08)"
+                  />
+                  <XAxis
+                    dataKey="timeFormatted"
+                    stroke="#8892b0"
+                    fontSize={11}
+                  />
+                  <YAxis
+                    stroke="#8892b0"
+                    fontSize={11}
+                    unit=" m/s"
+                    domain={[0, "auto"]}
+                  />
                   <Tooltip
-                    contentStyle={{ backgroundColor: "#1e2230", borderColor: "#333c56", borderRadius: 8, fontSize: 12 }}
+                    contentStyle={{
+                      backgroundColor: "#1e2230",
+                      borderColor: "#333c56",
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
                   />
                   <Legend height={36} wrapperStyle={{ top: 0, fontSize: 11 }} />
-                  <ReferenceLine y={0.5} stroke="#ef4444" strokeDasharray="3 3" label={{ value: "Wait threshold (0.5 m/s)", fill: "#ef4444", fontSize: 10, position: "insideBottomRight" }} />
+                  <ReferenceLine
+                    y={0.5}
+                    stroke="#ef4444"
+                    strokeDasharray="3 3"
+                    label={{
+                      value: "Wait threshold (0.5 m/s)",
+                      fill: "#ef4444",
+                      fontSize: 10,
+                      position: "insideBottomRight",
+                    }}
+                  />
                   <Line
                     type="monotone"
                     dataKey="signalSpeed"
@@ -484,15 +667,44 @@ export function PerformanceCharts({
 
             {activeTab === "reliability" && (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={history} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                  <XAxis dataKey="timeFormatted" stroke="#8892b0" fontSize={11} />
-                  <YAxis stroke="#8892b0" fontSize={11} domain={[0.8, "auto"]} />
+                <LineChart
+                  data={history}
+                  margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="rgba(255,255,255,0.08)"
+                  />
+                  <XAxis
+                    dataKey="timeFormatted"
+                    stroke="#8892b0"
+                    fontSize={11}
+                  />
+                  <YAxis
+                    stroke="#8892b0"
+                    fontSize={11}
+                    domain={[0.8, "auto"]}
+                  />
                   <Tooltip
-                    contentStyle={{ backgroundColor: "#1e2230", borderColor: "#333c56", borderRadius: 8, fontSize: 12 }}
+                    contentStyle={{
+                      backgroundColor: "#1e2230",
+                      borderColor: "#333c56",
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
                   />
                   <Legend height={36} wrapperStyle={{ top: 0, fontSize: 11 }} />
-                  <ReferenceLine y={1.0} stroke="#10b981" strokeDasharray="3 3" label={{ value: "Ideal Reliability (1.00)", fill: "#10b981", fontSize: 10, position: "insideBottomRight" }} />
+                  <ReferenceLine
+                    y={1.0}
+                    stroke="#10b981"
+                    strokeDasharray="3 3"
+                    label={{
+                      value: "Ideal Reliability (1.00)",
+                      fill: "#10b981",
+                      fontSize: 10,
+                      position: "insideBottomRight",
+                    }}
+                  />
                   <Line
                     type="monotone"
                     dataKey="signalPti"
