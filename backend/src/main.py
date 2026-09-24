@@ -22,13 +22,14 @@ from fastapi import (
     FastAPI,
     Header,
     HTTPException,
+    Query,
     Request,
     WebSocket,
     WebSocketDisconnect,
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from src.controllers.factory import (
     build_tick_callback,
@@ -38,6 +39,7 @@ from src.controllers.factory import (
 from src.controllers.fixed_time_signal import FixedTimeSignalController
 from src.core.clock import Clock
 from src.core.config_models import ScenarioConfiguration
+from src.core.config_validation import semantic_config_errors
 from src.core.engine import SimulationEngine
 from src.core.enums import SimulationStatus
 from src.core.provenance import (
@@ -354,16 +356,23 @@ def get_active_vehicles() -> list[dict[str, Any]]:
 def validate_config(payload: Dict[str, Any]) -> Dict[str, Any]:
     try:
         jsonschema.validate(instance=payload, schema=CONFIG_SCHEMA)
-        return {"valid": True, "errors": []}
     except jsonschema.ValidationError as err:
         return {"valid": False, "errors": [err.message]}
+    errors = semantic_config_errors(payload)
+    return {"valid": not errors, "errors": errors}
 
 
 # ── Full Simulation Lifecycle REST Routes ───────────────────────────────────
 @app.post("/api/simulation/new", dependencies=[Depends(require_api_key)])
 def create_simulation_v2(payload: ScenarioConfiguration) -> Dict[str, Any]:
     config_dict = payload.model_dump(exclude_none=True)
-    return create_simulation(config_dict)
+    # Cross-field rules are checked against what the client actually sent,
+    # not the defaults-filled dump: warmupTime's 30 s default must not turn a
+    # short run into a rejected one (see semantic_config_errors).
+    return _create_simulation(
+        config_dict,
+        semantic_source=payload.model_dump(exclude_none=True, exclude_unset=True),
+    )
 
 
 def _persist_completed_run(
@@ -462,12 +471,27 @@ def _evict_completed_simulations() -> None:
     dependencies=[Depends(require_api_key)],
 )
 def create_simulation(config: Dict[str, Any]) -> Dict[str, Any]:
+    return _create_simulation(config, semantic_source=config)
+
+
+def _create_simulation(
+    config: Dict[str, Any], semantic_source: Dict[str, Any]
+) -> Dict[str, Any]:
     # Validate configuration against the schema (schema-level shape/bounds).
     try:
         jsonschema.validate(instance=config, schema=CONFIG_SCHEMA)
     except jsonschema.ValidationError as err:
         raise HTTPException(
             status_code=400, detail=f"Invalid configuration: {err.message}"
+        )
+    # ...and against the contract's cross-field rules, which the schema
+    # cannot express (docs/architecture/06-scenario-configuration-contract.md
+    # §5). These were documented but never enforced.
+    semantic_errors = semantic_config_errors(semantic_source)
+    if semantic_errors:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid configuration: {'; '.join(semantic_errors)}",
         )
 
     sim_id = str(uuid.uuid4())
@@ -1103,6 +1127,34 @@ def _reseed_unless_user_pinned(session: "_LiveSession") -> None:
     session.current_live_config["simulation"]["randomSeed"] = _generate_random_seed()
 
 
+def _live_config_errors(config: Dict[str, Any]) -> list[str]:
+    """Schema bounds plus cross-field rules for a compiled live-dashboard config.
+
+    The live config carries one shape the versioned schema does not accept —
+    a per-direction ``lanesPerApproach`` object (see §2.4 of the scenario
+    contract) — so each direction's lane count is checked as if it were the
+    scalar the schema expects. Everything else is validated as-is.
+    """
+    lanes = config.get("roads", {}).get("lanesPerApproach")
+    per_direction = lanes if isinstance(lanes, dict) else {"all": lanes}
+    for direction, count in per_direction.items():
+        candidate = copy.deepcopy(config)
+        candidate["roads"]["lanesPerApproach"] = count
+        try:
+            jsonschema.validate(instance=candidate, schema=CONFIG_SCHEMA)
+        except jsonschema.ValidationError as err:
+            where = "/".join(str(p) for p in err.absolute_path)
+            if where == "roads/lanesPerApproach" and direction != "all":
+                where = f"lanes{direction.capitalize()}"
+            return [f"{where}: {err.message}" if where else err.message]
+    # warmupTime is not a dashboard input — it is always DEFAULT_CONFIG's
+    # 30 s — so a short dashboard run must not be rejected for it (the same
+    # "explicit warmupTime only" rule the versioned API applies).
+    user_supplied = copy.deepcopy(config)
+    user_supplied.get("simulation", {}).pop("warmupTime", None)
+    return semantic_config_errors(user_supplied)
+
+
 @app.post("/api/simulation/config", dependencies=[Depends(require_api_key)])
 def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
     # Unlike /api/v1/simulations and /api/simulation/new, this endpoint
@@ -1215,6 +1267,7 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
     # duration above); wrap them the same way create_simulation() already
     # does for /api/v1/simulations so malformed input is a 400, not a raw
     # 500 that leaks past the client-facing error envelope.
+    previous_live_config = session.current_live_config
     try:
         session.current_live_config = {
             "simulation": {
@@ -1304,6 +1357,20 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
         raise HTTPException(
             status_code=400, detail=f"Invalid configuration: {exc}"
         ) from exc
+
+    # The coercions above only reject values that are not numbers at all.
+    # Range checks were missing entirely, so lanesNorth=0 or -1, a negative or
+    # NaN arrivalRate, a negative yellow/all-red or a negative critical gap
+    # were all accepted and quietly simulated as something meaningless. Hold
+    # the compiled config to the same schema bounds as the versioned API.
+    live_errors = _live_config_errors(session.current_live_config)
+    if live_errors:
+        # Leave the session on its previous (valid) config, not the rejected one.
+        session.current_live_config = previous_live_config
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid configuration: {'; '.join(live_errors)}",
+        )
 
     # Reset live simulation cache
     session.live_sim_data["engine"] = None
@@ -1536,10 +1603,41 @@ MAX_SWEEP_ARRIVAL_RATES = 20
 MAX_MONTE_CARLO_SEEDS = 30
 
 
+# Pagination for the history/sweep/replay listings. The values go straight
+# into SQL "LIMIT ? OFFSET ?", where SQLite reads a negative LIMIT as "no
+# limit": ?limit=-1 dumped the entire table, sweep result blobs included, in
+# one response.
+MAX_PAGE_SIZE = 500
+PageLimit = Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)]
+PageOffset = Annotated[int, Query(ge=0)]
+
 # Each swept arrival rate is bounded by the same range the scenario config
 # already enforces for traffic.arrivalRate, so a sweep cannot ask for a
 # workload the simulator would reject if configured directly.
 StudyArrivalRate = Annotated[float, Field(gt=0, le=10.0)]
+
+# Study runs honour customConfig.simulation.timeStep (the dashboards offer
+# 0.05 / 0.1 / 0.2 s). Cost scales with 1/timeStep, so it is bounded like
+# every other workload parameter: the floor is the finest step the dashboards
+# offer, the ceiling the scenario schema's own maximum.
+MIN_STUDY_TIME_STEP_SECONDS = 0.05
+MAX_STUDY_TIME_STEP_SECONDS = 1.0
+
+
+def _check_study_time_step(custom_config: Optional[Dict[str, Any]]) -> None:
+    sim = (custom_config or {}).get("simulation")
+    if not isinstance(sim, dict) or "timeStep" not in sim:
+        return
+    step = sim["timeStep"]
+    if (
+        not isinstance(step, (int, float))
+        or isinstance(step, bool)
+        or not (MIN_STUDY_TIME_STEP_SECONDS <= step <= MAX_STUDY_TIME_STEP_SECONDS)
+    ):
+        raise ValueError(
+            "customConfig.simulation.timeStep must be a number between "
+            f"{MIN_STUDY_TIME_STEP_SECONDS} and {MAX_STUDY_TIME_STEP_SECONDS} s"
+        )
 
 
 class VolumeSweepRequest(BaseModel):
@@ -1553,6 +1651,11 @@ class VolumeSweepRequest(BaseModel):
     name: str = Field(default="Comparative Volume Sweep", max_length=200)
     customConfig: Dict[str, Any] | None = None
 
+    @model_validator(mode="after")
+    def _time_step_in_bounds(self) -> "VolumeSweepRequest":
+        _check_study_time_step(self.customConfig)
+        return self
+
 
 class MonteCarloValidationRequest(BaseModel):
     numSeeds: int = Field(default=5, ge=1, le=MAX_MONTE_CARLO_SEEDS)
@@ -1560,6 +1663,11 @@ class MonteCarloValidationRequest(BaseModel):
         default=30.0, ge=MIN_STUDY_DURATION_SECONDS, le=MAX_STUDY_DURATION_SECONDS
     )
     customConfig: Dict[str, Any] | None = None
+
+    @model_validator(mode="after")
+    def _time_step_in_bounds(self) -> "MonteCarloValidationRequest":
+        _check_study_time_step(self.customConfig)
+        return self
 
 
 class RepeatabilityValidationRequest(BaseModel):
@@ -1583,7 +1691,9 @@ def run_sweep_endpoint(payload: VolumeSweepRequest | None = None) -> Dict[str, A
 
 
 @app.get("/api/v1/study/sweeps")
-def list_sweeps_endpoint(limit: int = 20, offset: int = 0) -> list[Dict[str, Any]]:
+def list_sweeps_endpoint(
+    limit: PageLimit = 20, offset: PageOffset = 0
+) -> list[Dict[str, Any]]:
     """Lists past volume sweep benchmark experiments."""
     init_db()
     with get_db_connection() as conn:
@@ -1617,8 +1727,8 @@ class RunComparisonRequest(BaseModel):
 
 @app.get("/api/v1/study/history/runs")
 def list_simulation_runs_endpoint(
-    limit: int = 50,
-    offset: int = 0,
+    limit: PageLimit = 50,
+    offset: PageOffset = 0,
     intersection_type: str | None = None,
     seed: int | None = None,
     batch_id: str | None = None,
@@ -2122,7 +2232,7 @@ def reproduce_run_endpoint(run_id: str) -> Dict[str, Any]:
         steps = int(round(elapsed / time_step))
     else:
         target_elapsed = duration
-        steps = int(duration / time_step)
+        steps = Clock(time_step).ticks_for_duration(duration)
 
     # Clone config and ensure seed, timeStep, duration match
     run_config = json.loads(json.dumps(config))
@@ -2203,7 +2313,11 @@ def validate_monte_carlo_endpoint(
     )
 
 
-@app.get("/api/v1/study/export")
+# Protected like the other study routes: building this report runs a fresh
+# 16-simulation volume sweep plus a Monte-Carlo validation and persists the
+# sweep to run history. As an open GET it let any caller do both on a deployment
+# whose POST study endpoints require the API key.
+@app.get("/api/v1/study/export", dependencies=[Depends(require_api_key)])
 def export_study_report_endpoint(format: str = "json") -> Any:  # noqa: A002
     """Exports full comprehensive validated study dataset in JSON or CSV format."""
     if format.lower() == "csv":
@@ -2416,7 +2530,7 @@ def save_replay(payload: SaveReplayRequest, request: Request) -> Dict[str, Any]:
 
 
 @app.get("/api/v1/replays")
-def list_replays(limit: int = 50, offset: int = 0) -> list[Dict[str, Any]]:
+def list_replays(limit: PageLimit = 50, offset: PageOffset = 0) -> list[Dict[str, Any]]:
     init_db()
     with get_db_connection() as conn:
         return _with_reproducibility(

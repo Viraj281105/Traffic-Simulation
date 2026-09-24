@@ -36,10 +36,10 @@ The versioned API accepts this configuration over REST and validates it against 
 
 | # | Field | Type | Required | Default | Description | Validation |
 |---|-------|------|----------|---------|-------------|------------|
-| 1 | `duration` | `number` | ❌ | `300` | Total simulation duration | > 0, ≤ 3600 seconds |
+| 1 | `duration` | `number` | ✅ | — | Total simulation duration. Required by both `shared/schemas/config.schema.json` and `SimulationSection` (the schema's `default: 300` is advisory only — JSON-schema validation never fills it in). | ≥ 1, ≤ 3600 seconds |
 | 2 | `timeStep` | `number` | ❌ | `0.1` | Simulation tick interval (dt) | > 0, ≤ 1.0 seconds |
 | 3 | `warmupTime` | `number` | ❌ | `30` | Initial period excluded from all metrics — vehicles still approaching the intersection during this window (not yet interacting with it) are excluded from averages so they don't distort them. Enforced by a single early-return in `MetricCollector.update()`, so every per-tick-accumulated metric (queues, delay, throughput, speed variance, idle loss, etc.) is excluded consistently. Not the same as `controller.offset` (§2.6.1), which is a signal-timing concept, not an analysis one. | ≥ 0, < `duration` |
-| 4 | `randomSeed` | `integer` | ❌ | `42` | Random number generator seed | ≥ 0 |
+| 4 | `randomSeed` | `integer` | ❌ | auto-generated | Random number generator seed. When omitted, `VehicleSpawner` draws a fresh seed, logs a warning and writes it back into the config, so the seed actually used is always recorded with the run. (The schema's `default: 42` is advisory and is not applied.) | ≥ 0 |
 | 5 | `snapshotFrequency` | `number` | ❌ | `10` | Snapshots emitted per second | > 0, ≤ 60 Hz |
 
 ### 2.2 `traffic` — Traffic Demand
@@ -85,10 +85,17 @@ The versioned API accepts this configuration over REST and validates it against 
 | 1 | `approachLength` | `number` | ❌ | `200` | Length of each approach arm | > 50, ≤ 1000 meters |
 | 2 | `laneWidth` | `number` | ❌ | `3.5` | Width of each lane | > 2.5, ≤ 5.0 meters |
 | 3 | `lanesPerApproach` | `integer` | ❌ | `2` | Lane count applied to all four approaches | 1–4 (see `shared/schemas/config.schema.json`) |
-| 4 | `speedLimit` | `number` | ❌ | `13.89` | Speed limit on approach roads | > 0, ≤ 30 m/s (≈108 km/h) |
+| 4 | `speedLimit` | `number` | ❌ | `13.89` | Speed limit on approach roads. **Accepted and validated but not applied by the engine** — vehicles drive at their own `desiredSpeed` (see §2.5), which by default exceeds it. See the note below. | > 0, ≤ 30 m/s (≈108 km/h) |
 | 5 | `approaches` | `array<ApproachConfig>` | ❌ | All 4 directions | Per-approach overrides | See below |
 
 > **Asymmetric lane counts — not yet part of this contract.** The versioned config schema (`shared/schemas/config.schema.json`, enforced on `POST /api/v1/configs/validate` and `POST /api/v1/simulations`) only accepts `lanesPerApproach` as a single integer shared by all four approaches. Internally, the legacy live dashboard routes (`backend/src/main.py`) and the simulation engine (`backend/src/roads/network.py`) already accept a per-direction object (`{"north": 2, "south": 3, ...}`), but that shape is an implementation detail of the live/interactive path, not a validated or documented versioned-API feature. Officially supporting asymmetric per-direction lane counts in the versioned contract — including the schema, Pydantic models, and any dependent metric formulas such as [Space/Footprint Consumed](07-metric-contract.md#61-space--footprint-consumed) — is planned future work, not current behavior.
+
+> **`speedLimit` is not applied today.** Lanes store it, but no part of the
+> vehicle model reads it: longitudinal behaviour is governed by each vehicle's
+> `desiredSpeed` (default 18–25 m/s) and, at a roundabout, by the controller's
+> `entrySpeed`/`circulatingSpeed`. Enforcing it would change every published
+> result, so it is recorded as an open requirement rather than silently
+> switched on — see `docs/bug-fix-report.md` (Remaining Known Issues).
 
 #### ApproachConfig Object
 
@@ -96,7 +103,7 @@ The versioned API accepts this configuration over REST and validates it against 
 |---|-------|------|----------|---------|-------------|------------|
 | 1 | `direction` | `string` | ✅ | — | Approach direction | enum: `north`, `south`, `east`, `west` |
 | 2 | `lanes` | `integer` | ❌ | Inherits from `lanesPerApproach` | Lane count for this approach | ≥ 1, ≤ 4 |
-| 3 | `speedLimit` | `number` | ❌ | Inherits from `roads.speedLimit` | Speed limit for this approach | > 0 m/s |
+| 3 | `speedLimit` | `number` | ❌ | Inherits from `roads.speedLimit` | Speed limit for this approach. Not applied (see `roads.speedLimit`). | > 0 m/s |
 
 ### 2.5 `vehicleGeneration` — Vehicle Properties
 
@@ -104,7 +111,7 @@ The versioned API accepts this configuration over REST and validates it against 
 |---|-------|------|----------|---------|-------------|------------|
 | 1 | `vehicleLength` | `object` | ❌ | `{"min": 4.0, "max": 5.0}` | Vehicle length range | min > 0, max ≥ min |
 | 2 | `vehicleWidth` | `object` | ❌ | `{"min": 1.8, "max": 2.2}` | Vehicle width range | min > 0, max ≥ min |
-| 3 | `desiredSpeed` | `object` | ❌ | `{"min": 11.0, "max": 15.0}` | Desired free-flow speed range | min > 0, max ≥ min, m/s |
+| 3 | `desiredSpeed` | `object` | ❌ | `{"min": 18.0, "max": 25.0}` | Desired free-flow speed range (the default `VehicleSpawner` actually applies, and the value every dashboard/study preset sets explicitly) | min > 0, max ≥ min, m/s |
 | 4 | `maxAcceleration` | `number` | ❌ | `2.0` | Maximum comfortable acceleration | > 0 m/s² |
 | 5 | `comfortDeceleration` | `number` | ❌ | `3.0` | Comfortable deceleration magnitude | > 0 m/s² |
 | 6 | `minimumGap` | `number` | ❌ | `2.0` | Minimum spacing between vehicles at standstill | > 0 meters |
@@ -372,18 +379,30 @@ If none of a duration's names are present, the hardcoded fallback (30 / 5 / 4 / 
 | Enum checks | All string enums | Must be one of the documented values |
 | Sum-to-one | `directionalSplit` values | Must sum to 1.0 (±0.01 tolerance) |
 | Sum-to-one | `turnProbabilities` values | Must sum to 1.0 (±0.01 tolerance) |
-| Cross-field | `warmupTime < duration` | Warmup cannot exceed total duration |
-| Cross-field | `outerRadius > innerRadius` | Roundabout outer must exceed inner |
-| Controller match | `controller` fields | Controller config must match `geometry.intersectionType` |
+| Cross-field | `warmupTime < duration` | Warmup cannot exceed total duration. Applied to an explicitly supplied `warmupTime`; a run relying on the 30 s default is not rejected (its metrics simply stay in warm-up). |
+| Cross-field | `outerRadius > innerRadius` | Roundabout outer must exceed inner (an explicit radius is also checked against the other's default) |
+| Cross-field | `vehicleGeneration` ranges | `max ≥ min` for `vehicleLength`, `vehicleWidth`, `desiredSpeed` |
+| Not implemented | `arrivalDistribution: "burst"` | In the enum, but rejected with 400 until the spawner implements it |
+| Finite numbers | All numeric fields | NaN / ±Infinity are rejected (they pass JSON-schema bounds) |
+| Controller match | `controller` fields | **Not enforced.** Controller config should match `geometry.intersectionType`; clients currently send one mixed controller block and each controller reads only its own keys. |
+
+The sum-to-one, cross-field, not-implemented and finite-number rules are
+enforced by `backend/src/core/config_validation.py` on
+`POST /api/v1/configs/validate`, `POST /api/v1/simulations`,
+`POST /api/simulation/new` and `POST /api/simulation/config`.
 
 ---
 
 ## 6. Minimal Valid Configuration
 
-The smallest valid configuration requires only the intersection type:
+The smallest valid configuration requires the intersection type and the
+simulation duration (both are required by the schema and the typed model):
 
 ```json
 {
+  "simulation": {
+    "duration": 300
+  },
   "geometry": {
     "intersectionType": "fixed_time_signal"
   }

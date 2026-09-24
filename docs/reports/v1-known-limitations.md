@@ -2,6 +2,16 @@
 
 Audit date: 2026-09-18. Branch: `viraj-dev`.
 
+> **Superseded figures (2026-09-24).** The capacity numbers in this audit
+> predate the bug-fix pass recorded in `docs/bug-fix-report.md`, which changed
+> the simulated physics (safe insertion speed, roundabout approach braking,
+> signal admission control — two of those fixes removed junction lock-ups).
+> Current single-lane figures: signal seed-1 peak 1543 veh/h (5-seed mean
+> ≈ 1450–1510 at saturation), roundabout 1406 veh/h; multi-lane roundabout peaks
+> 1406 / 2040 / 2417 veh/h at 1 / 2 / 3 lanes. The authoritative table is
+> `docs/reports/comparative_report.md` §2. The tables below are kept as the
+> historical record of the 2026-09-18 audit.
+
 Every item below was re-measured rather than carried forward from an earlier
 note. Each carries one of four classifications:
 

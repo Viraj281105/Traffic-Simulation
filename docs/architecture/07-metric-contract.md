@@ -470,7 +470,7 @@ $$
 U = \begin{cases} \dfrac{\text{service\_ticks}}{\text{demand\_ticks}} \times 100 & \text{demand\_ticks} > 0 \\ 0 & \text{demand\_ticks} = 0 \end{cases}
 $$
 
-`demand_ticks` counts post-warmup ticks with ≥1 active vehicle; `service_ticks` counts the subset of those where the average active-vehicle speed exceeds `vehicleGeneration.waitSpeedThreshold`. Rounded to 1 decimal place.
+`demand_ticks` counts post-warmup ticks with ≥1 active vehicle; `service_ticks` counts the subset of those where the average active-vehicle speed exceeds `metrics.waitSpeedThreshold` (legacy location `vehicleGeneration.waitSpeedThreshold` is still honoured when `metrics` does not set it). Rounded to 1 decimal place.
 
 ### 7.4 Congestion Recovery Time
 

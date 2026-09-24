@@ -6,7 +6,6 @@ from src.core.enums import Direction
 from src.metrics.definitions.derived_metrics import (
     calculate_average_travel_speed,
     calculate_critical_saturation_volume,
-    calculate_queue_stability_index,
     calculate_space_footprint_consumed,
 )
 from src.metrics.definitions.fairness import calculate_directional_fairness
@@ -33,6 +32,26 @@ from src.vehicles.vehicle import Vehicle
 if TYPE_CHECKING:
     from src.intersection.conflict_manager import ConflictManager
 
+_DIRECTIONS = ("north", "south", "east", "west")
+
+
+def resolve_speed_threshold(config: Dict[str, Any], key: str, default: float) -> float:
+    """Read ``waitSpeedThreshold`` / ``stopSpeedThreshold`` from a config.
+
+    The scenario contract, the JSON schema and the typed ``MetricsSection``
+    all place these under ``metrics``; the runtime used to read them only from
+    ``vehicleGeneration``, so a value set where the contract says to set it was
+    silently ignored (and on the typed route, where ``VehicleGenerationSection``
+    has no such fields, there was no way to set it at all). ``metrics`` now
+    wins; ``vehicleGeneration`` is still honoured as the legacy location the
+    dashboard and study presets use.
+    """
+    metrics_cfg = config.get("metrics") or {}
+    if key in metrics_cfg and metrics_cfg[key] is not None:
+        return float(metrics_cfg[key])
+    veh_gen = config.get("vehicleGeneration") or {}
+    return float(veh_gen.get(key, default))
+
 
 class MetricCollector:
     """Manages the periodic aggregation of simulation operational metrics."""
@@ -52,9 +71,12 @@ class MetricCollector:
         self.time_step: float = sim_cfg.get("timeStep", 0.1)
 
         # Hysteresis configuration
-        veh_gen = config.get("vehicleGeneration", {})
-        self.stop_speed_threshold: float = veh_gen.get("stopSpeedThreshold", 0.1)
-        self.wait_speed_threshold: float = veh_gen.get("waitSpeedThreshold", 0.5)
+        self.stop_speed_threshold: float = resolve_speed_threshold(
+            config, "stopSpeedThreshold", 0.1
+        )
+        self.wait_speed_threshold: float = resolve_speed_threshold(
+            config, "waitSpeedThreshold", 0.5
+        )
 
         # TTC/PET configuration (see metrics/definitions/safety_conflicts.py).
         # Measurement-only: these thresholds only affect which observed
@@ -83,6 +105,20 @@ class MetricCollector:
 
         # Maintain list of queue lengths over time to compute time-average and max
         self.queue_history: List[Dict[str, int]] = []
+        # Running aggregates of queue_history, kept alongside it so
+        # get_metrics() never has to rescan the history. It used to, on every
+        # call — and SnapshotBuilder calls it every tick of a
+        # /api/v1/simulations run, so the per-tick cost grew linearly with
+        # elapsed time (4 ms/tick at the start, ~37 ms by 20 simulated
+        # minutes, past the 100 ms real-time budget well before an hour).
+        # All integer, so the aggregates are exact and every derived value is
+        # identical to the rescanning computation.
+        self._q_dir_sum: Dict[str, int] = {d: 0 for d in _DIRECTIONS}
+        self._q_dir_max: Dict[str, int] = {d: 0 for d in _DIRECTIONS}
+        self._q_total_sum: int = 0
+        self._q_total_sumsq: int = 0
+        self._q_nonzero_count: int = 0
+        self._q_nonzero_sum: int = 0
 
         # Per-tick speed CV history (see speed_variance.py) for computing
         # the time-averaged SVI = (1/T) * sum(CV(t)) per the metric contract.
@@ -176,6 +212,18 @@ class MetricCollector:
             active_vehicles, self.wait_speed_threshold
         )
         self.queue_history.append(current_queues)
+        total_q = 0
+        for d in _DIRECTIONS:
+            q = current_queues.get(d, 0)
+            total_q += q
+            self._q_dir_sum[d] += q
+            if q > self._q_dir_max[d]:
+                self._q_dir_max[d] = q
+        self._q_total_sum += total_q
+        self._q_total_sumsq += total_q * total_q
+        if total_q > 0:
+            self._q_nonzero_count += 1
+            self._q_nonzero_sum += total_q
 
         # Congestion Recovery: increment recovery time if total queue length across all approaches > 5
         if sum(current_queues.values()) > 5:
@@ -263,31 +311,29 @@ class MetricCollector:
         # directions and ticks. (activeAverageQueueLength/queueStdDev remain
         # based on the intersection-wide total queue per tick — they are
         # undocumented, separate derived stats and are left unchanged.)
-        directions = ["north", "south", "east", "west"]
-        if self.queue_history:
-            per_direction_avg = {}
-            per_direction_max = {}
-            for d in directions:
-                series = [q.get(d, 0) for q in self.queue_history]
-                per_direction_avg[d] = sum(series) / len(series)
-                per_direction_max[d] = max(series)
+        n_q = len(self.queue_history)
+        qsi = 0.0
+        if n_q:
+            per_direction_avg = {d: self._q_dir_sum[d] / n_q for d in _DIRECTIONS}
+            avg_q = round(sum(per_direction_avg.values()) / len(_DIRECTIONS), 2)
+            max_q = max(self._q_dir_max.values())
 
-            avg_q = round(sum(per_direction_avg.values()) / len(directions), 2)
-            max_q = max(per_direction_max.values())
-
-            all_queues_sums = [sum(q.values()) for q in self.queue_history]
-            non_zero_queues = [q for q in all_queues_sums if q > 0]
             active_avg_q = (
-                round(sum(non_zero_queues) / len(non_zero_queues), 2)
-                if non_zero_queues
+                round(self._q_nonzero_sum / self._q_nonzero_count, 2)
+                if self._q_nonzero_count
                 else 0.0
             )
-            if len(all_queues_sums) > 1:
-                total_q_mean = sum(all_queues_sums) / len(all_queues_sums)
-                var_q = sum((x - total_q_mean) ** 2 for x in all_queues_sums) / (
-                    len(all_queues_sums) - 1
-                )
-                sd_q = round(math.sqrt(var_q), 2)
+            if n_q > 1:
+                # Sample variance from exact integer sums:
+                # (n*sum(x^2) - (sum x)^2) / (n*(n-1)).
+                var_numerator = n_q * self._q_total_sumsq - self._q_total_sum**2
+                var_q = var_numerator / (n_q * (n_q - 1))
+                sd_raw = math.sqrt(max(0.0, var_q))
+                sd_q = round(sd_raw, 2)
+                # Queue Stability Index, as calculate_queue_stability_index.
+                mean_total = self._q_total_sum / n_q
+                if mean_total != 0:
+                    qsi = float(round(sd_raw / mean_total, 3))
             else:
                 sd_q = 0.0
         else:
@@ -442,7 +488,7 @@ class MetricCollector:
             "activeVehicleCount": len(active_vehicles),
             "totalVehiclesSpawned": total_spawned,
             "averageTravelSpeed": calculate_average_travel_speed(active_vehicles),
-            "queueStabilityIndex": calculate_queue_stability_index(self.queue_history),
+            "queueStabilityIndex": qsi,
             "congestionRecoveryTime": round(self.congestion_recovery_time, 2),
             "spaceFootprintConsumed": calculate_space_footprint_consumed(self.config),
             "intersectionUtilization": round(

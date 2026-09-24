@@ -160,3 +160,11 @@ def test_compose_wires_the_proxy_key_from_the_same_value_as_the_backend() -> Non
     )
     assert "API_KEY=${API_KEY:-}" in compose
     assert "BACKEND_API_KEY=${API_KEY:-}" in compose
+
+
+def test_study_export_requires_the_key(secured_client: TestClient) -> None:
+    """Regression: GET /api/v1/study/export runs (and persists) a whole sweep
+    plus a Monte-Carlo study, yet was reachable without the key that guards
+    POST /api/v1/study/sweeps/run."""
+    response = secured_client.get("/api/v1/study/export?format=json")
+    assert response.status_code == 401

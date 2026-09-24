@@ -56,7 +56,7 @@ def _summarize_sweep_verdict(sweep: Dict[str, Any]) -> Dict[str, Any]:
         volume_note = f" (~{crossover_h:,} veh/h total)" if crossover_h else ""
         text = (
             f"Measured delay reversed direction at an arrival rate of "
-            f"{crossover:.3f} veh/s/approach{volume_note}. Below that point "
+            f"{crossover:.3f} veh/s (whole junction){volume_note}. Below that point "
             f"the roundabout had the lower measured delay ({roundabout_wins} "
             f"of {total} points); at or above it the signal did "
             f"({signal_wins} of {total} points"
@@ -167,8 +167,10 @@ def generate_study_report_csv(
             "Total Hourly Volume (veh/h)",
             "Signal Delay (s)",
             "Roundabout Delay (s)",
-            "Signal Throughput (veh/h)",
-            "Roundabout Throughput (veh/h)",
+            # The sweep's "throughput" is a vehicle count (post-warm-up exits),
+            # not a flow rate; it used to be labelled veh/h.
+            "Signal Throughput (vehicles served)",
+            "Roundabout Throughput (vehicles served)",
             "Signal Avg Queue",
             "Roundabout Avg Queue",
             "Optimal Strategy",

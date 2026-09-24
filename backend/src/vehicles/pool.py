@@ -96,9 +96,9 @@ class VehiclePool:
         # used to count each physical collision once (on the tick it
         # starts) rather than once per tick the overlap persists.
         self._colliding_pairs: Set[FrozenSet[str]] = set()
-        # Predictive (trajectory-projection) conflict avoidance. Holds no
-        # per-run state of its own — see predictive_conflicts.py — so it is
-        # safe to keep across an engine reset.
+        # Predictive (trajectory-projection) conflict avoidance. Remembers who
+        # was told to give way to whom, keyed by vehicle id, so it must be
+        # reset with the pool (see reset() below).
         self._predictive: PredictiveConflictResolver = PredictiveConflictResolver()
 
     def reset(self) -> None:
@@ -118,6 +118,7 @@ class VehiclePool:
         self._collision_count = 0
         self._colliding_pairs.clear()
         self._last_lane_change.clear()
+        self._predictive.reset()
 
     def add_vehicle(self, vehicle: Vehicle) -> None:
         if vehicle not in self.active_vehicles:

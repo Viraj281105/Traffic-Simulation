@@ -1,3 +1,5 @@
+import pytest
+
 from src.core.enums import Direction
 from src.metrics.collector import MetricCollector
 from src.metrics.definitions.fairness import calculate_directional_fairness
@@ -284,6 +286,23 @@ def test_directional_fairness() -> None:
 
     v_zero = DummyVehicle(0.0, 0.0, 0, route=[lane_n])
     assert calculate_directional_fairness([v_zero]) == 1.0
+
+
+def test_directional_fairness_excludes_directions_without_vehicles() -> None:
+    """Regression (contract §5.1): an approach with no vehicles is excluded and
+    n adjusted. It used to count as a 0 s average, so traffic on one approach
+    only scored the 'maximally unfair' 0.25."""
+    lane_n = DummyLane("n_in_0")
+    lane_s = DummyLane("s_in_0")
+    north_only = [DummyVehicle(0.0, 12.0, 0, route=[lane_n]) for _ in range(3)]
+    assert calculate_directional_fairness(north_only) == pytest.approx(1.0)
+
+    # Two served approaches with waits 10 and 20: J = 30^2 / (2 * 500) = 0.9.
+    two = [
+        DummyVehicle(0.0, 10.0, 0, route=[lane_n]),
+        DummyVehicle(0.0, 20.0, 0, route=[lane_s]),
+    ]
+    assert calculate_directional_fairness(two) == pytest.approx(0.9)
 
 
 def test_metric_collector_default_warmup_time_matches_documented_default() -> None:

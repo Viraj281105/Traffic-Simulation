@@ -189,7 +189,6 @@ def run_statistical_validation(
     }
 
     seeds = [random.randint(1000, 999999) for _ in range(num_seeds)]
-    steps = int(duration / time_step)
 
     sig_delays: List[float] = []
     round_delays: List[float] = []
@@ -202,9 +201,14 @@ def run_statistical_validation(
 
     for seed in seeds:
         run_cfg = json.loads(json.dumps(base_config))
+        run_cfg.setdefault("simulation", {})
         run_cfg["simulation"]["randomSeed"] = seed
+        # As in the volume sweep: the validated request duration is the one
+        # the engines run, and ticks are counted on their own clock.
+        run_cfg["simulation"]["duration"] = duration
 
         orchestrator = DualSimulationOrchestrator(run_cfg)
+        steps = orchestrator.clock_signal.ticks_for_duration(duration)
 
         for _ in range(steps):
             orchestrator.engine_signal.step()
@@ -320,8 +324,8 @@ def run_invariant_checks(
         },
     }
 
-    steps = int(duration / time_step)
     orchestrator1 = DualSimulationOrchestrator(config)
+    steps = orchestrator1.clock_signal.ticks_for_duration(duration)
 
     invariants_passed = True
     violations: List[str] = []
