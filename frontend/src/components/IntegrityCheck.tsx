@@ -3,17 +3,36 @@ import { API_BASE_URL } from "../config";
 
 /** Result of POST /api/v1/study/validate/repeatability
  *  (backend/src/study/validation.py run_invariant_checks). */
+interface GeometryIntegrity {
+  valid: boolean;
+  isDeterministic: boolean;
+  violations: string[];
+}
+
 interface IntegrityResult {
   valid: boolean;
   isDeterministic: boolean;
   ticksTested: number;
   violations: string[];
+  /** Each geometry is reported on its own: a pass on one is never read as a
+   *  pass on both. */
+  geometries?: { signal: GeometryIntegrity; roundabout: GeometryIntegrity };
+  signalGreenExclusivityValid?: boolean;
+  /** What the run actually checked, as stated by the backend. */
+  checked?: string[];
 }
 
+const GEOMETRY_NAME = {
+  signal: "Signal",
+  roundabout: "Roundabout",
+} as const;
+
 /**
- * Runs the backend's model-integrity checks: vehicle conservation and
- * non-negative speeds on every tick, plus a same-seed re-run that must
- * reproduce the same metrics.
+ * Runs the backend's model-integrity checks on BOTH the signal and the
+ * roundabout engine: vehicle conservation and non-negative speeds on every
+ * tick, no conflicting signal greens (signal), and a same-seed re-run that
+ * must reproduce delay and throughput on each. Results are shown per
+ * geometry.
  */
 export function IntegrityCheck() {
   const [state, setState] = useState<
@@ -51,9 +70,13 @@ export function IntegrityCheck() {
         <div>
           <h3 id="integrity-title">Model integrity check</h3>
           <p>
-            Steps both controls for 20 s of simulated time, checking on every
-            tick that no vehicle is lost or created and no speed is negative,
-            then re-runs the same seed and confirms the metrics match.
+            Steps both the signal and the roundabout for 20 s of simulated time.
+            On every tick it checks, for each, that no vehicle is lost or
+            created and no speed is negative, and that the signal never shows
+            conflicting greens; then it re-runs the same seed and confirms each
+            geometry reproduces its delay and throughput. It checks the
+            simulation&apos;s internal consistency, not that its results match
+            the real world.
           </p>
         </div>
         <button
@@ -75,14 +98,35 @@ export function IntegrityCheck() {
         {state.kind === "done" && (
           <div className="integrity-result">
             <ul>
-              <li className={state.result.valid ? "ok" : "bad"}>
-                {state.result.valid ? "✓" : "✗"} All invariants held over{" "}
-                {state.result.ticksTested.toLocaleString()} ticks
-              </li>
-              <li className={state.result.isDeterministic ? "ok" : "bad"}>
-                {state.result.isDeterministic ? "✓" : "✗"} Same seed reproduced
-                the same delay and throughput
-              </li>
+              {(["signal", "roundabout"] as const).map((g) => {
+                const r = state.result.geometries?.[g];
+                const ok = r ? r.valid : state.result.valid;
+                const det = r
+                  ? r.isDeterministic
+                  : state.result.isDeterministic;
+                return (
+                  <li key={g} className={ok && det ? "ok" : "bad"}>
+                    {ok && det ? "✓" : "✗"} {GEOMETRY_NAME[g]}:{" "}
+                    {ok
+                      ? `all invariants held over ${state.result.ticksTested.toLocaleString()} ticks`
+                      : "an invariant was violated"}
+                    ;{" "}
+                    {det
+                      ? "same seed reproduced the same delay and throughput"
+                      : "same seed did not reproduce delay and throughput"}
+                  </li>
+                );
+              })}
+              {state.result.signalGreenExclusivityValid !== undefined && (
+                <li
+                  className={
+                    state.result.signalGreenExclusivityValid ? "ok" : "bad"
+                  }
+                >
+                  {state.result.signalGreenExclusivityValid ? "✓" : "✗"} Signal:
+                  no conflicting greens at the same time
+                </li>
+              )}
             </ul>
             {state.result.violations.length > 0 && (
               <details>

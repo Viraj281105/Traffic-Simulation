@@ -34,7 +34,7 @@ const steps: { icon: IconComponent; title: string; body: string }[] = [
   {
     icon: BarChart3,
     title: "Read the results",
-    body: "How long drivers wait, how much traffic gets through, how long queues get and whether every direction is treated alike, each in plain words with why it happened.",
+    body: "How much time drivers lose, how much traffic gets through, how long queues get and whether every direction is treated alike, each in plain words with why it happened.",
   },
   {
     icon: TrendingUp,
@@ -62,9 +62,9 @@ const metricGroups = [
     title: "For people using the junction",
     metrics: [
       {
-        name: "How long do drivers wait?",
+        name: "How much time do drivers lose?",
         unit: "seconds",
-        desc: "Time lost per driver; the wait 1 in 20 exceed; stops",
+        desc: "Extra travel time per driver; the time lost that 1 in 20 exceed; time nearly stopped; stops",
       },
       {
         name: "How much gets through?",

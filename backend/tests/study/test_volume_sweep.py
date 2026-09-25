@@ -51,7 +51,9 @@ def test_volume_sweep_execution(tmp_path, monkeypatch) -> None:
     assert "delayP95" in first_run["signal"]
     assert "queueMax" in first_run["signal"]
     assert "queueStdDev" in first_run["signal"]
-    assert first_run["winner"] in ("signal", "roundabout", "tie")
+    # 5 s runs serve too few vehicles to decide a direction, so "inconclusive"
+    # is a legitimate outcome here (see test_sweep_low_sample_is_inconclusive).
+    assert first_run["winner"] in ("signal", "roundabout", "tie", "inconclusive")
     assert "delayDeltaPercent" in first_run
     assert "throughputDeltaPercent" in first_run
     assert "queueDeltaPercent" in first_run

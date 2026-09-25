@@ -20,6 +20,7 @@ from src.study.validation import (
     _calculate_stats,
     _compare_groups,
     _student_t_two_tailed_p_value,
+    _t_critical,
 )
 
 # ── _student_t_two_tailed_p_value: numerical correctness ────────────────────
@@ -172,20 +173,103 @@ def test_compare_groups_large_n_p_value_is_close_to_the_old_z_formula() -> None:
 # ── _calculate_stats: untouched by this fix, spot-checked for no regression ──
 
 
-def test_calculate_stats_is_unchanged() -> None:
+def test_calculate_stats_uses_a_student_t_interval() -> None:
+    """The 95 % CI half-width is t(0.975, n-1) * s / sqrt(n), not 1.96 * s / sqrt(n).
+
+    Deterministic example: values 1..5 -> mean 3, s = sqrt(2.5), n = 5, df = 4,
+    t(0.975, 4) = 2.7764 (textbook), half-width = 2.7764 * 1.5811 / 2.2361 =
+    1.9632. The old normal-based interval was 1.96 * 0.7071 = 1.386.
+    """
     values = [1.0, 2.0, 3.0, 4.0, 5.0]
     result = _calculate_stats(values)
     assert result["mean"] == 3.0
     assert result["min"] == 1.0
     assert result["max"] == 5.0
+    assert result["ciDegreesOfFreedom"] == 4
+    assert result["ciConfidence"] == 0.95
+    assert abs(result["ciCriticalValue"] - 2.7764) < 5e-4
+    expected = round(2.7764451 * math.sqrt(2.5) / math.sqrt(5), 2)
+    assert result["ci95"] == expected == 1.96
+    assert result["ci"] == result["ci95"]
+    old_z_half_width = round(1.96 * (math.sqrt(2.5) / math.sqrt(5)), 2)
+    assert old_z_half_width == 1.39
+    assert result["ci95"] > old_z_half_width
 
-    # ci95 still uses the pre-existing z=1.96 formula, computed from the
-    # *unrounded* std/mean -- out of scope for this fix (see Phase B report:
-    # documented as a residual limitation for a later phase rather than
-    # changed here).
-    n = len(values)
-    mean = sum(values) / n
-    variance = sum((x - mean) ** 2 for x in values) / (n - 1)
-    std = math.sqrt(variance)
-    expected_ci95 = round(1.96 * (std / math.sqrt(n)), 2)
-    assert result["ci95"] == expected_ci95
+
+def test_t_critical_values_match_published_tables() -> None:
+    # Two-sided critical values from standard t tables.
+    table = {
+        (1, 0.95): 12.7062,
+        (4, 0.90): 2.1318,
+        (4, 0.95): 2.7764,
+        (4, 0.99): 4.6041,
+        (9, 0.95): 2.2622,
+        (29, 0.95): 2.0452,
+    }
+    for (df, conf), expected in table.items():
+        assert abs(_t_critical(df, conf) - expected) < 5e-4, (df, conf)
+    # Converges to the normal value at very large df.
+    assert abs(_t_critical(100000, 0.95) - 1.96) < 2e-3
+
+
+def test_ci_and_p_value_use_the_same_distribution() -> None:
+    """A mean whose t-interval just excludes zero has p just under alpha.
+
+    For a one-sample check: 5 values with mean m and s: the interval
+    m +/- t*s/sqrt(n) touches 0 exactly when the one-sample t statistic
+    equals the critical value, where the two-tailed p equals 1 - confidence.
+    """
+    df = 4
+    t = _t_critical(df, 0.95)
+    assert abs(_student_t_two_tailed_p_value(t, df) - 0.05) < 1e-6
+
+
+def test_confidence_level_changes_interval_and_alpha_together() -> None:
+    values = [10.0, 12.0, 11.0, 13.0, 9.0]
+    at90 = _calculate_stats(values, 0.90)
+    at95 = _calculate_stats(values, 0.95)
+    at99 = _calculate_stats(values, 0.99)
+    assert at90["ci"] < at95["ci"] < at99["ci"]
+    # ci95 is the stable 95 % key whatever level was requested.
+    assert at90["ci95"] == at95["ci95"] == at99["ci95"] == at95["ci"]
+    assert at99["ciConfidence"] == 0.99
+
+    # The significance flag follows alpha: a p-value of ~0.03 is significant
+    # at alpha = 0.05 but not at 0.01.
+    a = [10.0, 10.5, 11.0, 10.2, 10.8]
+    b = [11.6, 11.9, 12.4, 11.2, 12.0]
+    loose = _compare_groups(a, b, alpha=0.05)
+    strict = _compare_groups(a, b, alpha=1e-9)
+    assert loose["pValue"] == strict["pValue"]
+    assert loose["significant"] is True
+    assert strict["significant"] is False
+
+
+def test_single_value_has_no_interval() -> None:
+    result = _calculate_stats([4.2])
+    assert result["ci"] == result["ci95"] == 0.0
+    assert result["ciDegreesOfFreedom"] == 0
+    assert _calculate_stats([])["ci95"] == 0.0
+
+
+def test_validation_reports_method_confidence_and_calibration() -> None:
+    from src.study.validation import run_statistical_validation
+
+    result = run_statistical_validation(num_seeds=2, duration=3.0, confidence_level=0.9)
+    assert result["confidenceLevel"] == 0.9
+    assert result["alpha"] == 0.1
+    assert result["signal"]["delay"]["ciConfidence"] == 0.9
+    assert "Student-t" in result["method"]["confidenceInterval"]
+    assert "Welch" in result["method"]["significanceTest"]
+    # Default study configuration is the calibrated single-lane comparison.
+    assert result["calibration"]["calibrated"] is True
+    assert result["calibration"]["lanesPerApproach"]["north"] == 1
+
+
+def test_validation_rejects_unsupported_confidence_level() -> None:
+    import pytest
+
+    from src.study.validation import run_statistical_validation
+
+    with pytest.raises(ValueError):
+        run_statistical_validation(num_seeds=2, duration=1.0, confidence_level=0.8)

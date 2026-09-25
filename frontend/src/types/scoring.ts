@@ -1,4 +1,25 @@
 import type { RunningMetrics } from "./simulation";
+import { METRICS, metricState, type MetricContext } from "../metrics/catalog";
+
+/** The five metrics the weighted score reads. */
+const SCORE_INPUT_KEYS = [
+  "averageWaitTime",
+  "throughputRate",
+  "averageQueueLength",
+  "directionalFairnessIndex",
+  "averageStopsPerVehicle",
+] as const;
+
+/** True only when every input is a real measurement for this side: after
+ *  warm-up, with at least one vehicle exited. Before that the backend holds
+ *  best-case placeholders (no waiting, no stops, fairness 1.0), which would
+ *  otherwise score high before anything has been measured. */
+export function weightedScoreReady(ctx: MetricContext): boolean {
+  return SCORE_INPUT_KEYS.every((key) => {
+    const def = METRICS.find((m) => m.key === key);
+    return def !== undefined && metricState(def, ctx).kind === "value";
+  });
+}
 
 export interface ScoringWeights {
   weightWaitTime: number;

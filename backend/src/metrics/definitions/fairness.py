@@ -1,13 +1,23 @@
-from typing import List
+from typing import Dict, List, Optional
 
 from src.vehicles.vehicle import Vehicle
 
 
-def calculate_directional_fairness(exited_vehicles: List[Vehicle]) -> float:
+def calculate_directional_fairness(
+    exited_vehicles: List[Vehicle],
+    warmup_baseline_wait: Optional[Dict[str, float]] = None,
+) -> float:
     """Computes Jain's Fairness Index across wait times of the 4 approaches.
+
+    ``warmup_baseline_wait`` maps a vehicle id to the wait time it had already
+    accumulated when warm-up ended. It is subtracted, exactly as
+    ``averageWaitTime`` does, so a vehicle that was already active at the
+    warm-up boundary does not contribute its pre-warm-up waiting to the
+    post-warm-up index (both figures then describe the same window).
 
     Returns 1.0 if all wait times are zero.
     """
+    baseline = warmup_baseline_wait or {}
     if not exited_vehicles:
         return 1.0
 
@@ -27,7 +37,9 @@ def calculate_directional_fairness(exited_vehicles: List[Vehicle]) -> float:
             dir_char = lane_id.split("_")[0]
             direction = mapping.get(dir_char)
             if direction in waits:
-                waits[direction].append(v.wait_time)
+                waits[direction].append(
+                    max(0.0, v.wait_time - baseline.get(v.vehicle_id, 0.0))
+                )
 
     # Average wait time per approach. An approach with no vehicles has no
     # average wait at all and is left out, with n adjusted to match

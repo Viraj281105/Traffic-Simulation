@@ -4,6 +4,7 @@ import random
 from typing import Any, Dict, List, Optional
 
 from src.core.enums import Direction, TurnIntent
+from src.core.limits import DEFAULT_TOTAL_VEHICLES
 from src.metrics.collector import resolve_speed_threshold
 from src.roads.lane import Lane
 from src.roads.network import RoadNetwork
@@ -55,7 +56,9 @@ class VehicleSpawner:
             sim_cfg["randomSeed"] = self.random_seed
         self.rng: random.Random = random.Random(self.random_seed)
 
-        self.total_vehicles_limit: int = traffic_cfg.get("totalVehicles", 200)
+        self.total_vehicles_limit: int = traffic_cfg.get(
+            "totalVehicles", DEFAULT_TOTAL_VEHICLES
+        )
         self.arrival_rate: float = traffic_cfg.get(
             "arrivalRate", veh_gen_cfg.get("arrivalRate", 0.5)
         )

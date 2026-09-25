@@ -3,7 +3,7 @@
  *
  * catalog.ts describes every metric the way a specialist needs it; this
  * module is its everyday counterpart. It answers the questions a
- * non-specialist brings to a comparison — how long do drivers wait, how much
+ * non-specialist brings to a comparison — how much time do drivers lose, how much
  * traffic gets through, how long do queues get, is every direction treated
  * alike, why do the two differ, how sure can I be — using only values the
  * backend reported (read through catalog.metricState, so warm-up, "no
@@ -15,7 +15,7 @@
  * to the user wherever a label depends on them:
  *   - SIMILARITY: when a difference is small enough to call "about the same";
  *   - LOS_THRESHOLDS: the Highway Capacity Manual's delay bands, used as an
- *     indicative "is this a long wait?" reference;
+ *     indicative "is that a lot of time lost?" reference;
  *   - FAIRNESS_BANDS: words for Jain's fairness index;
  *   - EFFECT_SIZE_BANDS: Cohen's conventional small/medium/large bands.
  */
@@ -60,8 +60,12 @@ export function metricValue(
 
 /** The handful of numbers the plain-language layer is built on, per control. */
 export interface SideSummary {
-  /** Mean extra time per driver versus an empty junction (control delay), s. */
+  /** Mean extra travel time per driver versus driving through an empty
+   *  junction at the driver's own speed, s. Includes slowing the layout itself
+   *  forces; it is NOT the same as time spent queued. */
   delay: number | null;
+  /** Mean time per driver spent nearly stopped (below 0.5 m/s), s. */
+  queuedTime: number | null;
   /** Delay not exceeded by 95% of drivers, s. */
   p95Delay: number | null;
   /** Mean stops per driver. */
@@ -89,6 +93,7 @@ export function sideSummary(ctx: MetricContext): SideSummary {
   const v = (key: MetricDef["key"]) => metricValue(key, ctx);
   return {
     delay: v("averageDelay"),
+    queuedTime: v("averageWaitTime"),
     p95Delay: v("p95Delay"),
     stops: v("averageStopsPerVehicle"),
     served: v("throughput"),
@@ -202,26 +207,31 @@ function plural(n: number, one: string, many: string): string {
   return Math.round(n) === 1 ? one : many;
 }
 
-// ── "Is this a long wait?" — indicative level of service ───────────────────
+// ── "Is that a lot of time lost?" — indicative level of service ────────────
 
 export type LosGrade = "A" | "B" | "C" | "D" | "E" | "F";
 
 /** Upper bounds (s of average control delay) of grades A–E in the Highway
  *  Capacity Manual (6th ed.): signalised intersections use the first set;
  *  roundabouts use the stricter unsignalised set, because drivers expect
- *  shorter waits where there is no red light. Above the last bound: F. */
+ *  less time lost where there is no red light. Above the last bound: F.
+ *
+ *  This is the one definition of the bands for the whole app (the Research
+ *  Lab's sweep dashboard imports it). The grade is an indicative reading of
+ *  simulated delay, which also counts geometric slow-down; it is not an HCM
+ *  level-of-service analysis. */
 export const LOS_THRESHOLDS: Record<Side, number[]> = {
   signal: [10, 20, 35, 55, 80],
   roundabout: [10, 15, 25, 35, 50],
 };
 
 export const LOS_WORDS: Record<LosGrade, string> = {
-  A: "Very short wait",
-  B: "Short wait",
-  C: "Moderate wait",
-  D: "Long wait",
-  E: "Very long wait",
-  F: "Excessive wait",
+  A: "Very little time lost",
+  B: "Little time lost",
+  C: "A moderate amount of time lost",
+  D: "A lot of time lost",
+  E: "A great deal of time lost",
+  F: "An excessive amount of time lost",
 };
 
 const GRADES: LosGrade[] = ["A", "B", "C", "D", "E", "F"];
@@ -338,6 +348,26 @@ export function explanations(
       : `${seconds(facts.greenNs)} (north–south) or ${seconds(facts.greenEw)} (east–west) of green`;
 
   out.push({
+    title: "Time lost is not the same as waiting",
+    body: "“Time lost” compares each journey with driving through an empty junction at the driver’s own speed. It includes queuing, but also any slowing the layout itself forces, such as easing into a roundabout entry, so a junction can show time lost even when nobody queues. “Time spent nearly stopped” counts only the standing time.",
+  });
+
+  const lostVsQueued = compare(s.delay, r.delay, SIMILARITY.delay);
+  const queuedCmp = compare(s.queuedTime, r.queuedTime, SIMILARITY.delay);
+  if (
+    lostVsQueued &&
+    queuedCmp &&
+    lostVsQueued.lower &&
+    queuedCmp.lower &&
+    lostVsQueued.lower !== queuedCmp.lower
+  ) {
+    out.push({
+      title: "Time lost and time queued point different ways",
+      body: `Drivers lost less time at the ${SIDE_NAME[lostVsQueued.lower]} (${seconds(lostVsQueued.signal)} at the signal, ${seconds(lostVsQueued.roundabout)} at the roundabout) but spent less time nearly stopped at the ${SIDE_NAME[queuedCmp.lower]} (${seconds(queuedCmp.signal, 1)} vs ${seconds(queuedCmp.roundabout, 1)}). Both are measured; they answer different questions, so neither is the “real” wait.`,
+    });
+  }
+
+  out.push({
     title: "How the signal decides who goes",
     body: `The signal works on a fixed timetable: each direction gets ${greens}, then waits while the other direction goes — one full cycle takes ${seconds(facts.cycleSeconds)}. A driver who arrives on red waits for the next green even if no one else is using the junction.`,
   });
@@ -401,6 +431,10 @@ export interface TrustFacts {
   complete: boolean;
   collisions: number;
   lowReliabilitySample: boolean;
+  /** Vehicle generation hit its per-run limit: later demand was not offered. */
+  vehicleLimitReached?: boolean;
+  /** The limit, when known. */
+  vehicleLimit?: number | null;
 }
 
 /** What a reader needs to weigh one run's numbers. Always includes what makes
@@ -445,12 +479,22 @@ export function trustNotes(f: TrustFacts): TrustNote[] {
       text: `The model recorded ${String(f.collisions)} ${plural(f.collisions, "vehicle overlap", "vehicle overlaps")}. Real vehicles cannot pass through each other, so this is a limit of the model in this scenario, not a prediction of crashes.`,
     });
   }
+  if (f.vehicleLimitReached) {
+    notes.push({
+      tone: "caution",
+      text: `Vehicle generation reached its limit${f.vehicleLimit ? ` of ${String(f.vehicleLimit)} vehicles` : ""}, so traffic stopped arriving before the run ended. Both controls received the same shortened demand, but the results describe less traffic than the scenario asks for. Shorten the run or lower the traffic level to compare the full demand.`,
+    });
+  }
   if (f.lowReliabilitySample) {
     notes.push({
       tone: "caution",
       text: "Fewer than 20 vehicles got through on at least one side, so the spread of journey times rests on very few drivers.",
     });
   }
+  notes.push({
+    tone: "info",
+    text: "How much traffic each of the four roads carries is set by the traffic pattern too, so some roads are busier than others; it is the same for both controls. Per-road figures such as fairness and the longest queue reflect that.",
+  });
   notes.push({
     tone: "info",
     text: "One run is one traffic pattern. A different pattern of arrivals could shift the numbers — the reliability check below repeats the comparison to find out whether the difference holds.",
@@ -485,6 +529,9 @@ export interface ReliabilityResult {
   numSeeds: number;
   seeds?: number[];
   duration: number;
+  /** Exploratory when the scenario uses more than one lane per approach. */
+  calibration?: { calibrated: boolean; note: string };
+  vehicleLimitReachedSeeds?: number[];
   signal: Record<StudyMetric, StatSummary>;
   roundabout: Record<StudyMetric, StatSummary>;
   comparison: Record<StudyMetric, GroupComparison>;
@@ -561,8 +608,10 @@ export function readReliability(
   for (const run of result.seedRuns) {
     const a = run.signal[metric];
     const b = run.roundabout[metric];
-    if (a < b) tally.signal += 1;
-    else if (b < a) tally.roundabout += 1;
+    // Same "about the same" rule as everywhere else, per metric.
+    const c = compare(a, b, STUDY_SIMILARITY[metric]);
+    if (c?.lower === "signal") tally.signal += 1;
+    else if (c?.lower === "roundabout") tally.roundabout += 1;
     else tally.tie += 1;
   }
   const n = result.numSeeds;
@@ -624,10 +673,15 @@ export interface PlainMetric {
  *  specialists (Research lab) so the translation itself is inspectable. */
 export const PLAIN_METRIC_MAP: PlainMetric[] = [
   {
-    question: "How long do drivers wait?",
+    question: "How much time do drivers lose?",
     plain:
-      "Extra time per driver compared with driving through an empty junction; the wait that 1 in 20 drivers exceeds; how often drivers stop.",
-    keys: ["averageDelay", "p95Delay", "averageStopsPerVehicle"],
+      "Extra travel time per driver compared with driving through an empty junction at their own speed (including slowing the layout forces, not only queuing); the time lost that 1 in 20 drivers exceeds; time spent nearly stopped; how often drivers stop.",
+    keys: [
+      "averageDelay",
+      "p95Delay",
+      "averageWaitTime",
+      "averageStopsPerVehicle",
+    ],
   },
   {
     question: "How much traffic gets through?",

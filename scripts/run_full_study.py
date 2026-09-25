@@ -43,6 +43,7 @@ if "DB_PATH" not in os.environ:
 from src.database.db import init_db
 from src.study.report_generator import (
     _summarize_sweep_verdict,
+    _summarize_validation_evidence,
     generate_study_report_csv,
     generate_study_report_json,
 )
@@ -191,14 +192,11 @@ def main() -> int:
     print("  " + "=" * 98)
     print(
         f"  {'Rate':>6} | {'Vol (veh/h)':>11} | {'Sig Delay':>10} | {'Rnd Delay':>10} | "
-        f"{'Sig Tput':>9} | {'Rnd Tput':>9} | {'Sig Q':>6} | {'Rnd Q':>6} | {'Δ Delay':>8} | {'Winner':>10}"
+        f"{'Sig Tput':>9} | {'Rnd Tput':>9} | {'Sig Q':>6} | {'Rnd Q':>6} | {'Δ Delay':>8} | {'Lower delay':>11}"
     )
     print("  " + "-" * 98)
 
     runs = sweep_results.get("runs", [])
-    roundabout_wins = 0
-    signal_wins = 0
-
     for run in runs:
         r = run.get("arrivalRate", 0.0)
         vol = run.get("hourlyVolumeVehPerHour", 0)
@@ -211,47 +209,42 @@ def main() -> int:
         delta = run.get("delayDeltaPercent", 0.0)
         winner = run.get("winner", "tie").upper()
 
-        if winner == "ROUNDABOUT":
-            roundabout_wins += 1
-        elif winner == "SIGNAL":
-            signal_wins += 1
-
         delta_str = f"{delta:+.1f}%" if abs(delta) > 0.01 else "0.0%"
         print(
             f"  {r:6.2f} | {vol:11,d} | {sig_d:9.2f}s | {rnd_d:9.2f}s | "
-            f"{sig_tp:9.1f} | {rnd_tp:9.1f} | {sig_q:6.1f} | {rnd_q:6.1f} | {delta_str:>8} | {winner:>10}"
+            f"{sig_tp:9.1f} | {rnd_tp:9.1f} | {sig_q:6.1f} | {rnd_q:6.1f} | {delta_str:>8} | {winner:>11}"
         )
 
     print("  " + "-" * 98)
 
-    # Crossover Insights
+    # What the sweep shows. The text is derived only from the measured
+    # per-tier classification (see report_generator._summarize_sweep_verdict):
+    # it never assumes which control does better where, and states that each
+    # tier is one random traffic pattern.
+    sweep_verdict = _summarize_sweep_verdict(sweep_results)
     crossover = sweep_results.get("curves", {}).get("crossoverArrivalRate")
     crossover_h = sweep_results.get("curves", {}).get("crossoverHourlyVolume")
     if crossover and crossover_h:
         print(
-            f"\n  🎯 CRITICAL SATURATION CROSSOVER THRESHOLD: {crossover:.2f} veh/s (~{crossover_h:,d} veh/h)"
+            f"\n  DELAY-ORDERING CHANGE: between the decided tiers ending at "
+            f"{crossover:.2f} veh/s (~{crossover_h:,d} veh/h). This is where the "
+            "lower-delay control changed in this sample, not a capacity limit."
         )
-        # The conclusion is the sweep's own measured verdict. This used to
-        # print fixed claims ("up to 50% lower delay", "better queue
-        # fairness") that no part of this run measured.
-        print(f"     • {_summarize_sweep_verdict(sweep_results)['text']}")
     else:
-        print("\n  🎯 CROSSOVER STATUS: No saturation transition detected.")
-        if roundabout_wins > signal_wins:
-            print(
-                "     • Roundabout dominated across all evaluated arrival rates."
-            )
-        elif signal_wins > roundabout_wins:
-            print(
-                "     • Fixed-Time Signal maintained lower delay across all evaluated arrival rates."
-            )
+        print("\n  DELAY-ORDERING CHANGE: none observed among the decided tiers.")
+    print(f"     • {sweep_verdict['text']}")
+    calibration = sweep_results.get("calibration", {})
+    print(
+        f"     • {'CALIBRATED' if calibration.get('calibrated') else 'EXPLORATORY'}: "
+        f"{calibration.get('note', '')}"
+    )
 
     # ── 2. Monte Carlo Statistical Validation ──────────────────────────────────
     print(
         f"\n[Step 3/3] Executing Monte Carlo Statistical Validation ({args.num_seeds} randomized seeds)..."
     )
     print(
-        f"  - Duration per Seed: {args.validation_duration}s (Evaluation Rate: 0.3 veh/s)"
+        f"  - Duration per Seed: {args.validation_duration}s (Evaluation Rate: 0.35 veh/s)"
     )
     start_mc = time.time()
 
@@ -267,28 +260,29 @@ def main() -> int:
 
     # Statistical Rigor Table
     print("\n  " + "=" * 98)
-    print("  MONTE CARLO STATISTICAL SIGNIFICANCE SUMMARY (95% CI, α = 0.05)")
+    ci_pct = round(validation_results.get("confidenceLevel", 0.95) * 100)
+    print(
+        f"  MONTE CARLO SUMMARY ({ci_pct}% Student-t CI, Welch test, "
+        f"α = {validation_results.get('alpha', 0.05)})"
+    )
     print("  " + "=" * 98)
     print(
-        f"  {'Metric':<14} | {'Signal (Mean ± 95% CI)':<24} | {'Roundabout (Mean ± 95% CI)':<26} | "
+        f"  {'Metric':<14} | {'Signal (Mean ± CI)':<24} | {'Roundabout (Mean ± CI)':<26} | "
         f"{'Cohen d':>8} | {'p-value':>8} | {'Significance'}"
     )
     print("  " + "-" * 98)
 
     cmp_dict = validation_results.get("comparison", {})
-    all_sig = True
-    any_sig = False
-
     for m in ["delay", "throughput", "queue"]:
         sig_st = validation_results.get("signal", {}).get(m, {})
         rnd_st = validation_results.get("roundabout", {}).get(m, {})
         m_cmp = cmp_dict.get(m, {})
 
         sig_str = (
-            f"{sig_st.get('mean', 0.0):.2f} ± {sig_st.get('ci95', 0.0):.2f}"
+            f"{sig_st.get('mean', 0.0):.2f} ± {sig_st.get('ci', sig_st.get('ci95', 0.0)):.2f}"
         )
         rnd_str = (
-            f"{rnd_st.get('mean', 0.0):.2f} ± {rnd_st.get('ci95', 0.0):.2f}"
+            f"{rnd_st.get('mean', 0.0):.2f} ± {rnd_st.get('ci', rnd_st.get('ci95', 0.0)):.2f}"
         )
         d_val = m_cmp.get("cohensD", 0.0)
         p_val = m_cmp.get("pValue")
@@ -301,12 +295,7 @@ def main() -> int:
         )
         is_sig = m_cmp.get("significant", False)
 
-        if is_sig:
-            any_sig = True
-            sig_label = "★ Significant"
-        else:
-            all_sig = False
-            sig_label = "Not Significant"
+        sig_label = "Supported" if is_sig else "Not supported"
 
         print(
             f"  {m.capitalize():<14} | {sig_str:<24} | {rnd_str:<26} | {d_val:8.3f} | {p_str:>8} | {sig_label}"
@@ -314,18 +303,17 @@ def main() -> int:
 
     print("  " + "-" * 98)
 
-    # Statistical Verdict
-    if all_sig:
+    # What the repeated-seed study does and does not support. A result that
+    # is not significant is never described as "no difference" or parity: with
+    # few seeds it only means the study cannot distinguish the controls.
+    evidence = _summarize_validation_evidence(validation_results)
+    print("  STATISTICAL EVIDENCE:")
+    print(f"    {evidence['text']}")
+    seeds_capped = validation_results.get("vehicleLimitReachedSeeds", [])
+    if seeds_capped:
         print(
-            "  STATISTICAL VERDICT: [High Confidence] Statistically significant difference across all metrics."
-        )
-    elif any_sig:
-        print(
-            "  STATISTICAL VERDICT: [Partial Significance] Significant divergence identified in key metrics."
-        )
-    else:
-        print(
-            "  STATISTICAL VERDICT: [Equivalence / Parity] Differences remain within stochastic variation noise."
+            f"  NOTE: {len(seeds_capped)} seed(s) hit the vehicle-generation "
+            "limit, so their demand was truncated."
         )
 
     # ── 3. Report Export ───────────────────────────────────────────────────────

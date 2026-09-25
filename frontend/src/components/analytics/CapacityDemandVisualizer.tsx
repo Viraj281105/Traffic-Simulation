@@ -11,7 +11,6 @@ const satVolDef = METRICS.find((m) => m.key === "criticalSaturationVolume")!;
 const utilDef = METRICS.find((m) => m.key === "intersectionUtilization")!;
 const idleLossDef = METRICS.find((m) => m.key === "idleOpportunityLoss")!;
 const footprintDef = METRICS.find((m) => m.key === "spaceFootprintConsumed")!;
-const servedDef = METRICS.find((m) => m.key === "throughput")!;
 const spawnedDef = METRICS.find((m) => m.key === "totalVehiclesSpawned")!;
 const activeDef = METRICS.find((m) => m.key === "activeVehicleCount")!;
 
@@ -26,21 +25,22 @@ export function CapacityDemandVisualizer({
   const sigSpawned = sigM?.totalVehiclesSpawned ?? 0;
   const rndSpawned = rndM?.totalVehiclesSpawned ?? 0;
 
+  // Vehicles served after warm-up, shown as a count only.
   const sigThroughput = signalCtx.inWarmup ? 0 : (sigM?.throughput ?? 0);
   const rndThroughput = roundaboutCtx.inWarmup ? 0 : (rndM?.throughput ?? 0);
 
   const sigActive = sigM?.activeVehicleCount ?? 0;
   const rndActive = rndM?.activeVehicleCount ?? 0;
 
-  // Demand fulfillment ratio (% of offered demand that has exited post-warmup)
-  const sigServedRate =
-    sigSpawned > 0 && !signalCtx.inWarmup
-      ? Math.min(100, (sigThroughput / sigSpawned) * 100)
-      : 0;
-  const rndServedRate =
-    rndSpawned > 0 && !roundaboutCtx.inWarmup
-      ? Math.min(100, (rndThroughput / rndSpawned) * 100)
-      : 0;
+  // Share of generated vehicles that have exited, over ONE window (the whole
+  // run, warm-up included). Exited vehicles are never removed from the pool,
+  // so exited = generated - still in the network, and the two segments below
+  // add up to 100 %. (Dividing post-warm-up exits by all-time spawns would mix
+  // two windows and understate the served share.)
+  const sigExited = Math.max(0, sigSpawned - sigActive);
+  const rndExited = Math.max(0, rndSpawned - rndActive);
+  const sigServedRate = sigSpawned > 0 ? (sigExited / sigSpawned) * 100 : 0;
+  const rndServedRate = rndSpawned > 0 ? (rndExited / rndSpawned) * 100 : 0;
 
   const sigActivePct =
     sigSpawned > 0
@@ -66,7 +66,7 @@ export function CapacityDemandVisualizer({
         <div className="capacity-card-header">
           <span className="card-title">Demand vs. Served Balance</span>
           <span className="card-subtitle">
-            Offered demand vs. exited vehicles
+            Vehicles generated vs. exited, over the whole run (warm-up included)
           </span>
         </div>
 
@@ -76,14 +76,12 @@ export function CapacityDemandVisualizer({
             <div className="demand-row-meta">
               <span className="control-label signal">🚦 Fixed-Time Signal</span>
               <span className="rate-badge">
-                {signalCtx.inWarmup
-                  ? "Warm-up"
-                  : `${sigServedRate.toFixed(1)}% served`}
+                {`${sigServedRate.toFixed(1)}% exited`}
               </span>
             </div>
             <div
               className="balance-track"
-              title={`Served: ${String(sigThroughput)}, In Network: ${String(sigActive)}, Remaining: ${String(Math.max(0, sigSpawned - sigThroughput - sigActive))}`}
+              title={`Exited (whole run): ${String(sigExited)}, still in network: ${String(sigActive)}, generated: ${String(sigSpawned)}. Vehicles served after warm-up: ${String(sigThroughput)}`}
             >
               <div
                 className="balance-fill served signal"
@@ -95,9 +93,9 @@ export function CapacityDemandVisualizer({
               />
             </div>
             <div className="balance-numbers">
-              <span>{formatMetric(servedDef, signalCtx)} served</span>
+              <span>{String(sigExited)} exited (whole run)</span>
               <span>{formatMetric(activeDef, signalCtx)} in network</span>
-              <span>{formatMetric(spawnedDef, signalCtx)} offered</span>
+              <span>{formatMetric(spawnedDef, signalCtx)} generated</span>
             </div>
           </div>
 
@@ -108,14 +106,12 @@ export function CapacityDemandVisualizer({
                 🔄 Modern Roundabout
               </span>
               <span className="rate-badge">
-                {roundaboutCtx.inWarmup
-                  ? "Warm-up"
-                  : `${rndServedRate.toFixed(1)}% served`}
+                {`${rndServedRate.toFixed(1)}% exited`}
               </span>
             </div>
             <div
               className="balance-track"
-              title={`Served: ${String(rndThroughput)}, In Network: ${String(rndActive)}, Remaining: ${String(Math.max(0, rndSpawned - rndThroughput - rndActive))}`}
+              title={`Exited (whole run): ${String(rndExited)}, still in network: ${String(rndActive)}, generated: ${String(rndSpawned)}. Vehicles served after warm-up: ${String(rndThroughput)}`}
             >
               <div
                 className="balance-fill served roundabout"
@@ -127,9 +123,9 @@ export function CapacityDemandVisualizer({
               />
             </div>
             <div className="balance-numbers">
-              <span>{formatMetric(servedDef, roundaboutCtx)} served</span>
+              <span>{String(rndExited)} exited (whole run)</span>
               <span>{formatMetric(activeDef, roundaboutCtx)} in network</span>
-              <span>{formatMetric(spawnedDef, roundaboutCtx)} offered</span>
+              <span>{formatMetric(spawnedDef, roundaboutCtx)} generated</span>
             </div>
           </div>
         </div>
@@ -140,7 +136,7 @@ export function CapacityDemandVisualizer({
         {/* Service Utilization Dial */}
         <div className="capacity-card util-card">
           <div className="capacity-card-header">
-            <span className="card-title">Service Utilization</span>
+            <span className="card-title">Time with traffic moving</span>
             <span className="card-badge">% moving share</span>
           </div>
 
@@ -212,14 +208,16 @@ export function CapacityDemandVisualizer({
             </div>
           </div>
           <p className="util-subtext">
-            Share of ticks with demand where vehicle speeds exceeded 0.5 m/s.
+            Share of ticks with vehicles present where their mean speed exceeded
+            0.5 m/s. Not the share of capacity used; near 100 % whenever traffic
+            keeps moving.
           </p>
         </div>
 
         {/* Critical Saturation Volume */}
         <div className="capacity-card">
           <div className="capacity-card-header">
-            <span className="card-title">Critical Saturation Volume</span>
+            <span className="card-title">Served-rate estimate</span>
             <span className="card-badge">veh/s</span>
           </div>
           <div className="stat-comparison-block">
@@ -237,8 +235,9 @@ export function CapacityDemandVisualizer({
             </div>
           </div>
           <p className="card-explanation">
-            Estimated saturation rate based on throughput vs. offered arrival
-            rate.
+            Backend estimate from throughput and the configured arrival rate. It
+            cannot exceed the demand you configured, so it is not a measured
+            capacity.
           </p>
         </div>
 
@@ -289,8 +288,10 @@ export function CapacityDemandVisualizer({
             </div>
           </div>
           <p className="card-explanation">
-            Geometric area required (crossing box vs. circular roundabout
-            envelope).
+            Area from the configured geometry, defined differently per layout:
+            crossing box (signal) versus outer circle including the central
+            island (roundabout). Design context, not a like-for-like land-take
+            comparison.
           </p>
         </div>
       </div>

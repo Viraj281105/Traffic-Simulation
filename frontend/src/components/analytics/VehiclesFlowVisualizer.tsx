@@ -62,8 +62,8 @@ export function VehiclesFlowVisualizer({
     },
     {
       id: "exited",
-      label: "Exited (Served)",
-      sublabel: "Whole run",
+      label: "Exited (whole run)",
+      sublabel: "Includes warm-up; differs from Vehicles served",
       sigVal: sigCounts.exited,
       rndVal: rndCounts.exited,
       unit: "veh",

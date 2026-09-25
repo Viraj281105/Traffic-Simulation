@@ -19,7 +19,9 @@ Our comparison framework evaluates intersection performance across three traffic
 
 Method: `duration = 240 s`, `warmupTime = 30 s`, $210\,\text{s}$ measurement
 window, `timeStep = 0.1`, `randomSeed = 1`, `lanesPerApproach = 1`, Poisson
-arrivals. "Offered" is `arrivalRate × 3600`, summed across all four
+arrivals, `totalVehicles = 5000` (the regression harness's setting, so the
+spawner's default 200-vehicle cap can never truncate demand; no run in this
+report reached its vehicle limit). "Offered" is `arrivalRate × 3600`, summed across all four
 approaches. Served flow is post-warmup throughput scaled to veh/h.
 
 | Offered veh/h | Signal served | Signal delay s | Signal maxQ | Roundabout served | Roundabout delay s | Roundabout maxQ |
@@ -36,13 +38,13 @@ approaches. Served flow is post-warmup throughput scaled to veh/h.
 
 **Peak served flow (seed 1): signal $1543\,\text{veh/h}$, roundabout $1406\,\text{veh/h}$.**
 
-Saturation-regime check across seeds 1–5 (same configuration):
+Saturation-regime check across seeds 1–5 (same configuration). Intervals are 95 % **Student-t** half-widths, $t_{0.975,4} = 2.776$ (revised 2026-09-25; the earlier revision used the normal 1.96 and understated them by about 29 %). Means, p-values and effect sizes are unchanged. The Welch $p$-value, not interval overlap, is the test:
 
 | Offered veh/h | Signal served (mean ± 95% CI) | Roundabout served | Signal delay | Roundabout delay | Delay p-value |
 | ---: | :--- | :--- | :--- | :--- | ---: |
-| 2160 | $1313 \pm 61$ | $1269 \pm 51$ | $48.3 \pm 6.9$ s | $54.7 \pm 3.2$ s | $0.15$ |
-| 4320 | $1457 \pm 146$ | $1361 \pm 20$ | $62.8 \pm 7.4$ s | $76.9 \pm 4.2$ s | $0.017$ |
-| 5400 | $1512 \pm 114$ | $1389 \pm 48$ | $66.3 \pm 9.4$ s | $79.7 \pm 4.6$ s | $0.047$ |
+| 2160 | $1313 \pm 86$ | $1269 \pm 72$ | $48.3 \pm 9.8$ s | $54.7 \pm 4.6$ s | $0.15$ |
+| 4320 | $1457 \pm 206$ | $1361 \pm 29$ | $62.8 \pm 10.5$ s | $76.9 \pm 6.0$ s | $0.017$ |
+| 5400 | $1512 \pm 161$ | $1389 \pm 67$ | $66.3 \pm 13.3$ s | $79.7 \pm 6.5$ s | $0.047$ |
 
 Served-flow differences are not significant at $n=5$ ($p = 0.30 / 0.27 / 0.10$);
 the signal's lower delay at $4320$ and $5400$ is.
@@ -88,6 +90,30 @@ $2880\,\text{veh/h}$ runs), and the single-ring geometry still cannot express
 spiral lane assignment, so these remain uncalibrated. See
 [V1 Known Limitations](v1-known-limitations.md) §3.
 
+`docs/reports/study_report.csv` (and the identical copy at the repository root, which
+`.gitignore` lists but which is tracked) is the output of
+`scripts/run_full_study.py --sweep-duration 240 --validation-duration 240
+--num-seeds 5`: the CLI's default study scenario (one lane, one random pattern
+per sweep point, 15 s / 5 s warm-up, random validation seeds). It is **one
+sample** of that scenario, regenerated 2026-09-25 to replace an earlier file
+that carried a retired hard-coded recommendation; its own "Evidence summary"
+row states what it does and does not support. It is not the pinned calibrated
+baseline above (different seeds and warm-up), so the two are not
+interchangeable.
+
+### How to read the findings in this report
+
+| Class | Where | What it may be used for |
+| :-- | :-- | :-- |
+| **Calibrated, descriptive** (one seed) | §2 first table, all rows | What the calibrated configuration produced on one traffic pattern. Not evidence that a difference is more than chance |
+| **Calibrated, statistically supported / not supported** (5 seeds, Welch test at α = 0.05) | §2 second table; §3 delay note | The only place a difference may be called supported. *Supported here:* signal delay lower at 4320 and 5400 veh/h (p = 0.017, 0.047). *Not supported:* every served-flow difference (p = 0.30 / 0.27 / 0.10) and every low-demand delay difference. "Not supported" means the study cannot distinguish the controls, not that they are equal |
+| **Exploratory** | Multi-lane figures (§2 "Scope and validity") | Indicative only; the roundabout is modelled with one circulating lane |
+| **Unmeasured expectation** | §3 fairness and idle-loss rows | Explicitly not findings |
+
+Three metrics are tested per point without multiple-comparison correction, and
+with 5 seeds the tests have little power; a supported difference at
+p = 0.047 in particular should be read as marginal.
+
 ---
 
 ## 3. Performance Comparison Matrix
@@ -112,11 +138,11 @@ support a comparative claim, so they are marked as such rather than asserted.
 > / $210\,\text{s}$-window configuration, using `src/study/validation.py`'s
 > `_calculate_stats` / `_compare_groups`) was re-run on 2026-09-24:
 >
-> | Offered veh/h | Signal delay (mean ± 95% CI) | Roundabout delay (mean ± 95% CI) | Cohen's d | p-value | Significant? |
+> | Offered veh/h | Signal delay (mean ± 95% Student-t CI) | Roundabout delay (mean ± 95% Student-t CI) | Cohen's d | p-value | Significant? |
 > | ---: | :--- | :--- | ---: | ---: | :--- |
-> | 360 | $16.54 \pm 4.80$ s | $18.58 \pm 1.15$ s | $-0.51$ | $0.46$ | No |
-> | 720 | $22.12 \pm 10.26$ s | $22.05 \pm 1.41$ s | $0.01$ | $0.99$ | No |
-> | 1080 | $23.82 \pm 6.83$ s | $27.47 \pm 1.91$ s | $-0.64$ | $0.36$ | No |
+> | 360 | $16.54 \pm 6.80$ s | $18.58 \pm 1.63$ s | $-0.51$ | $0.46$ | No |
+> | 720 | $22.12 \pm 14.54$ s | $22.05 \pm 2.00$ s | $0.01$ | $0.99$ | No |
+> | 1080 | $23.82 \pm 9.67$ s | $27.47 \pm 2.70$ s | $-0.64$ | $0.36$ | No |
 >
 > **No low-demand delay difference is supported as a finding at any of the
 > three points**, as before. Signal delay is strongly seed-dependent (one seed
@@ -168,6 +194,24 @@ At saturation the roundabout's entry capacity becomes the binding constraint.
 ---
 
 ## 5. Revision History
+
+*   **2026-09-25** — Evaluation-integrity pass
+    (`docs/product/urbanflow-evaluation-metrics.md` §15). **No research result
+    changed:** the nine-point single-seed curve was re-run at pristine `HEAD`
+    and at the corrected tree and is bit-identical, and
+    `test_calibrated_capacity_regression` (18 pinned values) passes unchanged;
+    the seed 1–5 studies were re-run with the same procedure and reproduce
+    every published mean, $p$-value and $d$ exactly. What changed is the
+    **width of the 95 % confidence intervals**: they were computed with the
+    normal multiplier 1.96 although the studies have 5 seeds ($t_{0.975,4} =
+    2.776$), which understated them by about 29 %. The intervals in §2 and §3
+    are now Student-t (roughly 1.42× wider); conclusions are unchanged
+    because they rest on the Welch p-values, not on interval overlap. Also
+    documented: the calibrated runs set `totalVehicles = 5000` so the default
+    200-vehicle cap cannot truncate them, whereas dashboard scenarios ran with
+    the cap (now sized to the scenario and flagged when reached). The
+    regenerated `study_report.csv` files replace outputs that carried a retired
+    hard-coded recommendation.
 
 *   **2026-09-24** — Re-measured every figure after the bug-fix pass in
     `docs/bug-fix-report.md`, several items of which change the simulated

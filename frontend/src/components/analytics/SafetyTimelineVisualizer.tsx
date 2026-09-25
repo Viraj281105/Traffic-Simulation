@@ -66,8 +66,8 @@ export function SafetyTimelineVisualizer({
             <span className="collision-count">{sigCollisions}</span>
             <span className="collision-status-text">
               {sigCollisions === 0
-                ? "Zero collisions recorded"
-                : "Collision events observed"}
+                ? "No vehicle overlaps recorded"
+                : "Vehicle overlaps recorded (model limit, not a crash forecast)"}
             </span>
           </div>
         </div>
@@ -85,7 +85,7 @@ export function SafetyTimelineVisualizer({
             <span className="collision-count">{rndCollisions}</span>
             <span className="collision-status-text">
               {rndCollisions === 0
-                ? "Zero collisions recorded"
+                ? "No vehicle overlaps recorded"
                 : "Collision events observed"}
             </span>
           </div>
@@ -113,9 +113,13 @@ export function SafetyTimelineVisualizer({
       <div className="ttc-trend-card">
         <div className="ttc-trend-header">
           <div>
-            <span className="ttc-title">Minimum Time-to-Collision (TTC)</span>
+            <span className="ttc-title">
+              Smallest time-to-collision (TTC) seen so far
+            </span>
             <span className="ttc-sub">
-              Threshold: {ttcThreshold.toFixed(1)} s (Hayward critical cutoff)
+              Threshold: {ttcThreshold.toFixed(1)} s (a literature default, not
+              validated for this model). A running minimum, so it can only fall
+              during a run.
             </span>
           </div>
           <div className="ttc-current-readouts">
@@ -249,12 +253,45 @@ export function SafetyTimelineVisualizer({
       <div className="safety-disclaimer-banner">
         <span className="disclaimer-icon">ℹ️</span>
         <p className="disclaimer-text">
-          <strong>Surrogate Safety Measures Notice:</strong> Surrogate safety
-          measures (TTC, PET) are exploratory research metrics based on
-          literature defaults. Event counts are surrogate indicators and do not
-          constitute a validated safety ranking between geometries.
+          <strong>Surrogate Safety Measures Notice:</strong> TTC and PET are
+          exploratory research diagnostics, not a safety score, a count of real
+          collisions, or a crash probability. Thresholds are literature
+          defaults, not validated for this model, and the counts are not a
+          validated safety ranking between geometries.
         </p>
       </div>
+      <details className="how-measured">
+        <summary>How TTC and PET are measured</summary>
+        <ul>
+          <li>
+            <strong>TTC</strong> is sampled on every 0.1 s tick for pairs of
+            vehicles on different lanes within 50 m: the time until two vehicles
+            would touch if both kept their current speed and heading. Same-lane
+            car-following is excluded. &ldquo;Low-TTC events&rdquo; counts
+            ticks, so one long close approach counts many times; it is an
+            exposure count, not a number of distinct near-misses. The smallest
+            TTC is a run-long minimum.
+          </li>
+          <li>
+            <strong>PET</strong> is measured only at the signal&apos;s conflict
+            points: the gap between one vehicle leaving a crossing point and a
+            different vehicle reaching it. It is not measured for the roundabout
+            (shown as N/A, meaning &ldquo;not measured&rdquo;, never &ldquo;no
+            conflicts&rdquo;). The default 5 s threshold is generous, so many
+            ordinary crossings count.
+          </li>
+          <li>
+            The number of observations depends on how many vehicles share space,
+            which differs by layout, so TTC and PET counts are not comparable
+            between the signal and the roundabout as risk.
+          </li>
+          <li>
+            &ldquo;Collisions&rdquo; are vehicle-body overlaps in the model,
+            counted from the start of the run including warm-up. They show where
+            the model reached a limit, not a prediction of real crashes.
+          </li>
+        </ul>
+      </details>
     </div>
   );
 }

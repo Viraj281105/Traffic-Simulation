@@ -1,5 +1,5 @@
 import type { MetricContext } from "../../metrics/catalog";
-import { formatMetric, metricState, METRICS } from "../../metrics/catalog";
+import { formatMetric, METRICS } from "../../metrics/catalog";
 
 interface DistributionDiagnosticsVisualizerProps {
   signalCtx: MetricContext;
@@ -16,7 +16,6 @@ const delayStdDevDef = METRICS.find((m) => m.key === "delayStdDev")!;
 const sviDef = METRICS.find((m) => m.key === "speedVarianceIndex")!;
 const queueStdDevDef = METRICS.find((m) => m.key === "queueStdDev")!;
 const queueStabilityDef = METRICS.find((m) => m.key === "queueStabilityIndex")!;
-const masterScoreDef = METRICS.find((m) => m.key === "masterEfficiencyScore")!;
 
 export function DistributionDiagnosticsVisualizer({
   signalCtx,
@@ -29,11 +28,6 @@ export function DistributionDiagnosticsVisualizer({
   const sigMax = sigM?.maxDelay ?? 10;
   const rndMax = rndM?.maxDelay ?? 10;
   const maxDelayScale = Math.max(15, sigMax, rndMax);
-
-  const sigScoreState = metricState(masterScoreDef, signalCtx);
-  const rndScoreState = metricState(masterScoreDef, roundaboutCtx);
-  const sigScore = sigScoreState.kind === "value" ? sigScoreState.value : null;
-  const rndScore = rndScoreState.kind === "value" ? rndScoreState.value : null;
 
   return (
     <div
@@ -48,6 +42,11 @@ export function DistributionDiagnosticsVisualizer({
           <span className="card-badge">seconds</span>
         </div>
 
+        <p className="card-explanation">
+          Line: smallest to largest driver delay. Box: median to 95th
+          percentile. Dot: mean. This is how much individual drivers&apos;
+          delays varied within this run.
+        </p>
         <div className="whisker-rows-wrapper">
           {/* Signal Whisker */}
           <div className="whisker-row">
@@ -72,7 +71,7 @@ export function DistributionDiagnosticsVisualizer({
                       width: `${String(((sigM.maxDelay - sigM.minDelay) / maxDelayScale) * 100)}%`,
                     }}
                   />
-                  {/* IQR / Main box: median to P95 */}
+                  {/* Box: median to 95th percentile (not an interquartile range) */}
                   <div
                     className="whisker-iqr-box signal"
                     style={{
@@ -116,7 +115,7 @@ export function DistributionDiagnosticsVisualizer({
                       width: `${String(((rndM.maxDelay - rndM.minDelay) / maxDelayScale) * 100)}%`,
                     }}
                   />
-                  {/* IQR / Main box: median to P95 */}
+                  {/* Box: median to 95th percentile (not an interquartile range) */}
                   <div
                     className="whisker-iqr-box roundabout"
                     style={{
@@ -190,40 +189,6 @@ export function DistributionDiagnosticsVisualizer({
               </span>
             </div>
           </div>
-        </div>
-
-        {/* Master Composite Score (Fixed Weights) */}
-        <div className="diag-card composite-score-card">
-          <div className="diag-card-header">
-            <span className="card-title">Composite Score (Fixed Weights)</span>
-            <span className="card-badge">/ 100</span>
-          </div>
-
-          <div className="score-dials-row">
-            <div className="score-dial-item">
-              <div className="score-badge signal">
-                <span className="score-num">
-                  {sigScore !== null ? sigScore.toFixed(1) : "—"}
-                </span>
-                <span className="score-max">/100</span>
-              </div>
-              <span className="score-label">Signal</span>
-            </div>
-
-            <div className="score-dial-item">
-              <div className="score-badge roundabout">
-                <span className="score-num">
-                  {rndScore !== null ? rndScore.toFixed(1) : "—"}
-                </span>
-                <span className="score-max">/100</span>
-              </div>
-              <span className="score-label">Roundabout</span>
-            </div>
-          </div>
-          <p className="card-explanation">
-            Fixed-weight backend composite of throughput rate, queued time,
-            stops, fairness and idle loss. A weighting choice, not a verdict.
-          </p>
         </div>
       </div>
     </div>

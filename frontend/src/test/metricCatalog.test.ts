@@ -53,6 +53,8 @@ const CONTEXT_KEYS = new Set([
   "ttcThresholdSeconds",
   "petThresholdSeconds",
   "petApplicable",
+  "vehicleLimit",
+  "vehicleLimitReached",
 ]);
 
 describe("metric catalog", () => {
@@ -198,5 +200,62 @@ describe("metric catalog", () => {
     );
     expect(pair).toContain("roundabout_minus_signal");
     expect(pair.toLowerCase()).not.toContain("winner");
+  });
+
+  it("keeps the fixed-weight composite within one geometry", () => {
+    const composite = def("masterEfficiencyScore");
+    expect(composite.withinGeometryOnly).toBe(true);
+    expect(composite.description).toMatch(
+      /not a signal-versus-roundabout score/i,
+    );
+    expect(composite.description).toMatch(/idle loss is signal-only/i);
+
+    const signal = ctx({ masterEfficiencyScore: 70 });
+    const roundabout = ctx(
+      { masterEfficiencyScore: 75 },
+      { geometry: "roundabout" },
+    );
+    // Single-run export keeps it...
+    expect(singleRunCsv(signal, [])).toContain("masterEfficiencyScore");
+    // ...but no side-by-side export ever sets the two geometries against each other.
+    expect(comparisonCsv(signal, roundabout, [])).not.toContain(
+      "masterEfficiencyScore",
+    );
+  });
+
+  it("shows no composite before anything has been measured", () => {
+    const composite = def("masterEfficiencyScore");
+    const state = metricState(
+      composite,
+      ctx({ throughput: 0, masterEfficiencyScore: null }),
+    );
+    expect(state.kind).toBe("none");
+    expect(
+      metricState(
+        composite,
+        ctx({ masterEfficiencyScore: 55 }, { inWarmup: true }),
+      ).kind,
+    ).toBe("none");
+  });
+
+  it("describes TTC as different-lane, per-tick, and not a crash probability", () => {
+    const ttc = def("minTTC").description;
+    expect(ttc).toMatch(/different lanes/i);
+    expect(ttc).toMatch(/not a collision or crash probability/i);
+    expect(ttc).not.toMatch(/following vehicle and its leader/i);
+    expect(def("ttcEventCount").description).toMatch(/exposure count/i);
+    expect(def("petEventCount").description).toMatch(/generous/i);
+  });
+
+  it("describes delay as extra travel time, distinct from queued time", () => {
+    expect(def("averageDelay").description).toMatch(
+      /not the same as time spent queued/i,
+    );
+    expect(def("averageWaitTime").description).toMatch(
+      /not the same as delay/i,
+    );
+    expect(def("criticalSaturationVolume").description).toMatch(
+      /not a measured capacity/i,
+    );
   });
 });

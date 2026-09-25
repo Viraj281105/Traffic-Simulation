@@ -3,26 +3,88 @@ import math
 import random
 from typing import Any, Dict, List, Optional
 
+from src.core.limits import demand_vehicle_limit
 from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
+from src.study.calibration import calibration_status
+
+# Confidence levels the study accepts. The significance threshold is always
+# alpha = 1 - confidence, so a confidence interval and the significance flag
+# reported next to it are for the same level.
+SUPPORTED_CONFIDENCE_LEVELS = (0.90, 0.95, 0.99)
+DEFAULT_CONFIDENCE_LEVEL = 0.95
 
 
-def _calculate_stats(values: List[float]) -> Dict[str, float]:
-    """Calculates mean, standard deviation, min, max, and 95% confidence interval."""
+def _t_critical(degrees_of_freedom: float, confidence: float) -> float:
+    """Two-sided Student-t critical value: the t with P(|T| > t) = 1 - confidence.
+
+    Found by bisection on the two-tailed p-value below, so the interval
+    multiplier and the significance test are computed from the same
+    t-distribution. Deterministic (fixed iteration count).
+    """
+    if degrees_of_freedom <= 0:
+        return 0.0
+    target = 1.0 - confidence
+    lo, hi = 0.0, 1000.0
+    for _ in range(100):
+        mid = (lo + hi) / 2.0
+        if _student_t_two_tailed_p_value(mid, degrees_of_freedom) > target:
+            lo = mid
+        else:
+            hi = mid
+    return (lo + hi) / 2.0
+
+
+def _calculate_stats(
+    values: List[float], confidence: float = DEFAULT_CONFIDENCE_LEVEL
+) -> Dict[str, float]:
+    """Mean, sample standard deviation, min, max and a Student-t confidence
+    interval for the mean.
+
+    Confidence interval: ``mean +/- t * s / sqrt(n)`` with ``t`` the two-sided
+    Student-t critical value at ``confidence`` and ``n - 1`` degrees of
+    freedom. The t-distribution (not the normal 1.96) is used because the
+    studies run 3-10 seeds: at n = 5 the 95 % multiplier is 2.776, so a
+    normal-based interval would be about 29 % too narrow. It is the same
+    distribution the Welch p-value in ``_compare_groups`` uses, so an interval
+    and a significance flag at the same level agree in kind.
+
+    ``ci`` is the half-width at the requested confidence; ``ci95`` is always
+    the 95 % half-width (kept as the stable key reports and exports read).
+    A single value has no spread estimate: the half-widths are 0.0 and
+    ``ciDegreesOfFreedom`` is 0 (no interval).
+    """
     if not values:
-        return {"mean": 0.0, "std": 0.0, "min": 0.0, "max": 0.0, "ci95": 0.0}
+        return {
+            "mean": 0.0,
+            "std": 0.0,
+            "min": 0.0,
+            "max": 0.0,
+            "ci95": 0.0,
+            "ci": 0.0,
+            "ciConfidence": confidence,
+            "ciDegreesOfFreedom": 0,
+            "ciCriticalValue": 0.0,
+        }
 
     n = len(values)
     mean = sum(values) / n
-    variance = sum((x - mean) ** 2 for x in values) / max(n - 1, 1) if n > 1 else 0.0
+    variance = sum((x - mean) ** 2 for x in values) / (n - 1) if n > 1 else 0.0
     std = math.sqrt(variance)
-    ci95 = 1.96 * (std / math.sqrt(n)) if n > 1 else 0.0
+    se = std / math.sqrt(n) if n > 1 else 0.0
+    df = n - 1
+    t_at_level = _t_critical(df, confidence) if n > 1 else 0.0
+    t_95 = _t_critical(df, 0.95) if n > 1 else 0.0
 
     return {
         "mean": round(mean, 2),
         "std": round(std, 2),
         "min": round(min(values), 2),
         "max": round(max(values), 2),
-        "ci95": round(ci95, 2),
+        "ci95": round(t_95 * se, 2),
+        "ci": round(t_at_level * se, 2),
+        "ciConfidence": confidence,
+        "ciDegreesOfFreedom": df,
+        "ciCriticalValue": round(t_at_level, 4),
     }
 
 
@@ -109,8 +171,15 @@ def _student_t_two_tailed_p_value(t_stat: float, degrees_of_freedom: float) -> f
     return _regularized_incomplete_beta(degrees_of_freedom / 2.0, 0.5, x)
 
 
-def _compare_groups(a: List[float], b: List[float]) -> Dict[str, Any]:
-    """Computes Cohen's d and a Welch's t-test significance flag (alpha=0.05).
+def _compare_groups(
+    a: List[float], b: List[float], alpha: float = 0.05
+) -> Dict[str, Any]:
+    """Computes Cohen's d and a Welch's t-test significance flag (default
+    alpha = 0.05; the studies pass 1 - the requested confidence level).
+
+    The test is unpaired even though both controls run on the same seeds; it
+    is the conservative choice and is what the reported p-values and
+    degrees of freedom mean.
 
     Historically this used a normal-distribution (z) approximation, which is
     only valid for large n per group. This project's default seed count is
@@ -151,7 +220,7 @@ def _compare_groups(a: List[float], b: List[float]) -> Dict[str, Any]:
     )
 
     p_value = _student_t_two_tailed_p_value(t_stat, degrees_of_freedom)
-    significant = p_value < 0.05
+    significant = p_value < alpha
 
     return {
         "cohensD": round(cohens_d, 3),
@@ -166,6 +235,7 @@ def run_statistical_validation(
     num_seeds: int = 5,
     duration: float = 30.0,
     time_step: float = 0.1,
+    confidence_level: float = DEFAULT_CONFIDENCE_LEVEL,
 ) -> Dict[str, Any]:
     """
     Executes a multi-seed Monte Carlo experiment across N randomized seeds to compute
@@ -176,7 +246,9 @@ def run_statistical_validation(
         "roads": {
             "approachLength": 200.0,
             "laneWidth": 3.5,
-            "lanesPerApproach": {"north": 2, "south": 2, "east": 2, "west": 2},
+            # One lane per approach: the calibrated comparison
+            # (study/calibration.py).
+            "lanesPerApproach": {"north": 1, "south": 1, "east": 1, "west": 1},
         },
         "traffic": {"arrivalRate": 0.35, "arrivalDistribution": "poisson"},
         "vehicleGeneration": {
@@ -188,7 +260,15 @@ def run_statistical_validation(
         },
     }
 
+    if confidence_level not in SUPPORTED_CONFIDENCE_LEVELS:
+        raise ValueError(
+            f"confidence_level must be one of {SUPPORTED_CONFIDENCE_LEVELS}"
+        )
+    alpha = round(1.0 - confidence_level, 2)
+
+    # Fresh random seeds each call (recorded in the result, not user-settable).
     seeds = [random.randint(1000, 999999) for _ in range(num_seeds)]
+    vehicle_limit_seeds: List[int] = []
 
     sig_delays: List[float] = []
     round_delays: List[float] = []
@@ -206,6 +286,13 @@ def run_statistical_validation(
         # As in the volume sweep: the validated request duration is the one
         # the engines run, and ticks are counted on their own clock.
         run_cfg["simulation"]["duration"] = duration
+        # Size the vehicle limit to the scenario (unless set) so the default
+        # cap cannot silently truncate the demand being repeated.
+        run_traffic = run_cfg.setdefault("traffic", {})
+        run_traffic.setdefault(
+            "totalVehicles",
+            demand_vehicle_limit(float(run_traffic.get("arrivalRate", 0.5)), duration),
+        )
 
         orchestrator = DualSimulationOrchestrator(run_cfg)
         steps = orchestrator.clock_signal.ticks_for_duration(duration)
@@ -243,6 +330,9 @@ def run_statistical_validation(
         q_sig = m_sig.get("averageQueueLength", 0.0)
         q_round = m_round.get("averageQueueLength", 0.0)
 
+        if m_sig.get("vehicleLimitReached") or m_round.get("vehicleLimitReached"):
+            vehicle_limit_seeds.append(seed)
+
         sig_delays.append(d_sig)
         round_delays.append(d_round)
         sig_throughputs.append(tp_sig)
@@ -270,24 +360,67 @@ def run_statistical_validation(
         "numSeeds": num_seeds,
         "seeds": seeds,
         "duration": duration,
+        "confidenceLevel": confidence_level,
+        "alpha": alpha,
+        "method": {
+            "confidenceInterval": "mean +/- t(n-1) * s / sqrt(n), two-sided Student-t",
+            "significanceTest": "Welch two-sample t-test (unpaired), two-sided",
+            "effectSize": "Cohen's d, pooled SD; positive = signal higher",
+            "note": (
+                "Three metrics are tested separately with no multiple-"
+                "comparison correction; with few seeds a non-significant "
+                "result means the study cannot distinguish the controls, "
+                "not that they are equal."
+            ),
+        },
+        "calibration": calibration_status(base_config),
+        # Seeds whose run hit the vehicle-generation cap: their demand was
+        # truncated, so those seeds are not full-demand samples.
+        "vehicleLimitReachedSeeds": vehicle_limit_seeds,
         "signal": {
-            "delay": _calculate_stats(sig_delays),
-            "throughput": _calculate_stats(sig_throughputs),
-            "queue": _calculate_stats(sig_queues),
+            "delay": _calculate_stats(sig_delays, confidence_level),
+            "throughput": _calculate_stats(sig_throughputs, confidence_level),
+            "queue": _calculate_stats(sig_queues, confidence_level),
         },
         "roundabout": {
-            "delay": _calculate_stats(round_delays),
-            "throughput": _calculate_stats(round_throughputs),
-            "queue": _calculate_stats(round_queues),
+            "delay": _calculate_stats(round_delays, confidence_level),
+            "throughput": _calculate_stats(round_throughputs, confidence_level),
+            "queue": _calculate_stats(round_queues, confidence_level),
         },
         "comparison": {
-            "delay": _compare_groups(sig_delays, round_delays),
-            "throughput": _compare_groups(sig_throughputs, round_throughputs),
-            "queue": _compare_groups(sig_queues, round_queues),
+            "delay": _compare_groups(sig_delays, round_delays, alpha),
+            "throughput": _compare_groups(sig_throughputs, round_throughputs, alpha),
+            "queue": _compare_groups(sig_queues, round_queues, alpha),
         },
         "seedRuns": seed_runs,
         "individualRuns": seed_runs,  # backward-compat alias
     }
+
+
+_GEOMETRIES = ("signal", "roundabout")
+
+# Perpendicular signal groups: a north/south approach and an east/west approach
+# must never both show green.
+_NS = {"north", "south"}
+_EW = {"east", "west"}
+
+
+def _engine_parts(orch: DualSimulationOrchestrator, geometry: str) -> Any:
+    if geometry == "signal":
+        return orch.engine_signal, orch.collector_signal, orch.clock_signal
+    return orch.engine_roundabout, orch.collector_roundabout, orch.clock_roundabout
+
+
+def _final_metrics(orch: DualSimulationOrchestrator, geometry: str) -> Dict[str, Any]:
+    engine, collector, clock = _engine_parts(orch, geometry)
+    metrics: Dict[str, Any] = collector.get_metrics(
+        clock.get_elapsed_time(),
+        engine.pool.active_vehicles,
+        engine.pool.exited_vehicles,
+        engine.spawner.spawned_count if engine.spawner else 0,
+        engine.pool.collision_count,
+    )
+    return metrics
 
 
 def run_invariant_checks(
@@ -296,11 +429,18 @@ def run_invariant_checks(
     random_seed: int = 12345,
 ) -> Dict[str, Any]:
     """
-    Validates core physical and kinematic invariants:
-    1. Conservation of mass (spawned == active + exited).
-    2. Zero negative speeds (v >= 0).
-    3. Conflicting signal green exclusivity.
-    4. Bit-exact determinism across identical random seeds.
+    Validates core physical and kinematic invariants on BOTH geometries:
+    1. Conservation of mass (spawned == active + exited), every tick, for the
+       signal and the roundabout engine.
+    2. Zero negative speeds (v >= 0), every tick, for both engines.
+    3. Conflicting signal green exclusivity (signal only: a north/south and an
+       east/west approach are never green together), every tick.
+    4. Same-seed determinism: a second identical run must reproduce
+       ``averageDelay`` and ``throughput`` on each geometry.
+
+    The result reports each geometry separately (``geometries``) so a pass on
+    one can never be read as a pass on both; the top-level ``valid`` /
+    ``isDeterministic`` are true only when every geometry passed.
     """
     config: Dict[str, Any] = {
         "simulation": {
@@ -312,6 +452,7 @@ def run_invariant_checks(
         "roads": {
             "approachLength": 200.0,
             "laneWidth": 3.5,
+            # Two lanes, as before: the check exercises the harder geometry.
             "lanesPerApproach": {"north": 2, "south": 2, "east": 2, "west": 2},
         },
         "traffic": {"arrivalRate": 0.4, "arrivalDistribution": "poisson"},
@@ -327,72 +468,96 @@ def run_invariant_checks(
     orchestrator1 = DualSimulationOrchestrator(config)
     steps = orchestrator1.clock_signal.ticks_for_duration(duration)
 
-    invariants_passed = True
-    violations: List[str] = []
+    violations: Dict[str, List[str]] = {
+        "massConservation": [],
+        "negativeSpeed": [],
+        "greenExclusivity": [],
+    }
+    per_geometry_violations: Dict[str, List[str]] = {g: [] for g in _GEOMETRIES}
 
-    # Run Simulation 1 and check invariants each tick
+    def record(kind: str, geometry: str, message: str) -> None:
+        violations[kind].append(message)
+        per_geometry_violations[geometry].append(message)
+
     for tick in range(steps):
         orchestrator1.engine_signal.step()
         orchestrator1.engine_roundabout.step()
 
-        # 1. Mass conservation check (Signal)
-        eng_s = orchestrator1.engine_signal
-        spawned_s = eng_s.spawner.spawned_count if eng_s.spawner else 0
-        active_s = len(eng_s.pool.active_vehicles)
-        exited_s = len(eng_s.pool.exited_vehicles)
-        if spawned_s != (active_s + exited_s):
-            invariants_passed = False
-            violations.append(
-                f"Tick {tick}: Signal vehicle conservation violated: spawned({spawned_s}) != active({active_s}) + exited({exited_s})"
+        for geometry in _GEOMETRIES:
+            engine, _collector, _clock = _engine_parts(orchestrator1, geometry)
+            spawned = engine.spawner.spawned_count if engine.spawner else 0
+            active = len(engine.pool.active_vehicles)
+            exited = len(engine.pool.exited_vehicles)
+            if spawned != (active + exited):
+                record(
+                    "massConservation",
+                    geometry,
+                    f"Tick {tick}: {geometry} vehicle conservation violated: "
+                    f"spawned({spawned}) != active({active}) + exited({exited})",
+                )
+            for v in engine.pool.active_vehicles:
+                if v.speed < -0.01:
+                    record(
+                        "negativeSpeed",
+                        geometry,
+                        f"Tick {tick}: {geometry} vehicle {v.vehicle_id} "
+                        f"negative speed ({v.speed})",
+                    )
+
+        greens = {
+            sig["direction"].lower()
+            for sig in orchestrator1.controller_signal.get_state().get("signals", [])
+            if sig.get("color") == "green"
+        }
+        if greens & _NS and greens & _EW:
+            record(
+                "greenExclusivity",
+                "signal",
+                f"Tick {tick}: conflicting signal greens together: {sorted(greens)}",
             )
 
-        # 2. Non-negative speed check
-        for v in eng_s.pool.active_vehicles:
-            if v.speed < -0.01:
-                invariants_passed = False
-                violations.append(
-                    f"Tick {tick}: Vehicle {v.vehicle_id} negative speed ({v.speed})"
-                )
-
-    # 3. Determinism check: Run second simulation with exact same seed and check metric equality
+    # Determinism: an identical second run must reproduce each geometry.
     orchestrator2 = DualSimulationOrchestrator(config)
     for _ in range(steps):
         orchestrator2.engine_signal.step()
         orchestrator2.engine_roundabout.step()
 
-    m1_s = orchestrator1.collector_signal.get_metrics(
-        duration,
-        orchestrator1.engine_signal.pool.active_vehicles,
-        orchestrator1.engine_signal.pool.exited_vehicles,
-        orchestrator1.engine_signal.spawner.spawned_count
-        if orchestrator1.engine_signal.spawner
-        else 0,
-        orchestrator1.engine_signal.pool.collision_count,
-    )
-    m2_s = orchestrator2.collector_signal.get_metrics(
-        duration,
-        orchestrator2.engine_signal.pool.active_vehicles,
-        orchestrator2.engine_signal.pool.exited_vehicles,
-        orchestrator2.engine_signal.spawner.spawned_count
-        if orchestrator2.engine_signal.spawner
-        else 0,
-        orchestrator2.engine_signal.pool.collision_count,
-    )
+    deterministic: Dict[str, bool] = {}
+    for geometry in _GEOMETRIES:
+        m1 = _final_metrics(orchestrator1, geometry)
+        m2 = _final_metrics(orchestrator2, geometry)
+        deterministic[geometry] = m1.get("averageDelay") == m2.get(
+            "averageDelay"
+        ) and m1.get("throughput") == m2.get("throughput")
+        if not deterministic[geometry]:
+            per_geometry_violations[geometry].append(
+                f"Determinism check failed on {geometry}: identical seeds "
+                "produced divergent metrics."
+            )
 
-    is_deterministic = m1_s.get("averageDelay") == m2_s.get(
-        "averageDelay"
-    ) and m1_s.get("throughput") == m2_s.get("throughput")
-
-    if not is_deterministic:
-        invariants_passed = False
-        violations.append(
-            "Determinism check failed: identical seeds produced divergent metrics."
-        )
+    is_deterministic = all(deterministic.values())
+    all_violations = [v for g in _GEOMETRIES for v in per_geometry_violations[g]]
 
     return {
-        "valid": invariants_passed,
+        "valid": not all_violations,
         "isDeterministic": is_deterministic,
-        "massConservationValid": len(violations) == 0,
+        "massConservationValid": not violations["massConservation"],
+        "nonNegativeSpeedsValid": not violations["negativeSpeed"],
+        "signalGreenExclusivityValid": not violations["greenExclusivity"],
+        "geometries": {
+            g: {
+                "valid": not per_geometry_violations[g],
+                "isDeterministic": deterministic[g],
+                "violations": per_geometry_violations[g],
+            }
+            for g in _GEOMETRIES
+        },
+        "checked": [
+            "vehicle conservation (both geometries)",
+            "non-negative speeds (both geometries)",
+            "conflicting signal greens (signal)",
+            "same-seed reproduction of delay and throughput (both geometries)",
+        ],
         "ticksTested": steps,
-        "violations": violations,
+        "violations": all_violations,
     }

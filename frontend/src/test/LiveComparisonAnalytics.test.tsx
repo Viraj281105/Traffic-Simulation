@@ -184,7 +184,7 @@ describe("Live Comparison Analytics Visualizers", () => {
     expect(screen.getByText("In Network")).toBeInTheDocument();
     expect(screen.getAllByText("Waiting").length).toBeGreaterThan(0);
     expect(screen.getAllByText("In Junction").length).toBeGreaterThan(0);
-    expect(screen.getByText("Exited (Served)")).toBeInTheDocument();
+    expect(screen.getByText("Exited (whole run)")).toBeInTheDocument();
 
     // Verify signal active count (14) and roundabout active count (11)
     expect(screen.getByText("14")).toBeInTheDocument();
@@ -304,7 +304,9 @@ describe("Live Comparison Analytics Visualizers", () => {
     );
 
     expect(screen.getAllByText(/distinct overlaps/i).length).toBe(2);
-    expect(screen.getByText(/zero collisions recorded/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/no vehicle overlaps recorded/i),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(/surrogate safety measures notice/i),
     ).toBeInTheDocument();
@@ -321,13 +323,13 @@ describe("Live Comparison Analytics Visualizers", () => {
     );
 
     expect(screen.getByText("Demand vs. Served Balance")).toBeInTheDocument();
-    expect(screen.getByText("Service Utilization")).toBeInTheDocument();
-    expect(screen.getByText("Critical Saturation Volume")).toBeInTheDocument();
+    expect(screen.getByText("Time with traffic moving")).toBeInTheDocument();
+    expect(screen.getByText("Served-rate estimate")).toBeInTheDocument();
     expect(screen.getByText("Idle Green Loss")).toBeInTheDocument();
     expect(screen.getByText("Junction Footprint")).toBeInTheDocument();
   });
 
-  it("renders DistributionDiagnosticsVisualizer with delay spread and composite scores", () => {
+  it("renders DistributionDiagnosticsVisualizer with delay spread and no side-by-side composite", () => {
     render(
       <DistributionDiagnosticsVisualizer
         signalCtx={signalCtx}
@@ -337,10 +339,11 @@ describe("Live Comparison Analytics Visualizers", () => {
     );
 
     expect(screen.getByText(/delay distribution spread/i)).toBeInTheDocument();
-    expect(
-      screen.getByText("Composite Score (Fixed Weights)"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("78.4")).toBeInTheDocument();
-    expect(screen.getByText("86.2")).toBeInTheDocument();
+    // The fixed-weight composite is never set side by side across geometries.
+    expect(screen.queryByText(/composite score/i)).toBeNull();
+    expect(screen.queryByText("78.4")).toBeNull();
+    expect(screen.queryByText("86.2")).toBeNull();
+    // The box is explained as median to 95th percentile, not an IQR.
+    expect(screen.getByText(/Box: median to 95th/i)).toBeInTheDocument();
   });
 });

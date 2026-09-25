@@ -542,6 +542,8 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
                     <WeightedScoringPanel
                       metricsSignal={snapshot.signal.metrics}
                       metricsRoundabout={snapshot.roundabout.metrics}
+                      signalCtx={signal}
+                      roundaboutCtx={roundabout}
                       weights={weights}
                       onWeightsChange={setWeights}
                     />
@@ -557,6 +559,8 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
                   <WeightedScoringPanel
                     metricsSignal={snapshot.signal.metrics}
                     metricsRoundabout={snapshot.roundabout.metrics}
+                    signalCtx={signal}
+                    roundaboutCtx={roundabout}
                     weights={weights}
                     onWeightsChange={setWeights}
                   />

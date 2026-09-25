@@ -12,7 +12,10 @@ import {
   Legend,
   ReferenceLine,
 } from "recharts";
-import type { ComparisonHistoryPoint } from "../../hooks/useLiveComparisonHistory";
+import {
+  MAX_HISTORY_POINTS,
+  type ComparisonHistoryPoint,
+} from "../../hooks/useLiveComparisonHistory";
 import type { MetricContext } from "../../metrics/catalog";
 import { formatMetric, METRICS } from "../../metrics/catalog";
 
@@ -96,8 +99,8 @@ export function PerformanceCharts({
           <span className="warmup-pulse-dot" />
           <span>
             <strong>Warm-up active:</strong> Exited vehicle delay &amp; rate
-            metrics accumulate post-warmup (after 30s). Current speed and
-            instantaneous telemetry remain live.
+            metrics accumulate once the warm-up period is over. Current speed
+            and instantaneous telemetry remain live.
           </span>
         </div>
       )}
@@ -322,6 +325,14 @@ export function PerformanceCharts({
       </div>
 
       {/* Chart Canvas Area */}
+      <p className="chart-note">
+        Each line is a running value over the whole run so far (for example the
+        mean of every exit up to that moment), so it smooths and settles rather
+        than showing moment-to-moment swings.
+        {history.length >= MAX_HISTORY_POINTS
+          ? ` Only the most recent ${MAX_HISTORY_POINTS.toString()} samples (about ${MAX_HISTORY_POINTS.toString()} s) are drawn; the start of a longer run is not shown.`
+          : ""}
+      </p>
       <div className="chart-canvas-card">
         {history.length === 0 ? (
           <div className="chart-empty-state">

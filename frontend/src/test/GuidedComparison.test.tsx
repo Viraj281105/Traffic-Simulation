@@ -237,7 +237,7 @@ describe("Guided comparison", () => {
     );
     expect(inShort).toHaveTextContent(/does not pick a winner/);
     expect(
-      screen.getByRole("heading", { name: /how long do drivers wait\?/i }),
+      screen.getByRole("heading", { name: /how much time do drivers lose\?/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: /why did this happen\?/i }),
@@ -253,6 +253,44 @@ describe("Guided comparison", () => {
     ).toBeInTheDocument();
     expect(
       within(specialist).getByRole("rowheader", { name: /minimum ttc/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps time lost apart from waiting and never sets the composite side by side", async () => {
+    const user = userEvent.setup();
+    wsState.snapshot = COMPLETED;
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: /results/i }));
+
+    // Delay is "time lost", queued time is its own row, and the definition is stated.
+    expect(
+      screen.getByText(/Time spent nearly stopped, on average/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Time lost is not the same as waiting/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/how long do drivers wait/i)).toBeNull();
+    expect(screen.queryByText(/is that a long wait/i)).toBeNull();
+
+    // The fixed-weight composite is not in the signal-vs-roundabout table.
+    const specialist = screen
+      .getByText(/all measurements & method/i)
+      .closest("details") as HTMLElement;
+    expect(
+      within(specialist).queryByRole("rowheader", { name: /composite/i }),
+    ).toBeNull();
+  });
+
+  it("tells the user when vehicle generation was cut off", async () => {
+    const user = userEvent.setup();
+    const capped = structuredClone(COMPLETED);
+    capped.signal.metrics.vehicleLimitReached = true;
+    capped.signal.metrics.vehicleLimit = 200;
+    wsState.snapshot = capped;
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: /results/i }));
+    expect(
+      screen.getByText(/Vehicle generation reached its limit of 200 vehicles/i),
     ).toBeInTheDocument();
   });
 

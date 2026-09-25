@@ -195,8 +195,9 @@ export function TrafficFlowVisualizer({
             </div>
           </div>
           <p className="card-note">
-            1.00 = equal delay across approaches; 0.25 = all delay on one
-            approach.
+            1.00 = equal queued time across the approaches; the floor is 1 ÷ the
+            number of approaches with traffic (0.25 with four). Noisy when few
+            vehicles have exited.
           </p>
         </div>
 

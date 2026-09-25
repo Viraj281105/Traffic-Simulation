@@ -1,5 +1,7 @@
 # Stitch-Ready Design Specification: Traffic-Simulation Live Comparison & Live Metrics Experience
 
+> **Note (2026-09-25):** this is the original design brief. Where it differs from the implementation it is superseded by `docs/product/urbanflow-evaluation-metrics.md` §15: the fixed-weight composite is no longer shown side by side across geometries, the delay whisker box is median → 95th percentile (not an IQR), and "served" figures use a single window.
+
 ## 1. Executive Summary
 
 This document specifies the complete visual design system, component architecture, data contracts, and interaction patterns for the redesigned **Live Comparison & Live Metrics experience** in UrbanFlow Traffic-Simulation.

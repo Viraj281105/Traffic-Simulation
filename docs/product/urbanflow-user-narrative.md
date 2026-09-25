@@ -17,7 +17,7 @@ It answers two mentor findings:
 
 > *A junction on your road is up for redesign: keep the traffic lights, or build a
 > roundabout? UrbanFlow lets you try both on the same virtual junction with exactly
-> the same cars, then shows you in plain language how long drivers would wait, how
+> the same cars, then shows you in plain language how much time drivers would lose, how
 > much traffic gets through, how queues build, whether every direction is treated
 > alike — why — and how sure you can be. It shows the evidence; the decision stays
 > yours.*
@@ -67,7 +67,7 @@ Compare · Step 2 — Watch both run
   ▼
 Compare · Step 3 — Results
   │  In short — one sentence per question, both values stated
-  │  What people would notice — 4 question cards (wait / throughput / queues / fairness)
+  │  What people would notice — 4 question cards (time lost / throughput / queues / fairness)
   │  Why did this happen? — mechanisms + this run's own evidence
   │  How reliable is this? — fairness of the test, limits, cautions,
   │                          "Check reliability" (repeat over 5–10 traffic patterns)
@@ -144,7 +144,7 @@ tables. It computes no new metric and never ranks the controls.
 | Median / min / max / std delay, queued time (`averageWaitTime`), throughput rate, current mean speed, active-queue average, total stops, queue std, queue stability index, speed variance index | **Specialist layer** | Full table only (two different "wait" numbers side by side confused users) |
 | Min TTC, low-TTC events, min PET, low-PET events, TTC/PET samples | **Removed from primary UX** (specialist only) | Surrogate safety is exploratory; the plain layer states "crash risk is not modelled" |
 | Vehicles generated, critical saturation volume, service utilization, junction footprint | **Specialist layer** | Full table only |
-| Composite score (`masterEfficiencyScore`) and the user-weighted scoring panel | **De-emphasised** (specialist only) | A 0–100 score reads as a verdict; kept for researchers |
+| Composite score (`masterEfficiencyScore`) and the user-weighted scoring panel | **Composite: within one layout only** (never side by side signal vs roundabout); **weighted panel: specialist only, hidden until warm-up is over** | A 0–100 score reads as a verdict, and the fixed composite is structurally unfair across layouts (see `urbanflow-evaluation-metrics.md` §15) |
 
 ### Study and scenario concepts
 
@@ -168,7 +168,7 @@ where a label depends on it:
 - **About the same** (`SIMILARITY`): a gap counts only if it exceeds both an
   absolute and a relative tolerance — delay 1 s / 5 %, vehicles 3 / 2 %,
   queue 0.5 veh / 10 %, stops 0.1 / 10 %, fairness 0.03.
-- **"Is that a long wait?"** (`LOS_THRESHOLDS`): Highway Capacity Manual delay
+- **"Is that a lot of time lost?"** (`LOS_THRESHOLDS`, the app's single set of level-of-service bands): Highway Capacity Manual delay
   bands — signals A ≤ 10, B ≤ 20, C ≤ 35, D ≤ 55, E ≤ 80 s; roundabouts
   (stricter) A ≤ 10, B ≤ 15, C ≤ 25, D ≤ 35, E ≤ 50 s. Labelled indicative.
 - **Fairness words** (`FAIRNESS_BANDS`): ≥ 0.95, ≥ 0.85, ≥ 0.70, below.

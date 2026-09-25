@@ -2124,3 +2124,19 @@ button.preflight-card:focus-visible {
   font-family: "JetBrains Mono", monospace;
   font-size: 11px;
 }
+
+/* Calibration / truncated-demand banners (mirrors the sweep dashboard). */
+.validation-banner {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(148, 163, 184, 0.1);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.validation-banner.is-exploratory {
+  border-color: rgba(245, 158, 11, 0.55);
+  background: rgba(245, 158, 11, 0.12);
+}

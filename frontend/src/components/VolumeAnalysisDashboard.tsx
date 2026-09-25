@@ -14,13 +14,52 @@ import { API_BASE_URL } from "../config";
 import type { RunningMetrics } from "../types/simulation";
 import "./VolumeAnalysisDashboard.css";
 import { TierMetrics } from "./TierMetrics";
+import {
+  LOS_THRESHOLDS,
+  LOS_WORDS,
+  SIDE_TITLE,
+  levelOfService,
+  type LosGrade,
+  type Side,
+} from "../metrics/plainLanguage";
 
 // ── Types ──────────────────────────────────────────────────────────────────
+
+type SweepWinner = "signal" | "roundabout" | "tie" | "inconclusive";
+
+interface Calibration {
+  calibrated: boolean;
+  note: string;
+}
+
+interface TieTolerance {
+  absSeconds: number;
+  relative: number;
+}
+
+/** Same rule as backend study/tolerances.py and plainLanguage SIMILARITY.delay. */
+const DEFAULT_TIE_TOLERANCE: TieTolerance = { absSeconds: 1, relative: 0.05 };
+
+function tieText(t: TieTolerance | undefined): string {
+  const tol = t ?? DEFAULT_TIE_TOLERANCE;
+  return `≤${tol.absSeconds.toString()} s or ≤${(tol.relative * 100).toString()}%`;
+}
+
+function winnerLabel(w: SweepWinner): string {
+  if (w === "roundabout") return "🔄 Lower delay: roundabout";
+  if (w === "signal") return "🚦 Lower delay: signal";
+  if (w === "tie") return "⚖️ About the same";
+  return "❔ Inconclusive";
+}
 
 interface SweepRun {
   arrivalRate: number;
   hourlyVolumeVehPerHour: number;
-  winner: "signal" | "roundabout" | "tie";
+  /** Lower mean delay at this tier. "inconclusive": too few vehicles got
+   *  through, or the vehicle limit cut demand off, so no direction is given. */
+  winner: SweepWinner;
+  inconclusiveReason?: "low_sample" | "vehicle_limit_reached" | null;
+  vehicleLimitReached?: boolean;
   delayDeltaPercent: number;
   throughputDeltaPercent?: number;
   queueDeltaPercent?: number;
@@ -80,6 +119,8 @@ interface SweepCurves {
   };
   crossoverArrivalRate: number | null;
   crossoverHourlyVolume: number | null;
+  /** The two decided tiers the change lies between (not interpolated). */
+  crossoverBracketArrivalRates?: [number, number] | null;
 }
 
 interface SweepSession {
@@ -87,6 +128,10 @@ interface SweepSession {
   name: string;
   duration: number;
   randomSeed: number;
+  seedsPerTier?: number;
+  tieTolerance?: TieTolerance;
+  /** Absent on sweeps saved before calibration was recorded. */
+  calibration?: Calibration;
   curves: SweepCurves;
   runs: SweepRun[];
 }
@@ -95,6 +140,20 @@ interface SavedSweep {
   id: string;
   name: string;
   created_at: string;
+}
+
+/** Fields describing how a sweep was run, from either payload shape (flat, or
+ *  nested under `results` for older saved sweeps). */
+function sessionExtras(
+  raw: Record<string, unknown>,
+  rawResults: Record<string, unknown>,
+): Pick<SweepSession, "calibration" | "tieTolerance" | "seedsPerTier"> {
+  const pick = (key: string): unknown => raw[key] ?? rawResults[key];
+  return {
+    calibration: pick("calibration") as Calibration | undefined,
+    tieTolerance: pick("tieTolerance") as TieTolerance | undefined,
+    seedsPerTier: pick("seedsPerTier") as number | undefined,
+  };
 }
 
 /**
@@ -125,90 +184,75 @@ function withOfferedVolumes(session: SweepSession): SweepSession {
 
 const CONTROL_NAME = { signal: "signal", roundabout: "roundabout" } as const;
 
-/** Describes the sweep's crossover from the data itself: which control had
- *  the lower mean delay on each side, rather than assuming a direction. */
-function crossoverSummary(runs: SweepRun[], crossover: number | null): string {
-  const decided = runs.filter((r) => r.winner !== "tie");
+/** Describes the sweep's change of direction from the data itself: which
+ *  control had the lower mean delay on each side, rather than assuming a
+ *  direction. Tiers that were a tie or inconclusive take no part. */
+function crossoverSummary(
+  runs: SweepRun[],
+  crossover: number | null,
+  bracket?: [number, number] | null,
+): string {
+  const decided = runs.filter(
+    (r) => r.winner === "signal" || r.winner === "roundabout",
+  );
+  const undecided = runs.length - decided.length;
+  const suffix = ` (this sweep, one random pattern per tier${undecided > 0 ? `; ${undecided.toString()} tier${undecided === 1 ? " was" : "s were"} a tie or inconclusive` : ""}).`;
   if (crossover !== null) {
-    const below = decided.filter((r) => r.hourlyVolumeVehPerHour < crossover);
+    const below = decided.filter(
+      (r) => r.arrivalRate < (bracket?.[1] ?? Infinity),
+    );
     const last = below.length > 0 ? below[below.length - 1] : undefined;
-    if (!last || last.winner === "tie") {
-      return `The control with lower mean delay changes at ≈${crossover.toLocaleString()} veh/h (this sweep, one seed per tier).`;
+    const from = bracket
+      ? `between ${Math.round(bracket[0] * 3600).toLocaleString()} and ${Math.round(bracket[1] * 3600).toLocaleString()} veh/h`
+      : `at ≈${crossover.toLocaleString()} veh/h`;
+    if (!last || (last.winner !== "signal" && last.winner !== "roundabout")) {
+      return `The control with the lower mean delay changes ${from}${suffix}`;
     }
     const first = CONTROL_NAME[last.winner];
     const other = last.winner === "signal" ? "roundabout" : "signal";
-    return `Lower mean delay: ${first} below ≈${crossover.toLocaleString()} veh/h, ${other} from there (this sweep, one seed per tier).`;
+    return `Lower mean delay: ${first} before, ${other} after, the change lying ${from}${suffix}`;
   }
   if (decided.length === 0) {
-    return "Mean delays were within the tie band at every tier.";
+    return `No tier could be decided: every tier was within the tie tolerance or inconclusive.`;
   }
   const kinds = new Set(decided.map((r) => r.winner));
   if (kinds.size === 1) {
-    return `The ${CONTROL_NAME[decided[0].winner as "signal" | "roundabout"]} had the lower mean delay at every tier outside the tie band.`;
+    return `The ${CONTROL_NAME[decided[0].winner as "signal" | "roundabout"]} had the lower mean delay at every decided tier${suffix}`;
   }
-  return "No single crossover: the lower-delay control changed more than once.";
+  return "No single change: the lower-delay control alternated more than once.";
 }
 
 type StudioTab = "curves" | "matrix" | "insights";
 type MetricView = "all" | "delay" | "throughput" | "queue";
 type XAxisMode = "volume" | "rate";
 
-// ── HCM Level of Service (LOS) Helper ──────────────────────────────────────
+// ── Level of service (shared bands) ────────────────────────────────────────
+//
+// One definition of the grade bands for the whole app: metrics/plainLanguage
+// (LOS_THRESHOLDS / levelOfService), which uses the Highway Capacity Manual's
+// signalised bands for the signal and its stricter unsignalised bands for the
+// roundabout. Only the colours live here. The grade is an indicative reading
+// of simulated delay, not an HCM analysis (see the reading guide tab).
 
 interface LOSInfo {
-  grade: "A" | "B" | "C" | "D" | "E" | "F";
+  grade: LosGrade;
   label: string;
   color: string;
   bg: string;
 }
 
-function getHCMLevelOfService(delaySeconds: number): LOSInfo {
-  if (delaySeconds <= 10) {
-    return {
-      grade: "A",
-      label: "Free Flow",
-      color: "#10b981",
-      bg: "rgba(16, 185, 129, 0.15)",
-    };
-  }
-  if (delaySeconds <= 20) {
-    return {
-      grade: "B",
-      label: "Stable Flow",
-      color: "#34d399",
-      bg: "rgba(52, 211, 153, 0.15)",
-    };
-  }
-  if (delaySeconds <= 35) {
-    return {
-      grade: "C",
-      label: "Moderate Delay",
-      color: "#fbbf24",
-      bg: "rgba(251, 191, 36, 0.15)",
-    };
-  }
-  if (delaySeconds <= 55) {
-    return {
-      grade: "D",
-      label: "Approaching Capacity",
-      color: "#f97316",
-      bg: "rgba(249, 115, 22, 0.15)",
-    };
-  }
-  if (delaySeconds <= 80) {
-    return {
-      grade: "E",
-      label: "At Capacity",
-      color: "#ef4444",
-      bg: "rgba(239, 68, 68, 0.15)",
-    };
-  }
-  return {
-    grade: "F",
-    label: "Gridlock",
-    color: "#f43f5e",
-    bg: "rgba(244, 63, 94, 0.2)",
-  };
+const LOS_COLORS: Record<LosGrade, { color: string; bg: string }> = {
+  A: { color: "#10b981", bg: "rgba(16, 185, 129, 0.15)" },
+  B: { color: "#34d399", bg: "rgba(52, 211, 153, 0.15)" },
+  C: { color: "#fbbf24", bg: "rgba(251, 191, 36, 0.15)" },
+  D: { color: "#f97316", bg: "rgba(249, 115, 22, 0.15)" },
+  E: { color: "#ef4444", bg: "rgba(239, 68, 68, 0.15)" },
+  F: { color: "#f43f5e", bg: "rgba(244, 63, 94, 0.2)" },
+};
+
+function getLevelOfService(delaySeconds: number, side: Side): LOSInfo {
+  const grade = levelOfService(delaySeconds, side);
+  return { grade, label: LOS_WORDS[grade], ...LOS_COLORS[grade] };
 }
 
 // ── Chart data builder ──────────────────────────────────────────────────────
@@ -292,7 +336,7 @@ const CustomTooltip = ({
 
   const raw = payload[0].payload as
     | {
-        winner?: "signal" | "roundabout" | "tie";
+        winner?: SweepWinner;
         delayDeltaPercent?: number;
         throughputDeltaPercent?: number;
         queueDeltaPercent?: number;
@@ -317,11 +361,7 @@ const CustomTooltip = ({
         </span>
         {raw?.winner && (
           <span className={`tooltip-winner-badge winner-${raw.winner}`}>
-            {raw.winner === "roundabout"
-              ? "🔄 Lower delay: roundabout"
-              : raw.winner === "signal"
-                ? "🚦 Lower delay: signal"
-                : "⚖️ Parity / Tie"}
+            {winnerLabel(raw.winner)}
           </span>
         )}
       </div>
@@ -458,7 +498,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
   const [warmupTime, setWarmupTime] = useState(15.0);
   const [timeStep, setTimeStep] = useState(0.1);
   const [approachLength, setApproachLength] = useState(200.0);
-  const [lanesCount, setLanesCount] = useState(2);
+  const [lanesCount, setLanesCount] = useState(1);
   const [speedProfileKey, setSpeedProfileKey] = useState<
     "standard" | "calmed" | "arterial"
   >("standard");
@@ -520,7 +560,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
     setWarmupTime(15.0);
     setTimeStep(0.1);
     setApproachLength(200.0);
-    setLanesCount(2);
+    setLanesCount(1);
     setSpeedProfileKey("standard");
   };
 
@@ -576,6 +616,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
           randomSeed: Number(raw.randomSeed ?? rawResults.randomSeed ?? 42),
           curves,
           runs,
+          ...sessionExtras(raw, rawResults),
         };
         setActiveSession(withOfferedVolumes(session));
         setScrubberVolumeOverride(null);
@@ -702,6 +743,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
           ),
           curves,
           runs,
+          ...sessionExtras(raw, rawResults),
         };
         setActiveSession(withOfferedVolumes(session));
         setSelectedId(session.sessionId);
@@ -728,7 +770,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
       "Roundabout Throughput (veh)",
       "Signal Queue (veh)",
       "Roundabout Queue (veh)",
-      "Winning Strategy",
+      "Lower mean delay (tie / inconclusive shown as such)",
     ];
 
     const rows = activeSession.runs.map((r) => [
@@ -776,6 +818,10 @@ export const VolumeAnalysisDashboard: React.FC = () => {
   ).length;
   const signalWins = runsList.filter((r) => r.winner === "signal").length;
   const tieWins = runsList.filter((r) => r.winner === "tie").length;
+  const inconclusiveTiers = runsList.filter(
+    (r) => r.winner === "inconclusive",
+  ).length;
+  const cappedTiers = runsList.filter((r) => r.vehicleLimitReached).length;
   const totalRuns = runsList.length;
 
   // Tier with the largest absolute mean-delay difference (roundabout − signal).
@@ -1181,7 +1227,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                       setLanesCount(2);
                     }}
                   >
-                    2 Lanes (Standard Dual-Lane)
+                    2 Lanes (exploratory: roundabout not calibrated)
                   </button>
                   <button
                     type="button"
@@ -1190,12 +1236,14 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                       setLanesCount(1);
                     }}
                   >
-                    1 Lane (Single-Lane Suburban)
+                    1 Lane (calibrated comparison)
                   </button>
                 </div>
                 <span className="field-hint">
-                  Defines physical queue storage and parallel throughput
-                  capacity.
+                  One lane per approach is the calibrated comparison. With more
+                  lanes the roundabout is still modelled with a single
+                  circulating lane, so its results are exploratory and must not
+                  be read as the calibrated baseline.
                 </span>
               </div>
 
@@ -1282,8 +1330,10 @@ export const VolumeAnalysisDashboard: React.FC = () => {
               <strong>{ratesConfig.rates.length} Rates</strong> ·{" "}
               <strong>{arrivalDistribution.toUpperCase()}</strong> ·{" "}
               <strong>Δt={timeStep.toFixed(2)}s</strong> ·{" "}
-              <strong>{lanesCount} Lanes/Leg</strong> ·{" "}
-              <strong>{approachLength}m Approach</strong>
+              <strong>
+                {lanesCount} Lanes/Leg{lanesCount === 1 ? "" : " (exploratory)"}
+              </strong>{" "}
+              · <strong>{approachLength}m Approach</strong>
             </div>
 
             <div className="drawer-actions-right">
@@ -1445,22 +1495,49 @@ export const VolumeAnalysisDashboard: React.FC = () => {
       {/* ── Active Results View ───────────────────────── */}
       {activeSession && !loadingSession && (
         <>
+          {activeSession.calibration &&
+            !activeSession.calibration.calibrated && (
+              <p className="sweep-banner is-exploratory" role="note">
+                <strong>Exploratory, not calibrated.</strong>{" "}
+                {activeSession.calibration.note}
+              </p>
+            )}
+          {!activeSession.calibration && (
+            <p className="sweep-banner" role="note">
+              This sweep was saved before its lane configuration was recorded,
+              so it cannot be identified as the calibrated one-lane comparison.
+            </p>
+          )}
+          {cappedTiers > 0 && (
+            <p className="sweep-banner is-exploratory" role="note">
+              <strong>Demand was cut off.</strong> Vehicle generation reached
+              its per-run limit in {cappedTiers.toString()} of{" "}
+              {totalRuns.toString()} tiers, so those tiers did not receive their
+              full demand and are marked inconclusive.
+            </p>
+          )}
           {/* Executive KPI Cards */}
           <div className="volume-kpi-grid">
             <div className="kpi-card kpi-crossover-card">
               <div className="kpi-top">
                 <span className="kpi-icon-badge">🎯</span>
-                <span className="kpi-category">Phase Boundary</span>
+                <span className="kpi-category">Delay ordering</span>
               </div>
-              <span className="kpi-label">Critical Saturation Crossover</span>
+              <span className="kpi-label">
+                Where the lower-delay control changes
+              </span>
               <span className="kpi-value highlight-amber">
                 {crossover
                   ? `${crossover.toLocaleString()} veh/h`
-                  : "None Detected"}
+                  : "No change observed"}
               </span>
               <span className="kpi-hint">
                 {crossover
-                  ? crossoverSummary(runsList, crossover)
+                  ? crossoverSummary(
+                      runsList,
+                      crossover,
+                      activeSession.curves.crossoverBracketArrivalRates,
+                    )
                   : crossoverSummary(runsList, null)}
               </span>
             </div>
@@ -1476,8 +1553,12 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                 {tieWins.toString()}
               </span>
               <span className="kpi-hint">
-                Roundabout · signal · within the tie band (≤0.2 s or &lt;2%), of{" "}
-                {totalRuns.toString()} tiers — one seed each
+                Roundabout · signal · about the same (
+                {tieText(activeSession.tieTolerance)})
+                {inconclusiveTiers > 0
+                  ? ` · ${inconclusiveTiers.toString()} inconclusive`
+                  : ""}
+                , of {totalRuns.toString()} tiers — one seed each
               </span>
             </div>
 
@@ -1543,7 +1624,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                 setActiveTab("insights");
               }}
             >
-              💡 Traffic Engineering & HCM LOS Guide
+              📖 How to read this sweep
             </button>
           </div>
 
@@ -1551,11 +1632,13 @@ export const VolumeAnalysisDashboard: React.FC = () => {
           {activeTab !== "insights" &&
             currentScrubberRun &&
             (() => {
-              const sigLOS = getHCMLevelOfService(
+              const sigLOS = getLevelOfService(
                 currentScrubberRun.signal.delay,
+                "signal",
               );
-              const rndLOS = getHCMLevelOfService(
+              const rndLOS = getLevelOfService(
                 currentScrubberRun.roundabout.delay,
+                "roundabout",
               );
               return (
                 <div className="volume-scrubber-bar">
@@ -1639,11 +1722,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                       className={`scrubber-verdict-chip winner-${currentScrubberRun.winner}`}
                     >
                       <span className="verdict-name">
-                        {currentScrubberRun.winner === "roundabout"
-                          ? "🔄 Lower delay: roundabout"
-                          : currentScrubberRun.winner === "signal"
-                            ? "🚦 Lower delay: signal"
-                            : "⚖️ Parity / Tie"}
+                        {winnerLabel(currentScrubberRun.winner)}
                       </span>
                       <span className="verdict-delta">
                         {currentScrubberRun.delayDeltaPercent > 0 ? "+" : ""}
@@ -1730,9 +1809,9 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                       onClick={() => {
                         setShowUncertaintyBands(!showUncertaintyBands);
                       }}
-                      title="Toggle uncertainty envelopes (±σ std dev and [min–max] range bounds)"
+                      title="Toggle spread bands: how much individual drivers' delays varied within each run (±σ and min–max). This is not uncertainty about the average."
                     >
-                      ± Range Envelopes
+                      ± Driver spread
                     </button>
                     <button
                       type="button"
@@ -1882,7 +1961,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                               <Line
                                 type="monotone"
                                 dataKey="signalDelayMax"
-                                name="Signal Upper Bound (Max / +σ)"
+                                name="Signal driver spread, upper (max / +σ)"
                                 stroke="#38bdf8"
                                 strokeDasharray="3 3"
                                 strokeOpacity={0.4}
@@ -1893,7 +1972,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                               <Line
                                 type="monotone"
                                 dataKey="signalDelayMin"
-                                name="Signal Lower Bound (Min / -σ)"
+                                name="Signal driver spread, lower (min / −σ)"
                                 stroke="#38bdf8"
                                 strokeDasharray="2 2"
                                 strokeOpacity={0.3}
@@ -1904,7 +1983,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                               <Line
                                 type="monotone"
                                 dataKey="roundaboutDelayMax"
-                                name="Roundabout Upper Bound (Max / +σ)"
+                                name="Roundabout driver spread, upper (max / +σ)"
                                 stroke="#10b981"
                                 strokeDasharray="3 3"
                                 strokeOpacity={0.4}
@@ -1915,7 +1994,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                               <Line
                                 type="monotone"
                                 dataKey="roundaboutDelayMin"
-                                name="Roundabout Lower Bound (Min / -σ)"
+                                name="Roundabout driver spread, lower (min / −σ)"
                                 stroke="#10b981"
                                 strokeDasharray="2 2"
                                 strokeOpacity={0.3}
@@ -2348,7 +2427,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                       setFilterWinner("tie");
                     }}
                   >
-                    ⚖️ Parity ({tieWins.toString()})
+                    ⚖️ About the same ({tieWins.toString()})
                   </button>
                 </div>
               </div>
@@ -2363,7 +2442,9 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                       <th>Roundabout Delay & LOS</th>
                       <th>Throughput</th>
                       <th>Queues</th>
-                      <th title="Lower mean delay at this tier; tie when within 0.2 s or 2%">
+                      <th
+                        title={`Lower mean delay at this tier (one random pattern); tie when within ${tieText(activeSession.tieTolerance)}; inconclusive when a side served fewer than 20 vehicles or the vehicle limit cut demand off`}
+                      >
                         Lower mean delay
                       </th>
                       <th>Δ Delay</th>
@@ -2371,8 +2452,14 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                   </thead>
                   <tbody>
                     {filteredRuns.map((run) => {
-                      const sigLOS = getHCMLevelOfService(run.signal.delay);
-                      const rndLOS = getHCMLevelOfService(run.roundabout.delay);
+                      const sigLOS = getLevelOfService(
+                        run.signal.delay,
+                        "signal",
+                      );
+                      const rndLOS = getLevelOfService(
+                        run.roundabout.delay,
+                        "roundabout",
+                      );
                       const sigPct = Math.min(
                         100,
                         Math.round((run.signal.delay / maxDelayInRuns) * 100),
@@ -2536,12 +2623,22 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                                     ? "winner-signal"
                                     : "winner-tie"
                               }
+                              title={
+                                run.inconclusiveReason ===
+                                "vehicle_limit_reached"
+                                  ? "Vehicle generation hit its limit, so demand was cut off at this tier"
+                                  : run.inconclusiveReason === "low_sample"
+                                    ? "Fewer than 20 vehicles got through on a side"
+                                    : undefined
+                              }
                             >
                               {run.winner === "roundabout"
                                 ? "🔄 Roundabout"
                                 : run.winner === "signal"
                                   ? "🚦 Signal"
-                                  : "⚖️ Parity"}
+                                  : run.winner === "tie"
+                                    ? "⚖️ About the same"
+                                    : "❔ Inconclusive"}
                             </span>
                           </td>
 
@@ -2585,192 +2682,147 @@ export const VolumeAnalysisDashboard: React.FC = () => {
             </div>
           )}
 
-          {/* ── TAB 3: Traffic Engineering Insights & Capacity Guide ─ */}
+          {/* ── TAB 3: How to read this sweep ─ */}
           {activeTab === "insights" && (
             <div className="engineering-insights-container">
               <div className="insights-header">
                 <div>
-                  <h4>🧠 Traffic Engineering Insights & Capacity Envelopes</h4>
+                  <h4>📖 How to read this sweep</h4>
                   <p className="insights-subtitle">
-                    Theoretical principles explaining why roundabouts saturate
-                    and when traffic signals must be deployed according to
-                    Highway Capacity Manual (HCM) standards.
+                    What this sweep measured, what it shows, and what it cannot
+                    show. Every figure here comes from this sweep; the rest
+                    describes how UrbanFlow measures.
                   </p>
                 </div>
               </div>
-
               <div className="insights-card-grid">
                 <div className="insight-card-modern">
                   <div className="insight-card-top">
-                    <span className="insight-card-icon">⚡</span>
-                    <span className="insight-badge roundabout-badge">
-                      Low-Medium Volumes (&lt; Crossover)
-                    </span>
-                  </div>
-                  <h5>Continuous Gap-Acceptance Superiority</h5>
-                  <p>
-                    Modern Roundabouts completely eliminate lost time from
-                    yellow/all-red intervals. In low-to-moderate demand (below
-                    the critical crossover), circulating density is low,
-                    allowing drivers to execute yield and gap-acceptance without
-                    coming to a full halt. Vehicle throughput remains near
-                    capacity while queue buildup is negligible.
-                  </p>
-                  <div className="insight-stat-row">
-                    <span className="stat-highlight">Up to 50%</span>
-                    <span className="stat-desc">
-                      reduction in average vehicular delay vs. fixed signals
-                    </span>
-                  </div>
-                </div>
-
-                <div className="insight-card-modern">
-                  <div className="insight-card-top">
-                    <span className="insight-card-icon">🛑</span>
-                    <span className="insight-badge signal-badge">
-                      High Over-Capacity (&gt; Crossover)
-                    </span>
-                  </div>
-                  <h5>Circulating Ring Starvation & Lockup</h5>
-                  <p>
-                    When circulating demand exceeds critical density, entry
-                    vehicles encounter zero acceptable gaps. Queues spill
-                    backward along entrance approaches, leading to gridlock
-                    across adjacent legs. Fixed-Time Signals enforce
-                    deterministic cycle splits, forcefully rationing green time
-                    and guaranteeing clearance for cross-traffic.
-                  </p>
-                  <div className="insight-stat-row">
-                    <span className="stat-highlight">Deterministic</span>
-                    <span className="stat-desc">
-                      lane progression prevents circular cascade failure
-                    </span>
-                  </div>
-                </div>
-
-                <div className="insight-card-modern">
-                  <div className="insight-card-top">
-                    <span className="insight-card-icon">🏛️</span>
+                    <span className="insight-card-icon">🧪</span>
                     <span className="insight-badge recommendation-badge">
-                      Civic Planning Takeaway
+                      What was run
                     </span>
                   </div>
-                  <h5>Municipal Corridor Design Guidelines</h5>
+                  <h5>Measured, not modelled in the abstract</h5>
                   <p>
-                    {crossover
-                      ? `For corridors exceeding ${crossover.toLocaleString()} veh/h peak design hourly volume (DHV), a multi-phase adaptive traffic signal or turbo-roundabout with slip lanes is mathematically required.`
-                      : "For the evaluated volume ranges, modern roundabouts provide clear carbon emission reductions, lower fuel consumption, and higher safety margins over fixed-time signals."}
+                    {runsList.length.toString()} demand tiers, each simulated
+                    for {activeSession.duration.toString()} s with one random
+                    traffic pattern (seed {activeSession.randomSeed.toString()}
+                    ). Both controls received identical arrivals at every tier.
+                    {activeSession.calibration
+                      ? ` ${activeSession.calibration.note}`
+                      : " Whether this sweep used the calibrated one-lane configuration was not recorded."}
                   </p>
-                  <div className="insight-stat-row">
-                    <span className="stat-highlight">
-                      {crossover
-                        ? `${crossover.toLocaleString()} veh/h`
-                        : "Full Range"}
-                    </span>
-                    <span className="stat-desc">
-                      planning design threshold for intersection selection
+                </div>
+                <div className="insight-card-modern">
+                  <div className="insight-card-top">
+                    <span className="insight-card-icon">📊</span>
+                    <span className="insight-badge roundabout-badge">
+                      What this sweep shows
                     </span>
                   </div>
+                  <h5>Lower mean delay, tier by tier</h5>
+                  <p>
+                    {crossoverSummary(
+                      runsList,
+                      crossover,
+                      activeSession.curves.crossoverBracketArrivalRates,
+                    )}{" "}
+                    Tally: roundabout {roundaboutWins.toString()}, signal{" "}
+                    {signalWins.toString()}, about the same {tieWins.toString()}
+                    , inconclusive {inconclusiveTiers.toString()} of{" "}
+                    {totalRuns.toString()} tiers. &ldquo;About the same&rdquo;
+                    means within {tieText(activeSession.tieTolerance)}.
+                  </p>
+                </div>
+                <div className="insight-card-modern">
+                  <div className="insight-card-top">
+                    <span className="insight-card-icon">⚠️</span>
+                    <span className="insight-badge signal-badge">
+                      What it cannot show
+                    </span>
+                  </div>
+                  <h5>Limits to keep in mind</h5>
+                  <ul className="insight-list">
+                    <li>
+                      One random pattern per tier: a difference here may be
+                      chance. The Statistical validation page repeats a scenario
+                      over many patterns and tests it.
+                    </li>
+                    <li>
+                      &ldquo;Delay&rdquo; is extra travel time against the
+                      driver&apos;s own desired speed. It includes slowing to
+                      enter a roundabout and is not the same as time queued, so
+                      read it next to the queue chart.
+                    </li>
+                    <li>
+                      The change in which control has the lower delay is not a
+                      capacity limit or a design threshold.
+                    </li>
+                    <li>
+                      UrbanFlow does not calculate emissions, fuel use, cost or
+                      crash risk. Nothing on this page speaks to them.
+                    </li>
+                    {cappedTiers > 0 && (
+                      <li>
+                        Vehicle generation stopped at its per-run limit in{" "}
+                        {cappedTiers.toString()} tier
+                        {cappedTiers === 1 ? "" : "s"}, so demand there was cut
+                        off; those tiers are marked inconclusive.
+                      </li>
+                    )}
+                  </ul>
                 </div>
               </div>
-
-              {/* HCM Level of Service Reference Table */}
+              {/* Level-of-service reference: one definition for the whole app */}
               <div className="hcm-los-reference-box">
                 <h5>
-                  📖 Highway Capacity Manual (HCM 6th Edition) Level of Service
-                  (LOS) Benchmarks
+                  📖 Indicative level-of-service bands (Highway Capacity Manual
+                  delay bands, average delay in seconds)
                 </h5>
+                <p className="insights-subtitle">
+                  Used as a reference for how large a delay is. The grades on
+                  this page apply the manual&apos;s bands to simulated delay,
+                  which also includes geometric slow-down, so they are an
+                  indicative guide and not a level-of-service analysis. Signal:
+                  signalised-intersection bands. Roundabout: the stricter
+                  unsignalised bands.
+                </p>
                 <div className="los-grid-chips">
-                  <div className="los-card-chip">
-                    <span
-                      className="los-badge"
-                      style={{
-                        color: "#10b981",
-                        background: "rgba(16, 185, 129, 0.15)",
-                      }}
-                    >
-                      LOS A
-                    </span>
-                    <span className="los-time">≤ 10s delay</span>
-                    <span className="los-condition">
-                      Free flow; progression is extremely high.
-                    </span>
-                  </div>
-                  <div className="los-card-chip">
-                    <span
-                      className="los-badge"
-                      style={{
-                        color: "#34d399",
-                        background: "rgba(52, 211, 153, 0.15)",
-                      }}
-                    >
-                      LOS B
-                    </span>
-                    <span className="los-time">10 – 20s delay</span>
-                    <span className="los-condition">
-                      Good progression; short cycle queues.
-                    </span>
-                  </div>
-                  <div className="los-card-chip">
-                    <span
-                      className="los-badge"
-                      style={{
-                        color: "#fbbf24",
-                        background: "rgba(251, 191, 36, 0.15)",
-                      }}
-                    >
-                      LOS C
-                    </span>
-                    <span className="los-time">20 – 35s delay</span>
-                    <span className="los-condition">
-                      Fair progression; noticeable vehicle queues.
-                    </span>
-                  </div>
-                  <div className="los-card-chip">
-                    <span
-                      className="los-badge"
-                      style={{
-                        color: "#f97316",
-                        background: "rgba(249, 115, 22, 0.15)",
-                      }}
-                    >
-                      LOS D
-                    </span>
-                    <span className="los-time">35 – 55s delay</span>
-                    <span className="los-condition">
-                      Noticeable congestion; high delay margin.
-                    </span>
-                  </div>
-                  <div className="los-card-chip">
-                    <span
-                      className="los-badge"
-                      style={{
-                        color: "#ef4444",
-                        background: "rgba(239, 68, 68, 0.15)",
-                      }}
-                    >
-                      LOS E
-                    </span>
-                    <span className="los-time">55 – 80s delay</span>
-                    <span className="los-condition">
-                      At or near physical capacity; long queues.
-                    </span>
-                  </div>
-                  <div className="los-card-chip">
-                    <span
-                      className="los-badge"
-                      style={{
-                        color: "#f43f5e",
-                        background: "rgba(244, 63, 94, 0.2)",
-                      }}
-                    >
-                      LOS F
-                    </span>
-                    <span className="los-time">&gt; 80s delay</span>
-                    <span className="los-condition">
-                      Breakdown & oversaturation; excessive queuing.
-                    </span>
-                  </div>
+                  {(["A", "B", "C", "D", "E", "F"] as LosGrade[]).map(
+                    (grade, i) => (
+                      <div className="los-card-chip" key={grade}>
+                        <span
+                          className="los-badge"
+                          style={{
+                            color: LOS_COLORS[grade].color,
+                            background: LOS_COLORS[grade].bg,
+                          }}
+                        >
+                          LOS {grade}
+                        </span>
+                        {(["signal", "roundabout"] as Side[]).map((side) => {
+                          const bounds = LOS_THRESHOLDS[side];
+                          const lower = i === 0 ? null : bounds[i - 1];
+                          const upper = i < bounds.length ? bounds[i] : null;
+                          const range =
+                            upper === null
+                              ? `> ${(lower ?? 0).toString()} s`
+                              : lower === null
+                                ? `≤ ${upper.toString()} s`
+                                : `${lower.toString()} – ${upper.toString()} s`;
+                          return (
+                            <span className="los-time" key={side}>
+                              {SIDE_TITLE[side]}: {range}
+                            </span>
+                          );
+                        })}
+                        <span className="los-condition">
+                          {LOS_WORDS[grade]}
+                        </span>
+                      </div>
+                    ),
+                  )}
                 </div>
               </div>
             </div>

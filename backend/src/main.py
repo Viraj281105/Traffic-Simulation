@@ -42,6 +42,7 @@ from src.core.config_models import ScenarioConfiguration
 from src.core.config_validation import semantic_config_errors
 from src.core.engine import SimulationEngine
 from src.core.enums import SimulationStatus
+from src.core.limits import demand_vehicle_limit
 from src.core.provenance import (
     GIT_COMMIT_HASH,
     PYTHON_VERSION,
@@ -63,7 +64,12 @@ from src.study.report_generator import (
     generate_study_report_csv,
     generate_study_report_json,
 )
-from src.study.validation import run_invariant_checks, run_statistical_validation
+from src.study.tolerances import delays_are_tied
+from src.study.validation import (
+    SUPPORTED_CONFIDENCE_LEVELS,
+    run_invariant_checks,
+    run_statistical_validation,
+)
 from src.study.volume_sweep import run_volume_sweep_experiment
 
 logging.basicConfig(level=logging.INFO)
@@ -1247,6 +1253,11 @@ def _compile_dashboard_config(payload: Dict[str, Any], seed_val: int) -> Dict[st
             "traffic": {
                 "arrivalRate": float(payload.get("arrivalRate", 0.5)),
                 "arrivalDistribution": "poisson",
+                # Sized to the scenario so the default 200-vehicle cap can
+                # never silently truncate the demand asked for.
+                "totalVehicles": demand_vehicle_limit(
+                    float(payload.get("arrivalRate", 0.5)), duration_val
+                ),
             },
             "controller": (
                 {
@@ -1676,6 +1687,9 @@ class VolumeSweepRequest(BaseModel):
 
 class MonteCarloValidationRequest(BaseModel):
     numSeeds: int = Field(default=5, ge=1, le=MAX_MONTE_CARLO_SEEDS)
+    # Confidence level of the intervals and (as alpha = 1 - level) of the
+    # significance flags. One of 0.90 / 0.95 / 0.99.
+    confidenceLevel: float = Field(default=0.95)
     duration: float = Field(
         default=30.0, ge=MIN_STUDY_DURATION_SECONDS, le=MAX_STUDY_DURATION_SECONDS
     )
@@ -1691,6 +1705,10 @@ class MonteCarloValidationRequest(BaseModel):
     @model_validator(mode="after")
     def _time_step_in_bounds(self) -> "MonteCarloValidationRequest":
         _check_study_time_step(self.customConfig)
+        if self.confidenceLevel not in SUPPORTED_CONFIDENCE_LEVELS:
+            raise ValueError(
+                f"confidenceLevel must be one of {list(SUPPORTED_CONFIDENCE_LEVELS)}"
+            )
         if self.scenario is not None and self.customConfig is not None:
             raise ValueError("Send either scenario or customConfig, not both")
         return self
@@ -2031,13 +2049,16 @@ def compare_runs_endpoint(payload: RunComparisonRequest) -> Dict[str, Any]:
         queue_delta = round(queue_b - queue_a, 1)
         stops_delta = stops_b - stops_a
 
-        # Winner evaluation based on lower delay
-        if delay_a < delay_b:
-            winner = run_a.get("intersection_type") or payload.runIdA
-        elif delay_b < delay_a:
-            winner = run_b.get("intersection_type") or payload.runIdB
-        else:
+        # Which run had the lower MEAN DELAY -- a description of these two
+        # single runs, not a ranking or a significance statement. "About the
+        # same" uses the one shared tie rule (study/tolerances.py), so this
+        # endpoint agrees with the sweep and the guided results page.
+        if delays_are_tied(delay_a, delay_b):
             winner = "tie"
+        elif delay_a < delay_b:
+            winner = run_a.get("intersection_type") or payload.runIdA
+        else:
+            winner = run_b.get("intersection_type") or payload.runIdB
 
         return {
             "runA": {
@@ -2061,6 +2082,11 @@ def compare_runs_endpoint(payload: RunComparisonRequest) -> Dict[str, Any]:
                 "queueDelta": queue_delta,
                 "stopsDelta": stops_delta,
                 "winner": winner,
+                "winnerBasis": (
+                    "lower mean delay between these two single runs; "
+                    "'tie' when within the shared tie tolerance. Descriptive "
+                    "only: not a significance test."
+                ),
             },
             "identicalSeed": run_a.get("random_seed") == run_b.get("random_seed"),
             "seed": run_a.get("random_seed")
@@ -2344,11 +2370,13 @@ def validate_monte_carlo_endpoint(
             config=config,
             num_seeds=req.numSeeds,
             duration=float(config["simulation"]["duration"]),
+            confidence_level=req.confidenceLevel,
         )
     return run_statistical_validation(
         config=req.customConfig,
         num_seeds=req.numSeeds,
         duration=req.duration,
+        confidence_level=req.confidenceLevel,
     )
 
 

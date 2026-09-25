@@ -2591,3 +2591,26 @@
   font: inherit;
   font-size: 12px;
 }
+
+/* Honesty banners: calibration status and truncated demand. */
+.sweep-banner {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(148, 163, 184, 0.1);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.sweep-banner.is-exploratory {
+  border-color: rgba(245, 158, 11, 0.55);
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.insight-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
