@@ -4,7 +4,11 @@
   align-items: center;
   min-height: 100vh;
   background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family:
+    "Inter",
+    system-ui,
+    -apple-system,
+    sans-serif;
 }
 
 .login-box {

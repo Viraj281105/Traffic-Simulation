@@ -17,7 +17,7 @@ import { getAuthToken } from "../auth/cognito";
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = await getAuthToken();
   const headers = new Headers(init?.headers);
-  
+
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
   }
@@ -26,7 +26,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers,
   });
-  
+
   if (!response.ok) {
     throw new Error(
       `HTTP ${response.status.toString()}: ${response.statusText}`,

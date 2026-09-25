@@ -19,7 +19,7 @@ export default defineConfig({
   // Vite's own SPA fallback would answer every unknown path with index.html.
   appType: "mpa",
   define: {
-    global: 'window',
+    global: "window",
   },
   plugins: [react(), tailwindcss()],
   server: {

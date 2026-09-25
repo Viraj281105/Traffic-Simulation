@@ -52,7 +52,6 @@ from src.study.report_generator import (
 from src.study.validation import run_invariant_checks, run_statistical_validation
 from src.study.volume_sweep import run_volume_sweep_experiment
 
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -977,9 +976,11 @@ async def _live_session_middleware(request: Request, call_next: Any) -> Any:
     if not request.url.path.startswith(_LIVE_SESSION_PATH_PREFIX):
         return await call_next(request)
 
-    from fastapi.security import HTTPAuthorizationCredentials
-    from src.auth import verify_token, get_current_user_id
     import logging
+
+    from fastapi.security import HTTPAuthorizationCredentials
+
+    from src.auth import verify_token
     
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
