@@ -64,8 +64,6 @@ def init_db() -> None:
         ("batch_id", "TEXT"),
         ("config_json", "TEXT NOT NULL DEFAULT '{}'"),
         ("summary_metrics_json", "TEXT NOT NULL DEFAULT '{}'"),
-<<<<<<< Updated upstream
-=======
         # Reproducibility provenance (V1.1). Deliberately nullable with no
         # default: NULL means "not recorded" (a run saved before these
         # existed), never a fabricated value. New rows always set both;
@@ -79,7 +77,6 @@ def init_db() -> None:
         ("notes", "TEXT"),
         ("tags_json", "TEXT"),
         ("user_id", "TEXT"),
->>>>>>> Stashed changes
     ]
     for col_name, col_def in columns_to_add:
         if col_name not in existing_cols:
