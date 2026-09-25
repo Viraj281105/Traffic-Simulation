@@ -11,6 +11,7 @@ import {
 } from "../services/api";
 import type { ConnectionStatus } from "../services/websocket";
 import { WS_BASE_URL } from "../config";
+import { whenLiveSessionReady } from "../services/liveSession";
 
 export interface WebSocketSnapshotState {
   snapshot: LiveSnapshot | DualSnapshot | null;
@@ -86,9 +87,14 @@ export function useWebSocketSnapshot(
     );
 
     wsRef.current = ws;
-    ws.connect();
+    // Open the stream inside the same backend session as the REST calls
+    // (see liveSession.ts); a socket opened first is bound to another one.
+    const cancelConnect = whenLiveSessionReady(() => {
+      ws.connect();
+    });
 
     return () => {
+      cancelConnect();
       ws.disconnect();
     };
   }, [mode]);

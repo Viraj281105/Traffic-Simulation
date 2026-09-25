@@ -19,6 +19,7 @@ export const VIEW_ROUTES = {
   history: "/app/history",
   volume: "/app/volume",
   validation: "/app/validation",
+  research: "/app/research",
 } as const;
 
 export type RoutedView = keyof typeof VIEW_ROUTES;

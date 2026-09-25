@@ -847,7 +847,8 @@ export const VolumeAnalysisDashboard: React.FC = () => {
           </div>
           <p className="header-subtitle">
             Systematic sensitivity study comparing Fixed-Time Signals vs. Modern
-            Roundabouts across demand tiers.
+            Roundabouts across demand tiers. Uses its own study scenario (set
+            under Advanced Config), one seed per tier.
           </p>
         </div>
 

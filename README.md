@@ -62,7 +62,9 @@ In addition to system specifications, the repository maintains planning, workflo
 | **System Performance**        | Idle Opportunity Loss, Critical Saturation Volume, Intersection Utilization %         | Capacity and active service metrics                           |
 | **Fairness & Stability**      | Directional Fairness Index (DFI), Queue Stability Index (QSI)                         | Variance across approaches and queues                         |
 | **Physical Constraints**      | Space / Footprint Consumed                                                            | Land usage footprint comparison                               |
-| **Overall Winner Evaluation** | **Master Efficiency Score**                                                           | Combined weighted normalization of all metrics (0.0 to 100.0) |
+| **Composite (specialist layer)** | **Master Efficiency Score**                                                        | Fixed-weight composite (0–100); shown only in the specialist table, not as a verdict |
+
+The guided comparison presents these as answers to everyday questions (how long drivers wait, how much gets through, how long queues get, whether directions are treated alike, why, and how reliable the result is); every metric above stays available in its "All measurements" layer. See the [UrbanFlow user narrative](docs/product/urbanflow-user-narrative.md).
 
 ## Quick Start
 
@@ -81,7 +83,7 @@ docker compose up --build -d
 ```
 
 - **Frontend landing page**: [http://localhost](http://localhost) (or [http://localhost:3000](http://localhost:3000))
-- **Simulation dashboard**: [http://localhost/app/comparative](http://localhost/app/comparative) — each view has its own URL (`/app/comparative`, `/app/signal`, `/app/roundabout`, `/app/history`, `/app/volume`, `/app/validation`), so refresh, bookmarks and back/forward work; the old `/app.html` link still redirects. Each saved run has its own page at `/app/runs/<runId>` (configuration, seed, provenance, metrics, notes/tags, exports, re-run), and `/app/compare?runs=<id>,<id>` compares stored runs
+- **Simulation dashboard**: [http://localhost/app/comparative](http://localhost/app/comparative) — the guided comparison (describe the junction → watch both run → plain-language results with a reliability check). The app has three sections: **Compare** (`/app/comparative`), **Saved** (`/app/history`) and the **Research lab** (`/app/research`, with `/app/volume`, `/app/validation`, `/app/signal`, `/app/roundabout`). Each view has its own URL, so refresh, bookmarks and back/forward work; the old `/app.html` link still redirects. Each saved run has its own page at `/app/runs/<runId>` (configuration, seed, provenance, metrics, notes/tags, exports, re-run), and `/app/compare?runs=<id>,<id>` compares stored runs
 - **Backend API & Swagger Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
 - **Health Check**: [http://localhost/health](http://localhost/health)
 

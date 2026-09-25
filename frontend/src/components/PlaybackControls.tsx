@@ -8,6 +8,22 @@ interface PlaybackControlsProps {
   onPause: () => void;
   onStop: () => void;
   disabled?: boolean;
+  /** Everyday wording for the guided comparison: simulated time against
+   *  the run's length and a status word, without tick counters. */
+  simple?: boolean;
+  /** Configured run length, shown in simple mode. */
+  durationSeconds?: number;
+}
+
+const STATUS_WORDS: Record<string, string> = {
+  running: "Running",
+  paused: "Paused",
+  completed: "Finished",
+};
+
+function clockText(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  return `${String(Math.floor(s / 60))}:${String(s % 60).padStart(2, "0")}`;
 }
 
 export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
@@ -17,6 +33,8 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   onPause,
   onStop,
   disabled = false,
+  simple = false,
+  durationSeconds,
 }) => {
   const simTime = snapshot?.timestamp ?? 0;
   const tick = snapshot?.tick ?? 0;
@@ -64,39 +82,72 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           className="pb-btn pb-danger"
           onClick={onStop}
           disabled={disabled}
-          title="Stop and reset the simulation with a new random seed"
+          title={
+            simple
+              ? "Stop and start over with a new random traffic pattern"
+              : "Stop and reset the simulation with a new random seed"
+          }
         >
-          <span aria-hidden="true">⏹ </span>Reset
+          <span aria-hidden="true">⏹ </span>
+          {simple ? "Start over" : "Reset"}
         </button>
       </div>
 
-      <dl className="playback-info">
-        <div className="pb-stat">
-          <dt className="pb-stat-label">Sim time</dt>
-          <dd className="pb-stat-value">{simTime.toFixed(1)} s</dd>
-        </div>
-        <div className="pb-divider" aria-hidden="true" />
-        <div className="pb-stat">
-          <dt className="pb-stat-label">Tick</dt>
-          <dd className="pb-stat-value">{tick}</dd>
-        </div>
-        <div className="pb-divider" aria-hidden="true" />
-        <div className="pb-stat" title="Simulation steps per simulated second">
-          <dt className="pb-stat-label">Tick rate</dt>
-          <dd className="pb-stat-value">{hz} Hz</dd>
-        </div>
-        <div className="pb-divider" aria-hidden="true" />
-        <div className="pb-stat">
-          <dt className="pb-stat-label">Status</dt>
-          <dd
-            className="pb-stat-value"
-            style={{ color: statusTone }}
-            aria-live="polite"
+      {simple ? (
+        <dl className="playback-info">
+          <div className="pb-stat">
+            <dt className="pb-stat-label">Simulated time</dt>
+            <dd className="pb-stat-value">
+              {clockText(simTime)}
+              {durationSeconds !== undefined
+                ? ` / ${clockText(durationSeconds)}`
+                : ""}
+            </dd>
+          </div>
+          <div className="pb-divider" aria-hidden="true" />
+          <div className="pb-stat">
+            <dt className="pb-stat-label">Status</dt>
+            <dd
+              className="pb-stat-value"
+              style={{ color: statusTone }}
+              aria-live="polite"
+            >
+              {STATUS_WORDS[status] ?? "Ready"}
+            </dd>
+          </div>
+        </dl>
+      ) : (
+        <dl className="playback-info">
+          <div className="pb-stat">
+            <dt className="pb-stat-label">Sim time</dt>
+            <dd className="pb-stat-value">{simTime.toFixed(1)} s</dd>
+          </div>
+          <div className="pb-divider" aria-hidden="true" />
+          <div className="pb-stat">
+            <dt className="pb-stat-label">Tick</dt>
+            <dd className="pb-stat-value">{tick}</dd>
+          </div>
+          <div className="pb-divider" aria-hidden="true" />
+          <div
+            className="pb-stat"
+            title="Simulation steps per simulated second"
           >
-            {status.toUpperCase()}
-          </dd>
-        </div>
-      </dl>
+            <dt className="pb-stat-label">Tick rate</dt>
+            <dd className="pb-stat-value">{hz} Hz</dd>
+          </div>
+          <div className="pb-divider" aria-hidden="true" />
+          <div className="pb-stat">
+            <dt className="pb-stat-label">Status</dt>
+            <dd
+              className="pb-stat-value"
+              style={{ color: statusTone }}
+              aria-live="polite"
+            >
+              {status.toUpperCase()}
+            </dd>
+          </div>
+        </dl>
+      )}
     </div>
   );
 };

@@ -1155,63 +1155,15 @@ def _live_config_errors(config: Dict[str, Any]) -> list[str]:
     return semantic_config_errors(user_supplied)
 
 
-@app.post("/api/simulation/config", dependencies=[Depends(require_api_key)])
-def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
-    # Unlike /api/v1/simulations and /api/simulation/new, this endpoint
-    # builds its config dict directly from the raw payload without ever
-    # running it through CONFIG_SCHEMA or a Pydantic model. An unrecognized
-    # intersectionType previously passed through silently: the controller
-    # dict below is shaped by `== "fixed_time_signal"` (so any other value,
-    # typo or not, gets the roundabout-shaped controller dict), while
-    # create_controller() separately checks `== "roundabout"` (so anything
-    # else, including that same typo, builds a FixedTimeSignalController) —
-    # the two checks disagree for any value that is neither, so a typo
-    # silently ignored the user's submitted signal-timing parameters
-    # instead of failing. Reject it up front instead, consistent with how
-    # the versioned creation endpoints already validate this field.
-    intersection_type = payload.get("intersectionType")
-    if (
-        intersection_type is not None
-        and intersection_type not in _VALID_INTERSECTION_TYPES
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Invalid intersectionType '{intersection_type}'. "
-                f"Must be one of: {', '.join(_VALID_INTERSECTION_TYPES)}."
-            ),
-        )
+def _compile_dashboard_config(payload: Dict[str, Any], seed_val: int) -> Dict[str, Any]:
+    """Compiles the dashboard's flat scenario payload into an engine config.
 
-    session = _current_session()
-    # Shutdown existing simulation if running
-    if session.live_sim_data["engine"] is not None:
-        try:
-            session.live_sim_data["engine"].stop()
-        except Exception:
-            pass
-        session.live_sim_data["engine"] = None
-
-    # Reset dual orchestrator if existing
-    if session.dual_sim_orchestrator is not None:
-        try:
-            session.dual_sim_orchestrator.stop()
-        except Exception:
-            pass
-        session.dual_sim_orchestrator = None
-
-    # Determine randomSeed (preserve user-provided seed explicitly)
-    raw_seed = payload.get("randomSeed")
-    if raw_seed is not None and str(raw_seed).strip() != "":
-        try:
-            seed_val = int(raw_seed)
-            session.is_user_defined_seed = True
-        except (ValueError, TypeError):
-            seed_val = _generate_random_seed()
-            session.is_user_defined_seed = False
-    else:
-        seed_val = _generate_random_seed()
-        session.is_user_defined_seed = False
-
+    The single definition of what a dashboard scenario means: the live
+    session (/api/simulation/config) runs it, and the reliability check
+    (/api/v1/study/validate/monte-carlo with ``scenario``) repeats exactly
+    the same scenario over other seeds. Raises HTTPException(400) for a
+    payload the simulator would reject.
+    """
     # Duration must fall within the same bounds the versioned API enforces
     # via SimulationSection.duration (ge=1, le=3600 — see config_models.py
     # and config.schema.json). This endpoint builds its config by hand
@@ -1267,9 +1219,8 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
     # duration above); wrap them the same way create_simulation() already
     # does for /api/v1/simulations so malformed input is a 400, not a raw
     # 500 that leaks past the client-facing error envelope.
-    previous_live_config = session.current_live_config
     try:
-        session.current_live_config = {
+        config: Dict[str, Any] = {
             "simulation": {
                 "timeStep": DEFAULT_CONFIG["simulation"]["timeStep"],
                 "duration": duration_val,
@@ -1363,14 +1314,80 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
     # NaN arrivalRate, a negative yellow/all-red or a negative critical gap
     # were all accepted and quietly simulated as something meaningless. Hold
     # the compiled config to the same schema bounds as the versioned API.
-    live_errors = _live_config_errors(session.current_live_config)
+    live_errors = _live_config_errors(config)
     if live_errors:
-        # Leave the session on its previous (valid) config, not the rejected one.
-        session.current_live_config = previous_live_config
         raise HTTPException(
             status_code=400,
             detail=f"Invalid configuration: {'; '.join(live_errors)}",
         )
+    return config
+
+
+@app.post("/api/simulation/config", dependencies=[Depends(require_api_key)])
+def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
+    # Unlike /api/v1/simulations and /api/simulation/new, this endpoint
+    # builds its config dict directly from the raw payload without ever
+    # running it through CONFIG_SCHEMA or a Pydantic model. An unrecognized
+    # intersectionType previously passed through silently: the controller
+    # dict below is shaped by `== "fixed_time_signal"` (so any other value,
+    # typo or not, gets the roundabout-shaped controller dict), while
+    # create_controller() separately checks `== "roundabout"` (so anything
+    # else, including that same typo, builds a FixedTimeSignalController) —
+    # the two checks disagree for any value that is neither, so a typo
+    # silently ignored the user's submitted signal-timing parameters
+    # instead of failing. Reject it up front instead, consistent with how
+    # the versioned creation endpoints already validate this field.
+    intersection_type = payload.get("intersectionType")
+    if (
+        intersection_type is not None
+        and intersection_type not in _VALID_INTERSECTION_TYPES
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Invalid intersectionType '{intersection_type}'. "
+                f"Must be one of: {', '.join(_VALID_INTERSECTION_TYPES)}."
+            ),
+        )
+
+    session = _current_session()
+
+    # Determine randomSeed (preserve user-provided seed explicitly)
+    raw_seed = payload.get("randomSeed")
+    if raw_seed is not None and str(raw_seed).strip() != "":
+        try:
+            seed_val = int(raw_seed)
+            session.is_user_defined_seed = True
+        except (ValueError, TypeError):
+            seed_val = _generate_random_seed()
+            session.is_user_defined_seed = False
+    else:
+        seed_val = _generate_random_seed()
+        session.is_user_defined_seed = False
+
+    # Leave the session on its previous (valid) config — and its runs
+    # untouched — if this one is rejected: the compile raises before
+    # anything is assigned.
+    session.current_live_config = _compile_dashboard_config(payload, seed_val)
+
+    # Only now tear down the old runs. The dual stream recreates a missing
+    # orchestrator from current_live_config on its next frame (see
+    # websocket_dual_stream), so clearing it while the old config was still
+    # in place let the stream rebuild the previous scenario, and the next
+    # Play ran that instead of the one just configured.
+    if session.live_sim_data["engine"] is not None:
+        try:
+            session.live_sim_data["engine"].stop()
+        except Exception:
+            pass
+        session.live_sim_data["engine"] = None
+
+    if session.dual_sim_orchestrator is not None:
+        try:
+            session.dual_sim_orchestrator.stop()
+        except Exception:
+            pass
+        session.dual_sim_orchestrator = None
 
     # Reset live simulation cache
     session.live_sim_data["engine"] = None
@@ -1663,10 +1680,19 @@ class MonteCarloValidationRequest(BaseModel):
         default=30.0, ge=MIN_STUDY_DURATION_SECONDS, le=MAX_STUDY_DURATION_SECONDS
     )
     customConfig: Dict[str, Any] | None = None
+    # The dashboard's own scenario payload (the body of /api/simulation/config).
+    # When given, the study repeats exactly that scenario — same geometry,
+    # demand, timings, warm-up and duration — over fresh seeds, so a
+    # "how reliable is this result?" check answers for the scenario the user
+    # actually ran rather than for a fixed study scenario. Its own duration
+    # then applies; ``duration`` and ``customConfig`` are not used with it.
+    scenario: Dict[str, Any] | None = None
 
     @model_validator(mode="after")
     def _time_step_in_bounds(self) -> "MonteCarloValidationRequest":
         _check_study_time_step(self.customConfig)
+        if self.scenario is not None and self.customConfig is not None:
+            raise ValueError("Send either scenario or customConfig, not both")
         return self
 
 
@@ -2306,6 +2332,19 @@ def validate_monte_carlo_endpoint(
 ) -> Dict[str, Any]:
     """Runs multi-seed Monte Carlo statistical validation with confidence intervals."""
     req = payload or MonteCarloValidationRequest()
+    if req.scenario is not None:
+        # Compiled as the comparison view compiles it: the signal side's
+        # timings in "controller", the roundabout's gap acceptance in
+        # "roundaboutController" (DualSimulationOrchestrator splits them).
+        # The seed is a placeholder; every repetition draws its own.
+        config = _compile_dashboard_config(
+            {**req.scenario, "intersectionType": "fixed_time_signal"}, seed_val=0
+        )
+        return run_statistical_validation(
+            config=config,
+            num_seeds=req.numSeeds,
+            duration=float(config["simulation"]["duration"]),
+        )
     return run_statistical_validation(
         config=req.customConfig,
         num_seeds=req.numSeeds,
