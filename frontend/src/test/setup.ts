@@ -21,6 +21,8 @@ HTMLCanvasElement.prototype.getContext = vi.fn(
       moveTo: noop,
       lineTo: noop,
       arc: noop,
+      quadraticCurveTo: noop,
+      createPattern: () => ({ setTransform: noop }),
       ellipse: noop,
       fill: noop,
       stroke: noop,
