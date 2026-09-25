@@ -65,9 +65,16 @@
         "approachLength": { "type": "number", "exclusiveMinimum": 50, "maximum": 1000, "default": 200 },
         "laneWidth": { "type": "number", "exclusiveMinimum": 2.5, "maximum": 5.0, "default": 3.5 },
         "lanesPerApproach": { "type": "integer", "minimum": 1, "maximum": 4, "default": 2 },
-        "speedLimit": { "type": "number", "exclusiveMinimum": 0, "maximum": 30.0, "default": 13.89 },
+        "speedLimit": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 30.0,
+          "default": 13.89,
+          "description": "RESERVED — accepted and validated, but not applied by the engine: vehicles drive at their own vehicleGeneration.desiredSpeed. See docs/architecture/06-scenario-configuration-contract.md section 2.4."
+        },
         "approaches": {
           "type": "array",
+          "description": "RESERVED — per-approach overrides are accepted and validated, but not read by the engine: every approach uses lanesPerApproach and no speed limit is applied. See docs/architecture/06-scenario-configuration-contract.md section 2.4.",
           "items": {
             "type": "object",
             "properties": {

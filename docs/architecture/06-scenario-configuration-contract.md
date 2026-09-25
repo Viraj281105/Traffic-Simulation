@@ -86,7 +86,7 @@ The versioned API accepts this configuration over REST and validates it against 
 | 2 | `laneWidth` | `number` | ❌ | `3.5` | Width of each lane | > 2.5, ≤ 5.0 meters |
 | 3 | `lanesPerApproach` | `integer` | ❌ | `2` | Lane count applied to all four approaches | 1–4 (see `shared/schemas/config.schema.json`) |
 | 4 | `speedLimit` | `number` | ❌ | `13.89` | Speed limit on approach roads. **Accepted and validated but not applied by the engine** — vehicles drive at their own `desiredSpeed` (see §2.5), which by default exceeds it. See the note below. | > 0, ≤ 30 m/s (≈108 km/h) |
-| 5 | `approaches` | `array<ApproachConfig>` | ❌ | All 4 directions | Per-approach overrides | See below |
+| 5 | `approaches` | `array<ApproachConfig>` | ❌ | All 4 directions | Per-approach overrides. **Reserved — accepted and schema-validated, but not read by the engine**: every approach uses `lanesPerApproach` and no speed limit is applied. See below. | See below |
 
 > **Asymmetric lane counts — not yet part of this contract.** The versioned config schema (`shared/schemas/config.schema.json`, enforced on `POST /api/v1/configs/validate` and `POST /api/v1/simulations`) only accepts `lanesPerApproach` as a single integer shared by all four approaches. Internally, the legacy live dashboard routes (`backend/src/main.py`) and the simulation engine (`backend/src/roads/network.py`) already accept a per-direction object (`{"north": 2, "south": 3, ...}`), but that shape is an implementation detail of the live/interactive path, not a validated or documented versioned-API feature. Officially supporting asymmetric per-direction lane counts in the versioned contract — including the schema, Pydantic models, and any dependent metric formulas such as [Space/Footprint Consumed](07-metric-contract.md#61-space--footprint-consumed) — is planned future work, not current behavior.
 
@@ -102,7 +102,7 @@ The versioned API accepts this configuration over REST and validates it against 
 | # | Field | Type | Required | Default | Description | Validation |
 |---|-------|------|----------|---------|-------------|------------|
 | 1 | `direction` | `string` | ✅ | — | Approach direction | enum: `north`, `south`, `east`, `west` |
-| 2 | `lanes` | `integer` | ❌ | Inherits from `lanesPerApproach` | Lane count for this approach | ≥ 1, ≤ 4 |
+| 2 | `lanes` | `integer` | ❌ | Inherits from `lanesPerApproach` | Lane count for this approach. **Not applied** — asymmetric lane counts are not part of this contract (see the note above); the approach uses `lanesPerApproach`. | ≥ 1, ≤ 4 |
 | 3 | `speedLimit` | `number` | ❌ | Inherits from `roads.speedLimit` | Speed limit for this approach. Not applied (see `roads.speedLimit`). | > 0 m/s |
 
 ### 2.5 `vehicleGeneration` — Vehicle Properties
@@ -384,7 +384,7 @@ If none of a duration's names are present, the hardcoded fallback (30 / 5 / 4 / 
 | Cross-field | `vehicleGeneration` ranges | `max ≥ min` for `vehicleLength`, `vehicleWidth`, `desiredSpeed` |
 | Not implemented | `arrivalDistribution: "burst"` | In the enum, but rejected with 400 until the spawner implements it |
 | Finite numbers | All numeric fields | NaN / ±Infinity are rejected (they pass JSON-schema bounds) |
-| Controller match | `controller` fields | **Not enforced.** Controller config should match `geometry.intersectionType`; clients currently send one mixed controller block and each controller reads only its own keys. |
+| Controller match | `controller` fields | **Not enforced, by design of the current model.** `ControllerSection` is a single merged model that carries defaults for both controllers (e.g. `innerRadius` and `greenTime` are always present after validation on the typed route), and the dashboard and study presets send one mixed block. Each controller reads only its own keys and ignores the rest, so a mismatched key has no effect. Enforcing this would reject every typed-route config; it needs a split controller model first. |
 
 The sum-to-one, cross-field, not-implemented and finite-number rules are
 enforced by `backend/src/core/config_validation.py` on
