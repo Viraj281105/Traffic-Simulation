@@ -437,20 +437,65 @@ shift was attributed by running the curve with individual fixes reverted.
 
 ## Remaining Known Issues
 
-- **`roads.speedLimit` / `approaches[].speedLimit` are not applied.** Lanes
-  store the value but no part of the vehicle model reads it; vehicles drive at
-  `desiredSpeed` (18–25 m/s by default, above the 13.89 m/s default limit).
-  Enforcing it would change every published result and is a modelling
-  decision, not a mechanical fix. Documented as not applied in the scenario
-  contract §2.4.
-- **"Controller match" validation rule is not enforced.** The contract says
-  `controller` fields must match `intersectionType`; clients send one mixed
-  controller block and each controller reads only its own keys. Enforcing it
-  would reject the dashboard's and study presets' current payloads. Documented
-  as not enforced in contract §5.
-- **Multi-lane roundabouts are not collision-free** (1 contact in each of the
-  2-lane 3600 and 3-lane 2880 veh/h seed-1 runs). Pre-existing, documented
-  scope limitation (no spiral lane assignment); unchanged by this pass.
+None that block release. Everything still open was reviewed on 2026-09-25
+(below) and classified; none is an unresolved software bug.
+
+### Release-gate review (2026-09-25)
+
+**Multi-lane roundabout contacts — classified as a model limitation.**
+Both reproduce deterministically:
+
+| Run | t | Vehicles / lanes | What happens |
+| --- | --- | --- | --- |
+| 2 lanes, 3600 veh/h, seed 1 | 94.0 s | veh_50 `conn_south_0_left` (inner ring, leaving for the west exit, r 12.5→14.5 m, 4.6 m/s) vs veh_45 `conn_north_1_straight` (entered the outer ring from the north, crawling at 0–0.6 m/s, r 18.1 m) | veh_50 is constrained by the predictive resolver (allowed 3.0 m, braking at −9 m/s²), but the resolver samples its path every 1 m against a 0.2 m box clearance, and the exit taper's polyline heading jumps ~11° between waypoints. The corner sweep between samples grazes veh_45 for one tick (centres 3.64 m apart); they separate on the next tick. |
+| 3 lanes, 2880 veh/h, seed 1 | 132.0 s | veh_50 `conn_south_0_left` (inner-ring left-turner cutting across the outer rings to the west exit, r ≈ 17 m, creeping at 0.2 m/s) vs veh_46 `conn_north_2_straight` (entered the outermost ring from the north and stopped across that exit path) | Both are inside the ring and in the resolver's "stopped" set, so the give-way choice is the remembered tie-break; it holds the already-stationary veh_46 while veh_50 creeps in a 4-tick release/brake cycle (below the 0.5 m/s hysteresis it still counts as stationary). veh_50's own path passes within 0.2 m of veh_46's box for its first 2 m, so with no reverse gear neither can clear without contact. It grazes at 0.2 m/s. |
+
+- **Mechanism:** both contacts are an inner-ring vehicle leaving across the
+  outer ring(s), meeting an outer-ring vehicle that has just entered at the
+  next approach — the concentric-ring weaving conflict that exists because the
+  geometry has no spiral lane assignment (already documented in
+  `comparative_report.md` §2 "Scope and validity").
+- **Operating envelope** (24 runs: 2–3 lanes × 1440/2160/2880/3600 veh/h ×
+  seeds 1–3): contacts occur only at oversaturated points (served 2006 of 3600
+  and 2177 of 2880). There are zero at or below capacity. There are none on 1
+  lane: every pinned curve point, and all 60 five-seed runs, have 0 contacts.
+- **Safety invariant:** it does violate "no two boxes overlap", but only as a
+  low-speed graze (one tick at 4.6 m/s while braking, or a creep at 0.2 m/s).
+  It is not a pass-through.
+- **Deadlock:** none. The longest interval with no exit in the two contact runs
+  was 5.9 s and 5.0 s, against 5–11 s in every clean run.
+- **Metrics:** each contact is counted once (the audit debounces it); the audit
+  zeroes the slower vehicle's speed, and in both cases that vehicle was already
+  at or near rest. Delay and throughput are unaffected beyond noise.
+- **Why not fixed now:** both levers are in the predictive resolver's
+  give-way rules, which are finely balanced against lock-up. The known
+  lock-ups are its documented failure mode, and they are pinned by
+  `test_roundabout_lockup.py`. The two levers are: finer near-field path sampling or
+  heading-aware clearance for pair 1, and holding a creeping "stopped" vehicle
+  that closes on a stationary box for pair 2. Either would also act on
+  single-lane runs, which feed the calibrated curve, for a failure that
+  appears only in the uncalibrated, oversaturated multi-lane regime.
+  Recommended as a separate, measured change with the lock-up and calibrated
+  suites as its gate.
+
+**`roads.speedLimit` and `roads.approaches[]` — contract/documentation
+mismatch, now corrected (not implemented).** Neither is read by the engine.
+Vehicles drive at `desiredSpeed`, and every approach uses `lanesPerApproach`.
+The contract presented them as working. `approaches[].lanes` was even
+described as a per-approach lane count, contradicting the contract's own note
+that asymmetric lanes are not part of it, so `approaches: [{"direction":
+"north", "lanes": 3}]` was accepted and silently ignored. Contract §2.4 and the
+JSON schema now mark both as reserved (the schema via descriptions, the same
+way it already marks `circulatingLanes`; no validation behaviour changed).
+Applying a speed limit is a modelling decision that would move every
+calibrated result, so it is not a release fix.
+
+**"Controller match" rule — contract/documentation mismatch, corrected.** The
+rule cannot hold under the current model: `ControllerSection` is one merged
+model that fills defaults for both controllers, so every typed-route config
+carries ring and signal keys. Each controller reads only its own keys, so a
+mismatched key has no effect on a run. Contract §5 now states this and what
+enforcing it would require (a split controller model).
 
 ## Not Bugs / Model Limitations
 
