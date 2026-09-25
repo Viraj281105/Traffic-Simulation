@@ -53,7 +53,8 @@ Landing (/)                         "Signal or roundabout? Try both."
   │  understands what UrbanFlow does, who it is for, that it gives evidence not a verdict
   ▼
 Compare · Step 1 — Your junction    (/app/comparative)
-  │  How busy? (Quiet / Steady / Busy / Rush hour, shown in vehicles per hour)
+  │  How busy? (Light / Moderate / Busy / Near capacity / At capacity / Over capacity,
+  │   shares of the measured capacity for the chosen lane count, shown in vehicles per hour)
   │  How many lanes per approach? (1 recommended/calibrated; 2–3 flagged as indicative)
   │  How long to watch? (2 / 5 / 10 min)
   │  Sees both options described in words; Advanced settings for specialists

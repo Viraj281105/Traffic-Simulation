@@ -283,6 +283,26 @@ stated where users meet them. Classification for each:
 
 ---
 
+## 9b. Calibration pass (2026-09-25b)
+
+* **Section 3 is superseded.** The roundabout is not modelled with a single
+  circulating lane: it builds one ring per entry lane, and capacity rises with
+  lanes for both controls (3-seed means at saturation: signal about
+  1,170 / 2,460 / 3,100 veh/h, roundabout about 1,330 / 1,900 / 2,150 veh/h
+  for 1 / 2 / 3 lanes). Multi-lane stays exploratory because of the
+  inner-ring-exit weave (section 4): 5 contacts in 54 runs, 2 of them below
+  saturation.
+* **The 1-lane signal is conservative.** One shared lane, permissive lefts,
+  no in-box waiting position, and turns now taken at a realistic speed. A
+  waiting left-turner holds the lane, so maximum served flow is about
+  1,130–1,160 veh/h (5-seed mean), below HCM shared-lane practice. This is a
+  model scope limit, not tuning: no protected left phase or turn bay is
+  modelled in the calibrated configuration.
+* **Speed and curve assumptions are model inputs.** They are a 50 km/h limit
+  (desired 85–105%), a lateral acceleration of 3 m/s², entry at 5 m/s and
+  circulation at no more than 8 m/s. Delay includes the slowing they imply
+  for both controls.
+
 ## 9. Summary
 
 - The **1-lane signal vs roundabout comparison is scientifically valid** and

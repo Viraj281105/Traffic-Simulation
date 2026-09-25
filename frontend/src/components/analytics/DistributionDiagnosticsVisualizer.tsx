@@ -51,7 +51,7 @@ export function DistributionDiagnosticsVisualizer({
           {/* Signal Whisker */}
           <div className="whisker-row">
             <div className="whisker-meta">
-              <span className="control-label signal">🚦 Signal</span>
+              <span className="control-label signal">Signal</span>
               <span className="whisker-stats-text">
                 Min: {formatMetric(minDelayDef, signalCtx)} | Med:{" "}
                 {formatMetric(medDelayDef, signalCtx)} | Avg:{" "}
@@ -95,7 +95,7 @@ export function DistributionDiagnosticsVisualizer({
           {/* Roundabout Whisker */}
           <div className="whisker-row">
             <div className="whisker-meta">
-              <span className="control-label roundabout">🔄 Roundabout</span>
+              <span className="control-label roundabout">Roundabout</span>
               <span className="whisker-stats-text">
                 Min: {formatMetric(minDelayDef, roundaboutCtx)} | Med:{" "}
                 {formatMetric(medDelayDef, roundaboutCtx)} | Avg:{" "}

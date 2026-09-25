@@ -400,6 +400,93 @@ fails on the pre-fix code and passes after it.
   contains `mark.slow`.
 - Status: FIXED
 
+
+### BUG-21
+- Severity: High (physics / comparability)
+- Component: `vehicles/spawner.py`, `roads.speedLimit`
+- Symptom: `roads.speedLimit` (default 13.89 m/s, 50 km/h) was accepted,
+  validated and documented but never read. Every driver wanted 18–25 m/s
+  (65–90 km/h) at an urban junction, and the dashboard, sweep and validation
+  configs set that range explicitly. At the signal, vehicles crossed on green
+  at up to 90 km/h, which is what made signal traffic look much faster than
+  roundabout traffic. The roundabout had to shed that speed to 18 km/h before
+  its give-way line.
+- Root cause: no code path from the road's speed limit to a vehicle's
+  desired speed.
+- Fix: unless `vehicleGeneration.desiredSpeed` is set, desired speed is drawn
+  from 85–105% of `roads.speedLimit` (`vehicles/speed_profile.py`); the
+  dashboard, sweep and validation configs no longer override it.
+- Regression tests: `tests/vehicles/test_speed_profile.py`
+  (`test_desired_speed_follows_the_speed_limit`,
+  `test_spawned_vehicles_use_the_speed_limit_range`,
+  `test_same_seed_gives_both_geometries_the_same_drivers`).
+- Status: FIXED
+
+### BUG-22
+- Severity: High (physics / comparability)
+- Component: `vehicles/pool.py` (signal connection lanes)
+- Symptom: signal turning movements had no curve-speed limit. A right turn
+  on a 5–9 m radius was taken at whatever speed the vehicle had (often more
+  than 10 m/s, i.e. above 2 g lateral), while every roundabout movement was
+  slowed by the entry and circulating caps. The two geometries ran under
+  different physics.
+- Fix: one lateral-acceleration limit (`maxLateralAcceleration`, default
+  3.0 m/s², consistent with the FHWA fastest-path speed–radius relation) on
+  every curved path in both geometries. A vehicle's speed is at most √(a·R),
+  with a comfortable-braking look-ahead into the curve. Radius is measured over
+  a ±5 m chord so polyline kinks don't create artificial limits.
+- Regression tests: `test_every_turn_is_slower_than_the_speed_limit`
+  (both geometries), `test_ring_speed_matches_its_radius`,
+  `test_vehicle_brakes_for_the_curve_before_reaching_it`.
+- Status: FIXED
+
+### BUG-23
+- Severity: Medium (geometric delay inflated)
+- Component: `controllers/roundabout.py::_ENTRY_APPROACH_ZONE`
+- Symptom: every roundabout vehicle drove the last 60 m before the give-way
+  line at `entrySpeed` (5 m/s), even at an empty roundabout. This added about
+  6 s of delay per vehicle (free-flow delay 13.4 s at 180 veh/h, seed 1) and
+  made queues look like they were forming when nobody was waiting.
+- Root cause: the 60 m zone was sized for 25 m/s approach speeds before the
+  continuous braking taper (BUG-7) existed; the taper now does the slowing.
+- Fix: zone reduced to 10 m (two vehicle lengths); free-flow delay 7.7 s.
+  Peak braking and collision counts are unchanged in the 162-run matrix.
+- Regression tests: `test_empty_roundabout_geometric_delay_is_bounded`,
+  `test_roundabout_free_flow_entry_speed_cap` (updated).
+- Status: FIXED
+
+### BUG-24
+- Severity: Medium (unnecessary waits)
+- Component: `controllers/roundabout.py` gap acceptance
+- Symptom: at light demand, entering drivers stopped for circulating vehicles
+  that were about to leave the ring at an earlier exit and would never reach
+  them. Traced first stops at 540–720 veh/h: about 1 in 4 was for such a
+  vehicle, with the junction visibly empty at the entry.
+- Root cause: only vehicles exiting at the entry's own arm were excluded
+  from the conflicting stream.
+- Fix: a circulating vehicle whose exit lies between it and the entry
+  (read from its own path), or which is already on its exit stub outside the
+  ring, is not conflicting traffic. Vehicles that pass the entry are still
+  yielded to; no safety check was relaxed.
+- Regression tests: `test_entry_ignores_vehicles_leaving_before_the_entry`,
+  `test_entry_still_yields_to_vehicles_that_pass_it`.
+- Status: FIXED
+
+### BUG-25
+- Severity: Medium (the guided comparison was not the calibrated one)
+- Component: `main.py DEFAULT_CONFIG`, `study/volume_sweep.py`,
+  `study/validation.py`, `frontend/src/types/config.ts`
+- Symptom: the calibrated study used IDM a = 2.0, b = 3.0 m/s², a 30 s
+  green, 4 s yellow and gap acceptance 4.0 / 2.5 s. The live comparison and the
+  studies used a = 3.0, b = 3.5, 18–25 m/s, a 25 s green, 3 s yellow and
+  4.5 / 2.8 s. The sweep also excluded only 15 s of warm-up, and the validation
+  study only 5 s. Results labelled "calibrated, 1 lane" therefore came from a
+  different vehicle population and measured start-up transients.
+- Fix: one parameter set everywhere (the calibrated one); study warm-up is
+  30 s, shortened only for runs under 120 s (`study_warmup`, at most a quarter
+  of the run).
+- Status: FIXED
+
 ## Effect on published results
 
 Several fixes change simulated physics (BUG-1, 5, 7, 10, 19), so the pinned
@@ -415,6 +502,51 @@ shift was attributed by running the curve with individual fixes reverted.
 | Low-demand 5-seed delay difference (360/720/1080) | not significant | not significant | unchanged conclusion |
 | Multi-lane roundabout peak (1/2/3 lanes) | 1423 / 1234 / 943 | 1406 / 2040 / 2417 | mostly the in-progress predictive lock-up fix that was already in the working tree, plus this pass |
 | Collisions, 1-lane, all pinned points | 0 | 0 | — |
+
+### Calibration pass (BUG-21 to BUG-25), 2026-09-25b
+
+The same harness was run on the code before and after the pass: 1–3 lanes,
+9 demand points, seeds 1–3, both geometries, 240 s with a 30 s warm-up and
+the calibrated controller settings. Values are 3-seed means, before → after.
+Queued time is time below 0.5 m/s.
+
+| Lanes | Offered veh/h | Signal served | Signal delay (s) | Roundabout served | Roundabout delay (s) | Roundabout queued time (s) | Collisions sig/rbt |
+|---:|---:|---|---|---|---|---|---|
+| 1 | 360 | 360 → 337 | 17.5 → 17.0 | 366 → 349 | 19.2 → 10.1 | 0.2 → 0.2 | 0/0 → 0/0 |
+| 1 | 720 | 651 → 611 | 24.9 → 23.0 | 691 → 686 | 21.7 → 12.8 | 0.9 → 0.8 | 0/0 → 0/0 |
+| 1 | 1080 | 903 → 777 | 24.2 → 28.0 | 966 → 937 | 26.2 → 18.8 | 2.7 → 3.2 | 0/0 → 0/0 |
+| 1 | 1440 | 1097 → 1046 | 31.4 → 37.9 | 1154 → 1131 | 38.0 → 29.8 | 7.0 → 7.9 | 0/0 → 0/0 |
+| 1 | 2160 | 1280 → 1080 | 48.0 → 45.6 | 1251 → 1246 | 53.6 → 46.8 | 13.9 → 13.9 | 0/0 → 0/0 |
+| 1 | 2880 | 1474 → 1114 | 52.4 → 54.7 | 1343 → 1280 | 63.1 → 54.2 | 19.4 → 18.1 | 0/0 → 0/0 |
+| 1 | 3600 | 1486 → 1074 | 51.4 → 60.1 | 1354 → 1303 | 71.2 → 63.2 | 22.5 → 25.1 | 0/0 → 0/0 |
+| 1 | 4320 | 1486 → 1171 | 57.5 → 66.5 | 1366 → 1320 | 74.6 → 65.0 | 25.9 → 24.7 | 0/0 → 0/0 |
+| 1 | 5400 | 1537 → 1194 | 60.4 → 64.8 | 1406 → 1343 | 76.5 → 68.6 | 24.2 → 26.3 | 0/0 → 0/0 |
+| 2 | 360 | 366 → 337 | 12.9 → 13.8 | 371 → 371 | 17.7 → 8.5 | 0.1 → 0.0 | 0/0 → 0/0 |
+| 2 | 720 | 680 → 674 | 16.4 → 14.7 | 697 → 686 | 18.9 → 10.2 | 0.3 → 0.4 | 0/0 → 0/0 |
+| 2 | 1080 | 1017 → 914 | 15.2 → 16.7 | 994 → 989 | 20.5 → 12.0 | 0.7 → 1.1 | 0/0 → 0/0 |
+| 2 | 1440 | 1400 → 1303 | 17.7 → 18.7 | 1394 → 1349 | 24.5 → 16.8 | 2.2 → 3.1 | 0/0 → 0/0 |
+| 2 | 2160 | 1949 → 1754 | 24.3 → 27.6 | 1754 → 1709 | 39.1 → 31.4 | 9.2 → 10.0 | 0/0 → 0/0 |
+| 2 | 2880 | 2383 → 2097 | 30.0 → 32.1 | 1954 → 1771 | 46.6 → 43.1 | 13.3 → 16.5 | 0/0 → 0/1 |
+| 2 | 3600 | 2646 → 2240 | 37.5 → 41.6 | 1971 → 1840 | 59.9 → 52.9 | 19.7 → 20.5 | 0/1 → 0/0 |
+| 2 | 4320 | 2783 → 2406 | 40.9 → 43.9 | 1994 → 1880 | 68.4 → 60.9 | 25.4 → 25.0 | 0/0 → 0/1 |
+| 2 | 5400 | 3006 → 2509 | 46.6 → 50.7 | 1989 → 1926 | 71.1 → 62.1 | 29.9 → 29.7 | 0/0 → 0/0 |
+| 3 | 360 | 366 → 337 | 12.8 → 13.8 | 371 → 371 | 17.4 → 8.1 | 0.1 → 0.1 | 0/0 → 0/0 |
+| 3 | 720 | 680 → 669 | 16.1 → 15.7 | 697 → 691 | 18.5 → 9.2 | 0.5 → 0.3 | 0/0 → 0/0 |
+| 3 | 1080 | 1051 → 931 | 14.2 → 15.6 | 1029 → 1006 | 19.0 → 11.0 | 0.5 → 1.1 | 0/0 → 0/0 |
+| 3 | 1440 | 1360 → 1263 | 16.4 → 16.7 | 1423 → 1337 | 22.1 → 14.4 | 1.5 → 2.7 | 0/0 → 0/2 |
+| 3 | 2160 | 2017 → 1806 | 22.6 → 23.9 | 1886 → 1829 | 32.6 → 25.0 | 7.7 → 8.0 | 0/0 → 0/0 |
+| 3 | 2880 | 2571 → 2263 | 23.2 → 23.8 | 2166 → 2006 | 41.6 → 35.7 | 11.7 → 13.5 | 0/1 → 0/0 |
+| 3 | 3600 | 2983 → 2543 | 24.0 → 31.5 | 2217 → 2126 | 54.2 → 42.6 | 19.3 → 16.9 | 0/0 → 0/0 |
+| 3 | 4320 | 3280 → 2977 | 25.1 → 32.9 | 2371 → 2103 | 56.7 → 54.2 | 19.8 → 22.4 | 0/1 → 0/0 |
+| 3 | 5400 | 3703 → 3229 | 31.5 → 36.5 | 2383 → 2189 | 67.0 → 59.4 | 26.1 → 29.5 | 0/0 → 0/1 |
+
+Readings: the roundabout's light-demand delay roughly halves at every lane
+count (a shorter entry zone and speeds that follow the limit), and its queued
+time barely changes, so the waits removed were short. Signal served flow at
+saturation falls by 12–22%: turning vehicles now slow for the curve, which
+matters most where one shared lane carries every movement. 1-lane runs are
+collision-free before and after. Multi-lane roundabout contacts went from 3 to
+5 in 54 runs (the inner-ring-exit weave; see the release-gate review below).
 
 ## Final validation (2026-09-24)
 
@@ -478,17 +610,20 @@ Both reproduce deterministically:
   Recommended as a separate, measured change with the lock-up and calibrated
   suites as its gate.
 
-**`roads.speedLimit` and `roads.approaches[]` — contract/documentation
-mismatch, now corrected (not implemented).** Neither is read by the engine.
-Vehicles drive at `desiredSpeed`, and every approach uses `lanesPerApproach`.
-The contract presented them as working. `approaches[].lanes` was even
-described as a per-approach lane count, contradicting the contract's own note
-that asymmetric lanes are not part of it, so `approaches: [{"direction":
-"north", "lanes": 3}]` was accepted and silently ignored. Contract §2.4 and the
-JSON schema now mark both as reserved (the schema via descriptions, the same
-way it already marks `circulatingLanes`; no validation behaviour changed).
-Applying a speed limit is a modelling decision that would move every
-calibrated result, so it is not a release fix.
+**`roads.speedLimit` — now implemented (BUG-21, 2026-09-25).** The
+earlier release-gate entry kept it reserved because applying it would move
+every calibrated result. The calibration pass applied it deliberately and
+re-measured every result (`comparative_report.md`, revision 2026-09-25b).
+`roads.approaches[]` is still reserved (not read by the engine).
+
+**Multi-lane roundabout contacts, re-measured after the calibration pass.**
+Across the 54 multi-lane roundabout runs of the 2026-09-25 matrix (2 and 3
+lanes, 360–5400 veh/h, seeds 1–3), there were 5 contacts (3 before the pass).
+Two now occur below saturation (3 lanes, 1440 veh/h). All five are the
+inner-ring-exit weave described above; for example, veh_64 on
+`conn_south_1_straight` against veh_67 on `conn_east_2_straight`. The new gap
+rule is not involved: an entry onto the outermost ring already ignored inner
+rings. The multi-lane configuration stays exploratory for this reason.
 
 **"Controller match" rule — contract/documentation mismatch, corrected.** The
 rule cannot hold under the current model: `ControllerSection` is one merged

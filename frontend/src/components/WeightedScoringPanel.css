@@ -1,4 +1,5 @@
 /* User-weighted score. Theme tokens only, so light and dark both work. */
+
 .weighted-scoring-card {
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
@@ -28,14 +29,14 @@
 
 .scoring-title {
   margin: 0;
-  font-size: 15px;
-  font-weight: 700;
+  font-size: var(--fs-body);
+  font-weight: var(--fw-medium);
   color: var(--text-primary);
 }
 
 .scoring-subtitle {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--fs-caption);
   line-height: 1.45;
   color: var(--text-secondary);
 }
@@ -52,12 +53,12 @@
   color: var(--text-secondary);
   padding: 5px 10px;
   border-radius: var(--radius-sm);
-  font-size: 11px;
-  font-weight: 500;
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
   cursor: pointer;
   transition:
-    border-color 0.15s ease,
-    color 0.15s ease;
+    border-color var(--dur-fast) ease,
+    color var(--dur-fast) ease;
 }
 
 .preset-btn:hover,
@@ -73,7 +74,6 @@
   outline-offset: 2px;
 }
 
-/* Scores */
 .winner-banner {
   background: var(--bg-tertiary);
   border: 1px solid var(--border-color);
@@ -98,21 +98,21 @@
 }
 
 .score-tag-name {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   color: var(--text-secondary);
 }
 
 .score-tag-val {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 16px;
-  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-subsection);
+  font-weight: var(--fw-medium);
   color: var(--text-primary);
 }
 
 .score-bar {
   grid-column: 1 / -1;
   height: 6px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   background: var(--bg-secondary);
   overflow: hidden;
 }
@@ -125,11 +125,10 @@
 
 .score-summary {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--fs-caption);
   color: var(--text-primary);
 }
 
-/* Weights */
 .weights-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -151,15 +150,15 @@
   justify-content: space-between;
   align-items: baseline;
   gap: 8px;
-  font-size: 12px;
+  font-size: var(--fs-caption);
   color: var(--text-secondary);
 }
 
 .weight-percent {
-  font-family: "JetBrains Mono", monospace;
-  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-medium);
   color: var(--accent-blue);
-  font-size: 11px;
+  font-size: var(--fs-caption);
   white-space: nowrap;
 }
 
@@ -170,14 +169,14 @@
 }
 
 .scoring-method {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   color: var(--text-secondary);
 }
 
 .scoring-method summary {
   cursor: pointer;
   color: var(--text-primary);
-  font-weight: 600;
+  font-weight: var(--fw-medium);
 }
 
 .scoring-method p,

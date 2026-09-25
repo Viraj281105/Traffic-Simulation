@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | §1–§14 are the audit of HEAD `5368b26` **before** the fix pass and are kept as the record of what was found. **§15 records what was fixed, what was deliberately not, and the current labels and definitions; §16 classifies every kind of statement UrbanFlow now makes.** Where §2–§14 describe a defect that §15 marks *fixed*, §15 is current. |
+| **Status** | §17 (calibration pass) changed the simulation itself; results measured before it are superseded. §1–§14 are the audit of HEAD `5368b26` **before** the fix pass and are kept as the record of what was found. **§15 records what was fixed, what was deliberately not, and the current labels and definitions; §16 classifies every kind of statement UrbanFlow now makes.** Where §2–§14 describe a defect that §15 marks *fixed*, §15 is current. |
 | **Audited** | 2026-09-25, branch `viraj-dev`, HEAD `5368b26` |
 | **Audience** | Mentor review · project presentation · future developers · researchers using UrbanFlow |
 | **Source of truth** | The implementation. Where documentation disagrees, the disagreement is listed in §13 and the code wins. |
@@ -78,7 +78,7 @@ All six are computed in one block, `collector.py:345-401`, over the post-warm-up
 
 | Key · UI label | Exact definition | Dir. | Level · used in main comparison? | Derived from · caveats |
 |---|---|---|---|---|
-| `averageDelay` · "Average delay" / "Time lost per driver" | Mean of per-vehicle `delay` over `X` | Higher = more time lost against free-flow *at the driver's own desired speed* (18–25 m/s by default). Context-dependent across geometries (D-06). | **G** (headline card 1, "In short", LOS grade, session table) · yes | Travel time, route length, desired speed. Includes geometric slow-down (roundabout entry 5 m/s). *(Verified by run: roundabout 12.9 s at 0.15 veh/s with 0 s queued time.)* |
+| `averageDelay` · "Average delay" / "Time lost per driver" | Mean of per-vehicle `delay` over `X` | Higher = more time lost against free-flow *at the driver's own desired speed* (85–105% of the 50 km/h limit since §17; 18–25 m/s before). Context-dependent across geometries (D-06). | **G** (headline card 1, "In short", LOS grade, session table) · yes | Travel time, route length, desired speed. Includes geometric slow-down (roundabout entry 5 m/s). *(Verified by run: roundabout 12.9 s at 0.15 veh/s with 0 s queued time.)* |
 | `medianDelay` · "Median delay" | Median of `delay` | as above | L, T | Same population. Robust to outliers; equal to 0 whenever >50 % of drivers pass freely (signal: 0.0 s at 0.15 veh/s) |
 | `p95Delay` · "1 in 20 drivers lost more than" | 95th percentile, linear interpolation at index `(n−1)·0.95` | as above, upper tail | **G** (card 1) · yes | With n = 5 it is effectively the maximum. Low-sample flag is keyed to PTI, not to this metric |
 | `minDelay` · "Minimum delay" | Smallest `delay` | as above | T (diagnostic, collapsed) | ≈ 0 at the signal (delay is floored at 0) but **never near 0 at the roundabout** *(verified: 2.3-3.4 s even at 0.15 veh/s)*, because every roundabout driver slows to entry speed (D-06) |
@@ -775,7 +775,7 @@ Every user-facing statement now belongs to exactly one class. Anything that does
 | Class | Meaning | Where it appears | Wording rule |
 |---|---|---|---|
 | **1. Calibrated findings** | Produced under the calibrated configuration (1 lane per approach, both geometries collision-free) and pinned by `test_calibrated_capacity_regression` | `docs/reports/comparative_report.md` §2; guided results at 1 lane | May be stated as findings, with their scope |
-| **2. Exploratory findings** | Any run outside that configuration (more than one lane, the roundabout modelled with a single circulating lane) | Research Lab and guided results when lanes > 1 | Always labelled *Exploratory, not calibrated*; never presented as the baseline |
+| **2. Exploratory findings** | Any run outside that configuration (more than one lane: every lane is modelled, but multi-lane roundabout runs are not collision-free, §17) | Research Lab and guided results when lanes > 1 | Always labelled *Exploratory, not calibrated*; never presented as the baseline |
 | **3. Descriptive observations** | What one run measured (means, queues, tiers, tallies) | Guided results, live panel, sweep tables/charts, "How to read this sweep" | "Lower mean delay at N of M points (one random pattern each)"; no "wins", no causal claims beyond a quoted measurement |
 | **4. Statistically supported findings** | A Welch test at the study's α across ≥ 2 random traffic patterns, reported with p, Cohen's d and Student-t intervals | Reliability check, Statistical validation, report `validationEvidence` | "Statistically supported at α = …" or "not supported: this study cannot distinguish the controls"; never "no difference"/"equal"/"confirmed" |
 | **5. Unsupported claims (removed)** | Statements UrbanFlow does not compute or that its own results contradict | — | Removed: 50 % delay reduction; "mathematically required" signal/turbo-roundabout thresholds; emission, fuel and safety-margin claims; roundabout-better-below / signal-better-above as an assumption; "Modern roundabouts exhibit significantly superior performance…" (regenerated reports, CLI text, landing page "takes the lead"/fuel −14.2 %); "Statistically significant divergence confirmed"/"Proofs"; "Equivalence / Parity" for non-significant results; the fixed composite as a "winner" score |
@@ -793,6 +793,23 @@ Every statement of the form *X is better / wins / reduces Y / is safer / is more
 | "Under these weights the X scores N points higher" | User-set weights; followed by "reflects the weights you chose, not a finding" |
 | Level-of-service words | HCM delay bands applied to simulated delay, stated as indicative |
 | "Both controls got the same vehicles" | Same seed, same spawner sequence (lockstep orchestrator) |
+
+## 17. Calibration pass (2026-09-25b): equal inputs, calibrated demand
+
+This pass **changed the simulation** (unlike §15, which only changed calculations and wording). Every number measured before it is superseded. The bugs are recorded as BUG-21 to BUG-25 in `docs/bug-fix-report.md`, and the re-measured results in `docs/reports/comparative_report.md` (revision 2026-09-25b).
+
+| Issue | Status | What changed |
+|---|---|---|
+| Unequal speed assumptions (signal traffic visibly faster) | **Fixed** | Desired speed comes from `roads.speedLimit`, 85–105% of 50 km/h, for both geometries (it was 18–25 m/s and the limit was ignored). One lateral-acceleration limit (3 m/s²) applies to every curved path, including signal turns, which had no curve limit before. |
+| Roundabout "queues" at light demand | **Fixed (root cause)** | Entering drivers no longer give way to circulating vehicles that leave at an earlier exit. The 60 m approach crawl at `entrySpeed` is now 10 m. Free-flow roundabout delay is 7.7 s at 180 veh/h, down from 13.4 s. |
+| Guided and study scenarios were not the calibrated configuration | **Fixed** | One parameter set (IDM a = 2.0, b = 3.0 m/s²; signal 30/4/2 s paired NS/EW; gap 4.0/2.5 s) is used by the calibrated study, the live comparison, the sweep and the validation study. |
+| Warm-up contamination in studies | **Fixed** | The sweep (15 s) and validation (5 s) warm-ups are now 30 s, like the calibrated study and the live comparison (a quarter of the run for runs under 120 s). Research Lab defaults are 240 s runs. |
+| Demand range too mild; levels unrelated to capacity | **Fixed** | Levels are shares of a measured reference capacity per lane count (the mean of both controls' maximum served flow: 1,250 / 2,180 / 2,620 veh/h for 1 / 2 / 3 lanes). They are Light 25%, Moderate 50%, Busy 75%, Near capacity 90%, At capacity 100% and Over capacity 130%, in `study/calibration.py` and `frontend/src/types/demand.ts`, and a test keeps the two equal. The reference is the same for both controls, so a level favours neither. |
+| "The roundabout has a single circulating lane" (UI and docs) | **Corrected** | It was wrong: the network builds one ring per entry lane, and capacity rose with lanes before this pass too. Multi-lane runs stay *exploratory* because the inner-ring-exit weave produces occasional contacts (5 in 54 multi-lane roundabout runs). |
+
+**Definitions unchanged.** Every metric formula, tie rule, LOS band and statistical method is as in §15. Delay is still measured against each driver's own desired speed, so it still includes geometric slowing. Now that both geometries slow for curves under the same rule, that slowing is comparable between them.
+
+**Evidence classes (§16) after this pass.** Class 1 (calibrated findings) is the 1-lane curve pinned by `test_calibrated_capacity_regression` at its 2026-09-25b values. Multi-lane results are Class 2 (exploratory). The guided comparison's default scenario ("Busy", 1 lane) is now the calibrated configuration.
 
 ## Appendix A — verification runs
 

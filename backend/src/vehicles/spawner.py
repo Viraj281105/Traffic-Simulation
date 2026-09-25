@@ -8,6 +8,7 @@ from src.core.limits import DEFAULT_TOTAL_VEHICLES
 from src.metrics.collector import resolve_speed_threshold
 from src.roads.lane import Lane
 from src.roads.network import RoadNetwork
+from src.vehicles.speed_profile import resolve_desired_speed_range
 from src.vehicles.vehicle import Vehicle
 
 logger = logging.getLogger(__name__)
@@ -101,8 +102,10 @@ class VehicleSpawner:
         self.len_max: float = veh_gen_cfg.get("vehicleLength", {}).get("max", 5.0)
         self.width_min: float = veh_gen_cfg.get("vehicleWidth", {}).get("min", 1.8)
         self.width_max: float = veh_gen_cfg.get("vehicleWidth", {}).get("max", 2.2)
-        self.speed_min: float = veh_gen_cfg.get("desiredSpeed", {}).get("min", 18.0)
-        self.speed_max: float = veh_gen_cfg.get("desiredSpeed", {}).get("max", 25.0)
+        # Desired speed: explicit vehicleGeneration.desiredSpeed, otherwise
+        # derived from roads.speedLimit (see speed_profile.py). It used to
+        # default to 18-25 m/s whatever the speed limit said.
+        self.speed_min, self.speed_max = resolve_desired_speed_range(config)
 
         # Safety distance
         self.minimum_gap: float = veh_gen_cfg.get("minimumGap", 2.0)

@@ -9,6 +9,7 @@ import {
   type StudyMetric,
 } from "../../metrics/plainLanguage";
 import { VIEW_ROUTES, followLink } from "../../routing";
+import { Loader } from "../ui/Loader";
 
 const METRIC_TITLES: Record<StudyMetric, string> = {
   delay: "Time lost per driver",
@@ -62,15 +63,10 @@ export function ReliabilityCheck({
 
   if (state.kind === "running") {
     return (
-      <div className="reliability-box" role="status" aria-live="polite">
-        <div className="reliability-running">
-          <span className="spinner" aria-hidden="true" />
-          <span>
-            Re-running your junction with {state.patterns} new traffic patterns…
-            This usually takes under a minute; busy or long scenarios can take a
-            few minutes.
-          </span>
-        </div>
+      <div className="reliability-box">
+        <Loader
+          label={`Re-running your junction with ${String(state.patterns)} new traffic patterns. This usually takes under a minute; busy or long scenarios can take a few minutes.`}
+        />
       </div>
     );
   }

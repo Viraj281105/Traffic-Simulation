@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend",
+      "runtimeExecutable": "C:\\Viraj\\Code\\Traffic-Simulation\\backend\\.venv\\Scripts\\python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "src.main:app", "--app-dir", "C:\\Viraj\\Code\\Traffic-Simulation\\backend", "--port", "8000"],
+      "port": 8000
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "C:\\Viraj\\Code\\Traffic-Simulation\\frontend", "run", "dev"],
+      "port": 5173
+    }
+  ]
+}

@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from src.core.limits import demand_vehicle_limit
 from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
-from src.study.calibration import calibration_status
+from src.study.calibration import calibration_status, demand_vph, study_warmup
 
 # Confidence levels the study accepts. The significance threshold is always
 # alpha = 1 - confidence, so a confidence interval and the significance flag
@@ -242,7 +242,11 @@ def run_statistical_validation(
     robust confidence intervals and statistical repeatability for both Signal and Roundabout.
     """
     base_config = config or {
-        "simulation": {"timeStep": time_step, "duration": duration, "warmupTime": 5.0},
+        "simulation": {
+            "timeStep": time_step,
+            "duration": duration,
+            "warmupTime": study_warmup(duration),
+        },
         "roads": {
             "approachLength": 200.0,
             "laneWidth": 3.5,
@@ -250,13 +254,15 @@ def run_statistical_validation(
             # (study/calibration.py).
             "lanesPerApproach": {"north": 1, "south": 1, "east": 1, "west": 1},
         },
-        "traffic": {"arrivalRate": 0.35, "arrivalDistribution": "poisson"},
+        # "Busy": 75% of the measured 1-lane reference capacity.
+        "traffic": {
+            "arrivalRate": demand_vph("busy", 1) / 3600.0,
+            "arrivalDistribution": "poisson",
+        },
         "vehicleGeneration": {
             "stopSpeedThreshold": 0.1,
             "waitSpeedThreshold": 0.5,
-            "maxAcceleration": 3.0,
-            "comfortDeceleration": 3.5,
-            "desiredSpeed": {"min": 18.0, "max": 25.0},
+            # Engine defaults: the calibrated study\'s vehicles (see main.py).
         },
     }
 
@@ -459,9 +465,7 @@ def run_invariant_checks(
         "vehicleGeneration": {
             "stopSpeedThreshold": 0.1,
             "waitSpeedThreshold": 0.5,
-            "maxAcceleration": 3.0,
-            "comfortDeceleration": 3.5,
-            "desiredSpeed": {"min": 18.0, "max": 25.0},
+            # Engine defaults: the calibrated study\'s vehicles (see main.py).
         },
     }
 

@@ -12,12 +12,13 @@ from src.database.dao import (
 )
 from src.database.db import DB_PATH, get_db_connection, init_db  # noqa: F401
 from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
-from src.study.calibration import calibration_status
+from src.study.calibration import calibration_status, study_warmup, sweep_rates
 from src.study.tolerances import delays_are_tied, tie_tolerance
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_ARRIVAL_RATES = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+# 20%-160% of the measured 1-lane reference capacity (study/calibration.py).
+DEFAULT_ARRIVAL_RATES = sweep_rates(1)
 
 # Fewer exited vehicles than this on either side and a tier's mean delay rests
 # on too few drivers to call a direction (same convention as the planning
@@ -72,7 +73,7 @@ def run_volume_sweep_experiment(
         "simulation": {
             "timeStep": time_step,
             "duration": duration,
-            "warmupTime": 15.0,
+            "warmupTime": study_warmup(duration),
             "randomSeed": random_seed,
         },
         "roads": {
@@ -95,12 +96,9 @@ def run_volume_sweep_experiment(
         "vehicleGeneration": {
             "stopSpeedThreshold": 0.1,
             "waitSpeedThreshold": 0.5,
-            "maxAcceleration": 3.0,
-            "comfortDeceleration": 3.5,
-            "desiredSpeed": {
-                "min": 18.0,
-                "max": 25.0,
-            },
+            # Acceleration, braking and desired speed are the engine defaults
+            # (IDM a = 2.0, b = 3.0 m/s^2; desired speed from roads.speedLimit),
+            # i.e. the same vehicles as the calibrated capacity study.
         },
     }
 

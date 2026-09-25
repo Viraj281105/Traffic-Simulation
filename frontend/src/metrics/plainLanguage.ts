@@ -470,7 +470,7 @@ export function trustNotes(f: TrustFacts): TrustNote[] {
   if (f.lanes > 1) {
     notes.push({
       tone: "caution",
-      text: `The roundabout is modelled with a single circulating lane. With ${String(f.lanes)} entry lanes per approach it does not capture how a real multi-lane roundabout adds capacity, so read the roundabout's numbers here as indicative only. One lane per approach is the comparison the model is calibrated for.`,
+      text: `With ${String(f.lanes)} lanes per approach both junctions model every lane, but drivers leaving the roundabout from an inner ring cross the outer ring without lane markings, and the model is not collision-free across all demand at this setting. Read these results as indicative. One lane per approach is the calibrated comparison.`,
     });
   }
   if (f.collisions > 0) {

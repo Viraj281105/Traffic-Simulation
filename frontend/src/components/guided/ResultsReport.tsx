@@ -4,8 +4,14 @@ import type { SimulationConfigValues } from "../../types/config";
 import {
   DEMAND_LEVELS,
   demandLevelFor,
+  demandRate,
   signalCycleSeconds,
 } from "../../types/config";
+import {
+  REFERENCE_CAPACITY_VPH,
+  saturationRatio,
+  type LaneCount,
+} from "../../types/demand";
 import {
   LOS_THRESHOLDS,
   LOS_WORDS,
@@ -198,7 +204,7 @@ export function ResultsReport({
     ctx.roundabout.metrics?.travelTimeReliabilityLowSampleSize,
   );
 
-  const level = demandLevelFor(config.arrivalRate);
+  const level = demandLevelFor(config.arrivalRate, config.lanes);
   const levelIndex = level ? DEMAND_LEVELS.indexOf(level) : -1;
   const busier = levelIndex >= 0 ? DEMAND_LEVELS[levelIndex + 1] : undefined;
   const quieter = levelIndex > 0 ? DEMAND_LEVELS[levelIndex - 1] : undefined;
@@ -552,7 +558,10 @@ export function ResultsReport({
               type="button"
               className="pb-btn pb-secondary"
               onClick={() => {
-                onTryScenario({ ...config, arrivalRate: quieter.arrivalRate });
+                onTryScenario({
+                  ...config,
+                  arrivalRate: demandRate(quieter, config.lanes),
+                });
               }}
             >
               Try quieter traffic ({quieter.label.toLowerCase()})
@@ -563,7 +572,10 @@ export function ResultsReport({
               type="button"
               className="pb-btn pb-secondary"
               onClick={() => {
-                onTryScenario({ ...config, arrivalRate: busier.arrivalRate });
+                onTryScenario({
+                  ...config,
+                  arrivalRate: demandRate(busier, config.lanes),
+                });
               }}
             >
               Try busier traffic ({busier.label.toLowerCase()})
@@ -674,6 +686,28 @@ export function ResultsReport({
               <dd>
                 Random (Poisson), {config.arrivalRate.toFixed(2)} veh/s total,
                 seed {config.randomSeed}, identical for both controls
+              </dd>
+            </div>
+            <div>
+              <dt>Demand level</dt>
+              <dd>
+                {Math.round(
+                  saturationRatio(config.arrivalRate, config.lanes) * 100,
+                )}
+                % of the reference capacity for {config.lanes} lane
+                {config.lanes === 1 ? "" : "s"} (
+                {REFERENCE_CAPACITY_VPH[
+                  Math.min(3, Math.max(1, config.lanes)) as LaneCount
+                ].toLocaleString()}{" "}
+                veh/h, the mean of both controls&apos; measured maximum)
+              </dd>
+            </div>
+            <div>
+              <dt>Speeds</dt>
+              <dd>
+                50 km/h limit; drivers want 85–105% of it. Every curved path at
+                both junctions is taken at the same lateral-acceleration limit
+                (3 m/s²).
               </dd>
             </div>
             <div>

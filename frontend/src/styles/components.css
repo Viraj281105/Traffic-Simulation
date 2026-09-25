@@ -1,0 +1,847 @@
+/*
+ * UrbanFlow shared components. Every page builds from these classes (and
+ * the React wrappers in src/components/ui). Page stylesheets only lay out
+ * their own content; they do not restyle buttons, dialogs or cards.
+ */
+
+/* ── Page layout ──────────────────────────────────────────────────────── */
+.uf-page {
+  width: 100%;
+  min-width: 0;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--space-8) var(--page-gutter) var(--space-12);
+}
+.uf-page--wide {
+  max-width: var(--page-max-wide);
+}
+
+.uf-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+.uf-page-header__text {
+  min-width: 0;
+  max-width: 72ch;
+}
+.uf-eyebrow {
+  display: block;
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  font-weight: var(--fw-medium);
+  letter-spacing: var(--ls-caps);
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+.uf-page-title {
+  margin: 0;
+  font-size: var(--fs-page-title);
+  line-height: var(--lh-page-title);
+  font-weight: var(--fw-medium);
+  letter-spacing: var(--ls-tight);
+  color: var(--color-text);
+}
+.uf-lead {
+  margin: var(--space-2) 0 0;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  color: var(--color-text-2);
+}
+.uf-lead > p + p {
+  margin-top: var(--space-2);
+}
+.uf-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.uf-section {
+  margin-top: var(--space-8);
+}
+.uf-section-title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--fs-section-title);
+  line-height: var(--lh-section-title);
+  font-weight: var(--fw-medium);
+  color: var(--color-text);
+}
+.uf-subsection-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-subsection);
+  line-height: var(--lh-subsection);
+  font-weight: var(--fw-medium);
+  color: var(--color-text);
+}
+.uf-help {
+  margin: 0;
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  color: var(--color-text-3);
+}
+
+/* ── Card ─────────────────────────────────────────────────────────────── */
+.uf-card {
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+}
+.uf-card--flush {
+  padding: 0;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────── */
+.uf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--control-h);
+  padding: 0 var(--space-4);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-medium);
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.uf-btn:hover:not(:disabled) {
+  background: var(--color-surface-2);
+  border-color: var(--color-text-3);
+}
+.uf-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.uf-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.uf-btn--primary {
+  background: var(--color-accent-strong);
+  border-color: var(--color-accent-strong);
+  color: var(--color-on-accent);
+}
+.uf-btn--primary:hover:not(:disabled) {
+  background: var(--color-accent-strong);
+  border-color: var(--color-accent-strong);
+  filter: brightness(1.08);
+}
+.uf-btn--danger {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: #ffffff;
+}
+.uf-btn--danger:hover:not(:disabled) {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  filter: brightness(1.08);
+}
+.uf-btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--color-text-2);
+}
+.uf-btn--ghost:hover:not(:disabled) {
+  background: var(--color-surface-2);
+  border-color: transparent;
+  color: var(--color-text);
+}
+.uf-btn--sm {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  font-size: var(--fs-small);
+}
+.uf-btn svg {
+  width: var(--icon-size);
+  height: var(--icon-size);
+  flex-shrink: 0;
+}
+
+/* Icon-only button; the close button is one of these. */
+.uf-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--icon-btn);
+  height: var(--icon-btn);
+  padding: 0;
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-2);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+.uf-icon-btn:hover {
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+.uf-icon-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.uf-icon-btn svg {
+  width: var(--icon-size);
+  height: var(--icon-size);
+}
+
+/* ── Form fields ──────────────────────────────────────────────────────── */
+.uf-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.uf-label {
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  font-weight: var(--fw-medium);
+  color: var(--color-text);
+}
+.uf-input,
+.uf-select {
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: var(--fs-body);
+  font-variant-numeric: tabular-nums;
+}
+.uf-input:focus-visible,
+.uf-select:focus-visible {
+  outline: none;
+  border-color: var(--color-focus);
+  box-shadow: 0 0 0 1px var(--color-focus);
+}
+
+/* ── Segmented control / choice group ─────────────────────────────────── */
+.uf-segmented {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+.uf-segmented > button {
+  height: calc(var(--control-h-sm) - 2px);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-text-2);
+  font-size: var(--fs-small);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+}
+.uf-segmented > button[aria-pressed="true"],
+.uf-segmented > button.is-active {
+  background: var(--color-surface-3);
+  color: var(--color-text);
+}
+
+/* ── Badges ───────────────────────────────────────────────────────────── */
+.uf-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 22px;
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-xs);
+  color: var(--color-text-2);
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
+  line-height: 1;
+  white-space: nowrap;
+}
+.uf-badge--accent {
+  border-color: transparent;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+.uf-badge--success {
+  border-color: transparent;
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+.uf-badge--warning {
+  border-color: transparent;
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+.uf-badge--danger {
+  border-color: transparent;
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+/* ── Callouts (info / warning / danger) ───────────────────────────────── */
+.uf-callout {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--color-border);
+  border-left: 3px solid var(--color-info);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-2);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+}
+.uf-callout strong {
+  color: var(--color-text);
+  font-weight: var(--fw-medium);
+}
+.uf-callout--warning {
+  border-left-color: var(--color-warning);
+}
+.uf-callout--danger {
+  border-left-color: var(--color-danger);
+}
+.uf-callout--success {
+  border-left-color: var(--color-success);
+}
+
+/* ── Tabs (in-page) ───────────────────────────────────────────────────── */
+.uf-tabs {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: var(--border-width) solid var(--color-border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.uf-tab {
+  position: relative;
+  height: 40px;
+  padding: 0 var(--space-3);
+  border: 0;
+  background: transparent;
+  color: var(--color-text-2);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.uf-tab:hover {
+  color: var(--color-text);
+}
+.uf-tab[aria-selected="true"],
+.uf-tab.is-active {
+  color: var(--color-text);
+}
+.uf-tab[aria-selected="true"]::after,
+.uf-tab.is-active::after {
+  content: "";
+  position: absolute;
+  left: var(--space-3);
+  right: var(--space-3);
+  bottom: -1px;
+  height: 2px;
+  background: var(--color-accent);
+}
+
+/* ── Tables ───────────────────────────────────────────────────────────── */
+.uf-table-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.uf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+}
+.uf-table th,
+.uf-table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-width) solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+}
+.uf-table th {
+  color: var(--color-text-3);
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-caption);
+  background: var(--color-surface-2);
+}
+.uf-table tr:last-child td {
+  border-bottom: 0;
+}
+.uf-table td.num,
+.uf-table th.num {
+  text-align: right;
+}
+
+/* ── Metric ───────────────────────────────────────────────────────────── */
+.uf-metric__label {
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  color: var(--color-text-3);
+}
+.uf-metric__value {
+  font-size: var(--fs-metric);
+  line-height: var(--lh-metric);
+  font-weight: var(--fw-medium);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+.uf-metric__unit {
+  margin-left: 2px;
+  font-size: var(--fs-small);
+  color: var(--color-text-3);
+}
+
+/* ── Empty state ──────────────────────────────────────────────────────── */
+.uf-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-10) var(--space-6);
+  border: var(--border-width) dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  text-align: center;
+  color: var(--color-text-2);
+}
+.uf-empty__title {
+  margin: 0;
+  font-size: var(--fs-subsection);
+  line-height: var(--lh-subsection);
+  font-weight: var(--fw-medium);
+  color: var(--color-text);
+}
+.uf-empty__text {
+  margin: 0;
+  max-width: 56ch;
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+}
+
+/* ── Overlays: modal dialog and side drawer ───────────────────────────── */
+.uf-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background: var(--color-overlay);
+  animation: uf-fade-in var(--dur-base) var(--ease-out);
+}
+.uf-overlay--drawer {
+  z-index: var(--z-drawer);
+  justify-content: flex-end;
+  align-items: stretch;
+  padding: 0;
+}
+.uf-overlay.is-closing {
+  animation: uf-fade-out var(--dur-base) var(--ease-in) forwards;
+}
+
+.uf-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 720px);
+  max-height: min(100%, 880px);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-overlay);
+  animation: uf-dialog-in var(--dur-slow) var(--ease-out);
+  overflow: hidden;
+}
+.uf-dialog--wide {
+  width: min(100%, 1240px);
+}
+.uf-dialog--narrow {
+  width: min(100%, 440px);
+}
+.uf-overlay.is-closing .uf-dialog {
+  animation: uf-dialog-out var(--dur-fast) var(--ease-in) forwards;
+}
+
+.uf-drawer {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 440px);
+  height: 100%;
+  border-left: var(--border-width) solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-overlay);
+  animation: uf-drawer-in var(--dur-slow) var(--ease-out);
+}
+.uf-drawer--wide {
+  width: min(100%, 640px);
+}
+.uf-overlay.is-closing .uf-drawer {
+  animation: uf-drawer-out var(--dur-base) var(--ease-in) forwards;
+}
+
+/* Standard header: title, optional description, close button. */
+.uf-panel-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: var(--border-width) solid var(--color-border);
+  flex-shrink: 0;
+}
+.uf-panel-header__text {
+  flex: 1;
+  min-width: 0;
+  padding-top: var(--space-1);
+}
+.uf-panel-title {
+  margin: 0;
+  font-size: var(--fs-subsection);
+  line-height: var(--lh-subsection);
+  font-weight: var(--fw-medium);
+  color: var(--color-text);
+}
+.uf-panel-description {
+  margin: var(--space-1) 0 0;
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  color: var(--color-text-3);
+}
+.uf-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-5);
+}
+.uf-panel-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-top: var(--border-width) solid var(--color-border);
+  flex-shrink: 0;
+}
+
+@keyframes uf-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes uf-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes uf-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+@keyframes uf-dialog-out {
+  to {
+    opacity: 0;
+    transform: translateY(4px) scale(0.99);
+  }
+}
+@keyframes uf-drawer-in {
+  from {
+    opacity: 0.6;
+    transform: translateX(24px);
+  }
+}
+@keyframes uf-drawer-out {
+  to {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+@keyframes uf-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+/* Expandable sections (<details class="uf-disclosure">). */
+.uf-disclosure > summary {
+  cursor: pointer;
+  list-style: none;
+}
+.uf-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+.uf-disclosure[open] > :not(summary) {
+  animation: uf-rise-in var(--dur-base) var(--ease-out);
+}
+
+/* ── Forms inside drawers ─────────────────────────────────────────────── */
+.uf-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+.uf-form-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-4) 0 0;
+  border: 0;
+  border-top: var(--border-width) solid var(--color-border);
+}
+.uf-form > .uf-form-section:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+.uf-form-section__title {
+  float: left;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  font-weight: var(--fw-medium);
+  color: var(--color-text);
+}
+.uf-field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-3);
+}
+.uf-field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.uf-value {
+  font-size: var(--fs-small);
+  font-weight: var(--fw-medium);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+.uf-input-group {
+  display: flex;
+  gap: var(--space-2);
+}
+.uf-input-group > .uf-input {
+  flex: 1;
+  min-width: 0;
+}
+.uf-range {
+  width: 100%;
+  accent-color: var(--color-accent);
+}
+.uf-segmented {
+  flex-wrap: wrap;
+  align-self: flex-start;
+}
+
+/* Selectable option (radio-like button with a title and a line of detail). */
+.uf-choice-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.uf-choice-list--grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+.uf-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+.uf-choice:hover {
+  border-color: var(--color-text-3);
+}
+.uf-choice[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+.uf-choice:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.uf-choice__title {
+  font-size: var(--fs-body);
+  font-weight: var(--fw-medium);
+}
+.uf-choice__desc {
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  color: var(--color-text-3);
+}
+
+/* ── Toast ────────────────────────────────────────────────────────────── */
+.uf-toast {
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  box-shadow: var(--shadow-overlay);
+  color: var(--color-text);
+  font-size: var(--fs-small);
+  animation: uf-rise-in var(--dur-base) var(--ease-out);
+}
+
+/* ── Loader: a small roundabout with vehicles circulating ─────────────── */
+.uf-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-10) var(--space-6);
+  color: var(--color-text-3);
+  animation: uf-fade-in var(--dur-base) var(--ease-out);
+}
+.uf-loader--inline {
+  flex-direction: row;
+  padding: 0;
+  gap: var(--space-2);
+}
+.uf-loader--fill {
+  min-height: 240px;
+  flex: 1;
+}
+.uf-loader__label {
+  margin: 0;
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  color: var(--color-text-2);
+}
+.uf-loader svg {
+  display: block;
+  overflow: visible;
+}
+.uf-loader__road {
+  fill: none;
+  stroke: var(--color-border-strong);
+}
+.uf-loader__island {
+  fill: var(--color-surface-2);
+  stroke: var(--color-border-strong);
+}
+.uf-loader__car {
+  fill: var(--color-accent);
+  offset-path: path("M 24 10 A 14 14 0 1 1 23.99 10");
+  offset-rotate: auto;
+  animation: uf-loader-orbit 1.6s linear infinite;
+}
+.uf-loader__car--2 {
+  fill: var(--series-signal);
+  animation-delay: -0.53s;
+}
+.uf-loader__car--3 {
+  fill: var(--series-roundabout);
+  animation-delay: -1.07s;
+}
+@keyframes uf-loader-orbit {
+  from {
+    offset-distance: 0%;
+  }
+  to {
+    offset-distance: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* No orbiting: the cars stay put and the ring breathes gently, which
+     still says "working" without movement. */
+  .uf-loader__car {
+    animation: none !important;
+  }
+  .uf-loader__car--2 {
+    offset-distance: 33%;
+  }
+  .uf-loader__car--3 {
+    offset-distance: 66%;
+  }
+  .uf-loader svg {
+    animation: uf-loader-breathe 1.6s ease-in-out infinite alternate !important;
+    animation-duration: 1.6s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+@keyframes uf-loader-breathe {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.45;
+  }
+}
+
+/* ── Utilities ────────────────────────────────────────────────────────── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 640px) {
+  .uf-page {
+    padding-top: var(--space-6);
+  }
+  .uf-dialog {
+    max-height: 100%;
+  }
+  .uf-overlay:not(.uf-overlay--drawer) {
+    padding: var(--space-2);
+  }
+  .uf-panel-header,
+  .uf-panel-body,
+  .uf-panel-footer {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+}

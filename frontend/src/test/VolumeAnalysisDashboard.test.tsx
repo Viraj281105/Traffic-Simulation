@@ -2,7 +2,13 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { VolumeAnalysisDashboard } from "../components/VolumeAnalysisDashboard";
 
 // ── Mock config ────────────────────────────────────────────────────────────
@@ -68,11 +74,11 @@ describe("VolumeAnalysisDashboard", () => {
     render(<VolumeAnalysisDashboard />);
     await waitFor(() =>
       expect(
-        screen.getByText(/Traffic Volume & Capacity Analysis/i),
+        screen.getByRole("heading", { level: 1, name: /Traffic-level sweep/i }),
       ).toBeInTheDocument(),
     );
     expect(
-      screen.getByRole("button", { name: /Run Sweep/i }),
+      screen.getAllByRole("button", { name: /Run Sweep/i })[0],
     ).toBeInTheDocument();
   });
 
@@ -130,7 +136,7 @@ describe("VolumeAnalysisDashboard", () => {
 
     render(<VolumeAnalysisDashboard />);
 
-    fireEvent.click(screen.getByRole("button", { name: /Run Sweep/i }));
+    fireEvent.click(screen.getAllByRole("button", { name: /Run Sweep/i })[0]);
 
     await waitFor(() =>
       expect(screen.getByText(/HTTP 500/i)).toBeInTheDocument(),
@@ -145,7 +151,7 @@ describe("VolumeAnalysisDashboard", () => {
 
     render(<VolumeAnalysisDashboard />);
 
-    const btn = screen.getByRole("button", { name: /Run Sweep/i });
+    const btn = screen.getAllByRole("button", { name: /Run Sweep/i })[0];
     fireEvent.click(btn);
 
     await waitFor(() => expect(btn).toBeDisabled());
@@ -171,11 +177,9 @@ describe("VolumeAnalysisDashboard", () => {
     fireEvent.click(screen.getByText("Test Sweep"));
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/Head-to-Head Volume Matrix/i),
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Table by demand level/i)).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByText(/Head-to-Head Volume Matrix/i));
+    fireEvent.click(screen.getByText(/Table by demand level/i));
 
     // The 3 run rows (one per arrival rate)
     await waitFor(() => {
@@ -252,7 +256,9 @@ describe("VolumeAnalysisDashboard", () => {
     fireEvent.click(screen.getByText("Nested Results Sweep"));
 
     await waitFor(() =>
-      expect(screen.getByText(/Capacity Studio/i)).toBeInTheDocument(),
+      expect(
+        screen.getByText(/Where the lower-delay control changes/i),
+      ).toBeInTheDocument(),
     );
 
     // Toggle uncertainty envelopes and delta trend
@@ -269,10 +275,10 @@ describe("VolumeAnalysisDashboard", () => {
     fireEvent.click(deltaTrendBtn);
 
     // Switch to Matrix tab and check Parity filter
-    fireEvent.click(screen.getByText(/Head-to-Head Volume Matrix/i));
+    fireEvent.click(screen.getByText(/Table by demand level/i));
     await waitFor(() => {
       expect(
-        screen.getByRole("button", { name: /⚖️ About the same/i }),
+        screen.getByRole("button", { name: /About the same/i }),
       ).toBeInTheDocument();
     });
   });
@@ -294,7 +300,9 @@ describe("VolumeAnalysisDashboard", () => {
     fireEvent.click(screen.getByRole("button", { name: /Saved Sweeps/i }));
     fireEvent.click(screen.getByText("Test Sweep"));
     await waitFor(() =>
-      expect(screen.getByText(/Capacity Studio/i)).toBeInTheDocument(),
+      expect(
+        screen.getByText(/Where the lower-delay control changes/i),
+      ).toBeInTheDocument(),
     );
   }
 
@@ -406,15 +414,43 @@ describe("VolumeAnalysisDashboard", () => {
     );
     render(<VolumeAnalysisDashboard />);
     fireEvent.click(
-      (await screen.findAllByRole("button", { name: /Advanced Config/i }))[0],
+      await screen.findByRole("button", { name: /Sweep settings/i }),
     );
-    const calibrated = await screen.findByRole("button", {
-      name: /1 Lane \(calibrated comparison\)/i,
+    const dialog = await screen.findByRole("dialog", {
+      name: /Sweep settings/i,
     });
-    expect(calibrated.className).toMatch(/active/);
-    const exploratory = screen.getByRole("button", {
-      name: /2 Lanes \(exploratory/i,
-    });
-    expect(exploratory.className).not.toMatch(/active/);
+    expect(
+      within(dialog).getByRole("button", { name: /^1 lane$/i }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      within(dialog).getByRole("button", { name: /^2 lanes$/i }),
+    ).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("sends the speed limit, not a hard-coded desired speed", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200 }))
+      .mockImplementationOnce(() => new Promise(() => undefined));
+    render(<VolumeAnalysisDashboard />);
+    fireEvent.click(
+      (await screen.findAllByRole("button", { name: /Run Sweep/i }))[0],
+    );
+    const body = JSON.parse(
+      vi.mocked(fetch).mock.calls[1][1]?.body as string,
+    ) as {
+      arrivalRates: number[];
+      customConfig: {
+        roads: { speedLimit: number };
+        vehicleGeneration?: unknown;
+      };
+    };
+    expect(body.customConfig.roads.speedLimit).toBeCloseTo(13.89);
+    expect(body.customConfig.vehicleGeneration).toBeUndefined();
+    // 20%-160% of the 1-lane reference capacity (1,250 veh/h).
+    expect(body.arrivalRates[0]).toBeCloseTo(0.069, 3);
+    expect(body.arrivalRates[body.arrivalRates.length - 1]).toBeCloseTo(
+      0.556,
+      3,
+    );
   });
 });

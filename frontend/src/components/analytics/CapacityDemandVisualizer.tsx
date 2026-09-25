@@ -1,5 +1,6 @@
 import type { MetricContext } from "../../metrics/catalog";
 import { formatMetric, metricState, METRICS } from "../../metrics/catalog";
+import { SERIES, CHART_GRID } from "../../theme/chart";
 
 interface CapacityDemandVisualizerProps {
   signalCtx: MetricContext;
@@ -74,7 +75,7 @@ export function CapacityDemandVisualizer({
           {/* Signal Balance */}
           <div className="demand-bar-row">
             <div className="demand-row-meta">
-              <span className="control-label signal">🚦 Fixed-Time Signal</span>
+              <span className="control-label signal">Traffic signal</span>
               <span className="rate-badge">
                 {`${sigServedRate.toFixed(1)}% exited`}
               </span>
@@ -102,9 +103,7 @@ export function CapacityDemandVisualizer({
           {/* Roundabout Balance */}
           <div className="demand-bar-row">
             <div className="demand-row-meta">
-              <span className="control-label roundabout">
-                🔄 Modern Roundabout
-              </span>
+              <span className="control-label roundabout">Roundabout</span>
               <span className="rate-badge">
                 {`${rndServedRate.toFixed(1)}% exited`}
               </span>
@@ -148,7 +147,7 @@ export function CapacityDemandVisualizer({
                   cy="40"
                   r="32"
                   fill="none"
-                  stroke="rgba(255,255,255,0.1)"
+                  stroke={CHART_GRID}
                   strokeWidth="7"
                 />
                 {sigUtilVal !== null && (
@@ -157,7 +156,7 @@ export function CapacityDemandVisualizer({
                     cy="40"
                     r="32"
                     fill="none"
-                    stroke="#f59e0b"
+                    stroke={SERIES.signal}
                     strokeWidth="7"
                     strokeDasharray={201}
                     strokeDashoffset={201 * (1 - sigUtilVal / 100)}
@@ -181,7 +180,7 @@ export function CapacityDemandVisualizer({
                   cy="40"
                   r="32"
                   fill="none"
-                  stroke="rgba(255,255,255,0.1)"
+                  stroke={CHART_GRID}
                   strokeWidth="7"
                 />
                 {rndUtilVal !== null && (
@@ -190,7 +189,7 @@ export function CapacityDemandVisualizer({
                     cy="40"
                     r="32"
                     fill="none"
-                    stroke="#06b6d4"
+                    stroke={SERIES.roundabout}
                     strokeWidth="7"
                     strokeDasharray={201}
                     strokeDashoffset={201 * (1 - rndUtilVal / 100)}

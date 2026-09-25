@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Set, Tuple
 from src.controllers.base import BaseController
 from src.controllers.virtual_obstacle import VirtualObstacle
 from src.core.enums import Direction, TurnIntent
-from src.roads.network import RoadNetwork
+from src.roads.network import ROUNDABOUT_ENTRY_SETBACK, RoadNetwork
 from src.vehicles.vehicle import Vehicle
 
 # Distance from the entry point (lane end) within which a vehicle is
@@ -23,7 +23,17 @@ _ENTRY_ZONE: float = 5.0
 # over a realistic braking distance instead lets IDM's free-road term bring
 # the vehicle down to entrySpeed *before* it reaches the give-way line,
 # which is what a real roundabout approach taper does.
-_ENTRY_APPROACH_ZONE: float = 60.0
+#
+# 2026-09-25: 60 m -> 10 m. The continuous braking taper outside the zone (see
+# _approach_speed_limit) now does the slowing, and desired speeds follow the
+# 50 km/h speed limit rather than 18-25 m/s (vehicles/speed_profile.py), so the
+# zone only has to cover the last two vehicle lengths before the give-way line.
+# At 60 m every vehicle crawled at entrySpeed for 60 m of straight road, which
+# alone added about 6 s of delay per vehicle at an empty roundabout (free-flow
+# delay 13.4 s -> 7.7 s at 180 veh/h, seed 1; peak braking and collisions
+# unchanged). That was the largest part of why roundabout traffic looked so
+# much slower than signal traffic.
+_ENTRY_APPROACH_ZONE: float = 10.0
 
 # Comfortable deceleration (m/s^2) used to shape the spillback speed limit
 # while an approach is congested (see _approach_speed_limit).
@@ -418,6 +428,30 @@ class RoundaboutController(BaseController):
                             theta_cv = math.atan2(cv_y, cv_x)
                             # Angular distance from circulating vehicle to entry point (counter-clockwise)
                             angular_gap = (theta_entry - theta_cv) % (2 * math.pi)
+
+                            # A vehicle that leaves the ring before it gets
+                            # here is not conflicting traffic. Only the exit
+                            # at this entry's own arm used to be excluded
+                            # (check 3 above), so an entering driver also gave
+                            # way to vehicles about to turn off at an earlier
+                            # exit — at low demand roughly one first stop in
+                            # four was for a vehicle that never arrived, at a
+                            # junction that looked empty. The exit angle is
+                            # read from the vehicle's own path, so this holds
+                            # for every ring and turn.
+                            if cv.lane is not None and cv.lane.lane_id.startswith(
+                                "conn"
+                            ):
+                                ex, ey = cv.lane.end_coords
+                                angle_to_exit = (math.atan2(ey, ex) - theta_cv) % (
+                                    2 * math.pi
+                                )
+                                past_ring = (
+                                    cv.lane.length - cv.position
+                                    <= ROUNDABOUT_ENTRY_SETBACK
+                                )
+                                if angle_to_exit < angular_gap or past_ring:
+                                    continue
 
                             # If angular_gap < pi, it is upstream / approaching the entry point
                             if angular_gap < math.pi:

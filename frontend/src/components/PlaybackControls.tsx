@@ -1,3 +1,4 @@
+import { Pause, Play, RotateCcw } from "lucide-react";
 import React from "react";
 import type { LiveSnapshot } from "../types/simulation";
 
@@ -63,7 +64,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
               : "Start or resume the simulation"
           }
         >
-          <span aria-hidden="true">▶ </span>
+          <Play aria-hidden="true" />
           {status === "completed" ? "Run again" : "Play"}
         </button>
         <button
@@ -74,7 +75,8 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           disabled={disabled || !isPlaying || status === "completed"}
           title="Pause the simulation"
         >
-          <span aria-hidden="true">⏸ </span>Pause
+          <Pause aria-hidden="true" />
+          Pause
         </button>
         <button
           id="btn-stop"
@@ -88,7 +90,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
               : "Stop and reset the simulation with a new random seed"
           }
         >
-          <span aria-hidden="true">⏹ </span>
+          <RotateCcw aria-hidden="true" />
           {simple ? "Start over" : "Reset"}
         </button>
       </div>

@@ -4,6 +4,8 @@ import {
   DEMAND_LEVELS,
   RUN_LENGTHS,
   demandLevelFor,
+  demandRate,
+  demandVph,
   signalCycleSeconds,
   vehiclesPerHour,
 } from "../../types/config";
@@ -44,7 +46,7 @@ export function ScenarioSetup({
     setDraft((prev) => ({ ...prev, [key]: value }));
   };
 
-  const level = demandLevelFor(draft.arrivalRate);
+  const level = demandLevelFor(draft.arrivalRate, draft.lanes);
   const lengthKnown = RUN_LENGTHS.some((l) => l.seconds === draft.duration);
   const ns = draft.nsGreenDuration ?? draft.greenDuration;
   const ew = draft.ewGreenDuration ?? draft.greenDuration;
@@ -68,10 +70,12 @@ export function ScenarioSetup({
           <span className="q-number">1</span> How busy is the junction?
         </legend>
         <p className="q-help">
-          Counted across all four approaches together. Pick the closest match —
-          you can try other levels afterwards.
+          Levels are set relative to how much traffic{" "}
+          {draft.lanes === 1 ? "a one-lane" : `a ${String(draft.lanes)}-lane`}{" "}
+          junction can carry, so they mean the same thing at every lane count.
+          Figures are totals across all four approaches.
         </p>
-        <div className="choice-grid">
+        <div className="choice-grid choice-grid--levels">
           {DEMAND_LEVELS.map((d) => (
             <label
               key={d.id}
@@ -82,13 +86,12 @@ export function ScenarioSetup({
                 name={demandName}
                 checked={level?.id === d.id}
                 onChange={() => {
-                  set("arrivalRate", d.arrivalRate);
+                  set("arrivalRate", demandRate(d, draft.lanes));
                 }}
               />
               <span className="choice-title">{d.label}</span>
               <span className="choice-figure">
-                ≈ {vehiclesPerHour(d.arrivalRate).toLocaleString()} vehicles /
-                hour
+                {demandVph(d, draft.lanes).toLocaleString()} vehicles / hour
               </span>
               <span className="choice-desc">{d.description}</span>
             </label>
@@ -119,22 +122,32 @@ export function ScenarioSetup({
                 name={lanesName}
                 checked={draft.lanes === n}
                 onChange={() => {
-                  set("lanes", n);
+                  setDraft((prev) => {
+                    const kept = demandLevelFor(prev.arrivalRate, prev.lanes);
+                    return {
+                      ...prev,
+                      lanes: n,
+                      arrivalRate: kept
+                        ? demandRate(kept, n)
+                        : prev.arrivalRate,
+                    };
+                  });
                 }}
               />
               {n} {n === 1 ? "lane" : "lanes"}
             </label>
           ))}
         </div>
-        {draft.lanes > 1 ? (
+        <p className="q-help">
+          Each lane is modelled: the signal gets a lane per movement and the
+          roundabout one circulating ring per lane.
+        </p>
+        {draft.lanes > 1 && (
           <p className="q-note is-caution" role="note">
-            The roundabout is modelled with a single circulating lane, so with
-            more than one entry lane its results are indicative only. One lane
-            per approach is the comparison the model is calibrated for.
-          </p>
-        ) : (
-          <p className="q-help">
-            One lane per approach is the comparison the model is calibrated for.
+            With more than one lane, results are indicative: drivers leaving the
+            roundabout from an inner ring cross the outer one, and the model has
+            no lane markings to separate that weave. One lane per approach is
+            the calibrated comparison.
           </p>
         )}
       </fieldset>
@@ -194,8 +207,11 @@ export function ScenarioSetup({
           <div className="option-card is-roundabout">
             <h3>Roundabout</h3>
             <p>
-              Single circulating lane. Drivers give way to circling traffic and
-              enter at gaps of at least {draft.criticalGap.toFixed(1)} s.
+              {draft.lanes === 1
+                ? "One circulating lane."
+                : `${String(draft.lanes)} circulating lanes.`}{" "}
+              Drivers give way to circulating traffic and enter at gaps of at
+              least {draft.criticalGap.toFixed(1)} s.
             </p>
           </div>
         </div>

@@ -33,7 +33,7 @@ import {
 } from "./components/guided/comparisonRun";
 import { StepNav, type GuidedStage } from "./components/guided/StepNav";
 import "./components/guided/Guided.css";
-import { Sun, Moon } from "lucide-react";
+import { Sun, Moon, SlidersHorizontal } from "lucide-react";
 import type { SimulationConfigValues } from "./types/config";
 import { DEFAULT_CONFIG_VALUES, dashboardPayload } from "./types/config";
 import { saveReplay, updateSimulationConfig } from "./services/api";
@@ -518,7 +518,11 @@ function Dashboard({
       <section className="comparison-column" aria-labelledby="col-signal-title">
         <div className="column-header">
           <h2 className="column-title" id="col-signal-title">
-            <span aria-hidden="true">🚦 </span>Traffic signal
+            <span
+              className="column-swatch column-swatch--signal"
+              aria-hidden="true"
+            />
+            Traffic signal
           </h2>
         </div>
         <div className="canvas-wrapper">
@@ -541,7 +545,11 @@ function Dashboard({
       >
         <div className="column-header">
           <h2 className="column-title" id="col-roundabout-title">
-            <span aria-hidden="true">🔄 </span>Roundabout
+            <span
+              className="column-swatch column-swatch--roundabout"
+              aria-hidden="true"
+            />
+            Roundabout
           </h2>
         </div>
         <div className="canvas-wrapper">
@@ -594,9 +602,8 @@ function Dashboard({
               aria-label="Scenario settings"
               title="Demand, geometry, signal timings and gap acceptance"
             >
-              <span aria-hidden="true">⚙️</span>
+              <SlidersHorizontal aria-hidden="true" />
               <span className="label-text" aria-hidden="true">
-                {" "}
                 Scenario settings
               </span>
             </button>
@@ -661,12 +668,11 @@ function Dashboard({
           )}
           <div className="quick-seed-group">
             <span className="seed-badge" title="Random seed of the next run">
-              <span aria-hidden="true">🎲 </span>Seed:{" "}
-              <strong>{randomSeed}</strong>
+              Seed <strong>{randomSeed}</strong>
             </span>
             <button
               type="button"
-              className="pb-btn pb-secondary re-roll-btn"
+              className="uf-btn uf-btn--sm re-roll-btn"
               onClick={randomizeSeed}
               title="Pick a new random seed (resets the simulation)"
             >
@@ -879,7 +885,7 @@ function Dashboard({
           />
           {activeError && (
             <div className="error-banner" role="alert">
-              ⚠ {activeError}
+              {activeError}
             </div>
           )}
         </footer>
@@ -887,9 +893,7 @@ function Dashboard({
 
       {/* ── Toast Notification ────────────────────────────────────────── */}
       <div className="toast-region" role="status" aria-live="polite">
-        {toastMessage && (
-          <div className="toast-notification">{toastMessage}</div>
-        )}
+        {toastMessage && <div className="uf-toast">{toastMessage}</div>}
       </div>
     </div>
   );

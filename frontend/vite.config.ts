@@ -1,6 +1,5 @@
 import { defineConfig, type Connect, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
 import { resolve } from "path";
 import { fileURLToPath } from "url";
 import type { InlineConfig as VitestInlineConfig } from "vitest/node";
@@ -49,7 +48,7 @@ export default defineConfig({
   // Two HTML entry points with page routing handled by dashboardFallback();
   // Vite's own SPA fallback would answer every unknown path with index.html.
   appType: "mpa",
-  plugins: [react(), tailwindcss(), dashboardFallback()],
+  plugins: [react(), dashboardFallback()],
   server: {
     port: 5173,
     strictPort: true,

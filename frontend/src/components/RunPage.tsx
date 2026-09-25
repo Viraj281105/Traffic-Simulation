@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useState } from "react";
 import "./HistoryDashboard.css";
 import "./RunPages.css";
+import { Loader } from "./ui/Loader";
 import {
   ApiError,
   getReplay,
@@ -94,17 +95,15 @@ export function RunPage({
 
   if (state.kind === "loading") {
     return (
-      <div className="history-dashboard run-page">
+      <div className="uf-page uf-page--wide history-dashboard run-page">
         <BackToHistory />
-        <p className="history-status" role="status">
-          Loading run…
-        </p>
+        <Loader label="Loading run" />
       </div>
     );
   }
   if (state.kind === "notFound") {
     return (
-      <div className="history-dashboard run-page">
+      <div className="uf-page uf-page--wide history-dashboard run-page">
         <BackToHistory />
         <header className="history-header">
           <h1>Run not found</h1>
@@ -118,7 +117,7 @@ export function RunPage({
   }
   if (state.kind === "error") {
     return (
-      <div className="history-dashboard run-page">
+      <div className="uf-page uf-page--wide history-dashboard run-page">
         <BackToHistory />
         <div className="history-status error" role="alert">
           <p>{state.message}</p>
@@ -195,7 +194,7 @@ function RunDetails({
   };
 
   return (
-    <div className="history-dashboard run-page">
+    <div className="uf-page uf-page--wide history-dashboard run-page">
       <BackToHistory />
       <header className="history-header run-header">
         <NameEditor record={record} onSaved={onRecordChange} />

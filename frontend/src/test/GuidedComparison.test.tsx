@@ -180,8 +180,17 @@ describe("Guided comparison", () => {
     await user.click(screen.getByRole("radio", { name: /2 lanes/i }));
 
     expect(screen.getByRole("note")).toHaveTextContent(
-      /single circulating lane/i,
+      /indicative.*inner ring/i,
     );
+  });
+
+  it("keeps the demand level when the lane count changes", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("radio", { name: /3 lanes/i }));
+    // "Busy" stays selected and now means 75% of the 3-lane capacity.
+    expect(screen.getByRole("radio", { name: /busy/i })).toBeChecked();
+    expect(screen.getByText(/1,970 vehicles \/ hour/)).toBeInTheDocument();
   });
 
   it("sends the chosen scenario to the backend before playing it", async () => {
@@ -198,7 +207,7 @@ describe("Guided comparison", () => {
           resolveSync = resolve;
         }),
     );
-    await user.click(screen.getByRole("radio", { name: /rush hour/i }));
+    await user.click(screen.getByRole("radio", { name: /near capacity/i }));
     await user.click(
       screen.getByRole("button", { name: /run the comparison/i }),
     );
@@ -211,7 +220,8 @@ describe("Guided comparison", () => {
       arrivalRate: number;
       intersectionType: string;
     };
-    expect(payload.arrivalRate).toBe(0.45);
+    // 90% of the measured 1-lane reference capacity (1,250 veh/h).
+    expect(payload.arrivalRate).toBeCloseTo(1130 / 3600, 9);
     expect(payload.intersectionType).toBe("fixed_time_signal");
     // …but Play waits for the backend to hold the new scenario.
     expect(wsState.play).not.toHaveBeenCalled();
@@ -343,7 +353,7 @@ describe("Guided comparison", () => {
     ];
     expect(patterns).toBe(5);
     expect(scenario).toMatchObject({
-      arrivalRate: 0.3,
+      arrivalRate: 940 / 3600,
       lanesNorth: 1,
       duration: 300,
     });

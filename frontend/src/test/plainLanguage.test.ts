@@ -225,7 +225,7 @@ describe("trustNotes", () => {
       .map((n) => n.text);
     expect(cautions).toHaveLength(3);
     expect(cautions[0]).toContain("only 45 s of traffic");
-    expect(cautions[1]).toContain("single circulating lane");
+    expect(cautions[1]).toContain("indicative");
     expect(cautions[2]).toContain("1 vehicle overlap");
   });
 });

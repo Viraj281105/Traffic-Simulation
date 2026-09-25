@@ -837,12 +837,9 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "vehicleGeneration": {
         "stopSpeedThreshold": 0.1,
         "waitSpeedThreshold": 0.5,
-        "maxAcceleration": 3.0,
-        "comfortDeceleration": 3.5,
-        "desiredSpeed": {
-            "min": 18.0,
-            "max": 25.0,
-        },
+        # Acceleration, braking and desired speed are the engine defaults
+        # (IDM a = 2.0, b = 3.0 m/s^2; desired speed from roads.speedLimit),
+        # i.e. the same vehicles as the calibrated capacity study.
     },
 }
 

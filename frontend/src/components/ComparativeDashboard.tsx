@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import type { DualSnapshot, LiveSnapshot } from "../types/simulation";
 import type { ConnectionStatus } from "../services/websocket";
 import { WeightedScoringPanel } from "./WeightedScoringPanel";
@@ -19,6 +19,7 @@ import { TrafficFlowVisualizer } from "./analytics/TrafficFlowVisualizer";
 import { SafetyTimelineVisualizer } from "./analytics/SafetyTimelineVisualizer";
 import { CapacityDemandVisualizer } from "./analytics/CapacityDemandVisualizer";
 import { DistributionDiagnosticsVisualizer } from "./analytics/DistributionDiagnosticsVisualizer";
+import { Overlay } from "./ui/Overlay";
 import "./ComparativeDashboard.css";
 
 function contexts(snapshot: DualSnapshot | null): {
@@ -336,240 +337,185 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
 }) => {
   const [weights, setWeights] = useState<ScoringWeights>(DEFAULT_WEIGHTS);
   const [viewMode, setViewMode] = useState<"visual" | "table">("visual");
-  const dialogRef = useRef<HTMLDivElement>(null);
 
   const { history, collisionEvents } = useLiveComparisonHistory(snapshot);
-
-  // Escape closes; focus moves into the dialog and back out on close.
-  const onCloseRef = useRef(onClose);
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  });
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    dialogRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCloseRef.current();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      previous?.focus();
-    };
-  }, []);
 
   const { signal, roundabout } = contexts(snapshot);
 
   return (
-    <div className="analytics-modal-overlay" onClick={onClose}>
-      <div
-        ref={dialogRef}
-        className="analytics-modal-content comparative-dashboard"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="comparison-dialog-title"
-        tabIndex={-1}
-        onClick={(e) => {
-          e.stopPropagation();
-        }}
-      >
-        <div className="modal-header">
-          <div className="modal-header-left">
-            <h2 className="modal-title" id="comparison-dialog-title">
-              Signal vs roundabout — full comparison
-            </h2>
-            <div
-              className="modal-view-toggle"
-              role="group"
-              aria-label="Dashboard view"
-            >
-              <button
-                type="button"
-                className={`toggle-tab-btn ${viewMode === "visual" ? "active" : ""}`}
-                onClick={() => {
-                  setViewMode("visual");
-                }}
-              >
-                📊 Visual Analytics
-              </button>
-              <button
-                type="button"
-                className={`toggle-tab-btn ${viewMode === "table" ? "active" : ""}`}
-                onClick={() => {
-                  setViewMode("table");
-                }}
-              >
-                📋 Data Table
-              </button>
-            </div>
-          </div>
-
+    <Overlay
+      wide
+      title="Full comparison"
+      description="Every measurement for both controls, with charts and the optional weighted score."
+      closeLabel="Close comparison"
+      onClose={onClose}
+      className="comparative-dashboard"
+      headerExtra={
+        <div
+          className="uf-segmented modal-view-toggle"
+          role="group"
+          aria-label="Dashboard view"
+        >
           <button
             type="button"
-            className="modal-close-btn"
-            onClick={onClose}
-            aria-label="Close comparison"
+            aria-pressed={viewMode === "visual"}
+            onClick={() => {
+              setViewMode("visual");
+            }}
           >
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
+            Charts
+          </button>
+          <button
+            type="button"
+            aria-pressed={viewMode === "table"}
+            onClick={() => {
+              setViewMode("table");
+            }}
+          >
+            Table
           </button>
         </div>
-
-        <div className="modal-body">
-          {!snapshot ? (
-            <p className="comparison-empty">
-              No comparison data yet. Start a comparative run first.
+      }
+    >
+      {!snapshot ? (
+        <p className="comparison-empty">
+          No comparison data yet. Start a comparative run first.
+        </p>
+      ) : (
+        <>
+          <div className="comparison-intro">
+            <p>
+              Both controls run in lockstep on the same random seed and demand
+              {replayName ? ` (saved run: ${replayName})` : ""}
+              {simTime(snapshot.signal) !== undefined
+                ? `, here at ${String(simTime(snapshot.signal)?.toFixed(1))} s of simulated time`
+                : ""}
+              . Differences are roundabout minus signal in each metric&apos;s
+              own units; a single seed is one sample, so use the Validation page
+              for statistical comparisons.
             </p>
-          ) : (
-            <>
-              <div className="comparison-intro">
-                <p>
-                  Both controls run in lockstep on the same random seed and
-                  demand
-                  {replayName ? ` (saved run: ${replayName})` : ""}
-                  {simTime(snapshot.signal) !== undefined
-                    ? `, here at ${String(simTime(snapshot.signal)?.toFixed(1))} s of simulated time`
-                    : ""}
-                  . Differences are roundabout minus signal in each
-                  metric&apos;s own units; a single seed is one sample, so use
-                  the Validation page for statistical comparisons.
-                </p>
-                <button
-                  type="button"
-                  className="pb-btn pb-secondary"
-                  onClick={() => {
-                    exportComparison(snapshot, replayName ?? "live run");
-                  }}
-                >
-                  Download all metrics (CSV)
-                </button>
+            <button
+              type="button"
+              className="pb-btn pb-secondary"
+              onClick={() => {
+                exportComparison(snapshot, replayName ?? "live run");
+              }}
+            >
+              Download all metrics (CSV)
+            </button>
+          </div>
+
+          {viewMode === "visual" ? (
+            <div className="modal-visual-sections">
+              {/* Section 1: Vehicles Now */}
+              <div className="modal-section-card">
+                <h3 className="modal-section-title">
+                  Vehicles Now &amp; Pipeline Flow
+                </h3>
+                <VehiclesFlowVisualizer
+                  signal={snapshot.signal}
+                  roundabout={snapshot.roundabout}
+                  compact={false}
+                />
               </div>
 
-              {viewMode === "visual" ? (
-                <div className="modal-visual-sections">
-                  {/* Section 1: Vehicles Now */}
-                  <div className="modal-section-card">
-                    <h3 className="modal-section-title">
-                      Vehicles Now &amp; Pipeline Flow
-                    </h3>
-                    <VehiclesFlowVisualizer
-                      signal={snapshot.signal}
-                      roundabout={snapshot.roundabout}
-                      compact={false}
-                    />
-                  </div>
+              {/* Section 2: Performance Dynamics */}
+              <div className="modal-section-card">
+                <h3 className="modal-section-title">
+                  Performance &amp; Service Dynamics
+                </h3>
+                <PerformanceCharts
+                  history={history}
+                  signalCtx={signal}
+                  roundaboutCtx={roundabout}
+                  compact={false}
+                />
+              </div>
 
-                  {/* Section 2: Performance Dynamics */}
-                  <div className="modal-section-card">
-                    <h3 className="modal-section-title">
-                      Performance &amp; Service Dynamics
-                    </h3>
-                    <PerformanceCharts
-                      history={history}
-                      signalCtx={signal}
-                      roundaboutCtx={roundabout}
-                      compact={false}
-                    />
-                  </div>
+              {/* Section 3: Traffic Flow & Queues */}
+              <div className="modal-section-card">
+                <h3 className="modal-section-title">
+                  Traffic Flow, Queues &amp; Approach Fairness
+                </h3>
+                <TrafficFlowVisualizer
+                  signalCtx={signal}
+                  roundaboutCtx={roundabout}
+                  compact={false}
+                />
+              </div>
 
-                  {/* Section 3: Traffic Flow & Queues */}
-                  <div className="modal-section-card">
-                    <h3 className="modal-section-title">
-                      Traffic Flow, Queues &amp; Approach Fairness
-                    </h3>
-                    <TrafficFlowVisualizer
-                      signalCtx={signal}
-                      roundaboutCtx={roundabout}
-                      compact={false}
-                    />
-                  </div>
+              {/* Section 4: Safety & Surrogate Measures */}
+              <div className="modal-section-card">
+                <h3 className="modal-section-title">
+                  Safety &amp; Surrogate Conflict Measures
+                </h3>
+                <SafetyTimelineVisualizer
+                  history={history}
+                  collisionEvents={collisionEvents}
+                  signalCtx={signal}
+                  roundaboutCtx={roundabout}
+                  compact={false}
+                />
+              </div>
 
-                  {/* Section 4: Safety & Surrogate Measures */}
-                  <div className="modal-section-card">
-                    <h3 className="modal-section-title">
-                      Safety &amp; Surrogate Conflict Measures
-                    </h3>
-                    <SafetyTimelineVisualizer
-                      history={history}
-                      collisionEvents={collisionEvents}
-                      signalCtx={signal}
-                      roundaboutCtx={roundabout}
-                      compact={false}
-                    />
-                  </div>
+              {/* Section 5: Capacity & Demand */}
+              <div className="modal-section-card">
+                <h3 className="modal-section-title">
+                  Capacity, Service Utilization &amp; Demand Balance
+                </h3>
+                <CapacityDemandVisualizer
+                  signalCtx={signal}
+                  roundaboutCtx={roundabout}
+                  compact={false}
+                />
+              </div>
 
-                  {/* Section 5: Capacity & Demand */}
-                  <div className="modal-section-card">
-                    <h3 className="modal-section-title">
-                      Capacity, Service Utilization &amp; Demand Balance
-                    </h3>
-                    <CapacityDemandVisualizer
-                      signalCtx={signal}
-                      roundaboutCtx={roundabout}
-                      compact={false}
-                    />
-                  </div>
+              {/* Section 6: Diagnostics */}
+              <div className="modal-section-card">
+                <h3 className="modal-section-title">
+                  Distribution Spread &amp; Diagnostics
+                </h3>
+                <DistributionDiagnosticsVisualizer
+                  signalCtx={signal}
+                  roundaboutCtx={roundabout}
+                  compact={false}
+                />
+              </div>
 
-                  {/* Section 6: Diagnostics */}
-                  <div className="modal-section-card">
-                    <h3 className="modal-section-title">
-                      Distribution Spread &amp; Diagnostics
-                    </h3>
-                    <DistributionDiagnosticsVisualizer
-                      signalCtx={signal}
-                      roundaboutCtx={roundabout}
-                      compact={false}
-                    />
-                  </div>
-
-                  {/* Section 7: User-Weighted Scoring Panel */}
-                  <div className="modal-section-card">
-                    <h3 className="modal-section-title">
-                      Multi-Criteria Evaluation (User-Configured Weights)
-                    </h3>
-                    <WeightedScoringPanel
-                      metricsSignal={snapshot.signal.metrics}
-                      metricsRoundabout={snapshot.roundabout.metrics}
-                      signalCtx={signal}
-                      roundaboutCtx={roundabout}
-                      weights={weights}
-                      onWeightsChange={setWeights}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <ComparisonSections
-                    signal={signal}
-                    roundabout={roundabout}
-                    collapsed={[]}
-                  />
-                  <WeightedScoringPanel
-                    metricsSignal={snapshot.signal.metrics}
-                    metricsRoundabout={snapshot.roundabout.metrics}
-                    signalCtx={signal}
-                    roundaboutCtx={roundabout}
-                    weights={weights}
-                    onWeightsChange={setWeights}
-                  />
-                </>
-              )}
+              {/* Section 7: User-Weighted Scoring Panel */}
+              <div className="modal-section-card">
+                <h3 className="modal-section-title">
+                  Multi-Criteria Evaluation (User-Configured Weights)
+                </h3>
+                <WeightedScoringPanel
+                  metricsSignal={snapshot.signal.metrics}
+                  metricsRoundabout={snapshot.roundabout.metrics}
+                  signalCtx={signal}
+                  roundaboutCtx={roundabout}
+                  weights={weights}
+                  onWeightsChange={setWeights}
+                />
+              </div>
+            </div>
+          ) : (
+            <>
+              <ComparisonSections
+                signal={signal}
+                roundabout={roundabout}
+                collapsed={[]}
+              />
+              <WeightedScoringPanel
+                metricsSignal={snapshot.signal.metrics}
+                metricsRoundabout={snapshot.roundabout.metrics}
+                signalCtx={signal}
+                roundaboutCtx={roundabout}
+                weights={weights}
+                onWeightsChange={setWeights}
+              />
             </>
           )}
-        </div>
-      </div>
-    </div>
+        </>
+      )}
+    </Overlay>
   );
 };

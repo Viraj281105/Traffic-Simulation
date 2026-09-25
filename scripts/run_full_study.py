@@ -9,7 +9,7 @@ Executes an automated end-to-end traffic simulation study without requiring a ru
 3. Generates and exports the final study_report.csv and optional JSON summary.
 
 Usage:
-    python scripts/run_full_study.py [--sweep-duration 60.0] [--validation-duration 30.0] [--num-seeds 5]
+    python scripts/run_full_study.py [--sweep-duration 240] [--validation-duration 240] [--num-seeds 5]
 """
 
 import argparse
@@ -63,14 +63,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--sweep-duration",
         type=float,
-        default=60.0,
-        help="Simulated duration (in seconds) per volume sweep tier",
+        default=240.0,
+        help="Simulated duration (in seconds) per volume sweep tier (30 s warm-up excluded)",
     )
     parser.add_argument(
         "--validation-duration",
         type=float,
-        default=30.0,
-        help="Simulated duration (in seconds) per Monte Carlo validation seed",
+        default=240.0,
+        help="Simulated duration (in seconds) per Monte Carlo validation seed (30 s warm-up excluded)",
     )
     parser.add_argument(
         "--num-seeds",
@@ -88,7 +88,7 @@ def parse_args() -> argparse.Namespace:
         "--rates",
         type=str,
         default=None,
-        help="Comma-separated whole-junction arrival rates in veh/s (e.g. '0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8')",
+        help="Comma-separated whole-junction arrival rates in veh/s (default: 20%%-160%% of the 1-lane reference capacity)",
     )
     parser.add_argument(
         "--output-csv",
@@ -244,7 +244,7 @@ def main() -> int:
         f"\n[Step 3/3] Executing Monte Carlo Statistical Validation ({args.num_seeds} randomized seeds)..."
     )
     print(
-        f"  - Duration per Seed: {args.validation_duration}s (Evaluation Rate: 0.35 veh/s)"
+        f"  - Duration per Seed: {args.validation_duration}s (demand: \"Busy\", 75% of the 1-lane reference capacity)"
     )
     start_mc = time.time()
 

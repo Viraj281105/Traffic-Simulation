@@ -15,6 +15,12 @@ import type {
 } from "../../hooks/useLiveComparisonHistory";
 import type { MetricContext } from "../../metrics/catalog";
 import { formatMetric, METRICS } from "../../metrics/catalog";
+import {
+  SERIES,
+  CHART_GRID,
+  CHART_AXIS,
+  TOOLTIP_STYLE,
+} from "../../theme/chart";
 
 interface SafetyTimelineVisualizerProps {
   history: ComparisonHistoryPoint[];
@@ -31,8 +37,8 @@ const minPetDef = METRICS.find((m) => m.key === "minPET")!;
 const petEventsDef = METRICS.find((m) => m.key === "petEventCount")!;
 const petSamplesDef = METRICS.find((m) => m.key === "petSampleCount")!;
 
-const SIGNAL_COLOR = "#f59e0b";
-const ROUNDABOUT_COLOR = "#06b6d4";
+const SIGNAL_COLOR = SERIES.signal;
+const ROUNDABOUT_COLOR = SERIES.roundabout;
 
 export function SafetyTimelineVisualizer({
   history,
@@ -59,7 +65,7 @@ export function SafetyTimelineVisualizer({
           className={`collision-card signal ${sigCollisions > 0 ? "has-events" : "zero-events"}`}
         >
           <div className="collision-card-header">
-            <span className="control-pill signal">🚦 Fixed-Time Signal</span>
+            <span className="control-pill signal">Traffic signal</span>
             <span className="collision-type">Distinct Overlaps</span>
           </div>
           <div className="collision-stat-body">
@@ -76,9 +82,7 @@ export function SafetyTimelineVisualizer({
           className={`collision-card roundabout ${rndCollisions > 0 ? "has-events" : "zero-events"}`}
         >
           <div className="collision-card-header">
-            <span className="control-pill roundabout">
-              🔄 Modern Roundabout
-            </span>
+            <span className="control-pill roundabout">Roundabout</span>
             <span className="collision-type">Distinct Overlaps</span>
           </div>
           <div className="collision-stat-body">
@@ -100,7 +104,7 @@ export function SafetyTimelineVisualizer({
             {collisionEvents.map((evt) => (
               <span key={evt.id} className={`timeline-chip ${evt.control}`}>
                 <strong>
-                  {evt.control === "signal" ? "🚦 Signal" : "🔄 Roundabout"}
+                  {evt.control === "signal" ? "Signal" : "Roundabout"}
                 </strong>{" "}
                 at {evt.timeFormatted} (count #{evt.newCount})
               </span>
@@ -144,29 +148,23 @@ export function SafetyTimelineVisualizer({
                 data={history}
                 margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
               >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="rgba(255,255,255,0.08)"
+                <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
+                <XAxis
+                  dataKey="timeFormatted"
+                  stroke={CHART_AXIS}
+                  fontSize={11}
                 />
-                <XAxis dataKey="timeFormatted" stroke="#8892b0" fontSize={11} />
-                <YAxis stroke="#8892b0" fontSize={11} unit=" s" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#1e2230",
-                    borderColor: "#333c56",
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
-                />
+                <YAxis stroke={CHART_AXIS} fontSize={11} unit=" s" />
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
                 <Legend height={32} wrapperStyle={{ top: 0, fontSize: 11 }} />
                 <ReferenceLine
                   y={ttcThreshold}
-                  stroke="#ef4444"
+                  stroke={SERIES.danger}
                   strokeDasharray="4 4"
                   strokeWidth={1.5}
                   label={{
                     value: `Critical Cutoff (${ttcThreshold.toFixed(1)} s)`,
-                    fill: "#ef4444",
+                    fill: SERIES.danger,
                     fontSize: 10,
                     position: "insideBottomRight",
                   }}
@@ -251,7 +249,6 @@ export function SafetyTimelineVisualizer({
 
       {/* Mandatory Surrogate Safety Disclaimer Banner */}
       <div className="safety-disclaimer-banner">
-        <span className="disclaimer-icon">ℹ️</span>
         <p className="disclaimer-text">
           <strong>Surrogate Safety Measures Notice:</strong> TTC and PET are
           exploratory research diagnostics, not a safety score, a count of real

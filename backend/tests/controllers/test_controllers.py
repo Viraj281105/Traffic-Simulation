@@ -735,7 +735,8 @@ def _run_until_congested(controller, lane) -> None:
 
 def test_roundabout_free_flow_entry_speed_cap() -> None:
     """Free-flowing approach: untouched far out, a comfortable-braking taper
-    down to entrySpeed at the zone boundary, entrySpeed over the last 60 m.
+    down to entrySpeed at the zone boundary, entrySpeed inside the zone
+    (_ENTRY_APPROACH_ZONE, the last two vehicle lengths).
 
     No traffic, so the congestion cap must stay out of it.
     """
@@ -753,7 +754,7 @@ def test_roundabout_free_flow_entry_speed_cap() -> None:
     controller.update(0.1, [veh])
     assert veh.desired_speed == pytest.approx((5.0**2 + 2.0 * _APPROACH_DECEL) ** 0.5)
 
-    for dist in (_ENTRY_APPROACH_ZONE, 30.0, 2.0):
+    for dist in (_ENTRY_APPROACH_ZONE, _ENTRY_APPROACH_ZONE / 2.0, 2.0):
         veh.position = lane.length - dist
         controller.update(0.1, [veh])
         assert veh.desired_speed == 5.0

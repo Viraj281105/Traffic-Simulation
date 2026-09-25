@@ -1,4 +1,42 @@
 import React, { useState, useMemo } from "react";
+import { SlidersHorizontal } from "lucide-react";
+import { Loader } from "./ui/Loader";
+import { Overlay } from "./ui/Overlay";
+import { PageHeader } from "./ui/PageHeader";
+import { DEFAULT_CONFIG_VALUES } from "../types/config";
+import {
+  DEMAND_LEVELS,
+  demandLevelFor,
+  demandRate,
+  demandVph,
+} from "../types/demand";
+
+/** Study sizes offered before the first run. Every run keeps the 30 s
+ *  warm-up out of the measurement, so runs are long enough to leave
+ *  at least 90 s of measured traffic. */
+const VALIDATION_PRESETS = [
+  {
+    id: "quick",
+    title: "Quick check",
+    seeds: 3,
+    duration: 120,
+    note: "A first look; too few patterns for firm conclusions.",
+  },
+  {
+    id: "standard",
+    title: "Standard",
+    seeds: 5,
+    duration: 240,
+    note: "The size of the published calibrated study.",
+  },
+  {
+    id: "thorough",
+    title: "Thorough",
+    seeds: 10,
+    duration: 300,
+    note: "Narrower intervals; takes several minutes.",
+  },
+] as const;
 import {
   ResponsiveContainer,
   BarChart,
@@ -14,6 +52,7 @@ import { API_BASE_URL } from "../config";
 import "./ValidationDashboard.css";
 import { SIMILARITY, compare } from "../metrics/plainLanguage";
 import { IntegrityCheck } from "./IntegrityCheck";
+import { SERIES } from "../theme/chart";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -99,7 +138,7 @@ function getCohensDLabel(d: number): {
   if (absD >= 0.8)
     return {
       label: "Large Effect",
-      color: "#f59e0b",
+      color: SERIES.signal,
       bg: "rgba(245, 158, 11, 0.12)",
     };
   if (absD >= 0.5)
@@ -258,7 +297,7 @@ function ModernCIBar({
 
 export const ValidationDashboard: React.FC = () => {
   const [numSeeds, setNumSeeds] = useState(5);
-  const [duration, setDuration] = useState(30);
+  const [duration, setDuration] = useState(240);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ValidationResult | null>(null);
@@ -270,11 +309,13 @@ export const ValidationDashboard: React.FC = () => {
   const [showConfigPanel, setShowConfigPanel] = useState(false);
 
   // Advanced Configuration Parameters
-  const [arrivalRate, setArrivalRate] = useState(0.35);
+  const [arrivalRate, setArrivalRate] = useState(
+    DEFAULT_CONFIG_VALUES.arrivalRate,
+  );
   const [arrivalDistribution, setArrivalDistribution] = useState<
     "poisson" | "uniform"
   >("poisson");
-  const [warmupTime, setWarmupTime] = useState(5.0);
+  const [warmupTime, setWarmupTime] = useState(30.0);
   const [timeStep, setTimeStep] = useState(0.1);
   const [approachLength, setApproachLength] = useState(200.0);
   const [confidenceLevel, setConfidenceLevel] = useState<0.9 | 0.95 | 0.99>(
@@ -287,13 +328,15 @@ export const ValidationDashboard: React.FC = () => {
 
   // Level and alpha of the result on screen (what the backend actually ran),
   // as opposed to `confidenceLevel`, which is the setting for the next run.
-  const [lanesCount, setLanesCount] = useState<1 | 2>(1);
+  const [lanesCount, setLanesCount] = useState<1 | 2 | 3>(1);
 
   const resetAdvancedDefaults = () => {
     setLanesCount(1);
-    setArrivalRate(0.35);
+    setArrivalRate(DEFAULT_CONFIG_VALUES.arrivalRate);
     setArrivalDistribution("poisson");
-    setWarmupTime(5.0);
+    setWarmupTime(30.0);
+    setNumSeeds(5);
+    setDuration(240);
     setTimeStep(0.1);
     setApproachLength(200.0);
     setConfidenceLevel(0.95);
@@ -498,607 +541,393 @@ export const ValidationDashboard: React.FC = () => {
     }));
   }, [result, chartMetric]);
 
-  return (
-    <div className="validation-dashboard">
-      {/* ── Top Executive Header Row ────────────────────────────── */}
-      <div className="validation-header-row">
-        <div className="header-title-group">
-          <div className="header-badge-row">
-            <h2>🔬 Statistical Validation Studio</h2>
-            <span className="header-mini-chip">Monte Carlo Engine</span>
-            <span className="header-confidence-chip">
-              Next run: {Math.round(confidenceLevel * 100)}% confidence (α ={" "}
-              {alpha})
-            </span>
-          </div>
-          <p className="header-subtitle">
-            Stochastic paired-seed simulation evaluating Fixed-Time Signal vs.
-            Modern Roundabout under identical randomized traffic arrivals using
-            Welch’s two-sample t-test and Cohen’s d effect sizes.
-          </p>
-          <p className="header-subtitle">
-            This study uses its own configurable scenario (set under Advanced
-            Config). To check a comparison you ran in Compare, use “How reliable
-            is this?” on its results page — it repeats that exact scenario.
-          </p>
-        </div>
+  const level = demandLevelFor(arrivalRate, lanesCount);
 
-        <div className="header-actions">
-          {/* Inline Seeds & Duration selector in the same line as heading */}
-          <div className="header-inline-controls">
-            <div className="inline-param">
-              <label htmlFor="validation-seeds">Seeds</label>
-              <input
-                id="validation-seeds"
-                type="number"
-                min={2}
-                max={30}
-                value={numSeeds}
-                onChange={(e) => {
-                  setNumSeeds(Number(e.target.value));
-                }}
-                title="Seeds (N): 2–30"
-              />
-            </div>
-            <div className="inline-param">
-              <label htmlFor="validation-duration">Duration</label>
-              <div className="inline-unit-wrap">
-                <input
-                  id="validation-duration"
-                  type="number"
-                  min={10}
-                  max={300}
-                  step={10}
-                  value={duration}
-                  onChange={(e) => {
-                    setDuration(Number(e.target.value));
-                  }}
-                  title="Duration per seed in seconds (10–300s)"
-                />
-                <span>s</span>
-              </div>
-            </div>
+  return (
+    <div className="uf-page uf-page--wide validation-dashboard">
+      <PageHeader
+        eyebrow="Research lab"
+        title="Statistical validation"
+        lead={
+          <>
+            <p>
+              Repeats the comparison over several random traffic patterns (both
+              controls get the same pattern each time) and tests whether the
+              differences in mean delay, throughput and queue are larger than
+              the pattern-to-pattern variation: Welch&apos;s t-test,
+              Cohen&apos;s d and Student-t confidence intervals.
+            </p>
+            <p>
+              This study has its own scenario (Study settings). To check a
+              comparison you ran in Compare, use “How reliable is this?” on its
+              results page.
+            </p>
+          </>
+        }
+        actions={
+          <>
             <button
               type="button"
-              className="header-run-btn"
+              className="uf-btn uf-btn--primary"
               onClick={runValidation}
               disabled={isRunning}
-              title="Execute Monte Carlo validation"
+              title="Run the study with the current settings"
             >
-              {isRunning ? "⏳ Running…" : "▶ Run"}
+              {isRunning ? "Running…" : "Run study"}
             </button>
-          </div>
-
-          {/* Config Settings Button named strictly 'Advanced Config' */}
-          <button
-            type="button"
-            className={`header-tool-btn ${showConfigPanel ? "active" : ""}`}
-            onClick={() => {
-              setShowConfigPanel((v) => !v);
-            }}
-            title="Configure advanced simulation and statistical parameters"
-          >
-            ⚙️ Advanced Config
-          </button>
-
-          {/* Theory / Methodology Button */}
-          <button
-            type="button"
-            className={`header-tool-btn ${showMethodologyDrawer ? "active" : ""}`}
-            onClick={() => {
-              setShowMethodologyDrawer((v) => !v);
-            }}
-            title="Toggle statistical hypothesis & methodology reference"
-          >
-            📐 {showMethodologyDrawer ? "Hide Theory" : "Theory & Methodology"}
-          </button>
-
-          {result && (
             <button
               type="button"
-              className="export-csv-btn"
-              onClick={exportValidationCSV}
-              title="Download stochastic seed dataset as CSV"
+              className="uf-btn"
+              onClick={() => {
+                setShowConfigPanel(true);
+              }}
+              aria-haspopup="dialog"
             >
-              📥 Export CSV
+              <SlidersHorizontal aria-hidden="true" />
+              Study settings
             </button>
-          )}
-        </div>
-      </div>
+            <button
+              type="button"
+              className="uf-btn"
+              onClick={() => {
+                setShowMethodologyDrawer(true);
+              }}
+              aria-haspopup="dialog"
+            >
+              Method
+            </button>
+            {result && (
+              <button
+                type="button"
+                className="uf-btn"
+                onClick={exportValidationCSV}
+              >
+                Export CSV
+              </button>
+            )}
+          </>
+        }
+      />
 
-      {/* ── Collapsible Methodology Drawer ─────────────────────────── */}
+      <p className="sweep-summary-line">
+        {numSeeds.toString()} traffic patterns × {duration.toString()} s,{" "}
+        {warmupTime.toFixed(0)} s warm-up excluded,{" "}
+        {level ? level.label.toLowerCase() : "custom"} demand (
+        {Math.round(arrivalRate * 3600).toLocaleString()} veh/h),{" "}
+        {lanesCount === 1 ? "1 lane" : `${lanesCount.toString()} lanes`} per
+        approach, {Math.round(confidenceLevel * 100)}% confidence (α = {alpha}).
+      </p>
+
+      {/* ── Method drawer ── */}
       {showMethodologyDrawer && (
-        <div className="methodology-drawer">
-          <div className="methodology-drawer-header">
-            <h4>📐 Statistical Hypothesis & Testing Framework</h4>
-            <span className="drawer-sub">
-              Mathematical criteria for formal validation
-            </span>
-          </div>
-          <div className="methodology-drawer-grid">
-            <div className="methodology-card">
-              <span className="method-tag null">H₀ Null Hypothesis</span>
-              <h5>
-                μ<sub>signal</sub> = μ<sub>roundabout</sub>
-              </h5>
-              <p>
-                Assumes any gap is due to which vehicles happened to arrive
-                when. Rejected (the difference is statistically supported) when{" "}
+        <Overlay
+          variant="drawer"
+          title="Method"
+          description="What the test checks, and what it does not."
+          closeLabel="Close method"
+          onClose={() => {
+            setShowMethodologyDrawer(false);
+          }}
+        >
+          <div className="uf-form">
+            <section className="uf-form-section">
+              <h3 className="uf-form-section__title">
+                Null hypothesis H₀: μ<sub>signal</sub> = μ<sub>roundabout</sub>
+              </h3>
+              <p className="uf-help">
+                Any gap is due to which vehicles happened to arrive when. It is
+                rejected (the difference is statistically supported) when{" "}
                 <strong>p &lt; {alpha}</strong>. Not rejecting it does not show
                 the controls are equal.
               </p>
-            </div>
-
-            <div className="methodology-card">
-              <span className="method-tag alt">H₁ Alternative Hypothesis</span>
-              <h5>
-                μ<sub>signal</sub> ≠ μ<sub>roundabout</sub>
-              </h5>
-              <p>
-                Means the difference is unlikely to be explained by arrival
-                randomness alone, for this scenario and these seeds. It does not
-                say which control is better, or that the result holds elsewhere.
+            </section>
+            <section className="uf-form-section">
+              <h3 className="uf-form-section__title">
+                Alternative H₁: μ<sub>signal</sub> ≠ μ<sub>roundabout</sub>
+              </h3>
+              <p className="uf-help">
+                The difference is unlikely to come from arrival randomness
+                alone, for this scenario and these patterns. It does not say
+                which control is better in general.
               </p>
-            </div>
-
-            <div className="methodology-card">
-              <span className="method-tag effect">
-                Cohen&apos;s d Effect Size
-              </span>
-              <div className="effect-scale-grid">
-                <span className="scale-pill neg">&lt;0.2 Negligible</span>
-                <span className="scale-pill sm">0.2–0.5 Small</span>
-                <span className="scale-pill med">0.5–0.8 Medium</span>
-                <span className="scale-pill lg">&gt;0.8 Large</span>
-              </div>
-              <p className="effect-note">
-                Quantifies practical real-world magnitude beyond statistical
-                p-value.
+            </section>
+            <section className="uf-form-section">
+              <h3 className="uf-form-section__title">
+                Effect size (Cohen&apos;s d)
+              </h3>
+              <p className="uf-help">
+                Size of the difference relative to the spread: below 0.2
+                negligible, 0.2–0.5 small, 0.5–0.8 medium, above 0.8 large.
               </p>
-            </div>
+            </section>
+            <section className="uf-form-section">
+              <h3 className="uf-form-section__title">Limitations</h3>
+              <p className="uf-help">
+                The test is unpaired (Welch) although both controls share each
+                pattern, three metrics are tested without a multiple-comparison
+                correction, and patterns are drawn at random for each study
+                (they are listed in the results).
+              </p>
+            </section>
           </div>
-        </div>
+        </Overlay>
       )}
 
-      {/* ── Rich Advanced Configuration Drawer ─────────────────────── */}
+      {/* ── Study settings drawer ── */}
       {showConfigPanel && (
-        <div className="validation-advanced-drawer">
-          <div className="advanced-drawer-header">
-            <div className="advanced-title-group">
-              <h4>⚙️ Advanced Stochastic Simulation & Statistical Config</h4>
-              <span className="drawer-sub">
-                Fine-tune traffic Poisson generation, physical discretization,
-                warmup periods, and statistical rigor
-              </span>
-            </div>
-            <button
-              type="button"
-              className="close-drawer-btn"
-              onClick={() => {
-                setShowConfigPanel(false);
-              }}
-              title="Close settings drawer"
-            >
-              ✕
-            </button>
-          </div>
-
-          <div className="advanced-config-grid">
-            {/* Section 1: Traffic Demand & Arrival Dynamics */}
-            <div className="advanced-card">
-              <div className="adv-card-header">
-                <span className="adv-icon">🚗</span>
-                <div>
-                  <h5>Traffic Demand & Flow Dynamics</h5>
-                  <span className="adv-sub">
-                    Arrival intensity and headway distribution
-                  </span>
-                </div>
-              </div>
-
-              <div className="adv-field">
-                <div className="adv-label-row">
-                  <label>Arrival Rate (λ)</label>
-                  <span className="adv-val-pill">
-                    {arrivalRate.toFixed(2)} veh/s (
-                    {Math.round(arrivalRate * 3600)} veh/h)
-                  </span>
-                </div>
-                <div className="adv-slider-wrap">
-                  <input
-                    type="range"
-                    min={0.1}
-                    max={0.8}
-                    step={0.05}
-                    value={arrivalRate}
-                    onChange={(e) => {
-                      setArrivalRate(Number(e.target.value));
+        <Overlay
+          variant="drawer"
+          wide
+          title="Study settings"
+          description="Scenario, run length and confidence level for the next study."
+          closeLabel="Close study settings"
+          onClose={() => {
+            setShowConfigPanel(false);
+          }}
+          footer={
+            <>
+              <button
+                type="button"
+                className="uf-btn uf-btn--ghost"
+                onClick={resetAdvancedDefaults}
+              >
+                Reset to defaults
+              </button>
+              <button
+                type="button"
+                className="uf-btn uf-btn--primary"
+                onClick={runValidation}
+                disabled={isRunning}
+              >
+                {isRunning ? "Running…" : "Run study"}
+              </button>
+            </>
+          }
+        >
+          <div className="uf-form">
+            <fieldset className="uf-form-section">
+              <legend className="uf-form-section__title">Demand</legend>
+              <div className="uf-choice-list uf-choice-list--grid">
+                {DEMAND_LEVELS.map((d) => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    className="uf-choice"
+                    aria-pressed={level?.id === d.id}
+                    onClick={() => {
+                      setArrivalRate(demandRate(d, lanesCount));
                     }}
-                  />
-                  <div className="adv-slider-labels">
-                    <span>0.1 (Light)</span>
-                    <span>0.35 (Medium)</span>
-                    <span>0.8 (Heavy)</span>
-                  </div>
-                </div>
+                  >
+                    <span className="uf-choice__title">{d.label}</span>
+                    <span className="uf-choice__desc">
+                      {demandVph(d, lanesCount).toLocaleString()} veh/h ·{" "}
+                      {Math.round(d.ratio * 100)}% of capacity
+                    </span>
+                  </button>
+                ))}
               </div>
-
-              <div className="adv-field">
-                <label>Arrival Pattern</label>
-                <div className="adv-pill-group">
+              <div className="uf-field">
+                <span className="uf-label">Arrival process</span>
+                <div className="uf-segmented" role="group">
                   <button
                     type="button"
-                    className={`adv-pill-btn ${arrivalDistribution === "poisson" ? "active" : ""}`}
+                    aria-pressed={arrivalDistribution === "poisson"}
                     onClick={() => {
                       setArrivalDistribution("poisson");
                     }}
                   >
-                    🎲 Poisson (Stochastic Jitter)
+                    Poisson (random)
                   </button>
                   <button
                     type="button"
-                    className={`adv-pill-btn ${arrivalDistribution === "uniform" ? "active" : ""}`}
+                    aria-pressed={arrivalDistribution === "uniform"}
                     onClick={() => {
                       setArrivalDistribution("uniform");
                     }}
                   >
-                    ⏱️ Uniform (Constant Headway)
+                    Uniform (evenly spaced)
                   </button>
                 </div>
               </div>
-            </div>
-
-            {/* Section 2: Physical Discretization & Boundaries */}
-            <div className="advanced-card">
-              <div className="adv-card-header">
-                <span className="adv-icon">⏱️</span>
-                <div>
-                  <h5>Simulation Physics & Boundaries</h5>
-                  <span className="adv-sub">
-                    Integration step, warmup time, and road extent
-                  </span>
+              <div className="uf-field">
+                <span className="uf-label">Lanes per approach</span>
+                <div className="uf-segmented" role="group">
+                  {([1, 2, 3] as const).map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      aria-pressed={lanesCount === n}
+                      onClick={() => {
+                        const kept = demandLevelFor(arrivalRate, lanesCount);
+                        setLanesCount(n);
+                        if (kept) setArrivalRate(demandRate(kept, n));
+                      }}
+                    >
+                      {n === 1 ? "1 lane" : `${n.toString()} lanes`}
+                    </button>
+                  ))}
                 </div>
+                {lanesCount > 1 && (
+                  <p className="uf-help">
+                    Exploratory: both junctions model every lane, but the
+                    roundabout has no lane markings for drivers leaving from an
+                    inner ring.
+                  </p>
+                )}
               </div>
+            </fieldset>
 
-              <div className="adv-field">
-                <div className="adv-label-row">
-                  <label>Warmup Time (t_warm)</label>
-                  <span className="adv-val-pill">{warmupTime.toFixed(1)}s</span>
-                </div>
+            <fieldset className="uf-form-section">
+              <legend className="uf-form-section__title">Runs</legend>
+              <div className="uf-field-row">
+                <label className="uf-field">
+                  <span className="uf-label">Traffic patterns (2–30)</span>
+                  <input
+                    className="uf-input"
+                    type="number"
+                    min={2}
+                    max={30}
+                    value={numSeeds}
+                    onChange={(e) => {
+                      setNumSeeds(Number(e.target.value));
+                    }}
+                  />
+                </label>
+                <label className="uf-field">
+                  <span className="uf-label">Duration per run (s)</span>
+                  <input
+                    className="uf-input"
+                    type="number"
+                    min={60}
+                    max={300}
+                    step={10}
+                    value={duration}
+                    onChange={(e) => {
+                      setDuration(Number(e.target.value));
+                    }}
+                  />
+                </label>
+              </div>
+              <label className="uf-field">
+                <span className="uf-field-head">
+                  <span className="uf-label">Warm-up excluded</span>
+                  <output className="uf-value">
+                    {warmupTime.toFixed(0)} s
+                  </output>
+                </span>
                 <input
-                  type="number"
+                  type="range"
                   min={0}
-                  max={20}
-                  step={1}
+                  max={60}
+                  step={5}
                   value={warmupTime}
                   onChange={(e) => {
                     setWarmupTime(Number(e.target.value));
                   }}
-                  title="Warmup time in seconds"
+                  className="uf-range"
                 />
-                <span className="adv-hint">
-                  Clears initial startup transients before metrics recording
-                  begins.
-                </span>
-              </div>
-
-              <div className="adv-field">
-                <label>Integration Step (Δt)</label>
-                <div className="adv-pill-group">
-                  <button
-                    type="button"
-                    className={`adv-pill-btn ${timeStep === 0.05 ? "active" : ""}`}
-                    onClick={() => {
-                      setTimeStep(0.05);
-                    }}
-                  >
-                    0.05s (High Precision)
-                  </button>
-                  <button
-                    type="button"
-                    className={`adv-pill-btn ${timeStep === 0.1 ? "active" : ""}`}
-                    onClick={() => {
-                      setTimeStep(0.1);
-                    }}
-                  >
-                    0.10s (Standard)
-                  </button>
-                  <button
-                    type="button"
-                    className={`adv-pill-btn ${timeStep === 0.2 ? "active" : ""}`}
-                    onClick={() => {
-                      setTimeStep(0.2);
-                    }}
-                  >
-                    0.20s (Fast)
-                  </button>
-                </div>
-              </div>
-
-              <div className="adv-field">
-                <label>Approach Road Length</label>
-                <div className="adv-pill-group">
-                  <button
-                    type="button"
-                    className={`adv-pill-btn ${approachLength === 150 ? "active" : ""}`}
-                    onClick={() => {
-                      setApproachLength(150);
-                    }}
-                  >
-                    150m (Compact)
-                  </button>
-                  <button
-                    type="button"
-                    className={`adv-pill-btn ${approachLength === 200 ? "active" : ""}`}
-                    onClick={() => {
-                      setApproachLength(200);
-                    }}
-                  >
-                    200m (Standard)
-                  </button>
-                  <button
-                    type="button"
-                    className={`adv-pill-btn ${approachLength === 300 ? "active" : ""}`}
-                    onClick={() => {
-                      setApproachLength(300);
-                    }}
-                  >
-                    300m (Extended)
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Section 3: Statistical Rigor & Hypothesis Testing */}
-            <div className="advanced-card">
-              <div className="adv-card-header">
-                <span className="adv-icon">📐</span>
-                <div>
-                  <h5>Statistical Rigor & Confidence</h5>
-                  <span className="adv-sub">
-                    Applies to the next run: interval width (Student-t) and the
-                    significance threshold
-                  </span>
-                </div>
-              </div>
-
-              <div className="adv-field">
-                <label>Lanes per approach</label>
-                <div className="adv-pill-group">
-                  <button
-                    type="button"
-                    className={`adv-pill-btn ${lanesCount === 1 ? "active" : ""}`}
-                    onClick={() => {
-                      setLanesCount(1);
-                    }}
-                  >
-                    1 lane (calibrated comparison)
-                  </button>
-                  <button
-                    type="button"
-                    className={`adv-pill-btn ${lanesCount === 2 ? "active" : ""}`}
-                    onClick={() => {
-                      setLanesCount(2);
-                    }}
-                  >
-                    2 lanes (exploratory)
-                  </button>
-                </div>
-                <span className="adv-sub">
-                  With more than one lane the roundabout is still modelled with
-                  a single circulating lane, so results are exploratory and not
-                  the calibrated baseline.
-                </span>
-              </div>
-
-              <div className="adv-field">
-                <label>Confidence Level (1 - α)</label>
-                <div className="adv-pill-group">
-                  <button
-                    type="button"
-                    className={`adv-pill-btn ${confidenceLevel === 0.9 ? "active" : ""}`}
-                    onClick={() => {
-                      setConfidenceLevel(0.9);
-                    }}
-                  >
-                    90% (α = 0.10)
-                  </button>
-                  <button
-                    type="button"
-                    className={`adv-pill-btn ${confidenceLevel === 0.95 ? "active" : ""}`}
-                    onClick={() => {
-                      setConfidenceLevel(0.95);
-                    }}
-                  >
-                    95% (α = 0.05)
-                  </button>
-                  <button
-                    type="button"
-                    className={`adv-pill-btn ${confidenceLevel === 0.99 ? "active" : ""}`}
-                    onClick={() => {
-                      setConfidenceLevel(0.99);
-                    }}
-                  >
-                    99% (α = 0.01)
-                  </button>
-                </div>
-              </div>
-
-              <div className="adv-field">
-                <label>Seeds (N) & Duration / Seed (s)</label>
-                <div className="adv-two-inputs">
-                  <div>
-                    <span className="input-mini-label">Seeds (2–30):</span>
-                    <input
-                      type="number"
-                      min={2}
-                      max={30}
-                      value={numSeeds}
-                      onChange={(e) => {
-                        setNumSeeds(Number(e.target.value));
+              </label>
+              <div className="uf-field">
+                <span className="uf-label">Time step (Δt)</span>
+                <div className="uf-segmented" role="group">
+                  {[0.05, 0.1, 0.2].map((dt) => (
+                    <button
+                      key={dt}
+                      type="button"
+                      aria-pressed={timeStep === dt}
+                      onClick={() => {
+                        setTimeStep(dt);
                       }}
-                    />
-                  </div>
-                  <div>
-                    <span className="input-mini-label">
-                      Duration (10–300s):
-                    </span>
-                    <input
-                      type="number"
-                      min={10}
-                      max={300}
-                      step={10}
-                      value={duration}
-                      onChange={(e) => {
-                        setDuration(Number(e.target.value));
-                      }}
-                    />
-                  </div>
+                    >
+                      {dt.toFixed(2)} s
+                    </button>
+                  ))}
                 </div>
               </div>
-
-              <div className="adv-summary-box">
-                <span>
-                  ⚡ <strong>{numSeeds}</strong> seed pairs ×{" "}
-                  <strong>{duration}s</strong> duration ={" "}
-                  <strong>{numSeeds * 2}</strong> synchronized simulation
-                  trials.
-                </span>
+              <div className="uf-field">
+                <span className="uf-label">Approach length</span>
+                <div className="uf-segmented" role="group">
+                  {[150, 200, 300].map((len) => (
+                    <button
+                      key={len}
+                      type="button"
+                      aria-pressed={approachLength === len}
+                      onClick={() => {
+                        setApproachLength(len);
+                      }}
+                    >
+                      {len.toString()} m
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          </div>
+            </fieldset>
 
-          <div className="advanced-drawer-footer">
-            <div className="adv-foot-summary">
-              <span>Active Config:</span>
-              <span className="foot-chip">
-                {arrivalDistribution === "poisson"
-                  ? "🎲 Poisson"
-                  : "⏱️ Uniform"}
-              </span>
-              <span className="foot-chip">λ = {arrivalRate} veh/s</span>
-              <span className="foot-chip">
-                {Math.round(confidenceLevel * 100)}% CI
-              </span>
-              <span className="foot-chip">Δt = {timeStep}s</span>
-              <span className="foot-chip">{approachLength}m roads</span>
-            </div>
-
-            <div className="adv-foot-actions">
-              <button
-                type="button"
-                className="adv-reset-btn"
-                onClick={resetAdvancedDefaults}
-                title="Reset advanced configuration to default values"
-              >
-                ↺ Reset Defaults
-              </button>
-              <button
-                type="button"
-                className="adv-close-btn"
-                onClick={() => {
-                  setShowConfigPanel(false);
-                }}
-              >
-                ✕ Close
-              </button>
-              <button
-                type="button"
-                className="adv-apply-btn"
-                onClick={runValidation}
-                disabled={isRunning}
-              >
-                {isRunning
-                  ? "⏳ Executing Trials…"
-                  : "▶ Apply & Run Validation"}
-              </button>
-            </div>
+            <fieldset className="uf-form-section">
+              <legend className="uf-form-section__title">Confidence</legend>
+              <div className="uf-segmented" role="group">
+                {([0.9, 0.95, 0.99] as const).map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    aria-pressed={confidenceLevel === c}
+                    onClick={() => {
+                      setConfidenceLevel(c);
+                    }}
+                  >
+                    {Math.round(c * 100)}% (α = {(1 - c).toFixed(2)})
+                  </button>
+                ))}
+              </div>
+              <p className="uf-help">
+                Sets the Student-t interval width and the significance threshold
+                of the next study.
+              </p>
+            </fieldset>
           </div>
-        </div>
+        </Overlay>
       )}
 
-      {error && <div className="validation-error">⚠ {error}</div>}
-
-      {isRunning && (
-        <div className="validation-loading">
-          <div className="spin-purple" />
+      {error && (
+        <div className="uf-callout uf-callout--danger" role="alert">
           <span>
-            Simulating {numSeeds} randomized seed pairs × {duration}s —
-            computing two-sample Welch statistics…
+            <strong>The study did not complete.</strong> {error}
           </span>
         </div>
       )}
 
-      {/* ── Empty State: Interactive Pre-Flight Launchpad ────────── */}
+      {isRunning && (
+        <Loader
+          layout="fill"
+          label={`Running ${numSeeds.toString()} traffic patterns on both controls (${duration.toString()} s each)`}
+        />
+      )}
+
       {!result && !isRunning && (
-        <div className="validation-empty-card">
-          <div className="empty-icon-halo">🔬</div>
-          <h3>Stochastic Validation Engine Ready</h3>
-          <p className="empty-desc">
-            A single run reflects one random arrival sequence. Monte Carlo
-            validation repeats the comparison over several seeds (both controls
-            share each seed) and tests whether the differences in mean delay,
-            throughput and queue are statistically significant, with 95%
-            confidence intervals.
+        <div className="uf-empty">
+          <p className="uf-empty__title">No study yet</p>
+          <p className="uf-empty__text">
+            One run is one random traffic pattern. Choose how many patterns to
+            repeat the comparison over; more patterns and longer runs give
+            narrower intervals but take longer.
           </p>
-
-          <div className="preflight-grid">
-            <button
-              type="button"
-              className="preflight-card"
-              onClick={() => {
-                handleLaunchPreset(3, 20);
-              }}
-            >
-              <div className="preflight-header">
-                <span className="preflight-badge quick">⚡ Quick Check</span>
-                <span className="preflight-time">~6s</span>
-              </div>
-              <h4>3 Seeds × 20 Seconds</h4>
-              <p>
-                A fast look at seed-to-seed variation. Too few seeds for strong
-                conclusions.
-              </p>
-              <span className="preflight-cta">Launch Quick Check →</span>
-            </button>
-
-            <button
-              type="button"
-              className="preflight-card featured"
-              onClick={() => {
-                handleLaunchPreset(5, 30);
-              }}
-            >
-              <div className="preflight-header">
-                <span className="preflight-badge standard">🧪 Recommended</span>
-                <span className="preflight-time">~15s</span>
-              </div>
-              <h4>5 Seeds × 30 Seconds</h4>
-              <p>
-                A reasonable default: enough seeds for a first Welch t-test,
-                still quick to run.
-              </p>
-              <span className="preflight-cta">Launch Standard Rigor →</span>
-            </button>
-
-            <button
-              type="button"
-              className="preflight-card"
-              onClick={() => {
-                handleLaunchPreset(10, 60);
-              }}
-            >
-              <div className="preflight-header">
-                <span className="preflight-badge rigor">🔬 High Rigor</span>
-                <span className="preflight-time">~35s</span>
-              </div>
-              <h4>10 Seeds × 60 Seconds</h4>
-              <p>
-                More seeds and longer runs give narrower confidence intervals;
-                slower to run.
-              </p>
-              <span className="preflight-cta">Launch High Rigor →</span>
-            </button>
+          <div className="study-presets">
+            {VALIDATION_PRESETS.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                className="uf-choice"
+                onClick={() => {
+                  handleLaunchPreset(p.seeds, p.duration);
+                }}
+              >
+                <span className="uf-choice__title">{p.title}</span>
+                <span className="uf-choice__desc">
+                  {p.seeds.toString()} patterns × {p.duration.toString()} s.{" "}
+                  {p.note}
+                </span>
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -1116,9 +945,6 @@ export const ValidationDashboard: React.FC = () => {
                   : "non-sig"
             }`}
           >
-            <div className="verdict-icon-box">
-              {allSignificant ? "✅" : anySignificant ? "⚖️" : "❌"}
-            </div>
             <div className="verdict-content">
               <div className="verdict-headline">
                 <h4>
@@ -1190,7 +1016,7 @@ export const ValidationDashboard: React.FC = () => {
                 setActiveTab("visual");
               }}
             >
-              📊 Visual Comparison & Charts
+              Charts
             </button>
             <button
               type="button"
@@ -1199,7 +1025,7 @@ export const ValidationDashboard: React.FC = () => {
                 setActiveTab("table");
               }}
             >
-              📋 Per-Seed Raw Table ({result.numSeeds} trials)
+              Per-pattern table ({result.numSeeds} trials)
             </button>
             <button
               type="button"
@@ -1208,7 +1034,7 @@ export const ValidationDashboard: React.FC = () => {
                 setActiveTab("methodology");
               }}
             >
-              📐 Statistical Method
+              How it was tested
             </button>
           </div>
 
@@ -1266,14 +1092,14 @@ export const ValidationDashboard: React.FC = () => {
                         return (
                           <div className="ci-comparison">
                             <ModernCIBar
-                              label="Fixed-Time Signal"
+                              label="Traffic signal"
                               stat={sigStat}
                               color={SIGNAL_COLOR}
                               maxMean={maxMean}
                               ciMargin={ciSig}
                             />
                             <ModernCIBar
-                              label="Modern Roundabout"
+                              label="Roundabout"
                               stat={rndStat}
                               color={ROUND_COLOR}
                               maxMean={maxMean}
@@ -1330,7 +1156,7 @@ export const ValidationDashboard: React.FC = () => {
               <div className="seed-chart-container">
                 <div className="seed-chart-header">
                   <div className="seed-chart-titles">
-                    <h4>Seed-by-Seed Comparative Distribution</h4>
+                    <h4>Result for each traffic pattern</h4>
                     <span className="seed-chart-sub">
                       Visualizing stochastic jitter across individual randomized
                       seed pairs
@@ -1416,7 +1242,7 @@ export const ValidationDashboard: React.FC = () => {
                       />
                       <Bar
                         dataKey="signal"
-                        name="Fixed-Time Signal"
+                        name="Traffic signal"
                         fill={SIGNAL_COLOR}
                         radius={[4, 4, 0, 0]}
                         animationDuration={400}
@@ -1424,7 +1250,7 @@ export const ValidationDashboard: React.FC = () => {
                       />
                       <Bar
                         dataKey="roundabout"
-                        name="Modern Roundabout"
+                        name="Roundabout"
                         fill={ROUND_COLOR}
                         radius={[4, 4, 0, 0]}
                         animationDuration={400}
@@ -1442,9 +1268,7 @@ export const ValidationDashboard: React.FC = () => {
             <div className="seed-runs-table-wrapper">
               <div className="runs-table-header">
                 <div className="table-header-titles">
-                  <h4>
-                    Synchronized Raw Trials Dataset ({result.numSeeds} Seeds)
-                  </h4>
+                  <h4>Per-pattern results ({result.numSeeds} patterns)</h4>
                   <span className="table-meta-hint">
                     Paired trials executed with identical Poisson vehicle spawn
                     seeds
@@ -1455,7 +1279,7 @@ export const ValidationDashboard: React.FC = () => {
                   className="table-export-btn"
                   onClick={exportValidationCSV}
                 >
-                  📥 Download CSV
+                  Download CSV
                 </button>
               </div>
 
@@ -1517,9 +1341,9 @@ export const ValidationDashboard: React.FC = () => {
                               }
                             >
                               {winner === "roundabout"
-                                ? "🔄 Roundabout"
+                                ? "Roundabout"
                                 : winner === "signal"
-                                  ? "🚦 Signal"
+                                  ? "Signal"
                                   : "About the same"}
                             </span>
                           </td>
