@@ -38,6 +38,7 @@ def init_db() -> None:
         """
         CREATE TABLE IF NOT EXISTS simulation_runs (
             id TEXT PRIMARY KEY,
+            user_id TEXT,
             status TEXT NOT NULL,
             elapsed REAL NOT NULL,
             intersection_type TEXT NOT NULL DEFAULT 'unknown',
@@ -63,6 +64,22 @@ def init_db() -> None:
         ("batch_id", "TEXT"),
         ("config_json", "TEXT NOT NULL DEFAULT '{}'"),
         ("summary_metrics_json", "TEXT NOT NULL DEFAULT '{}'"),
+<<<<<<< Updated upstream
+=======
+        # Reproducibility provenance (V1.1). Deliberately nullable with no
+        # default: NULL means "not recorded" (a run saved before these
+        # existed), never a fabricated value. New rows always set both;
+        # git_commit may be "unknown" where .git is absent (see
+        # src/core/provenance.py).
+        ("git_commit", "TEXT"),
+        ("provenance_json", "TEXT"),
+        # Experiment management (V1.1). User-entered labels only; NULL until
+        # someone sets them. Never used by any computation.
+        ("name", "TEXT"),
+        ("notes", "TEXT"),
+        ("tags_json", "TEXT"),
+        ("user_id", "TEXT"),
+>>>>>>> Stashed changes
     ]
     for col_name, col_def in columns_to_add:
         if col_name not in existing_cols:
@@ -102,6 +119,7 @@ def init_db() -> None:
         """
         CREATE TABLE IF NOT EXISTS sweep_sessions (
             id TEXT PRIMARY KEY,
+            user_id TEXT,
             name TEXT,
             config_json TEXT NOT NULL,
             results_json TEXT NOT NULL,
@@ -115,6 +133,7 @@ def init_db() -> None:
         """
         CREATE TABLE IF NOT EXISTS saved_replays (
             id TEXT PRIMARY KEY,
+            user_id TEXT,
             name TEXT,
             config_json TEXT NOT NULL,
             metrics_json TEXT NOT NULL,
@@ -122,6 +141,18 @@ def init_db() -> None:
         );
         """
     )
+
+    # Safe migration for saved_replays
+    cursor.execute("PRAGMA table_info(saved_replays);")
+    sr_cols = {row[1] for row in cursor.fetchall()}
+    if "user_id" not in sr_cols:
+        cursor.execute("ALTER TABLE saved_replays ADD COLUMN user_id TEXT;")
+
+    # Safe migration for sweep_sessions
+    cursor.execute("PRAGMA table_info(sweep_sessions);")
+    ss_cols = {row[1] for row in cursor.fetchall()}
+    if "user_id" not in ss_cols:
+        cursor.execute("ALTER TABLE sweep_sessions ADD COLUMN user_id TEXT;")
 
     conn.commit()
     conn.close()

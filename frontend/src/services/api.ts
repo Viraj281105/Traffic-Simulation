@@ -2,8 +2,31 @@ import { API_BASE_URL } from "../config";
 
 const BASE = API_BASE_URL;
 
+/** A non-2xx API response; `status` lets callers tell "not found" apart. */
+export class ApiError extends Error {
+  readonly status: number;
+  constructor(status: number, statusText: string) {
+    super(`HTTP ${status.toString()}: ${statusText}`);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+import { getAuthToken } from "../auth/cognito";
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${BASE}${path}`, init);
+  const token = await getAuthToken();
+  const headers = new Headers(init?.headers);
+  
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const response = await fetch(`${BASE}${path}`, {
+    ...init,
+    headers,
+  });
+  
   if (!response.ok) {
     throw new Error(
       `HTTP ${response.status.toString()}: ${response.statusText}`,

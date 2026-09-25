@@ -15,6 +15,12 @@ declare module "vite" {
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // Two HTML entry points with page routing handled by dashboardFallback();
+  // Vite's own SPA fallback would answer every unknown path with index.html.
+  appType: "mpa",
+  define: {
+    global: 'window',
+  },
   plugins: [react(), tailwindcss()],
   server: {
     port: 5173,

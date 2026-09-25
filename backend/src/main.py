@@ -52,6 +52,7 @@ from src.study.report_generator import (
 from src.study.validation import run_invariant_checks, run_statistical_validation
 from src.study.volume_sweep import run_volume_sweep_experiment
 
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -160,6 +161,8 @@ except Exception as e:
 @app.get("/health")
 def health_check() -> Dict[str, str]:
     return {"status": "healthy"}
+
+
 
 
 # Load the shared config JSON schema, resolved relative to this package's
@@ -969,48 +972,40 @@ def _current_session() -> _LiveSession:
 
 @app.middleware("http")
 async def _live_session_middleware(request: Request, call_next: Any) -> Any:
-    """Resolves a per-client live-simulation session from a cookie.
-
-    Scoped to /api/simulation/* only (where the shared state actually
-    lives) so unrelated routes are unaffected. Standard session-cookie
-    bootstrap: an incoming cookie is reused as-is; a request with no cookie
-    mints one fresh id and uses that SAME id both for this request and for
-    the Set-Cookie response, so the very next request from that client
-    lands on the same (now-isolated) session rather than a different one.
-
-    This works transparently — no frontend changes needed — for any client
-    whose browser actually stores and resends the cookie: the deployed
-    nginx-proxied production topology (frontend and API share an origin,
-    see docker-compose.yml/frontend/nginx.conf), `npm run dev` (Vite's own
-    dev-server proxy forwards /api and /ws to the backend under the same
-    http://localhost:5173 origin — see frontend/vite.config.ts `server.proxy`
-    and frontend/src/config.ts, which defaults to relative URLs), and
-    same-origin test clients.
-
-    Known limitation: docker-compose.dev.yml's frontend container sets
-    VITE_API_URL to an absolute http://localhost:8000 URL, which makes the
-    browser call the backend cross-origin, bypassing Vite's proxy. Fetch
-    calls there don't set `credentials: "include"`, so the browser will
-    neither send nor store this cookie, and each request falls back to a
-    fresh, isolated, single-use session — i.e. the live/dual dashboard's
-    multi-step flows (config → play → stream) would not see continuity in
-    that one specific dev variant. Fixing that needs either a frontend
-    change (out of scope for this security/deployment-only batch) or
-    propagating the session via a query param/header instead of a cookie —
-    a bigger change than "smallest practical improvement" calls for here,
-    so it's documented as a follow-up rather than solved.
+    """Resolves a per-client live-simulation session from a Cognito JWT.
     """
     if not request.url.path.startswith(_LIVE_SESSION_PATH_PREFIX):
         return await call_next(request)
 
-    incoming = request.cookies.get(LIVE_SESSION_COOKIE)
-    key = incoming or str(uuid.uuid4())
+    from fastapi.security import HTTPAuthorizationCredentials
+    from src.auth import verify_token, get_current_user_id
+    import logging
+    
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        # Fallback to anonymous cookie for now, or you could return 401
+        incoming = request.cookies.get(LIVE_SESSION_COOKIE)
+        key = incoming or str(uuid.uuid4())
+        is_authenticated = False
+    else:
+        try:
+            token = auth_header.split(" ")[1]
+            creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+            claims = verify_token(creds)
+            key = claims.get("sub")
+            is_authenticated = True
+        except Exception as e:
+            logging.error(f"JWT Verification failed: {e}")
+            from fastapi.responses import JSONResponse
+            return JSONResponse(status_code=401, content={"detail": "Invalid token"})
+
     token = _live_session_var.set(_get_or_create_session(key))
     try:
         response = await call_next(request)
     finally:
         _live_session_var.reset(token)
-    if not incoming:
+        
+    if not is_authenticated and not request.cookies.get(LIVE_SESSION_COOKIE):
         response.set_cookie(
             LIVE_SESSION_COOKIE,
             key,

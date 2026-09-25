@@ -14,6 +14,8 @@ import { HistoryDashboard, SavedReplay } from "./components/HistoryDashboard";
 import { VolumeAnalysisDashboard } from "./components/VolumeAnalysisDashboard";
 import { ValidationDashboard } from "./components/ValidationDashboard";
 import { ConfigurationSidebar } from "./components/ConfigurationSidebar";
+import { Login } from "./components/Login";
+import { getCurrentUser } from "./auth/cognito";
 import { Sun, Moon } from "lucide-react";
 import type { SimulationConfigValues } from "./types/config";
 import { saveReplay, updateSimulationConfig } from "./services/api";
@@ -25,6 +27,14 @@ import type {
 import "./App.css";
 
 export function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!!getCurrentUser());
+  const [showLogin, setShowLogin] = useState<boolean>(false);
+
+  const handleLoginSuccess = () => {
+    setIsAuthenticated(true);
+    setShowLogin(false);
+  };
+
   const [viewMode, setViewMode] = useState<
     | "signal"
     | "roundabout"
@@ -489,6 +499,19 @@ export function App() {
           >
             {isLight ? <Moon size={15} /> : <Sun size={15} />}
           </button>
+
+          {!isAuthenticated ? (
+            <button
+              onClick={() => { setShowLogin(true); }}
+              style={{ marginLeft: '16px', background: '#38bdf8', color: '#0f172a', padding: '6px 12px', borderRadius: '4px', fontWeight: 'bold' }}
+            >
+              Sign In
+            </button>
+          ) : (
+            <div style={{ marginLeft: '16px', color: '#cbd5e1', fontSize: '14px' }}>
+              Logged In
+            </div>
+          )}
         </div>
       </header>
 
@@ -756,6 +779,17 @@ export function App() {
 
       {/* ── Toast Notification ────────────────────────────────────────── */}
       {toastMessage && <div className="toast-notification">{toastMessage}</div>}
+
+      {showLogin && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, background: 'rgba(0,0,0,0.8)' }}>
+          <Login onLogin={handleLoginSuccess} />
+          <button 
+            onClick={() => { setShowLogin(false); }} 
+            style={{ position: 'absolute', top: '20px', right: '20px', background: 'transparent', color: 'white', border: 'none', cursor: 'pointer', fontSize: '18px' }}>
+            Close
+          </button>
+        </div>
+      )}
     </div>
   );
 }
