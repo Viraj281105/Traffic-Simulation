@@ -11,7 +11,7 @@
 
 The frontend is a **React 19 + TypeScript** application with a landing-page entry (`index.html`) and a dashboard entry (`app.html`). Current API routes and setup are documented in [../operations.md](../operations.md).
 
-The dashboard is a single-page app with one URL per view — `/app/comparative`, `/app/signal`, `/app/roundabout`, `/app/history`, `/app/volume` and `/app/validation` (`src/routing.ts`). `/app` and the legacy `/app.html` redirect to `/app/comparative`; any other path renders a not-found page. nginx (`templates/default.conf.template`) serves `app.html` for exactly those view paths and answers anything else with a 404 whose body is that not-found page; the Vite dev/preview server mirrors this (`vite.config.ts`).
+The dashboard is a single-page app with one URL per view — `/app/comparative`, `/app/signal`, `/app/roundabout`, `/app/history`, `/app/volume`, `/app/validation` and `/app/research` (`src/routing.ts`). The header groups them into three sections: Compare (the guided comparison, `src/components/guided/`), Saved (history, run and compare pages) and the Research lab (hub plus the specialist views). The information architecture and the plain-language layer (`src/metrics/plainLanguage.ts`) are described in `docs/product/urbanflow-user-narrative.md`. `/app` and the legacy `/app.html` redirect to `/app/comparative`; any other path renders a not-found page. nginx (`templates/default.conf.template`) serves `app.html` for exactly those view paths and answers anything else with a 404 whose body is that not-found page; the Vite dev/preview server mirrors this (`vite.config.ts`).
 
 It provides:
 

@@ -105,10 +105,13 @@ Validation endpoints are:
 ```text
 POST /api/v1/study/validate/repeatability  {"duration":20,"randomSeed":12345}
 POST /api/v1/study/validate/monte-carlo    {"numSeeds":5,"duration":30,"customConfig":{...}}
+POST /api/v1/study/validate/monte-carlo    {"numSeeds":5,"scenario":{...}}
 GET  /api/v1/study/export?format=json|csv
 ```
 
 The repeatability check tests vehicle conservation, non-negative speeds, and deterministic key metrics. Monte Carlo validation generates random seeds and returns means, standard deviations, approximate 95% confidence intervals, Cohen's *d*, and a significance flag for delay, throughput, and queue length.
+
+`scenario` takes the dashboard's own scenario body (the same body as `POST /api/simulation/config`) and repeats exactly that scenario — geometry, demand, signal timings, gap acceptance, the live warm-up and the scenario's own duration — over fresh seeds. The comparison results page uses it for its "How reliable is this?" check. `scenario` and `customConfig` are mutually exclusive (422); a scenario the live dashboard would reject is rejected here too (400).
 
 The command-line equivalent is:
 

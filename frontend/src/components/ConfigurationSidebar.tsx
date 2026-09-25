@@ -12,6 +12,9 @@ interface ConfigurationSidebarProps {
   onApply: (newConfig: SimulationConfigValues) => void;
   /** Which controls are relevant to the current view. */
   mode: ConfigMode;
+  /** Set when applying only updates a draft (the guided setup step) rather
+   *  than resetting a live run. */
+  draftOnly?: boolean;
 }
 
 interface ValidationAlert {
@@ -89,6 +92,7 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
   config,
   onApply,
   mode,
+  draftOnly = false,
 }) => {
   const [prevConfig, setPrevConfig] = useState<SimulationConfigValues>(config);
   const [form, setForm] = useState<SimulationConfigValues>(config);
@@ -227,7 +231,9 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
 
         <form className="config-sidebar-body" onSubmit={handleSubmit}>
           <p className="config-intro">
-            Applying resets the current run with these settings.
+            {draftOnly
+              ? "These settings are used when you run the comparison."
+              : "Applying resets the current run with these settings."}
             {mode === "comparative"
               ? " Both controls use the same demand, geometry and seed."
               : ""}
@@ -539,7 +545,9 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
               : hasErrors
                 ? "Fix the errors above"
                 : isDirty
-                  ? "Apply & reset run"
+                  ? draftOnly
+                    ? "Use these settings"
+                    : "Apply & reset run"
                   : "No changes"}
           </button>
         </div>

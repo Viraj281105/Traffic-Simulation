@@ -54,7 +54,7 @@ server {
     #
     # Unknown paths are a real 404, not a silent redirect to the landing page:
     # the 404 body is app.html, whose router renders a "page not found" view.
-    location ~ ^/app/(comparative|signal|roundabout|history|volume|validation)/?$ {
+    location ~ ^/app/(comparative|signal|roundabout|history|volume|validation|research)/?$ {
         try_files /app.html =404;
     }
 

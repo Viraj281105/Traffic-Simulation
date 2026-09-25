@@ -163,7 +163,14 @@ const CustomChartTooltip: React.FC<CustomTooltipProps> = ({
           className={`tooltip-delta-val ${rndWins ? "positive" : "negative"}`}
         >
           {delta > 0 ? `+${delta.toFixed(2)}` : delta.toFixed(2)} (
-          {rndWins ? "Roundabout wins" : "Signal wins"})
+          {metric === "throughput"
+            ? rndWins
+              ? "more through the roundabout"
+              : "more through the signal"
+            : rndWins
+              ? "lower at the roundabout"
+              : "lower at the signal"}
+          )
         </span>
       </div>
     </div>
@@ -479,6 +486,11 @@ export const ValidationDashboard: React.FC = () => {
             Stochastic paired-seed simulation evaluating Fixed-Time Signal vs.
             Modern Roundabout under identical randomized traffic arrivals using
             Welch’s two-sample t-test and Cohen’s d effect sizes.
+          </p>
+          <p className="header-subtitle">
+            This study uses its own configurable scenario (set under Advanced
+            Config). To check a comparison you ran in Compare, use “How reliable
+            is this?” on its results page — it repeats that exact scenario.
           </p>
         </div>
 
@@ -1057,9 +1069,9 @@ export const ValidationDashboard: React.FC = () => {
                       : "No Statistically Significant Difference Detected at α = 0.05"}
                 </h4>
                 <span className="win-rate-pill">
-                  🔄 Roundabout won {roundaboutWinStats.delayWins} of{" "}
-                  {roundaboutWinStats.total} seeds ({roundaboutWinStats.winPct}%
-                  win rate)
+                  Roundabout had the lower delay in{" "}
+                  {roundaboutWinStats.delayWins} of {roundaboutWinStats.total}{" "}
+                  seeds ({roundaboutWinStats.winPct}%)
                 </span>
               </div>
 

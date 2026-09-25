@@ -28,6 +28,15 @@ vi.mock("../services/websocket", () => ({
   },
 }));
 
+// The backend session already exists: connect straight away (liveSession.ts
+// has its own tests for the waiting).
+vi.mock("../services/liveSession", () => ({
+  whenLiveSessionReady: (callback: () => void) => {
+    callback();
+    return () => undefined;
+  },
+}));
+
 const playSimulation = vi.fn();
 const pauseSimulation = vi.fn();
 const stopSimulation = vi.fn();

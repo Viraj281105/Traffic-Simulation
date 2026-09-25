@@ -20,26 +20,26 @@ import {
 
 type IconComponent = ComponentType<{ size?: number; strokeWidth?: number }>;
 
-const capabilities: { icon: IconComponent; title: string; body: string }[] = [
-  {
-    icon: TrendingUp,
-    title: "Intelligent Driver Model",
-    body: "Vehicle acceleration, braking and gap-keeping follow IDM car-following physics — not scripted motion.",
-  },
+const steps: { icon: IconComponent; title: string; body: string }[] = [
   {
     icon: Clock,
-    title: "Dual control strategies",
-    body: "Run the same demand through fixed-time signals and a roundabout, side by side, under identical conditions.",
+    title: "Describe your junction",
+    body: "How busy it is, how many lanes each approach has, and how long to watch. No traffic-engineering terms needed; specialists can open every setting.",
   },
   {
     icon: BarChart2,
-    title: "Real-time visualization",
-    body: "Watch every vehicle move through the network as the simulation runs, not just the summary afterward.",
+    title: "Watch both run",
+    body: "A traffic signal and a roundabout run side by side on exactly the same vehicles, arriving at exactly the same moments. Only the control differs.",
   },
   {
     icon: BarChart3,
-    title: "Comprehensive analytics",
-    body: "Delay distributions, throughput, queues, stops, reliability, fairness and surrogate safety (TTC, PET), computed by the simulation for every run.",
+    title: "Read the results",
+    body: "How long drivers wait, how much traffic gets through, how long queues get and whether every direction is treated alike, each in plain words with why it happened.",
+  },
+  {
+    icon: TrendingUp,
+    title: "Check and compare",
+    body: "Repeat the comparison over new traffic patterns to see whether the difference holds up, then try busier or quieter traffic and read the scenarios side by side.",
   },
 ];
 
@@ -54,66 +54,62 @@ const buildings = [
   { w: "10%", h: "18%", x: "86%", y: "67%" },
 ];
 
-// What the simulation actually reports (see frontend/src/metrics/catalog.ts
-// and backend/src/metrics/collector.py). Names and units only: results come
-// from running the simulation, not from this page.
+// The everyday questions the results answer, with the measurement behind
+// each (frontend/src/metrics/plainLanguage.ts PLAIN_METRIC_MAP). Names only:
+// results come from running the simulation, not from this page.
 const metricGroups = [
   {
-    title: "Performance",
+    title: "For people using the junction",
     metrics: [
       {
-        name: "Control delay",
-        unit: "s",
-        desc: "Mean, median and 95th percentile",
+        name: "How long do drivers wait?",
+        unit: "seconds",
+        desc: "Time lost per driver; the wait 1 in 20 exceed; stops",
       },
-      { name: "Throughput", unit: "veh, veh/min", desc: "Vehicles served" },
       {
-        name: "Planning time index",
-        unit: "ratio",
-        desc: "Travel-time reliability",
+        name: "How much gets through?",
+        unit: "vehicles",
+        desc: "Vehicles served from the same arrivals",
+      },
+      {
+        name: "How long do queues get?",
+        unit: "vehicles",
+        desc: "Typical and longest queue; time congested",
+      },
+      {
+        name: "Is every direction treated alike?",
+        unit: "even / uneven",
+        desc: "How waiting is shared between approaches",
       },
     ],
   },
   {
-    title: "Traffic flow",
+    title: "For judging the evidence",
     metrics: [
-      { name: "Queue length", unit: "veh", desc: "Average and maximum" },
-      { name: "Stops per vehicle", unit: "count", desc: "Stop-and-go" },
       {
-        name: "Directional fairness",
-        unit: "index",
-        desc: "Jain's index across approaches",
+        name: "Why did it happen?",
+        unit: "explained",
+        desc: "How each control works, and what this run showed",
+      },
+      {
+        name: "How reliable is it?",
+        unit: "repeat check",
+        desc: "Does the difference hold across traffic patterns?",
       },
     ],
   },
   {
-    title: "Safety",
-    metrics: [
-      { name: "Collisions", unit: "count", desc: "Vehicle overlaps" },
-      {
-        name: "Time to collision",
-        unit: "s",
-        desc: "Minimum and low-TTC events",
-      },
-      {
-        name: "Post-encroachment time",
-        unit: "s",
-        desc: "Signal conflict points",
-      },
-    ],
-  },
-  {
-    title: "Capacity & demand",
+    title: "For specialists",
     metrics: [
       {
-        name: "Saturation volume",
-        unit: "veh/s",
-        desc: "Estimated capacity",
+        name: "Every metric, on demand",
+        unit: "30+",
+        desc: "Delay distribution, TTC/PET, capacity, CSV export",
       },
       {
-        name: "Idle green loss",
-        unit: "%",
-        desc: "Green time with no one to serve",
+        name: "Research lab",
+        unit: "tools",
+        desc: "Traffic-level sweeps, Monte Carlo statistics, saved runs",
       },
     ],
   },
@@ -126,7 +122,7 @@ function App() {
     () => sessionStorage.getItem("signals-theme") === "light",
   );
   useEffect(() => {
-    document.title = "UrbanFlow — Signals vs. Roundabouts";
+    document.title = "UrbanFlow — Signal or roundabout?";
     document.documentElement.classList.toggle("light", isLight);
     document.documentElement.classList.toggle("dark", !isLight);
     sessionStorage.setItem("signals-theme", isLight ? "light" : "dark");
@@ -144,11 +140,11 @@ function App() {
           <span className="brand-name">URBANFLOW</span>
         </a>
         <nav className="nav-links" aria-label="Primary navigation">
-          <a href="#compare" data-testid="link-compare">
-            Compare
+          <a href="#how" data-testid="link-compare">
+            How it works
           </a>
           <a href="#metrics" data-testid="link-metrics">
-            Metrics
+            What you learn
           </a>
           <a href="#method" data-testid="link-methodology">
             Method
@@ -171,21 +167,23 @@ function App() {
         <div className="hero-grid">
           <div className="hero-copy">
             <div className="hero-kicker eyebrow">
-              <span className="signal-dot" /> Intersection control / live model
+              <span className="signal-dot" /> For anyone weighing up a junction
             </div>
             <Reveal>
               <h1 id="hero-title" className="display">
-                SIGNALS VS.
+                SIGNAL OR
                 <br />
-                <em>ROUNDABOUTS.</em>
+                <em>ROUNDABOUT?</em>
                 <br />
-                WHICH ONE WINS?
+                TRY BOTH.
               </h1>
             </Reveal>
             <Reveal delay={0.2}>
               <p className="hero-sub">
-                A traffic simulation for comparing a fixed-time signal and a
-                roundabout under the same demand, geometry and random seed.
+                UrbanFlow runs a traffic signal and a roundabout side by side on
+                the same virtual junction, with exactly the same cars, and shows
+                in plain language how each handles your traffic, and how sure
+                you can be. No traffic-engineering background needed.
               </p>
             </Reveal>
             <div className="hero-actions">
@@ -194,25 +192,25 @@ function App() {
                 href="/app/comparative"
                 data-testid="link-explore-simulation"
               >
-                Launch simulation <ArrowDownRight size={15} />
+                Compare your junction <ArrowDownRight size={15} />
               </a>
               <a
                 className="ghost-btn"
-                href="#method"
+                href="#how"
                 data-testid="link-read-method"
               >
-                Read the method <ArrowRight size={14} />
+                How it works <ArrowRight size={14} />
               </a>
             </div>
             <div className="hero-meta" aria-label="At a glance">
               <span>
-                <strong className="mono">2</strong> control strategies
+                <strong className="mono">3</strong> steps: describe, watch, read
               </span>
               <span>
-                <strong className="mono">IDM</strong> car-following
+                <strong className="mono">Same</strong> cars for both
               </span>
               <span>
-                <strong className="mono">1 seed</strong> shared per comparison
+                <strong className="mono">No</strong> verdict: your call
               </span>
             </div>
           </div>
@@ -273,7 +271,7 @@ function App() {
           </div>
         </div>
         <div className="scroll-cue">
-          <span className="scroll-line" /> Scroll to interrogate the model
+          <span className="scroll-line" /> Scroll to see how it works
         </div>
       </section>
 
@@ -293,8 +291,8 @@ function App() {
               </h2>
             </div>
             <p>
-              Hold demand, geometry, and physics constant. Change only the rule
-              that decides who moves next.
+              Same junction, same traffic, same drivers. The only difference is
+              the rule that decides who goes next.
             </p>
           </div>
         </Reveal>
@@ -313,8 +311,8 @@ function App() {
               control
             </h3>
             <p>
-              Phased permission. Predictable cycles. A familiar rhythm that can
-              turn demand into a queue.
+              Each direction gets a fixed turn on green. Predictable, but a
+              driver arriving on red waits even when the road is empty.
             </p>
             <div className="mini-intersection signal-mini" aria-hidden="true">
               <span className="mini-road mini-road-h" />
@@ -339,8 +337,8 @@ function App() {
               control
             </h3>
             <p>
-              Yield-based negotiation. Continuous flow. Every entry adapts to
-              the movement already in the circle.
+              No red lights. Drivers give way to circling traffic and go when
+              there is a gap: smooth when it is quiet, queues when gaps run out.
             </p>
             <div
               className="mini-intersection roundabout-mini"
@@ -359,26 +357,27 @@ function App() {
 
       <section
         className="capabilities section-space"
+        id="how"
         aria-labelledby="capabilities-title"
       >
         <Reveal width="100%">
           <div className="section-wrap">
             <div className="section-heading">
               <div>
-                <div className="eyebrow">02 / The engine</div>
+                <div className="eyebrow">02 / How it works</div>
                 <h2 id="capabilities-title" className="display">
-                  A city that
+                  Four steps
                   <br />
-                  <em>responds.</em>
+                  <em>to evidence.</em>
                 </h2>
               </div>
               <p>
-                Not an animation. Vehicles, control rules and measurements
-                running together in one simulation.
+                One guided path from your question to results you can explain to
+                others, with every technical detail there if you want it.
               </p>
             </div>
             <div className="capability-grid">
-              {capabilities.map(({ icon: Icon, title, body }, index) => (
+              {steps.map(({ icon: Icon, title, body }, index) => (
                 <article
                   className="capability"
                   key={title}
@@ -405,19 +404,17 @@ function App() {
         <Reveal width="100%">
           <div className="metrics-layout">
             <div className="metrics-intro">
-              <div className="eyebrow">03 / The evidence</div>
+              <div className="eyebrow">03 / What you learn</div>
               <h2 id="metrics-title" className="display">
-                Measured,
+                Plain answers,
                 <br />
-                not
-                <br />
-                <em>asserted.</em>
+                <em>full evidence.</em>
               </h2>
               <p>
-                Every run reports the same metric set for both controls,
-                computed by the simulation after a warm-up period. Which control
-                does better depends on the demand and geometry you choose, so
-                run it and see.
+                Results are written as answers to everyday questions, each with
+                the measurement behind it one click away. Which option does
+                better depends on your traffic and layout: UrbanFlow shows the
+                evidence and leaves the decision to you.
               </p>
               <div className="hero-actions" style={{ marginTop: 30 }}>
                 <a
@@ -425,7 +422,7 @@ function App() {
                   href="/app/comparative"
                   data-testid="link-see-result"
                 >
-                  Run a comparison <ArrowDownRight size={14} />
+                  Start a comparison <ArrowDownRight size={14} />
                 </a>
               </div>
             </div>
@@ -459,7 +456,9 @@ function App() {
         <Reveal width="100%">
           <div className="methodology">
             <div className="methodology-copy">
-              <div className="eyebrow">04 / Under the hood</div>
+              <div className="eyebrow">
+                04 / Under the hood, for specialists
+              </div>
               <h2 id="method-title" className="display">
                 Make the
                 <br />
@@ -468,14 +467,17 @@ function App() {
                 count.
               </h2>
               <p>
-                Signals vs. Roundabouts turns a familiar planning argument into
-                a repeatable experiment. Identical arrival sequences (same
-                random seed) enter the same geometry; an Intelligent Driver
-                Model drives every vehicle; the controller is the only variable.
+                UrbanFlow turns a familiar planning argument into a repeatable
+                experiment. Identical arrival sequences (same random seed) enter
+                the same geometry; an Intelligent Driver Model drives every
+                vehicle; the controller is the only variable. The model is
+                calibrated for one lane per approach and does not include
+                pedestrians, cyclists, heavy vehicles or crash risk.
               </p>
               <p>
-                Every stop, delay and queue is recorded, and a saved run can be
-                reopened with its exact settings and seed.
+                Every stop, delay and queue is recorded; a saved run keeps its
+                exact settings, seed and code version, and the Research lab adds
+                traffic-level sweeps and Monte Carlo statistics.
               </p>
             </div>
             <div className="tech-stack" aria-label="Technology context">
@@ -528,28 +530,28 @@ function App() {
         <Reveal width="100%">
           <div className="eyebrow">05 / Your next junction</div>
           <h2 id="final-title" className="display">
-            Stop arguing.
+            Before the concrete,
             <br />
-            <em>Start observing.</em>
+            <em>the evidence.</em>
           </h2>
           <p>
-            Put the intersection in motion and compare the two controls on your
-            own scenario.
+            Describe your junction and see how a signal and a roundabout would
+            handle its traffic.
           </p>
           <a
             className="primary-btn"
             href="/app/comparative"
             data-testid="link-run-another-scenario"
           >
-            Launch simulation <ArrowRight size={15} />
+            Compare your junction <ArrowRight size={15} />
           </a>
         </Reveal>
       </section>
 
       <footer className="footer">
         <div className="section-wrap footer-inner">
-          <span>URBANFLOW — INTERSECTION CONTROL RESEARCH</span>
-          <span>BUILT FOR THE PEOPLE WHO MOVE CITIES</span>
+          <span>URBANFLOW — SIGNAL OR ROUNDABOUT, TESTED</span>
+          <span>EVIDENCE FOR THE PEOPLE WHO DECIDE</span>
         </div>
       </footer>
     </main>

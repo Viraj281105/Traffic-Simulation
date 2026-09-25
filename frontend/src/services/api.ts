@@ -1,4 +1,6 @@
 import { API_BASE_URL } from "../config";
+import type { DashboardScenarioPayload } from "../types/config";
+import { ensureLiveSession } from "./liveSession";
 
 const BASE = API_BASE_URL;
 
@@ -13,6 +15,9 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  // Live/comparison calls must land in the same backend session as the
+  // stream (see liveSession.ts).
+  if (path.startsWith("/api/simulation")) await ensureLiveSession();
   const response = await fetch(`${BASE}${path}`, init);
   if (!response.ok) {
     throw new ApiError(response.status, response.statusText);
@@ -84,23 +89,9 @@ export async function getSimulationStatus(): Promise<{
 }
 
 /** Send new configuration to backend. */
-export async function updateSimulationConfig(config: {
-  intersectionType: string;
-  intersectionSize: number;
-  laneWidth: number;
-  lanesNorth: number;
-  lanesSouth: number;
-  lanesEast: number;
-  lanesWest: number;
-  arrivalRate?: number;
-  duration?: number;
-  randomSeed?: number;
-  greenDuration?: number;
-  yellowDuration?: number;
-  allRedDuration?: number;
-  criticalGap?: number;
-  followUpTime?: number;
-}): Promise<void> {
+export async function updateSimulationConfig(
+  config: DashboardScenarioPayload,
+): Promise<void> {
   await post("/api/simulation/config", config);
 }
 
@@ -136,6 +127,16 @@ export async function runMonteCarlo(params: {
   duration?: number;
 }): Promise<unknown> {
   return post("/api/v1/study/validate/monte-carlo", params);
+}
+
+/** Repeats the dashboard's own scenario over `numSeeds` fresh traffic
+ *  patterns (both controls share each pattern) and returns the backend's
+ *  Monte Carlo statistics for it. */
+export async function runReliabilityCheck<T>(
+  scenario: DashboardScenarioPayload,
+  numSeeds: number,
+): Promise<T> {
+  return post("/api/v1/study/validate/monte-carlo", { numSeeds, scenario });
 }
 
 /** Compact reproducibility record of a saved run

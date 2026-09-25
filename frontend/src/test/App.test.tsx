@@ -10,7 +10,7 @@
  * a re-test of the stream client (see websocket.test.ts) or the hook (see
  * useWebSocketSnapshot.test.tsx).
  */
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -175,12 +175,14 @@ describe("App", () => {
       expect(updateSimulationConfig).toHaveBeenCalled();
     });
 
-    const roundaboutControl = screen.getByRole("link", {
-      name: /roundabout only/i,
-    });
-
+    // Single-control views live in the Research lab.
+    await user.click(screen.getByRole("link", { name: "Research lab" }));
     updateSimulationConfig.mockClear();
-    await user.click(roundaboutControl);
+    await user.click(
+      within(
+        screen.getByRole("navigation", { name: "Research tools" }),
+      ).getByRole("link", { name: /roundabout on its own/i }),
+    );
 
     await waitFor(() => {
       expect(updateSimulationConfig).toHaveBeenCalled();
@@ -214,7 +216,7 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(screen.getByRole("link", { name: /history/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Saved" })).toHaveAttribute(
       "aria-current",
       "page",
     );
@@ -224,18 +226,33 @@ describe("App", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(screen.getByRole("link", { name: /volume analysis/i }));
+    await user.click(screen.getByRole("link", { name: "Research lab" }));
+    expect(window.location.pathname).toBe("/app/research");
+    expect(
+      screen.getByRole("heading", { name: /tools for deeper analysis/i }),
+    ).toBeInTheDocument();
+
+    const researchNav = () =>
+      within(screen.getByRole("navigation", { name: "Research tools" }));
+    await user.click(
+      researchNav().getByRole("link", { name: /traffic-level sweep/i }),
+    );
     expect(window.location.pathname).toBe("/app/volume");
     expect(
-      screen.getByRole("link", { name: /volume analysis/i }),
+      researchNav().getByRole("link", { name: /traffic-level sweep/i }),
     ).toHaveAttribute("aria-current", "page");
+    // The section tab stays current for every research tool.
+    expect(screen.getByRole("link", { name: "Research lab" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
 
     act(() => {
       window.history.replaceState(null, "", "/app/signal");
       window.dispatchEvent(new PopStateEvent("popstate"));
     });
     expect(
-      screen.getByRole("link", { name: /fixed-time signal only/i }),
+      researchNav().getByRole("link", { name: /signal on its own/i }),
     ).toHaveAttribute("aria-current", "page");
   });
 
@@ -247,9 +264,10 @@ describe("App", () => {
     await waitFor(() => {
       expect(window.location.pathname).toBe("/app/comparative");
     });
-    expect(
-      screen.getByRole("link", { name: /comparative view/i }),
-    ).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Compare" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
   });
 
   it("renders a not-found page for unknown routes instead of a dashboard", () => {
@@ -273,7 +291,7 @@ describe("App", () => {
       await screen.findByRole("heading", { name: "Saved roundabout" }),
     ).toBeInTheDocument();
     expect(getRunRecord).toHaveBeenCalledWith("run_1");
-    expect(screen.getByRole("link", { name: /history/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Saved" })).toHaveAttribute(
       "aria-current",
       "page",
     );

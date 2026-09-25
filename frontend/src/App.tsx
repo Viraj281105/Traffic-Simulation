@@ -1,4 +1,10 @@
-import { useState, useEffect, useId, useLayoutEffect } from "react";
+import {
+  useState,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import type { ReactNode } from "react";
 import { useWebSocketSnapshot } from "./hooks/useWebSocketSnapshot";
 import { useSimulationPolling } from "./hooks/useSimulationPolling";
@@ -16,10 +22,22 @@ import { ValidationDashboard } from "./components/ValidationDashboard";
 import { ConfigurationSidebar } from "./components/ConfigurationSidebar";
 import { RunPage } from "./components/RunPage";
 import { ComparePage } from "./components/ComparePage";
+import { ResearchHub } from "./components/ResearchHub";
+import { ScenarioSetup } from "./components/guided/ScenarioSetup";
+import { LiveGuide } from "./components/guided/LiveGuide";
+import { ResultsReport } from "./components/guided/ResultsReport";
+import {
+  contextsOf,
+  sessionRunFrom,
+  type SessionRun,
+} from "./components/guided/comparisonRun";
+import { StepNav, type GuidedStage } from "./components/guided/StepNav";
+import "./components/guided/Guided.css";
 import { Sun, Moon } from "lucide-react";
 import type { SimulationConfigValues } from "./types/config";
-import { DEFAULT_CONFIG_VALUES } from "./types/config";
+import { DEFAULT_CONFIG_VALUES, dashboardPayload } from "./types/config";
 import { saveReplay, updateSimulationConfig } from "./services/api";
+import { hasResults, sideSummary } from "./metrics/plainLanguage";
 import type {
   LiveSnapshot,
   DualSnapshot,
@@ -74,6 +92,42 @@ const SIMULATION_VIEWS: ReadonlySet<ViewMode> = new Set([
   "single",
 ]);
 
+/** Single-control views: specialist tools with the full live metric panel,
+ *  display toggles and scenario settings in the header. */
+const SINGLE_VIEWS: ReadonlySet<ViewMode> = new Set([
+  "signal",
+  "roundabout",
+  "single",
+]);
+
+/** The three places in the product. Compare is the guided path everyone
+ *  starts on; Saved holds kept comparisons; the Research lab gathers every
+ *  specialist tool. */
+type Section = "compare" | "saved" | "research";
+
+const RESEARCH_VIEWS: ReadonlySet<ViewMode> = new Set([
+  "research",
+  "volume",
+  "validation",
+  "signal",
+  "roundabout",
+  "single",
+]);
+
+function sectionOf(view: ViewMode): Section {
+  if (view === "history") return "saved";
+  if (RESEARCH_VIEWS.has(view)) return "research";
+  return "compare";
+}
+
+const RESEARCH_TABS: { view: RoutedView; label: string }[] = [
+  { view: "research", label: "Overview" },
+  { view: "volume", label: "Traffic-level sweep" },
+  { view: "validation", label: "Statistical validation" },
+  { view: "signal", label: "Signal on its own" },
+  { view: "roundabout", label: "Roundabout on its own" },
+];
+
 const newSeed = () => Math.floor(Math.random() * 1000000) + 1;
 
 /** Restores the exact UI configuration a run was saved with, falling back to
@@ -92,6 +146,13 @@ function configFromReplay(
     duration: replay.config.simulation?.duration ?? current.duration,
     randomSeed: replay.config.simulation?.randomSeed ?? current.randomSeed,
   };
+}
+
+function sameConfig(a: SimulationConfigValues, b: SimulationConfigValues) {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<
+    keyof SimulationConfigValues
+  >;
+  return [...keys].every((k) => (a[k] ?? null) === (b[k] ?? null));
 }
 
 type HistoryPage = { kind: "run"; runId: string } | { kind: "compare" };
@@ -188,35 +249,50 @@ function Dashboard({
   const isDual = viewMode === "comparative";
   const isSimulationView = SIMULATION_VIEWS.has(viewMode);
 
+  // A guided "Run the comparison" changes the config and must start playing
+  // only once the backend holds it: a config update resets the simulation,
+  // so playing first would run (and then lose) the old scenario.
+  const syncVersion = useRef(0);
+  const playAfterSync = useRef(false);
+  const playRef = useRef(play);
+  useEffect(() => {
+    playRef.current = play;
+  });
+
   // Sync config with backend on change
   useEffect(() => {
     const intersectionType =
       viewMode === "roundabout" ? "roundabout" : "fixed_time_signal";
-    updateSimulationConfig({
-      intersectionType,
-      intersectionSize,
-      laneWidth,
-      lanesNorth: lanes,
-      lanesSouth: lanes,
-      lanesEast: lanes,
-      lanesWest: lanes,
-      arrivalRate,
-      duration,
-      randomSeed,
-      greenDuration,
-      yellowDuration,
-      allRedDuration,
-      criticalGap,
-      followUpTime,
-      ...(nsGreenDuration !== null && nsGreenDuration !== undefined
-        ? { nsGreenDuration }
-        : {}),
-      ...(ewGreenDuration !== null && ewGreenDuration !== undefined
-        ? { ewGreenDuration }
-        : {}),
-    }).catch((err: unknown) => {
-      console.error("Failed to update backend config:", err);
-    });
+    const version = ++syncVersion.current;
+    updateSimulationConfig(
+      dashboardPayload(
+        {
+          lanes,
+          laneWidth,
+          arrivalRate,
+          duration,
+          randomSeed,
+          greenDuration,
+          yellowDuration,
+          allRedDuration,
+          criticalGap,
+          followUpTime,
+          nsGreenDuration,
+          ewGreenDuration,
+        },
+        intersectionType,
+      ),
+    )
+      .then(() => {
+        if (version === syncVersion.current && playAfterSync.current) {
+          playAfterSync.current = false;
+          playRef.current().catch(() => {});
+        }
+      })
+      .catch((err: unknown) => {
+        playAfterSync.current = false;
+        console.error("Failed to update backend config:", err);
+      });
   }, [
     viewMode,
     lanes,
@@ -238,6 +314,45 @@ function Dashboard({
     setActiveReplay(null);
     setConfigValues(newConfig);
     showToast("Scenario applied — the simulation was reset with it.");
+  };
+
+  // ── Guided comparison (the Compare section) ─────────────────────────────
+  const [stage, setStage] = useState<GuidedStage>("setup");
+  const [sessionRuns, setSessionRuns] = useState<SessionRun[]>([]);
+  const currentRunId = JSON.stringify(configValues);
+  const dualComplete = dualSnapshot?.signal.simulationStatus === "completed";
+  const liveResultsReady = (() => {
+    if (!dualSnapshot) return false;
+    const { signal, roundabout } = contextsOf(dualSnapshot);
+    return hasResults(sideSummary(signal), sideSummary(roundabout));
+  })();
+  const currentRun =
+    dualSnapshot && liveResultsReady && !activeReplay
+      ? sessionRunFrom(currentRunId, configValues, dualSnapshot, dualComplete)
+      : null;
+  const shownSessionRuns = [
+    ...sessionRuns.filter((run) => run.id !== currentRunId),
+    ...(currentRun ? [currentRun] : []),
+  ];
+
+  /** Keeps the comparison on screen in the session table before the next
+   *  scenario replaces it. */
+  const recordCurrentRun = () => {
+    const run = currentRun;
+    if (!run) return;
+    setSessionRuns((prev) => [...prev.filter((r) => r.id !== run.id), run]);
+  };
+
+  const handleGuidedRun = (next: SimulationConfigValues) => {
+    recordCurrentRun();
+    setActiveReplay(null);
+    setStage("watch");
+    if (sameConfig(next, configValues)) {
+      if (!isPlaying) play().catch(() => {});
+      return;
+    }
+    playAfterSync.current = true;
+    setConfigValues(next);
   };
 
   // Map controls to appropriate hooks based on the active view mode
@@ -373,6 +488,7 @@ function Dashboard({
       replay.metrics.signal !== undefined &&
       replay.metrics.roundabout !== undefined;
     if (replayIsDual) {
+      setStage("results");
       setViewMode("comparative");
     } else {
       const type = replay.config.geometry?.intersectionType;
@@ -392,6 +508,55 @@ function Dashboard({
       ? ({ metrics: activeReplay.metrics } as unknown as LiveSnapshot)
       : null;
 
+  const section = sectionOf(viewMode);
+  const isSingle = SINGLE_VIEWS.has(viewMode);
+  const guidedResultsAvailable = replayDual !== null || liveResultsReady;
+  const warmupSeconds = dualSnapshot?.signal.warmupTime ?? null;
+
+  const comparisonMaps = (
+    <div className="comparison-maps-row">
+      <section className="comparison-column" aria-labelledby="col-signal-title">
+        <div className="column-header">
+          <h2 className="column-title" id="col-signal-title">
+            <span aria-hidden="true">🚦 </span>Traffic signal
+          </h2>
+        </div>
+        <div className="canvas-wrapper">
+          <IntersectionMap
+            snapshot={dualSnapshot?.signal ?? null}
+            lanesNorth={lanes}
+            lanesSouth={lanes}
+            lanesEast={lanes}
+            lanesWest={lanes}
+            laneWidth={laneWidth}
+            showCrosswalks={true}
+            showStopLines={showStopLines}
+            debug={debug}
+          />
+        </div>
+      </section>
+      <section
+        className="comparison-column"
+        aria-labelledby="col-roundabout-title"
+      >
+        <div className="column-header">
+          <h2 className="column-title" id="col-roundabout-title">
+            <span aria-hidden="true">🔄 </span>Roundabout
+          </h2>
+        </div>
+        <div className="canvas-wrapper">
+          <RoundaboutMap
+            snapshot={dualSnapshot?.roundabout ?? null}
+            laneWidth={laneWidth}
+            lanes={lanes}
+            showCrosswalks={false}
+            debug={debug}
+          />
+        </div>
+      </section>
+    </div>
+  );
+
   return (
     <div className="app">
       {/* ── Header ────────────────────────────────────────────────────── */}
@@ -404,30 +569,20 @@ function Dashboard({
           </a>
         </div>
 
-        {/* View Mode Tabs */}
-        <nav className="header-tabs" aria-label="Views">
-          <ViewTab view="signal" active={viewMode}>
-            🚦 Fixed-Time Signal Only
+        <nav className="header-tabs" aria-label="Main">
+          <ViewTab view="comparative" current={section === "compare"}>
+            Compare
           </ViewTab>
-          <ViewTab view="roundabout" active={viewMode}>
-            🔄 Roundabout Only
+          <ViewTab view="history" current={section === "saved"}>
+            Saved
           </ViewTab>
-          <ViewTab view="comparative" active={viewMode}>
-            📊 Comparative View
-          </ViewTab>
-          <ViewTab view="history" active={viewMode}>
-            📚 History
-          </ViewTab>
-          <ViewTab view="volume" active={viewMode}>
-            📈 Volume Analysis
-          </ViewTab>
-          <ViewTab view="validation" active={viewMode}>
-            🔬 Validation
+          <ViewTab view="research" current={section === "research"}>
+            Research lab
           </ViewTab>
         </nav>
 
         <div className="header-right">
-          {isSimulationView && (
+          {isSingle && (
             <button
               type="button"
               className={`config-toggle-btn ${configOpen ? "active" : ""}`}
@@ -462,8 +617,33 @@ function Dashboard({
         </div>
       </header>
 
-      {/* ── Map display toggles & seed ───────────────────────────────── */}
-      {isSimulationView && (
+      {/* ── Section sub-navigation ───────────────────────────────────── */}
+      {section === "research" && (
+        <nav className="sub-nav" aria-label="Research tools">
+          {RESEARCH_TABS.map((tab) => (
+            <ViewTab
+              key={tab.view}
+              view={tab.view}
+              current={tab.view === viewMode}
+            >
+              {tab.label}
+            </ViewTab>
+          ))}
+        </nav>
+      )}
+      {section === "compare" && (
+        <StepNav
+          stage={stage}
+          resultsAvailable={guidedResultsAvailable}
+          onChange={(next) => {
+            if (next !== "results") setActiveReplay(null);
+            setStage(next);
+          }}
+        />
+      )}
+
+      {/* ── Map display toggles & seed (single-control tools) ────────── */}
+      {isSingle && (
         <div className="quick-toggles-bar">
           {viewMode !== "roundabout" && (
             <>
@@ -496,8 +676,8 @@ function Dashboard({
         </div>
       )}
 
-      {/* ── Interactive Configuration Sidebar ────────────────────────── */}
-      {isSimulationView && (
+      {/* ── Scenario settings for the single-control tools ───────────── */}
+      {isSingle && (
         <ConfigurationSidebar
           isOpen={configOpen}
           onClose={() => {
@@ -505,84 +685,100 @@ function Dashboard({
           }}
           config={configValues}
           onApply={handleApplyConfig}
-          mode={
-            viewMode === "roundabout"
-              ? "roundabout"
-              : viewMode === "comparative"
-                ? "comparative"
-                : "signal"
-          }
+          mode={viewMode === "roundabout" ? "roundabout" : "signal"}
         />
       )}
 
       {/* ── Main content ──────────────────────────────────────────────── */}
       {viewMode === "comparative" ? (
-        <main className="app-main comparison-layout">
-          <h1 className="sr-only">Comparative view: signal vs roundabout</h1>
-          <div className="comparison-maps-row">
-            <section
-              className="comparison-column"
-              aria-labelledby="col-signal-title"
-            >
-              <div className="column-header">
-                <h2 className="column-title" id="col-signal-title">
-                  <span aria-hidden="true">🚦 </span>Fixed-time signal
-                </h2>
-              </div>
-              <div className="canvas-wrapper">
-                <IntersectionMap
-                  snapshot={dualSnapshot?.signal ?? null}
-                  lanesNorth={lanes}
-                  lanesSouth={lanes}
-                  lanesEast={lanes}
-                  lanesWest={lanes}
-                  laneWidth={laneWidth}
-                  showCrosswalks={true}
-                  showStopLines={showStopLines}
-                  debug={debug}
-                />
-              </div>
-            </section>
-            <section
-              className="comparison-column"
-              aria-labelledby="col-roundabout-title"
-            >
-              <div className="column-header">
-                <h2 className="column-title" id="col-roundabout-title">
-                  <span aria-hidden="true">🔄 </span>Modern roundabout
-                </h2>
-              </div>
-              <div className="canvas-wrapper">
-                <RoundaboutMap
-                  snapshot={dualSnapshot?.roundabout ?? null}
-                  laneWidth={laneWidth}
-                  lanes={lanes}
-                  showCrosswalks={false}
-                  debug={debug}
-                />
-              </div>
-            </section>
-          </div>
-          <ComparisonPanel
-            snapshot={replayDual ?? dualSnapshot}
-            connectionStatus={activeConnectionStatus}
-            replayName={replayDual ? (activeReplay?.name ?? null) : null}
-            canSave={canSave}
-            onSave={handleSaveHistory}
-            onOpenDetails={() => {
-              setShowAnalyticsModal(true);
-            }}
-          />
-          {showAnalyticsModal && (
-            <ComparativeDashboard
-              snapshot={replayDual ?? dualSnapshot}
-              replayName={replayDual ? (activeReplay?.name ?? null) : null}
-              onClose={() => {
-                setShowAnalyticsModal(false);
-              }}
+        stage === "setup" ? (
+          <main className="app-main full-screen page-scroll">
+            <ScenarioSetup
+              config={configValues}
+              onRun={handleGuidedRun}
+              runInProgress={
+                !activeReplay && liveTimestamp > 0 && !dualComplete
+              }
             />
-          )}
-        </main>
+          </main>
+        ) : stage === "results" ? (
+          <main className="app-main full-screen page-scroll">
+            <ResultsReport
+              snapshot={replayDual ?? dualSnapshot}
+              config={configValues}
+              replayName={replayDual ? (activeReplay?.name ?? null) : null}
+              complete={replayDual === null && dualComplete}
+              running={replayDual === null && activeIsPlaying}
+              warmupSeconds={replayDual ? null : warmupSeconds}
+              elapsedSeconds={
+                replayDual
+                  ? (activeReplay?.config.simulation?.elapsed ?? null)
+                  : (dualSnapshot?.elapsed ?? null)
+              }
+              canSave={canSave}
+              onSave={handleSaveHistory}
+              onWatch={() => {
+                setActiveReplay(null);
+                setStage("watch");
+              }}
+              onChangeScenario={() => {
+                setActiveReplay(null);
+                setStage("setup");
+              }}
+              onTryScenario={handleGuidedRun}
+              onOpenAnalytics={() => {
+                setShowAnalyticsModal(true);
+              }}
+              sessionRuns={shownSessionRuns}
+              currentRunId={replayDual ? null : currentRunId}
+            />
+            {showAnalyticsModal && (
+              <ComparativeDashboard
+                snapshot={replayDual ?? dualSnapshot}
+                replayName={replayDual ? (activeReplay?.name ?? null) : null}
+                onClose={() => {
+                  setShowAnalyticsModal(false);
+                }}
+              />
+            )}
+          </main>
+        ) : (
+          <main className="app-main comparison-layout">
+            <h1 className="sr-only">
+              Watch the traffic signal and the roundabout run side by side
+            </h1>
+            {comparisonMaps}
+            <LiveGuide
+              snapshot={dualSnapshot}
+              durationSeconds={duration}
+              connectionStatus={activeConnectionStatus}
+              onSeeResults={() => {
+                setStage("results");
+              }}
+              detailedPanel={
+                <ComparisonPanel
+                  snapshot={dualSnapshot}
+                  connectionStatus={activeConnectionStatus}
+                  replayName={null}
+                  canSave={canSave}
+                  onSave={handleSaveHistory}
+                  onOpenDetails={() => {
+                    setShowAnalyticsModal(true);
+                  }}
+                />
+              }
+            />
+            {showAnalyticsModal && (
+              <ComparativeDashboard
+                snapshot={dualSnapshot}
+                replayName={null}
+                onClose={() => {
+                  setShowAnalyticsModal(false);
+                }}
+              />
+            )}
+          </main>
+        )
       ) : viewMode === "history" ? (
         <main className="app-main full-screen page-scroll">
           {page?.kind === "run" ? (
@@ -596,6 +792,10 @@ function Dashboard({
           ) : (
             <HistoryDashboard onReplay={handleReplay} />
           )}
+        </main>
+      ) : viewMode === "research" ? (
+        <main className="app-main full-screen page-scroll">
+          <ResearchHub />
         </main>
       ) : viewMode === "volume" ? (
         <main className="app-main full-screen page-scroll">
@@ -666,7 +866,7 @@ function Dashboard({
       )}
 
       {/* ── Playback controls (live simulation views only) ───────────── */}
-      {isSimulationView && (
+      {isSimulationView && (isSingle || stage === "watch") && (
         <footer className="app-footer">
           <PlaybackControls
             snapshot={playbackEnvelope}
@@ -674,6 +874,8 @@ function Dashboard({
             onPlay={handlePlay}
             onPause={handlePause}
             onStop={handleStop}
+            simple={!isSingle}
+            durationSeconds={duration}
           />
           {activeError && (
             <div className="error-banner" role="alert">
@@ -699,15 +901,14 @@ function Dashboard({
  *  (new tab/window) to the browser. */
 function ViewTab({
   view,
-  active,
+  current: isActive,
   children,
 }: {
   view: RoutedView;
-  active: ViewMode;
+  current: boolean;
   children: ReactNode;
 }) {
   const href = VIEW_ROUTES[view];
-  const isActive = view === active;
   return (
     <a
       href={href}
@@ -753,7 +954,7 @@ function NotFound({ path }: { path: string }) {
               followLink(event, home);
             }}
           >
-            Open the simulation dashboard
+            Start a comparison
           </a>
           <a href="/" className="pb-btn pb-secondary">
             Back to the landing page
