@@ -1,7 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import "./HistoryDashboard.css";
 import "./RunPages.css";
-import { Loader } from "./ui/Loader";
 import {
   ApiError,
   getRunRecord,
@@ -34,6 +33,7 @@ import {
   runPath,
   useSearch,
 } from "../routing";
+import { LoaderMark } from "./ui/Loader";
 
 type Loaded =
   | { kind: "ready"; record: RunRecord }
@@ -86,7 +86,7 @@ export function ComparePage() {
   );
 
   return (
-    <div className="uf-page uf-page--wide history-dashboard run-page">
+    <div className="history-dashboard run-page">
       <a
         className="run-back-link"
         href={VIEW_ROUTES.history}
@@ -108,7 +108,10 @@ export function ComparePage() {
       <RunPicker runIds={runIds} onChange={setRuns} />
 
       {runIds.length > 0 && current === null ? (
-        <Loader label="Loading runs" />
+        <p className="history-status is-loading" role="status">
+          <LoaderMark />
+          Loading runs…
+        </p>
       ) : (
         <>
           {missing.length > 0 && (

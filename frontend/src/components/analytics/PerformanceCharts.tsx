@@ -263,7 +263,7 @@ export function PerformanceCharts({
                 className="low-sample-warning"
                 title="Fewer than 20 vehicles exited"
               >
-                Low sample (n &lt; 20)
+                ⚠️ Low sample (n &lt; 20)
               </span>
             ) : (
               "P95 / Median travel time"
@@ -281,7 +281,7 @@ export function PerformanceCharts({
             setActiveTab("delays");
           }}
         >
-          Delay (mean, median, P95)
+          📈 Delay Dynamics (Avg, Median, P95)
         </button>
         <button
           type="button"
@@ -290,7 +290,7 @@ export function PerformanceCharts({
             setActiveTab("queuedTime");
           }}
         >
-          Queued time
+          ⏱️ Queued Time Trend
         </button>
         <button
           type="button"
@@ -299,7 +299,7 @@ export function PerformanceCharts({
             setActiveTab("served");
           }}
         >
-          Vehicles served
+          📊 Cumulative Vehicles Served
         </button>
         <button
           type="button"
@@ -308,7 +308,7 @@ export function PerformanceCharts({
             setActiveTab("throughputRate");
           }}
         >
-          Throughput over time
+          🚀 Throughput Rate
         </button>
         <button
           type="button"
@@ -317,7 +317,7 @@ export function PerformanceCharts({
             setActiveTab("speed");
           }}
         >
-          Mean travel speed
+          ⚡ Mean Travel Speed (m/s)
         </button>
         <button
           type="button"
@@ -326,7 +326,7 @@ export function PerformanceCharts({
             setActiveTab("reliability");
           }}
         >
-          Planning time index
+          🎯 Planning Time Index (PTI)
         </button>
       </div>
 

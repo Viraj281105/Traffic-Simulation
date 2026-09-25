@@ -65,7 +65,7 @@ export function SafetyTimelineVisualizer({
           className={`collision-card signal ${sigCollisions > 0 ? "has-events" : "zero-events"}`}
         >
           <div className="collision-card-header">
-            <span className="control-pill signal">Traffic signal</span>
+            <span className="control-pill signal">🚦 Fixed-Time Signal</span>
             <span className="collision-type">Distinct Overlaps</span>
           </div>
           <div className="collision-stat-body">
@@ -82,7 +82,9 @@ export function SafetyTimelineVisualizer({
           className={`collision-card roundabout ${rndCollisions > 0 ? "has-events" : "zero-events"}`}
         >
           <div className="collision-card-header">
-            <span className="control-pill roundabout">Roundabout</span>
+            <span className="control-pill roundabout">
+              🔄 Modern Roundabout
+            </span>
             <span className="collision-type">Distinct Overlaps</span>
           </div>
           <div className="collision-stat-body">
@@ -104,7 +106,7 @@ export function SafetyTimelineVisualizer({
             {collisionEvents.map((evt) => (
               <span key={evt.id} className={`timeline-chip ${evt.control}`}>
                 <strong>
-                  {evt.control === "signal" ? "Signal" : "Roundabout"}
+                  {evt.control === "signal" ? "🚦 Signal" : "🔄 Roundabout"}
                 </strong>{" "}
                 at {evt.timeFormatted} (count #{evt.newCount})
               </span>
@@ -249,6 +251,7 @@ export function SafetyTimelineVisualizer({
 
       {/* Mandatory Surrogate Safety Disclaimer Banner */}
       <div className="safety-disclaimer-banner">
+        <span className="disclaimer-icon">ℹ️</span>
         <p className="disclaimer-text">
           <strong>Surrogate Safety Measures Notice:</strong> TTC and PET are
           exploratory research diagnostics, not a safety score, a count of real

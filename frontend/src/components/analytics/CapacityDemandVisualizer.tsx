@@ -75,7 +75,7 @@ export function CapacityDemandVisualizer({
           {/* Signal Balance */}
           <div className="demand-bar-row">
             <div className="demand-row-meta">
-              <span className="control-label signal">Traffic signal</span>
+              <span className="control-label signal">🚦 Fixed-Time Signal</span>
               <span className="rate-badge">
                 {`${sigServedRate.toFixed(1)}% exited`}
               </span>
@@ -103,7 +103,9 @@ export function CapacityDemandVisualizer({
           {/* Roundabout Balance */}
           <div className="demand-bar-row">
             <div className="demand-row-meta">
-              <span className="control-label roundabout">Roundabout</span>
+              <span className="control-label roundabout">
+                🔄 Modern Roundabout
+              </span>
               <span className="rate-badge">
                 {`${rndServedRate.toFixed(1)}% exited`}
               </span>

@@ -466,7 +466,7 @@ function drawDebugLabel(
   ctx.fillStyle = "rgba(15,20,24,.86)";
   ctx.fillRect(width - 200, 14, 186, 38);
   ctx.fillStyle = "#fff";
-  ctx.font = "11px monospace";
+  ctx.font = '11px "Roboto Mono", monospace';
   ctx.fillText(
     `ROUNDABOUT  T ${(snapshot?.timestamp ?? 0).toFixed(1)}s`,
     width - 188,

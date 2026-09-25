@@ -1,8 +1,32 @@
-/* App document base. Typography, colour and reset come from
-   styles/tokens.css; this only sizes the root for the full-height shell. */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 html,
-body,
+body {
+  width: 100%;
+  height: 100%;
+  background: #1a1a1a;
+  color: #eee;
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 #root {
   width: 100%;
   height: 100%;
+}
+
+button {
+  font-family: var(--font-sans);
+}
+
+input,
+textarea,
+select {
+  font-family: var(--font-sans);
 }

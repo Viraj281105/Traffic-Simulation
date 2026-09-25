@@ -28,8 +28,8 @@
 .metric-group > summary::after {
   content: "▸";
   color: var(--text-muted);
-  font-size: var(--fs-caption);
-  transition: transform var(--dur-fast) ease;
+  font-size: 11px;
+  transition: transform 0.15s ease;
 }
 
 .metric-group[open] > summary::after {
@@ -43,17 +43,21 @@
 
 .metric-group-title {
   margin: 0;
-  font-size: var(--fs-caption);
-  font-weight: var(--fw-medium);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--text-secondary);
 }
 
 .metric-group-blurb {
   margin: 4px 0 8px;
-  font-size: var(--fs-caption);
+  font-size: 11px;
   line-height: 1.4;
   color: var(--text-muted);
 }
+
+/* ── Single run: definition list ─────────────────────────────────────── */
 
 .metric-dl {
   margin: 0;
@@ -75,16 +79,16 @@
 }
 
 .metric-dl-row dt {
-  font-size: var(--fs-caption);
+  font-size: 12px;
   color: var(--text-secondary);
   min-width: 0;
 }
 
 .metric-dl-row dd {
   margin: 0;
-  font-variant-numeric: tabular-nums;
-  font-size: var(--fs-caption);
-  font-weight: var(--fw-medium);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
   color: var(--text-primary);
   text-align: right;
   white-space: nowrap;
@@ -96,19 +100,22 @@
 .metric-dl-row dd.is-empty,
 .comparison-grid td.is-empty {
   color: var(--text-muted);
-  font-weight: var(--fw-regular);
+  font-weight: 400;
 }
 
 .metric-note {
-  font-size: var(--fs-caption);
-  font-weight: var(--fw-regular);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 400;
   color: var(--text-muted);
 }
+
+/* ── Comparison: table ───────────────────────────────────────────────── */
 
 .comparison-grid {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--fs-caption);
+  font-size: 12px;
   table-layout: fixed;
 }
 
@@ -121,8 +128,10 @@
 }
 
 .comparison-grid thead th {
-  font-size: var(--fs-caption);
-  font-weight: var(--fw-medium);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border-color);
 }
@@ -130,24 +139,24 @@
 .comparison-grid th[scope="row"],
 .comparison-grid thead th:first-child {
   text-align: left;
-  font-weight: var(--fw-regular);
+  font-weight: 400;
   color: var(--text-secondary);
   width: 40%;
 }
 
 .comparison-grid thead th:first-child {
-  font-weight: var(--fw-medium);
+  font-weight: 600;
 }
 
 .comparison-grid td {
-  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
   color: var(--text-primary);
-  font-weight: var(--fw-medium);
+  font-weight: 600;
 }
 
 .comparison-grid td.diff {
   color: var(--text-secondary);
-  font-weight: var(--fw-regular);
+  font-weight: 400;
 }
 
 .comparison-grid tbody tr:last-child th,
@@ -156,7 +165,7 @@
 }
 
 .metric-sections.compact .comparison-grid {
-  font-size: var(--fs-caption);
+  font-size: 11px;
 }
 
 .metric-sections.compact .comparison-grid th[scope="row"] {
@@ -173,7 +182,8 @@
 }
 
 .metric-sections.compact .comparison-grid thead th {
-  font-size: var(--fs-caption);
+  font-size: 9px;
+  letter-spacing: 0.02em;
 }
 
 .metric-sections.compact .comparison-grid th,
@@ -185,6 +195,8 @@
   color: var(--text-muted);
   white-space: nowrap;
 }
+
+/* ── Stored runs: any number of columns ──────────────────────────────── */
 
 .multi-run-scroll {
   overflow-x: auto;
@@ -203,7 +215,9 @@
 
 .multi-run-grid thead th {
   vertical-align: bottom;
-  font-size: var(--fs-caption);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11px;
 }
 
 .multi-run-grid td {
@@ -213,14 +227,16 @@
 
 .multi-run-diff {
   display: block;
-  font-size: var(--fs-caption);
-  font-weight: var(--fw-regular);
+  font-size: 10px;
+  font-weight: 400;
   color: var(--text-secondary);
 }
 
 .baseline-tag {
   display: block;
-  font-size: var(--fs-caption);
-  font-weight: var(--fw-medium);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--accent-blue);
 }

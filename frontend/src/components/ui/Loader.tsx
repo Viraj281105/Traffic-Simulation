@@ -1,40 +1,19 @@
 /**
- * UrbanFlow's loading indicator: a small roundabout with three vehicles
- * circulating. One component, used wherever real work is in progress —
- * never shown for a fixed time, and never used to delay a ready page.
+ * UrbanFlow's loading mark: a small roundabout with three vehicles
+ * circulating. It replaces a plain spinner inside an existing loading
+ * message and is shown only while real work is in progress.
  */
-interface LoaderProps {
-  /** What is being waited for, e.g. "Loading saved runs". */
-  label?: string;
-  /** Layout: centred block (default), filling its container, or inline. */
-  layout?: "block" | "fill" | "inline";
-  /** Diagram size in px. */
-  size?: number;
-}
-
-export function Loader({
-  label = "Loading",
-  layout = "block",
-  size,
-}: LoaderProps) {
-  const px = size ?? (layout === "inline" ? 20 : 48);
-  const className = [
-    "uf-loader",
-    layout === "inline" ? "uf-loader--inline" : "",
-    layout === "fill" ? "uf-loader--fill" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+/** Just the animated roundabout mark, for an existing loading message that
+ *  already carries its own text (it replaces a plain spinner in place). */
+export function LoaderMark({ size = 20 }: { size?: number }) {
   return (
-    <div className={className} role="status" aria-live="polite">
-      <svg width={px} height={px} viewBox="0 0 48 48" aria-hidden="true">
-        {/* approach roads */}
+    <span className="uf-loader uf-loader-mark" aria-hidden="true">
+      <svg width={size} height={size} viewBox="0 0 48 48">
         <path
           className="uf-loader__road"
           d="M24 0v10M24 38v10M0 24h10M38 24h10"
           strokeWidth="3"
         />
-        {/* circulating carriageway */}
         <circle
           className="uf-loader__road"
           cx="24"
@@ -74,11 +53,6 @@ export function Loader({
           rx="1"
         />
       </svg>
-      {layout === "inline" ? (
-        <span className="uf-loader__label">{label}</span>
-      ) : (
-        <p className="uf-loader__label">{label}</p>
-      )}
-    </div>
+    </span>
   );
 }

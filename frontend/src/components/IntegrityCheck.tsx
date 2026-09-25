@@ -106,12 +106,7 @@ export function IntegrityCheck() {
                   : state.result.isDeterministic;
                 return (
                   <li key={g} className={ok && det ? "ok" : "bad"}>
-                    <span
-                      className={`uf-badge ${ok && det ? "uf-badge--success" : "uf-badge--danger"}`}
-                    >
-                      {ok && det ? "Pass" : "Fail"}
-                    </span>{" "}
-                    {GEOMETRY_NAME[g]}:{" "}
+                    {ok && det ? "✓" : "✗"} {GEOMETRY_NAME[g]}:{" "}
                     {ok
                       ? `all invariants held over ${state.result.ticksTested.toLocaleString()} ticks`
                       : "an invariant was violated"}
@@ -128,12 +123,8 @@ export function IntegrityCheck() {
                     state.result.signalGreenExclusivityValid ? "ok" : "bad"
                   }
                 >
-                  <span
-                    className={`uf-badge ${state.result.signalGreenExclusivityValid ? "uf-badge--success" : "uf-badge--danger"}`}
-                  >
-                    {state.result.signalGreenExclusivityValid ? "Pass" : "Fail"}
-                  </span>{" "}
-                  Signal: no conflicting greens at the same time
+                  {state.result.signalGreenExclusivityValid ? "✓" : "✗"} Signal:
+                  no conflicting greens at the same time
                 </li>
               )}
             </ul>

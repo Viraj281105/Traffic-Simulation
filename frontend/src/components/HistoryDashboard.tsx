@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import "./HistoryDashboard.css";
 import { deleteReplay, listReplays } from "../services/api";
 import type { RunReproducibility } from "../services/api";
@@ -12,14 +12,11 @@ import {
 } from "../routing";
 import { Tags } from "./RunTags";
 import "./RunPages.css";
-import { Loader } from "./ui/Loader";
-import { useDelayedFlag } from "../hooks/useDelayedFlag";
-import { Overlay } from "./ui/Overlay";
-import { PageHeader } from "./ui/PageHeader";
 
 import type { RunningMetrics } from "../types/simulation";
 import type { SimulationConfigValues } from "../types/config";
 import { parseStoredTimestamp } from "../utils/time";
+import { LoaderMark } from "./ui/Loader";
 
 export interface SavedReplay {
   id: string;
@@ -73,9 +70,9 @@ function seedOf(r: SavedReplay): string {
 }
 
 const KIND_LABEL = {
-  comparative: "Comparison",
-  roundabout: "Roundabout",
-  signal: "Signal",
+  comparative: "📊 Comparison",
+  roundabout: "🔄 Roundabout",
+  signal: "🚦 Signal",
 } as const;
 
 /** "S / R" for a comparison, the single value otherwise. */
@@ -100,6 +97,7 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   // Runs ticked for comparison, in the order they were ticked.
   const [selected, setSelected] = useState<string[]>([]);
+  const cancelRef = useRef<HTMLButtonElement>(null);
 
   // State changes happen in the fetch callbacks, never synchronously in the
   // effect; `loading` starts true for the initial fetch.
@@ -128,6 +126,18 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
     fetchReplays();
   };
 
+  useEffect(() => {
+    if (!deletingId) return;
+    cancelRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDeletingId(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [deletingId]);
+
   const confirmDelete = (id: string) => {
     setDeleteError(null);
     deleteReplay(id)
@@ -146,22 +156,19 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
   };
 
   const deleting = replays.find((r) => r.id === deletingId);
-  const showLoader = useDelayedFlag(loading);
 
   return (
-    <div className="uf-page uf-page--wide history-dashboard">
-      <PageHeader
-        eyebrow="Saved"
-        title="Saved runs"
-        lead={
-          <p>
-            Each saved run keeps its run ID, seed and code commit. Select a name
-            for its page (configuration, provenance, notes, exports). Opening a
-            run restores its settings and shows the metrics recorded when it was
-            saved; press Play to run it again.
-          </p>
-        }
-      />
+    <div className="history-dashboard">
+      <header className="history-header">
+        <h1>Saved runs</h1>
+        <p>
+          Runs saved from the simulation views, each with its run ID, seed and
+          the code commit it ran on. Select a name for the run&apos;s own page
+          (configuration, provenance, notes, exports). Opening one restores its
+          settings and seed and shows the metrics recorded when it was saved;
+          press Play to run it again.
+        </p>
+      </header>
 
       {replays.length > 0 && (
         <div className="run-actions">
@@ -188,28 +195,22 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
       )}
 
       {loading ? (
-        showLoader ? (
-          <Loader label="Loading saved runs" />
-        ) : (
-          <p className="sr-only" role="status">
-            Loading saved runs
-          </p>
-        )
+        <p className="history-status is-loading" role="status">
+          <LoaderMark />
+          Loading saved runs…
+        </p>
       ) : loadError ? (
-        <div
-          className="uf-callout uf-callout--danger history-status"
-          role="alert"
-        >
+        <div className="history-status error" role="alert">
           <p>{loadError}</p>
-          <button type="button" className="uf-btn uf-btn--sm" onClick={retry}>
+          <button type="button" className="pb-btn pb-secondary" onClick={retry}>
             Retry
           </button>
         </div>
       ) : replays.length === 0 ? (
-        <div className="uf-empty">
-          <p className="uf-empty__title">No saved runs yet</p>
-          <p className="uf-empty__text">
-            Run a comparison, pause it or let it finish, then choose “Save to
+        <div className="history-status empty">
+          <p>No saved runs yet.</p>
+          <p className="hint">
+            Run a simulation, pause it or let it finish, then choose “Save to
             History”.
           </p>
         </div>
@@ -348,21 +349,23 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
       )}
 
       {deletingId && (
-        <Overlay
-          role="alertdialog"
-          narrow
-          title="Delete this run?"
-          description={`“${deleting?.name ?? "This run"}” will be removed permanently.`}
-          closeLabel="Cancel"
-          onClose={() => {
-            setDeletingId(null);
-          }}
-          footer={
-            <>
+        <div className="modal-overlay">
+          <div
+            className="modal-content"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-title"
+            aria-describedby="delete-desc"
+          >
+            <h2 id="delete-title">Delete this run?</h2>
+            <p id="delete-desc">
+              “{deleting?.name ?? "This run"}” will be removed permanently.
+            </p>
+            <div className="modal-actions">
               <button
+                ref={cancelRef}
                 type="button"
-                className="uf-btn"
-                data-autofocus
+                className="pb-btn pb-secondary"
                 onClick={() => {
                   setDeletingId(null);
                 }}
@@ -371,21 +374,16 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
               </button>
               <button
                 type="button"
-                className="uf-btn uf-btn--danger"
+                className="pb-btn pb-danger"
                 onClick={() => {
                   confirmDelete(deletingId);
                 }}
               >
                 Delete
               </button>
-            </>
-          }
-        >
-          <p className="uf-help">
-            The run record, its notes and tags are deleted. This cannot be
-            undone.
-          </p>
-        </Overlay>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -63,13 +63,10 @@ describe("ValidationDashboard", () => {
   it("renders trigger panel with heading and button", () => {
     render(<ValidationDashboard />);
     expect(
-      screen.getByRole("heading", {
-        level: 1,
-        name: /Statistical validation/i,
-      }),
+      screen.getByText(/Statistical Validation Studio/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByTitle("Run the study with the current settings"),
+      screen.getByTitle("Execute Monte Carlo validation"),
     ).toBeInTheDocument();
   });
 
@@ -77,13 +74,11 @@ describe("ValidationDashboard", () => {
     vi.mocked(fetch).mockImplementationOnce(() => new Promise(() => undefined));
 
     render(<ValidationDashboard />);
-    fireEvent.click(
-      screen.getByTitle("Run the study with the current settings"),
-    );
+    fireEvent.click(screen.getByTitle("Execute Monte Carlo validation"));
 
     await waitFor(() =>
       expect(
-        screen.getByText(/Running 5 traffic patterns on both controls/i),
+        screen.getByText(/computing two-sample Welch statistics/i),
       ).toBeInTheDocument(),
     );
     expect(screen.getByRole("button", { name: /Running/i })).toBeDisabled();
@@ -95,9 +90,7 @@ describe("ValidationDashboard", () => {
     );
 
     const { container } = render(<ValidationDashboard />);
-    fireEvent.click(
-      screen.getByTitle("Run the study with the current settings"),
-    );
+    fireEvent.click(screen.getByTitle("Execute Monte Carlo validation"));
 
     // Wait for verdict card to appear
     await waitFor(
@@ -121,18 +114,18 @@ describe("ValidationDashboard", () => {
     );
 
     render(<ValidationDashboard />);
-    fireEvent.click(
-      screen.getByTitle("Run the study with the current settings"),
-    );
+    fireEvent.click(screen.getByTitle("Execute Monte Carlo validation"));
 
     // Switch to table tab
     await waitFor(() =>
-      expect(screen.getByText(/Per-pattern table/i)).toBeInTheDocument(),
+      expect(screen.getByText(/Per-Seed Raw Table/i)).toBeInTheDocument(),
     );
-    fireEvent.click(screen.getByText(/Per-pattern table/i));
+    fireEvent.click(screen.getByText(/Per-Seed Raw Table/i));
 
     await waitFor(() =>
-      expect(screen.getByText(/Per-pattern results/i)).toBeInTheDocument(),
+      expect(
+        screen.getByText(/Synchronized Raw Trials Dataset/i),
+      ).toBeInTheDocument(),
     );
     // Seed values in the table
     expect(screen.getByText(/1001/)).toBeInTheDocument();
@@ -145,9 +138,7 @@ describe("ValidationDashboard", () => {
     );
 
     render(<ValidationDashboard />);
-    fireEvent.click(
-      screen.getByTitle("Run the study with the current settings"),
-    );
+    fireEvent.click(screen.getByTitle("Execute Monte Carlo validation"));
 
     await waitFor(() =>
       expect(screen.getByText(/HTTP 503/i)).toBeInTheDocument(),
@@ -160,9 +151,7 @@ describe("ValidationDashboard", () => {
     );
 
     render(<ValidationDashboard />);
-    fireEvent.click(
-      screen.getByTitle("Run the study with the current settings"),
-    );
+    fireEvent.click(screen.getByTitle("Execute Monte Carlo validation"));
 
     await waitFor(() => {
       // Two 'Significant' tags for delay+throughput, one 'Not Significant' for queue
@@ -177,9 +166,7 @@ describe("ValidationDashboard", () => {
     );
 
     render(<ValidationDashboard />);
-    fireEvent.click(
-      screen.getByTitle("Run the study with the current settings"),
-    );
+    fireEvent.click(screen.getByTitle("Execute Monte Carlo validation"));
 
     await waitFor(() => {
       expect(screen.getByText("1.400")).toBeInTheDocument();
@@ -191,10 +178,8 @@ describe("ValidationDashboard", () => {
       new Response(JSON.stringify(payload), { status: 200 }),
     );
     render(<ValidationDashboard />);
-    fireEvent.click(
-      screen.getByTitle("Run the study with the current settings"),
-    );
-    await screen.findByText(/Result for each traffic pattern/i);
+    fireEvent.click(screen.getByTitle("Execute Monte Carlo validation"));
+    await screen.findByText(/Seed-by-Seed Comparative Distribution/i);
   };
 
   it("sends the chosen confidence level and shows the level the backend used", async () => {
@@ -273,7 +258,7 @@ describe("ValidationDashboard", () => {
 
   it("describes the method as Student-t, not 1.96", async () => {
     await runOnce(MOCK_VALIDATION);
-    fireEvent.click(screen.getByText(/How it was tested/i));
+    fireEvent.click(screen.getByText(/Statistical Method/i));
     expect(screen.getByText(/t\(N−1\)/)).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/1\.96 ×/);
   });

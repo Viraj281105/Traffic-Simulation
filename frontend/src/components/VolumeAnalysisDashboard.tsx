@@ -13,6 +13,15 @@ import {
 import { API_BASE_URL } from "../config";
 import type { RunningMetrics } from "../types/simulation";
 import "./VolumeAnalysisDashboard.css";
+import { CloseButton } from "./ui/CloseButton";
+import { LoaderMark } from "./ui/Loader";
+import { CHART_GRID, CHART_AXIS } from "../theme/chart";
+import {
+  SPEED_LIMITS,
+  TIER_PRESETS,
+  sweepRates,
+  type TierPresetId,
+} from "../types/demand";
 import { TierMetrics } from "./TierMetrics";
 import {
   LOS_THRESHOLDS,
@@ -22,17 +31,6 @@ import {
   type LosGrade,
   type Side,
 } from "../metrics/plainLanguage";
-import { SERIES, CHART_GRID, CHART_AXIS } from "../theme/chart";
-import { SlidersHorizontal } from "lucide-react";
-import { Loader } from "./ui/Loader";
-import { Overlay } from "./ui/Overlay";
-import { PageHeader } from "./ui/PageHeader";
-import {
-  SPEED_LIMITS,
-  TIER_PRESETS,
-  sweepRates,
-  type TierPresetId,
-} from "../types/demand";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -57,10 +55,10 @@ function tieText(t: TieTolerance | undefined): string {
 }
 
 function winnerLabel(w: SweepWinner): string {
-  if (w === "roundabout") return "Lower delay: roundabout";
-  if (w === "signal") return "Lower delay: signal";
-  if (w === "tie") return "About the same";
-  return "Inconclusive";
+  if (w === "roundabout") return "🔄 Lower delay: roundabout";
+  if (w === "signal") return "🚦 Lower delay: signal";
+  if (w === "tie") return "⚖️ About the same";
+  return "❔ Inconclusive";
 }
 
 interface SweepRun {
@@ -253,11 +251,11 @@ interface LOSInfo {
 }
 
 const LOS_COLORS: Record<LosGrade, { color: string; bg: string }> = {
-  A: { color: SERIES.success, bg: "rgba(16, 185, 129, 0.15)" },
-  B: { color: SERIES.success, bg: "rgba(52, 211, 153, 0.15)" },
+  A: { color: "#10b981", bg: "rgba(16, 185, 129, 0.15)" },
+  B: { color: "#34d399", bg: "rgba(52, 211, 153, 0.15)" },
   C: { color: "#fbbf24", bg: "rgba(251, 191, 36, 0.15)" },
   D: { color: "#f97316", bg: "rgba(249, 115, 22, 0.15)" },
-  E: { color: SERIES.danger, bg: "rgba(239, 68, 68, 0.15)" },
+  E: { color: "#ef4444", bg: "rgba(239, 68, 68, 0.15)" },
   F: { color: "#f43f5e", bg: "rgba(244, 63, 94, 0.2)" },
 };
 
@@ -380,7 +378,7 @@ const CustomTooltip = ({
         {payload.map((p) => {
           let extraInfo = "";
           if (
-            p.name === "Traffic signal" &&
+            p.name === "Fixed-Time Signal" &&
             raw?.signalDelayStdDev !== undefined &&
             unit === "s"
           ) {
@@ -394,7 +392,7 @@ const CustomTooltip = ({
                 : "";
             extraInfo = ` (±${raw.signalDelayStdDev.toFixed(2)}s, [${minStr}${maxStr}])`;
           } else if (
-            p.name === "Roundabout" &&
+            p.name === "Modern Roundabout" &&
             raw?.roundaboutDelayStdDev !== undefined &&
             unit === "s"
           ) {
@@ -408,13 +406,13 @@ const CustomTooltip = ({
                 : "";
             extraInfo = ` (±${raw.roundaboutDelayStdDev.toFixed(2)}s, [${minStr}${maxStr}])`;
           } else if (
-            p.name === "Traffic signal" &&
+            p.name === "Fixed-Time Signal" &&
             raw?.signalQueueMax !== undefined &&
             unit.includes("veh")
           ) {
             extraInfo = ` (Peak: ${raw.signalQueueMax.toFixed(1)})`;
           } else if (
-            p.name === "Roundabout" &&
+            p.name === "Modern Roundabout" &&
             raw?.roundaboutQueueMax !== undefined &&
             unit.includes("veh")
           ) {
@@ -467,7 +465,7 @@ const CustomTooltip = ({
                     ? "#38bdf8"
                     : raw.delayDeltaPercent < 0
                       ? "#10b981"
-                      : SERIES.signal,
+                      : "#f59e0b",
               }}
             >
               {raw.delayDeltaPercent > 0
@@ -500,8 +498,9 @@ export const VolumeAnalysisDashboard: React.FC = () => {
   const [randomSeed, setRandomSeed] = useState(42);
 
   // Advanced Config state
-  const [demandTierPreset, setDemandTierPreset] =
-    useState<TierPresetId>("standard");
+  const [demandTierPreset, setDemandTierPreset] = useState<
+    "standard" | "dense" | "granular"
+  >("standard");
   const [arrivalDistribution, setArrivalDistribution] = useState<
     "poisson" | "uniform"
   >("poisson");
@@ -531,16 +530,19 @@ export const VolumeAnalysisDashboard: React.FC = () => {
   const [sweepError, setSweepError] = useState<string | null>(null);
   const [loadingSession, setLoadingSession] = useState(false);
 
-  // Demand levels for the chosen preset and lane count.
-  const ratesConfig = useMemo(
-    () => ({
-      rates: sweepRates(
-        TIER_PRESETS.find((p) => p.id === demandTierPreset) ?? TIER_PRESETS[0],
-        lanesCount,
-      ),
-    }),
-    [demandTierPreset, lanesCount],
-  );
+  // Demand tiers: the three presets, as shares of the capacity measured for
+  // the chosen lane count (types/demand.ts), so they span free flow to
+  // oversaturation at every lane count.
+  const ratesConfig = useMemo(() => {
+    const id: TierPresetId =
+      demandTierPreset === "dense"
+        ? "wide"
+        : demandTierPreset === "granular"
+          ? "transition"
+          : "standard";
+    const preset = TIER_PRESETS.find((t) => t.id === id) ?? TIER_PRESETS[0];
+    return { rates: sweepRates(preset, lanesCount), detail: preset.detail };
+  }, [demandTierPreset, lanesCount]);
 
   // Reset advanced parameters to defaults
   const resetAdvancedDefaults = () => {
@@ -672,7 +674,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
         duration: sweepDuration,
         randomSeed: randomSeed,
         arrivalRates: ratesConfig.rates,
-        name: `Sweep: ${ratesConfig.rates.length.toString()} levels, ${sweepDuration.toString()} s, ${lanesCount.toString()} lane(s)`,
+        name: `Sweep (${ratesConfig.rates.length.toString()} tiers, ${sweepDuration.toString()}s)`,
         customConfig,
       }),
     })
@@ -864,192 +866,237 @@ export const VolumeAnalysisDashboard: React.FC = () => {
   }, [runsList]);
 
   return (
-    <div className="uf-page uf-page--wide volume-dashboard">
-      <PageHeader
-        eyebrow="Research lab"
-        title="Traffic-level sweep"
-        lead={
-          <p>
-            Runs both controls at a series of demand levels, one random traffic
-            pattern per level, and plots delay, throughput and queues against
-            demand. Descriptive only: use Statistical validation to test a
-            difference.
+    <div className="volume-dashboard">
+      {/* ── Top Executive Header ───────────────────────── */}
+      <div className="volume-header-row">
+        <div className="header-title-group">
+          <div className="header-badge-row">
+            <h2>📈 Traffic Volume & Capacity Analysis</h2>
+            <span className="header-mini-chip">Capacity Studio</span>
+            <span className="header-version-chip">HCM 6th Ed.</span>
+          </div>
+          <p className="header-subtitle">
+            Systematic sensitivity study comparing Fixed-Time Signals vs. Modern
+            Roundabouts across demand tiers. Uses its own study scenario (set
+            under Advanced Config), one seed per tier.
           </p>
-        }
-        actions={
-          <>
+        </div>
+
+        <div className="header-actions">
+          {/* Inline Duration & Seed controls in line with the heading */}
+          <div className="header-inline-controls">
+            <div className="inline-param">
+              <label>Duration</label>
+              <div className="inline-unit-wrap">
+                <input
+                  type="number"
+                  min={10}
+                  max={300}
+                  step={10}
+                  value={sweepDuration}
+                  onChange={(e) => {
+                    setSweepDuration(Number(e.target.value));
+                  }}
+                  title="Duration per rate tier (10–300s)"
+                />
+                <span>s</span>
+              </div>
+            </div>
+
+            <div className="inline-param">
+              <label>Seed</label>
+              <div className="inline-seed-wrap">
+                <input
+                  type="number"
+                  min={1}
+                  value={randomSeed}
+                  onChange={(e) => {
+                    setRandomSeed(Number(e.target.value));
+                  }}
+                  title="Random seed for traffic generation"
+                />
+                <button
+                  type="button"
+                  className="dice-btn"
+                  onClick={() => {
+                    setRandomSeed(Math.floor(Math.random() * 999999) + 1);
+                  }}
+                  title="Randomize seed"
+                >
+                  🎲
+                </button>
+              </div>
+            </div>
+
             <button
               type="button"
-              className="uf-btn uf-btn--primary"
+              className="header-run-btn"
               onClick={runSweep}
               disabled={isRunning}
+              title="Execute capacity volume sweep"
             >
-              {isRunning ? "Running…" : "Run sweep"}
+              {isRunning ? "⏳ Running…" : "▶ Run Sweep"}
             </button>
+          </div>
+
+          {/* Button strictly named 'Advanced Config' */}
+          <button
+            type="button"
+            className={`header-tool-btn ${showAdvancedDrawer ? "active" : ""}`}
+            onClick={() => {
+              setShowAdvancedDrawer((prev) => !prev);
+              setShowHistoryDrawer(false);
+            }}
+            title="Configure granular demand tiers, physics, geometry and speed dynamics"
+          >
+            ⚙️ Advanced Config
+          </button>
+
+          {/* Saved Sweeps button */}
+          <button
+            type="button"
+            className={`header-tool-btn ${showHistoryDrawer ? "active" : ""}`}
+            onClick={() => {
+              setShowHistoryDrawer((prev) => !prev);
+              setShowAdvancedDrawer(false);
+            }}
+            title="Browse and restore past saved sweep sessions"
+          >
+            📁 Saved Sweeps ({savedSweeps.length.toString()})
+          </button>
+
+          {activeSession && (
             <button
               type="button"
-              className="uf-btn"
-              onClick={() => {
-                setShowAdvancedDrawer(true);
-              }}
-              aria-haspopup="dialog"
+              className="export-csv-btn"
+              onClick={exportCSV}
+              title="Download study dataset as CSV"
             >
-              <SlidersHorizontal aria-hidden="true" />
-              Sweep settings
+              📥 Export CSV
             </button>
-            <button
-              type="button"
-              className="uf-btn"
-              onClick={() => {
-                setShowHistoryDrawer(true);
-              }}
-              aria-haspopup="dialog"
-            >
-              Saved sweeps ({savedSweeps.length.toString()})
-            </button>
-            {activeSession && (
-              <button type="button" className="uf-btn" onClick={exportCSV}>
-                Export CSV
-              </button>
-            )}
-          </>
-        }
-      />
+          )}
+        </div>
+      </div>
 
-      <p className="sweep-summary-line">
-        {ratesConfig.rates.length.toString()} demand levels,{" "}
-        {sweepDuration.toString()} s each, seed {randomSeed.toString()},{" "}
-        {lanesCount === 1 ? "1 lane" : `${lanesCount.toString()} lanes`} per
-        approach, {SPEED_LIMITS[speedProfileKey].label}.
-      </p>
-
-      {/* ── Sweep settings drawer ── */}
+      {/* ── Advanced Configuration Drawer ── */}
       {showAdvancedDrawer && (
-        <Overlay
-          variant="drawer"
-          wide
-          title="Sweep settings"
-          description="Demand levels, run length, arrival process, time step, geometry and speed limit."
-          closeLabel="Close sweep settings"
-          onClose={() => {
-            setShowAdvancedDrawer(false);
-          }}
-          footer={
-            <>
-              <button
-                type="button"
-                className="uf-btn uf-btn--ghost"
-                onClick={resetAdvancedDefaults}
-              >
-                Reset to defaults
-              </button>
-              <button
-                type="button"
-                className="uf-btn uf-btn--primary"
-                onClick={runSweep}
-                disabled={isRunning}
-              >
-                {isRunning ? "Running…" : "Run sweep"}
-              </button>
-            </>
-          }
-        >
-          <div className="uf-form">
-            <fieldset className="uf-form-section">
-              <legend className="uf-form-section__title">Demand levels</legend>
-              <div className="uf-choice-list">
-                {TIER_PRESETS.map((preset) => (
+        <div className="volume-advanced-drawer">
+          <div className="advanced-drawer-header">
+            <div>
+              <h3>⚙️ Advanced Experiment Configuration</h3>
+              <p>
+                Tailor arrival spectrum granularity, integration fidelity, road
+                geometry, and vehicle kinematics.
+              </p>
+            </div>
+            <CloseButton
+              label="Close advanced configuration"
+              onClick={() => {
+                setShowAdvancedDrawer(false);
+              }}
+            />
+          </div>
+
+          <div className="advanced-config-grid">
+            {/* Card 1: Traffic Demand Spectrum & Rates */}
+            <div className="advanced-card">
+              <div className="advanced-card-header">
+                <span className="card-badge">01</span>
+                <div>
+                  <h4>📊 Demand Spectrum & Arrivals</h4>
+                  <span className="card-desc">
+                    Volume sweep resolution & arrival process
+                  </span>
+                </div>
+              </div>
+
+              <div className="advanced-field-group">
+                <label>
+                  Demand Tiers Spectrum ({ratesConfig.rates.length} Points)
+                </label>
+                <div className="option-pill-group vertical">
                   <button
-                    key={preset.id}
                     type="button"
-                    className="uf-choice"
-                    aria-pressed={demandTierPreset === preset.id}
+                    className={`option-pill ${demandTierPreset === "standard" ? "active" : ""}`}
                     onClick={() => {
-                      setDemandTierPreset(preset.id);
+                      setDemandTierPreset("standard");
                     }}
                   >
-                    <span className="uf-choice__title">{preset.title}</span>
-                    <span className="uf-choice__desc">{preset.detail}</span>
+                    <span className="pill-title">Standard 8-Tier</span>
+                    <span className="pill-desc">20% to 160% of capacity</span>
                   </button>
-                ))}
-              </div>
-              <p className="uf-help">
-                Total arrivals across all four approaches, relative to the
-                capacity measured for the chosen number of lanes.
-              </p>
-            </fieldset>
-
-            <fieldset className="uf-form-section">
-              <legend className="uf-form-section__title">Run</legend>
-              <div className="uf-field-row">
-                <label className="uf-field">
-                  <span className="uf-label">Duration per level (s)</span>
-                  <input
-                    className="uf-input"
-                    type="number"
-                    min={10}
-                    max={300}
-                    step={10}
-                    value={sweepDuration}
-                    onChange={(e) => {
-                      setSweepDuration(Number(e.target.value));
-                    }}
-                  />
-                </label>
-                <label className="uf-field">
-                  <span className="uf-label">Random seed</span>
-                  <span className="uf-input-group">
-                    <input
-                      className="uf-input"
-                      type="number"
-                      min={1}
-                      value={randomSeed}
-                      onChange={(e) => {
-                        setRandomSeed(Number(e.target.value));
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="uf-btn"
-                      onClick={() => {
-                        setRandomSeed(Math.floor(Math.random() * 999999) + 1);
-                      }}
-                    >
-                      New seed
-                    </button>
-                  </span>
-                </label>
-              </div>
-              <div className="uf-field">
-                <span className="uf-label">Arrival process</span>
-                <div className="uf-segmented" role="group">
                   <button
                     type="button"
-                    aria-pressed={arrivalDistribution === "poisson"}
+                    className={`option-pill ${demandTierPreset === "dense" ? "active" : ""}`}
+                    onClick={() => {
+                      setDemandTierPreset("dense");
+                    }}
+                  >
+                    <span className="pill-title">Dense Congestion 10-Tier</span>
+                    <span className="pill-desc">10% to 200% of capacity</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`option-pill ${demandTierPreset === "granular" ? "active" : ""}`}
+                    onClick={() => {
+                      setDemandTierPreset("granular");
+                    }}
+                  >
+                    <span className="pill-title">
+                      Granular Transition 10-Tier
+                    </span>
+                    <span className="pill-desc">60% to 150% of capacity</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="advanced-field-group">
+                <label>Arrival Distribution</label>
+                <div className="option-pill-group">
+                  <button
+                    type="button"
+                    className={`option-pill ${arrivalDistribution === "poisson" ? "active" : ""}`}
                     onClick={() => {
                       setArrivalDistribution("poisson");
                     }}
                   >
-                    Poisson (random)
+                    Poisson (Stochastic)
                   </button>
                   <button
                     type="button"
-                    aria-pressed={arrivalDistribution === "uniform"}
+                    className={`option-pill ${arrivalDistribution === "uniform" ? "active" : ""}`}
                     onClick={() => {
                       setArrivalDistribution("uniform");
                     }}
                   >
-                    Uniform (evenly spaced)
+                    Uniform (Deterministic)
                   </button>
                 </div>
-              </div>
-              <label className="uf-field">
-                <span className="uf-field-head">
-                  <span className="uf-label">Warm-up excluded</span>
-                  <output className="uf-value">
-                    {warmupTime.toFixed(0)} s
-                  </output>
+                <span className="field-hint">
+                  Poisson captures realistic random platooning & headway gaps.
                 </span>
+              </div>
+            </div>
+
+            {/* Card 2: Simulation Physics & Road Geometry */}
+            <div className="advanced-card">
+              <div className="advanced-card-header">
+                <span className="card-badge">02</span>
+                <div>
+                  <h4>⚙️ Physics & Road Geometry</h4>
+                  <span className="card-desc">
+                    Numerical step size, warmup duration & approach road
+                  </span>
+                </div>
+              </div>
+
+              <div className="advanced-field-group">
+                <div className="field-label-row">
+                  <label>Warmup Duration (t_warm)</label>
+                  <span className="field-val-badge">
+                    {warmupTime.toFixed(1)}s
+                  </span>
+                </div>
                 <input
                   type="range"
                   min={0}
@@ -1059,177 +1106,348 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                   onChange={(e) => {
                     setWarmupTime(Number(e.target.value));
                   }}
-                  className="uf-range"
+                  className="advanced-slider"
                 />
-              </label>
-              <div className="uf-field">
-                <span className="uf-label">Time step (Δt)</span>
-                <div className="uf-segmented" role="group">
-                  {[0.05, 0.1, 0.2].map((dt) => (
-                    <button
-                      key={dt}
-                      type="button"
-                      aria-pressed={timeStep === dt}
-                      onClick={() => {
-                        setTimeStep(dt);
-                      }}
-                    >
-                      {dt.toFixed(2)} s
-                    </button>
-                  ))}
+                <span className="field-hint">
+                  Allows network queues to pre-populate before metrics accrue.
+                </span>
+              </div>
+
+              <div className="advanced-field-group">
+                <label>Integration Time Step (Δt)</label>
+                <div className="option-pill-group">
+                  <button
+                    type="button"
+                    className={`option-pill ${timeStep === 0.05 ? "active" : ""}`}
+                    onClick={() => {
+                      setTimeStep(0.05);
+                    }}
+                  >
+                    0.05s (High Precision)
+                  </button>
+                  <button
+                    type="button"
+                    className={`option-pill ${timeStep === 0.1 ? "active" : ""}`}
+                    onClick={() => {
+                      setTimeStep(0.1);
+                    }}
+                  >
+                    0.10s (Balanced)
+                  </button>
+                  <button
+                    type="button"
+                    className={`option-pill ${timeStep === 0.2 ? "active" : ""}`}
+                    onClick={() => {
+                      setTimeStep(0.2);
+                    }}
+                  >
+                    0.20s (Fast Sweep)
+                  </button>
                 </div>
               </div>
-            </fieldset>
 
-            <fieldset className="uf-form-section">
-              <legend className="uf-form-section__title">
-                Junction and traffic
-              </legend>
-              <div className="uf-field">
-                <span className="uf-label">Lanes per approach</span>
-                <div className="uf-segmented" role="group">
+              <div className="advanced-field-group">
+                <label>Approach Road Length</label>
+                <div className="option-pill-group">
+                  <button
+                    type="button"
+                    className={`option-pill ${approachLength === 150 ? "active" : ""}`}
+                    onClick={() => {
+                      setApproachLength(150);
+                    }}
+                  >
+                    150m (Urban Tight)
+                  </button>
+                  <button
+                    type="button"
+                    className={`option-pill ${approachLength === 200 ? "active" : ""}`}
+                    onClick={() => {
+                      setApproachLength(200);
+                    }}
+                  >
+                    200m (Standard)
+                  </button>
+                  <button
+                    type="button"
+                    className={`option-pill ${approachLength === 300 ? "active" : ""}`}
+                    onClick={() => {
+                      setApproachLength(300);
+                    }}
+                  >
+                    300m (Extended)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 3: Intersection Lanes & Fleet Speed */}
+            <div className="advanced-card">
+              <div className="advanced-card-header">
+                <span className="card-badge">03</span>
+                <div>
+                  <h4>🚗 Approach Lanes & Fleet Speed</h4>
+                  <span className="card-desc">
+                    Lane capacity configuration and driver velocity bounds
+                  </span>
+                </div>
+              </div>
+
+              <div className="advanced-field-group">
+                <label>Lanes per Approach (All 4 Legs)</label>
+                <div className="option-pill-group">
                   {[1, 2, 3].map((n) => (
                     <button
                       key={n}
                       type="button"
-                      aria-pressed={lanesCount === n}
+                      className={`option-pill ${lanesCount === n ? "active" : ""}`}
                       onClick={() => {
                         setLanesCount(n);
                       }}
                     >
-                      {n === 1 ? "1 lane" : `${n.toString()} lanes`}
+                      {n === 1
+                        ? "1 Lane (calibrated comparison)"
+                        : `${String(n)} Lanes (exploratory)`}
                     </button>
                   ))}
                 </div>
+                <span className="field-hint">
+                  One lane per approach is the calibrated comparison. With more
+                  lanes both junctions model every lane, but drivers leaving the
+                  roundabout from an inner ring cross the outer one without lane
+                  markings, so multi-lane results are exploratory.
+                </span>
               </div>
-              <div className="uf-field">
-                <span className="uf-label">Approach length</span>
-                <div className="uf-segmented" role="group">
-                  {[150, 200, 300].map((len) => (
-                    <button
-                      key={len}
-                      type="button"
-                      aria-pressed={approachLength === len}
-                      onClick={() => {
-                        setApproachLength(len);
-                      }}
-                    >
-                      {len.toString()} m
-                    </button>
-                  ))}
+
+              <div className="advanced-field-group">
+                <label>Road Speed Limit</label>
+                <div className="option-pill-group vertical">
+                  <button
+                    type="button"
+                    className={`option-pill ${speedProfileKey === "standard" ? "active" : ""}`}
+                    onClick={() => {
+                      setSpeedProfileKey("standard");
+                    }}
+                  >
+                    <span className="pill-title">Standard Urban</span>
+                    <span className="pill-desc">50 km/h limit</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`option-pill ${speedProfileKey === "calmed" ? "active" : ""}`}
+                    onClick={() => {
+                      setSpeedProfileKey("calmed");
+                    }}
+                  >
+                    <span className="pill-title">Traffic Calmed</span>
+                    <span className="pill-desc">30 km/h limit</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`option-pill ${speedProfileKey === "arterial" ? "active" : ""}`}
+                    onClick={() => {
+                      setSpeedProfileKey("arterial");
+                    }}
+                  >
+                    <span className="pill-title">Arterial Corridor</span>
+                    <span className="pill-desc">60 km/h limit</span>
+                  </button>
                 </div>
               </div>
-              <div className="uf-field">
-                <span className="uf-label">Speed limit</span>
-                <div className="uf-segmented" role="group">
-                  {(["calmed", "standard", "arterial"] as const).map((key) => (
-                    <button
-                      key={key}
-                      type="button"
-                      aria-pressed={speedProfileKey === key}
-                      onClick={() => {
-                        setSpeedProfileKey(key);
-                      }}
-                    >
-                      {SPEED_LIMITS[key].label}
-                    </button>
-                  ))}
+
+              <div className="advanced-field-group">
+                <label>Quick Duration Presets</label>
+                <div className="preset-pill-row">
+                  <button
+                    type="button"
+                    className={`preset-pill ${sweepDuration === 120 ? "active" : ""}`}
+                    onClick={() => {
+                      setSweepDuration(120);
+                    }}
+                  >
+                    ⚡ 120s Rapid
+                  </button>
+                  <button
+                    type="button"
+                    className={`preset-pill ${sweepDuration === 240 ? "active" : ""}`}
+                    onClick={() => {
+                      setSweepDuration(240);
+                    }}
+                  >
+                    ⚖️ 240s Balanced
+                  </button>
+                  <button
+                    type="button"
+                    className={`preset-pill ${sweepDuration === 300 ? "active" : ""}`}
+                    onClick={() => {
+                      setSweepDuration(300);
+                    }}
+                  >
+                    🔬 300s High Rigor
+                  </button>
                 </div>
-                <p className="uf-help">
-                  Drivers want 85–105% of the limit; both controls get the same
-                  drivers and the same curve-speed rule.
-                </p>
               </div>
-            </fieldset>
+            </div>
           </div>
-        </Overlay>
+
+          <div className="advanced-drawer-footer">
+            <div className="drawer-footprint-chip">
+              Active Parameters:{" "}
+              <strong>{ratesConfig.rates.length} Rates</strong> ·{" "}
+              <strong>{arrivalDistribution.toUpperCase()}</strong> ·{" "}
+              <strong>Δt={timeStep.toFixed(2)}s</strong> ·{" "}
+              <strong>
+                {lanesCount} Lanes/Leg{lanesCount === 1 ? "" : " (exploratory)"}
+              </strong>{" "}
+              · <strong>{approachLength}m Approach</strong>
+            </div>
+
+            <div className="drawer-actions-right">
+              <button
+                type="button"
+                className="advanced-reset-btn"
+                onClick={resetAdvancedDefaults}
+              >
+                ↺ Reset Defaults
+              </button>
+              <button
+                type="button"
+                className="advanced-close-btn"
+                onClick={() => {
+                  setShowAdvancedDrawer(false);
+                }}
+              >
+                ✕ Close
+              </button>
+              <button
+                type="button"
+                className="advanced-apply-btn"
+                onClick={runSweep}
+                disabled={isRunning}
+              >
+                {isRunning ? "⏳ Simulating…" : "▶ Apply & Run Sweep"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
-      {/* ── Saved sweeps drawer ── */}
+      {/* ── Saved Sweeps History Drawer ── */}
       {showHistoryDrawer && (
-        <Overlay
-          variant="drawer"
-          title="Saved sweeps"
-          description="Open a saved sweep to show its curves and table."
-          closeLabel="Close saved sweeps"
-          onClose={() => {
-            setShowHistoryDrawer(false);
-          }}
-        >
+        <div className="volume-history-drawer">
+          <div className="history-drawer-header">
+            <div>
+              <h3>📁 Saved Sweep Experiments</h3>
+              <p>
+                Select any historical volume sweep run to reload its capacity
+                curves and crossover metrics.
+              </p>
+            </div>
+            <CloseButton
+              label="Close saved sweeps"
+              onClick={() => {
+                setShowHistoryDrawer(false);
+              }}
+            />
+          </div>
+
           {savedSweeps.length > 0 ? (
-            <div className="uf-choice-list">
+            <div className="saved-sweeps-grid">
               {savedSweeps.map((s) => (
-                <button
+                <div
                   key={s.id}
-                  type="button"
-                  className="uf-choice"
-                  aria-pressed={selectedId === s.id}
+                  className={`saved-sweep-card ${selectedId === s.id ? "active" : ""}`}
                   onClick={() => {
                     loadSweep(s.id);
                   }}
                 >
-                  <span className="uf-choice__title">{s.name}</span>
-                  <span className="uf-choice__desc">
-                    {new Date(s.created_at).toLocaleDateString()}{" "}
+                  <div className="sweep-card-top">
+                    <span className="sweep-card-name">{s.name}</span>
+                    {selectedId === s.id && (
+                      <span className="active-pill">Active</span>
+                    )}
+                  </div>
+                  <div className="sweep-card-date">
+                    🕒{" "}
                     {new Date(s.created_at).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
-                    })}
-                  </span>
-                </button>
+                    })}{" "}
+                    · {new Date(s.created_at).toLocaleDateString()}
+                  </div>
+                </div>
               ))}
             </div>
           ) : (
-            <div className="uf-empty">
-              <p className="uf-empty__title">No saved sweeps</p>
-              <p className="uf-empty__text">
-                Every sweep you run is saved here automatically.
-              </p>
+            <div className="empty-saved-hint">
+              <span>
+                No past sweeps found. Click <strong>Run Sweep</strong> above to
+                benchmark and save curves.
+              </span>
             </div>
           )}
-        </Overlay>
+        </div>
       )}
 
-      {sweepError && (
-        <div className="uf-callout uf-callout--danger" role="alert">
+      {/* ── Running / Status Feedback ── */}
+      {isRunning && (
+        <div className="sweep-running-banner">
+          <LoaderMark />
           <span>
-            <strong>The sweep did not complete.</strong> {sweepError}
+            Simulating {ratesConfig.rates.length} volume tiers across Fixed-Time
+            Signal and Modern Roundabout models ({sweepDuration}s/tier)…
           </span>
         </div>
       )}
 
-      {isRunning && (
-        <Loader
-          layout="fill"
-          label={`Running ${ratesConfig.rates.length.toString()} demand levels on both controls (${sweepDuration.toString()} s each)`}
-        />
+      {sweepError && <div className="sweep-error-banner">⚠ {sweepError}</div>}
+
+      {/* ── Loading indicator ──────────────────────────── */}
+      {loadingSession && (
+        <div className="sweep-loading">
+          <LoaderMark />
+          <span>Retrieving sweep curves and telemetry…</span>
+        </div>
       )}
 
-      {loadingSession && !isRunning && <Loader label="Loading sweep" />}
-
+      {/* ── Empty State Hero (When No Active Session) ── */}
       {!activeSession && !loadingSession && !isRunning && (
-        <div className="uf-empty">
-          <p className="uf-empty__title">No sweep loaded</p>
-          <p className="uf-empty__text">
-            Run a sweep with the settings above, or open a saved one.
+        <div className="empty-sweep-hero">
+          <div className="empty-hero-icon">📈</div>
+          <h3>Ready to Execute Volume & Capacity Sweep</h3>
+          <p>
+            Systematic sensitivity study comparing Fixed-Time Signals vs. Modern
+            Roundabouts across demand tiers. Configure your parameters or click
+            below to launch the automated benchmark sweep.
           </p>
-          <div className="uf-page-actions">
+          <div className="empty-hero-actions">
             <button
               type="button"
-              className="uf-btn uf-btn--primary"
+              className="hero-run-btn"
               onClick={runSweep}
+              disabled={isRunning}
             >
-              Run sweep ({ratesConfig.rates.length.toString()} levels)
+              ▶ Run Volume Sweep ({ratesConfig.rates.length} Tiers)
+            </button>
+            <button
+              type="button"
+              className="hero-secondary-btn"
+              onClick={() => {
+                setShowAdvancedDrawer(true);
+                setShowHistoryDrawer(false);
+              }}
+            >
+              ⚙️ Advanced Config
             </button>
             {savedSweeps.length > 0 && (
               <button
                 type="button"
-                className="uf-btn"
+                className="hero-secondary-btn"
                 onClick={() => {
                   setShowHistoryDrawer(true);
+                  setShowAdvancedDrawer(false);
                 }}
               >
-                Open a saved sweep
+                📁 Load Past Sweep ({savedSweeps.length.toString()})
               </button>
             )}
           </div>
@@ -1264,6 +1482,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
           <div className="volume-kpi-grid">
             <div className="kpi-card kpi-crossover-card">
               <div className="kpi-top">
+                <span className="kpi-icon-badge">🎯</span>
                 <span className="kpi-category">Delay ordering</span>
               </div>
               <span className="kpi-label">
@@ -1287,11 +1506,12 @@ export const VolumeAnalysisDashboard: React.FC = () => {
 
             <div className="kpi-card">
               <div className="kpi-top">
+                <span className="kpi-icon-badge">⚖️</span>
                 <span className="kpi-category">Tier tally</span>
               </div>
               <span className="kpi-label">Lower mean delay, by tier</span>
               <span className="kpi-value">
-                {roundaboutWins.toString()} · {signalWins.toString()} ·{" "}
+                🔄 {roundaboutWins.toString()} · 🚦 {signalWins.toString()} · ⚖️{" "}
                 {tieWins.toString()}
               </span>
               <span className="kpi-hint">
@@ -1306,6 +1526,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
 
             <div className="kpi-card">
               <div className="kpi-top">
+                <span className="kpi-icon-badge">⏱️</span>
                 <span className="kpi-category">Largest gap</span>
               </div>
               <span className="kpi-label">Largest mean-delay difference</span>
@@ -1323,6 +1544,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
 
             <div className="kpi-card">
               <div className="kpi-top">
+                <span className="kpi-icon-badge">🚦</span>
                 <span className="kpi-category">Stress Boundary</span>
               </div>
               <span className="kpi-label">Peak Evaluated Volume</span>
@@ -1346,7 +1568,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                 setActiveTab("curves");
               }}
             >
-              Curves
+              📈 Interactive Curves & Crossover Studio
             </button>
             <button
               type="button"
@@ -1355,7 +1577,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                 setActiveTab("matrix");
               }}
             >
-              Table by demand level
+              🔬 Head-to-Head Volume Matrix
             </button>
             <button
               type="button"
@@ -1364,7 +1586,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                 setActiveTab("insights");
               }}
             >
-              How to read this sweep
+              📖 How to read this sweep
             </button>
           </div>
 
@@ -1384,9 +1606,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                 <div className="volume-scrubber-bar">
                   <div className="scrubber-bar-left">
                     <div className="scrubber-label-group">
-                      <span className="scrubber-title">
-                        Inspect a demand level
-                      </span>
+                      <span className="scrubber-title">🎛️ Demand Explorer</span>
                       <span className="scrubber-rate">
                         Rate: {currentScrubberRun.arrivalRate.toFixed(2)} veh/s
                       </span>
@@ -1423,7 +1643,9 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                             left: `${Math.max(0, Math.min(100, ((crossover - minVol) / (maxVol - minVol)) * 100)).toString()}%`,
                           }}
                           title={`Crossover: ${crossover.toLocaleString()} veh/h`}
-                        ></div>
+                        >
+                          <span className="marker-pin">📍</span>
+                        </div>
                       )}
                     </div>
                     <span className="slider-edge-label">
@@ -1433,7 +1655,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
 
                   <div className="scrubber-bar-right">
                     <div className="scrubber-chip signal-chip">
-                      <span className="chip-label">Traffic signal</span>
+                      <span className="chip-label">🚦 Fixed-Time Signal</span>
                       <span className="chip-val">
                         {currentScrubberRun.signal.delay.toFixed(1)}s
                       </span>
@@ -1446,7 +1668,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                     </div>
 
                     <div className="scrubber-chip roundabout-chip">
-                      <span className="chip-label">Roundabout</span>
+                      <span className="chip-label">🔄 Modern Roundabout</span>
                       <span className="chip-val">
                         {currentScrubberRun.roundabout.delay.toFixed(1)}s
                       </span>
@@ -1511,7 +1733,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                         setMetricView("delay");
                       }}
                     >
-                      Delay
+                      ⏱️ Delay
                     </button>
                     <button
                       type="button"
@@ -1520,7 +1742,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                         setMetricView("throughput");
                       }}
                     >
-                      Throughput
+                      🚗 Throughput
                     </button>
                     <button
                       type="button"
@@ -1529,7 +1751,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                         setMetricView("queue");
                       }}
                     >
-                      Queue
+                      📏 Queue
                     </button>
                     <button
                       type="button"
@@ -1538,7 +1760,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                         setMetricView("all");
                       }}
                     >
-                      All 3
+                      📊 All 3
                     </button>
                   </div>
 
@@ -1595,7 +1817,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                   <div className="chart-card">
                     {metricView === "all" && (
                       <div className="chart-card-mini-header">
-                        <span className="mini-title">Control Delay (s)</span>
+                        <span className="mini-title">⏱️ Control Delay (s)</span>
                         <span className="mini-unit">s / vehicle</span>
                       </div>
                     )}
@@ -1655,13 +1877,13 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                           {crossover && xAxisMode === "volume" && (
                             <ReferenceLine
                               x={crossover}
-                              stroke={SERIES.signal}
+                              stroke="#f59e0b"
                               strokeDasharray="4 3"
                               strokeWidth={2}
                               label={{
                                 value: `Crossover (${crossover.toLocaleString()} veh/h)`,
                                 position: "top",
-                                fill: SERIES.signal,
+                                fill: "#f59e0b",
                                 fontSize: 12,
                               }}
                             />
@@ -1669,10 +1891,10 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                           <Line
                             type="monotone"
                             dataKey="signalDelay"
-                            name="Traffic signal"
-                            stroke={SERIES.roundabout}
+                            name="Fixed-Time Signal"
+                            stroke="#38bdf8"
                             strokeWidth={3}
-                            dot={{ r: 5, fill: SERIES.roundabout }}
+                            dot={{ r: 5, fill: "#38bdf8" }}
                             activeDot={{
                               r: 8,
                               stroke: "#7dd3fc",
@@ -1684,13 +1906,13 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                           <Line
                             type="monotone"
                             dataKey="roundaboutDelay"
-                            name="Roundabout"
-                            stroke={SERIES.success}
+                            name="Modern Roundabout"
+                            stroke="#10b981"
                             strokeWidth={3}
-                            dot={{ r: 5, fill: SERIES.success }}
+                            dot={{ r: 5, fill: "#10b981" }}
                             activeDot={{
                               r: 8,
-                              stroke: SERIES.success,
+                              stroke: "#34d399",
                               strokeWidth: 2,
                             }}
                             animationDuration={450}
@@ -1702,7 +1924,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                                 type="monotone"
                                 dataKey="signalDelayMax"
                                 name="Signal driver spread, upper (max / +σ)"
-                                stroke={SERIES.roundabout}
+                                stroke="#38bdf8"
                                 strokeDasharray="3 3"
                                 strokeOpacity={0.4}
                                 strokeWidth={1.5}
@@ -1713,7 +1935,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                                 type="monotone"
                                 dataKey="signalDelayMin"
                                 name="Signal driver spread, lower (min / −σ)"
-                                stroke={SERIES.roundabout}
+                                stroke="#38bdf8"
                                 strokeDasharray="2 2"
                                 strokeOpacity={0.3}
                                 strokeWidth={1.2}
@@ -1724,7 +1946,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                                 type="monotone"
                                 dataKey="roundaboutDelayMax"
                                 name="Roundabout driver spread, upper (max / +σ)"
-                                stroke={SERIES.success}
+                                stroke="#10b981"
                                 strokeDasharray="3 3"
                                 strokeOpacity={0.4}
                                 strokeWidth={1.5}
@@ -1735,7 +1957,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                                 type="monotone"
                                 dataKey="roundaboutDelayMin"
                                 name="Roundabout driver spread, lower (min / −σ)"
-                                stroke={SERIES.success}
+                                stroke="#10b981"
                                 strokeDasharray="2 2"
                                 strokeOpacity={0.3}
                                 strokeWidth={1.2}
@@ -1759,7 +1981,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                   <div className="chart-card">
                     {metricView === "all" && (
                       <div className="chart-card-mini-header">
-                        <span className="mini-title">Throughput</span>
+                        <span className="mini-title">🚗 Throughput</span>
                         <span className="mini-unit">completed veh</span>
                       </div>
                     )}
@@ -1819,7 +2041,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                           {crossover && xAxisMode === "volume" && (
                             <ReferenceLine
                               x={crossover}
-                              stroke={SERIES.signal}
+                              stroke="#f59e0b"
                               strokeDasharray="4 3"
                               strokeWidth={2}
                             />
@@ -1827,10 +2049,10 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                           <Line
                             type="monotone"
                             dataKey="signalThroughput"
-                            name="Traffic signal"
-                            stroke={SERIES.roundabout}
+                            name="Fixed-Time Signal"
+                            stroke="#38bdf8"
                             strokeWidth={3}
-                            dot={{ r: 5, fill: SERIES.roundabout }}
+                            dot={{ r: 5, fill: "#38bdf8" }}
                             activeDot={{
                               r: 8,
                               stroke: "#7dd3fc",
@@ -1842,13 +2064,13 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                           <Line
                             type="monotone"
                             dataKey="roundaboutThroughput"
-                            name="Roundabout"
-                            stroke={SERIES.success}
+                            name="Modern Roundabout"
+                            stroke="#10b981"
                             strokeWidth={3}
-                            dot={{ r: 5, fill: SERIES.success }}
+                            dot={{ r: 5, fill: "#10b981" }}
                             activeDot={{
                               r: 8,
-                              stroke: SERIES.success,
+                              stroke: "#34d399",
                               strokeWidth: 2,
                             }}
                             animationDuration={450}
@@ -1869,7 +2091,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                   <div className="chart-card">
                     {metricView === "all" && (
                       <div className="chart-card-mini-header">
-                        <span className="mini-title">Queue Length</span>
+                        <span className="mini-title">📏 Queue Length</span>
                         <span className="mini-unit">avg veh / lane</span>
                       </div>
                     )}
@@ -1929,7 +2151,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                           {crossover && xAxisMode === "volume" && (
                             <ReferenceLine
                               x={crossover}
-                              stroke={SERIES.signal}
+                              stroke="#f59e0b"
                               strokeDasharray="4 3"
                               strokeWidth={2}
                             />
@@ -1937,10 +2159,10 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                           <Line
                             type="monotone"
                             dataKey="signalQueue"
-                            name="Traffic signal"
-                            stroke={SERIES.roundabout}
+                            name="Fixed-Time Signal"
+                            stroke="#38bdf8"
                             strokeWidth={3}
-                            dot={{ r: 5, fill: SERIES.roundabout }}
+                            dot={{ r: 5, fill: "#38bdf8" }}
                             activeDot={{
                               r: 8,
                               stroke: "#7dd3fc",
@@ -1952,13 +2174,13 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                           <Line
                             type="monotone"
                             dataKey="roundaboutQueue"
-                            name="Roundabout"
-                            stroke={SERIES.success}
+                            name="Modern Roundabout"
+                            stroke="#10b981"
                             strokeWidth={3}
-                            dot={{ r: 5, fill: SERIES.success }}
+                            dot={{ r: 5, fill: "#10b981" }}
                             activeDot={{
                               r: 8,
-                              stroke: SERIES.success,
+                              stroke: "#34d399",
                               strokeWidth: 2,
                             }}
                             animationDuration={450}
@@ -1970,7 +2192,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                                 type="monotone"
                                 dataKey="signalQueueMax"
                                 name="Signal Peak Queue"
-                                stroke={SERIES.roundabout}
+                                stroke="#38bdf8"
                                 strokeDasharray="3 3"
                                 strokeOpacity={0.45}
                                 strokeWidth={1.5}
@@ -1981,7 +2203,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                                 type="monotone"
                                 dataKey="roundaboutQueueMax"
                                 name="Roundabout Peak Queue"
-                                stroke={SERIES.success}
+                                stroke="#10b981"
                                 strokeDasharray="3 3"
                                 strokeOpacity={0.45}
                                 strokeWidth={1.5}
@@ -2008,7 +2230,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                   >
                     <div className="chart-card-mini-header">
                       <span className="mini-title">
-                        Difference, roundabout vs signal (%)
+                        📈 Relative Performance Delta (% Difference)
                       </span>
                       <span className="mini-unit">
                         Δ % (Objective Baseline: 0% Parity)
@@ -2072,20 +2294,20 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                             label={{
                               value: "Parity (0%)",
                               position: "right",
-                              fill: CHART_AXIS,
+                              fill: "#94a3b8",
                               fontSize: 11,
                             }}
                           />
                           {crossover && xAxisMode === "volume" && (
                             <ReferenceLine
                               x={crossover}
-                              stroke={SERIES.signal}
+                              stroke="#f59e0b"
                               strokeDasharray="4 3"
                               strokeWidth={2}
                               label={{
                                 value: `Crossover (${crossover.toLocaleString()} veh/h)`,
                                 position: "top",
-                                fill: SERIES.signal,
+                                fill: "#f59e0b",
                                 fontSize: 11,
                               }}
                             />
@@ -2102,10 +2324,10 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                             type="monotone"
                             dataKey="queueDeltaPercent"
                             name="Queue Δ % (+ = signal lower, − = roundabout lower)"
-                            stroke={SERIES.signal}
+                            stroke="#f59e0b"
                             strokeWidth={2}
                             strokeDasharray="4 2"
-                            dot={{ r: 3, fill: SERIES.signal }}
+                            dot={{ r: 3, fill: "#f59e0b" }}
                           />
                         </LineChart>
                       </ResponsiveContainer>
@@ -2120,7 +2342,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
             </div>
           )}
 
-          {/* ── TAB 2: Table by demand level ──────── */}
+          {/* ── TAB 2: Head-to-Head Volume Matrix ──────── */}
           {activeTab === "matrix" && (
             <div className="sweep-summary-table-wrapper">
               <div className="table-header-controls">
@@ -2149,7 +2371,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                       setFilterWinner("roundabout");
                     }}
                   >
-                    Roundabout ({roundaboutWins.toString()})
+                    🔄 Roundabout ({roundaboutWins.toString()})
                   </button>
                   <button
                     type="button"
@@ -2158,7 +2380,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                       setFilterWinner("signal");
                     }}
                   >
-                    Signal ({signalWins.toString()})
+                    🚦 Signal ({signalWins.toString()})
                   </button>
                   <button
                     type="button"
@@ -2167,7 +2389,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                       setFilterWinner("tie");
                     }}
                   >
-                    About the same ({tieWins.toString()})
+                    ⚖️ About the same ({tieWins.toString()})
                   </button>
                 </div>
               </div>
@@ -2314,8 +2536,8 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                           {/* Throughput */}
                           <td>
                             <div className="table-multi-col">
-                              <span>{run.signal.throughput}</span>
-                              <span>{run.roundabout.throughput}</span>
+                              <span>🚦 {run.signal.throughput}</span>
+                              <span>🔄 {run.roundabout.throughput}</span>
                             </div>
                           </td>
 
@@ -2323,7 +2545,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                           <td>
                             <div className="table-multi-col">
                               <span>
-                                {run.signal.queue.toFixed(1)}
+                                🚦 {run.signal.queue.toFixed(1)}
                                 {run.signal.queueMax !== undefined && (
                                   <span
                                     style={{
@@ -2337,7 +2559,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                                 )}
                               </span>
                               <span>
-                                {run.roundabout.queue.toFixed(1)}
+                                🔄 {run.roundabout.queue.toFixed(1)}
                                 {run.roundabout.queueMax !== undefined && (
                                   <span
                                     style={{
@@ -2373,12 +2595,12 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                               }
                             >
                               {run.winner === "roundabout"
-                                ? "Roundabout"
+                                ? "🔄 Roundabout"
                                 : run.winner === "signal"
-                                  ? "Signal"
+                                  ? "🚦 Signal"
                                   : run.winner === "tie"
-                                    ? "About the same"
-                                    : "Inconclusive"}
+                                    ? "⚖️ About the same"
+                                    : "❔ Inconclusive"}
                             </span>
                           </td>
 
@@ -2392,7 +2614,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                                     ? "#38bdf8"
                                     : run.delayDeltaPercent < 0
                                       ? "#10b981"
-                                      : CHART_AXIS,
+                                      : "#94a3b8",
                                 background:
                                   run.delayDeltaPercent > 0
                                     ? "rgba(56, 189, 248, 0.12)"
@@ -2427,7 +2649,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
             <div className="engineering-insights-container">
               <div className="insights-header">
                 <div>
-                  <h4>How to read this sweep</h4>
+                  <h4>📖 How to read this sweep</h4>
                   <p className="insights-subtitle">
                     What this sweep measured, what it shows, and what it cannot
                     show. Every figure here comes from this sweep; the rest
@@ -2438,6 +2660,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
               <div className="insights-card-grid">
                 <div className="insight-card-modern">
                   <div className="insight-card-top">
+                    <span className="insight-card-icon">🧪</span>
                     <span className="insight-badge recommendation-badge">
                       What was run
                     </span>
@@ -2455,6 +2678,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                 </div>
                 <div className="insight-card-modern">
                   <div className="insight-card-top">
+                    <span className="insight-card-icon">📊</span>
                     <span className="insight-badge roundabout-badge">
                       What this sweep shows
                     </span>
@@ -2475,6 +2699,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                 </div>
                 <div className="insight-card-modern">
                   <div className="insight-card-top">
+                    <span className="insight-card-icon">⚠️</span>
                     <span className="insight-badge signal-badge">
                       What it cannot show
                     </span>
@@ -2514,7 +2739,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
               {/* Level-of-service reference: one definition for the whole app */}
               <div className="hcm-los-reference-box">
                 <h5>
-                  Indicative level-of-service bands (Highway Capacity Manual
+                  📖 Indicative level-of-service bands (Highway Capacity Manual
                   delay bands, average delay in seconds)
                 </h5>
                 <p className="insights-subtitle">

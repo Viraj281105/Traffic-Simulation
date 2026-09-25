@@ -39,37 +39,75 @@ export const DEFAULT_CONFIG_VALUES: SimulationConfigValues = {
 export interface ScenarioPreset {
   id: string;
   name: string;
+  emoji: string;
   description: string;
   config: SimulationConfigValues;
 }
 
-/** Starting points for the settings drawer. Signal timing and gap
- *  acceptance stay at the calibrated baseline so presets change the
- *  junction and its demand, not the model. */
 export const SCENARIO_PRESETS: ScenarioPreset[] = [
   {
-    id: "baseline",
+    id: "hcm-standard",
     name: "Baseline",
-    description: "One lane per approach, busy traffic (75% of capacity)",
+    emoji: "🏛️",
+    description:
+      "The dashboard's default scenario: one 3.5 m lane per approach, balanced demand",
     config: { ...DEFAULT_CONFIG_VALUES },
   },
   {
-    id: "light-single",
-    name: "Light, one lane",
-    description: "One lane per approach, light traffic (25% of capacity)",
-    config: { ...DEFAULT_CONFIG_VALUES, arrivalRate: 310 / 3600 },
+    id: "downtown-peak",
+    name: "Downtown Peak",
+    emoji: "🏙️",
+    description:
+      "Dense urban traffic with compact lanes and quick gap acceptance",
+    config: {
+      lanes: 2,
+      laneWidth: 3.2,
+      arrivalRate: 0.7,
+      duration: 300,
+      randomSeed: 101,
+      greenDuration: 30,
+      yellowDuration: 3,
+      allRedDuration: 2,
+      criticalGap: 3.8,
+      followUpTime: 2.2,
+    },
   },
   {
-    id: "busy-two",
-    name: "Busy, two lanes",
-    description: "Two lanes per approach, busy traffic (75% of capacity)",
-    config: { ...DEFAULT_CONFIG_VALUES, lanes: 2, arrivalRate: 1640 / 3600 },
+    id: "suburban-light",
+    name: "Suburban Collector",
+    emoji: "🏡",
+    description: "Low-density single-lane road with relaxed driver headway",
+    config: {
+      lanes: 1,
+      laneWidth: 3.6,
+      arrivalRate: 0.15,
+      duration: 180,
+      randomSeed: 202,
+      greenDuration: 12,
+      yellowDuration: 3,
+      allRedDuration: 2,
+      criticalGap: 4.8,
+      followUpTime: 3.0,
+    },
   },
   {
-    id: "near-three",
-    name: "Near capacity, three lanes",
-    description: "Three lanes per approach, 90% of capacity",
-    config: { ...DEFAULT_CONFIG_VALUES, lanes: 3, arrivalRate: 2360 / 3600 },
+    id: "arterial-heavy",
+    name: "Multi-Lane Arterial",
+    emoji: "🛣️",
+    description:
+      "High-capacity 3-lane intersection with extended green timings",
+    config: {
+      lanes: 3,
+      laneWidth: 3.8,
+      arrivalRate: 0.6,
+      duration: 300,
+      randomSeed: 303,
+      greenDuration: 35,
+      yellowDuration: 4,
+      allRedDuration: 2,
+      criticalGap: 4.2,
+      followUpTime: 2.6,
+    },
   },
 ];
 

@@ -404,7 +404,7 @@ function drawQueues(
     ctx.fillStyle = "rgba(22,28,32,.85)";
     ctx.fillRect(x - 25, y - 11, 50, 22);
     ctx.fillStyle = "#fff";
-    ctx.font = `${String(Math.max(10, ppm * 1.5))}px monospace`;
+    ctx.font = `${String(Math.max(10, ppm * 1.5))}px "Roboto Mono", monospace`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(`Q ${String(approach.queueLength)}`, x, y);
