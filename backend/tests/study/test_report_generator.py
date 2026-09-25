@@ -19,7 +19,7 @@ def test_study_report_generation(tmp_path, monkeypatch) -> None:
     report_json = generate_study_report_json(
         sweep_results=sweep, validation_results=val
     )
-    assert report_json["version"] == "1.0.0"
+    assert report_json["version"] == "1.1.0"
     assert "summary" in report_json
     assert "volumeSweep" in report_json
     assert "statisticalValidation" in report_json

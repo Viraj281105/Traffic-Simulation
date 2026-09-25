@@ -86,7 +86,7 @@
 
 .metric-dl-row dd {
   margin: 0;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 600;
   color: var(--text-primary);
@@ -104,7 +104,7 @@
 }
 
 .metric-note {
-  font-family: "Inter", sans-serif;
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 400;
   color: var(--text-muted);
@@ -149,7 +149,7 @@
 }
 
 .comparison-grid td {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: var(--font-mono);
   color: var(--text-primary);
   font-weight: 600;
 }

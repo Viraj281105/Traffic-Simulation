@@ -16,6 +16,7 @@ import "./RunPages.css";
 import type { RunningMetrics } from "../types/simulation";
 import type { SimulationConfigValues } from "../types/config";
 import { parseStoredTimestamp } from "../utils/time";
+import { LoaderMark } from "./ui/Loader";
 
 export interface SavedReplay {
   id: string;
@@ -194,7 +195,8 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
       )}
 
       {loading ? (
-        <p className="history-status" role="status">
+        <p className="history-status is-loading" role="status">
+          <LoaderMark />
           Loading saved runs…
         </p>
       ) : loadError ? (

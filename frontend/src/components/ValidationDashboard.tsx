@@ -12,7 +12,18 @@ import {
 } from "recharts";
 import { API_BASE_URL } from "../config";
 import "./ValidationDashboard.css";
+import { DEFAULT_CONFIG_VALUES } from "../types/config";
+import {
+  DEMAND_LEVELS,
+  REFERENCE_CAPACITY_VPH,
+  demandRate,
+  saturationRatio,
+} from "../types/demand";
+import { SIMILARITY, compare } from "../metrics/plainLanguage";
 import { IntegrityCheck } from "./IntegrityCheck";
+import { CloseButton } from "./ui/CloseButton";
+import { LoaderMark } from "./ui/Loader";
+import { SERIES } from "../theme/chart";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -21,7 +32,13 @@ interface StatResult {
   std: number;
   min: number;
   max: number;
+  /** Student-t half-width at the run's confidence level. */
+  ci?: number;
+  /** Student-t half-width at 95 % (always present). */
   ci95: number;
+  ciConfidence?: number;
+  ciDegreesOfFreedom?: number;
+  ciCriticalValue?: number;
 }
 
 interface SeedRun {
@@ -32,6 +49,12 @@ interface SeedRun {
 
 interface ValidationResult {
   numSeeds: number;
+  /** Level the intervals and significance flags were computed at; alpha is
+   *  1 - level. Both come from the backend, which is what ran the test. */
+  confidenceLevel?: number;
+  alpha?: number;
+  calibration?: { calibrated: boolean; note: string };
+  vehicleLimitReachedSeeds?: number[];
   signal: {
     delay: StatResult;
     throughput: StatResult;
@@ -86,7 +109,7 @@ function getCohensDLabel(d: number): {
   if (absD >= 0.8)
     return {
       label: "Large Effect",
-      color: "#f59e0b",
+      color: SERIES.signal,
       bg: "rgba(245, 158, 11, 0.12)",
     };
   if (absD >= 0.5)
@@ -135,7 +158,8 @@ const CustomChartTooltip: React.FC<CustomTooltipProps> = ({
   const delta = rndVal - sigVal;
   const unit = METRIC_UNITS[metric];
 
-  // For delay/queue: lower is better. For throughput: higher is better.
+  // Which side has the lower delay/queue or the higher throughput: a plain
+  // description of this seed, not a judgement of either control.
   const rndWins = metric === "throughput" ? rndVal > sigVal : rndVal < sigVal;
 
   return (
@@ -159,9 +183,7 @@ const CustomChartTooltip: React.FC<CustomTooltipProps> = ({
       </div>
       <div className="tooltip-delta-footer">
         <span className="tooltip-delta-label">Difference:</span>
-        <span
-          className={`tooltip-delta-val ${rndWins ? "positive" : "negative"}`}
-        >
+        <span className="tooltip-delta-val">
           {delta > 0 ? `+${delta.toFixed(2)}` : delta.toFixed(2)} (
           {metric === "throughput"
             ? rndWins
@@ -246,7 +268,7 @@ function ModernCIBar({
 
 export const ValidationDashboard: React.FC = () => {
   const [numSeeds, setNumSeeds] = useState(5);
-  const [duration, setDuration] = useState(30);
+  const [duration, setDuration] = useState(240);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ValidationResult | null>(null);
@@ -258,31 +280,34 @@ export const ValidationDashboard: React.FC = () => {
   const [showConfigPanel, setShowConfigPanel] = useState(false);
 
   // Advanced Configuration Parameters
-  const [arrivalRate, setArrivalRate] = useState(0.35);
+  const [arrivalRate, setArrivalRate] = useState(
+    DEFAULT_CONFIG_VALUES.arrivalRate,
+  );
   const [arrivalDistribution, setArrivalDistribution] = useState<
     "poisson" | "uniform"
   >("poisson");
-  const [warmupTime, setWarmupTime] = useState(5.0);
+  const [warmupTime, setWarmupTime] = useState(30.0);
   const [timeStep, setTimeStep] = useState(0.1);
   const [approachLength, setApproachLength] = useState(200.0);
   const [confidenceLevel, setConfidenceLevel] = useState<0.9 | 0.95 | 0.99>(
     0.95,
   );
 
-  const zCrit = useMemo(() => {
-    if (confidenceLevel === 0.9) return 1.645;
-    if (confidenceLevel === 0.99) return 2.576;
-    return 1.96;
-  }, [confidenceLevel]);
-
   const alpha = useMemo(() => {
     return Number((1 - confidenceLevel).toFixed(2));
   }, [confidenceLevel]);
 
+  // Level and alpha of the result on screen (what the backend actually ran),
+  // as opposed to `confidenceLevel`, which is the setting for the next run.
+  const [lanesCount, setLanesCount] = useState<1 | 2 | 3>(1);
+
   const resetAdvancedDefaults = () => {
-    setArrivalRate(0.35);
+    setLanesCount(1);
+    setArrivalRate(DEFAULT_CONFIG_VALUES.arrivalRate);
     setArrivalDistribution("poisson");
-    setWarmupTime(5.0);
+    setWarmupTime(30.0);
+    setNumSeeds(5);
+    setDuration(240);
     setTimeStep(0.1);
     setApproachLength(200.0);
     setConfidenceLevel(0.95);
@@ -302,7 +327,12 @@ export const ValidationDashboard: React.FC = () => {
       roads: {
         approachLength,
         laneWidth: 3.5,
-        lanesPerApproach: { north: 2, south: 2, east: 2, west: 2 },
+        lanesPerApproach: {
+          north: lanesCount,
+          south: lanesCount,
+          east: lanesCount,
+          west: lanesCount,
+        },
       },
       traffic: {
         arrivalRate,
@@ -317,6 +347,7 @@ export const ValidationDashboard: React.FC = () => {
         numSeeds,
         num_seeds: numSeeds,
         duration,
+        confidenceLevel,
         customConfig,
       }),
     })
@@ -350,7 +381,12 @@ export const ValidationDashboard: React.FC = () => {
       roads: {
         approachLength,
         laneWidth: 3.5,
-        lanesPerApproach: { north: 2, south: 2, east: 2, west: 2 },
+        lanesPerApproach: {
+          north: lanesCount,
+          south: lanesCount,
+          east: lanesCount,
+          west: lanesCount,
+        },
       },
       traffic: {
         arrivalRate,
@@ -365,6 +401,7 @@ export const ValidationDashboard: React.FC = () => {
         numSeeds: seeds,
         num_seeds: seeds,
         duration: dur,
+        confidenceLevel,
         customConfig,
       }),
     })
@@ -405,11 +442,14 @@ export const ValidationDashboard: React.FC = () => {
       r.roundabout.throughput.toFixed(1),
       r.signal.queue.toFixed(2),
       r.roundabout.queue.toFixed(2),
-      r.roundabout.delay < r.signal.delay
-        ? "Roundabout"
-        : r.roundabout.delay > r.signal.delay
-          ? "Signal"
-          : "Equal",
+      (() => {
+        const c = compare(r.signal.delay, r.roundabout.delay, SIMILARITY.delay);
+        return c?.lower === "roundabout"
+          ? "Roundabout"
+          : c?.lower === "signal"
+            ? "Signal"
+            : "About the same";
+      })(),
     ]);
 
     const csvContent =
@@ -427,12 +467,10 @@ export const ValidationDashboard: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  const isMetricSignificant = (key: MetricKey) => {
-    if (!result) return false;
-    const p = result.comparison[key].pValue;
-    if (p !== null) return p < alpha;
-    return result.comparison[key].significant;
-  };
+  // The backend's flag, computed at the run's own alpha, is the only source of
+  // significance on screen (no second, locally chosen threshold).
+  const isMetricSignificant = (key: MetricKey) =>
+    result ? result.comparison[key].significant : false;
 
   const allSignificant = result
     ? METRIC_KEYS.every((k) => isMetricSignificant(k))
@@ -442,19 +480,23 @@ export const ValidationDashboard: React.FC = () => {
     ? METRIC_KEYS.some((k) => isMetricSignificant(k))
     : false;
 
-  // Compute seed win rate for roundabout
+  const resultAlpha = result?.alpha ?? 0.05;
+  const resultLevelPct = Math.round((result?.confidenceLevel ?? 0.95) * 100);
+
+  // Seeds by which control had the lower delay, using the app-wide "about the
+  // same" rule (plainLanguage SIMILARITY.delay = backend study/tolerances.py)
+  // so a fraction of a second is never counted as one control "winning".
   const roundaboutWinStats = useMemo(() => {
-    if (!result || result.seedRuns.length === 0)
-      return { delayWins: 0, total: 0, winPct: 0 };
-    const wins = result.seedRuns.filter(
-      (r) => r.roundabout.delay < r.signal.delay,
-    ).length;
-    const total = result.seedRuns.length;
-    return {
-      delayWins: wins,
-      total,
-      winPct: Math.round((wins / total) * 100),
-    };
+    const tally = { roundabout: 0, signal: 0, same: 0, total: 0 };
+    if (!result) return tally;
+    for (const r of result.seedRuns) {
+      const c = compare(r.signal.delay, r.roundabout.delay, SIMILARITY.delay);
+      tally.total += 1;
+      if (c?.lower === "roundabout") tally.roundabout += 1;
+      else if (c?.lower === "signal") tally.signal += 1;
+      else tally.same += 1;
+    }
+    return tally;
   }, [result]);
 
   // Transform seed runs for Recharts bar chart
@@ -479,7 +521,8 @@ export const ValidationDashboard: React.FC = () => {
             <h2>🔬 Statistical Validation Studio</h2>
             <span className="header-mini-chip">Monte Carlo Engine</span>
             <span className="header-confidence-chip">
-              {Math.round(confidenceLevel * 100)}% Confidence (α = {alpha})
+              Next run: {Math.round(confidenceLevel * 100)}% confidence (α ={" "}
+              {alpha})
             </span>
           </div>
           <p className="header-subtitle">
@@ -593,9 +636,10 @@ export const ValidationDashboard: React.FC = () => {
                 μ<sub>signal</sub> = μ<sub>roundabout</sub>
               </h5>
               <p>
-                Assumes performance divergence is solely attributable to
-                stochastic vehicle spawn jitter. Rejected when{" "}
-                <strong>p &lt; {alpha}</strong>.
+                Assumes any gap is due to which vehicles happened to arrive
+                when. Rejected (the difference is statistically supported) when{" "}
+                <strong>p &lt; {alpha}</strong>. Not rejecting it does not show
+                the controls are equal.
               </p>
             </div>
 
@@ -605,9 +649,9 @@ export const ValidationDashboard: React.FC = () => {
                 μ<sub>signal</sub> ≠ μ<sub>roundabout</sub>
               </h5>
               <p>
-                Confirms an inherent, statistically reproducible architectural
-                divergence in capacity and flow across randomized Poisson
-                arrivals.
+                Means the difference is unlikely to be explained by arrival
+                randomness alone, for this scenario and these seeds. It does not
+                say which control is better, or that the result holds elsewhere.
               </p>
             </div>
 
@@ -641,16 +685,12 @@ export const ValidationDashboard: React.FC = () => {
                 warmup periods, and statistical rigor
               </span>
             </div>
-            <button
-              type="button"
-              className="close-drawer-btn"
+            <CloseButton
+              label="Close settings drawer"
               onClick={() => {
                 setShowConfigPanel(false);
               }}
-              title="Close settings drawer"
-            >
-              ✕
-            </button>
+            />
           </div>
 
           <div className="advanced-config-grid">
@@ -671,24 +711,34 @@ export const ValidationDashboard: React.FC = () => {
                   <label>Arrival Rate (λ)</label>
                   <span className="adv-val-pill">
                     {arrivalRate.toFixed(2)} veh/s (
-                    {Math.round(arrivalRate * 3600)} veh/h)
+                    {Math.round(arrivalRate * 3600)} veh/h,{" "}
+                    {Math.round(saturationRatio(arrivalRate, lanesCount) * 100)}
+                    % of capacity)
                   </span>
                 </div>
                 <div className="adv-slider-wrap">
                   <input
                     type="range"
-                    min={0.1}
-                    max={0.8}
-                    step={0.05}
+                    min={0.05}
+                    max={
+                      Math.ceil(
+                        (1.5 * REFERENCE_CAPACITY_VPH[lanesCount]) / 36,
+                      ) / 100
+                    }
+                    step={0.01}
                     value={arrivalRate}
                     onChange={(e) => {
                       setArrivalRate(Number(e.target.value));
                     }}
                   />
                   <div className="adv-slider-labels">
-                    <span>0.1 (Light)</span>
-                    <span>0.35 (Medium)</span>
-                    <span>0.8 (Heavy)</span>
+                    {[DEMAND_LEVELS[0], DEMAND_LEVELS[2], DEMAND_LEVELS[5]].map(
+                      (d) => (
+                        <span key={d.id}>
+                          {demandRate(d, lanesCount).toFixed(2)} ({d.label})
+                        </span>
+                      ),
+                    )}
                   </div>
                 </div>
               </div>
@@ -738,8 +788,8 @@ export const ValidationDashboard: React.FC = () => {
                 <input
                   type="number"
                   min={0}
-                  max={20}
-                  step={1}
+                  max={60}
+                  step={5}
                   value={warmupTime}
                   onChange={(e) => {
                     setWarmupTime(Number(e.target.value));
@@ -826,9 +876,36 @@ export const ValidationDashboard: React.FC = () => {
                 <div>
                   <h5>Statistical Rigor & Confidence</h5>
                   <span className="adv-sub">
-                    Hypothesis testing alpha level and critical values
+                    Applies to the next run: interval width (Student-t) and the
+                    significance threshold
                   </span>
                 </div>
+              </div>
+
+              <div className="adv-field">
+                <label>Lanes per approach</label>
+                <div className="adv-pill-group">
+                  {([1, 2, 3] as const).map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      className={`adv-pill-btn ${lanesCount === n ? "active" : ""}`}
+                      onClick={() => {
+                        setLanesCount(n);
+                      }}
+                    >
+                      {n === 1
+                        ? "1 lane (calibrated comparison)"
+                        : `${String(n)} lanes (exploratory)`}
+                    </button>
+                  ))}
+                </div>
+                <span className="adv-sub">
+                  With more than one lane both junctions model every lane, but
+                  drivers leaving the roundabout from an inner ring cross the
+                  outer one without lane markings, so results are exploratory
+                  and not the calibrated baseline.
+                </span>
               </div>
 
               <div className="adv-field">
@@ -841,7 +918,7 @@ export const ValidationDashboard: React.FC = () => {
                       setConfidenceLevel(0.9);
                     }}
                   >
-                    90% (α = 0.10, z = 1.645)
+                    90% (α = 0.10)
                   </button>
                   <button
                     type="button"
@@ -850,7 +927,7 @@ export const ValidationDashboard: React.FC = () => {
                       setConfidenceLevel(0.95);
                     }}
                   >
-                    95% (α = 0.05, z = 1.960)
+                    95% (α = 0.05)
                   </button>
                   <button
                     type="button"
@@ -859,7 +936,7 @@ export const ValidationDashboard: React.FC = () => {
                       setConfidenceLevel(0.99);
                     }}
                   >
-                    99% (α = 0.01, z = 2.576)
+                    99% (α = 0.01)
                   </button>
                 </div>
               </div>
@@ -961,7 +1038,7 @@ export const ValidationDashboard: React.FC = () => {
 
       {isRunning && (
         <div className="validation-loading">
-          <div className="spin-purple" />
+          <LoaderMark />
           <span>
             Simulating {numSeeds} randomized seed pairs × {duration}s —
             computing two-sample Welch statistics…
@@ -987,14 +1064,14 @@ export const ValidationDashboard: React.FC = () => {
               type="button"
               className="preflight-card"
               onClick={() => {
-                handleLaunchPreset(3, 20);
+                handleLaunchPreset(3, 120);
               }}
             >
               <div className="preflight-header">
                 <span className="preflight-badge quick">⚡ Quick Check</span>
-                <span className="preflight-time">~6s</span>
+                <span className="preflight-time">~15s</span>
               </div>
-              <h4>3 Seeds × 20 Seconds</h4>
+              <h4>3 Seeds × 120 Seconds</h4>
               <p>
                 A fast look at seed-to-seed variation. Too few seeds for strong
                 conclusions.
@@ -1006,14 +1083,14 @@ export const ValidationDashboard: React.FC = () => {
               type="button"
               className="preflight-card featured"
               onClick={() => {
-                handleLaunchPreset(5, 30);
+                handleLaunchPreset(5, 240);
               }}
             >
               <div className="preflight-header">
                 <span className="preflight-badge standard">🧪 Recommended</span>
-                <span className="preflight-time">~15s</span>
+                <span className="preflight-time">~40s</span>
               </div>
-              <h4>5 Seeds × 30 Seconds</h4>
+              <h4>5 Seeds × 240 Seconds</h4>
               <p>
                 A reasonable default: enough seeds for a first Welch t-test,
                 still quick to run.
@@ -1025,14 +1102,14 @@ export const ValidationDashboard: React.FC = () => {
               type="button"
               className="preflight-card"
               onClick={() => {
-                handleLaunchPreset(10, 60);
+                handleLaunchPreset(10, 300);
               }}
             >
               <div className="preflight-header">
                 <span className="preflight-badge rigor">🔬 High Rigor</span>
-                <span className="preflight-time">~35s</span>
+                <span className="preflight-time">~2 min</span>
               </div>
-              <h4>10 Seeds × 60 Seconds</h4>
+              <h4>10 Seeds × 300 Seconds</h4>
               <p>
                 More seeds and longer runs give narrower confidence intervals;
                 slower to run.
@@ -1063,15 +1140,16 @@ export const ValidationDashboard: React.FC = () => {
               <div className="verdict-headline">
                 <h4>
                   {allSignificant
-                    ? "Statistically Significant Divergence Confirmed Across All Key Metrics"
+                    ? `Difference statistically supported on all three metrics at α = ${resultAlpha.toString()}`
                     : anySignificant
-                      ? "Partial Statistical Significance Detected Between Topologies"
-                      : "No Statistically Significant Difference Detected at α = 0.05"}
+                      ? `Difference statistically supported on some metrics at α = ${resultAlpha.toString()}`
+                      : `No statistically supported difference at α = ${resultAlpha.toString()}`}
                 </h4>
                 <span className="win-rate-pill">
-                  Roundabout had the lower delay in{" "}
-                  {roundaboutWinStats.delayWins} of {roundaboutWinStats.total}{" "}
-                  seeds ({roundaboutWinStats.winPct}%)
+                  Lower delay by seed: roundabout{" "}
+                  {roundaboutWinStats.roundabout}, signal{" "}
+                  {roundaboutWinStats.signal}, about the same{" "}
+                  {roundaboutWinStats.same} (of {roundaboutWinStats.total})
                 </span>
               </div>
 
@@ -1081,7 +1159,11 @@ export const ValidationDashboard: React.FC = () => {
                   <strong>
                     {result.numSeeds} randomized Monte Carlo trials
                   </strong>{" "}
-                  (Duration: {duration}s / seed) with 95% confidence intervals.
+                  (Duration: {duration}s / seed) with {resultLevelPct}%
+                  Student-t confidence intervals. Three metrics are tested
+                  separately with no correction for that, and a result that is
+                  not supported means the study cannot distinguish the controls,
+                  not that they are equal.
                 </span>
 
                 <div className="significance-tag-row">
@@ -1092,8 +1174,8 @@ export const ValidationDashboard: React.FC = () => {
                     >
                       {METRIC_LABELS[k]}:{" "}
                       {result.comparison[k].significant
-                        ? "Significant (p<0.05)"
-                        : "Non-Sig"}
+                        ? `Supported (p<${resultAlpha.toString()})`
+                        : "Not supported"}
                     </span>
                   ))}
                 </div>
@@ -1101,6 +1183,21 @@ export const ValidationDashboard: React.FC = () => {
             </div>
           </div>
 
+          {result.calibration && !result.calibration.calibrated && (
+            <p className="validation-banner is-exploratory" role="note">
+              <strong>Exploratory, not calibrated.</strong>{" "}
+              {result.calibration.note}
+            </p>
+          )}
+          {result.vehicleLimitReachedSeeds &&
+            result.vehicleLimitReachedSeeds.length > 0 && (
+              <p className="validation-banner is-exploratory" role="note">
+                <strong>Demand was cut off.</strong> Vehicle generation reached
+                its per-run limit in {result.vehicleLimitReachedSeeds.length} of{" "}
+                {result.numSeeds} seeds, so those seeds did not receive their
+                full demand.
+              </p>
+            )}
           {/* Studio Tab Bar */}
           <div className="validation-tab-bar">
             <button
@@ -1128,7 +1225,7 @@ export const ValidationDashboard: React.FC = () => {
                 setActiveTab("methodology");
               }}
             >
-              📐 Statistical Hypotheses & Proofs
+              📐 Statistical Method
             </button>
           </div>
 
@@ -1141,8 +1238,8 @@ export const ValidationDashboard: React.FC = () => {
                   const sigStat = result.signal[key];
                   const rndStat = result.roundabout[key];
                   const maxMean = Math.max(
-                    sigStat.mean + sigStat.ci95,
-                    rndStat.mean + rndStat.ci95,
+                    sigStat.mean + (sigStat.ci ?? sigStat.ci95),
+                    rndStat.mean + (rndStat.ci ?? rndStat.ci95),
                     0.01,
                   );
                   const cmp = result.comparison[key];
@@ -1161,16 +1258,7 @@ export const ValidationDashboard: React.FC = () => {
                           <h4>{METRIC_LABELS[key]}</h4>
                           <span
                             className="delta-pill"
-                            style={{
-                              color:
-                                key === "throughput"
-                                  ? deltaPct >= 0
-                                    ? "#10b981"
-                                    : "#ef4444"
-                                  : deltaPct <= 0
-                                    ? "#10b981"
-                                    : "#ef4444",
-                            }}
+                            title="Roundabout mean relative to signal mean: descriptive, not better or worse"
                           >
                             {deltaPct > 0
                               ? `+${deltaPct.toFixed(1)}%`
@@ -1190,10 +1278,8 @@ export const ValidationDashboard: React.FC = () => {
                       </div>
 
                       {(() => {
-                        const ciSig =
-                          (sigStat.std / Math.sqrt(result.numSeeds)) * zCrit;
-                        const ciRnd =
-                          (rndStat.std / Math.sqrt(result.numSeeds)) * zCrit;
+                        const ciSig = sigStat.ci ?? sigStat.ci95;
+                        const ciRnd = rndStat.ci ?? rndStat.ci95;
                         return (
                           <div className="ci-comparison">
                             <ModernCIBar
@@ -1244,8 +1330,8 @@ export const ValidationDashboard: React.FC = () => {
                                   className={`sig-status-badge ${isMetricSignificant(key) ? "significant" : "not-significant"}`}
                                 >
                                   {isMetricSignificant(key)
-                                    ? `★ Sig (α=${alpha.toString()})`
-                                    : "Not Sig"}
+                                    ? `Supported (α=${resultAlpha.toString()})`
+                                    : "Not supported"}
                                 </span>
                               </div>
                             </div>
@@ -1411,12 +1497,12 @@ export const ValidationDashboard: React.FC = () => {
                     {result.seedRuns.map((run) => {
                       const deltaDelay =
                         run.roundabout.delay - run.signal.delay;
-                      const winner =
-                        run.roundabout.delay < run.signal.delay
-                          ? "roundabout"
-                          : run.roundabout.delay > run.signal.delay
-                            ? "signal"
-                            : "tie";
+                      const cmp = compare(
+                        run.signal.delay,
+                        run.roundabout.delay,
+                        SIMILARITY.delay,
+                      );
+                      const winner = cmp?.lower ?? "tie";
 
                       return (
                         <tr key={run.seed}>
@@ -1429,12 +1515,6 @@ export const ValidationDashboard: React.FC = () => {
                           <td>{run.roundabout.delay.toFixed(2)}s</td>
                           <td
                             style={{
-                              color:
-                                deltaDelay < 0
-                                  ? "#10b981"
-                                  : deltaDelay > 0
-                                    ? "#ef4444"
-                                    : "inherit",
                               fontWeight: 700,
                             }}
                           >
@@ -1457,7 +1537,7 @@ export const ValidationDashboard: React.FC = () => {
                                 ? "🔄 Roundabout"
                                 : winner === "signal"
                                   ? "🚦 Signal"
-                                  : "Equal"}
+                                  : "About the same"}
                             </span>
                           </td>
                         </tr>
@@ -1486,9 +1566,11 @@ export const ValidationDashboard: React.FC = () => {
                     t = (X̄₁ - X̄₂) / √(s₁²/N₁ + s₂²/N₂)
                   </div>
                   <p className="proof-sub">
-                    Significance criterion: <strong>p &lt; 0.05</strong>{" "}
-                    (rejects the null hypothesis H₀ at the 95% confidence
-                    level).
+                    Significance criterion:{" "}
+                    <strong>p &lt; {resultAlpha}</strong> (rejects H₀ at the{" "}
+                    {resultLevelPct}% level the run used). The test is unpaired
+                    even though both controls share seeds, which is the
+                    conservative choice.
                   </p>
                 </div>
 
@@ -1509,15 +1591,17 @@ export const ValidationDashboard: React.FC = () => {
                 </div>
 
                 <div className="proof-card">
-                  <h4>3. 95% Confidence Intervals (CI₉₅)</h4>
+                  <h4>3. Confidence intervals (Student-t)</h4>
                   <p>
-                    Provides the upper and lower bounds of the true population
-                    mean for delay, throughput, and queue depth:
+                    A range around each mean that should contain the long-run
+                    mean in the stated share of repeated studies. The
+                    t-distribution is used because only a few seeds are run (at
+                    N = 5 the 95% multiplier is 2.776, not 1.96):
                   </p>
-                  <div className="math-box">CI₉₅ = X̄ ± 1.96 × (σ / √N)</div>
+                  <div className="math-box">CI = X̄ ± t(N−1) × (s / √N)</div>
                   <p className="proof-sub">
-                    Non-overlapping confidence intervals between Signal and
-                    Roundabout reinforce strong topological separation.
+                    Non-overlapping intervals are consistent with a real
+                    difference; the Welch test above is the formal check.
                   </p>
                 </div>
               </div>

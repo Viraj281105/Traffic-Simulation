@@ -3,6 +3,7 @@ import math
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from src.core.enums import Direction
+from src.core.limits import DEFAULT_TOTAL_VEHICLES
 from src.metrics.definitions.derived_metrics import (
     calculate_average_travel_speed,
     calculate_critical_saturation_volume,
@@ -93,6 +94,14 @@ class MetricCollector:
         self.ttc_threshold_seconds: float = metrics_cfg.get("ttcThresholdSeconds", 1.5)
         self.pet_threshold_seconds: float = metrics_cfg.get("petThresholdSeconds", 5.0)
         self.ttc_search_radius: float = metrics_cfg.get("ttcSearchRadius", 50.0)
+
+        # The spawner's per-run vehicle cap (same key, same default), so a
+        # run whose demand was truncated by it can be flagged (see
+        # core/limits.py).
+        traffic_cfg = config.get("traffic") or {}
+        self.vehicle_limit: int = int(
+            traffic_cfg.get("totalVehicles", DEFAULT_TOTAL_VEHICLES)
+        )
 
         self.reset()
 
@@ -483,10 +492,15 @@ class MetricCollector:
             < MIN_RELIABLE_SAMPLE_SIZE,
             "idleOpportunityLoss": idle_loss,
             "directionalFairnessIndex": calculate_directional_fairness(
-                post_warmup_exited
+                post_warmup_exited, self._warmup_baseline_wait
             ),
             "activeVehicleCount": len(active_vehicles),
             "totalVehiclesSpawned": total_spawned,
+            # The generation cap and whether it was hit. When reached, no
+            # further vehicles were offered, so demand after that moment was
+            # truncated and totalVehiclesSpawned is not the offered demand.
+            "vehicleLimit": self.vehicle_limit,
+            "vehicleLimitReached": total_spawned >= self.vehicle_limit,
             "averageTravelSpeed": calculate_average_travel_speed(active_vehicles),
             "queueStabilityIndex": qsi,
             "congestionRecoveryTime": round(self.congestion_recovery_time, 2),

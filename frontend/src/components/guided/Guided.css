@@ -119,23 +119,27 @@
 
 .guided-question legend,
 .guided-question .as-legend {
+  /* Floated so the browser's fieldset-border placement can't shift it: every
+     question header (fieldset legend or plain heading) then sits on the same
+     left edge and baseline, badge and title vertically centred. */
+  float: left;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
   font-size: 17px;
   font-weight: 700;
-  padding: 0 6px;
-  margin-left: -6px;
-}
-
-.guided-question .as-legend {
-  padding: 0;
-  margin: 0;
+  line-height: 1.4;
 }
 
 .q-number {
   display: inline-grid;
   place-items: center;
+  flex-shrink: 0;
   width: 24px;
   height: 24px;
-  margin-right: 6px;
   border-radius: 50%;
   background: hsl(var(--primary) / 0.15);
   color: var(--accent-blue);
@@ -160,6 +164,22 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 10px;
+}
+
+.choice-grid--levels {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 760px) {
+  .choice-grid--levels {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .choice-grid--levels {
+    grid-template-columns: 1fr;
+  }
 }
 
 .choice-card,
@@ -212,7 +232,7 @@
 
 .choice-figure {
   font-size: 13px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   color: var(--accent-blue);
 }
 
@@ -366,7 +386,7 @@
 }
 
 .mono {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
 }
 
 .live-progress-track {
@@ -427,7 +447,7 @@
 }
 
 .live-table td {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 15px;
   font-weight: 600;
 }
@@ -583,7 +603,7 @@
 }
 
 .pair-value {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-weight: 600;
   min-width: 72px;
   text-align: right;
@@ -704,22 +724,6 @@
   align-items: center;
 }
 
-.spinner {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  border: 3px solid var(--bg-tertiary);
-  border-top-color: var(--accent-blue);
-  animation: guided-spin 0.9s linear infinite;
-}
-
-@keyframes guided-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .reliability-headline {
   font-size: 16px;
   font-weight: 700;
@@ -760,7 +764,7 @@
 }
 
 .plain-table.mono-cells td {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
 }
 
 .session-table tr.is-current th,

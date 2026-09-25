@@ -180,8 +180,17 @@ describe("Guided comparison", () => {
     await user.click(screen.getByRole("radio", { name: /2 lanes/i }));
 
     expect(screen.getByRole("note")).toHaveTextContent(
-      /single circulating lane/i,
+      /indicative.*inner ring/i,
     );
+  });
+
+  it("keeps the demand level when the lane count changes", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("radio", { name: /3 lanes/i }));
+    // "Busy" stays selected and now means 75% of the 3-lane capacity.
+    expect(screen.getByRole("radio", { name: /busy/i })).toBeChecked();
+    expect(screen.getByText(/1,970 vehicles \/ hour/)).toBeInTheDocument();
   });
 
   it("sends the chosen scenario to the backend before playing it", async () => {
@@ -198,7 +207,7 @@ describe("Guided comparison", () => {
           resolveSync = resolve;
         }),
     );
-    await user.click(screen.getByRole("radio", { name: /rush hour/i }));
+    await user.click(screen.getByRole("radio", { name: /near capacity/i }));
     await user.click(
       screen.getByRole("button", { name: /run the comparison/i }),
     );
@@ -211,7 +220,8 @@ describe("Guided comparison", () => {
       arrivalRate: number;
       intersectionType: string;
     };
-    expect(payload.arrivalRate).toBe(0.45);
+    // 90% of the measured 1-lane reference capacity (1,250 veh/h).
+    expect(payload.arrivalRate).toBeCloseTo(1130 / 3600, 9);
     expect(payload.intersectionType).toBe("fixed_time_signal");
     // …but Play waits for the backend to hold the new scenario.
     expect(wsState.play).not.toHaveBeenCalled();
@@ -237,7 +247,7 @@ describe("Guided comparison", () => {
     );
     expect(inShort).toHaveTextContent(/does not pick a winner/);
     expect(
-      screen.getByRole("heading", { name: /how long do drivers wait\?/i }),
+      screen.getByRole("heading", { name: /how much time do drivers lose\?/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: /why did this happen\?/i }),
@@ -253,6 +263,44 @@ describe("Guided comparison", () => {
     ).toBeInTheDocument();
     expect(
       within(specialist).getByRole("rowheader", { name: /minimum ttc/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps time lost apart from waiting and never sets the composite side by side", async () => {
+    const user = userEvent.setup();
+    wsState.snapshot = COMPLETED;
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: /results/i }));
+
+    // Delay is "time lost", queued time is its own row, and the definition is stated.
+    expect(
+      screen.getByText(/Time spent nearly stopped, on average/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Time lost is not the same as waiting/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/how long do drivers wait/i)).toBeNull();
+    expect(screen.queryByText(/is that a long wait/i)).toBeNull();
+
+    // The fixed-weight composite is not in the signal-vs-roundabout table.
+    const specialist = screen
+      .getByText(/all measurements & method/i)
+      .closest("details") as HTMLElement;
+    expect(
+      within(specialist).queryByRole("rowheader", { name: /composite/i }),
+    ).toBeNull();
+  });
+
+  it("tells the user when vehicle generation was cut off", async () => {
+    const user = userEvent.setup();
+    const capped = structuredClone(COMPLETED);
+    capped.signal.metrics.vehicleLimitReached = true;
+    capped.signal.metrics.vehicleLimit = 200;
+    wsState.snapshot = capped;
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: /results/i }));
+    expect(
+      screen.getByText(/Vehicle generation reached its limit of 200 vehicles/i),
     ).toBeInTheDocument();
   });
 
@@ -305,7 +353,7 @@ describe("Guided comparison", () => {
     ];
     expect(patterns).toBe(5);
     expect(scenario).toMatchObject({
-      arrivalRate: 0.3,
+      arrivalRate: 940 / 3600,
       lanesNorth: 1,
       duration: 300,
     });

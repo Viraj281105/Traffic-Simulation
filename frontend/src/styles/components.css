@@ -1,0 +1,105 @@
+/*
+ * Shared UrbanFlow controls used across the existing pages: the compact
+ * close button and the loading mark. Colours come from styles/tokens.css.
+ */
+
+/* ── Close button (every dialog, drawer and panel) ──────────────────────── */
+.uf-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--icon-btn);
+  height: var(--icon-btn);
+  padding: 0;
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-2);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+.uf-icon-btn:hover {
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+.uf-icon-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.uf-icon-btn svg {
+  width: var(--icon-size);
+  height: var(--icon-size);
+}
+
+/* ── Loading mark: a small roundabout with vehicles circulating ────────── */
+.uf-loader {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--color-text-3);
+}
+.uf-loader svg {
+  display: block;
+  overflow: visible;
+}
+.uf-loader__road {
+  fill: none;
+  stroke: var(--color-border-strong);
+}
+.uf-loader__island {
+  fill: var(--color-surface-2);
+  stroke: var(--color-border-strong);
+}
+.uf-loader__car {
+  fill: var(--color-accent);
+  offset-path: path("M 24 10 A 14 14 0 1 1 23.99 10");
+  offset-rotate: auto;
+  animation: uf-loader-orbit 1.6s linear infinite;
+}
+.uf-loader__car--2 {
+  fill: var(--series-signal);
+  animation-delay: -0.53s;
+}
+.uf-loader__car--3 {
+  fill: var(--series-roundabout);
+  animation-delay: -1.07s;
+}
+@keyframes uf-loader-orbit {
+  from {
+    offset-distance: 0%;
+  }
+  to {
+    offset-distance: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* No orbiting; the mark fades gently instead, which still says "working". */
+  .uf-loader__car {
+    animation: none !important;
+  }
+  .uf-loader__car--2 {
+    offset-distance: 33%;
+  }
+  .uf-loader__car--3 {
+    offset-distance: 66%;
+  }
+  .uf-loader svg {
+    animation: uf-loader-breathe 1.6s ease-in-out infinite alternate !important;
+    animation-duration: 1.6s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+@keyframes uf-loader-breathe {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.45;
+  }
+}

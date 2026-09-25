@@ -26,6 +26,7 @@ import {
 } from "../runs/savedRun";
 import { VIEW_ROUTES, comparePath, followLink } from "../routing";
 import { parseStoredTimestamp } from "../utils/time";
+import { LoaderMark } from "./ui/Loader";
 
 type LoadState =
   | { kind: "loading" }
@@ -96,7 +97,8 @@ export function RunPage({
     return (
       <div className="history-dashboard run-page">
         <BackToHistory />
-        <p className="history-status" role="status">
+        <p className="history-status is-loading" role="status">
+          <LoaderMark />
           Loading run…
         </p>
       </div>

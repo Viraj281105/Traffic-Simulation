@@ -4,8 +4,14 @@ import type { SimulationConfigValues } from "../../types/config";
 import {
   DEMAND_LEVELS,
   demandLevelFor,
+  demandRate,
   signalCycleSeconds,
 } from "../../types/config";
+import {
+  REFERENCE_CAPACITY_VPH,
+  saturationRatio,
+  type LaneCount,
+} from "../../types/demand";
 import {
   LOS_THRESHOLDS,
   LOS_WORDS,
@@ -198,7 +204,7 @@ export function ResultsReport({
     ctx.roundabout.metrics?.travelTimeReliabilityLowSampleSize,
   );
 
-  const level = demandLevelFor(config.arrivalRate);
+  const level = demandLevelFor(config.arrivalRate, config.lanes);
   const levelIndex = level ? DEMAND_LEVELS.indexOf(level) : -1;
   const busier = levelIndex >= 0 ? DEMAND_LEVELS[levelIndex + 1] : undefined;
   const quieter = levelIndex > 0 ? DEMAND_LEVELS[levelIndex - 1] : undefined;
@@ -280,7 +286,7 @@ export function ResultsReport({
             <h2 id="r-matters">What people using the junction would notice</h2>
             <div className="question-grid">
               <QuestionCard
-                question="How long do drivers wait?"
+                question="How much time do drivers lose?"
                 lead={leadSentence(
                   s.delay,
                   r.delay,
@@ -297,6 +303,12 @@ export function ResultsReport({
                     format: (v) => seconds(v),
                   },
                   {
+                    label: "Time spent nearly stopped, on average",
+                    signal: s.queuedTime,
+                    roundabout: r.queuedTime,
+                    format: (v) => seconds(v, 1),
+                  },
+                  {
                     label: "1 in 20 drivers lost more than",
                     signal: s.p95Delay,
                     roundabout: r.p95Delay,
@@ -309,10 +321,15 @@ export function ResultsReport({
                     format: (v) => v.toFixed(1),
                   },
                 ]}
-                keys={["averageDelay", "p95Delay", "averageStopsPerVehicle"]}
+                keys={[
+                  "averageDelay",
+                  "p95Delay",
+                  "averageWaitTime",
+                  "averageStopsPerVehicle",
+                ]}
                 extra={
                   <p className="question-extra">
-                    Is that a long wait?{" "}
+                    Is that a lot of time lost?{" "}
                     {(["signal", "roundabout"] as Side[]).map((side, i) => {
                       const d = summaries[side].delay;
                       if (d === null) return null;
@@ -334,10 +351,13 @@ export function ResultsReport({
                 measuredNote={
                   <p>
                     “Time lost” is the extra time a journey took compared with
-                    driving through an empty junction at the driver’s own speed
-                    (control delay). Grades A–F are the Highway Capacity
-                    Manual’s delay bands, used here as an indicative guide: for
-                    signals A ≤ {LOS_THRESHOLDS.signal[0]} s, B ≤{" "}
+                    driving through an empty junction at the driver’s own speed.
+                    It counts queuing and also any slowing the layout itself
+                    forces (for example easing into a roundabout), so it is not
+                    the same as “time spent nearly stopped”, which counts only
+                    standing time. Grades A–F are the Highway Capacity Manual’s
+                    delay bands, used here as an indicative guide: for signals A
+                    ≤ {LOS_THRESHOLDS.signal[0]} s, B ≤{" "}
                     {LOS_THRESHOLDS.signal[1]} s, C ≤ {LOS_THRESHOLDS.signal[2]}{" "}
                     s, D ≤ {LOS_THRESHOLDS.signal[3]} s, E ≤{" "}
                     {LOS_THRESHOLDS.signal[4]} s; for roundabouts the stricter A
@@ -509,6 +529,11 @@ export function ResultsReport({
                 complete: complete || replayName !== null,
                 collisions: (s.collisions ?? 0) + (r.collisions ?? 0),
                 lowReliabilitySample: lowSample,
+                vehicleLimitReached: Boolean(
+                  ctx.signal.metrics?.vehicleLimitReached ||
+                  ctx.roundabout.metrics?.vehicleLimitReached,
+                ),
+                vehicleLimit: ctx.signal.metrics?.vehicleLimit ?? null,
               }).map((note) => (
                 <li key={note.text} className={`trust-${note.tone}`}>
                   {note.text}
@@ -533,7 +558,10 @@ export function ResultsReport({
               type="button"
               className="pb-btn pb-secondary"
               onClick={() => {
-                onTryScenario({ ...config, arrivalRate: quieter.arrivalRate });
+                onTryScenario({
+                  ...config,
+                  arrivalRate: demandRate(quieter, config.lanes),
+                });
               }}
             >
               Try quieter traffic ({quieter.label.toLowerCase()})
@@ -544,7 +572,10 @@ export function ResultsReport({
               type="button"
               className="pb-btn pb-secondary"
               onClick={() => {
-                onTryScenario({ ...config, arrivalRate: busier.arrivalRate });
+                onTryScenario({
+                  ...config,
+                  arrivalRate: demandRate(busier, config.lanes),
+                });
               }}
             >
               Try busier traffic ({busier.label.toLowerCase()})
@@ -655,6 +686,28 @@ export function ResultsReport({
               <dd>
                 Random (Poisson), {config.arrivalRate.toFixed(2)} veh/s total,
                 seed {config.randomSeed}, identical for both controls
+              </dd>
+            </div>
+            <div>
+              <dt>Demand level</dt>
+              <dd>
+                {Math.round(
+                  saturationRatio(config.arrivalRate, config.lanes) * 100,
+                )}
+                % of the reference capacity for {config.lanes} lane
+                {config.lanes === 1 ? "" : "s"} (
+                {REFERENCE_CAPACITY_VPH[
+                  Math.min(3, Math.max(1, config.lanes)) as LaneCount
+                ].toLocaleString()}{" "}
+                veh/h, the mean of both controls&apos; measured maximum)
+              </dd>
+            </div>
+            <div>
+              <dt>Speeds</dt>
+              <dd>
+                50 km/h limit; drivers want 85–105% of it. Every curved path at
+                both junctions is taken at the same lateral-acceleration limit
+                (3 m/s²).
               </dd>
             </div>
             <div>

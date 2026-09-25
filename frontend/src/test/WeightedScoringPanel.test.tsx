@@ -44,6 +44,7 @@ function metrics(overrides: Partial<RunningMetrics>): RunningMetrics {
 
 describe("WeightedScoringPanel", () => {
   const signal = metrics({
+    throughput: 30,
     averageWaitTime: 24.5,
     throughputRate: 20,
     averageQueueLength: 3.2,
@@ -51,6 +52,7 @@ describe("WeightedScoringPanel", () => {
     directionalFairnessIndex: 0.72,
   });
   const roundabout = metrics({
+    throughput: 30,
     averageWaitTime: 12.3,
     throughputRate: 24,
     averageQueueLength: 1.1,
@@ -81,6 +83,60 @@ describe("WeightedScoringPanel", () => {
     // Sliders are reachable by their labels.
     expect(screen.getByLabelText(/Average queued time/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Directional fairness/i)).toBeInTheDocument();
+  });
+
+  it("says the score reflects the chosen weights, not a finding", () => {
+    render(
+      <WeightedScoringPanel
+        metricsSignal={signal}
+        metricsRoundabout={roundabout}
+        weights={DEFAULT_WEIGHTS}
+        onWeightsChange={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByText(/reflects the weights you chose, not a finding/i),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no score before a vehicle has exited on both sides", () => {
+    render(
+      <WeightedScoringPanel
+        metricsSignal={{ ...signal, throughput: 0 }}
+        metricsRoundabout={roundabout}
+        weights={DEFAULT_WEIGHTS}
+        onWeightsChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/No score yet/i)).toBeInTheDocument();
+    expect(screen.queryByText(/\/ 100/)).toBeNull();
+    expect(screen.queryByText(/points higher/i)).toBeNull();
+  });
+
+  it("shows no score during warm-up even when metrics hold placeholders", () => {
+    const placeholder = metrics({
+      throughput: 12,
+      directionalFairnessIndex: 1,
+    });
+    render(
+      <WeightedScoringPanel
+        metricsSignal={placeholder}
+        metricsRoundabout={placeholder}
+        signalCtx={{
+          metrics: placeholder,
+          geometry: "fixed_time_signal",
+          inWarmup: true,
+        }}
+        roundaboutCtx={{
+          metrics: placeholder,
+          geometry: "roundabout",
+          inWarmup: true,
+        }}
+        weights={DEFAULT_WEIGHTS}
+        onWeightsChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/No score yet/i)).toBeInTheDocument();
   });
 
   it("applies presets", () => {

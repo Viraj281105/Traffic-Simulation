@@ -79,22 +79,6 @@
   border: 1px solid rgba(255, 146, 43, 0.4);
 }
 
-.config-close-btn {
-  background: transparent;
-  border: none;
-  color: #8b949e;
-  font-size: 20px;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 6px;
-  transition: all 0.15s ease;
-}
-
-.config-close-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #e6edf3;
-}
-
 .config-sidebar-body {
   flex: 1;
   overflow-y: auto;
@@ -205,7 +189,7 @@
 }
 
 .config-control-value {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   color: #58a6ff;
   font-weight: 600;
@@ -236,7 +220,7 @@
   border-radius: 6px;
   color: #e6edf3;
   padding: 6px 10px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
 }
 
@@ -362,13 +346,6 @@
   background: var(--bg-secondary);
 }
 .light .config-sidebar-title {
-  color: var(--text-primary);
-}
-.light .config-close-btn {
-  color: var(--text-secondary);
-}
-.light .config-close-btn:hover {
-  background: var(--bg-hover);
   color: var(--text-primary);
 }
 .light .config-presets-container {

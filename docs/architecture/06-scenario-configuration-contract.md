@@ -85,17 +85,15 @@ The versioned API accepts this configuration over REST and validates it against 
 | 1 | `approachLength` | `number` | ❌ | `200` | Length of each approach arm | > 50, ≤ 1000 meters |
 | 2 | `laneWidth` | `number` | ❌ | `3.5` | Width of each lane | > 2.5, ≤ 5.0 meters |
 | 3 | `lanesPerApproach` | `integer` | ❌ | `2` | Lane count applied to all four approaches | 1–4 (see `shared/schemas/config.schema.json`) |
-| 4 | `speedLimit` | `number` | ❌ | `13.89` | Speed limit on approach roads. **Accepted and validated but not applied by the engine** — vehicles drive at their own `desiredSpeed` (see §2.5), which by default exceeds it. See the note below. | > 0, ≤ 30 m/s (≈108 km/h) |
+| 4 | `speedLimit` | `number` | ❌ | `13.89` | Speed limit on approach roads (50 km/h). Unless `vehicleGeneration.desiredSpeed` is set, each driver's desired speed is drawn from 85–105% of it (see §2.5). | > 0, ≤ 30 m/s (≈108 km/h) |
 | 5 | `approaches` | `array<ApproachConfig>` | ❌ | All 4 directions | Per-approach overrides. **Reserved — accepted and schema-validated, but not read by the engine**: every approach uses `lanesPerApproach` and no speed limit is applied. See below. | See below |
 
 > **Asymmetric lane counts — not yet part of this contract.** The versioned config schema (`shared/schemas/config.schema.json`, enforced on `POST /api/v1/configs/validate` and `POST /api/v1/simulations`) only accepts `lanesPerApproach` as a single integer shared by all four approaches. Internally, the legacy live dashboard routes (`backend/src/main.py`) and the simulation engine (`backend/src/roads/network.py`) already accept a per-direction object (`{"north": 2, "south": 3, ...}`), but that shape is an implementation detail of the live/interactive path, not a validated or documented versioned-API feature. Officially supporting asymmetric per-direction lane counts in the versioned contract — including the schema, Pydantic models, and any dependent metric formulas such as [Space/Footprint Consumed](07-metric-contract.md#61-space--footprint-consumed) — is planned future work, not current behavior.
 
-> **`speedLimit` is not applied today.** Lanes store it, but no part of the
-> vehicle model reads it: longitudinal behaviour is governed by each vehicle's
-> `desiredSpeed` (default 18–25 m/s) and, at a roundabout, by the controller's
-> `entrySpeed`/`circulatingSpeed`. Enforcing it would change every published
-> result, so it is recorded as an open requirement rather than silently
-> switched on — see `docs/bug-fix-report.md` (Remaining Known Issues).
+> **`speedLimit` is applied (since 2026-09-25).** It sets the default
+> desired-speed range for both geometries (`src/vehicles/speed_profile.py`).
+> Until then it was accepted but ignored, and every driver wanted 18–25 m/s
+> (65–90 km/h) at an urban junction; see `docs/bug-fix-report.md` BUG-21.
 
 #### ApproachConfig Object
 
@@ -111,12 +109,13 @@ The versioned API accepts this configuration over REST and validates it against 
 |---|-------|------|----------|---------|-------------|------------|
 | 1 | `vehicleLength` | `object` | ❌ | `{"min": 4.0, "max": 5.0}` | Vehicle length range | min > 0, max ≥ min |
 | 2 | `vehicleWidth` | `object` | ❌ | `{"min": 1.8, "max": 2.2}` | Vehicle width range | min > 0, max ≥ min |
-| 3 | `desiredSpeed` | `object` | ❌ | `{"min": 18.0, "max": 25.0}` | Desired free-flow speed range (the default `VehicleSpawner` actually applies, and the value every dashboard/study preset sets explicitly) | min > 0, max ≥ min, m/s |
+| 3 | `desiredSpeed` | `object` | ❌ | 85–105% of `roads.speedLimit` (11.8–14.6 m/s at 50 km/h) | Desired free-flow speed range. Setting it overrides the speed-limit default | min > 0, max ≥ min, m/s |
 | 4 | `maxAcceleration` | `number` | ❌ | `2.0` | Maximum comfortable acceleration | > 0 m/s² |
 | 5 | `comfortDeceleration` | `number` | ❌ | `3.0` | Comfortable deceleration magnitude | > 0 m/s² |
 | 6 | `minimumGap` | `number` | ❌ | `2.0` | Minimum spacing between vehicles at standstill | > 0 meters |
 | 7 | `desiredTimeHeadway` | `number` | ❌ | `1.5` | Desired following time headway | > 0 seconds |
 | 8 | `idmDelta` | `number` | ❌ | `4` | IDM acceleration exponent | > 0 |
+| 9 | `maxLateralAcceleration` | `number` | ❌ | `3.0` | Lateral-acceleration limit on every curved path (signal turns, roundabout entry, ring and exit): a vehicle's speed on a curve of radius R is at most √(a·R), and it brakes for the curve at `comfortDeceleration` | > 0, ≤ 8 m/s² |
 
 ### 2.6 `controller` — Controller-Specific Configuration
 

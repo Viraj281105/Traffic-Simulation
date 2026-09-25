@@ -1,0 +1,212 @@
+/*
+ * Shared UrbanFlow tokens: the app's colour palette (dark by default, `.light`
+ * on <html> switches), the Roboto font stacks, and the few control and motion
+ * values used by the shared close button and loading mark. Imported first by
+ * both documents; the landing page keeps its own palette on top of it.
+ */
+
+:root {
+  /* ── Typography ─────────────────────────────────────────────────────── */
+  /* One typeface: Roboto. Roboto Mono (same family) only for code/ids. */
+  --font-sans:
+    "Roboto", system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial,
+    sans-serif;
+  --font-mono: "Roboto Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* ── Shape ──────────────────────────────────────────────────────────── */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+  --border-width: 1px;
+
+  /* ── Controls ───────────────────────────────────────────────────────── */
+  --icon-btn: 32px;
+  --icon-size: 16px;
+  --focus-ring: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-focus);
+
+  /* ── Motion ─────────────────────────────────────────────────────────── */
+  --dur-fast: 150ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* ── Colour: dark theme (default) ───────────────────────────────────── */
+  color-scheme: dark;
+  --color-bg: #0f1318;
+  --color-surface: #151a21;
+  --color-surface-2: #1b212a;
+  --color-surface-3: #232a34;
+  --color-border: #262e39;
+  --color-border-strong: #36404d;
+  --color-text: #e7eaef;
+  --color-text-2: #aab2be;
+  --color-text-3: #8a94a2;
+  --color-accent: #5b9dff;
+  --color-accent-soft: rgba(91, 157, 255, 0.12);
+  --color-focus: #5b9dff;
+  --color-success: #3fb772;
+  --color-warning: #e3a73a;
+  --color-danger: #ef5f5f;
+  --series-signal: #e3a73a;
+  --series-roundabout: #3bb7c9;
+  --series-neutral: #8a94a2;
+  --chart-grid: #262e39;
+  --chart-axis: #8a94a2;
+
+  --shadow-overlay:
+    0 12px 32px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.3);
+
+  /* ── Legacy aliases ─────────────────────────────────────────────────── */
+  /* Older stylesheets reference these names; they now resolve to the
+     tokens above so every page shares one palette. New code uses the
+     --color-* names directly. */
+  --bg-primary: var(--color-bg);
+  --bg-secondary: var(--color-surface);
+  --bg-tertiary: var(--color-surface-2);
+  --bg-card: var(--color-surface);
+  --bg-hover: var(--color-surface-3);
+  --border-color: var(--color-border);
+  --border-accent: var(--color-border-strong);
+  --text-primary: var(--color-text);
+  --text-secondary: var(--color-text-2);
+  --text-muted: var(--color-text-3);
+  --accent-blue: var(--color-accent);
+  --accent-cyan: var(--color-accent);
+  --accent-teal: var(--series-roundabout);
+  --accent-green: var(--color-success);
+  --accent-yellow: var(--color-warning);
+  --accent-red: var(--color-danger);
+  --shadow-sm: var(--shadow-raised);
+  --shadow-md: var(--shadow-raised);
+  --shadow-lg: var(--shadow-overlay);
+  --shadow-glow: none;
+
+  /* HSL channel tokens used by `hsl(var(--x))` in older styles and by the
+     Tailwind theme on the landing page. Kept equal to the palette above. */
+  --background: 214 23% 8%;
+  --foreground: 218 20% 92%;
+  --border: 214 20% 19%;
+  --input: 214 20% 19%;
+  --ring: 216 100% 68%;
+  --card: 215 22% 11%;
+  --card-foreground: 218 20% 92%;
+  --primary: 216 100% 68%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 215 22% 14%;
+  --secondary-foreground: 218 20% 92%;
+  --muted: 215 22% 14%;
+  --muted-foreground: 215 12% 71%;
+  --accent: 38 75% 56%;
+  --accent-foreground: 214 23% 8%;
+}
+
+/* ── Colour: light theme ──────────────────────────────────────────────── */
+.light {
+  color-scheme: light;
+  --color-bg: #f5f6f8;
+  --color-surface: #ffffff;
+  --color-surface-2: #f0f2f5;
+  --color-surface-3: #e6e9ee;
+  --color-border: #dadfe6;
+  --color-border-strong: #c2c9d3;
+  --color-text: #111722;
+  --color-text-2: #3d4757;
+  --color-text-3: #5b6676;
+  --color-accent: #1e62c8;
+  --color-accent-soft: rgba(30, 98, 200, 0.09);
+  --color-focus: #1e62c8;
+  --color-success: #1d7d45;
+  --color-warning: #8f5a00;
+  --color-danger: #c42b2f;
+  --series-signal: #c07a00;
+  --series-roundabout: #1686a0;
+  --series-neutral: #5b6676;
+  --chart-grid: #e1e5eb;
+  --chart-axis: #5b6676;
+
+  --shadow-overlay:
+    0 12px 32px rgba(17, 23, 34, 0.16), 0 2px 6px rgba(17, 23, 34, 0.08);
+  --shadow-raised: 0 1px 2px rgba(17, 23, 34, 0.06);
+
+  --background: 220 17% 97%;
+  --foreground: 218 33% 10%;
+  --border: 216 18% 88%;
+  --input: 216 18% 88%;
+  --ring: 216 74% 45%;
+  --card: 0 0% 100%;
+  --card-foreground: 218 33% 10%;
+  --primary: 216 74% 45%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 216 20% 95%;
+  --secondary-foreground: 218 33% 10%;
+  --muted: 216 20% 95%;
+  --muted-foreground: 216 13% 41%;
+  --accent: 38 100% 28%;
+  --accent-foreground: 0 0% 100%;
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--font-mono);
+}
+
+/* Numbers line up in every table and metric. */
+table,
+.num,
+[data-numeric] {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--color-accent-soft);
+  color: var(--color-text);
+}
+
+/* Reduced motion: keep state changes, drop movement. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -42,11 +42,25 @@
   color: var(--accent-red);
 }
 
+.history-status.is-loading {
+  flex-direction: row;
+  align-items: center;
+}
+
+.history-dashboard > * {
+  min-width: 0;
+}
+
 .history-status .hint {
   color: var(--text-muted);
 }
 
 .history-table-wrap {
+  /* Contain the table (and its absolutely positioned sr-only caption) so a
+     wide table scrolls inside its frame instead of widening the page. */
+  position: relative;
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
@@ -93,7 +107,7 @@
 }
 
 .history-table .mono {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
 }
 
 .row-actions {

@@ -37,8 +37,10 @@ export function signalStopLineDistance(
 
 /** Half the width (m) of the square of world both maps show, so the signal
  *  and roundabout render at the same scale when shown side by side. Sized to
- *  fit the roundabout ring (20 m) plus its approaches. */
-export const MAP_VIEW_HALF_EXTENT_M = 62;
+ *  fit the roundabout ring (20 m), its flared entries (35 m) and the widest
+ *  signal junction, with room for the approaches. Purely a camera setting:
+ *  it changes how large the world is drawn, not the world itself. */
+export const MAP_VIEW_HALF_EXTENT_M = 55;
 
 /** Pixels per metre for a canvas of the given CSS size. */
 export function mapScale(width: number, height: number): number {

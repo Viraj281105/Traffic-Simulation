@@ -20,6 +20,7 @@ import { SafetyTimelineVisualizer } from "./analytics/SafetyTimelineVisualizer";
 import { CapacityDemandVisualizer } from "./analytics/CapacityDemandVisualizer";
 import { DistributionDiagnosticsVisualizer } from "./analytics/DistributionDiagnosticsVisualizer";
 import "./ComparativeDashboard.css";
+import { CloseButton } from "./ui/CloseButton";
 
 function contexts(snapshot: DualSnapshot | null): {
   signal: MetricContext;
@@ -404,27 +405,7 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
             </div>
           </div>
 
-          <button
-            type="button"
-            className="modal-close-btn"
-            onClick={onClose}
-            aria-label="Close comparison"
-          >
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
+          <CloseButton label="Close comparison" onClick={onClose} />
         </div>
 
         <div className="modal-body">
@@ -542,6 +523,8 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
                     <WeightedScoringPanel
                       metricsSignal={snapshot.signal.metrics}
                       metricsRoundabout={snapshot.roundabout.metrics}
+                      signalCtx={signal}
+                      roundaboutCtx={roundabout}
                       weights={weights}
                       onWeightsChange={setWeights}
                     />
@@ -557,6 +540,8 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
                   <WeightedScoringPanel
                     metricsSignal={snapshot.signal.metrics}
                     metricsRoundabout={snapshot.roundabout.metrics}
+                    signalCtx={signal}
+                    roundaboutCtx={roundabout}
                     weights={weights}
                     onWeightsChange={setWeights}
                   />

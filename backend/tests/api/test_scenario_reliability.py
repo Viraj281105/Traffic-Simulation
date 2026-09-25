@@ -41,8 +41,21 @@ def captured(monkeypatch) -> List[Dict[str, Any]]:
     """Records what the endpoint asks the study to run, without running it."""
     calls: List[Dict[str, Any]] = []
 
-    def fake_validation(config=None, num_seeds=5, duration=30.0, time_step=0.1):
-        calls.append({"config": config, "num_seeds": num_seeds, "duration": duration})
+    def fake_validation(
+        config=None,
+        num_seeds=5,
+        duration=30.0,
+        time_step=0.1,
+        confidence_level=0.95,
+    ):
+        calls.append(
+            {
+                "config": config,
+                "num_seeds": num_seeds,
+                "duration": duration,
+                "confidence_level": confidence_level,
+            }
+        )
         return {"numSeeds": num_seeds, "duration": duration}
 
     monkeypatch.setattr(main, "run_statistical_validation", fake_validation)

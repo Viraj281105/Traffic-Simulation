@@ -1,173 +1,224 @@
 # Comparative Performance Report: Fixed-Time Signal vs Roundabout Control
 
-This report documents the analytical and simulated comparison between **Fixed-Time Signal Control** and **Roundabout Yielding** strategies.
+This report records the measured comparison between **fixed-time signal
+control** and **roundabout yielding** under identical demand. It does not
+name a universal winner: each finding is scoped to the configuration and
+demand it was measured at.
 
 ---
 
 ## 1. Executive Summary
 
-Our comparison framework evaluates intersection performance across three traffic volume regimes (Low, Medium, and High).
+*Revision 2026-09-25b.* Every figure was re-measured after the calibration
+pass (§5), which changed the simulated physics so that both junctions drive
+the same vehicles under the same rules. The main conclusions reversed.
+Earlier revisions are superseded.
 
-*   **Roundabouts** avoid static delay — there is no red light to wait at when no competing traffic is present — and they carry low and medium demand at least as well as the signal, with a modest throughput advantage in a narrow band around $1080\,\text{veh/h}$ offered.
-*   **Fixed-Time Signals** carry more traffic on average once demand approaches saturation, and do so at lower delay; under heavy oversaturation the roundabout's entry capacity is the binding constraint.
-*   Measured saturation flow, single lane per approach (seed 1 peak): **signal $\approx 1540\,\text{veh/h}$, roundabout $\approx 1410\,\text{veh/h}$**; across seeds 1–5 at $4320$/$5400\,\text{veh/h}$ offered the means are $1457$/$1512$ (signal) vs $1361$/$1389$ (roundabout). The throughput crossover sits between $1080$ and $1440\,\text{veh/h}$ offered.
-*   All figures were re-measured on 2026-09-24 after a bug-fix pass that changed the simulated physics (see §5 and `docs/bug-fix-report.md`).
+*   **Light demand (≈ 25–30% of capacity):** the roundabout costs drivers
+    less time: at 360 veh/h offered, $9.9 \pm 1.0$ s against
+    $16.1 \pm 1.5$ s at the signal (5 seeds, $p < 0.001$). There is no red
+    light to wait at, and entering at 18 km/h costs little once speeds follow
+    the 50 km/h limit.
+*   **Busy traffic (1,080 veh/h, ≈ 85% of capacity):** the roundabout
+    serves more ($946$ vs $789$ veh/h, $p = 0.033$) at lower delay
+    ($19.5$ vs $29.5$ s, $p = 0.040$).
+*   **At and above saturation (≥ 2,160 veh/h):** the roundabout serves
+    11–18% more ($p = 0.014$–$0.042$); the delay differences are not
+    significant.
+*   **Maximum served flow, one lane per approach (5-seed means at
+    4,320–5,400 veh/h offered):** signal ≈ 1,130–1,160 veh/h, roundabout
+    ≈ 1,320–1,330 veh/h. The signal's figure is specific to one **shared**
+    lane with **permissive** left turns and no protected left phase: a
+    left-turner waiting for a gap holds the only lane (§2 "Reading the
+    table").
+*   **Zero collisions** in all 90 one-lane runs (both geometries, 9 demand
+    points, seeds 1–5).
 
 ---
 
 ## 2. Measured Capacity (V1, single lane per approach)
 
 Method: `duration = 240 s`, `warmupTime = 30 s`, $210\,\text{s}$ measurement
-window, `timeStep = 0.1`, `randomSeed = 1`, `lanesPerApproach = 1`, Poisson
-arrivals. "Offered" is `arrivalRate × 3600`, summed across all four
-approaches. Served flow is post-warmup throughput scaled to veh/h.
+window, `timeStep = 0.1`, `lanesPerApproach = 1`, Poisson arrivals,
+`totalVehicles = 5000` (no run reached it). Both geometries use the same
+vehicles: IDM $a = 2.0$, $b = 3.0\,\text{m/s}^2$, $T = 1.5$ s,
+$s_0 = 2$ m, desired speed 85–105% of the 50 km/h limit, and one
+lateral-acceleration limit of $3\,\text{m/s}^2$ on every curved path.
+Signal: 30 s paired NS/EW greens, 4 s yellow, 2 s all-red (72 s cycle).
+Roundabout: critical gap 4.0 s, follow-up 2.5 s, entry 5 m/s, circulating
+≤ 8 m/s. "Offered" is `arrivalRate × 3600` summed across the four
+approaches. Served flow is post-warm-up throughput scaled to veh/h.
+
+**Seed 1 (the pinned curve, `test_calibrated_capacity_regression`):**
 
 | Offered veh/h | Signal served | Signal delay s | Signal maxQ | Roundabout served | Roundabout delay s | Roundabout maxQ |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 360 | 291 | 16.0 | 2 | 291 | 18.7 | 1 |
-| 720 | 600 | 17.1 | 5 | 600 | 21.9 | 2 |
-| 1080 | 857 | 22.2 | 9 | **874** | 25.5 | 6 |
-| 1440 | **1166** | 26.7 | 12 | 1097 | 37.1 | 13 |
-| 2160 | **1269** | 45.3 | 24 | 1166 | 49.2 | 15 |
-| 2880 | **1543** | 51.7 | 28 | 1320 | 60.6 | 23 |
-| 3600 | **1491** | 49.7 | 29 | 1354 | 71.7 | 20 |
-| 4320 | 1337 | 53.7 | 30 | **1389** | 69.5 | 26 |
-| 5400 | **1423** | 55.8 | 29 | 1406 | 74.3 | 26 |
+| 360 | 240 | 17.2 | 3 | 257 | 10.2 | 1 |
+| 720 | 566 | 14.6 | 4 | 600 | 12.3 | 1 |
+| 1080 | 669 | 26.4 | 13 | 857 | 17.1 | 5 |
+| 1440 | 1200 | 22.6 | 11 | 1063 | 29.8 | 15 |
+| 2160 | 1131 | 51.6 | 25 | 1200 | 48.1 | 19 |
+| 2880 | 1200 | 47.3 | 29 | 1286 | 55.0 | 15 |
+| 3600 | 874 | 52.9 | 29 | 1286 | 63.4 | 22 |
+| 4320 | 1149 | 49.9 | 30 | 1337 | 69.1 | 27 |
+| 5400 | 1337 | 60.8 | 29 | 1354 | 68.6 | 23 |
 
-**Peak served flow (seed 1): signal $1543\,\text{veh/h}$, roundabout $1406\,\text{veh/h}$.**
+**Seeds 1–5.** Means with 95% Student-t half-widths ($t_{0.975,4} = 2.776$);
+Welch $p$-values (unpaired, no multiple-comparison correction):
 
-Saturation-regime check across seeds 1–5 (same configuration):
+| Offered veh/h | Signal served | Roundabout served | Served p | Signal delay (s) | Roundabout delay (s) | Delay p | Cohen's d (delay) |
+|---:|---|---|---:|---|---|---:|---:|
+| 360 | 333 ± 89 | 339 ± 79 | 0.876 | 16.1 ± 1.5 | 9.9 ± 1.0 | < 0.001 | 6.10 |
+| 720 | 624 ± 61 | 689 ± 66 | 0.080 | 21.9 ± 13.8 | 13.3 ± 1.9 | 0.159 | 1.08 |
+| 1080 | 789 ± 140 | 946 ± 79 | 0.033 | 29.5 ± 9.4 | 19.5 ± 1.9 | 0.040 | 1.84 |
+| 1440 | 1011 ± 149 | 1131 ± 56 | 0.089 | 37.1 ± 12.3 | 31.2 ± 5.6 | 0.277 | 0.76 |
+| 2160 | 1070 ± 121 | 1241 ± 85 | 0.014 | 44.3 ± 9.1 | 48.2 ± 5.8 | 0.345 | −0.64 |
+| 2880 | 1159 ± 119 | 1275 ± 75 | 0.056 | 54.1 ± 6.3 | 55.5 ± 5.0 | 0.637 | −0.31 |
+| 3600 | 1101 ± 167 | 1286 ± 75 | 0.034 | 62.5 ± 8.9 | 62.8 ± 2.4 | 0.944 | −0.05 |
+| 4320 | 1162 ± 155 | 1323 ± 55 | 0.042 | 64.8 ± 13.2 | 65.8 ± 6.3 | 0.861 | −0.12 |
+| 5400 | 1131 ± 166 | 1334 ± 57 | 0.024 | 64.3 ± 7.8 | 71.0 ± 7.6 | 0.130 | −1.07 |
 
-| Offered veh/h | Signal served (mean ± 95% CI) | Roundabout served | Signal delay | Roundabout delay | Delay p-value |
-| ---: | :--- | :--- | :--- | :--- | ---: |
-| 2160 | $1313 \pm 61$ | $1269 \pm 51$ | $48.3 \pm 6.9$ s | $54.7 \pm 3.2$ s | $0.15$ |
-| 4320 | $1457 \pm 146$ | $1361 \pm 20$ | $62.8 \pm 7.4$ s | $76.9 \pm 4.2$ s | $0.017$ |
-| 5400 | $1512 \pm 114$ | $1389 \pm 48$ | $66.3 \pm 9.4$ s | $79.7 \pm 4.6$ s | $0.047$ |
-
-Served-flow differences are not significant at $n=5$ ($p = 0.30 / 0.27 / 0.10$);
-the signal's lower delay at $4320$ and $5400$ is.
-
-**Zero collisions at every point, for both geometries.** Runs are
-bit-identical for a fixed seed and differ across seeds.
+**Zero collisions at every point, for both geometries, on every seed.**
+Runs are bit-identical for a fixed seed.
 
 ### Reading the table
 
-*   **Below $\approx 1080\,\text{veh/h}$** both geometries serve essentially
-    all offered demand; they are not capacity-limited and the comparison is
-    about delay, not throughput.
-*   **The throughput crossover is between $1080$ and $1440\,\text{veh/h}$
-    offered.** The roundabout is ahead at $1080$ ($874$ vs $857$); the signal
-    is ahead at $1440$ and above, except on seed 1 at $4320$, where the
-    roundabout is $4\%$ ahead — across seeds 1–5 the signal serves more there
-    on average ($1457$ vs $1361$).
-*   **Above saturation the signal carries $\approx 5$–$10\%$ more traffic on
-    average** and does so at significantly lower delay, because green time is
-    allocated cyclically regardless of how heavily any one approach is loaded,
-    whereas roundabout entry capacity degrades as the circulating stream fills.
-*   Post-saturation signal flow on one seed varies non-monotonically by up to
-    $\approx 15\%$ ($1543 \to 1491 \to 1337 \to 1423$). With one shared lane
-    per approach, a permissive left-turner waiting at the stop line for a gap
-    in saturated opposing flow holds the whole lane, so served flow depends on
-    how turners happen to arrive. That is stochastic variation in an
-    oversaturated system, not a capacity cliff (see the multi-seed table).
+*   **Light demand.** Only the delay differs: both controls serve what
+    arrives. The signal's delay is red time. The roundabout's is the time
+    lost slowing to enter and to circulate, now about 7–10 s.
+*   **Where the roundabout is ahead on throughput.** From about 1,080 veh/h
+    the roundabout serves more on average. The difference is supported at
+    1,080 and at 2,160 and above; at 1,440 and 2,880 it is not ($p = 0.089$,
+    $0.056$). Seed 1 at 1,440 has the signal ahead, which shows how large the
+    signal's seed-to-seed spread is (±149 veh/h).
+*   **Why the signal saturates early.** There is one lane per approach,
+    shared by all movements, and no protected left phase. A left-turner who
+    must wait for a gap in the opposing flow holds the whole lane. Now that
+    turns are taken at a physically possible speed, that left-turner also
+    spends longer in the junction. There is no in-box waiting position (in-box
+    waiting produced the BUG-19 lock-ups), so this is conservative compared
+    with HCM shared-lane practice. A dedicated left lane (2 lanes per approach)
+    raises the signal's served flow to ≈ 2,400–2,500 veh/h (§2 "Scope and
+    validity").
+*   **Delay at saturation** is not distinguishable between the controls:
+    both are queue-bound.
 
 ### Scope and validity
 
-These figures are for **one lane per approach**, which is the only
-configuration in which both geometries are collision-free across their whole
-working range, and is therefore the only calibrated comparison this project
-supports.
+These figures are for **one lane per approach**, the configuration in which
+both geometries are collision-free across the whole demand range.
 
-**Multi-lane roundabout results must not be presented as a calibrated capacity
-comparison.** With the multi-lane lock-up fix and the 2026-09-24 bug-fix pass,
-measured peak served flow now rises as lanes are added — $1406 / 2040 /
-2417\,\text{veh/h}$ at $1/2/3$ lanes (seed 1) — replacing the earlier
-$1423 / 1234 / 943$, which were depressed by ring lock-ups. Multi-lane runs are
-still not collision-free (one contact each in the 2-lane $3600$ and 3-lane
-$2880\,\text{veh/h}$ runs), and the single-ring geometry still cannot express
-spiral lane assignment, so these remain uncalibrated. See
-[V1 Known Limitations](v1-known-limitations.md) §3.
+**Multi-lane results are exploratory, not calibrated.** Both geometries model
+every lane: the signal gets per-movement lanes and the roundabout one
+circulating ring per entry lane. Capacity rises with lanes for both (3-seed
+means at 4,320–5,400 veh/h: signal ≈ 2,460 / 3,100 veh/h, roundabout
+≈ 1,900 / 2,150 veh/h for 2 / 3 lanes). The roundabout has no lane markings,
+though, so a driver leaving from an inner ring crosses the outer ring; 5 of
+54 multi-lane roundabout runs had a contact (2 below saturation). The old
+statement that the roundabout is modelled with a single circulating lane was
+wrong and has been removed.
+
+**Reference capacity for demand levels.** The product's demand levels are
+shares of the mean of both controls' maximum served flow per lane count:
+1,250 / 2,180 / 2,620 veh/h for 1 / 2 / 3 lanes
+(`study/calibration.py::REFERENCE_CAPACITY_VPH`).
+
+`docs/reports/study_report.csv` (and the identical root copy) is one run of
+`scripts/run_full_study.py` at its defaults: one lane, 240 s sweep tiers and
+validation runs, 30 s warm-up. It is one sample of that scenario, and its
+own "Evidence summary" row states what it supports.
+
+### How to read the findings in this report
+
+| Class | Where | What it may be used for |
+| :-- | :-- | :-- |
+| **Calibrated, descriptive** (one seed) | §2 first table | What the calibrated configuration produced on one traffic pattern |
+| **Calibrated, statistically supported / not supported** (5 seeds, Welch at α = 0.05) | §2 second table | *Supported:* roundabout delay lower at 360 and 1,080 veh/h; roundabout served flow higher at 1,080 and at 2,160–5,400 veh/h. *Not supported:* every other difference, including all delay differences at 1,440 veh/h and above. "Not supported" means this study cannot distinguish the controls, not that they are equal |
+| **Exploratory** | Multi-lane figures (§2 "Scope and validity") | Indicative only |
+
+Three metrics are compared per point without multiple-comparison
+correction, and five seeds give little power. Differences with $p$ between
+0.03 and 0.05 should be read as marginal.
 
 ---
 
 ## 3. Performance Comparison Matrix
 
-Throughput and delay rows are measured (§2). Fairness and 95th-percentile
-queue rows are **analytical expectations that V1 has not yet measured** — the
-metric pipeline computes them per run, but no multi-seed study has been run to
-support a comparative claim, so they are marked as such rather than asserted.
-
-| Metric | Low Volume ($\le 720$ veh/h) | Medium Volume ($\approx 1080$–$1440$) | High Volume ($\ge 2160$) |
+| Metric | Light ($\le 720$ veh/h) | Busy ($\approx 1080$–$1440$) | Saturated ($\ge 2160$) |
 | :--- | :--- | :--- | :--- |
-| **Throughput** *(measured)* | Equal — both serve all demand | Roundabout ahead at $1080$; signal ahead from $1440$ | **Signal better on average** ($\approx 5$–$10\%$ more served; not significant at $n=5$) |
-| **Average Delay** *(measured)* | No significant difference across seeds — see note | Signal lower on seed 1 ($22.2$ vs $25.5$ s at $1080$); not significant across seeds | **Signal lower** — significant across seeds at $4320$/$5400$ (§2) |
-| **Max Queue** *(measured, seed 1)* | Roundabout marginally shorter | Comparable ($12$ vs $13$ at $1440$) | Roundabout shorter at $2160$–$5400$ |
-| **Jain's Fairness Index** *(not yet measured)* | Both expected $\approx 1.0$ | Both expected $\approx 0.95$ | Signal expected higher — cyclic green guarantees each arm a turn |
-| **Idle Capacity Loss** *(analytical)* | Signal has high loss | Signal has medium loss | Roundabout has minimal idle loss |
-
-> **Note on the delay row — multi-seed result.** The classical expectation is
-> that a roundabout has lower delay than a signal at low demand, because
-> there is no red light to wait at when the ring is empty. A 5-seed Monte Carlo
-> study (seeds $1$–$5$, identical $1$-lane / $240\,\text{s}$ / $30\,\text{s}$-warmup
-> / $210\,\text{s}$-window configuration, using `src/study/validation.py`'s
-> `_calculate_stats` / `_compare_groups`) was re-run on 2026-09-24:
->
-> | Offered veh/h | Signal delay (mean ± 95% CI) | Roundabout delay (mean ± 95% CI) | Cohen's d | p-value | Significant? |
-> | ---: | :--- | :--- | ---: | ---: | :--- |
-> | 360 | $16.54 \pm 4.80$ s | $18.58 \pm 1.15$ s | $-0.51$ | $0.46$ | No |
-> | 720 | $22.12 \pm 10.26$ s | $22.05 \pm 1.41$ s | $0.01$ | $0.99$ | No |
-> | 1080 | $23.82 \pm 6.83$ s | $27.47 \pm 1.91$ s | $-0.64$ | $0.36$ | No |
->
-> **No low-demand delay difference is supported as a finding at any of the
-> three points**, as before. Signal delay is strongly seed-dependent (one seed
-> reaches $42.9\,\text{s}$ at $720$); roundabout delay is tight. Throughput
-> differences at these points were also not significant ($p = 0.77 / 0.40 /
-> 0.78$). The roundabout's low-demand delay is $\approx 3.5\,\text{s}$ higher
-> than in the previous revision because approaching vehicles now decelerate to
-> `entrySpeed` over a comfortable braking distance instead of at the 9 m/s²
-> hard limit (bug-fix report, BUG-7). That geometric delay is sensitive to the
-> assumed approach speed ($18$–$25\,\text{m/s}$ desired speed; `roads.speedLimit`
-> is not applied — see the scenario contract §2.4).
+| **Throughput** *(measured, 5 seeds)* | Equal: both serve all demand | Roundabout higher at 1,080 ($p = 0.033$); not supported at 1,440 | Roundabout higher (11–18%, supported at 2,160, 3,600, 4,320 and 5,400) |
+| **Average delay** *(measured, 5 seeds)* | Roundabout lower at 360 ($p < 0.001$); not supported at 720 | Roundabout lower at 1,080 ($p = 0.040$) | No supported difference |
+| **Max queue** *(measured, seed 1)* | Roundabout shorter | Roundabout shorter at 1,080; longer at 1,440 | Roundabout shorter |
+| **Fairness, idle loss** | Computed per run, not studied across seeds; no comparative claim | | |
 
 ---
 
 ## 4. Analysis by Traffic Volume
 
-### A. Low Traffic Volume
-In low volume conditions, the probability of path conflicts is very small, and
-both geometries serve all offered demand ($291$ and $600\,\text{veh/h}$
-served at $360$ and $720$ offered).
-*   **Roundabout**: Vehicles rarely yield because the circulating ring is empty.
-*   **Fixed-Time Signal**: Vehicles wait at red even when no conflicting
-    vehicle is present. This **Idle Opportunity Loss** is real, but at this
-    demand it does not cost throughput — only delay, and across seeds that
-    delay is not distinguishable from the roundabout's geometric delay.
+### A. Light traffic
+Both controls serve all offered demand. The signal makes drivers who arrive
+on red wait even when no one else is there. The roundabout makes every driver
+slow to about 18 km/h to enter and 24 km/h around the ring, but rarely makes
+anyone stop. With equal speed assumptions, the second costs less
+(≈ 6 s per driver at 360 veh/h).
 
-### B. Medium Traffic Volume
-As demand increases, conflicts arise and the two strategies diverge.
-*   **Roundabout**: Self-organizing yielding handles demand efficiently and it
-    is the better of the two at $1080\,\text{veh/h}$ offered ($874$ vs $857$
-    served on seed 1; $977$ vs $960$ averaged over seeds 1–5, not significant),
-    which is the one band where it leads on throughput.
-*   **Fixed-Time Signal**: The fixed cycle accumulates queues on stopped arms,
-    but from $1440\,\text{veh/h}$ its cyclic allocation already carries more
-    traffic than the roundabout's gap acceptance ($1166$ vs $1097$).
+### B. Busy traffic
+Queues form at the signal's red approaches and clear in bursts; the shared
+lane lets a single left-turner hold back the vehicles behind it. The
+roundabout's gap acceptance keeps entries moving while circulating flow is
+moderate, and at 1,080 veh/h it serves more at lower delay.
 
-### C. High Traffic Volume (Saturation)
-At saturation the roundabout's entry capacity becomes the binding constraint.
-*   **Roundabout**: Entry capacity falls as the circulating stream fills, and
-    served flow plateaus near $1400\,\text{veh/h}$. A continuous circulating
-    stream from a dominant approach can starve entering traffic on another,
-    which is the mechanism behind the expected fairness drop.
-*   **Fixed-Time Signal**: Cyclic splitting of green time guarantees every
-    approach a turn regardless of load; averaged over seeds it serves
-    $\approx 1450$–$1500\,\text{veh/h}$ — roughly $5$–$10\%$ above the
-    roundabout — at significantly lower delay. With one shared lane, permissive
-    left-turners waiting at the stop line for gaps cap how much higher it goes.
+### C. Saturation
+Both junctions are at capacity and delay is queue-bound for both. With one
+shared lane and permissive lefts, the signal's served flow plateaus near
+1,100–1,160 veh/h, and the roundabout's near 1,300–1,330 veh/h, where
+entry capacity falls as the ring fills. A signal with a separate left-turn
+lane or a protected left phase would behave differently; it is not modelled
+in the calibrated configuration.
 
 ---
 
 ## 5. Revision History
+
+*   **2026-09-25b**: calibration pass (`docs/bug-fix-report.md` BUG-21
+    to BUG-25; `docs/product/urbanflow-evaluation-metrics.md` §17). **Physics
+    changed, and every result in §1–§4 was re-measured; the main conclusions
+    reversed.** Causes:
+    (1) `roads.speedLimit` is now applied, so desired speeds are 85–105% of
+    50 km/h instead of 18–25 m/s;
+    (2) one lateral-acceleration limit (3 m/s²) now applies to every curved
+    path, where signal turns previously had none;
+    (3) the roundabout's entry-speed zone is 10 m instead of 60 m;
+    (4) entering drivers no longer give way to vehicles that leave the ring
+    before reaching them.
+    Effects: roundabout light-demand delay about halves (19.2 → 10.1 s at
+    360 veh/h, 3-seed mean), and 1-lane signal served flow at saturation
+    falls by about 20% (1,537 → 1,194 veh/h at 5,400 veh/h, 3-seed mean),
+    because turning vehicles now slow for the curve and a waiting
+    left-turner holds the only lane longer. Superseded: "signal carries 5–10%
+    more at saturation, at significantly lower delay" and "no significant
+    low-demand delay difference". The before/after matrix (1–3 lanes × 9
+    demands × 3 seeds × 2 geometries, 162 runs each) is summarised in
+    `docs/bug-fix-report.md`. Test pins re-measured:
+    `test_calibrated_capacity_regression` (curve and ordering).
+
+*   **2026-09-25** — Evaluation-integrity pass
+    (`docs/product/urbanflow-evaluation-metrics.md` §15). **No research result
+    changed:** the nine-point single-seed curve was re-run at pristine `HEAD`
+    and at the corrected tree and is bit-identical, and
+    `test_calibrated_capacity_regression` (18 pinned values) passes unchanged;
+    the seed 1–5 studies were re-run with the same procedure and reproduce
+    every published mean, $p$-value and $d$ exactly. What changed is the
+    **width of the 95 % confidence intervals**: they were computed with the
+    normal multiplier 1.96 although the studies have 5 seeds ($t_{0.975,4} =
+    2.776$), which understated them by about 29 %. The intervals in §2 and §3
+    are now Student-t (roughly 1.42× wider); conclusions are unchanged
+    because they rest on the Welch p-values, not on interval overlap. Also
+    documented: the calibrated runs set `totalVehicles = 5000` so the default
+    200-vehicle cap cannot truncate them, whereas dashboard scenarios ran with
+    the cap (now sized to the scenario and flagged when reached). The
+    regenerated `study_report.csv` files replace outputs that carried a retired
+    hard-coded recommendation.
 
 *   **2026-09-24** — Re-measured every figure after the bug-fix pass in
     `docs/bug-fix-report.md`, several items of which change the simulated

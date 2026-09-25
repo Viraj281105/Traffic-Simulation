@@ -5,13 +5,13 @@ const TOOLS: { href: string; title: string; body: string; use: string }[] = [
   {
     href: VIEW_ROUTES.volume,
     title: "Traffic-level sweep",
-    body: "Runs both controls across a range of demand tiers on one seed and plots delay, throughput and queue against volume, with the crossover and HCM level-of-service bands.",
+    body: "Runs both controls across a range of demand tiers, one random traffic pattern per tier, and plots delay, throughput and queue against volume, with where the lower-delay control changes and indicative level-of-service bands. Descriptive: use Statistical validation to test a difference.",
     use: "Where does the comparison change as traffic grows?",
   },
   {
     href: VIEW_ROUTES.validation,
     title: "Statistical validation",
-    body: "Monte Carlo study on a configurable scenario: paired seeds, confidence intervals, Welch’s t-test, Cohen’s d, per-seed data and CSV export, plus model integrity checks.",
+    body: "Monte Carlo study on a configurable scenario: the same random patterns for both controls, Student-t confidence intervals, an unpaired Welch t-test, Cohen’s d, per-seed data and CSV export, plus model integrity checks on both geometries.",
     use: "Is a difference statistically robust for a study design?",
   },
   {

@@ -9,6 +9,7 @@ import {
   type StudyMetric,
 } from "../../metrics/plainLanguage";
 import { VIEW_ROUTES, followLink } from "../../routing";
+import { LoaderMark } from "../ui/Loader";
 
 const METRIC_TITLES: Record<StudyMetric, string> = {
   delay: "Time lost per driver",
@@ -64,7 +65,7 @@ export function ReliabilityCheck({
     return (
       <div className="reliability-box" role="status" aria-live="polite">
         <div className="reliability-running">
-          <span className="spinner" aria-hidden="true" />
+          <LoaderMark />
           <span>
             Re-running your junction with {state.patterns} new traffic patterns…
             This usually takes under a minute; busy or long scenarios can take a
@@ -121,6 +122,18 @@ export function ReliabilityCheck({
         {main.headline}
       </p>
       <p>{main.detail}</p>
+      {result.calibration && !result.calibration.calibrated && (
+        <p className="q-note is-caution">{result.calibration.note}</p>
+      )}
+      {result.vehicleLimitReachedSeeds &&
+        result.vehicleLimitReachedSeeds.length > 0 && (
+          <p className="q-note is-caution">
+            Vehicle generation reached its limit in{" "}
+            {result.vehicleLimitReachedSeeds.length} of {result.numSeeds}{" "}
+            patterns, so those patterns did not receive the scenario&apos;s full
+            demand.
+          </p>
+        )}
 
       <table className="plain-table">
         <caption className="sr-only">
@@ -156,9 +169,10 @@ export function ReliabilityCheck({
           Each pattern ran both controls for {result.duration.toFixed(0)} s of
           simulated time on the same arrivals. “Consistent” means Welch’s
           two-sample t-test found the difference significant at the 5% level;
-          the size word is Cohen’s d (below 0.2 negligible, 0.2 small, 0.5
-          medium, 0.8 large). The patterns are new ones, not the run you
-          watched.
+          the ± intervals are 95% Student-t intervals (used because only a few
+          patterns are run); the size word is Cohen’s d (below 0.2 negligible,
+          0.2 small, 0.5 medium, 0.8 large). The patterns are new ones, not the
+          run you watched.
         </p>
         <div className="multi-run-scroll">
           <table className="plain-table mono-cells">

@@ -78,23 +78,23 @@ ROUNDABOUT_CONTROLLER: Dict[str, Any] = {
 
 # offered veh/h -> (signal servedVehPerHour, signal delay s, signal maxQueue,
 #                   roundabout servedVehPerHour, roundabout delay s, roundabout maxQueue)
-# Re-measured 2026-09-24 after the bug-fix pass recorded in
-# docs/bug-fix-report.md (safe insertion speed, turn intent kept across blocked
-# spawns, roundabout approach braking taper, yellow-runner admission, refused
-# vehicles held at the stop line). Each of those changes the simulated physics,
-# so the previous pins (HEAD 73960af) no longer describe the model; the
-# attribution of each shift is in that report. Matches
-# docs/reports/comparative_report.md §2 at every point within the tolerances.
+# Re-measured 2026-09-25 after the calibration pass
+# (docs/reports/comparative_report.md revision 2026-09-25b), which changed the
+# simulated physics for both geometries: desired speeds follow the 50 km/h
+# speed limit instead of 18-25 m/s, every curved path (signal turns included)
+# is taken at the same lateral-acceleration limit, the roundabout's entry-speed
+# zone is the last 10 m instead of 60 m, and entering drivers no longer give
+# way to circulating vehicles that leave the ring before reaching them.
 PINNED_CURVE: Dict[int, Tuple[float, float, int, float, float, int]] = {
-    360: (291.4286, 15.98, 2, 291.4286, 18.69, 1),
-    720: (600.0000, 17.10, 5, 600.0000, 21.89, 2),
-    1080: (857.1429, 22.23, 9, 874.2857, 25.48, 6),
-    1440: (1165.7143, 26.74, 12, 1097.1429, 37.09, 13),
-    2160: (1268.5714, 45.25, 24, 1165.7143, 49.16, 15),
-    2880: (1542.8571, 51.72, 28, 1320.0000, 60.57, 23),
-    3600: (1491.4286, 49.66, 29, 1354.2857, 71.72, 20),
-    4320: (1337.1429, 53.65, 30, 1388.5714, 69.51, 26),
-    5400: (1422.8571, 55.81, 29, 1405.7143, 74.34, 26),
+    360: (240.0000, 17.17, 3, 257.1429, 10.20, 1),
+    720: (565.7143, 14.55, 4, 600.0000, 12.32, 1),
+    1080: (668.5714, 26.44, 13, 857.1429, 17.07, 5),
+    1440: (1200.0000, 22.59, 11, 1062.8571, 29.76, 15),
+    2160: (1131.4286, 51.61, 25, 1200.0000, 48.06, 19),
+    2880: (1200.0000, 47.27, 29, 1285.7143, 55.02, 15),
+    3600: (874.2857, 52.94, 29, 1285.7143, 63.42, 22),
+    4320: (1148.5714, 49.87, 30, 1337.1429, 69.05, 27),
+    5400: (1337.1429, 60.81, 29, 1354.2857, 68.63, 23),
 }
 
 THROUGHPUT_TOLERANCE = 0.5
@@ -225,28 +225,28 @@ def test_calibrated_capacity_curve_fast_representative() -> None:
 
 @pytest.mark.slow
 def test_calibrated_curve_crossover_ordering_is_preserved() -> None:
-    """The report's central qualitative claim: the roundabout serves more
-    at 1080 veh/h offered, and the signal serves more from 1440 upward. This
-    is the crossover the report's Executive Summary and §2 "Reading the
-    table" describe -- pinned separately from the raw values so a change
-    that keeps every value within tolerance but flips this ordering (e.g. a
-    slightly-different-but-still-"close" pair of numbers) still fails
-    loudly."""
-    at_1080_signal = _run("fixed_time_signal", SIGNAL_CONTROLLER, 1080)
-    at_1080_roundabout = _run("roundabout", ROUNDABOUT_CONTROLLER, 1080)
-    assert (
-        at_1080_roundabout["servedVehPerHour"] > at_1080_signal["servedVehPerHour"]
-    ), "roundabout is no longer ahead of signal at 1080 veh/h offered"
+    """The report's qualitative claims (comparative_report.md §2, revision
+    2026-09-25b), each supported across seeds 1-5 by a Welch test at
+    alpha = 0.05, checked here on the pinned seed:
 
-    # 4320 is left out on evidence, not for convenience: on seed 1 the two
-    # geometries sit within 4% of each other there (roundabout 1389 vs signal
-    # 1337 veh/h), while across seeds 1-5 the signal serves more on average
-    # (1457 vs 1361 veh/h) — see docs/reports/comparative_report.md §2 and
-    # docs/bug-fix-report.md. The exact seed-1 values at 4320 are still pinned
-    # by PINNED_CURVE above.
-    for offered in (1440, 2160, 2880, 3600, 5400):
+      * at 360 veh/h the roundabout has lower delay (p < 0.001);
+      * at 1080 veh/h the roundabout serves more (p = 0.033);
+      * from 2160 veh/h upward the roundabout serves more (p = 0.014-0.042).
+
+    1440 is left out on evidence: across seeds the roundabout serves more on
+    average (1131 vs 1011 veh/h) but not significantly (p = 0.089), and on
+    seed 1 the signal is ahead (1200 vs 1063). Pinned separately from the
+    raw values so a change that keeps every value within tolerance but flips
+    an ordering still fails loudly."""
+    low_signal = _run("fixed_time_signal", SIGNAL_CONTROLLER, 360)
+    low_roundabout = _run("roundabout", ROUNDABOUT_CONTROLLER, 360)
+    assert low_roundabout["delay"] < low_signal["delay"], (
+        "roundabout no longer has lower delay at 360 veh/h offered"
+    )
+
+    for offered in (1080, 2160, 2880, 3600, 4320, 5400):
         signal = _run("fixed_time_signal", SIGNAL_CONTROLLER, offered)
         roundabout = _run("roundabout", ROUNDABOUT_CONTROLLER, offered)
-        assert signal["servedVehPerHour"] > roundabout["servedVehPerHour"], (
-            f"signal is no longer ahead of roundabout at {offered} veh/h offered"
+        assert roundabout["servedVehPerHour"] > signal["servedVehPerHour"], (
+            f"roundabout is no longer ahead of signal at {offered} veh/h offered"
         )

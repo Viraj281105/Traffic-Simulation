@@ -74,6 +74,10 @@ export interface MetricDef {
   appliesTo?: Geometry[];
   /** Shown in place of a null value. */
   nullText?: string;
+  /** True when the value is meaningful only within one geometry and
+   *  scenario. Such a metric is never shown side by side across the two
+   *  geometries (comparison tables, comparison CSVs). */
+  withinGeometryOnly?: boolean;
   /** Computed over vehicles that exited after warm-up. The backend reports
    *  a placeholder (0, or 1.0 for ratios) until one has, so it is shown as
    *  "—" rather than as a result. */
@@ -92,7 +96,7 @@ export const METRICS: MetricDef[] = [
     decimals: 1,
     group: "performance",
     description:
-      "Mean control delay of vehicles that exited after warm-up: actual travel time minus free-flow travel time.",
+      "Mean extra travel time of vehicles that exited after warm-up: actual travel time minus the time the same journey would take at the driver's own desired speed. It includes any slowing the layout itself forces (for example easing into a roundabout), so it is not the same as time spent queued; compare it with Average queued time.",
     postWarmup: true,
   },
   {
@@ -124,7 +128,7 @@ export const METRICS: MetricDef[] = [
     decimals: 1,
     group: "performance",
     description:
-      "Mean time per exited vehicle spent below the waiting-speed threshold (0.5 m/s), after warm-up.",
+      "Mean time per exited vehicle spent below the waiting-speed threshold (0.5 m/s), after warm-up. Not the same as delay: a vehicle that keeps rolling slowly is delayed but not queued.",
     postWarmup: true,
   },
   {
@@ -227,7 +231,7 @@ export const METRICS: MetricDef[] = [
     decimals: 2,
     group: "flow",
     description:
-      "Jain's fairness index over the four approaches' mean waits: 1.00 = equal, 0.25 = one approach bears it all.",
+      "Jain's fairness index over the approaches' mean queued time (not delay): 1.00 = equal; the floor is 1 ÷ the number of approaches with traffic (0.25 with four). Noisy when few vehicles have exited.",
     postWarmup: true,
   },
   {
@@ -259,7 +263,7 @@ export const METRICS: MetricDef[] = [
     decimals: 2,
     group: "safety",
     description:
-      "Smallest time-to-collision observed between a following vehicle and its leader after warm-up.",
+      "Smallest constant-velocity time-to-collision seen so far between two vehicles on different lanes within 50 m (crossing and merging pairs; same-lane following is excluded), after warm-up. A running minimum: it can only fall during a run. A surrogate indicator, not a collision or crash probability.",
     postWarmup: true,
     nullText: "None observed",
   },
@@ -270,7 +274,7 @@ export const METRICS: MetricDef[] = [
     decimals: 0,
     group: "safety",
     description:
-      "Observations with time-to-collision at or below the TTC threshold (see label).",
+      "Simulation ticks (0.1 s each) in which a different-lane pair had a time-to-collision at or below the threshold (see label). One long close approach is counted many times, so this is an exposure count, not a number of distinct near-misses.",
     postWarmup: true,
   },
   {
@@ -280,7 +284,7 @@ export const METRICS: MetricDef[] = [
     decimals: 2,
     group: "safety",
     description:
-      "Smallest post-encroachment time at a signal conflict point after warm-up. Not measured for roundabouts.",
+      "Smallest gap between one vehicle leaving a signal conflict point and a different vehicle reaching it, after warm-up. A surrogate indicator, not a crash probability. Not measured for roundabouts.",
     postWarmup: true,
     appliesTo: ["fixed_time_signal"],
     nullText: "None observed",
@@ -292,7 +296,7 @@ export const METRICS: MetricDef[] = [
     decimals: 0,
     group: "safety",
     description:
-      "Conflict-point crossings with post-encroachment time at or below the PET threshold. Not measured for roundabouts.",
+      "Successive crossings of a signal conflict point with a gap at or below the PET threshold (a count of crossings, unlike the per-tick TTC count). The default threshold is generous, so many ordinary crossings qualify. Not measured for roundabouts.",
     postWarmup: true,
     appliesTo: ["fixed_time_signal"],
   },
@@ -304,7 +308,8 @@ export const METRICS: MetricDef[] = [
     unit: "veh",
     decimals: 0,
     group: "capacity",
-    description: "All vehicles generated since the run began (offered demand).",
+    description:
+      "All vehicles generated since the run began, including warm-up. This is the offered demand unless generation hit the per-run vehicle limit, in which case later demand was not offered.",
     postWarmup: false,
   },
   {
@@ -318,22 +323,22 @@ export const METRICS: MetricDef[] = [
   },
   {
     key: "criticalSaturationVolume",
-    label: "Critical saturation volume",
+    label: "Served-rate estimate",
     unit: "veh/s",
     decimals: 3,
     group: "capacity",
     description:
-      "Backend saturation estimate: the observed throughput rate when it is below the configured arrival rate (demand not fully served), otherwise the configured arrival rate scaled by the served share of post-warm-up vehicles.",
+      "Backend estimate (reported as criticalSaturationVolume): the observed throughput rate when it is below the configured arrival rate, otherwise the configured arrival rate scaled by the served share of post-warm-up vehicles. It cannot exceed the demand you configured, so it is not a measured capacity.",
     postWarmup: true,
   },
   {
     key: "intersectionUtilization",
-    label: "Service utilization",
+    label: "Time with traffic moving",
     unit: "%",
     decimals: 1,
     group: "capacity",
     description:
-      "Share of post-warm-up ticks with vehicles present in which their mean speed was above the waiting threshold.",
+      "Share of post-warm-up ticks with vehicles present in which their mean speed was above the waiting threshold (reported as intersectionUtilization). It is not the share of capacity used, and it sits near 100 % whenever traffic keeps moving.",
     postWarmup: true,
   },
   {
@@ -355,7 +360,7 @@ export const METRICS: MetricDef[] = [
     decimals: 0,
     group: "capacity",
     description:
-      "Area of the junction from the configured geometry (ring area for a roundabout, crossing box for a signal).",
+      "Area from the configured geometry, defined differently per layout: the outer circle of the roundabout (π × outer radius², including the central island) versus the crossing box of the signal ((2 × lanes × lane width)²). Design context, not a like-for-like land-take comparison.",
     postWarmup: false,
   },
 
@@ -406,7 +411,7 @@ export const METRICS: MetricDef[] = [
     decimals: 2,
     group: "diagnostic",
     description:
-      "Coefficient of variation of the junction-wide total queue (standard deviation ÷ mean). Lower is steadier.",
+      "Coefficient of variation of the junction-wide total queue (standard deviation ÷ mean): how much the queue fluctuates relative to its size. It does not say whether the queue is growing, and it becomes very large when the average queue is near zero.",
     postWarmup: true,
   },
   {
@@ -425,7 +430,8 @@ export const METRICS: MetricDef[] = [
     unit: "",
     decimals: 0,
     group: "diagnostic",
-    description: "Number of leader-follower TTC observations after warm-up.",
+    description:
+      "Number of different-lane pair observations (per 0.1 s tick) that had a defined time-to-collision after warm-up. Depends on how many vehicles share space, so it differs by layout and is not comparable as a risk measure.",
     postWarmup: true,
   },
   {
@@ -434,19 +440,21 @@ export const METRICS: MetricDef[] = [
     unit: "",
     decimals: 0,
     group: "diagnostic",
-    description: "Number of conflict-point PET observations after warm-up.",
+    description:
+      "Number of successive-crossing PET observations at signal conflict points after warm-up.",
     postWarmup: true,
     appliesTo: ["fixed_time_signal"],
   },
   {
     key: "masterEfficiencyScore",
     needsExits: true,
-    label: "Composite score (fixed weights)",
+    label: "Fixed-weight composite (same layout only)",
+    withinGeometryOnly: true,
     unit: "/100",
     decimals: 1,
     group: "diagnostic",
     description:
-      "Backend composite of throughput rate, queued time, stops, fairness and idle loss with fixed weights. A weighting choice, not a verdict.",
+      "Backend composite (reported as masterEfficiencyScore) of throughput rate, queued time, stops, fairness and idle loss with fixed weights. Only meaningful for comparing runs of the same layout and scenario. It is not a signal-versus-roundabout score: idle loss is signal-only (a roundabout always receives its full points) and the throughput term mostly reflects how much traffic arrived.",
     postWarmup: true,
   },
 ];
@@ -629,6 +637,7 @@ export function comparisonCsv(
     "group,metric,key,unit,fixed_time_signal,roundabout,roundabout_minus_signal",
   ];
   for (const def of METRICS) {
+    if (def.withinGeometryOnly) continue; // never across geometries
     const diff = metricDifference(def, signal, roundabout);
     rows.push(
       [
@@ -672,6 +681,7 @@ export function multiRunCsv(
       .join(","),
   ];
   for (const def of METRICS) {
+    if (def.withinGeometryOnly) continue; // runs may be of different layouts
     const labelSource = columns.find((c) => c.ctx.metrics)?.ctx.metrics;
     rows.push(
       [

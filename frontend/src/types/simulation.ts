@@ -161,8 +161,13 @@ export interface RunningMetrics {
   directionalFairnessIndex: number;
   /** Vehicles in the network right now (instantaneous). */
   activeVehicleCount: number;
-  /** All vehicles spawned since the run began (not warmup-limited). */
+  /** All vehicles spawned since the run began (not warmup-limited). This is
+   *  the offered demand only while `vehicleLimitReached` is false. */
   totalVehiclesSpawned: number;
+  /** Per-run cap on vehicles generated (traffic.totalVehicles). */
+  vehicleLimit?: number;
+  /** True once generation hit the cap: later demand was not offered. */
+  vehicleLimitReached?: boolean;
   /** Mean instantaneous speed (m/s) of vehicles in the network right now. */
   averageTravelSpeed: number;
   queueStabilityIndex: number;
@@ -175,7 +180,10 @@ export interface RunningMetrics {
   intersectionUtilization: number;
   /** Estimated saturation volume in vehicles per second. */
   criticalSaturationVolume: number;
-  masterEfficiencyScore?: number;
+  /** Fixed-weight composite (0-100). Valid only for comparing runs of the
+   *  same geometry and scenario, never a signal against a roundabout. null
+   *  until a vehicle has exited after warm-up. */
+  masterEfficiencyScore?: number | null;
   // Running total of debounced collision events (VehiclePool.collision_count
   // — one event per overlapping vehicle pair, counted once when the overlap
   // begins, not once per tick it persists). 0 when no collision has

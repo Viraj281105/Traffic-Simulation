@@ -37,7 +37,7 @@
 }
 
 .run-page .mono {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: var(--font-mono);
 }
 
 .run-card {
@@ -206,7 +206,7 @@
   max-height: 420px;
   overflow: auto;
   padding: 12px;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.5;
   color: var(--text-primary);

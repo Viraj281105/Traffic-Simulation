@@ -2,6 +2,7 @@ import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { SimulationConfigValues } from "../types/config";
 import { DEFAULT_CONFIG_VALUES, SCENARIO_PRESETS } from "../types/config";
 import "./ConfigurationSidebar.css";
+import { CloseButton } from "./ui/CloseButton";
 
 export type ConfigMode = "signal" | "roundabout" | "comparative";
 
@@ -219,14 +220,7 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
             <span>Scenario settings</span>
             {isDirty && <span className="config-dirty-badge">Unsaved</span>}
           </h2>
-          <button
-            type="button"
-            className="config-close-btn"
-            onClick={onClose}
-            aria-label="Close scenario settings"
-          >
-            ✕
-          </button>
+          <CloseButton label="Close scenario settings" onClick={onClose} />
         </div>
 
         <form className="config-sidebar-body" onSubmit={handleSubmit}>
@@ -367,7 +361,7 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
               display={String(form.lanes)}
               value={form.lanes}
               min={1}
-              max={4}
+              max={3}
               step={1}
               onChange={(v) => {
                 handleChange("lanes", v);

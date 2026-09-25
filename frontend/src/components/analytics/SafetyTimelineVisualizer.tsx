@@ -15,6 +15,12 @@ import type {
 } from "../../hooks/useLiveComparisonHistory";
 import type { MetricContext } from "../../metrics/catalog";
 import { formatMetric, METRICS } from "../../metrics/catalog";
+import {
+  SERIES,
+  CHART_GRID,
+  CHART_AXIS,
+  TOOLTIP_STYLE,
+} from "../../theme/chart";
 
 interface SafetyTimelineVisualizerProps {
   history: ComparisonHistoryPoint[];
@@ -31,8 +37,8 @@ const minPetDef = METRICS.find((m) => m.key === "minPET")!;
 const petEventsDef = METRICS.find((m) => m.key === "petEventCount")!;
 const petSamplesDef = METRICS.find((m) => m.key === "petSampleCount")!;
 
-const SIGNAL_COLOR = "#f59e0b";
-const ROUNDABOUT_COLOR = "#06b6d4";
+const SIGNAL_COLOR = SERIES.signal;
+const ROUNDABOUT_COLOR = SERIES.roundabout;
 
 export function SafetyTimelineVisualizer({
   history,
@@ -66,8 +72,8 @@ export function SafetyTimelineVisualizer({
             <span className="collision-count">{sigCollisions}</span>
             <span className="collision-status-text">
               {sigCollisions === 0
-                ? "Zero collisions recorded"
-                : "Collision events observed"}
+                ? "No vehicle overlaps recorded"
+                : "Vehicle overlaps recorded (model limit, not a crash forecast)"}
             </span>
           </div>
         </div>
@@ -85,7 +91,7 @@ export function SafetyTimelineVisualizer({
             <span className="collision-count">{rndCollisions}</span>
             <span className="collision-status-text">
               {rndCollisions === 0
-                ? "Zero collisions recorded"
+                ? "No vehicle overlaps recorded"
                 : "Collision events observed"}
             </span>
           </div>
@@ -113,9 +119,13 @@ export function SafetyTimelineVisualizer({
       <div className="ttc-trend-card">
         <div className="ttc-trend-header">
           <div>
-            <span className="ttc-title">Minimum Time-to-Collision (TTC)</span>
+            <span className="ttc-title">
+              Smallest time-to-collision (TTC) seen so far
+            </span>
             <span className="ttc-sub">
-              Threshold: {ttcThreshold.toFixed(1)} s (Hayward critical cutoff)
+              Threshold: {ttcThreshold.toFixed(1)} s (a literature default, not
+              validated for this model). A running minimum, so it can only fall
+              during a run.
             </span>
           </div>
           <div className="ttc-current-readouts">
@@ -140,29 +150,23 @@ export function SafetyTimelineVisualizer({
                 data={history}
                 margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
               >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="rgba(255,255,255,0.08)"
+                <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
+                <XAxis
+                  dataKey="timeFormatted"
+                  stroke={CHART_AXIS}
+                  fontSize={11}
                 />
-                <XAxis dataKey="timeFormatted" stroke="#8892b0" fontSize={11} />
-                <YAxis stroke="#8892b0" fontSize={11} unit=" s" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#1e2230",
-                    borderColor: "#333c56",
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
-                />
+                <YAxis stroke={CHART_AXIS} fontSize={11} unit=" s" />
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
                 <Legend height={32} wrapperStyle={{ top: 0, fontSize: 11 }} />
                 <ReferenceLine
                   y={ttcThreshold}
-                  stroke="#ef4444"
+                  stroke={SERIES.danger}
                   strokeDasharray="4 4"
                   strokeWidth={1.5}
                   label={{
                     value: `Critical Cutoff (${ttcThreshold.toFixed(1)} s)`,
-                    fill: "#ef4444",
+                    fill: SERIES.danger,
                     fontSize: 10,
                     position: "insideBottomRight",
                   }}
@@ -249,12 +253,45 @@ export function SafetyTimelineVisualizer({
       <div className="safety-disclaimer-banner">
         <span className="disclaimer-icon">ℹ️</span>
         <p className="disclaimer-text">
-          <strong>Surrogate Safety Measures Notice:</strong> Surrogate safety
-          measures (TTC, PET) are exploratory research metrics based on
-          literature defaults. Event counts are surrogate indicators and do not
-          constitute a validated safety ranking between geometries.
+          <strong>Surrogate Safety Measures Notice:</strong> TTC and PET are
+          exploratory research diagnostics, not a safety score, a count of real
+          collisions, or a crash probability. Thresholds are literature
+          defaults, not validated for this model, and the counts are not a
+          validated safety ranking between geometries.
         </p>
       </div>
+      <details className="how-measured">
+        <summary>How TTC and PET are measured</summary>
+        <ul>
+          <li>
+            <strong>TTC</strong> is sampled on every 0.1 s tick for pairs of
+            vehicles on different lanes within 50 m: the time until two vehicles
+            would touch if both kept their current speed and heading. Same-lane
+            car-following is excluded. &ldquo;Low-TTC events&rdquo; counts
+            ticks, so one long close approach counts many times; it is an
+            exposure count, not a number of distinct near-misses. The smallest
+            TTC is a run-long minimum.
+          </li>
+          <li>
+            <strong>PET</strong> is measured only at the signal&apos;s conflict
+            points: the gap between one vehicle leaving a crossing point and a
+            different vehicle reaching it. It is not measured for the roundabout
+            (shown as N/A, meaning &ldquo;not measured&rdquo;, never &ldquo;no
+            conflicts&rdquo;). The default 5 s threshold is generous, so many
+            ordinary crossings count.
+          </li>
+          <li>
+            The number of observations depends on how many vehicles share space,
+            which differs by layout, so TTC and PET counts are not comparable
+            between the signal and the roundabout as risk.
+          </li>
+          <li>
+            &ldquo;Collisions&rdquo; are vehicle-body overlaps in the model,
+            counted from the start of the run including warm-up. They show where
+            the model reached a limit, not a prediction of real crashes.
+          </li>
+        </ul>
+      </details>
     </div>
   );
 }

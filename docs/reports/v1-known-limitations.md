@@ -258,6 +258,51 @@ would be effort spent where there is no cost.
 
 ---
 
+## 9a. Evaluation-integrity pass (2026-09-25)
+
+An audit of every evaluation metric, statistic and chart
+(`docs/product/urbanflow-evaluation-metrics.md`) led to a fix pass on the
+evaluation layer. **The simulation was not changed**: the calibrated capacity
+curve (§1, `test_calibrated_capacity_regression`) is bit-identical before and
+after. The pass added limits that were previously implicit, and they are now
+stated where users meet them. Classification for each:
+
+| Item | Classification | State |
+| :-- | :-- | :-- |
+| Studies outside one lane per approach (sweep, validation, reliability check) presented like the calibrated comparison | 2 — fix now | **Fixed.** Defaults are 1 lane; multi-lane results are labelled *exploratory, not calibrated* everywhere they appear; every study output carries a `calibration` block |
+| Silent 200-vehicle generation cap truncated high-demand x long-run scenarios (measured: 2 lanes, 2,880 veh/h, 300 s reached it on both geometries) | 2 — fix now | **Fixed.** Flagged in the metrics (`vehicleLimit`, `vehicleLimitReached`); scenario builders size the limit to the demand; truncated sweep tiers are *inconclusive*. The calibrated baseline was never affected (its harness sets `totalVehicles = 5000`) |
+| Confidence intervals used z = 1.96 with 3-10 seeds (about 29 % too narrow at n = 5) | 1 — statistical defect | **Fixed** (Student-t). Published intervals in `comparative_report.md` §2-§3 were recomputed; means, p-values and effect sizes did not change |
+| Fixed-weight composite used to compare a signal with a roundabout | 1 — misleading | **Fixed.** Same-geometry only; never set side by side; `null` before data |
+| Sweep verdict assumed which control wins where | 1 — misleading | **Fixed.** Read from the data; ties and inconclusive tiers respected |
+| Delay described as waiting | 2 — fix now | **Fixed** (wording). The delay calculation is unchanged: it is extra travel time against the driver's own desired speed and includes geometric slow-down (e.g. the roundabout's 5 m/s entry) |
+| Unpaired Welch test on shared seeds; no multiple-comparison correction across the three metrics; seeds drawn from the global `random` module and not user-settable | 3 — model/method limitation | **Documented, not changed** (changing it alters the methodology). Results are worded as "supported / not supported at α", never "no difference" |
+| TTC/PET are exploratory surrogate measures (per-tick TTC exposure count, running-minimum TTC, generous 5 s PET threshold, PET signal-only) | 3 — model limitation | **Documented in-app and in the contract**; not a safety score or crash probability |
+| The roundabout is a single circulating lane; approach demand split between the four roads is random per traffic pattern unless configured | 3 — model limitation | **Unchanged**, now stated in the trust notes |
+| Fairness subtracted no warm-up baseline (mismatched window vs `averageWaitTime`) | 2 — fix now | **Fixed** (values for vehicles active at the warm-up boundary change) |
+| Stale tracked `study_report.csv` files carrying the retired "significantly superior" recommendation | 2 — fix now | **Regenerated** from the corrected code |
+
+---
+
+## 9b. Calibration pass (2026-09-25b)
+
+* **Section 3 is superseded.** The roundabout is not modelled with a single
+  circulating lane: it builds one ring per entry lane, and capacity rises with
+  lanes for both controls (3-seed means at saturation: signal about
+  1,170 / 2,460 / 3,100 veh/h, roundabout about 1,330 / 1,900 / 2,150 veh/h
+  for 1 / 2 / 3 lanes). Multi-lane stays exploratory because of the
+  inner-ring-exit weave (section 4): 5 contacts in 54 runs, 2 of them below
+  saturation.
+* **The 1-lane signal is conservative.** One shared lane, permissive lefts,
+  no in-box waiting position, and turns now taken at a realistic speed. A
+  waiting left-turner holds the lane, so maximum served flow is about
+  1,130–1,160 veh/h (5-seed mean), below HCM shared-lane practice. This is a
+  model scope limit, not tuning: no protected left phase or turn bay is
+  modelled in the calibrated configuration.
+* **Speed and curve assumptions are model inputs.** They are a 50 km/h limit
+  (desired 85–105%), a lateral acceleration of 3 m/s², entry at 5 m/s and
+  circulation at no more than 8 m/s. Delay includes the slowing they imply
+  for both controls.
+
 ## 9. Summary
 
 - The **1-lane signal vs roundabout comparison is scientifically valid** and

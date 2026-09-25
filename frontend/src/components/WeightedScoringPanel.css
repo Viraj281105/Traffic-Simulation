@@ -103,7 +103,7 @@
 }
 
 .score-tag-val {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 16px;
   font-weight: 700;
   color: var(--text-primary);
@@ -156,7 +156,7 @@
 }
 
 .weight-percent {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-mono);
   font-weight: 600;
   color: var(--accent-blue);
   font-size: 11px;

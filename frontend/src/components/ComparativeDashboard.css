@@ -1528,3 +1528,10 @@
     grid-template-columns: 1fr;
   }
 }
+
+.chart-note {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  opacity: 0.8;
+}

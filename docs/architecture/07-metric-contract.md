@@ -2,7 +2,7 @@
 
 > **Document Version:** 0.1.0
 > **Last Updated:** 2026-07-23
-> **Status:** Current metric reference (audited 2026-09-07)
+> **Status:** Current metric reference (audited 2026-09-07; corrected against the implementation 2026-09-25 — see [urbanflow-evaluation-metrics.md](../product/urbanflow-evaluation-metrics.md) §13/§15)
 > **Owner:** Both Developers (jointly)
 
 ---
@@ -42,7 +42,7 @@ This document summarizes the metrics currently returned by `MetricCollector`. Th
 | **Description** | Mean cumulative time that vehicles spend waiting (speed below threshold) while in the simulation. Lower is better. |
 | **Units** | seconds (s) |
 | **Inputs Required** | Per-vehicle `waitTime` (cumulative time with `speed < waitSpeedThreshold`) |
-| **Update Frequency** | Every metric update tick (configurable, default 1 Hz) |
+| **Update Frequency** | Every simulation tick (`simulation.timeStep`, default 0.1 s) |
 | **Final Aggregation** | Arithmetic mean across all exited vehicles |
 
 **Mathematical Definition:**
@@ -126,7 +126,6 @@ $$
 | Current queue per direction | $Q_d(t)$ | Instantaneous queue length per approach |
 | Average queue length | $\bar{Q} = \frac{1}{4} \sum_{d} \bar{Q}_d$ | Mean across all 4 approaches, time-averaged |
 | Maximum queue length | $Q_{\max} = \max_{d,t} Q_d(t)$ | Worst queue observed across all directions and times |
-| 95th percentile queue | $Q_{95}$ | 95th percentile of all observed queue lengths |
 
 **Edge Cases:**
 - Empty approaches have queue length `0`
@@ -271,7 +270,7 @@ $$
 **For roundabouts:** IOL is always `0.0` because roundabouts do not have fixed phases that block movement. Vehicles yield dynamically.
 
 **Edge Cases:**
-- During all-red phases, if any approach has vehicles, the tick counts as IOL
+- During all-red phases (no approach green) the tick does **not** count as IOL: the definition needs a green approach to have been wasted, and `idle_loss.py` returns False when none exists. A yellow approach counts on the red side.
 - During warmup period, IOL ticks are excluded
 - A value of 0.0 means the signal phases are perfectly matched to demand
 
@@ -282,10 +281,10 @@ $$
 | Attribute | Value |
 |-----------|-------|
 | **Metric ID** | `critical_saturation_volume` |
-| **Description** | The maximum arrival rate (vehicles per second) at which the intersection can still maintain stable queue lengths (queues do not grow unbounded). Higher is better (more capacity). |
+| **Description** | A served-rate estimate (vehicles per second) derived from the configured arrival rate and the observed throughput. **It is not a measured capacity:** it cannot exceed the configured arrival rate (except through a served/spawned ratio above 1 when vehicles spawned before warm-up exit after it), so it can never show capacity above the demand that was offered. The UI labels it "Served-rate estimate". |
 | **Units** | vehicles per second (veh/s) |
 | **Inputs Required** | Time-averaged throughput rate, time-averaged arrival rate, queue growth trend |
-| **Update Frequency** | Calculated at simulation end |
+| **Update Frequency** | Recomputed on every `get_metrics()` call |
 | **Final Aggregation** | Single value |
 
 **Mathematical Definition:**
@@ -413,10 +412,10 @@ These metrics are genuinely emitted by `MetricCollector.get_metrics()` (see §9'
 | Attribute | Value |
 |-----------|-------|
 | **Output key** | `masterEfficiencyScore` |
-| **Description** | A single weighted composite score summarizing overall intersection performance, for at-a-glance comparison between designs. |
+| **Description** | A fixed-weight composite of five measures. **Valid only for comparing runs of the same geometry on the same scenario.** It is not a signal-versus-roundabout score: `idleOpportunityLoss` is signal-only (a roundabout always receives the full idle term) and the throughput term is normalised against a fixed 120 veh/min ceiling, so it mostly reflects how much traffic arrived. The frontend never sets it side by side across geometries. |
 | **Units** | dimensionless, 0.0–100.0 |
-| **Direction** | Higher ↑ |
-| **Running?** | ✅ (recomputed every `get_metrics()` call from that call's own other metric values) |
+| **Direction** | Higher ↑ within one geometry and scenario; not comparable across geometries |
+| **Running?** | ✅ (recomputed every `get_metrics()` call from that call's own other metric values); `null` until at least one vehicle has exited after warm-up |
 | **Implementation** | `calculate_master_efficiency_score()` in `backend/src/metrics/efficiency.py` |
 
 **Mathematical Definition:**
@@ -432,7 +431,7 @@ Where, given `throughputRate` (veh/min), `averageWaitTime` (s), `averageStopsPer
 - $\text{fairness\_norm} = \text{clamp}(\text{directionalFairnessIndex}, 0, 1)$
 - $\text{idle\_norm} = \max(0, 1 - \text{idleOpportunityLoss})$
 
-Result is rounded to 1 decimal place. Safe for the zero-vehicle case: every input metric already defaults to a well-defined value (e.g. `directionalFairnessIndex` defaults to 1.0, `idleOpportunityLoss`/`averageWaitTime`/`averageStopsPerVehicle` default to 0.0) with no vehicles active, so the score is always computable.
+Result is rounded to 1 decimal place. Returns `null` (not a placeholder score) while no vehicle has exited after warm-up, because every input then holds a best-case default. For reference, the inputs default as follows: every input metric already defaults to a well-defined value (e.g. `directionalFairnessIndex` defaults to 1.0, `idleOpportunityLoss`/`averageWaitTime`/`averageStopsPerVehicle` default to 0.0) with no vehicles active, so the score is always computable.
 
 ### 7.2 Queue Stability Index
 
@@ -546,6 +545,32 @@ Returns `0.0` if fewer than 2 post-warmup ticks have elapsed. Rounded to 2 decim
 
 ---
 
+### 7.8 Control Delay Family (`averageDelay`, `medianDelay`, `p95Delay`, `minDelay`, `maxDelay`, `delayStdDev`)
+
+Previously emitted but undocumented here. Over the post-warm-up exited vehicles (`exit_time ≥ warmupTime`), per vehicle:
+
+$$
+d_i = \max\left(0,\ (t^{exit}_i - \max(t^{spawn}_i, W)) - \frac{\sum \text{route lane lengths}}{\max(v^{desired}_i, 1)}\right)
+$$
+
+For a vehicle that spawned before warm-up `W`, the free-flow term is scaled by the post-`W` fraction of its journey. `averageDelay` is the mean, `medianDelay` the median, `p95Delay` the 95th percentile (linear interpolation at index $(n-1)\cdot 0.95$), `delayStdDev` the sample standard deviation ($n-1$). Unit: seconds.
+
+**Interpretation.** Delay is *extra travel time against the driver's own desired speed*. It counts queuing, but also any slowing the layout itself forces (for example easing to the roundabout's 5 m/s entry speed), so it is **not the same as waiting**: `averageWaitTime` (§2.1) counts only time below the waiting-speed threshold. A roundabout can show non-zero delay with zero queued time. The two are reported separately and can point in opposite directions.
+
+### 7.9 Surrogate Safety Measures (`minTTC`, `ttcEventCount`, `ttcSampleCount`, `minPET`, `petEventCount`, `petSampleCount`, thresholds, `petApplicable`)
+
+Measurement-only diagnostics (`backend/src/metrics/definitions/safety_conflicts.py`); they never influence simulation behaviour. They are **not** a safety score, a count of real collisions or a crash probability.
+
+- **TTC** is sampled on every tick for pairs of vehicles on **different lanes** within `ttcSearchRadius` (50 m): the smallest non-negative time at which two circular envelopes would touch under constant velocity (Hayward-style). Same-lane following is excluded. `minTTC` is a run-long **running minimum** (it can only fall; `null` = no observation, never "no risk"). `ttcEventCount` counts **ticks (pair-observations)** with $TTC \le$ `ttcThresholdSeconds` (default 1.5 s), so one long close approach counts many times.
+- **PET** exists only at the signal's pre-computed conflict points (`petApplicable=false` for roundabouts means *not measured*). `petEventCount` counts crossings with $PET \le$ `petThresholdSeconds` (default 5.0 s, a generous threshold under which many ordinary crossings fall).
+- Observation counts depend on how many vehicles share space, so they differ by geometry and are not comparable as risk. Thresholds are literature defaults, not validated for this model.
+
+### 7.10 Vehicle Limit (`vehicleLimit`, `vehicleLimitReached`)
+
+`traffic.totalVehicles` caps the vehicles generated per run (default 200; schema maximum 5000). Once reached, generation stops and later demand is not offered, so `totalVehiclesSpawned` is no longer the offered demand. `vehicleLimitReached` is `true` once `totalVehiclesSpawned ≥ vehicleLimit`. The dashboard compiler and the study runners size the limit to the scenario (`demand_vehicle_limit`: expected arrivals × 1.5 + 50, bounded to [200, 5000]) unless the caller sets one; any run that still reaches its limit is flagged and, in sweeps, marked *inconclusive*.
+
+---
+
 ## 8. Metric Summary Table
 
 | # | Metric ID | Category | Units | Direction | Running? | Key Formula |
@@ -555,11 +580,11 @@ Returns `0.0` if fewer than 2 post-warmup ticks have elapsed. Rounded to 2 decim
 | 3 | `queue_length` | Operational Efficiency | vehicles | Lower ↓ | ✅ | Per-approach count, aggregated |
 | 4 | `stop_count` | Traffic Flow Quality | stops/vehicle | Lower ↓ | ✅ | $\bar{S} = \frac{1}{N}\sum S_i$ |
 | 5 | `speed_variance` | Traffic Flow Quality | dimensionless | Lower ↓ | ✅ | Time-averaged CV of speeds |
-| 6 | `travel_time_reliability` | Traffic Flow Quality | dimensionless | Closer to 1.0 | ❌ | $\text{PTI} = TT_{95} / TT_{50}$ |
+| 6 | `travel_time_reliability` | Traffic Flow Quality | dimensionless | Closer to 1.0 = more uniform journey times (not better in itself) | ✅ | $\text{PTI} = TT_{95} / TT_{50}$ |
 | 7 | `idle_opportunity_loss` | System Performance | dimensionless | Lower ↓ | ✅ | Idle ticks / total ticks |
-| 8 | `critical_saturation_volume` | System Performance | veh/s | Higher ↑ | ❌ | Capacity estimation |
+| 8 | `critical_saturation_volume` | System Performance | veh/s | Context-dependent (not a capacity) | ✅ | Served-rate estimate, ≤ configured arrival rate |
 | 9 | `directional_fairness` | Fairness | dimensionless | Higher ↑ | ✅ | Jain's Fairness Index |
-| 10 | `footprint` | Physical Constraints | m² | Lower ↓ | ❌ | Geometric area calculation |
+| 10 | `footprint` | Physical Constraints | m² | Context only; not like-for-like across geometries | ✅ | Geometric area calculation |
 
 **Direction:** Whether higher or lower values indicate better performance.
 **Running?:** Whether the metric is updated in real-time snapshots (✅) or computed only at simulation end (❌).
@@ -625,7 +650,9 @@ The metrics output is a flat object, for example (abbreviated — not every key 
   "intersectionUtilization": 65.0,
   "criticalSaturationVolume": 0.72,
   "collisionCount": 0,
-  "masterEfficiencyScore": 0.81
+  "masterEfficiencyScore": 81.0,
+  "vehicleLimit": 200,
+  "vehicleLimitReached": false
 }
 ```
 

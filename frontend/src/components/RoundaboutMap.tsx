@@ -9,6 +9,12 @@ import {
   roundaboutRingDividers,
   mapScale,
 } from "./mapGeometry";
+import {
+  EnvironmentLayer,
+  GROUND_BASE,
+  paintIslandPlanting,
+  roundaboutEnvironment,
+} from "./mapEnvironment";
 import { SnapshotInterpolator, type VehiclePose } from "./snapshotInterpolator";
 
 interface RoundaboutMapProps {
@@ -48,6 +54,7 @@ export const RoundaboutMap: React.FC<RoundaboutMapProps> = ({
   // below stays in CSS pixels via the context transform.
   const dpr = typeof window === "undefined" ? 1 : window.devicePixelRatio || 1;
   const [interpolator] = useState(() => new SnapshotInterpolator());
+  const [environment] = useState(() => new EnvironmentLayer());
 
   useEffect(() => {
     interpolator.push(snapshot, performance.now());
@@ -74,7 +81,7 @@ export const RoundaboutMap: React.FC<RoundaboutMapProps> = ({
       if (!frame) {
         if (!drewEmpty) {
           // Draw grass background while waiting for data
-          ctx.fillStyle = "#557d35";
+          ctx.fillStyle = GROUND_BASE;
           ctx.fillRect(0, 0, width, height);
           drewEmpty = true;
           drewFrame = false;
@@ -101,22 +108,18 @@ export const RoundaboutMap: React.FC<RoundaboutMapProps> = ({
         height / 2 - y * scale,
       ];
 
-      ctx.fillStyle = "#557d35";
-      ctx.fillRect(0, 0, width, height);
-      ctx.strokeStyle = "rgba(28,58,28,.2)";
-      ctx.lineWidth = 1;
-      for (let y = 0; y < height; y += 18) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-        ctx.stroke();
-      }
-
       // Roads are laid out exactly as the backend lays out vehicle lanes
       // (see mapGeometry.ts): each carriageway sits outside the splitter
       // island, and every entry lane ends at the give-way line.
       const edge = roundaboutCarriagewayEdge(lanes, laneWidth);
       const giveWay = roundaboutGiveWayRadius(outerRadius);
+
+      // Grass, sidewalk and roadside planting, all beneath the roads.
+      environment.paint(
+        ctx,
+        roundaboutEnvironment(edge, outerRadius, armReach),
+        { width, height, ppm: scale, dpr },
+      );
 
       // Arms run in from the centre so they meet the ring without gaps where
       // entry/exit paths cross from the arm onto the circulating carriageway.
@@ -194,13 +197,13 @@ export const RoundaboutMap: React.FC<RoundaboutMapProps> = ({
       }
       ctx.setLineDash([]);
 
-      ctx.fillStyle = "#557d35";
       ctx.beginPath();
       ctx.arc(cx, cy, innerRadius * scale, 0, Math.PI * 2);
-      ctx.fill();
+      environment.fillWithGround(ctx);
       ctx.strokeStyle = "#e5eaed";
       ctx.lineWidth = 2;
       ctx.stroke();
+      paintIslandPlanting(ctx, [cx, cy], innerRadius, scale);
 
       drawApproachMarkings(
         ctx,
@@ -210,6 +213,7 @@ export const RoundaboutMap: React.FC<RoundaboutMapProps> = ({
         lanes,
         laneWidth,
         showCrosswalks,
+        environment,
       );
       drawEntryYieldSigns(ctx, toCanvas, giveWay, edge);
 
@@ -235,6 +239,7 @@ export const RoundaboutMap: React.FC<RoundaboutMapProps> = ({
     showCrosswalks,
     debug,
     interpolator,
+    environment,
   ]);
 
   return (
@@ -268,6 +273,7 @@ function drawApproachMarkings(
   lanes: number,
   laneWidth: number,
   showCrosswalks: boolean,
+  environment: EnvironmentLayer,
 ) {
   const island = ROUNDABOUT_SPLITTER_HALF_WIDTH;
   const edge = roundaboutCarriagewayEdge(lanes, laneWidth);
@@ -290,7 +296,6 @@ function drawApproachMarkings(
     const s = Math.round(Math.sin(angle));
     const tx = (x: number, y: number) => toCanvas(x * c - y * s, x * s + y * c);
 
-    ctx.fillStyle = "#557d35";
     ctx.beginPath();
     const [p1x, p1y] = tx(-island, armReach);
     ctx.moveTo(p1x, p1y);
@@ -304,7 +309,7 @@ function drawApproachMarkings(
     const [p4x, p4y] = tx(-island, giveWay);
     ctx.quadraticCurveTo(cp1x, cp1y, p4x, p4y);
 
-    ctx.fill();
+    environment.fillWithGround(ctx);
     ctx.strokeStyle = "#e5eaed";
     ctx.lineWidth = 1.2;
     ctx.stroke();
@@ -461,7 +466,7 @@ function drawDebugLabel(
   ctx.fillStyle = "rgba(15,20,24,.86)";
   ctx.fillRect(width - 200, 14, 186, 38);
   ctx.fillStyle = "#fff";
-  ctx.font = "11px monospace";
+  ctx.font = '11px "Roboto Mono", monospace';
   ctx.fillText(
     `ROUNDABOUT  T ${(snapshot?.timestamp ?? 0).toFixed(1)}s`,
     width - 188,

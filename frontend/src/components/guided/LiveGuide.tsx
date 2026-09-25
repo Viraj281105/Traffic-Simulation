@@ -96,7 +96,7 @@ export function LiveGuide({
       },
       {
         label: "Time lost per driver so far",
-        hint: "Average extra time compared with an empty junction.",
+        hint: "Average extra travel time compared with an empty junction, including slowing the layout forces. Not the same as waiting.",
         value: (side) => {
           const d = summary[side].delay;
           return d === null ? "—" : `${d.toFixed(0)} s`;

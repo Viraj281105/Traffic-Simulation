@@ -1,6 +1,7 @@
 import type { MetricContext } from "../../metrics/catalog";
 import { formatMetric, metricState, METRICS } from "../../metrics/catalog";
 import type { SignalDirection } from "../../types/simulation";
+import { SERIES, CHART_GRID } from "../../theme/chart";
 
 interface TrafficFlowVisualizerProps {
   signalCtx: MetricContext;
@@ -126,7 +127,7 @@ export function TrafficFlowVisualizer({
                 <path
                   d="M 15 50 A 35 35 0 0 1 85 50"
                   fill="none"
-                  stroke="rgba(255,255,255,0.1)"
+                  stroke={CHART_GRID}
                   strokeWidth="8"
                   strokeLinecap="round"
                 />
@@ -134,7 +135,7 @@ export function TrafficFlowVisualizer({
                   <path
                     d="M 15 50 A 35 35 0 0 1 85 50"
                     fill="none"
-                    stroke="#f59e0b"
+                    stroke={SERIES.signal}
                     strokeWidth="8"
                     strokeLinecap="round"
                     strokeDasharray="110"
@@ -163,7 +164,7 @@ export function TrafficFlowVisualizer({
                 <path
                   d="M 15 50 A 35 35 0 0 1 85 50"
                   fill="none"
-                  stroke="rgba(255,255,255,0.1)"
+                  stroke={CHART_GRID}
                   strokeWidth="8"
                   strokeLinecap="round"
                 />
@@ -171,7 +172,7 @@ export function TrafficFlowVisualizer({
                   <path
                     d="M 15 50 A 35 35 0 0 1 85 50"
                     fill="none"
-                    stroke="#06b6d4"
+                    stroke={SERIES.roundabout}
                     strokeWidth="8"
                     strokeLinecap="round"
                     strokeDasharray="110"
@@ -195,8 +196,9 @@ export function TrafficFlowVisualizer({
             </div>
           </div>
           <p className="card-note">
-            1.00 = equal delay across approaches; 0.25 = all delay on one
-            approach.
+            1.00 = equal queued time across the approaches; the floor is 1 ÷ the
+            number of approaches with traffic (0.25 with four). Noisy when few
+            vehicles have exited.
           </p>
         </div>
 

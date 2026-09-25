@@ -70,6 +70,10 @@ class VehicleGenerationSection(BaseModel):
     minimumGap: float = Field(2.0, gt=0)
     desiredTimeHeadway: float = Field(1.5, gt=0)
     idmDelta: float = Field(4.0, gt=0)
+    # Lateral-acceleration limit applied to every curved path, at the signal
+    # and the roundabout alike (src/vehicles/speed_profile.py). Unset means
+    # the model default (3.0 m/s^2).
+    maxLateralAcceleration: Optional[float] = Field(None, gt=0, le=8.0)
 
 
 # The canonical paired NS/EW signal plan (ControllerSection.phaseSequence's

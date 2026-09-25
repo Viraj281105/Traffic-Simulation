@@ -172,4 +172,94 @@ describe("ValidationDashboard", () => {
       expect(screen.getByText("1.400")).toBeInTheDocument();
     });
   });
+
+  const runOnce = async (payload: unknown) => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify(payload), { status: 200 }),
+    );
+    render(<ValidationDashboard />);
+    fireEvent.click(screen.getByTitle("Execute Monte Carlo validation"));
+    await screen.findByText(/Seed-by-Seed Comparative Distribution/i);
+  };
+
+  it("sends the chosen confidence level and shows the level the backend used", async () => {
+    await runOnce({
+      ...MOCK_VALIDATION,
+      confidenceLevel: 0.99,
+      alpha: 0.01,
+      comparison: {
+        delay: { pValue: 0.008, cohensD: 1.4, significant: true },
+        throughput: { pValue: 0.2, cohensD: 0.9, significant: false },
+        queue: { pValue: 0.3, cohensD: 0.6, significant: false },
+      },
+    });
+    const body = JSON.parse(
+      vi.mocked(fetch).mock.calls[0][1]?.body as string,
+    ) as { confidenceLevel: number };
+    expect(body.confidenceLevel).toBe(0.95);
+    // The header reads the backend's alpha, not a hard-coded 0.05 / 95 %.
+    expect(
+      screen.getByText(/statistically supported on some metrics at α = 0\.01/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/99% Student-t/i)).toBeInTheDocument();
+    expect(screen.queryByText(/supported .* at α = 0\.05/i)).toBeNull();
+  });
+
+  it("draws the interval the backend computed (Student-t), not a local z multiple", async () => {
+    await runOnce({
+      ...MOCK_VALIDATION,
+      confidenceLevel: 0.95,
+      alpha: 0.05,
+      signal: {
+        ...MOCK_VALIDATION.signal,
+        delay: { ...makeStat(12), std: 1.2, ci: 2.71, ci95: 2.71 },
+      },
+    });
+    // 2.71 comes from the backend; a local 1.96 * 1.2 / sqrt(5) would be 1.05.
+    expect(screen.getAllByText(/±2\.71/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/±1\.05/)).toBeNull();
+  });
+
+  it("does not say that non-significance means the controls are equal", async () => {
+    await runOnce({
+      ...MOCK_VALIDATION,
+      alpha: 0.05,
+      comparison: {
+        delay: { pValue: 0.4, cohensD: 0.3, significant: false },
+        throughput: { pValue: 0.5, cohensD: 0.2, significant: false },
+        queue: { pValue: 0.6, cohensD: 0.1, significant: false },
+      },
+    });
+    expect(
+      screen.getByText(/No statistically supported difference/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /cannot distinguish the controls, not that they are equal/i,
+      ),
+    ).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/Confirmed|Proofs|parity/i);
+  });
+
+  it("labels a multi-lane run exploratory and reports demand cut-off", async () => {
+    await runOnce({
+      ...MOCK_VALIDATION,
+      calibration: {
+        calibrated: false,
+        note: "Exploratory, not calibrated: more than one lane.",
+      },
+      vehicleLimitReachedSeeds: [1001, 1002],
+    });
+    expect(
+      screen.getByText(/Exploratory, not calibrated\./),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Demand was cut off\./)).toBeInTheDocument();
+  });
+
+  it("describes the method as Student-t, not 1.96", async () => {
+    await runOnce(MOCK_VALIDATION);
+    fireEvent.click(screen.getByText(/Statistical Method/i));
+    expect(screen.getByText(/t\(N−1\)/)).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/1\.96 ×/);
+  });
 });

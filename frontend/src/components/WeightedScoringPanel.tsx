@@ -1,16 +1,22 @@
 import React, { useId, useMemo } from "react";
 import type { RunningMetrics } from "../types/simulation";
+import type { MetricContext } from "../metrics/catalog";
 import type { ScoringWeights } from "../types/scoring";
 import {
   DEFAULT_WEIGHTS,
   SCORE_NORMALISATION,
   computeWeightedScore,
+  weightedScoreReady,
 } from "../types/scoring";
 import "./WeightedScoringPanel.css";
 
 interface WeightedScoringPanelProps {
   metricsSignal: RunningMetrics | undefined;
   metricsRoundabout: RunningMetrics | undefined;
+  /** Warm-up state of each side. Omitted, the metrics are read as measured
+   *  values (saved comparisons carry no timing). */
+  signalCtx?: MetricContext;
+  roundaboutCtx?: MetricContext;
   weights: ScoringWeights;
   onWeightsChange: (newWeights: ScoringWeights) => void;
 }
@@ -70,6 +76,8 @@ const SLIDERS: Array<{
 export const WeightedScoringPanel: React.FC<WeightedScoringPanelProps> = ({
   metricsSignal,
   metricsRoundabout,
+  signalCtx,
+  roundaboutCtx,
   weights,
   onWeightsChange,
 }) => {
@@ -82,6 +90,21 @@ export const WeightedScoringPanel: React.FC<WeightedScoringPanelProps> = ({
     () => computeWeightedScore(metricsRoundabout, weights),
     [metricsRoundabout, weights],
   );
+  const ready =
+    weightedScoreReady(
+      signalCtx ?? {
+        metrics: metricsSignal,
+        geometry: "fixed_time_signal",
+        inWarmup: false,
+      },
+    ) &&
+    weightedScoreReady(
+      roundaboutCtx ?? {
+        metrics: metricsRoundabout,
+        geometry: "roundabout",
+        inWarmup: false,
+      },
+    );
   const total = SLIDERS.reduce((sum, s) => sum + weights[s.key], 0);
   const share = (v: number) => (total > 0 ? (v / total) * 100 : 0);
 
@@ -91,7 +114,7 @@ export const WeightedScoringPanel: React.FC<WeightedScoringPanelProps> = ({
       ? "Set at least one weight above zero."
       : gap === 0
         ? "Both controls score the same under these weights."
-        : `Under these weights the ${gap > 0 ? "roundabout" : "signal"} scores ${Math.abs(gap).toFixed(1)} points higher.`;
+        : `Under these weights the ${gap > 0 ? "roundabout" : "signal"} scores ${Math.abs(gap).toFixed(1)} points higher. This reflects the weights you chose, not a finding about either control.`;
 
   return (
     <section
@@ -127,29 +150,37 @@ export const WeightedScoringPanel: React.FC<WeightedScoringPanelProps> = ({
         </div>
       </div>
 
-      <div className="winner-banner" role="status">
-        <div className="scores-comparison">
-          <div className="score-tag">
-            <span className="score-tag-name">Signal</span>
-            <span className="score-tag-val">
-              {scoreSignal.toFixed(1)} / 100
-            </span>
-            <span className="score-bar" aria-hidden="true">
-              <i style={{ width: `${String(scoreSignal)}%` }} />
-            </span>
+      {!ready ? (
+        <p className="score-summary" role="status">
+          No score yet: the weighted score needs the warm-up to be over and at
+          least one vehicle through on each side. Until then every input is a
+          placeholder, not a measurement.
+        </p>
+      ) : (
+        <div className="winner-banner" role="status">
+          <div className="scores-comparison">
+            <div className="score-tag">
+              <span className="score-tag-name">Signal</span>
+              <span className="score-tag-val">
+                {scoreSignal.toFixed(1)} / 100
+              </span>
+              <span className="score-bar" aria-hidden="true">
+                <i style={{ width: `${String(scoreSignal)}%` }} />
+              </span>
+            </div>
+            <div className="score-tag">
+              <span className="score-tag-name">Roundabout</span>
+              <span className="score-tag-val">
+                {scoreRoundabout.toFixed(1)} / 100
+              </span>
+              <span className="score-bar" aria-hidden="true">
+                <i style={{ width: `${String(scoreRoundabout)}%` }} />
+              </span>
+            </div>
           </div>
-          <div className="score-tag">
-            <span className="score-tag-name">Roundabout</span>
-            <span className="score-tag-val">
-              {scoreRoundabout.toFixed(1)} / 100
-            </span>
-            <span className="score-bar" aria-hidden="true">
-              <i style={{ width: `${String(scoreRoundabout)}%` }} />
-            </span>
-          </div>
+          <p className="score-summary">{summary}</p>
         </div>
-        <p className="score-summary">{summary}</p>
-      </div>
+      )}
 
       <div className="weights-grid">
         {SLIDERS.map((s) => {
@@ -198,7 +229,11 @@ export const WeightedScoringPanel: React.FC<WeightedScoringPanelProps> = ({
         </ul>
         <p>
           The caps (60 s, 120 veh/min, 15 vehicles, 5 stops) are fixed reference
-          points chosen for this tool, not standards.
+          points chosen for this tool, not standards. Both controls receive the
+          same arrivals, so the throughput term mostly reflects how much traffic
+          there was, and it compresses the other differences. The score ranks
+          nothing on its own: it is a way to see how your priorities would tilt
+          a comparison, and it is never a substitute for the measurements.
         </p>
       </details>
     </section>

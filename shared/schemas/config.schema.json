@@ -70,7 +70,7 @@
           "exclusiveMinimum": 0,
           "maximum": 30.0,
           "default": 13.89,
-          "description": "RESERVED — accepted and validated, but not applied by the engine: vehicles drive at their own vehicleGeneration.desiredSpeed. See docs/architecture/06-scenario-configuration-contract.md section 2.4."
+          "description": "Speed limit (m/s). Unless vehicleGeneration.desiredSpeed is set, drivers want 85-105% of it. See docs/architecture/06-scenario-configuration-contract.md section 2.4."
         },
         "approaches": {
           "type": "array",
@@ -118,7 +118,14 @@
         "comfortDeceleration": { "type": "number", "exclusiveMinimum": 0, "default": 3.0 },
         "minimumGap": { "type": "number", "exclusiveMinimum": 0, "default": 2.0 },
         "desiredTimeHeadway": { "type": "number", "exclusiveMinimum": 0, "default": 1.5 },
-        "idmDelta": { "type": "number", "exclusiveMinimum": 0, "default": 4 }
+        "idmDelta": { "type": "number", "exclusiveMinimum": 0, "default": 4 },
+        "maxLateralAcceleration": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 8.0,
+          "default": 3.0,
+          "description": "Lateral-acceleration limit (m/s^2) on every curved path, signal and roundabout alike."
+        }
       }
     },
     "controller": {

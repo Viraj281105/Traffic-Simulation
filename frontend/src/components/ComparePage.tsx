@@ -33,6 +33,7 @@ import {
   runPath,
   useSearch,
 } from "../routing";
+import { LoaderMark } from "./ui/Loader";
 
 type Loaded =
   | { kind: "ready"; record: RunRecord }
@@ -107,7 +108,8 @@ export function ComparePage() {
       <RunPicker runIds={runIds} onChange={setRuns} />
 
       {runIds.length > 0 && current === null ? (
-        <p className="history-status" role="status">
+        <p className="history-status is-loading" role="status">
+          <LoaderMark />
           Loading runs…
         </p>
       ) : (

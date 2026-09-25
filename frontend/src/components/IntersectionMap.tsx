@@ -3,6 +3,11 @@ import { useContainerSize } from "../hooks/useContainerSize";
 import type { LiveSnapshot, SignalDirection } from "../types/simulation";
 import { SnapshotInterpolator, type VehiclePose } from "./snapshotInterpolator";
 import { mapScale, signalStopLineDistance } from "./mapGeometry";
+import {
+  EnvironmentLayer,
+  GROUND_BASE,
+  signalEnvironment,
+} from "./mapEnvironment";
 
 export interface IntersectionMapProps {
   snapshot: LiveSnapshot | null;
@@ -83,6 +88,7 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
   const dpr = typeof window === "undefined" ? 1 : window.devicePixelRatio || 1;
   const ppm = ppmOverride ?? mapScale(width, height);
   const [interpolator] = useState(() => new SnapshotInterpolator());
+  const [environment] = useState(() => new EnvironmentLayer());
 
   useEffect(() => {
     interpolator.push(snapshot, performance.now());
@@ -100,6 +106,21 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
     let drewEmpty = false;
     let drewFrame = false;
 
+    // The junction box ends at the stop line, where the backend ends each
+    // incoming lane and holds traffic on red (see mapGeometry.ts).
+    const half = signalStopLineDistance(
+      Math.max(lanesNorth, lanesSouth, lanesEast, lanesWest),
+      laneWidth,
+    );
+    const widths: Widths = {
+      north: lanesNorth * laneWidth * 2,
+      south: lanesSouth * laneWidth * 2,
+      east: lanesEast * laneWidth * 2,
+      west: lanesWest * laneWidth * 2,
+    };
+    const roadLength = Math.max(46, Math.ceil(Math.max(width, height) / ppm));
+    const road = signalEnvironment(widths, half, roadLength);
+
     const render = () => {
       if (!active) return;
       frameId = requestAnimationFrame(render);
@@ -109,7 +130,7 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
       if (!frame) {
         if (!drewEmpty) {
           // Draw grass background while waiting for data
-          ctx.fillStyle = "#557d35";
+          ctx.fillStyle = GROUND_BASE;
           ctx.fillRect(0, 0, width, height);
           drewEmpty = true;
           drewFrame = false;
@@ -126,20 +147,6 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
         x * ppm + width / 2,
         -y * ppm + height / 2,
       ];
-      // The junction box ends at the stop line, where the backend ends each
-      // incoming lane and holds traffic on red (see mapGeometry.ts).
-      const half = signalStopLineDistance(
-        Math.max(lanesNorth, lanesSouth, lanesEast, lanesWest),
-        laneWidth,
-      );
-      const widths: Widths = {
-        north: lanesNorth * laneWidth * 2,
-        south: lanesSouth * laneWidth * 2,
-        east: lanesEast * laneWidth * 2,
-        west: lanesWest * laneWidth * 2,
-      };
-      const roadLength = Math.max(46, Math.ceil(Math.max(width, height) / ppm));
-
       const line = (x1: number, y1: number, x2: number, y2: number) => {
         const [a, b] = point(x1, y1);
         const [c, d] = point(x2, y2);
@@ -154,13 +161,8 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
         ctx.fillRect(left, top, right - left, bottom - top);
       };
 
-      // Draw background grass
-      ctx.fillStyle = "#557d35";
-      ctx.fillRect(0, 0, width, height);
-      ctx.strokeStyle = "rgba(28,58,28,.22)";
-      ctx.lineWidth = 1;
-      for (let y = 0; y < height; y += 18)
-        line(0, (height / 2 - y) / ppm, width / ppm, (height / 2 - y) / ppm);
+      // Grass, sidewalk and roadside planting, all beneath the roads.
+      environment.paint(ctx, road, { width, height, ppm, dpr });
 
       // Draw roads
       ctx.fillStyle = "#343b42";
@@ -220,10 +222,9 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
         ctx.beginPath();
         ctx.arc(cx, cy, controller.outerRadius * ppm, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = "#557d35";
         ctx.beginPath();
         ctx.arc(cx, cy, controller.innerRadius * ppm, 0, Math.PI * 2);
-        ctx.fill();
+        environment.fillWithGround(ctx);
         ctx.strokeStyle = "#e5eaed";
         ctx.setLineDash([7, 8]);
         ctx.stroke();
@@ -267,6 +268,7 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
     ppm,
     dpr,
     interpolator,
+    environment,
   ]);
 
   return (
@@ -402,7 +404,7 @@ function drawQueues(
     ctx.fillStyle = "rgba(22,28,32,.85)";
     ctx.fillRect(x - 25, y - 11, 50, 22);
     ctx.fillStyle = "#fff";
-    ctx.font = `${String(Math.max(10, ppm * 1.5))}px monospace`;
+    ctx.font = `${String(Math.max(10, ppm * 1.5))}px "Roboto Mono", monospace`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(`Q ${String(approach.queueLength)}`, x, y);

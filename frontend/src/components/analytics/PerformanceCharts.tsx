@@ -12,9 +12,18 @@ import {
   Legend,
   ReferenceLine,
 } from "recharts";
-import type { ComparisonHistoryPoint } from "../../hooks/useLiveComparisonHistory";
+import {
+  MAX_HISTORY_POINTS,
+  type ComparisonHistoryPoint,
+} from "../../hooks/useLiveComparisonHistory";
 import type { MetricContext } from "../../metrics/catalog";
 import { formatMetric, METRICS } from "../../metrics/catalog";
+import {
+  SERIES,
+  CHART_GRID,
+  CHART_AXIS,
+  TOOLTIP_STYLE,
+} from "../../theme/chart";
 
 interface PerformanceChartsProps {
   history: ComparisonHistoryPoint[];
@@ -31,8 +40,8 @@ type PerformanceTab =
   | "speed"
   | "reliability";
 
-const SIGNAL_COLOR = "#f59e0b";
-const ROUNDABOUT_COLOR = "#06b6d4";
+const SIGNAL_COLOR = SERIES.signal;
+const ROUNDABOUT_COLOR = SERIES.roundabout;
 
 const avgDelayDef = METRICS.find((m) => m.key === "averageDelay")!;
 const medDelayDef = METRICS.find((m) => m.key === "medianDelay")!;
@@ -96,8 +105,8 @@ export function PerformanceCharts({
           <span className="warmup-pulse-dot" />
           <span>
             <strong>Warm-up active:</strong> Exited vehicle delay &amp; rate
-            metrics accumulate post-warmup (after 30s). Current speed and
-            instantaneous telemetry remain live.
+            metrics accumulate once the warm-up period is over. Current speed
+            and instantaneous telemetry remain live.
           </span>
         </div>
       )}
@@ -322,6 +331,14 @@ export function PerformanceCharts({
       </div>
 
       {/* Chart Canvas Area */}
+      <p className="chart-note">
+        Each line is a running value over the whole run so far (for example the
+        mean of every exit up to that moment), so it smooths and settles rather
+        than showing moment-to-moment swings.
+        {history.length >= MAX_HISTORY_POINTS
+          ? ` Only the most recent ${MAX_HISTORY_POINTS.toString()} samples (about ${MAX_HISTORY_POINTS.toString()} s) are drawn; the start of a longer run is not shown.`
+          : ""}
+      </p>
       <div className="chart-canvas-card">
         {history.length === 0 ? (
           <div className="chart-empty-state">
@@ -338,24 +355,14 @@ export function PerformanceCharts({
                   data={history}
                   margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
                 >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="rgba(255,255,255,0.08)"
-                  />
+                  <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
                   <XAxis
                     dataKey="timeFormatted"
-                    stroke="#8892b0"
+                    stroke={CHART_AXIS}
                     fontSize={11}
                   />
-                  <YAxis stroke="#8892b0" fontSize={11} unit=" s" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#1e2230",
-                      borderColor: "#333c56",
-                      borderRadius: 8,
-                      fontSize: 12,
-                    }}
-                  />
+                  <YAxis stroke={CHART_AXIS} fontSize={11} unit=" s" />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} />
                   <Legend height={36} wrapperStyle={{ top: 0, fontSize: 11 }} />
                   <Line
                     type="monotone"
@@ -401,7 +408,7 @@ export function PerformanceCharts({
                         type="monotone"
                         dataKey="signalP95Delay"
                         name="Signal P95"
-                        stroke="#fb7185"
+                        stroke={SERIES.danger}
                         strokeWidth={1.2}
                         dot={false}
                         isAnimationActive={false}
@@ -410,7 +417,7 @@ export function PerformanceCharts({
                         type="monotone"
                         dataKey="roundaboutP95Delay"
                         name="Roundabout P95"
-                        stroke="#38bdf8"
+                        stroke={SERIES.roundabout}
                         strokeWidth={1.2}
                         dot={false}
                         isAnimationActive={false}
@@ -427,24 +434,14 @@ export function PerformanceCharts({
                   data={history}
                   margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
                 >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="rgba(255,255,255,0.08)"
-                  />
+                  <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
                   <XAxis
                     dataKey="timeFormatted"
-                    stroke="#8892b0"
+                    stroke={CHART_AXIS}
                     fontSize={11}
                   />
-                  <YAxis stroke="#8892b0" fontSize={11} unit=" s" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#1e2230",
-                      borderColor: "#333c56",
-                      borderRadius: 8,
-                      fontSize: 12,
-                    }}
-                  />
+                  <YAxis stroke={CHART_AXIS} fontSize={11} unit=" s" />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} />
                   <Legend height={36} wrapperStyle={{ top: 0, fontSize: 11 }} />
                   <Line
                     type="monotone"
@@ -512,24 +509,14 @@ export function PerformanceCharts({
                       />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="rgba(255,255,255,0.08)"
-                  />
+                  <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
                   <XAxis
                     dataKey="timeFormatted"
-                    stroke="#8892b0"
+                    stroke={CHART_AXIS}
                     fontSize={11}
                   />
-                  <YAxis stroke="#8892b0" fontSize={11} unit=" veh" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#1e2230",
-                      borderColor: "#333c56",
-                      borderRadius: 8,
-                      fontSize: 12,
-                    }}
-                  />
+                  <YAxis stroke={CHART_AXIS} fontSize={11} unit=" veh" />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} />
                   <Legend height={36} wrapperStyle={{ top: 0, fontSize: 11 }} />
                   <Area
                     type="monotone"
@@ -561,24 +548,14 @@ export function PerformanceCharts({
                   data={history}
                   margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
                 >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="rgba(255,255,255,0.08)"
-                  />
+                  <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
                   <XAxis
                     dataKey="timeFormatted"
-                    stroke="#8892b0"
+                    stroke={CHART_AXIS}
                     fontSize={11}
                   />
-                  <YAxis stroke="#8892b0" fontSize={11} unit=" v/m" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#1e2230",
-                      borderColor: "#333c56",
-                      borderRadius: 8,
-                      fontSize: 12,
-                    }}
-                  />
+                  <YAxis stroke={CHART_AXIS} fontSize={11} unit=" v/m" />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} />
                   <Legend height={36} wrapperStyle={{ top: 0, fontSize: 11 }} />
                   <Line
                     type="monotone"
@@ -608,37 +585,27 @@ export function PerformanceCharts({
                   data={history}
                   margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
                 >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="rgba(255,255,255,0.08)"
-                  />
+                  <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
                   <XAxis
                     dataKey="timeFormatted"
-                    stroke="#8892b0"
+                    stroke={CHART_AXIS}
                     fontSize={11}
                   />
                   <YAxis
-                    stroke="#8892b0"
+                    stroke={CHART_AXIS}
                     fontSize={11}
                     unit=" m/s"
                     domain={[0, "auto"]}
                   />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#1e2230",
-                      borderColor: "#333c56",
-                      borderRadius: 8,
-                      fontSize: 12,
-                    }}
-                  />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} />
                   <Legend height={36} wrapperStyle={{ top: 0, fontSize: 11 }} />
                   <ReferenceLine
                     y={0.5}
-                    stroke="#ef4444"
+                    stroke={SERIES.danger}
                     strokeDasharray="3 3"
                     label={{
                       value: "Wait threshold (0.5 m/s)",
-                      fill: "#ef4444",
+                      fill: SERIES.danger,
                       fontSize: 10,
                       position: "insideBottomRight",
                     }}
@@ -671,36 +638,26 @@ export function PerformanceCharts({
                   data={history}
                   margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
                 >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="rgba(255,255,255,0.08)"
-                  />
+                  <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
                   <XAxis
                     dataKey="timeFormatted"
-                    stroke="#8892b0"
+                    stroke={CHART_AXIS}
                     fontSize={11}
                   />
                   <YAxis
-                    stroke="#8892b0"
+                    stroke={CHART_AXIS}
                     fontSize={11}
                     domain={[0.8, "auto"]}
                   />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#1e2230",
-                      borderColor: "#333c56",
-                      borderRadius: 8,
-                      fontSize: 12,
-                    }}
-                  />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} />
                   <Legend height={36} wrapperStyle={{ top: 0, fontSize: 11 }} />
                   <ReferenceLine
                     y={1.0}
-                    stroke="#10b981"
+                    stroke={SERIES.success}
                     strokeDasharray="3 3"
                     label={{
                       value: "Ideal Reliability (1.00)",
-                      fill: "#10b981",
+                      fill: SERIES.success,
                       fontSize: 10,
                       position: "insideBottomRight",
                     }}

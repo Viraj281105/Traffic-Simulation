@@ -2,6 +2,7 @@ import React from "react";
 import {
   METRIC_GROUPS,
   METRICS_BY_GROUP,
+  type MetricDef,
   formatDifference,
   formatMetric,
   metricDifference,
@@ -14,6 +15,12 @@ import {
 import "./MetricSections.css";
 
 const DEFAULT_COLLAPSED: MetricGroupId[] = ["diagnostic"];
+
+/** Metrics that may be set side by side: those meaningful across layouts. A
+ *  metric flagged withinGeometryOnly appears only in single-run views. */
+function comparable(group: MetricGroupId): MetricDef[] {
+  return METRICS_BY_GROUP[group].filter((d) => !d.withinGeometryOnly);
+}
 
 /** Per-cell qualifier; warm-up is announced once by the panel instead. */
 function CellNote({ note }: { note: string | undefined }) {
@@ -129,7 +136,7 @@ export function ComparisonSections({
               </tr>
             </thead>
             <tbody>
-              {METRICS_BY_GROUP[group.id].map((def) => {
+              {comparable(group.id).map((def) => {
                 const s = metricState(def, signal);
                 const r = metricState(def, roundabout);
                 return (
@@ -211,7 +218,7 @@ export function MultiRunSections({
                 </tr>
               </thead>
               <tbody>
-                {METRICS_BY_GROUP[group.id].map((def) => (
+                {comparable(group.id).map((def) => (
                   <tr
                     key={def.key}
                     title={def.description}

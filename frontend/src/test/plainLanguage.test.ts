@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  LOS_WORDS,
+  PLAIN_METRIC_MAP,
   SIMILARITY,
   compare,
   duration,
@@ -223,7 +225,7 @@ describe("trustNotes", () => {
       .map((n) => n.text);
     expect(cautions).toHaveLength(3);
     expect(cautions[0]).toContain("only 45 s of traffic");
-    expect(cautions[1]).toContain("single circulating lane");
+    expect(cautions[1]).toContain("indicative");
     expect(cautions[2]).toContain("1 vehicle overlap");
   });
 });
@@ -362,5 +364,125 @@ describe("readReliability", () => {
     expect(reading.headline).toMatch(
       /^More vehicles got through the traffic signal/,
     );
+  });
+});
+
+describe("delay is not described as waiting", () => {
+  const facts = {
+    lanes: 1,
+    arrivalRate: 0.3,
+    greenNs: 30,
+    greenEw: 30,
+    cycleSeconds: 80,
+    criticalGap: 4,
+  };
+  const ctxFor = (m: RunningMetrics, g: "fixed_time_signal" | "roundabout") =>
+    ctx(m, g);
+
+  it("words the level-of-service grades as time lost, never as waits", () => {
+    for (const word of Object.values(LOS_WORDS)) {
+      expect(word).toMatch(/time lost/i);
+      expect(word).not.toMatch(/[^a-z]wait|^wait/i);
+    }
+  });
+
+  it("maps the delay question onto time lost and keeps queued time separate", () => {
+    const row = PLAIN_METRIC_MAP[0];
+    expect(row.question).toBe("How much time do drivers lose?");
+    expect(row.question).not.toMatch(/wait/i);
+    expect(row.keys).toContain("averageDelay");
+    expect(row.keys).toContain("averageWaitTime");
+    expect(row.plain).toMatch(/not only queuing/i);
+    expect(row.plain).toMatch(/time spent nearly stopped/i);
+  });
+
+  it("reads queued time as its own value, distinct from delay", () => {
+    const s = sideSummary(
+      ctxFor(
+        metrics({ averageDelay: 21, averageWaitTime: 3 }),
+        "fixed_time_signal",
+      ),
+    );
+    expect(s.delay).toBe(21);
+    expect(s.queuedTime).toBe(3);
+  });
+
+  it("always states that time lost is not the same as waiting", () => {
+    const s = sideSummary(ctxFor(metrics(), "fixed_time_signal"));
+    const r = sideSummary(ctxFor(metrics(), "roundabout"));
+    const titles = explanations(s, r, facts).map((e) => e.title);
+    expect(titles).toContain("Time lost is not the same as waiting");
+  });
+
+  it("names the disagreement when delay and queued time point different ways", () => {
+    // Signal: less time lost, more queued time. Roundabout: the reverse.
+    const s = sideSummary(
+      ctxFor(
+        metrics({ averageDelay: 8, averageWaitTime: 4 }),
+        "fixed_time_signal",
+      ),
+    );
+    const r = sideSummary(
+      ctxFor(metrics({ averageDelay: 21, averageWaitTime: 1 }), "roundabout"),
+    );
+    const found = explanations(s, r, facts).find(
+      (e) => e.title === "Time lost and time queued point different ways",
+    );
+    expect(found).toBeDefined();
+    expect(found?.body).toMatch(/less time at the traffic signal/i);
+    expect(found?.body).toMatch(/nearly stopped at the roundabout/i);
+    expect(found?.body).toMatch(/neither is the “real” wait/);
+  });
+
+  it("does not raise the disagreement when both measures agree", () => {
+    const s = sideSummary(
+      ctxFor(
+        metrics({ averageDelay: 8, averageWaitTime: 1 }),
+        "fixed_time_signal",
+      ),
+    );
+    const r = sideSummary(
+      ctxFor(metrics({ averageDelay: 21, averageWaitTime: 4 }), "roundabout"),
+    );
+    const titles = explanations(s, r, facts).map((e) => e.title);
+    expect(titles).not.toContain(
+      "Time lost and time queued point different ways",
+    );
+  });
+});
+
+describe("trustNotes: truncated demand and road split", () => {
+  const base = {
+    seed: 7,
+    lanes: 1,
+    warmupSeconds: 30,
+    measuredSeconds: 270,
+    complete: true,
+    collisions: 0,
+    lowReliabilitySample: false,
+  };
+
+  it("warns, with the limit, when vehicle generation was cut off", () => {
+    const notes = trustNotes({
+      ...base,
+      vehicleLimitReached: true,
+      vehicleLimit: 200,
+    });
+    const cap = notes.find((n) => n.text.includes("reached its limit"));
+    expect(cap?.tone).toBe("caution");
+    expect(cap?.text).toContain("200 vehicles");
+    expect(cap?.text).toMatch(/results describe less traffic/i);
+  });
+
+  it("stays silent about a limit that was not reached", () => {
+    const notes = trustNotes({ ...base, vehicleLimitReached: false });
+    expect(notes.some((n) => n.text.includes("reached its limit"))).toBe(false);
+  });
+
+  it("explains that the traffic pattern also splits demand between the roads", () => {
+    const notes = trustNotes(base);
+    expect(
+      notes.some((n) => /some roads are busier than others/i.test(n.text)),
+    ).toBe(true);
   });
 });

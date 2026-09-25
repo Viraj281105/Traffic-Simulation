@@ -66,7 +66,7 @@ export interface CollisionEventRecord {
   newCount: number;
 }
 
-const MAX_HISTORY_POINTS = 200;
+export const MAX_HISTORY_POINTS = 200;
 
 function formatSimTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
