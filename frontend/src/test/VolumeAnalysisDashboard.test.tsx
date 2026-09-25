@@ -252,7 +252,12 @@ describe("VolumeAnalysisDashboard", () => {
     fireEvent.click(screen.getByText("Nested Results Sweep"));
 
     await waitFor(() =>
-      expect(screen.getByText(/Capacity Studio/i)).toBeInTheDocument(),
+      // "Capacity Studio" is a header badge rendered before any sweep is
+      // loaded, so waiting on it raced the session fetch on slow runners.
+      // This KPI label only renders once the sweep's results are shown.
+      expect(
+        screen.getByText(/Where the lower-delay control changes/i),
+      ).toBeInTheDocument(),
     );
 
     // Toggle uncertainty envelopes and delta trend
@@ -294,7 +299,12 @@ describe("VolumeAnalysisDashboard", () => {
     fireEvent.click(screen.getByRole("button", { name: /Saved Sweeps/i }));
     fireEvent.click(screen.getByText("Test Sweep"));
     await waitFor(() =>
-      expect(screen.getByText(/Capacity Studio/i)).toBeInTheDocument(),
+      // "Capacity Studio" is a header badge rendered before any sweep is
+      // loaded, so waiting on it raced the session fetch on slow runners.
+      // This KPI label only renders once the sweep's results are shown.
+      expect(
+        screen.getByText(/Where the lower-delay control changes/i),
+      ).toBeInTheDocument(),
     );
   }
 
