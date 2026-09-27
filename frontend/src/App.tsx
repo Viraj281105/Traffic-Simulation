@@ -33,6 +33,8 @@ import {
 } from "./components/guided/comparisonRun";
 import { StepNav, type GuidedStage } from "./components/guided/StepNav";
 import "./components/guided/Guided.css";
+import { Login } from "./components/Login";
+import { getCurrentUser } from "./auth/cognito";
 import { Sun, Moon } from "lucide-react";
 import type { SimulationConfigValues } from "./types/config";
 import { DEFAULT_CONFIG_VALUES, dashboardPayload } from "./types/config";
@@ -168,6 +170,15 @@ function Dashboard({
   const setViewMode = (view: RoutedView) => {
     navigate(VIEW_ROUTES[view]);
   };
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!!getCurrentUser());
+  const [showLogin, setShowLogin] = useState<boolean>(false);
+
+  const handleLoginSuccess = () => {
+    setIsAuthenticated(true);
+    setShowLogin(false);
+  };
+
+
   const [activeReplay, setActiveReplay] = useState<SavedReplay | null>(null);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -286,7 +297,7 @@ function Dashboard({
       .then(() => {
         if (version === syncVersion.current && playAfterSync.current) {
           playAfterSync.current = false;
-          playRef.current().catch(() => {});
+          playRef.current().catch(() => { });
         }
       })
       .catch((err: unknown) => {
@@ -348,7 +359,7 @@ function Dashboard({
     setActiveReplay(null);
     setStage("watch");
     if (sameConfig(next, configValues)) {
-      if (!isPlaying) play().catch(() => {});
+      if (!isPlaying) play().catch(() => { });
       return;
     }
     playAfterSync.current = true;
@@ -371,17 +382,17 @@ function Dashboard({
   const handlePlay = () => {
     setActiveReplay(null);
     if (viewMode === "single") {
-      singleStart().catch(() => {});
+      singleStart().catch(() => { });
     } else {
-      play().catch(() => {});
+      play().catch(() => { });
     }
   };
 
   const handlePause = () => {
     if (viewMode === "single") {
-      singleStop().catch(() => {});
+      singleStop().catch(() => { });
     } else {
-      pause().catch(() => {});
+      pause().catch(() => { });
     }
   };
 
@@ -389,9 +400,9 @@ function Dashboard({
     randomizeSeed();
     setActiveReplay(null);
     if (viewMode === "single") {
-      singleReset().catch(() => {});
+      singleReset().catch(() => { });
     } else {
-      stop().catch(() => {});
+      stop().catch(() => { });
     }
   };
 
@@ -410,11 +421,11 @@ function Dashboard({
       ? (singlePlaybackEnvelope as unknown as LiveSnapshot)
       : dualSnapshot
         ? ({
-            timestamp: dualSnapshot.elapsed,
-            tick: dualSnapshot.tick,
-            samplingFrequency: dualSnapshot.signal.samplingFrequency,
-            simulationStatus: dualSnapshot.signal.simulationStatus,
-          } as unknown as LiveSnapshot)
+          timestamp: dualSnapshot.elapsed,
+          tick: dualSnapshot.tick,
+          samplingFrequency: dualSnapshot.signal.samplingFrequency,
+          simulationStatus: dualSnapshot.signal.simulationStatus,
+        } as unknown as LiveSnapshot)
         : singleSnapshot;
 
   // A run can be saved once it has produced data and is not running.
@@ -499,9 +510,9 @@ function Dashboard({
   const replayDual: DualSnapshot | null =
     activeReplay?.metrics.signal && activeReplay.metrics.roundabout
       ? ({
-          signal: { metrics: activeReplay.metrics.signal },
-          roundabout: { metrics: activeReplay.metrics.roundabout },
-        } as unknown as DualSnapshot)
+        signal: { metrics: activeReplay.metrics.signal },
+        roundabout: { metrics: activeReplay.metrics.roundabout },
+      } as unknown as DualSnapshot)
       : null;
   const replaySingle: LiveSnapshot | null =
     activeReplay && "averageWaitTime" in activeReplay.metrics
@@ -614,6 +625,19 @@ function Dashboard({
           >
             {isLight ? <Moon size={15} /> : <Sun size={15} />}
           </button>
+
+          {!isAuthenticated ? (
+            <button
+              onClick={() => { setShowLogin(true); }}
+              style={{ marginLeft: '16px', background: '#38bdf8', color: '#0f172a', padding: '6px 12px', borderRadius: '4px', fontWeight: 'bold' }}
+            >
+              Sign In
+            </button>
+          ) : (
+            <div style={{ marginLeft: '16px', color: '#cbd5e1', fontSize: '14px' }}>
+              Logged In
+            </div>
+          )}
         </div>
       </header>
 
@@ -891,6 +915,17 @@ function Dashboard({
           <div className="toast-notification">{toastMessage}</div>
         )}
       </div>
+
+      {showLogin && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, background: 'rgba(0,0,0,0.8)' }}>
+          <Login onLogin={handleLoginSuccess} />
+          <button
+            onClick={() => { setShowLogin(false); }}
+            style={{ position: 'absolute', top: '20px', right: '20px', background: 'transparent', color: 'white', border: 'none', cursor: 'pointer', fontSize: '18px' }}>
+            Close
+          </button>
+        </div>
+      )}
     </div>
   );
 }

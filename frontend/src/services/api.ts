@@ -14,11 +14,25 @@ export class ApiError extends Error {
   }
 }
 
+import { getAuthToken } from "../auth/cognito";
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   // Live/comparison calls must land in the same backend session as the
   // stream (see liveSession.ts).
   if (path.startsWith("/api/simulation")) await ensureLiveSession();
-  const response = await fetch(`${BASE}${path}`, init);
+
+  const token = await getAuthToken();
+  const headers = new Headers(init?.headers);
+
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const response = await fetch(`${BASE}${path}`, {
+    ...init,
+    headers,
+  });
+
   if (!response.ok) {
     throw new ApiError(response.status, response.statusText);
   }
