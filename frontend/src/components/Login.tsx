@@ -43,9 +43,16 @@ export const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
           setLoading(false);
           onLogin();
         },
-        onFailure: (err: { code?: string; name?: string; message?: string }) => {
+        onFailure: (err: {
+          code?: string;
+          name?: string;
+          message?: string;
+        }) => {
           setLoading(false);
-          if (err.code === "UserNotConfirmedException" || err.name === "UserNotConfirmedException") {
+          if (
+            err.code === "UserNotConfirmedException" ||
+            err.name === "UserNotConfirmedException"
+          ) {
             setIsConfirming(true);
             setError("Please check your email for a verification code.");
           } else {
@@ -66,16 +73,20 @@ export const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
       Pool: userPool,
     });
 
-    cognitoUser.confirmRegistration(verificationCode, true, (err: { message?: string } | null) => {
-      setLoading(false);
-      if (err) {
-        setError(err.message ?? JSON.stringify(err));
-        return;
-      }
-      setIsConfirming(false);
-      setVerificationCode("");
-      alert("Verification successful! Please log in.");
-    });
+    cognitoUser.confirmRegistration(
+      verificationCode,
+      true,
+      (err: { message?: string } | null) => {
+        setLoading(false);
+        if (err) {
+          setError(err.message ?? JSON.stringify(err));
+          return;
+        }
+        setIsConfirming(false);
+        setVerificationCode("");
+        alert("Verification successful! Please log in.");
+      },
+    );
   };
 
   const handleResendCode = () => {
@@ -101,8 +112,8 @@ export const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
           {isConfirming
             ? "We emailed you a verification code"
             : isSignUp
-            ? "Create a new account"
-            : "Sign in to access your simulation"}
+              ? "Create a new account"
+              : "Sign in to access your simulation"}
         </p>
 
         {error && <div className="login-error">{error}</div>}
@@ -116,7 +127,9 @@ export const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
                   id="code"
                   type="text"
                   value={verificationCode}
-                  onChange={(e) => { setVerificationCode(e.target.value); }}
+                  onChange={(e) => {
+                    setVerificationCode(e.target.value);
+                  }}
                   placeholder="Enter 6-digit code"
                   required
                 />
@@ -127,11 +140,40 @@ export const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
               </button>
             </form>
 
-            <div className="login-toggle" style={{ display: "flex", justifyContent: "space-between", padding: "0 10px" }}>
-              <button type="button" onClick={handleResendCode} style={{ background: "none", border: "none", color: "var(--color-primary)", cursor: "pointer", padding: 0 }}>
+            <div
+              className="login-toggle"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                padding: "0 10px",
+              }}
+            >
+              <button
+                type="button"
+                onClick={handleResendCode}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--color-primary)",
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              >
                 Resend Code
               </button>
-              <button type="button" onClick={() => { setIsConfirming(false); }} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", padding: 0 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsConfirming(false);
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--text-secondary)",
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              >
                 Back to Login
               </button>
             </div>

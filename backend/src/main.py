@@ -1030,14 +1030,12 @@ async def _live_session_middleware(request: Request, call_next: Any) -> Any:
         # Fallback to anonymous cookie for now, or you could return 401
         incoming = request.cookies.get(LIVE_SESSION_COOKIE)
         key = incoming or str(uuid.uuid4())
-        is_authenticated = False
     else:
         try:
             token = auth_header.split(" ")[1]
             creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
             claims = verify_token(creds)
             key = str(claims.get("sub", ""))
-            is_authenticated = True
         except Exception as e:
             logging.error(f"JWT Verification failed: {e}")
             from fastapi.responses import JSONResponse

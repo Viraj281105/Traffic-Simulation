@@ -1,11 +1,8 @@
-import json
 import os
-
-
 import time
-import requests
 from typing import Any, Dict, List, cast
 
+import requests
 from fastapi import HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import jwk, jwt
