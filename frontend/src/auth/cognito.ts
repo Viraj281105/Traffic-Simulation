@@ -4,8 +4,10 @@ import {
 } from "amazon-cognito-identity-js";
 
 const poolData = {
-  UserPoolId: (import.meta.env.VITE_COGNITO_USER_POOL_ID as string) || "dummy_pool_id",
-  ClientId: (import.meta.env.VITE_COGNITO_CLIENT_ID as string) || "dummy_client_id",
+  UserPoolId:
+    (import.meta.env.VITE_COGNITO_USER_POOL_ID as string) || "dummy_pool_id",
+  ClientId:
+    (import.meta.env.VITE_COGNITO_CLIENT_ID as string) || "dummy_client_id",
 };
 
 export const userPool = new CognitoUserPool(poolData);

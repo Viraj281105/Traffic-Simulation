@@ -2,12 +2,12 @@ import json
 import os
 import time
 import urllib.request
-from typing import Any, Dict, List
+from typing import Any, Dict, List, cast
 
 from fastapi import HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import jwk, jwt  # type: ignore
-from jose.utils import base64url_decode  # type: ignore
+from jose import jwk, jwt
+from jose.utils import base64url_decode
 
 security = HTTPBearer()
 
@@ -28,7 +28,7 @@ def get_jwks() -> List[Dict[str, Any]]:
         keys_url = f"https://cognito-idp.{REGION}.amazonaws.com/{USER_POOL_ID}/.well-known/jwks.json"
         with urllib.request.urlopen(keys_url) as response:
             _JWKS_CACHE = json.loads(response.read().decode("utf-8"))["keys"]
-    return _JWKS_CACHE
+    return cast(List[Dict[str, Any]], _JWKS_CACHE)
 
 
 def verify_token(
@@ -86,7 +86,7 @@ def verify_token(
                 status_code=401, detail="Token was not issued for this audience"
             )
 
-        return claims
+        return cast(Dict[str, Any], claims)
 
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Authentication error: {str(e)}")

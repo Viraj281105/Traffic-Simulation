@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated, Any, Dict, Literal, Optional
 
-import jsonschema  # type: ignore
+import jsonschema
 from fastapi import (
     Depends,
     FastAPI,
