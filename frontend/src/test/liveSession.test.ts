@@ -17,7 +17,7 @@ async function freshModule() {
 describe("live session", () => {
   it("establishes the session with one request shared by every caller", async () => {
     let finish: () => void = () => undefined;
-    const fetchMock = vi.fn(
+    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>(
       () =>
         new Promise<Response>((resolve) => {
           finish = () => {
