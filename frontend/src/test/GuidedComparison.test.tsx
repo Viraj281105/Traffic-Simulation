@@ -216,13 +216,18 @@ describe("Guided comparison", () => {
     expect(
       screen.getByRole("heading", { name: /watch the comparison/i }),
     ).toBeInTheDocument();
-    const payload = updateSimulationConfig.mock.lastCall?.[0] as {
-      arrivalRate: number;
-      intersectionType: string;
-    };
-    // 90% of the measured 1-lane reference capacity (1,250 veh/h).
-    expect(payload.arrivalRate).toBeCloseTo(1130 / 3600, 9);
-    expect(payload.intersectionType).toBe("fixed_time_signal");
+
+    // Wait for the debounced config call with the "Near capacity" arrivalRate.
+    // 90% of the measured 1-lane reference capacity (1,250 veh/h) = 1,125 → 1,130 veh/h.
+    await waitFor(() => {
+      const payload = updateSimulationConfig.mock.lastCall?.[0] as {
+        arrivalRate: number;
+        intersectionType: string;
+      };
+      expect(payload.arrivalRate).toBeCloseTo(1130 / 3600, 9);
+      expect(payload.intersectionType).toBe("fixed_time_signal");
+    });
+
     // …but Play waits for the backend to hold the new scenario.
     expect(wsState.play).not.toHaveBeenCalled();
     resolveSync();

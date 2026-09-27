@@ -5,6 +5,11 @@ afterEach(() => {
   vi.resetModules();
 });
 
+// Mock getAuthToken so the test doesn't depend on Cognito SDK
+vi.mock("../auth/cognito", () => ({
+  getAuthToken: vi.fn().mockResolvedValue("test-token"),
+}));
+
 async function freshModule() {
   return import("../services/liveSession");
 }
@@ -28,13 +33,19 @@ describe("live session", () => {
     const first = ensureLiveSession();
     const second = ensureLiveSession();
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0]).toEqual(["/api/simulation/status"]);
     // Nothing connects until the session cookie can exist.
     expect(connect).not.toHaveBeenCalled();
 
     finish();
     await Promise.all([first, second]);
+
+    // fetch must have been called exactly once with the auth header
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/simulation/status");
+    expect(
+      (fetchMock.mock.calls[0][1] as RequestInit | undefined)?.headers,
+    ).toMatchObject({ Authorization: "Bearer test-token" });
+
     expect(connect).toHaveBeenCalledTimes(1);
 
     // Once established, callers run immediately.
