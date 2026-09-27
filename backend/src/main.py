@@ -182,8 +182,6 @@ def health_check() -> Dict[str, str]:
     return {"status": "healthy"}
 
 
-
-
 # Load the shared config JSON schema, resolved relative to this package's
 # location on disk (backend/src/main.py -> repo root / shared / schemas),
 # never a machine-specific absolute path or the process's CWD. Validation
@@ -1017,8 +1015,7 @@ def _current_session() -> _LiveSession:
 
 @app.middleware("http")
 async def _live_session_middleware(request: Request, call_next: Any) -> Any:
-    """Resolves a per-client live-simulation session from a Cognito JWT.
-    """
+    """Resolves a per-client live-simulation session from a Cognito JWT."""
     if not request.url.path.startswith(_LIVE_SESSION_PATH_PREFIX):
         return await call_next(request)
 
@@ -1027,7 +1024,7 @@ async def _live_session_middleware(request: Request, call_next: Any) -> Any:
     from fastapi.security import HTTPAuthorizationCredentials
 
     from src.auth import verify_token
-    
+
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
         # Fallback to anonymous cookie for now, or you could return 401
@@ -1044,6 +1041,7 @@ async def _live_session_middleware(request: Request, call_next: Any) -> Any:
         except Exception as e:
             logging.error(f"JWT Verification failed: {e}")
             from fastapi.responses import JSONResponse
+
             return JSONResponse(status_code=401, content={"detail": "Invalid token"})
 
     token = _live_session_var.set(_get_or_create_session(key))
@@ -1051,7 +1049,7 @@ async def _live_session_middleware(request: Request, call_next: Any) -> Any:
         response = await call_next(request)
     finally:
         _live_session_var.reset(token)
-        
+
     if not is_authenticated and not request.cookies.get(LIVE_SESSION_COOKIE):
         response.set_cookie(
             LIVE_SESSION_COOKIE,

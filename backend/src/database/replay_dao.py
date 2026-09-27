@@ -29,7 +29,7 @@ class ReplayDAO:
         name: str,
         config: Dict[str, Any],
         metrics: Dict[str, Any],
-        user_id: Optional[str] = None
+        user_id: Optional[str] = None,
     ) -> str:
         replay_id = str(uuid.uuid4())
         clean_name = (name or "").strip() or "Saved Replay"
@@ -64,7 +64,10 @@ class ReplayDAO:
 
     @staticmethod
     def list_all(
-        conn: sqlite3.Connection, limit: int = 50, offset: int = 0, user_id: Optional[str] = None
+        conn: sqlite3.Connection,
+        limit: int = 50,
+        offset: int = 0,
+        user_id: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         safe_limit = max(1, min(int(limit), 200))
         safe_offset = max(0, int(offset))
