@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated, Any, Dict, Literal, Optional
 
-import jsonschema
+import jsonschema  # type: ignore
 from fastapi import (
     Depends,
     FastAPI,
@@ -1036,7 +1036,7 @@ async def _live_session_middleware(request: Request, call_next: Any) -> Any:
             token = auth_header.split(" ")[1]
             creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
             claims = verify_token(creds)
-            key = claims.get("sub")
+            key = str(claims.get("sub", ""))
             is_authenticated = True
         except Exception as e:
             logging.error(f"JWT Verification failed: {e}")
@@ -1044,11 +1044,11 @@ async def _live_session_middleware(request: Request, call_next: Any) -> Any:
 
             return JSONResponse(status_code=401, content={"detail": "Invalid token"})
 
-    token = _live_session_var.set(_get_or_create_session(key))
+    ctx_token = _live_session_var.set(_get_or_create_session(key))
     try:
         response = await call_next(request)
     finally:
-        _live_session_var.reset(token)
+        _live_session_var.reset(ctx_token)
 
     if not is_authenticated and not request.cookies.get(LIVE_SESSION_COOKIE):
         response.set_cookie(

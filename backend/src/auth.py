@@ -2,11 +2,12 @@ import json
 import os
 import time
 import urllib.request
+from typing import Any, Dict, List
 
 from fastapi import HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import jwk, jwt
-from jose.utils import base64url_decode
+from jose import jwk, jwt  # type: ignore
+from jose.utils import base64url_decode  # type: ignore
 
 security = HTTPBearer()
 
@@ -18,7 +19,7 @@ CLIENT_ID = os.getenv("COGNITO_CLIENT_ID", "")
 _JWKS_CACHE = None
 
 
-def get_jwks():
+def get_jwks() -> List[Dict[str, Any]]:
     global _JWKS_CACHE
     if _JWKS_CACHE is None:
         if not USER_POOL_ID or not REGION:
@@ -30,7 +31,9 @@ def get_jwks():
     return _JWKS_CACHE
 
 
-def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)):
+def verify_token(
+    credentials: HTTPAuthorizationCredentials = Security(security),
+) -> Dict[str, Any]:
     token = credentials.credentials
     if not token:
         raise HTTPException(
@@ -89,6 +92,6 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
         raise HTTPException(status_code=401, detail=f"Authentication error: {str(e)}")
 
 
-def get_current_user_id(claims: dict = Security(verify_token)) -> str:
+def get_current_user_id(claims: Dict[str, Any] = Security(verify_token)) -> str:
     """Returns the Cognito username (sub) from the token."""
-    return claims.get("sub")
+    return str(claims.get("sub", ""))
