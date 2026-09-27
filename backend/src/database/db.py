@@ -69,6 +69,11 @@ def init_db() -> None:
         ("batch_id", "TEXT"),
         ("config_json", "TEXT NOT NULL DEFAULT '{}'"),
         ("summary_metrics_json", "TEXT NOT NULL DEFAULT '{}'"),
+        ("git_commit", "TEXT"),
+        ("provenance_json", "TEXT"),
+        ("name", "TEXT"),
+        ("notes", "TEXT"),
+        ("tags_json", "TEXT"),
     ]
     for col_name, col_def in columns_to_add:
         if col_name not in existing_cols:
