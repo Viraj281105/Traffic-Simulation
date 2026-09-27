@@ -1,7 +1,9 @@
 import json
 import os
+
+
 import time
-import urllib.request
+import requests
 from typing import Any, Dict, List, cast
 
 from fastapi import HTTPException, Security, status
@@ -10,6 +12,17 @@ from jose import jwk, jwt
 from jose.utils import base64url_decode
 
 security = HTTPBearer()
+
+# Load from .env if variables are not set
+try:
+    with open(".env") as f:
+        for line in f:
+            if line.strip() and not line.startswith("#"):
+                key, val = line.strip().split("=", 1)
+                if key not in os.environ:
+                    os.environ[key] = val
+except Exception:
+    pass
 
 REGION = os.getenv("AWS_REGION", "us-east-1")
 USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID", "")
@@ -26,8 +39,9 @@ def get_jwks() -> List[Dict[str, Any]]:
             raise ValueError("COGNITO_USER_POOL_ID or AWS_REGION is not set")
 
         keys_url = f"https://cognito-idp.{REGION}.amazonaws.com/{USER_POOL_ID}/.well-known/jwks.json"
-        with urllib.request.urlopen(keys_url) as response:
-            _JWKS_CACHE = json.loads(response.read().decode("utf-8"))["keys"]
+        response = requests.get(keys_url, timeout=10)
+        response.raise_for_status()
+        _JWKS_CACHE = response.json()["keys"]
     return cast(List[Dict[str, Any]], _JWKS_CACHE)
 
 

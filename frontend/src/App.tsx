@@ -275,35 +275,39 @@ function Dashboard({
     const intersectionType =
       viewMode === "roundabout" ? "roundabout" : "fixed_time_signal";
     const version = ++syncVersion.current;
-    updateSimulationConfig(
-      dashboardPayload(
-        {
-          lanes,
-          laneWidth,
-          arrivalRate,
-          duration,
-          randomSeed,
-          greenDuration,
-          yellowDuration,
-          allRedDuration,
-          criticalGap,
-          followUpTime,
-          nsGreenDuration,
-          ewGreenDuration,
-        },
-        intersectionType,
-      ),
-    )
-      .then(() => {
-        if (version === syncVersion.current && playAfterSync.current) {
+    const timeoutId = setTimeout(() => {
+      updateSimulationConfig(
+        dashboardPayload(
+          {
+            lanes,
+            laneWidth,
+            arrivalRate,
+            duration,
+            randomSeed,
+            greenDuration,
+            yellowDuration,
+            allRedDuration,
+            criticalGap,
+            followUpTime,
+            nsGreenDuration,
+            ewGreenDuration,
+          },
+          intersectionType,
+        ),
+      )
+        .then(() => {
+          if (version === syncVersion.current && playAfterSync.current) {
+            playAfterSync.current = false;
+            playRef.current().catch(() => { });
+          }
+        })
+        .catch((err: unknown) => {
           playAfterSync.current = false;
-          playRef.current().catch(() => { });
-        }
-      })
-      .catch((err: unknown) => {
-        playAfterSync.current = false;
-        console.error("Failed to update backend config:", err);
-      });
+          console.error("Failed to update backend config:", err);
+        });
+    }, 50);
+
+    return () => { clearTimeout(timeoutId); };
   }, [
     viewMode,
     lanes,

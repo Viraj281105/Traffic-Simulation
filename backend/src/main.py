@@ -1050,7 +1050,7 @@ async def _live_session_middleware(request: Request, call_next: Any) -> Any:
     finally:
         _live_session_var.reset(ctx_token)
 
-    if not is_authenticated and not request.cookies.get(LIVE_SESSION_COOKIE):
+    if request.cookies.get(LIVE_SESSION_COOKIE) != key:
         response.set_cookie(
             LIVE_SESSION_COOKIE,
             key,
@@ -1370,7 +1370,14 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
     # Leave the session on its previous (valid) config — and its runs
     # untouched — if this one is rejected: the compile raises before
     # anything is assigned.
-    session.current_live_config = _compile_dashboard_config(payload, seed_val)
+    new_config = _compile_dashboard_config(payload, seed_val)
+    if session.current_live_config == new_config:
+        return {
+            "status": "ok",
+            "message": "Simulation configuration unchanged",
+            "randomSeed": seed_val,
+        }
+    session.current_live_config = new_config
 
     # Only now tear down the old runs. The dual stream recreates a missing
     # orchestrator from current_live_config on its next frame (see
