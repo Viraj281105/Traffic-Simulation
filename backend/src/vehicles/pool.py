@@ -17,6 +17,10 @@ from src.intersection.predictive_conflicts import (
     apply_predictive_constraint,
 )
 from src.vehicles.router import _conn_lane_index, find_leader
+from src.vehicles.speed_profile import (
+    curve_speed_ceiling,
+    resolve_max_lateral_acceleration,
+)
 from src.vehicles.vehicle import Vehicle
 
 logger = logging.getLogger(__name__)
@@ -96,9 +100,9 @@ class VehiclePool:
         # used to count each physical collision once (on the tick it
         # starts) rather than once per tick the overlap persists.
         self._colliding_pairs: Set[FrozenSet[str]] = set()
-        # Predictive (trajectory-projection) conflict avoidance. Holds no
-        # per-run state of its own — see predictive_conflicts.py — so it is
-        # safe to keep across an engine reset.
+        # Predictive (trajectory-projection) conflict avoidance. Remembers who
+        # was told to give way to whom, keyed by vehicle id, so it must be
+        # reset with the pool (see reset() below).
         self._predictive: PredictiveConflictResolver = PredictiveConflictResolver()
 
     def reset(self) -> None:
@@ -118,6 +122,7 @@ class VehiclePool:
         self._collision_count = 0
         self._colliding_pairs.clear()
         self._last_lane_change.clear()
+        self._predictive.reset()
 
     def add_vehicle(self, vehicle: Vehicle) -> None:
         if vehicle not in self.active_vehicles:
@@ -221,6 +226,13 @@ class VehiclePool:
             junction_arbitrated_elsewhere=conflict_manager is not None,
         )
 
+        # Curve speed (see speed_profile.py): the same lateral-acceleration
+        # limit on every curved path, at the signal and at the roundabout.
+        max_lateral_accel = resolve_max_lateral_acceleration(config)
+        curve_decel = float(
+            (config.get("vehicleGeneration") or {}).get("comfortDeceleration", 3.0)
+        )
+
         # Update each vehicle
         to_remove: List[Vehicle] = []
 
@@ -247,10 +259,18 @@ class VehiclePool:
                 gap, leader, predictive_limits.get(vehicle.vehicle_id)
             )
 
+            # The vehicle's own desired speed, lowered where a curve ahead
+            # requires it. vehicle.desired_speed itself is left untouched: it
+            # is also the free-flow reference for delay.
+            desired = min(
+                vehicle.desired_speed,
+                curve_speed_ceiling(vehicle, max_lateral_accel, curve_decel),
+            )
+
             # Calculate acceleration using IDM
             acc = idm.calculate_acceleration(
                 speed=vehicle.speed,
-                desired_speed=vehicle.desired_speed,
+                desired_speed=max(0.1, desired),
                 lead_speed=leader.speed if leader is not None else None,
                 gap=gap if leader is not None else None,
             )

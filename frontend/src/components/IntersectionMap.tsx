@@ -1,9 +1,13 @@
-import React, { useEffect, useRef } from "react";
-import type {
-  LiveSnapshot,
-  SignalDirection,
-  SnapshotVehicle,
-} from "../types/simulation";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useContainerSize } from "../hooks/useContainerSize";
+import type { LiveSnapshot, SignalDirection } from "../types/simulation";
+import { SnapshotInterpolator, type VehiclePose } from "./snapshotInterpolator";
+import { mapScale, signalStopLineDistance } from "./mapGeometry";
+import {
+  EnvironmentLayer,
+  GROUND_BASE,
+  signalEnvironment,
+} from "./mapEnvironment";
 
 export interface IntersectionMapProps {
   snapshot: LiveSnapshot | null;
@@ -14,10 +18,11 @@ export interface IntersectionMapProps {
   lanesEast?: number;
   lanesWest?: number;
   laneWidth?: number;
-  intersectionSize?: number;
   showCrosswalks?: boolean;
   showStopLines?: boolean;
   debug?: boolean;
+  /** Pixels per metre. Defaults to the scale shared with the roundabout map
+   *  (see mapScale), so the two render at the same size side by side. */
   ppm?: number;
 }
 
@@ -52,31 +57,42 @@ function signalColor(color: string): string {
 
 export const IntersectionMap: React.FC<IntersectionMapProps> = ({
   snapshot,
-  width = 800,
-  height = 680,
+  width: fallbackWidth = 800,
+  height: fallbackHeight = 680,
   lanesNorth = 2,
   lanesSouth = 2,
   lanesEast = 2,
   lanesWest = 2,
   laneWidth = 3.5,
-  intersectionSize = 15,
   showCrosswalks = true,
   showStopLines = true,
   debug = false,
-  ppm = 7,
+  ppm: ppmOverride,
 }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animFrameIdRef = useRef<number | null>(null);
-
-  const snapshotRef = useRef<LiveSnapshot | null>(null);
-  const prevSnapshotRef = useRef<LiveSnapshot | null>(null);
-  const lastSnapshotTimeRef = useRef<number>(0);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  // Draw at the canvas's displayed size (CSS sizes it to its container), so
+  // the picture is never stretched out of proportion; the size props are
+  // only used until it has been measured.
+  const [measureCanvas, displayed] = useContainerSize();
+  const setCanvas = useCallback(
+    (node: HTMLCanvasElement | null) => {
+      canvasRef.current = node;
+      measureCanvas(node);
+    },
+    [measureCanvas],
+  );
+  const width = displayed.width || fallbackWidth;
+  const height = displayed.height || fallbackHeight;
+  // Backing store in device pixels (sharp on high-DPI screens); all drawing
+  // below stays in CSS pixels via the context transform.
+  const dpr = typeof window === "undefined" ? 1 : window.devicePixelRatio || 1;
+  const ppm = ppmOverride ?? mapScale(width, height);
+  const [interpolator] = useState(() => new SnapshotInterpolator());
+  const [environment] = useState(() => new EnvironmentLayer());
 
   useEffect(() => {
-    prevSnapshotRef.current = snapshotRef.current;
-    snapshotRef.current = snapshot;
-    lastSnapshotTimeRef.current = performance.now();
-  }, [snapshot]);
+    interpolator.push(snapshot, performance.now());
+  }, [snapshot, interpolator]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -84,40 +100,53 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
     if (!canvas || !ctx) return;
 
     let active = true;
+    let frameId = 0;
+    // Whether the canvas currently shows the empty (no data) state or a
+    // snapshot. A (re)started effect has drawn neither, so it paints once.
+    let drewEmpty = false;
+    let drewFrame = false;
+
+    // The junction box ends at the stop line, where the backend ends each
+    // incoming lane and holds traffic on red (see mapGeometry.ts).
+    const half = signalStopLineDistance(
+      Math.max(lanesNorth, lanesSouth, lanesEast, lanesWest),
+      laneWidth,
+    );
+    const widths: Widths = {
+      north: lanesNorth * laneWidth * 2,
+      south: lanesSouth * laneWidth * 2,
+      east: lanesEast * laneWidth * 2,
+      west: lanesWest * laneWidth * 2,
+    };
+    const roadLength = Math.max(46, Math.ceil(Math.max(width, height) / ppm));
+    const road = signalEnvironment(widths, half, roadLength);
 
     const render = () => {
       if (!active) return;
+      frameId = requestAnimationFrame(render);
 
-      const current = snapshotRef.current;
-      const previous = prevSnapshotRef.current;
-      const lastTime = lastSnapshotTimeRef.current;
-
-      if (!current) {
-        // Draw grass background while waiting for data
-        ctx.fillStyle = "#557d35";
-        ctx.fillRect(0, 0, width, height);
-        animFrameIdRef.current = requestAnimationFrame(render);
+      const frame = interpolator.sample(performance.now());
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (!frame) {
+        if (!drewEmpty) {
+          // Draw grass background while waiting for data
+          ctx.fillStyle = GROUND_BASE;
+          ctx.fillRect(0, 0, width, height);
+          drewEmpty = true;
+          drewFrame = false;
+        }
         return;
       }
-
-      // Calculate t (interpolation factor from 0 to 1)
-      const elapsed = performance.now() - lastTime;
-      const stepDuration = current.deltaTime ? current.deltaTime * 1000 : 100;
-      const t = Math.max(0, Math.min(1, elapsed / stepDuration));
+      // Nothing moved (paused/stopped/completed and no new snapshot).
+      if (!frame.changed && drewFrame) return;
+      drewFrame = true;
+      drewEmpty = false;
+      const current = frame.snapshot;
 
       const point: Point = (x, y) => [
         x * ppm + width / 2,
         -y * ppm + height / 2,
       ];
-      const half = intersectionSize / 2;
-      const widths: Widths = {
-        north: lanesNorth * laneWidth * 2,
-        south: lanesSouth * laneWidth * 2,
-        east: lanesEast * laneWidth * 2,
-        west: lanesWest * laneWidth * 2,
-      };
-      const roadLength = Math.max(46, Math.ceil(Math.max(width, height) / ppm));
-
       const line = (x1: number, y1: number, x2: number, y2: number) => {
         const [a, b] = point(x1, y1);
         const [c, d] = point(x2, y2);
@@ -132,13 +161,8 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
         ctx.fillRect(left, top, right - left, bottom - top);
       };
 
-      // Draw background grass
-      ctx.fillStyle = "#557d35";
-      ctx.fillRect(0, 0, width, height);
-      ctx.strokeStyle = "rgba(28,58,28,.22)";
-      ctx.lineWidth = 1;
-      for (let y = 0; y < height; y += 18)
-        line(0, (height / 2 - y) / ppm, width / ppm, (height / 2 - y) / ppm);
+      // Grass, sidewalk and roadside planting, all beneath the roads.
+      environment.paint(ctx, road, { width, height, ppm, dpr });
 
       // Draw roads
       ctx.fillStyle = "#343b42";
@@ -198,10 +222,9 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
         ctx.beginPath();
         ctx.arc(cx, cy, controller.outerRadius * ppm, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = "#557d35";
         ctx.beginPath();
         ctx.arc(cx, cy, controller.innerRadius * ppm, 0, Math.PI * 2);
-        ctx.fill();
+        environment.fillWithGround(ctx);
         ctx.strokeStyle = "#e5eaed";
         ctx.setLineDash([7, 8]);
         ctx.stroke();
@@ -210,39 +233,8 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
       if (controller.type === "fixed_time_signal")
         drawSignals(ctx, controller.signals, half, widths, ppm, point);
 
-      // Interpolate vehicle positions
-      const prevVehiclesMap = new Map<string, SnapshotVehicle>();
-      if (previous) {
-        for (const pv of previous.vehicles) {
-          prevVehiclesMap.set(pv.id, pv);
-        }
-      }
-
-      for (const vehicle of current.vehicles) {
-        if (vehicle.state === "exited") continue;
-
-        let renderX = vehicle.x;
-        let renderY = vehicle.y;
-        let renderHeading = vehicle.heading;
-
-        const prevVehicle = prevVehiclesMap.get(vehicle.id);
-        if (prevVehicle) {
-          renderX = prevVehicle.x + t * (vehicle.x - prevVehicle.x);
-          renderY = prevVehicle.y + t * (vehicle.y - prevVehicle.y);
-
-          // Interpolate heading along the shortest angular path
-          let diff = vehicle.heading - prevVehicle.heading;
-          while (diff < -180) diff += 360;
-          while (diff > 180) diff -= 360;
-          renderHeading = (prevVehicle.heading + t * diff + 360) % 360;
-        }
-
-        drawVehicle(
-          ctx,
-          { ...vehicle, x: renderX, y: renderY, heading: renderHeading },
-          ppm,
-          point,
-        );
+      for (const pose of frame.vehicles) {
+        drawVehicle(ctx, pose, ppm, point);
       }
 
       if (debug)
@@ -254,18 +246,13 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
           ppm,
           point,
         );
-      drawHud(ctx, current, width);
-
-      animFrameIdRef.current = requestAnimationFrame(render);
     };
 
     render();
 
     return () => {
       active = false;
-      if (animFrameIdRef.current) {
-        cancelAnimationFrame(animFrameIdRef.current);
-      }
+      cancelAnimationFrame(frameId);
     };
   }, [
     width,
@@ -275,18 +262,20 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
     lanesEast,
     lanesWest,
     laneWidth,
-    intersectionSize,
     showCrosswalks,
     showStopLines,
     debug,
     ppm,
+    dpr,
+    interpolator,
+    environment,
   ]);
 
   return (
     <canvas
-      ref={canvasRef}
-      width={width}
-      height={height}
+      ref={setCanvas}
+      width={Math.round(width * dpr)}
+      height={Math.round(height * dpr)}
       style={{ display: "block", borderRadius: "8px" }}
     />
   );
@@ -339,13 +328,17 @@ function drawSignals(
   };
   for (const signal of signals) {
     const [x, y] = point(...positions[signal.direction]);
+    // Sized in metres (about 2.4 m x 4.4 m) so heads keep their proportion
+    // to the road at any map scale, with a legible minimum.
+    const w = Math.max(9, ppm * 2.4);
+    const h = Math.max(16, ppm * 4.4);
     ctx.fillStyle = "#171b1f";
-    ctx.fillRect(x - 9, y - 16, 18, 32);
+    ctx.fillRect(x - w / 2, y - h / 2, w, h);
     ctx.fillStyle = signalColor(signal.color);
     ctx.shadowColor = ctx.fillStyle;
     ctx.shadowBlur = 9;
     ctx.beginPath();
-    ctx.arc(x, y, Math.max(5, ppm * 0.7), 0, Math.PI * 2);
+    ctx.arc(x, y, Math.max(3.5, ppm * 0.8), 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
   }
@@ -353,16 +346,17 @@ function drawSignals(
 
 function drawVehicle(
   ctx: CanvasRenderingContext2D,
-  vehicle: SnapshotVehicle,
+  pose: VehiclePose,
   ppm: number,
   point: Point,
 ) {
-  const [x, y] = point(vehicle.x, vehicle.y);
+  const { vehicle } = pose;
+  const [x, y] = point(pose.x, pose.y);
   const length = Math.max(vehicle.length, 4.5) * ppm;
   const width = Math.max(vehicle.width, 2) * ppm;
   ctx.save();
   ctx.translate(x, y);
-  ctx.rotate((vehicle.heading * Math.PI) / 180);
+  ctx.rotate((pose.heading * Math.PI) / 180);
 
   ctx.fillStyle = carColor(vehicle.id);
   ctx.strokeStyle = "#172027";
@@ -387,13 +381,6 @@ function drawVehicle(
     ctx.fill();
   }
 
-  ctx.fillStyle = "#fff";
-  ctx.beginPath();
-  ctx.moveTo(0, -length / 2 - 4);
-  ctx.lineTo(-4, -length / 2 + 3);
-  ctx.lineTo(4, -length / 2 + 3);
-  ctx.closePath();
-  ctx.fill();
   ctx.restore();
 }
 
@@ -417,31 +404,9 @@ function drawQueues(
     ctx.fillStyle = "rgba(22,28,32,.85)";
     ctx.fillRect(x - 25, y - 11, 50, 22);
     ctx.fillStyle = "#fff";
-    ctx.font = `${String(Math.max(10, ppm * 1.5))}px monospace`;
+    ctx.font = `${String(Math.max(10, ppm * 1.5))}px "Roboto Mono", monospace`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(`Q ${String(approach.queueLength)}`, x, y);
   }
-}
-
-function drawHud(
-  ctx: CanvasRenderingContext2D,
-  snapshot: LiveSnapshot | null,
-  width: number,
-) {
-  const status = snapshot?.simulationStatus ?? "disconnected";
-  const timestamp = snapshot ? snapshot.timestamp.toFixed(1) : "0.0";
-  ctx.fillStyle = "rgba(15,20,24,.86)";
-  ctx.fillRect(width - 190, 14, 176, 48);
-  ctx.fillStyle = status === "running" ? "#55d66b" : "#ffd166";
-  ctx.beginPath();
-  ctx.arc(width - 174, 30, 5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#fff";
-  ctx.font = "bold 11px sans-serif";
-  ctx.textAlign = "left";
-  ctx.fillText(status.toUpperCase(), width - 162, 34);
-  ctx.fillStyle = "rgba(255,255,255,.7)";
-  ctx.font = "10px monospace";
-  ctx.fillText(`T ${timestamp}s`, width - 174, 51);
 }

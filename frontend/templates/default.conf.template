@@ -44,9 +44,39 @@ server {
         try_files $uri =404;
     }
 
-    # Frontend Single Page App routing fallback
+    # Page routing.
+    #
+    # "/" is the landing page (index.html). The simulation dashboard (app.html)
+    # is a single-page app whose views each have their own URL; a refresh or a
+    # direct link to one must be served app.html so its client-side router can
+    # show that view. The view list mirrors VIEW_ROUTES in
+    # frontend/src/routing.ts (routing.test.ts keeps the two in step).
+    #
+    # Unknown paths are a real 404, not a silent redirect to the landing page:
+    # the 404 body is app.html, whose router renders a "page not found" view.
+    location ~ ^/app/(comparative|signal|roundabout|history|volume|validation|research)/?$ {
+        try_files /app.html =404;
+    }
+
+    # Saved-run pages: /app/runs/<runId> and /app/compare(?runs=...); bare
+    # /app/runs is served too and redirects client-side to History. The id
+    # pattern matches RUN_ID_PATTERN in frontend/src/routing.ts and the
+    # backend's run-id validation; a malformed id falls through to the 404
+    # below. An unknown but well-formed id is served the dashboard, which
+    # shows its own "run not found" state from the API's 404.
+    location ~ "^/app/(runs(/[A-Za-z0-9_-]{1,128})?|compare)/?$" {
+        try_files /app.html =404;
+    }
+
+    # Bare /app (and the legacy /app.html) load the dashboard, which redirects
+    # client-side to its default view.
+    location ~ ^/app/?$ {
+        try_files /app.html =404;
+    }
+
     location / {
-        try_files $uri $uri/ /index.html;
+        try_files $uri $uri/ =404;
+        error_page 404 /app.html;
     }
 
     # Optional access gate.

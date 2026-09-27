@@ -1,13 +1,23 @@
-from typing import List
+from typing import Dict, List, Optional
 
 from src.vehicles.vehicle import Vehicle
 
 
-def calculate_directional_fairness(exited_vehicles: List[Vehicle]) -> float:
+def calculate_directional_fairness(
+    exited_vehicles: List[Vehicle],
+    warmup_baseline_wait: Optional[Dict[str, float]] = None,
+) -> float:
     """Computes Jain's Fairness Index across wait times of the 4 approaches.
+
+    ``warmup_baseline_wait`` maps a vehicle id to the wait time it had already
+    accumulated when warm-up ended. It is subtracted, exactly as
+    ``averageWaitTime`` does, so a vehicle that was already active at the
+    warm-up boundary does not contribute its pre-warm-up waiting to the
+    post-warm-up index (both figures then describe the same window).
 
     Returns 1.0 if all wait times are zero.
     """
+    baseline = warmup_baseline_wait or {}
     if not exited_vehicles:
         return 1.0
 
@@ -27,15 +37,23 @@ def calculate_directional_fairness(exited_vehicles: List[Vehicle]) -> float:
             dir_char = lane_id.split("_")[0]
             direction = mapping.get(dir_char)
             if direction in waits:
-                waits[direction].append(v.wait_time)
+                waits[direction].append(
+                    max(0.0, v.wait_time - baseline.get(v.vehicle_id, 0.0))
+                )
 
-    # Average wait time per approach
-    x = []
-    for d in ["north", "south", "east", "west"]:
-        if waits[d]:
-            x.append(sum(waits[d]) / len(waits[d]))
-        else:
-            x.append(0.0)
+    # Average wait time per approach. An approach with no vehicles has no
+    # average wait at all and is left out, with n adjusted to match
+    # (docs/architecture/07-metric-contract.md §5.1 edge cases). It used to be
+    # entered as a 0.0 s average, so a scenario with traffic on one approach
+    # only scored J = 0.25 — "maximally unfair" — for a junction serving its
+    # only approach perfectly evenly.
+    x = [
+        sum(waits[d]) / len(waits[d])
+        for d in ["north", "south", "east", "west"]
+        if waits[d]
+    ]
+    if not x:
+        return 1.0
 
     sum_x = sum(x)
     if sum_x <= 0:

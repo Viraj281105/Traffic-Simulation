@@ -98,10 +98,16 @@ class Vehicle:
         if self.state == VehicleState.EXITED:
             return
 
-        self.acceleration = acceleration
-
         # Calculate new speed (cannot be negative)
+        previous_speed = self.speed
         self.speed = max(0.0, self.speed + acceleration * dt)
+
+        # Record the acceleration actually realised, not the one requested.
+        # They differ only when the speed floor clips a deceleration: a vehicle
+        # standing at a stop line keeps being commanded -9 m/s^2 by IDM (zero
+        # gap), and snapshots used to report every queued, stationary vehicle
+        # as braking at the hard limit.
+        self.acceleration = (self.speed - previous_speed) / dt if dt > 0 else 0.0
 
         # Update position — clamp displacement so we never overshoot more
         # than one lane boundary per tick (prevents coordinate glitches)

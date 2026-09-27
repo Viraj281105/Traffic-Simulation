@@ -1,17 +1,21 @@
 import itertools
 import math
-from typing import Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from src.core.enums import Direction
+from src.core.limits import DEFAULT_TOTAL_VEHICLES
 from src.metrics.definitions.derived_metrics import (
     calculate_average_travel_speed,
     calculate_critical_saturation_volume,
-    calculate_queue_stability_index,
     calculate_space_footprint_consumed,
 )
 from src.metrics.definitions.fairness import calculate_directional_fairness
 from src.metrics.definitions.idle_loss import calculate_idle_loss_tick
 from src.metrics.definitions.queue_length import get_current_queue_lengths
+from src.metrics.definitions.safety_conflicts import (
+    ConflictZoneOccupancyTracker,
+    find_ttc_events,
+)
 from src.metrics.definitions.speed_variance import calculate_speed_variance_index
 from src.metrics.definitions.stop_count import update_vehicle_stops
 from src.metrics.definitions.throughput import (
@@ -25,6 +29,29 @@ from src.metrics.definitions.travel_time import (
 from src.metrics.definitions.wait_time import calculate_average_wait_time
 from src.metrics.efficiency import calculate_master_efficiency_score
 from src.vehicles.vehicle import Vehicle
+
+if TYPE_CHECKING:
+    from src.intersection.conflict_manager import ConflictManager
+
+_DIRECTIONS = ("north", "south", "east", "west")
+
+
+def resolve_speed_threshold(config: Dict[str, Any], key: str, default: float) -> float:
+    """Read ``waitSpeedThreshold`` / ``stopSpeedThreshold`` from a config.
+
+    The scenario contract, the JSON schema and the typed ``MetricsSection``
+    all place these under ``metrics``; the runtime used to read them only from
+    ``vehicleGeneration``, so a value set where the contract says to set it was
+    silently ignored (and on the typed route, where ``VehicleGenerationSection``
+    has no such fields, there was no way to set it at all). ``metrics`` now
+    wins; ``vehicleGeneration`` is still honoured as the legacy location the
+    dashboard and study presets use.
+    """
+    metrics_cfg = config.get("metrics") or {}
+    if key in metrics_cfg and metrics_cfg[key] is not None:
+        return float(metrics_cfg[key])
+    veh_gen = config.get("vehicleGeneration") or {}
+    return float(veh_gen.get(key, default))
 
 
 class MetricCollector:
@@ -45,9 +72,36 @@ class MetricCollector:
         self.time_step: float = sim_cfg.get("timeStep", 0.1)
 
         # Hysteresis configuration
-        veh_gen = config.get("vehicleGeneration", {})
-        self.stop_speed_threshold: float = veh_gen.get("stopSpeedThreshold", 0.1)
-        self.wait_speed_threshold: float = veh_gen.get("waitSpeedThreshold", 0.5)
+        self.stop_speed_threshold: float = resolve_speed_threshold(
+            config, "stopSpeedThreshold", 0.1
+        )
+        self.wait_speed_threshold: float = resolve_speed_threshold(
+            config, "waitSpeedThreshold", 0.5
+        )
+
+        # TTC/PET configuration (see metrics/definitions/safety_conflicts.py).
+        # Measurement-only: these thresholds only affect which observed
+        # TTC/PET values get counted as "events" for reporting purposes,
+        # never simulation/vehicle behaviour.
+        #
+        # Threshold defaults are commonly-cited conservative values from
+        # the surrogate-safety-measure literature (TTC: Hayward 1972 and
+        # widely reused since as a critical/conservative cutoff; PET:
+        # commonly used in SSAM-style conflict studies), not values this
+        # project has itself validated -- see get_metrics()'s "not yet
+        # validated" note on the resulting counts.
+        metrics_cfg = config.get("metrics", {})
+        self.ttc_threshold_seconds: float = metrics_cfg.get("ttcThresholdSeconds", 1.5)
+        self.pet_threshold_seconds: float = metrics_cfg.get("petThresholdSeconds", 5.0)
+        self.ttc_search_radius: float = metrics_cfg.get("ttcSearchRadius", 50.0)
+
+        # The spawner's per-run vehicle cap (same key, same default), so a
+        # run whose demand was truncated by it can be flagged (see
+        # core/limits.py).
+        traffic_cfg = config.get("traffic") or {}
+        self.vehicle_limit: int = int(
+            traffic_cfg.get("totalVehicles", DEFAULT_TOTAL_VEHICLES)
+        )
 
         self.reset()
 
@@ -60,6 +114,20 @@ class MetricCollector:
 
         # Maintain list of queue lengths over time to compute time-average and max
         self.queue_history: List[Dict[str, int]] = []
+        # Running aggregates of queue_history, kept alongside it so
+        # get_metrics() never has to rescan the history. It used to, on every
+        # call — and SnapshotBuilder calls it every tick of a
+        # /api/v1/simulations run, so the per-tick cost grew linearly with
+        # elapsed time (4 ms/tick at the start, ~37 ms by 20 simulated
+        # minutes, past the 100 ms real-time budget well before an hour).
+        # All integer, so the aggregates are exact and every derived value is
+        # identical to the rescanning computation.
+        self._q_dir_sum: Dict[str, int] = {d: 0 for d in _DIRECTIONS}
+        self._q_dir_max: Dict[str, int] = {d: 0 for d in _DIRECTIONS}
+        self._q_total_sum: int = 0
+        self._q_total_sumsq: int = 0
+        self._q_nonzero_count: int = 0
+        self._q_nonzero_sum: int = 0
 
         # Per-tick speed CV history (see speed_variance.py) for computing
         # the time-averaged SVI = (1/T) * sum(CV(t)) per the metric contract.
@@ -73,14 +141,39 @@ class MetricCollector:
         self._warmup_baseline_stops: Dict[str, int] = {}
         self._warmup_baseline_captured: bool = False
 
+        # TTC/PET accumulators (post-warmup only, matching every other
+        # per-tick metric). Min values are None until at least one
+        # observation exists -- see get_metrics() for how that's reported.
+        self._min_ttc: Optional[float] = None
+        self._ttc_event_count: int = 0
+        self._ttc_sample_count: int = 0
+
+        self._min_pet: Optional[float] = None
+        self._pet_event_count: int = 0
+        self._pet_sample_count: int = 0
+        self._pet_applicable: bool = False
+        self._zone_tracker: ConflictZoneOccupancyTracker = (
+            ConflictZoneOccupancyTracker()
+        )
+
     def update(
         self,
         current_time: float,
         active_vehicles: List[Vehicle],
         exited_vehicles: List[Vehicle],
         signals_state: Dict[Direction, str],
+        conflict_manager: Optional["ConflictManager"] = None,
     ) -> None:
-        """Ticks the metrics state checks (e.g. updating vehicle stop count hysteresis)."""
+        """Ticks the metrics state checks (e.g. updating vehicle stop count hysteresis).
+
+        ``conflict_manager`` is optional and additive: when supplied (only
+        meaningful for fixed_time_signal geometry -- see
+        metrics/definitions/safety_conflicts.py), PET is measured using its
+        existing pre-computed conflict points. Omitting it (the default)
+        simply means PET stays unmeasured for this run, exactly as it was
+        before this parameter existed; TTC is unaffected either way, since
+        it needs no conflict-manager geometry.
+        """
         # Always update stop count states regardless of warmup to keep vehicle state correct
         for v in active_vehicles:
             update_vehicle_stops(v, self.stop_speed_threshold)
@@ -128,10 +221,52 @@ class MetricCollector:
             active_vehicles, self.wait_speed_threshold
         )
         self.queue_history.append(current_queues)
+        total_q = 0
+        for d in _DIRECTIONS:
+            q = current_queues.get(d, 0)
+            total_q += q
+            self._q_dir_sum[d] += q
+            if q > self._q_dir_max[d]:
+                self._q_dir_max[d] = q
+        self._q_total_sum += total_q
+        self._q_total_sumsq += total_q * total_q
+        if total_q > 0:
+            self._q_nonzero_count += 1
+            self._q_nonzero_sum += total_q
 
         # Congestion Recovery: increment recovery time if total queue length across all approaches > 5
         if sum(current_queues.values()) > 5:
             self.congestion_recovery_time += self.time_step
+
+        # TTC: computed every tick regardless of geometry (needs only
+        # vehicle kinematics). See safety_conflicts.py for the candidate
+        # pair filter and formula.
+        for _va_id, _vb_id, ttc in find_ttc_events(
+            active_vehicles, self.ttc_search_radius
+        ):
+            self._ttc_sample_count += 1
+            if self._min_ttc is None or ttc < self._min_ttc:
+                self._min_ttc = ttc
+            if ttc <= self.ttc_threshold_seconds:
+                self._ttc_event_count += 1
+
+        # PET: only measurable where real conflict-point geometry exists
+        # (fixed_time_signal). A None/absent conflict_manager leaves PET
+        # unmeasured for this tick and this run -- see get_metrics()'s
+        # petApplicable flag.
+        if conflict_manager is not None:
+            self._pet_applicable = True
+            for pet in self._zone_tracker.update(
+                current_time,
+                active_vehicles,
+                conflict_manager.get_all_conflict_points(),
+                conflict_manager.ZONE_RADIUS,
+            ):
+                self._pet_sample_count += 1
+                if self._min_pet is None or pet < self._min_pet:
+                    self._min_pet = pet
+                if pet <= self.pet_threshold_seconds:
+                    self._pet_event_count += 1
 
     def get_metrics(
         self,
@@ -185,31 +320,29 @@ class MetricCollector:
         # directions and ticks. (activeAverageQueueLength/queueStdDev remain
         # based on the intersection-wide total queue per tick — they are
         # undocumented, separate derived stats and are left unchanged.)
-        directions = ["north", "south", "east", "west"]
-        if self.queue_history:
-            per_direction_avg = {}
-            per_direction_max = {}
-            for d in directions:
-                series = [q.get(d, 0) for q in self.queue_history]
-                per_direction_avg[d] = sum(series) / len(series)
-                per_direction_max[d] = max(series)
+        n_q = len(self.queue_history)
+        qsi = 0.0
+        if n_q:
+            per_direction_avg = {d: self._q_dir_sum[d] / n_q for d in _DIRECTIONS}
+            avg_q = round(sum(per_direction_avg.values()) / len(_DIRECTIONS), 2)
+            max_q = max(self._q_dir_max.values())
 
-            avg_q = round(sum(per_direction_avg.values()) / len(directions), 2)
-            max_q = max(per_direction_max.values())
-
-            all_queues_sums = [sum(q.values()) for q in self.queue_history]
-            non_zero_queues = [q for q in all_queues_sums if q > 0]
             active_avg_q = (
-                round(sum(non_zero_queues) / len(non_zero_queues), 2)
-                if non_zero_queues
+                round(self._q_nonzero_sum / self._q_nonzero_count, 2)
+                if self._q_nonzero_count
                 else 0.0
             )
-            if len(all_queues_sums) > 1:
-                total_q_mean = sum(all_queues_sums) / len(all_queues_sums)
-                var_q = sum((x - total_q_mean) ** 2 for x in all_queues_sums) / (
-                    len(all_queues_sums) - 1
-                )
-                sd_q = round(math.sqrt(var_q), 2)
+            if n_q > 1:
+                # Sample variance from exact integer sums:
+                # (n*sum(x^2) - (sum x)^2) / (n*(n-1)).
+                var_numerator = n_q * self._q_total_sumsq - self._q_total_sum**2
+                var_q = var_numerator / (n_q * (n_q - 1))
+                sd_raw = math.sqrt(max(0.0, var_q))
+                sd_q = round(sd_raw, 2)
+                # Queue Stability Index, as calculate_queue_stability_index.
+                mean_total = self._q_total_sum / n_q
+                if mean_total != 0:
+                    qsi = float(round(sd_raw / mean_total, 3))
             else:
                 sd_q = 0.0
         else:
@@ -359,12 +492,17 @@ class MetricCollector:
             < MIN_RELIABLE_SAMPLE_SIZE,
             "idleOpportunityLoss": idle_loss,
             "directionalFairnessIndex": calculate_directional_fairness(
-                post_warmup_exited
+                post_warmup_exited, self._warmup_baseline_wait
             ),
             "activeVehicleCount": len(active_vehicles),
             "totalVehiclesSpawned": total_spawned,
+            # The generation cap and whether it was hit. When reached, no
+            # further vehicles were offered, so demand after that moment was
+            # truncated and totalVehiclesSpawned is not the offered demand.
+            "vehicleLimit": self.vehicle_limit,
+            "vehicleLimitReached": total_spawned >= self.vehicle_limit,
             "averageTravelSpeed": calculate_average_travel_speed(active_vehicles),
-            "queueStabilityIndex": calculate_queue_stability_index(self.queue_history),
+            "queueStabilityIndex": qsi,
             "congestionRecoveryTime": round(self.congestion_recovery_time, 2),
             "spaceFootprintConsumed": calculate_space_footprint_consumed(self.config),
             "intersectionUtilization": round(
@@ -380,6 +518,26 @@ class MetricCollector:
                 post_warmup_spawned_count,
             ),
             "collisionCount": collision_count,
+            # Surrogate safety metrics (measurement-only; see
+            # metrics/definitions/safety_conflicts.py). Thresholds are
+            # commonly-cited literature defaults, not values this project
+            # has validated -- event counts below are exploratory
+            # measurements, not a validated safety comparison between
+            # geometries. min*=None means zero observations were made
+            # (never a synonym for "zero risk").
+            "minTTC": self._min_ttc,
+            "ttcEventCount": self._ttc_event_count,
+            "ttcSampleCount": self._ttc_sample_count,
+            "ttcThresholdSeconds": self.ttc_threshold_seconds,
+            "minPET": self._min_pet,
+            "petEventCount": self._pet_event_count,
+            "petSampleCount": self._pet_sample_count,
+            "petThresholdSeconds": self.pet_threshold_seconds,
+            # False for roundabout geometry (no validated conflict-area
+            # geometry exists there yet -- see module docstring): PET
+            # fields above are "not measured" on those runs, not "no
+            # conflicts found".
+            "petApplicable": self._pet_applicable,
         }
         base_metrics["masterEfficiencyScore"] = calculate_master_efficiency_score(
             base_metrics

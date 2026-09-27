@@ -24,7 +24,7 @@ Per-lane blocking uses virtual obstacles.  Lanes are tagged by turn intent:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from src.controllers.base import BaseController
 from src.controllers.virtual_obstacle import VirtualObstacle
@@ -131,6 +131,16 @@ class FixedTimeSignalController(BaseController):
         if "allRedTime" in ctrl_cfg and "allRedDuration" not in ctrl_cfg:
             self.all_red_duration = ctrl_cfg["allRedTime"]
 
+        # Optional per-corridor green overrides (asymmetric timing). Both
+        # default to None — "not configured" — in which case every green
+        # phase keeps using straight_right_duration exactly as it always
+        # has; only a config that explicitly sets one of these two keys sees
+        # any different behaviour. See _green_duration_for() below for how
+        # a phase's directions are mapped to the NS/EW corridor they belong
+        # to, for both the default cycle and a configured phaseSequence.
+        self.ns_green_duration: Optional[float] = ctrl_cfg.get("nsGreenDuration")
+        self.ew_green_duration: Optional[float] = ctrl_cfg.get("ewGreenDuration")
+
         # Direction processing order (used only for the default, no-
         # phaseSequence cycle)
         self.direction_order: Tuple[Direction, ...] = self._DEFAULT_DIRECTION_ORDER
@@ -151,6 +161,24 @@ class FixedTimeSignalController(BaseController):
         self.current_phase_idx: int = 0
 
         self.reset()
+
+    def _green_duration_for(self, directions: Tuple[Direction, ...]) -> float:
+        """Resolves the green duration for a phase covering ``directions``.
+
+        Uses the corresponding corridor override (``ns_green_duration`` for
+        NORTH/SOUTH, ``ew_green_duration`` for EAST/WEST) when configured,
+        falling back to the shared ``straight_right_duration`` otherwise —
+        so a config that sets neither override behaves exactly as before
+        this method existed. A phase's ``directions`` is always drawn
+        entirely from one corridor (a single direction, or a paired ns/ew
+        group — see ``_GROUP_TO_DIRECTIONS``), never a mix of both, so
+        checking the first entry is sufficient.
+        """
+        if not directions:
+            return self.straight_right_duration
+        is_ns = directions[0] in (Direction.NORTH, Direction.SOUTH)
+        override = self.ns_green_duration if is_ns else self.ew_green_duration
+        return self.straight_right_duration if override is None else override
 
     def _build_phase_sequence(self) -> List[Phase]:
         """Construct the full cycle of phases.
@@ -173,7 +201,7 @@ class FixedTimeSignalController(BaseController):
                     name=f"{direction.value}_straight_right",
                     directions=(direction,),
                     allowed_turns=(TurnIntent.STRAIGHT, TurnIntent.RIGHT),
-                    duration=self.straight_right_duration,
+                    duration=self._green_duration_for((direction,)),
                     color="green",
                 )
             )
@@ -220,11 +248,13 @@ class FixedTimeSignalController(BaseController):
         Each entry is either the literal ``"all_red"`` or
         ``"<group>_<green|yellow>"`` where ``<group>`` is one of
         n/s/e/w/ns/ew (see ``_GROUP_TO_DIRECTIONS``). Durations reuse the
-        same configurable knobs as the default cycle (straightRightDuration
-        for green, yellowDuration for yellow, allRedDuration for all_red) so
-        no new timing model is introduced. All movements are allowed during
-        a green group phase (including LEFT — permissive left turns across
-        opposing traffic are arbitrated by ConflictManager).
+        same configurable knobs as the default cycle (green duration via
+        ``_green_duration_for`` — ``straightRightDuration`` unless the
+        group's corridor has an ``nsGreenDuration``/``ewGreenDuration``
+        override — yellowDuration for yellow, allRedDuration for all_red)
+        so no new timing model is introduced. All movements are allowed
+        during a green group phase (including LEFT — permissive left turns
+        across opposing traffic are arbitrated by ConflictManager).
         """
         phases: List[Phase] = []
         all_turns = (TurnIntent.LEFT, TurnIntent.STRAIGHT, TurnIntent.RIGHT)
@@ -253,7 +283,7 @@ class FixedTimeSignalController(BaseController):
                 )
 
             duration = (
-                self.straight_right_duration
+                self._green_duration_for(directions)
                 if color == "green"
                 else self.yellow_duration
             )

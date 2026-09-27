@@ -112,7 +112,7 @@ describe("VolumeAnalysisDashboard", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText(/Critical Saturation Crossover/i),
+        screen.getByText(/Where the lower-delay control changes/i),
       ).toBeInTheDocument(),
     );
     expect(screen.getAllByText(/1,080/).length).toBeGreaterThanOrEqual(1);
@@ -252,12 +252,17 @@ describe("VolumeAnalysisDashboard", () => {
     fireEvent.click(screen.getByText("Nested Results Sweep"));
 
     await waitFor(() =>
-      expect(screen.getByText(/Capacity Studio/i)).toBeInTheDocument(),
+      // "Capacity Studio" is a header badge rendered before any sweep is
+      // loaded, so waiting on it raced the session fetch on slow runners.
+      // This KPI label only renders once the sweep's results are shown.
+      expect(
+        screen.getByText(/Where the lower-delay control changes/i),
+      ).toBeInTheDocument(),
     );
 
     // Toggle uncertainty envelopes and delta trend
     const envelopeBtn = screen.getByRole("button", {
-      name: /± Range Envelopes/i,
+      name: /± Driver spread/i,
     });
     expect(envelopeBtn).toBeInTheDocument();
     fireEvent.click(envelopeBtn);
@@ -272,8 +277,187 @@ describe("VolumeAnalysisDashboard", () => {
     fireEvent.click(screen.getByText(/Head-to-Head Volume Matrix/i));
     await waitFor(() => {
       expect(
-        screen.getByRole("button", { name: /⚖️ Parity/i }),
+        screen.getByRole("button", { name: /⚖️ About the same/i }),
       ).toBeInTheDocument();
     });
+  });
+
+  async function openSession(session: unknown) {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(MOCK_SWEEPS_LIST), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(session), { status: 200 }),
+      );
+    render(<VolumeAnalysisDashboard />);
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /Saved Sweeps/i }),
+      ).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Saved Sweeps/i }));
+    fireEvent.click(screen.getByText("Test Sweep"));
+    await waitFor(() =>
+      // "Capacity Studio" is a header badge rendered before any sweep is
+      // loaded, so waiting on it raced the session fetch on slow runners.
+      // This KPI label only renders once the sweep's results are shown.
+      expect(
+        screen.getByText(/Where the lower-delay control changes/i),
+      ).toBeInTheDocument(),
+    );
+  }
+
+  it("never presents unmeasured claims in the reading guide", async () => {
+    await openSession(MOCK_SESSION);
+    fireEvent.click(screen.getByText(/How to read this sweep/i));
+
+    const text = document.body.textContent;
+    // Claims the tool does not calculate must not appear.
+    expect(text).not.toMatch(/up to 50%/i);
+    expect(text).not.toMatch(/mathematically required/i);
+    expect(text).not.toMatch(/emission reductions|fuel consumption/i);
+    expect(text).not.toMatch(/higher safety margins/i);
+    expect(text).not.toMatch(/must be deployed|planning design threshold/i);
+    // What it does say is limited to what was run and what it cannot show.
+    expect(text).toMatch(/one random traffic pattern/i);
+    expect(text).toMatch(/does not calculate emissions, fuel use, cost or/i);
+    expect(text).toMatch(/not the same as time queued/i);
+  });
+
+  it("uses the shared level-of-service bands for both controls", async () => {
+    await openSession(MOCK_SESSION);
+    fireEvent.click(screen.getByText(/How to read this sweep/i));
+    // Roundabout bands (10/15/25/35/50) are listed alongside the signal's.
+    expect(screen.getAllByText(/Roundabout: ≤ 10 s/).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/Traffic signal: ≤ 10 s/).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Roundabout: 15 – 25 s/).length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      screen.getAllByText(/Traffic signal: 20 – 35 s/).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("labels an inconclusive tier as inconclusive, not as a win", async () => {
+    const session = {
+      ...MOCK_SESSION,
+      tieTolerance: { absSeconds: 1, relative: 0.05 },
+      calibration: { calibrated: true, note: "Calibrated comparison." },
+      runs: [
+        {
+          ...makeSweepRun(0.1, 5, 3),
+          winner: "inconclusive",
+          inconclusiveReason: "low_sample",
+        },
+        { ...makeSweepRun(0.3, 8, 9), winner: "tie" },
+        {
+          ...makeSweepRun(0.5, 14, 15),
+          winner: "inconclusive",
+          vehicleLimitReached: true,
+          inconclusiveReason: "vehicle_limit_reached",
+        },
+      ],
+      curves: {
+        ...MOCK_SESSION.curves,
+        crossoverArrivalRate: null,
+        crossoverHourlyVolume: null,
+      },
+    };
+    await openSession(session);
+    expect(screen.getByText(/2 inconclusive/i)).toBeInTheDocument();
+    expect(screen.getByText(/No tier could be decided/i)).toBeInTheDocument();
+    expect(screen.getByText(/Demand was cut off/i)).toBeInTheDocument();
+    expect(screen.getByText(/≤1 s or ≤5%/)).toBeInTheDocument();
+  });
+
+  it("reports the direction found in the data, not an assumed one", async () => {
+    // Signal lower first, roundabout lower later: the opposite of the
+    // direction the old text assumed.
+    const session = {
+      ...MOCK_SESSION,
+      calibration: { calibrated: true, note: "Calibrated comparison." },
+      runs: [
+        { ...makeSweepRun(0.1, 3, 9), winner: "signal" },
+        { ...makeSweepRun(0.3, 30, 9), winner: "roundabout" },
+      ],
+      curves: {
+        ...MOCK_SESSION.curves,
+        crossoverArrivalRate: 0.3,
+        crossoverHourlyVolume: 1080,
+        crossoverBracketArrivalRates: [0.1, 0.3],
+      },
+    };
+    await openSession(session);
+    expect(
+      screen.getByText(/Lower mean delay: signal before, roundabout after/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/roundabout before, signal after/i)).toBeNull();
+  });
+
+  it("flags an exploratory (multi-lane) sweep", async () => {
+    await openSession({
+      ...MOCK_SESSION,
+      calibration: {
+        calibrated: false,
+        note: "Exploratory, not calibrated: more than one lane.",
+      },
+    });
+    expect(
+      screen.getByText(/Exploratory, not calibrated\./),
+    ).toBeInTheDocument();
+  });
+
+  it("defaults the sweep to the calibrated one-lane comparison", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify([]), { status: 200 }),
+    );
+    render(<VolumeAnalysisDashboard />);
+    fireEvent.click(
+      (await screen.findAllByRole("button", { name: /Advanced Config/i }))[0],
+    );
+    const calibrated = await screen.findByRole("button", {
+      name: /1 Lane \(calibrated comparison\)/i,
+    });
+    expect(calibrated.className).toMatch(/active/);
+    const exploratory = screen.getByRole("button", {
+      name: /2 Lanes \(exploratory/i,
+    });
+    expect(exploratory.className).not.toMatch(/active/);
+  });
+
+  it("sends the road speed limit, not a hard-coded desired speed", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200 }))
+      .mockImplementationOnce(() => new Promise(() => undefined));
+    render(<VolumeAnalysisDashboard />);
+    await waitFor(() => {
+      expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Run Sweep/i }));
+    const body = JSON.parse(
+      vi.mocked(fetch).mock.calls[1][1]?.body as string,
+    ) as {
+      duration: number;
+      arrivalRates: number[];
+      customConfig: {
+        simulation: { warmupTime: number };
+        roads: { speedLimit: number };
+        vehicleGeneration?: unknown;
+      };
+    };
+    expect(body.customConfig.roads.speedLimit).toBeCloseTo(13.89);
+    expect(body.customConfig.vehicleGeneration).toBeUndefined();
+    // Long enough to measure after the 30 s warm-up every study uses.
+    expect(body.duration).toBe(240);
+    expect(body.customConfig.simulation.warmupTime).toBe(30);
+    // 20%-160% of the measured 1-lane capacity (1,250 veh/h).
+    expect(body.arrivalRates[0]).toBeCloseTo(0.069, 3);
+    expect(body.arrivalRates[body.arrivalRates.length - 1]).toBeCloseTo(
+      0.556,
+      3,
+    );
   });
 });

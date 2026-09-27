@@ -1,8 +1,25 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 
-def calculate_master_efficiency_score(metrics: Dict[str, Any]) -> float:
-    """Calculates an overall winner efficiency score (0.0 to 100.0) from operational metrics.
+def calculate_master_efficiency_score(metrics: Dict[str, Any]) -> Optional[float]:
+    """Calculates a fixed-weight composite (0.0 to 100.0) from operational metrics.
+
+    WHAT IT IS VALID FOR: comparing runs of the SAME geometry on the SAME
+    scenario (e.g. two signal timing plans at one demand level), as a single
+    number summarising five measures with fixed weights.
+
+    WHAT IT IS NOT VALID FOR: ranking a signal against a roundabout.
+    - ``idleOpportunityLoss`` is signal-only: it is structurally 0.0 for a
+      roundabout, so the roundabout always receives the full 10 points of that
+      term whatever it does.
+    - The throughput term is normalised against a fixed 120 veh/min ceiling, so
+      at ordinary demand it mostly reflects how much traffic arrived.
+    The API keeps returning it for same-geometry use; the frontend never puts
+    it side by side across geometries.
+
+    Returns ``None`` when no vehicle has exited after warm-up: every input
+    then holds a best-case placeholder (0 wait, 0 stops, fairness 1.0), which
+    would otherwise score high before anything has been measured.
 
     Formula weights:
     - Throughput Rate (higher is better): weight = 30.0
@@ -11,6 +28,8 @@ def calculate_master_efficiency_score(metrics: Dict[str, Any]) -> float:
     - Directional Fairness Index (higher is better): weight = 20.0
     - Idle Capacity Loss (lower is better): weight = -10.0
     """
+    if not metrics.get("throughput"):
+        return None
     throughput_rate = float(metrics.get("throughputRate", 0.0))
     avg_wait = float(metrics.get("averageWaitTime", 0.0))
     avg_stops = float(metrics.get("averageStopsPerVehicle", 0.0))

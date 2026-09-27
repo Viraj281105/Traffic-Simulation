@@ -1,32 +1,175 @@
-import { useState, useEffect } from "react";
+import {
+  useState,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+} from "react";
+import type { ReactNode } from "react";
 import { useWebSocketSnapshot } from "./hooks/useWebSocketSnapshot";
 import { useSimulationPolling } from "./hooks/useSimulationPolling";
-import { useContainerSize } from "./hooks/useContainerSize";
 import { IntersectionMap } from "./components/IntersectionMap";
 import { RoundaboutMap } from "./components/RoundaboutMap";
 import { MetricsSidebar } from "./components/MetricsSidebar";
 import {
   ComparativeDashboard,
-  CompactVehicleStatePanel,
+  ComparisonPanel,
 } from "./components/ComparativeDashboard";
 import { PlaybackControls } from "./components/PlaybackControls";
 import { HistoryDashboard, SavedReplay } from "./components/HistoryDashboard";
 import { VolumeAnalysisDashboard } from "./components/VolumeAnalysisDashboard";
 import { ValidationDashboard } from "./components/ValidationDashboard";
 import { ConfigurationSidebar } from "./components/ConfigurationSidebar";
+import { RunPage } from "./components/RunPage";
+import { ComparePage } from "./components/ComparePage";
+import { ResearchHub } from "./components/ResearchHub";
+import { ScenarioSetup } from "./components/guided/ScenarioSetup";
+import { LiveGuide } from "./components/guided/LiveGuide";
+import { ResultsReport } from "./components/guided/ResultsReport";
+import {
+  contextsOf,
+  sessionRunFrom,
+  type SessionRun,
+} from "./components/guided/comparisonRun";
+import { StepNav, type GuidedStage } from "./components/guided/StepNav";
+import "./components/guided/Guided.css";
 import { Login } from "./components/Login";
 import { getCurrentUser } from "./auth/cognito";
 import { Sun, Moon } from "lucide-react";
 import type { SimulationConfigValues } from "./types/config";
+import { DEFAULT_CONFIG_VALUES, dashboardPayload } from "./types/config";
 import { saveReplay, updateSimulationConfig } from "./services/api";
+import { hasResults, sideSummary } from "./metrics/plainLanguage";
 import type {
   LiveSnapshot,
   DualSnapshot,
   SimulationStatus,
 } from "./types/simulation";
+import {
+  VIEW_ROUTES,
+  followLink,
+  navigate,
+  resolveRoute,
+  usePathname,
+  type RoutedView,
+} from "./routing";
 import "./App.css";
 
+type ViewMode = RoutedView | "single";
+
+/**
+ * Router shell. The URL is the source of truth for which view is shown, so a
+ * refresh, a direct link or back/forward all land on the same view. The
+ * dashboard stays mounted across view changes, keeping its configuration and
+ * live stream exactly as when views were plain React state.
+ */
 export function App() {
+  const route = resolveRoute(usePathname());
+  const redirectTo = route.kind === "redirect" ? route.to : null;
+
+  useLayoutEffect(() => {
+    if (redirectTo) navigate(redirectTo, { replace: true });
+  }, [redirectTo]);
+
+  if (route.kind === "notFound") return <NotFound path={route.path} />;
+  if (route.kind === "redirect") return null;
+  // Saved-run pages belong to the History section. They render inside the
+  // same Dashboard element as every view, so moving between them and the
+  // simulation keeps its configuration and live stream mounted.
+  if (route.kind === "run") {
+    return (
+      <Dashboard viewMode="history" page={{ kind: "run", runId: route.runId }} />
+    );
+  }
+  if (route.kind === "compare") {
+    return <Dashboard viewMode="history" page={{ kind: "compare" }} />;
+  }
+  return <Dashboard viewMode={route.view} />;
+}
+
+const SIMULATION_VIEWS: ReadonlySet<ViewMode> = new Set([
+  "signal",
+  "roundabout",
+  "comparative",
+  "single",
+]);
+
+/** Single-control views: specialist tools with the full live metric panel,
+ *  display toggles and scenario settings in the header. */
+const SINGLE_VIEWS: ReadonlySet<ViewMode> = new Set([
+  "signal",
+  "roundabout",
+  "single",
+]);
+
+/** The three places in the product. Compare is the guided path everyone
+ *  starts on; Saved holds kept comparisons; the Research lab gathers every
+ *  specialist tool. */
+type Section = "compare" | "saved" | "research";
+
+const RESEARCH_VIEWS: ReadonlySet<ViewMode> = new Set([
+  "research",
+  "volume",
+  "validation",
+  "signal",
+  "roundabout",
+  "single",
+]);
+
+function sectionOf(view: ViewMode): Section {
+  if (view === "history") return "saved";
+  if (RESEARCH_VIEWS.has(view)) return "research";
+  return "compare";
+}
+
+const RESEARCH_TABS: { view: RoutedView; label: string }[] = [
+  { view: "research", label: "Overview" },
+  { view: "volume", label: "Traffic-level sweep" },
+  { view: "validation", label: "Statistical validation" },
+  { view: "signal", label: "Signal on its own" },
+  { view: "roundabout", label: "Roundabout on its own" },
+];
+
+const newSeed = () => Math.floor(Math.random() * 1000000) + 1;
+
+/** Restores the exact UI configuration a run was saved with, falling back to
+ *  the legacy fields older saves carry. */
+function configFromReplay(
+  replay: SavedReplay,
+  current: SimulationConfigValues,
+): SimulationConfigValues {
+  if (replay.config.ui) return { ...DEFAULT_CONFIG_VALUES, ...replay.config.ui };
+  const lanes = replay.config.roads?.lanesPerApproach?.north ?? current.lanes;
+  return {
+    ...current,
+    lanes,
+    laneWidth: replay.config.geometry?.laneWidth ?? current.laneWidth,
+    arrivalRate: replay.config.traffic?.arrivalRate ?? current.arrivalRate,
+    duration: replay.config.simulation?.duration ?? current.duration,
+    randomSeed: replay.config.simulation?.randomSeed ?? current.randomSeed,
+  };
+}
+
+function sameConfig(a: SimulationConfigValues, b: SimulationConfigValues) {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<
+    keyof SimulationConfigValues
+  >;
+  return [...keys].every((k) => (a[k] ?? null) === (b[k] ?? null));
+}
+
+type HistoryPage = { kind: "run"; runId: string } | { kind: "compare" };
+
+function Dashboard({
+  viewMode: routedView,
+  page,
+}: {
+  viewMode: RoutedView;
+  page?: HistoryPage;
+}) {
+  const viewMode = routedView as ViewMode;
+  const setViewMode = (view: RoutedView) => {
+    navigate(VIEW_ROUTES[view]);
+  };
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!!getCurrentUser());
   const [showLogin, setShowLogin] = useState<boolean>(false);
 
@@ -35,15 +178,7 @@ export function App() {
     setShowLogin(false);
   };
 
-  const [viewMode, setViewMode] = useState<
-    | "signal"
-    | "roundabout"
-    | "comparative"
-    | "single"
-    | "history"
-    | "volume"
-    | "validation"
-  >("comparative");
+
   const [activeReplay, setActiveReplay] = useState<SavedReplay | null>(null);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -85,171 +220,25 @@ export function App() {
     reset: singleReset,
   } = useSimulationPolling();
 
-  const [lastCompletedSnapshotDual, setLastCompletedSnapshotDual] =
-    useState<DualSnapshot | null>(null);
-  const [lastCompletedSnapshotSingle, setLastCompletedSnapshotSingle] =
-    useState<LiveSnapshot | null>(null);
-  const [prevDual, setPrevDual] = useState<DualSnapshot | null>(null);
-  const [prevSingle, setPrevSingle] = useState<LiveSnapshot | null>(null);
-  const [prevConfigKey, setPrevConfigKey] = useState("");
-
+  // The live stream is the only source of displayed metrics: a completed or
+  // paused run keeps showing its final values (the backend keeps streaming
+  // them), while a reset or reconfiguration shows the fresh run rather than
+  // the previous run's numbers next to a reset map.
   const dualSnapshot = snapshot && "signal" in snapshot ? snapshot : null;
   const singleSnapshot = snapshot && !("signal" in snapshot) ? snapshot : null;
 
-  // Capture the last snapshot with valid metrics/vehicles to display when initialized/stopped
-  if (dualSnapshot !== prevDual) {
-    setPrevDual(dualSnapshot);
-    if (
-      dualSnapshot &&
-      (dualSnapshot.signal.simulationStatus === "running" ||
-        dualSnapshot.signal.simulationStatus === "completed" ||
-        dualSnapshot.signal.simulationStatus === "paused")
-    ) {
-      setLastCompletedSnapshotDual(dualSnapshot);
-    }
-  }
-
-  if (singleSnapshot !== prevSingle) {
-    setPrevSingle(singleSnapshot);
-    if (
-      singleSnapshot &&
-      (singleSnapshot.simulationStatus === "running" ||
-        singleSnapshot.simulationStatus === "completed" ||
-        singleSnapshot.simulationStatus === "paused")
-    ) {
-      setLastCompletedSnapshotSingle(singleSnapshot);
-    }
-  }
-
-  // Canvas & Simulation config state
+  // Simulation configuration. The dashboard starts from the same values that
+  // "Reset defaults" restores, with a fresh random seed.
   const [configValues, setConfigValues] = useState<SimulationConfigValues>(
-    () => ({
-      lanes: 2,
-      laneWidth: 3.5,
-      arrivalRate: 0.3,
-      duration: 300,
-      randomSeed: Math.floor(Math.random() * 1000000) + 1,
-      greenDuration: 25,
-      yellowDuration: 3,
-      allRedDuration: 2,
-      criticalGap: 4.5,
-      followUpTime: 2.8,
-    }),
+    () => ({ ...DEFAULT_CONFIG_VALUES, randomSeed: newSeed() }),
   );
   const [showStopLines, setShowStopLines] = useState(true);
   const [debug, setDebug] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
 
-  // Derived config parameters
-  const lanes = configValues.lanes;
-  const laneWidth = configValues.laneWidth;
-  const arrivalRate = configValues.arrivalRate;
-  const duration = configValues.duration;
-  const randomSeed = configValues.randomSeed;
-  const greenDuration = configValues.greenDuration;
-  const yellowDuration = configValues.yellowDuration;
-  const allRedDuration = configValues.allRedDuration;
-  const criticalGap = configValues.criticalGap;
-  const followUpTime = configValues.followUpTime;
-
-  const randomizeSeed = () => {
-    setActiveReplay(null);
-    setConfigValues((prev) => ({
-      ...prev,
-      randomSeed: Math.floor(Math.random() * 1000000) + 1,
-    }));
-  };
-
-  // Dynamically compute width and intersection proportionally based on lanes count
-  const lanesNorth = lanes;
-  const lanesSouth = lanes;
-  const lanesEast = lanes;
-  const lanesWest = lanes;
-  const intersectionSize = lanes * laneWidth * 2 + 4.0;
-
-  const isDual = viewMode === "comparative";
-
-  // Measure canvas containers so maps fill available space
-  const [singleCanvasRef, singleCanvasSize] = useContainerSize();
-  const [compLeftRef, compLeftSize] = useContainerSize();
-  const [compRightRef, compRightSize] = useContainerSize();
-
-  // Compute square-free dimensions: take the full container width, limit height
-  // to the available height minus a small padding to avoid scrollbars.
-  const PADDING = 16;
-  const toCanvasSize = (w: number, h: number) => ({
-    width: Math.max(320, w - PADDING * 2),
-    height: Math.max(280, h - PADDING * 2),
-  });
-
-  // Adjust state during render to avoid useEffect warnings
-  const configKey = `${lanes.toString()}_${laneWidth.toString()}_${greenDuration.toString()}_${criticalGap.toString()}`;
-
-  if (configKey !== prevConfigKey) {
-    setPrevConfigKey(configKey);
-    setLastCompletedSnapshotDual(null);
-    setLastCompletedSnapshotSingle(null);
-  }
-
-  // Determine displayed snapshot for metrics
-  let metricsSnapshotDual: DualSnapshot | null = dualSnapshot;
-  if (dualSnapshot) {
-    if (
-      (dualSnapshot.signal.simulationStatus === "initialized" ||
-        dualSnapshot.signal.simulationStatus === "stopped") &&
-      lastCompletedSnapshotDual
-    ) {
-      metricsSnapshotDual = lastCompletedSnapshotDual;
-    }
-  } else if (lastCompletedSnapshotDual) {
-    metricsSnapshotDual = lastCompletedSnapshotDual;
-  }
-
-  let metricsSnapshotSingle: LiveSnapshot | null = singleSnapshot;
-  if (singleSnapshot) {
-    if (
-      (singleSnapshot.simulationStatus === "initialized" ||
-        singleSnapshot.simulationStatus === "stopped") &&
-      lastCompletedSnapshotSingle
-    ) {
-      metricsSnapshotSingle = lastCompletedSnapshotSingle;
-    }
-  } else if (lastCompletedSnapshotSingle) {
-    metricsSnapshotSingle = lastCompletedSnapshotSingle;
-  }
-
-  // Sync config with backend on change
-  useEffect(() => {
-    const intersectionType =
-      viewMode === "roundabout" ? "roundabout" : "fixed_time_signal";
-    updateSimulationConfig({
-      intersectionType,
-      intersectionSize,
-      laneWidth,
-      lanesNorth,
-      lanesSouth,
-      lanesEast,
-      lanesWest,
-      arrivalRate,
-      duration,
-      randomSeed,
-      greenDuration,
-      yellowDuration,
-      allRedDuration,
-      criticalGap,
-      followUpTime,
-    }).catch((err: unknown) => {
-      console.error("Failed to update backend config:", err);
-    });
-  }, [
-    viewMode,
+  const {
     lanes,
-    intersectionSize,
     laneWidth,
-    lanesNorth,
-    lanesSouth,
-    lanesEast,
-    lanesWest,
     arrivalRate,
     duration,
     randomSeed,
@@ -258,12 +247,123 @@ export function App() {
     allRedDuration,
     criticalGap,
     followUpTime,
+    nsGreenDuration,
+    ewGreenDuration,
+  } = configValues;
+
+  const randomizeSeed = () => {
+    setActiveReplay(null);
+    setConfigValues((prev) => ({ ...prev, randomSeed: newSeed() }));
+  };
+
+  const intersectionSize = lanes * laneWidth * 2 + 4.0;
+  const isDual = viewMode === "comparative";
+  const isSimulationView = SIMULATION_VIEWS.has(viewMode);
+
+  // A guided "Run the comparison" changes the config and must start playing
+  // only once the backend holds it: a config update resets the simulation,
+  // so playing first would run (and then lose) the old scenario.
+  const syncVersion = useRef(0);
+  const playAfterSync = useRef(false);
+  const playRef = useRef(play);
+  useEffect(() => {
+    playRef.current = play;
+  });
+
+  // Sync config with backend on change
+  useEffect(() => {
+    const intersectionType =
+      viewMode === "roundabout" ? "roundabout" : "fixed_time_signal";
+    const version = ++syncVersion.current;
+    updateSimulationConfig(
+      dashboardPayload(
+        {
+          lanes,
+          laneWidth,
+          arrivalRate,
+          duration,
+          randomSeed,
+          greenDuration,
+          yellowDuration,
+          allRedDuration,
+          criticalGap,
+          followUpTime,
+          nsGreenDuration,
+          ewGreenDuration,
+        },
+        intersectionType,
+      ),
+    )
+      .then(() => {
+        if (version === syncVersion.current && playAfterSync.current) {
+          playAfterSync.current = false;
+          playRef.current().catch(() => { });
+        }
+      })
+      .catch((err: unknown) => {
+        playAfterSync.current = false;
+        console.error("Failed to update backend config:", err);
+      });
+  }, [
+    viewMode,
+    lanes,
+    intersectionSize,
+    laneWidth,
+    arrivalRate,
+    duration,
+    randomSeed,
+    greenDuration,
+    yellowDuration,
+    allRedDuration,
+    criticalGap,
+    followUpTime,
+    nsGreenDuration,
+    ewGreenDuration,
   ]);
 
   const handleApplyConfig = (newConfig: SimulationConfigValues) => {
     setActiveReplay(null);
     setConfigValues(newConfig);
-    showToast("⚙️ Scenario configuration applied successfully!");
+    showToast("Scenario applied — the simulation was reset with it.");
+  };
+
+  // ── Guided comparison (the Compare section) ─────────────────────────────
+  const [stage, setStage] = useState<GuidedStage>("setup");
+  const [sessionRuns, setSessionRuns] = useState<SessionRun[]>([]);
+  const currentRunId = JSON.stringify(configValues);
+  const dualComplete = dualSnapshot?.signal.simulationStatus === "completed";
+  const liveResultsReady = (() => {
+    if (!dualSnapshot) return false;
+    const { signal, roundabout } = contextsOf(dualSnapshot);
+    return hasResults(sideSummary(signal), sideSummary(roundabout));
+  })();
+  const currentRun =
+    dualSnapshot && liveResultsReady && !activeReplay
+      ? sessionRunFrom(currentRunId, configValues, dualSnapshot, dualComplete)
+      : null;
+  const shownSessionRuns = [
+    ...sessionRuns.filter((run) => run.id !== currentRunId),
+    ...(currentRun ? [currentRun] : []),
+  ];
+
+  /** Keeps the comparison on screen in the session table before the next
+   *  scenario replaces it. */
+  const recordCurrentRun = () => {
+    const run = currentRun;
+    if (!run) return;
+    setSessionRuns((prev) => [...prev.filter((r) => r.id !== run.id), run]);
+  };
+
+  const handleGuidedRun = (next: SimulationConfigValues) => {
+    recordCurrentRun();
+    setActiveReplay(null);
+    setStage("watch");
+    if (sameConfig(next, configValues)) {
+      if (!isPlaying) play().catch(() => { });
+      return;
+    }
+    playAfterSync.current = true;
+    setConfigValues(next);
   };
 
   // Map controls to appropriate hooks based on the active view mode
@@ -282,17 +382,17 @@ export function App() {
   const handlePlay = () => {
     setActiveReplay(null);
     if (viewMode === "single") {
-      singleStart().catch(() => {});
+      singleStart().catch(() => { });
     } else {
-      play().catch(() => {});
+      play().catch(() => { });
     }
   };
 
   const handlePause = () => {
     if (viewMode === "single") {
-      singleStop().catch(() => {});
+      singleStop().catch(() => { });
     } else {
-      pause().catch(() => {});
+      pause().catch(() => { });
     }
   };
 
@@ -300,9 +400,9 @@ export function App() {
     randomizeSeed();
     setActiveReplay(null);
     if (viewMode === "single") {
-      singleReset().catch(() => {});
+      singleReset().catch(() => { });
     } else {
-      stop().catch(() => {});
+      stop().catch(() => { });
     }
   };
 
@@ -319,98 +419,154 @@ export function App() {
   const playbackEnvelope =
     viewMode === "single"
       ? (singlePlaybackEnvelope as unknown as LiveSnapshot)
-      : isDual && snapshot && "signal" in snapshot
+      : dualSnapshot
         ? ({
-            timestamp: snapshot.elapsed,
-            tick: snapshot.tick,
-            samplingFrequency: 10,
-            simulationStatus: snapshot.signal.simulationStatus,
-          } as unknown as LiveSnapshot)
-        : (snapshot as LiveSnapshot | null);
+          timestamp: dualSnapshot.elapsed,
+          tick: dualSnapshot.tick,
+          samplingFrequency: dualSnapshot.signal.samplingFrequency,
+          simulationStatus: dualSnapshot.signal.simulationStatus,
+        } as unknown as LiveSnapshot)
+        : singleSnapshot;
+
+  // A run can be saved once it has produced data and is not running.
+  const liveTimestamp = isDual
+    ? (dualSnapshot?.elapsed ?? 0)
+    : (singleSnapshot?.timestamp ?? 0);
+  const canSave = !activeIsPlaying && activeReplay === null && liveTimestamp > 0;
 
   const handleSaveHistory = () => {
-    let currentDuration = duration;
-    if (viewMode === "comparative" && metricsSnapshotDual) {
-      currentDuration =
-        metricsSnapshotDual.elapsed || metricsSnapshotDual.signal.timestamp;
-    } else if (viewMode !== "comparative" && metricsSnapshotSingle) {
-      currentDuration = metricsSnapshotSingle.timestamp;
-    } else if (playbackEnvelope?.timestamp) {
-      currentDuration = playbackEnvelope.timestamp;
-    }
-    // Safeguard: if it's 0 for some reason, use the config duration
-    if (!currentDuration) {
-      currentDuration = duration;
-    }
-
-    const configToSave = {
-      simulation: { duration: currentDuration, randomSeed },
-      geometry: {
-        intersectionType:
-          viewMode === "roundabout" ? "roundabout" : "fixed_time_signal",
-      },
+    const geometryType =
+      viewMode === "roundabout" ? "roundabout" : "fixed_time_signal";
+    const configToSave: SavedReplay["config"] = {
+      // Everything needed to re-run the same scenario from History.
+      ui: configValues,
+      simulation: { duration, randomSeed, elapsed: liveTimestamp },
+      geometry: { intersectionType: geometryType, laneWidth },
       roads: {
         lanesPerApproach: {
-          north: lanesNorth,
-          south: lanesSouth,
-          east: lanesEast,
-          west: lanesWest,
+          north: lanes,
+          south: lanes,
+          east: lanes,
+          west: lanes,
         },
       },
       traffic: { arrivalRate },
     };
 
     let metricsToSave: Record<string, unknown> = {};
-    if (viewMode === "comparative" && metricsSnapshotDual) {
+    if (isDual && dualSnapshot) {
       metricsToSave = {
-        signal: metricsSnapshotDual.signal.metrics,
-        roundabout: metricsSnapshotDual.roundabout.metrics,
+        signal: dualSnapshot.signal.metrics,
+        roundabout: dualSnapshot.roundabout.metrics,
       };
-    } else if (viewMode !== "comparative" && metricsSnapshotSingle) {
-      metricsToSave = (
-        metricsSnapshotSingle as unknown as { metrics: Record<string, unknown> }
-      ).metrics;
+    } else if (singleSnapshot) {
+      metricsToSave = { ...singleSnapshot.metrics };
     }
 
+    const label =
+      viewMode === "comparative"
+        ? "Comparison"
+        : viewMode === "roundabout"
+          ? "Roundabout"
+          : "Signal";
     const payload = {
-      name: `${viewMode.toUpperCase()} Run - ${new Date().toLocaleTimeString()}`,
+      name: `${label} · seed ${String(randomSeed)} · ${liveTimestamp.toFixed(0)} s`,
       config: configToSave,
       metrics: metricsToSave,
+      mode: isDual ? ("dual" as const) : ("single" as const),
     };
 
     saveReplay(payload)
-      .then(() => {
-        showToast("✅ Simulation saved to history!");
+      .then((saved: { runId?: string } | undefined) => {
+        const runId = saved?.runId;
+        showToast(
+          runId
+            ? `Run ${runId.slice(0, 8)} saved to History.`
+            : "Run saved to History.",
+        );
       })
       .catch((e: unknown) => {
         console.error(e);
+        showToast("Could not save the run — is the backend reachable?");
       });
   };
 
   const handleReplay = (replay: SavedReplay) => {
     setActiveReplay(replay);
-    const replayLanes = replay.config.roads?.lanesPerApproach?.north || 2;
-    const replayWidth =
-      replay.config.geometry?.laneWidth || 3.0 + (replayLanes - 1) * 0.5;
-    setConfigValues((prev) => ({
-      ...prev,
-      lanes: replayLanes,
-      laneWidth: replayWidth,
-      arrivalRate: replay.config.traffic?.arrivalRate || 0.3,
-      duration: replay.config.simulation?.duration || 300,
-      randomSeed: replay.config.simulation?.randomSeed || 42,
-    }));
+    setConfigValues((prev) => configFromReplay(replay, prev));
 
-    const isDual =
+    const replayIsDual =
       replay.metrics.signal !== undefined &&
       replay.metrics.roundabout !== undefined;
-    if (isDual) {
+    if (replayIsDual) {
+      setStage("results");
       setViewMode("comparative");
     } else {
       const type = replay.config.geometry?.intersectionType;
       setViewMode(type === "roundabout" ? "roundabout" : "signal");
     }
   };
+
+  const replayDual: DualSnapshot | null =
+    activeReplay?.metrics.signal && activeReplay.metrics.roundabout
+      ? ({
+        signal: { metrics: activeReplay.metrics.signal },
+        roundabout: { metrics: activeReplay.metrics.roundabout },
+      } as unknown as DualSnapshot)
+      : null;
+  const replaySingle: LiveSnapshot | null =
+    activeReplay && "averageWaitTime" in activeReplay.metrics
+      ? ({ metrics: activeReplay.metrics } as unknown as LiveSnapshot)
+      : null;
+
+  const section = sectionOf(viewMode);
+  const isSingle = SINGLE_VIEWS.has(viewMode);
+  const guidedResultsAvailable = replayDual !== null || liveResultsReady;
+  const warmupSeconds = dualSnapshot?.signal.warmupTime ?? null;
+
+  const comparisonMaps = (
+    <div className="comparison-maps-row">
+      <section className="comparison-column" aria-labelledby="col-signal-title">
+        <div className="column-header">
+          <h2 className="column-title" id="col-signal-title">
+            <span aria-hidden="true">🚦 </span>Traffic signal
+          </h2>
+        </div>
+        <div className="canvas-wrapper">
+          <IntersectionMap
+            snapshot={dualSnapshot?.signal ?? null}
+            lanesNorth={lanes}
+            lanesSouth={lanes}
+            lanesEast={lanes}
+            lanesWest={lanes}
+            laneWidth={laneWidth}
+            showCrosswalks={true}
+            showStopLines={showStopLines}
+            debug={debug}
+          />
+        </div>
+      </section>
+      <section
+        className="comparison-column"
+        aria-labelledby="col-roundabout-title"
+      >
+        <div className="column-header">
+          <h2 className="column-title" id="col-roundabout-title">
+            <span aria-hidden="true">🔄 </span>Roundabout
+          </h2>
+        </div>
+        <div className="canvas-wrapper">
+          <RoundaboutMap
+            snapshot={dualSnapshot?.roundabout ?? null}
+            laneWidth={laneWidth}
+            lanes={lanes}
+            showCrosswalks={false}
+            debug={debug}
+          />
+        </div>
+      </section>
+    </div>
+  );
 
   return (
     <div className="app">
@@ -420,78 +576,48 @@ export function App() {
           <a className="brand" href="/" data-testid="link-brand">
             <span className="brand-mark" aria-hidden="true" />
             <span className="brand-name">URBANFLOW</span>
+            <span className="sr-only">Home</span>
           </a>
         </div>
 
-        {/* View Mode Tabs */}
-        <div className="header-tabs">
-          <button
-            className={`tab-btn ${viewMode === "signal" ? "active" : ""}`}
-            onClick={() => {
-              setViewMode("signal");
-            }}
-          >
-            🚦 Fixed-Time Signal Only
-          </button>
-          <button
-            className={`tab-btn ${viewMode === "roundabout" ? "active" : ""}`}
-            onClick={() => {
-              setViewMode("roundabout");
-            }}
-          >
-            🔄 Roundabout Only
-          </button>
-          <button
-            className={`tab-btn ${viewMode === "comparative" ? "active" : ""}`}
-            onClick={() => {
-              setViewMode("comparative");
-            }}
-          >
-            📊 Comparative View
-          </button>
-          <button
-            className={`tab-btn ${viewMode === "history" ? "active" : ""}`}
-            onClick={() => {
-              setViewMode("history");
-            }}
-          >
-            📚 History
-          </button>
-          <button
-            className={`tab-btn ${viewMode === "volume" ? "active" : ""}`}
-            onClick={() => {
-              setViewMode("volume");
-            }}
-          >
-            📈 Volume Analysis
-          </button>
-          <button
-            className={`tab-btn ${viewMode === "validation" ? "active" : ""}`}
-            onClick={() => {
-              setViewMode("validation");
-            }}
-          >
-            🔬 Validation
-          </button>
-        </div>
+        <nav className="header-tabs" aria-label="Main">
+          <ViewTab view="comparative" current={section === "compare"}>
+            Compare
+          </ViewTab>
+          <ViewTab view="history" current={section === "saved"}>
+            Saved
+          </ViewTab>
+          <ViewTab view="research" current={section === "research"}>
+            Research lab
+          </ViewTab>
+        </nav>
 
-        <div
-          className="header-right"
-          style={{ display: "flex", gap: "16px", alignItems: "center" }}
-        >
-          <button
-            className={`config-toggle-btn ${configOpen ? "active" : ""}`}
-            onClick={() => {
-              setConfigOpen((v) => !v);
-            }}
-            title="Configure traffic volume, widths, signal timings & critical gaps"
-          >
-            ⚙️ Scenario Settings
-          </button>
+        <div className="header-right">
+          {isSingle && (
+            <button
+              type="button"
+              className={`config-toggle-btn ${configOpen ? "active" : ""}`}
+              onClick={() => {
+                setConfigOpen((v) => !v);
+              }}
+              aria-expanded={configOpen}
+              aria-haspopup="dialog"
+              aria-label="Scenario settings"
+              title="Demand, geometry, signal timings and gap acceptance"
+            >
+              <span aria-hidden="true">⚙️</span>
+              <span className="label-text" aria-hidden="true">
+                {" "}
+                Scenario settings
+              </span>
+            </button>
+          )}
           <button
             className="theme-button"
             type="button"
-            onClick={() => { setIsLight(c => !c); }}
+            onClick={() => {
+              setIsLight((c) => !c);
+            }}
             aria-label={
               isLight ? "Switch to dark mode" : "Switch to light mode"
             }
@@ -515,24 +641,58 @@ export function App() {
         </div>
       </header>
 
-      {/* ── Quick Display Toggles & Status Bar ────────────────────────── */}
-      {viewMode !== "volume" && viewMode !== "validation" && viewMode !== "history" && (
+      {/* ── Section sub-navigation ───────────────────────────────────── */}
+      {section === "research" && (
+        <nav className="sub-nav" aria-label="Research tools">
+          {RESEARCH_TABS.map((tab) => (
+            <ViewTab
+              key={tab.view}
+              view={tab.view}
+              current={tab.view === viewMode}
+            >
+              {tab.label}
+            </ViewTab>
+          ))}
+        </nav>
+      )}
+      {section === "compare" && (
+        <StepNav
+          stage={stage}
+          resultsAvailable={guidedResultsAvailable}
+          onChange={(next) => {
+            if (next !== "results") setActiveReplay(null);
+            setStage(next);
+          }}
+        />
+      )}
+
+      {/* ── Map display toggles & seed (single-control tools) ────────── */}
+      {isSingle && (
         <div className="quick-toggles-bar">
-          <ConfigToggle
-            label="Stop Lines"
-            value={showStopLines}
-            onChange={setShowStopLines}
-          />
-          <ConfigToggle label="Debug Queues" value={debug} onChange={setDebug} />
+          {viewMode !== "roundabout" && (
+            <>
+              <ConfigToggle
+                label="Stop lines"
+                value={showStopLines}
+                onChange={setShowStopLines}
+              />
+              <ConfigToggle
+                label="Queue labels"
+                value={debug}
+                onChange={setDebug}
+              />
+            </>
+          )}
           <div className="quick-seed-group">
-            <span className="seed-badge" title="Active Random Seed">
-              🎲 Seed: <strong>{randomSeed}</strong>
+            <span className="seed-badge" title="Random seed of the next run">
+              <span aria-hidden="true">🎲 </span>Seed:{" "}
+              <strong>{randomSeed}</strong>
             </span>
             <button
               type="button"
               className="pb-btn pb-secondary re-roll-btn"
               onClick={randomizeSeed}
-              title="Roll new random seed"
+              title="Pick a new random seed (resets the simulation)"
             >
               Re-roll
             </button>
@@ -540,231 +700,197 @@ export function App() {
         </div>
       )}
 
-      {/* ── Interactive Configuration Sidebar ────────────────────────── */}
-      <ConfigurationSidebar
-        isOpen={configOpen}
-        onClose={() => {
-          setConfigOpen(false);
-        }}
-        config={configValues}
-        onApply={handleApplyConfig}
-        isRoundaboutMode={viewMode === "roundabout"}
-      />
+      {/* ── Scenario settings for the single-control tools ───────────── */}
+      {isSingle && (
+        <ConfigurationSidebar
+          isOpen={configOpen}
+          onClose={() => {
+            setConfigOpen(false);
+          }}
+          config={configValues}
+          onApply={handleApplyConfig}
+          mode={viewMode === "roundabout" ? "roundabout" : "signal"}
+        />
+      )}
 
       {/* ── Main content ──────────────────────────────────────────────── */}
       {viewMode === "comparative" ? (
-        <main
-          className="app-main comparison-container"
-          style={{ flexDirection: "column" }}
-        >
-          <div
-            className="comparison-maps-row"
-            style={{ display: "flex", flex: 1, minHeight: 0 }}
-          >
-            {/* Left Column: Fixed-Time Signal */}
-            <div className="comparison-column" style={{ flex: 1 }}>
-              <div className="column-header">
-                <span className="column-title">
-                  🚦 Fixed-Time Signal Control
-                </span>
-              </div>
-              <div
-                ref={compLeftRef}
-                className="canvas-wrapper"
-                style={{
-                  display: "flex",
-                  flexDirection: "row",
-                  alignItems: "flex-start",
-                  gap: "16px",
-                  padding: "0 16px",
-                  flex: 1,
-                  minHeight: 0,
-                }}
-              >
-                <IntersectionMap
-                  snapshot={dualSnapshot?.signal ?? null}
-                  lanesNorth={lanesNorth}
-                  lanesSouth={lanesSouth}
-                  lanesEast={lanesEast}
-                  lanesWest={lanesWest}
-                  laneWidth={laneWidth}
-                  intersectionSize={intersectionSize}
-                  showCrosswalks={true}
-                  showStopLines={showStopLines}
-                  debug={debug}
-                  {...(compLeftSize.width > 0
-                    ? toCanvasSize(compLeftSize.width, compLeftSize.height)
-                    : { width: 520, height: 420 })}
-                />
-                {metricsSnapshotDual && (
-                  <CompactVehicleStatePanel
-                    counts={metricsSnapshotDual.signal.vehicleCounts}
-                  />
-                )}
-              </div>
-            </div>
-
-            {/* Right Column: Roundabout */}
-            <div className="comparison-column" style={{ flex: 1 }}>
-              <div className="column-header">
-                <span className="column-title">🔄 Modern Roundabout</span>
-              </div>
-              <div
-                ref={compRightRef}
-                className="canvas-wrapper"
-                style={{
-                  display: "flex",
-                  flexDirection: "row",
-                  alignItems: "flex-start",
-                  gap: "16px",
-                  padding: "0 16px",
-                  flex: 1,
-                  minHeight: 0,
-                }}
-              >
-                <RoundaboutMap
-                  snapshot={dualSnapshot?.roundabout ?? null}
-                  laneWidth={laneWidth}
-                  lanes={lanesNorth}
-                  showCrosswalks={false}
-                  debug={debug}
-                  {...(compRightSize.width > 0
-                    ? toCanvasSize(compRightSize.width, compRightSize.height)
-                    : { width: 520, height: 420 })}
-                />
-                {metricsSnapshotDual && (
-                  <CompactVehicleStatePanel
-                    counts={{
-                      ...metricsSnapshotDual.roundabout.vehicleCounts,
-                      crossing:
-                        metricsSnapshotDual.roundabout.vehicleCounts.crossing +
-                        metricsSnapshotDual.roundabout.vehicleCounts
-                          .inRoundabout,
-                    }}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="comparative-actions-bar">
-            <button
-              className="pb-btn pb-primary"
-              onClick={handleSaveHistory}
-              disabled={activeIsPlaying || activeReplay !== null}
-              title={
-                activeReplay
-                  ? "Cannot save a replay"
-                  : "Save this simulation to history"
+        stage === "setup" ? (
+          <main className="app-main full-screen page-scroll">
+            <ScenarioSetup
+              config={configValues}
+              onRun={handleGuidedRun}
+              runInProgress={
+                !activeReplay && liveTimestamp > 0 && !dualComplete
               }
-            >
-              💾 Save to History
-            </button>
-            <button
-              className="pb-btn pb-secondary"
-              onClick={() => { setShowAnalyticsModal(true); }}
-            >
-              📊 Comparison Analytics
-            </button>
-          </div>
-          {showAnalyticsModal && (
-            <ComparativeDashboard
-              snapshot={
-                activeReplay &&
-                activeReplay.metrics.signal &&
-                activeReplay.metrics.roundabout
-                  ? ({
-                      signal: { metrics: activeReplay.metrics.signal },
-                      roundabout: { metrics: activeReplay.metrics.roundabout },
-                    } as unknown as DualSnapshot)
-                  : metricsSnapshotDual
-              }
-              connectionStatus={activeConnectionStatus}
-              onClose={() => { setShowAnalyticsModal(false); }}
             />
+          </main>
+        ) : stage === "results" ? (
+          <main className="app-main full-screen page-scroll">
+            <ResultsReport
+              snapshot={replayDual ?? dualSnapshot}
+              config={configValues}
+              replayName={replayDual ? (activeReplay?.name ?? null) : null}
+              complete={replayDual === null && dualComplete}
+              running={replayDual === null && activeIsPlaying}
+              warmupSeconds={replayDual ? null : warmupSeconds}
+              elapsedSeconds={
+                replayDual
+                  ? (activeReplay?.config.simulation?.elapsed ?? null)
+                  : (dualSnapshot?.elapsed ?? null)
+              }
+              canSave={canSave}
+              onSave={handleSaveHistory}
+              onWatch={() => {
+                setActiveReplay(null);
+                setStage("watch");
+              }}
+              onChangeScenario={() => {
+                setActiveReplay(null);
+                setStage("setup");
+              }}
+              onTryScenario={handleGuidedRun}
+              onOpenAnalytics={() => {
+                setShowAnalyticsModal(true);
+              }}
+              sessionRuns={shownSessionRuns}
+              currentRunId={replayDual ? null : currentRunId}
+            />
+            {showAnalyticsModal && (
+              <ComparativeDashboard
+                snapshot={replayDual ?? dualSnapshot}
+                replayName={replayDual ? (activeReplay?.name ?? null) : null}
+                onClose={() => {
+                  setShowAnalyticsModal(false);
+                }}
+              />
+            )}
+          </main>
+        ) : (
+          <main className="app-main comparison-layout">
+            <h1 className="sr-only">
+              Watch the traffic signal and the roundabout run side by side
+            </h1>
+            {comparisonMaps}
+            <LiveGuide
+              snapshot={dualSnapshot}
+              durationSeconds={duration}
+              connectionStatus={activeConnectionStatus}
+              onSeeResults={() => {
+                setStage("results");
+              }}
+              detailedPanel={
+                <ComparisonPanel
+                  snapshot={dualSnapshot}
+                  connectionStatus={activeConnectionStatus}
+                  replayName={null}
+                  canSave={canSave}
+                  onSave={handleSaveHistory}
+                  onOpenDetails={() => {
+                    setShowAnalyticsModal(true);
+                  }}
+                />
+              }
+            />
+            {showAnalyticsModal && (
+              <ComparativeDashboard
+                snapshot={dualSnapshot}
+                replayName={null}
+                onClose={() => {
+                  setShowAnalyticsModal(false);
+                }}
+              />
+            )}
+          </main>
+        )
+      ) : viewMode === "history" ? (
+        <main className="app-main full-screen page-scroll">
+          {page?.kind === "run" ? (
+            <RunPage
+              key={page.runId}
+              runId={page.runId}
+              onOpenInSimulator={handleReplay}
+            />
+          ) : page?.kind === "compare" ? (
+            <ComparePage />
+          ) : (
+            <HistoryDashboard onReplay={handleReplay} />
           )}
         </main>
-      ) : viewMode === "history" ? (
-        <main className="app-main full-screen" style={{ overflow: "hidden" }}>
-          <HistoryDashboard onReplay={handleReplay} />
+      ) : viewMode === "research" ? (
+        <main className="app-main full-screen page-scroll">
+          <ResearchHub />
         </main>
       ) : viewMode === "volume" ? (
-        <main className="app-main full-screen" style={{ overflow: "hidden" }}>
+        <main className="app-main full-screen page-scroll">
           <VolumeAnalysisDashboard />
         </main>
       ) : viewMode === "validation" ? (
-        <main className="app-main full-screen" style={{ overflow: "hidden" }}>
+        <main className="app-main full-screen page-scroll">
           <ValidationDashboard />
         </main>
       ) : (
         <main className="app-main">
-          <div ref={singleCanvasRef} className="canvas-wrapper">
+          <h1 className="sr-only">
+            {viewMode === "roundabout"
+              ? "Roundabout simulation"
+              : "Fixed-time signal simulation"}
+          </h1>
+          <div className="canvas-wrapper">
             {viewMode === "roundabout" ? (
               <RoundaboutMap
                 snapshot={singleSnapshot}
                 laneWidth={laneWidth}
-                lanes={lanesNorth}
+                lanes={lanes}
                 showCrosswalks={false}
                 debug={debug}
-                {...(singleCanvasSize.width > 0
-                  ? toCanvasSize(singleCanvasSize.width, singleCanvasSize.height)
-                  : { width: 680, height: 580 })}
               />
             ) : (
               <IntersectionMap
                 snapshot={singleSnapshot}
-                lanesNorth={lanesNorth}
-                lanesSouth={lanesSouth}
-                lanesEast={lanesEast}
-                lanesWest={lanesWest}
+                lanesNorth={lanes}
+                lanesSouth={lanes}
+                lanesEast={lanes}
+                lanesWest={lanes}
                 laneWidth={laneWidth}
-                intersectionSize={intersectionSize}
                 showCrosswalks={true}
                 showStopLines={showStopLines}
                 debug={debug}
-                {...(singleCanvasSize.width > 0
-                  ? toCanvasSize(singleCanvasSize.width, singleCanvasSize.height)
-                  : { width: 680, height: 580 })}
               />
             )}
           </div>
-          <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
-            <div
-              style={{
-                padding: "8px 16px",
-                display: "flex",
-                justifyContent: "flex-end",
-              }}
-            >
-              <button
-                className="pb-btn pb-primary"
-                onClick={handleSaveHistory}
-                disabled={activeIsPlaying || activeReplay !== null}
-                title={
-                  activeReplay
-                    ? "Cannot save a replay"
-                    : "Save this simulation to history"
-                }
-              >
-                💾 Save to History
-              </button>
-            </div>
+          <div className="single-side-column">
             <MetricsSidebar
-              snapshot={
-                activeReplay && "averageWaitTime" in activeReplay.metrics
-                  ? ({
-                      metrics: activeReplay.metrics,
-                    } as unknown as LiveSnapshot)
-                  : metricsSnapshotSingle
-              }
+              snapshot={replaySingle ?? singleSnapshot}
               connectionStatus={activeConnectionStatus}
+              geometry={
+                viewMode === "roundabout" ? "roundabout" : "fixed_time_signal"
+              }
+              replayName={replaySingle ? (activeReplay?.name ?? null) : null}
             />
+            {!replaySingle && (
+              <div className="save-bar">
+                <button
+                  type="button"
+                  className="pb-btn pb-primary"
+                  onClick={handleSaveHistory}
+                  disabled={!canSave}
+                  title={
+                    canSave
+                      ? "Save this run to History"
+                      : "Pause or finish the run (after it has started) to save it"
+                  }
+                >
+                  Save to History
+                </button>
+              </div>
+            )}
           </div>
         </main>
       )}
 
-      {/* ── Playback controls (live simulation & replay views only) ──── */}
-      {viewMode !== "volume" && viewMode !== "validation" && (
+      {/* ── Playback controls (live simulation views only) ───────────── */}
+      {isSimulationView && (isSingle || stage === "watch") && (
         <footer className="app-footer">
           <PlaybackControls
             snapshot={playbackEnvelope}
@@ -772,24 +898,104 @@ export function App() {
             onPlay={handlePlay}
             onPause={handlePause}
             onStop={handleStop}
+            simple={!isSingle}
+            durationSeconds={duration}
           />
-          {activeError && <div className="error-banner">⚠ {activeError}</div>}
+          {activeError && (
+            <div className="error-banner" role="alert">
+              ⚠ {activeError}
+            </div>
+          )}
         </footer>
       )}
 
       {/* ── Toast Notification ────────────────────────────────────────── */}
-      {toastMessage && <div className="toast-notification">{toastMessage}</div>}
+      <div className="toast-region" role="status" aria-live="polite">
+        {toastMessage && (
+          <div className="toast-notification">{toastMessage}</div>
+        )}
+      </div>
 
       {showLogin && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, background: 'rgba(0,0,0,0.8)' }}>
           <Login onLogin={handleLoginSuccess} />
-          <button 
-            onClick={() => { setShowLogin(false); }} 
+          <button
+            onClick={() => { setShowLogin(false); }}
             style={{ position: 'absolute', top: '20px', right: '20px', background: 'transparent', color: 'white', border: 'none', cursor: 'pointer', fontSize: '18px' }}>
             Close
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Navigation ─────────────────────────────────────────────────────────────
+
+/** Client-side navigation for a same-document link, leaving modified clicks
+ *  (new tab/window) to the browser. */
+function ViewTab({
+  view,
+  current: isActive,
+  children,
+}: {
+  view: RoutedView;
+  current: boolean;
+  children: ReactNode;
+}) {
+  const href = VIEW_ROUTES[view];
+  return (
+    <a
+      href={href}
+      className={`tab-btn ${isActive ? "active" : ""}`}
+      aria-current={isActive ? "page" : undefined}
+      onClick={(event) => {
+        followLink(event, href);
+      }}
+    >
+      {children}
+    </a>
+  );
+}
+
+function NotFound({ path }: { path: string }) {
+  useEffect(() => {
+    const isLight = sessionStorage.getItem("signals-theme") === "light";
+    document.documentElement.classList.toggle("light", isLight);
+    document.documentElement.classList.toggle("dark", !isLight);
+  }, []);
+
+  const home = VIEW_ROUTES.comparative;
+  return (
+    <div className="app">
+      <header className="app-header">
+        <div className="header-left">
+          <a className="brand" href="/" data-testid="link-brand">
+            <span className="brand-mark" aria-hidden="true" />
+            <span className="brand-name">URBANFLOW</span>
+          </a>
+        </div>
+      </header>
+      <main className="app-main full-screen not-found" role="main">
+        <h1>Page not found</h1>
+        <p>
+          There is no page at <code>{path}</code>.
+        </p>
+        <p className="not-found-links">
+          <a
+            href={home}
+            className="pb-btn pb-primary"
+            onClick={(event) => {
+              followLink(event, home);
+            }}
+          >
+            Start a comparison
+          </a>
+          <a href="/" className="pb-btn pb-secondary">
+            Back to the landing page
+          </a>
+        </p>
+      </main>
     </div>
   );
 }
@@ -805,16 +1011,22 @@ function ConfigToggle({
   value: boolean;
   onChange: (v: boolean) => void;
 }) {
+  const id = useId();
   return (
     <div className="config-item config-toggle-item">
-      <label className="config-label">{label}</label>
+      <span className="config-label" id={id}>
+        {label}
+      </span>
       <button
+        type="button"
         className={`toggle-btn ${value ? "toggle-on" : "toggle-off"}`}
+        aria-pressed={value}
+        aria-labelledby={id}
         onClick={() => {
           onChange(!value);
         }}
       >
-        {value ? "ON" : "OFF"}
+        {value ? "On" : "Off"}
       </button>
     </div>
   );

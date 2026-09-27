@@ -1,6 +1,6 @@
 import pytest
 
-from src.core.enums import Direction
+from src.core.enums import Direction, TurnIntent
 from src.roads.approach import Approach
 from src.roads.network import RoadNetwork
 from src.vehicles.spawner import VehicleSpawner
@@ -186,3 +186,123 @@ def test_directional_split_asymmetry() -> None:
     assert not all(s == 0.25 for s in splits)
     # Total sum of directional splits should still equal 1.0
     assert pytest.approx(sum(splits), rel=1e-3) == 1.0
+
+
+def _single_lane_spawner() -> tuple[VehicleSpawner, RoadNetwork]:
+    network = RoadNetwork()
+    network.setup_default_intersection(200.0, 3.5, 1)
+    config = {
+        "simulation": {"randomSeed": 7},
+        "traffic": {
+            "arrivalRate": 0.5,
+            "directionalSplit": {"north": 1.0, "south": 0.0, "east": 0.0, "west": 0.0},
+            "turnProbabilities": {"left": 0.0, "straight": 1.0, "right": 0.0},
+        },
+    }
+    return VehicleSpawner(config, network), network
+
+
+def test_spawn_behind_stopped_vehicle_enters_slowly_enough_to_stop() -> None:
+    """Regression: a vehicle inserted a few metres behind a stopped queue tail
+    used to enter at its full desired speed (18-25 m/s), could not stop even at
+    the IDM's hard braking limit, and drove through the vehicle ahead."""
+    from src.vehicles.vehicle import Vehicle
+
+    spawner, network = _single_lane_spawner()
+    lane = network.get_incoming_approach(Direction.NORTH).get_lanes()[0]
+    route = network.generate_route(Direction.NORTH, 0, TurnIntent.STRAIGHT)
+    # Queue tail just far enough back for the entry to be "unblocked".
+    tail = Vehicle("tail", 4.5, 2.0, 20.0, route, start_position=12.0)
+    tail.speed = 0.0
+
+    new = spawner._attempt_spawn(Direction.NORTH)
+    assert new is not None
+    gap = tail.position - tail.length / 2.0 - (new.position + new.length / 2.0)
+    # Braking comfortably (3 m/s^2) it must stop with minimumGap to spare.
+    stopping_distance = new.speed**2 / (2.0 * 3.0)
+    assert stopping_distance <= gap - spawner.minimum_gap + 1e-9
+    assert new.speed < new.desired_speed
+    lane.remove_vehicle(tail)
+    lane.remove_vehicle(new)
+
+
+def test_spawn_on_empty_lane_still_enters_at_desired_speed() -> None:
+    spawner, _ = _single_lane_spawner()
+    new = spawner._attempt_spawn(Direction.NORTH)
+    assert new is not None
+    assert new.speed == new.desired_speed
+
+
+def test_saturated_entry_never_produces_same_lane_overlap() -> None:
+    """End to end: at a demand high enough for queues to reach the entry, no
+    two vehicles on one lane may ever overlap (the collision audit skips
+    same-lane pairs, so this would otherwise go unreported)."""
+    from src.controllers.factory import create_controller
+    from src.core.clock import Clock
+    from src.core.engine import SimulationEngine
+
+    config = {
+        "simulation": {"duration": 40, "timeStep": 0.1, "randomSeed": 2},
+        "geometry": {"intersectionType": "fixed_time_signal"},
+        "roads": {"lanesPerApproach": 1},
+        "traffic": {"arrivalRate": 1.2, "totalVehicles": 100000},
+    }
+    clock = Clock(time_step=0.1)
+    engine = SimulationEngine(clock, duration=40, config=config)
+    engine.controller = create_controller(config, engine.network)
+    while engine.status.value.lower() != "completed":
+        engine.step()
+        by_lane: dict[str, list] = {}
+        for v in engine.pool.active_vehicles:
+            if v.lane is not None:
+                by_lane.setdefault(v.lane.lane_id, []).append(v)
+        for vehicles in by_lane.values():
+            vehicles.sort(key=lambda v: v.position)
+            for a, b in zip(vehicles, vehicles[1:]):
+                gap = b.position - a.position - (a.length + b.length) / 2.0
+                assert gap > -0.05, (
+                    clock.get_elapsed_time(),
+                    a.vehicle_id,
+                    b.vehicle_id,
+                    gap,
+                )
+
+
+def test_blocked_arrival_keeps_its_turn_intent_until_placed() -> None:
+    """Regression: a blocked arrival used to re-draw its turn intent on every
+    retry, so a left-turner confined to a full left lane was re-rolled into a
+    straight-mover and admitted, distorting the configured turning mix."""
+    from src.vehicles.vehicle import Vehicle
+
+    network = RoadNetwork()
+    network.setup_default_intersection(200.0, 3.5, 2)
+    config = {
+        "simulation": {"randomSeed": 3},
+        "traffic": {
+            "arrivalRate": 0.5,
+            "turnProbabilities": {"left": 0.5, "straight": 0.5, "right": 0.0},
+        },
+    }
+    spawner = VehicleSpawner(config, network)
+    left_lane = network.get_incoming_approach(Direction.NORTH).get_lanes()[0]
+    route = network.generate_route(Direction.NORTH, 0, TurnIntent.LEFT)
+    blocker = Vehicle("blocker", 4.5, 2.0, 20.0, route, start_position=3.0)
+    blocker.speed = 0.0
+
+    # Draw arrivals until one is a (blocked) left-turner.
+    for _ in range(50):
+        placed = spawner._attempt_spawn(Direction.NORTH)
+        if placed is None:
+            break
+        placed.lane.remove_vehicle(placed)
+    else:
+        pytest.fail("never drew a left-turner")
+
+    # While its lane stays blocked, retries must keep failing — never
+    # admitting a re-rolled straight-mover in its place.
+    for _ in range(200):
+        assert spawner._attempt_spawn(Direction.NORTH) is None
+
+    left_lane.remove_vehicle(blocker)
+    placed = spawner._attempt_spawn(Direction.NORTH)
+    assert placed is not None and placed.turn_intent == TurnIntent.LEFT

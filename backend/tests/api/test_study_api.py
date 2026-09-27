@@ -74,10 +74,29 @@ def test_api_study_endpoints(tmp_path, monkeypatch) -> None:
     # 8. Export Study Report JSON
     res_exp_json = client.get("/api/v1/study/export?format=json")
     assert res_exp_json.status_code == 200
-    assert res_exp_json.json()["version"] == "1.0.0"
+    assert res_exp_json.json()["version"] == "1.1.0"
 
     # 9. Export Study Report CSV
     res_exp_csv = client.get("/api/v1/study/export?format=csv")
     assert res_exp_csv.status_code == 200
     assert "text/csv" in res_exp_csv.headers["content-type"]
     assert "=== COMPREHENSIVE TRAFFIC STUDY REPORT ===" in res_exp_csv.text
+
+
+def test_monte_carlo_confidence_level_is_validated_and_forwarded() -> None:
+    bad = client.post(
+        "/api/v1/study/validate/monte-carlo",
+        json={"numSeeds": 2, "duration": 3.0, "confidenceLevel": 0.8},
+    )
+    assert bad.status_code == 422
+
+    ok = client.post(
+        "/api/v1/study/validate/monte-carlo",
+        json={"numSeeds": 2, "duration": 3.0, "confidenceLevel": 0.99},
+    )
+    assert ok.status_code == 200
+    body = ok.json()
+    assert body["confidenceLevel"] == 0.99
+    assert body["alpha"] == 0.01
+    assert body["signal"]["delay"]["ciConfidence"] == 0.99
+    assert "calibration" in body

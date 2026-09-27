@@ -365,3 +365,59 @@ def test_websocket_streams() -> None:
         dual_frame = ws.receive_json()
         assert "signal" in dual_frame
         assert "roundabout" in dual_frame
+
+
+def test_dashboard_config_passes_through_corridor_greens() -> None:
+    """The dashboard can set separate NS/EW greens (the controller's
+    nsGreenDuration/ewGreenDuration overrides). They must reach the live
+    signal controller unchanged, and omitting them must leave the
+    controller config exactly as before (no override keys at all)."""
+    from src.main import (
+        _get_or_create_session,
+        _live_session_var,
+        update_simulation_config,
+    )
+
+    session = _get_or_create_session("test-corridor-greens")
+    token = _live_session_var.set(session)
+    try:
+        update_simulation_config(
+            {
+                "intersectionType": "fixed_time_signal",
+                "greenDuration": 25,
+                "nsGreenDuration": 30,
+                "ewGreenDuration": 20,
+            }
+        )
+        ctrl = session.current_live_config["controller"]
+        assert ctrl["straightRightDuration"] == 25.0
+        assert ctrl["nsGreenDuration"] == 30.0
+        assert ctrl["ewGreenDuration"] == 20.0
+
+        update_simulation_config(
+            {"intersectionType": "fixed_time_signal", "greenDuration": 25}
+        )
+        ctrl = session.current_live_config["controller"]
+        assert "nsGreenDuration" not in ctrl
+        assert "ewGreenDuration" not in ctrl
+    finally:
+        _live_session_var.reset(token)
+
+
+@pytest.mark.parametrize("value", [5, 0, -3, 121, "fast"])
+def test_dashboard_config_rejects_invalid_corridor_green(value: object) -> None:
+    """Same bounds as ControllerSection (gt=5, le=120), as a 400."""
+    res = client.post(
+        "/api/simulation/config",
+        json={"intersectionType": "fixed_time_signal", "nsGreenDuration": value},
+    )
+    assert res.status_code == 400
+    assert "nsgreenduration" in res.json()["error"]["message"].lower()
+
+
+def test_live_snapshot_reports_warmup_time() -> None:
+    """Snapshots expose the collector's warmup so clients can label the
+    warm-up period instead of presenting its zeros as results."""
+    client.post("/api/simulation/config", json={"intersectionType": "roundabout"})
+    snapshot = get_or_create_live_simulation()["builder"].build()
+    assert snapshot["warmupTime"] == 30.0

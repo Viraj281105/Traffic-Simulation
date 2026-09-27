@@ -1,10 +1,10 @@
 import math
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Set, Tuple
 
 from src.controllers.base import BaseController
 from src.controllers.virtual_obstacle import VirtualObstacle
 from src.core.enums import Direction, TurnIntent
-from src.roads.network import RoadNetwork
+from src.roads.network import ROUNDABOUT_ENTRY_SETBACK, RoadNetwork
 from src.vehicles.vehicle import Vehicle
 
 # Distance from the entry point (lane end) within which a vehicle is
@@ -23,7 +23,44 @@ _ENTRY_ZONE: float = 5.0
 # over a realistic braking distance instead lets IDM's free-road term bring
 # the vehicle down to entrySpeed *before* it reaches the give-way line,
 # which is what a real roundabout approach taper does.
-_ENTRY_APPROACH_ZONE: float = 60.0
+#
+# 2026-09-25: 60 m -> 10 m. The continuous braking taper outside the zone (see
+# _approach_speed_limit) now does the slowing, and desired speeds follow the
+# 50 km/h speed limit rather than 18-25 m/s (vehicles/speed_profile.py), so the
+# zone only has to cover the last two vehicle lengths before the give-way line.
+# At 60 m every vehicle crawled at entrySpeed for 60 m of straight road, which
+# alone added about 6 s of delay per vehicle at an empty roundabout (free-flow
+# delay 13.4 s -> 7.7 s at 180 veh/h, seed 1; peak braking and collisions
+# unchanged). That was the largest part of why roundabout traffic looked so
+# much slower than signal traffic.
+_ENTRY_APPROACH_ZONE: float = 10.0
+
+# Comfortable deceleration (m/s^2) used to shape the spillback speed limit
+# while an approach is congested (see _approach_speed_limit).
+_APPROACH_DECEL: float = 3.0
+
+# Spillback detection. A queue is "propagating" once its tail is further from
+# the give-way line than _QUEUE_TRIGGER_DIST (a short standing queue at a
+# give-way line is normal and must not slow anything), and the approach is
+# only treated as congested when the ring is also not discharging it — a queue
+# that is moving is just traffic. The congestion state is released at the
+# smaller _QUEUE_RELEASE_DIST (hysteresis) so it cannot chatter around one
+# threshold.
+_QUEUE_TRIGGER_DIST: float = 20.0
+_QUEUE_RELEASE_DIST: float = 10.0
+_QUEUE_STOPPED_SPEED: float = 0.5
+# A vehicle at the give-way line heads the queue if within this distance of it.
+_QUEUE_HEAD_WINDOW: float = 10.0
+# Extra bumper-to-bumper distance (beyond vehicle length) still counted as
+# the same standing queue.
+_QUEUE_LINK_SLACK: float = 6.0
+# The approach must have gone this long without discharging a vehicle onto
+# the ring before the queue counts as stalled, and must have discharged this
+# recently for the state to be released early.
+_STALL_ON_TIME: float = 6.0
+_STALL_OFF_TIME: float = 1.5
+# Minimum time the congested state is held once entered.
+_CONGESTION_MIN_HOLD: float = 3.0
 
 # Connection-lane ids are built as "conn_{direction.value}_{index}_{turn.value}"
 # (see RoadNetwork._get_or_create_connection_lane), so the tokens are the full
@@ -76,6 +113,15 @@ class RoundaboutController(BaseController):
         # was first applied, so it can be restored once the vehicle starts
         # circulating (see update()).
         self._pre_entry_desired_speed: Dict[str, float] = {}
+        # Per-approach spillback state (keyed by Direction.value): whether the
+        # approach is latched congested, when it was latched, and since when
+        # its head vehicle has been waiting. See _update_congestion().
+        self._congested: Dict[str, bool] = {}
+        self._congested_since: Dict[str, float] = {}
+        self._queue_since: Dict[str, float] = {}
+        # lane_id -> (approach congested, distance from give-way line to the
+        # queue tail), rebuilt every tick for the approach speed limit.
+        self._approach_ctx: Dict[str, Tuple[bool, float]] = {}
         self.reset()
 
     def reset(self) -> None:
@@ -83,6 +129,10 @@ class RoundaboutController(BaseController):
         self._last_entry_time = {}
         self._prev_zone_occupants = {}
         self._pre_entry_desired_speed = {}
+        self._congested = {}
+        self._congested_since = {}
+        self._queue_since = {}
+        self._approach_ctx = {}
         # Clear all entry obstacles initially
         for d in Direction:
             try:
@@ -105,6 +155,118 @@ class RoundaboutController(BaseController):
             self._pre_entry_desired_speed[vehicle.vehicle_id] = original
         return original
 
+    @staticmethod
+    def _queue_tail_distance(lane: Any) -> float:
+        """Distance from the give-way line back to the tail of the standing queue.
+
+        A queue is the chain of stopped vehicles that starts at the line and
+        runs upstream with no gap larger than a vehicle length plus a little
+        slack. Returns 0.0 when nothing is queued at the line.
+        """
+        vehicles = sorted(lane.get_vehicles(), key=lambda v: v.position, reverse=True)
+        tail_dist = 0.0
+        prev = None
+        for v in vehicles:
+            if v.speed >= _QUEUE_STOPPED_SPEED:
+                break
+            if prev is None:
+                if (lane.length - v.position) > _QUEUE_HEAD_WINDOW:
+                    break
+            elif (prev.position - v.position) > prev.length + _QUEUE_LINK_SLACK:
+                break
+            tail_dist = lane.length - v.position
+            prev = v
+        return tail_dist
+
+    def _update_congestion(self) -> None:
+        """Refresh per-approach spillback state and the per-lane speed context.
+
+        An approach is congested when its standing queue has propagated past
+        _QUEUE_TRIGGER_DIST AND the ring has not discharged it for
+        _STALL_ON_TIME. Once latched it is held for _CONGESTION_MIN_HOLD and
+        released when the queue recedes inside _QUEUE_RELEASE_DIST or the ring
+        starts discharging again. The asymmetric thresholds and the minimum
+        hold are what keep the state from chattering.
+        """
+        now = self.time_in_current_state
+        self._approach_ctx = {}
+        for d in Direction:
+            try:
+                lanes = self.network.get_incoming_approach(d).get_lanes()
+            except KeyError:
+                continue
+            key = d.value
+
+            tail_dist = max(
+                (self._queue_tail_distance(ln) for ln in lanes), default=0.0
+            )
+            if tail_dist > 0.0:
+                self._queue_since.setdefault(key, now)
+            else:
+                self._queue_since.pop(key, None)
+
+            last_discharge = max(
+                (self._last_entry_time.get(ln.lane_id, -math.inf) for ln in lanes),
+                default=-math.inf,
+            )
+            waiting_since = max(self._queue_since.get(key, now), last_discharge)
+            stalled_for = now - waiting_since
+
+            congested = self._congested.get(key, False)
+            if not congested:
+                if tail_dist > _QUEUE_TRIGGER_DIST and stalled_for >= _STALL_ON_TIME:
+                    congested = True
+                    self._congested_since[key] = now
+            else:
+                held = now - self._congested_since.get(key, now)
+                discharging = (now - last_discharge) < _STALL_OFF_TIME
+                if held >= _CONGESTION_MIN_HOLD and (
+                    tail_dist <= _QUEUE_RELEASE_DIST or discharging
+                ):
+                    congested = False
+                    self._congested_since.pop(key, None)
+            self._congested[key] = congested
+
+            for ln in lanes:
+                self._approach_ctx[ln.lane_id] = (congested, tail_dist)
+
+    def _approach_speed_limit(self, lane: Any, position: float) -> float:
+        """Desired-speed ceiling for a vehicle on an approach lane.
+
+        Normally: entrySpeed within _ENTRY_APPROACH_ZONE of the give-way line
+        and no limit beyond it. While the approach is congested, additionally
+        the speed from which the vehicle can still brake at _APPROACH_DECEL
+        down to entrySpeed by the queue tail, so spillback is met at
+        entrySpeed rather than at free-flow speed. The result is the tighter
+        of the two.
+        """
+        dist_to_line = max(0.0, lane.length - position)
+        # Outside the zone the ceiling is the speed from which the vehicle can
+        # still brake at _APPROACH_DECEL down to entrySpeed by the time it
+        # reaches the zone. It used to be a step — unlimited, then entrySpeed
+        # the instant a vehicle crossed the 60 m mark — which dropped the
+        # desired speed of a 20-25 m/s vehicle to 5 m/s in one tick. IDM's
+        # free-road term answers that with -a(v/v0)^4, i.e. the 9 m/s^2 hard
+        # limit: 55 of 56 vehicles at a lightly loaded roundabout were doing
+        # emergency stops on every approach. The taper is continuous with the
+        # zone's own cap and with the congested taper below, and changes
+        # nothing inside the zone.
+        if dist_to_line <= _ENTRY_APPROACH_ZONE:
+            limit = self.entry_speed
+        else:
+            limit = math.sqrt(
+                self.entry_speed**2
+                + 2.0 * _APPROACH_DECEL * (dist_to_line - _ENTRY_APPROACH_ZONE)
+            )
+        congested, tail_dist = self._approach_ctx.get(lane.lane_id, (False, 0.0))
+        if congested:
+            dist_to_tail = max(0.0, dist_to_line - tail_dist)
+            limit = min(
+                limit,
+                math.sqrt(self.entry_speed**2 + 2.0 * _APPROACH_DECEL * dist_to_tail),
+            )
+        return limit
+
     def update(self, delta_time: float, active_vehicles: List[Vehicle]) -> None:
         self.update_active_vehicles_ref(active_vehicles)
         self.time_in_current_state += delta_time
@@ -116,9 +278,14 @@ class RoundaboutController(BaseController):
             if v.lane is not None and v.lane.lane_id.startswith("conn")
         ]
 
+        self._update_congestion()
+
         # Speed regime through the roundabout, in three stages:
         #
-        #   approach  -> capped to entrySpeed over a realistic braking distance
+        #   approach  -> capped to entrySpeed over the last
+        #                _ENTRY_APPROACH_ZONE; while the approach is congested
+        #                also tapered to entrySpeed at the queue tail (see
+        #                _approach_speed_limit)
         #   circulating -> capped to circulatingSpeed
         #   exit      -> original desired speed restored
         #
@@ -143,11 +310,17 @@ class RoundaboutController(BaseController):
                 v.desired_speed = min(
                     self._remember_desired_speed(v), self.circulating_speed
                 )
-            elif (
-                "_in_" in lane_id
-                and (v.lane.length - v.position) <= _ENTRY_APPROACH_ZONE
-            ):
-                v.desired_speed = min(self._remember_desired_speed(v), self.entry_speed)
+            elif "_in_" in lane_id:
+                original = self._pre_entry_desired_speed.get(
+                    v.vehicle_id, v.desired_speed
+                )
+                limit = self._approach_speed_limit(v.lane, v.position)
+                if limit < original:
+                    v.desired_speed = min(self._remember_desired_speed(v), limit)
+                elif v.vehicle_id in self._pre_entry_desired_speed:
+                    # Limit has lifted (congestion cleared): hand the
+                    # vehicle its own speed back.
+                    v.desired_speed = original
             elif "_out_" in lane_id:
                 # Clear of the roundabout: give the vehicle its own speed back.
                 original_speed = self._pre_entry_desired_speed.pop(v.vehicle_id, None)
@@ -255,6 +428,30 @@ class RoundaboutController(BaseController):
                             theta_cv = math.atan2(cv_y, cv_x)
                             # Angular distance from circulating vehicle to entry point (counter-clockwise)
                             angular_gap = (theta_entry - theta_cv) % (2 * math.pi)
+
+                            # A vehicle that leaves the ring before it gets
+                            # here is not conflicting traffic. Only the exit
+                            # at this entry's own arm used to be excluded
+                            # (check 3 above), so an entering driver also gave
+                            # way to vehicles about to turn off at an earlier
+                            # exit — at low demand roughly one first stop in
+                            # four was for a vehicle that never arrived, at a
+                            # junction that looked empty. The exit angle is
+                            # read from the vehicle's own path, so this holds
+                            # for every ring and turn.
+                            if cv.lane is not None and cv.lane.lane_id.startswith(
+                                "conn"
+                            ):
+                                ex, ey = cv.lane.end_coords
+                                angle_to_exit = (math.atan2(ey, ex) - theta_cv) % (
+                                    2 * math.pi
+                                )
+                                past_ring = (
+                                    cv.lane.length - cv.position
+                                    <= ROUNDABOUT_ENTRY_SETBACK
+                                )
+                                if angle_to_exit < angular_gap or past_ring:
+                                    continue
 
                             # If angular_gap < pi, it is upstream / approaching the entry point
                             if angular_gap < math.pi:

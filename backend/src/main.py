@@ -7,13 +7,14 @@ import json
 import logging
 import os
 import random
+import re
 import secrets
 import threading
 import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated, Any, Dict, Optional
+from typing import Annotated, Any, Dict, Literal, Optional
 
 import jsonschema
 from fastapi import (
@@ -21,24 +22,38 @@ from fastapi import (
     FastAPI,
     Header,
     HTTPException,
+    Query,
     Request,
     WebSocket,
     WebSocketDisconnect,
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from src.controllers.factory import (
     build_tick_callback,
     create_controller,
     derive_signals_state,
 )
+from src.controllers.fixed_time_signal import FixedTimeSignalController
 from src.core.clock import Clock
 from src.core.config_models import ScenarioConfiguration
+from src.core.config_validation import semantic_config_errors
 from src.core.engine import SimulationEngine
 from src.core.enums import SimulationStatus
-from src.database.dao import RunMetricsDAO, SimulationRunDAO, SweepSessionDAO
+from src.core.limits import demand_vehicle_limit
+from src.core.provenance import (
+    GIT_COMMIT_HASH,
+    PYTHON_VERSION,
+    build_run_provenance,
+)
+from src.database.dao import (
+    RunMetricsDAO,
+    SimulationRunDAO,
+    SweepSessionDAO,
+    describe_reproducibility,
+)
 from src.database.db import DB_PATH, get_db_connection, init_db  # noqa: F401
 from src.database.replay_dao import ReplayDAO
 from src.metrics.collector import MetricCollector
@@ -49,7 +64,12 @@ from src.study.report_generator import (
     generate_study_report_csv,
     generate_study_report_json,
 )
-from src.study.validation import run_invariant_checks, run_statistical_validation
+from src.study.tolerances import delays_are_tied
+from src.study.validation import (
+    SUPPORTED_CONFIDENCE_LEVELS,
+    run_invariant_checks,
+    run_statistical_validation,
+)
 from src.study.volume_sweep import run_volume_sweep_experiment
 
 logging.basicConfig(level=logging.INFO)
@@ -344,16 +364,23 @@ def get_active_vehicles() -> list[dict[str, Any]]:
 def validate_config(payload: Dict[str, Any]) -> Dict[str, Any]:
     try:
         jsonschema.validate(instance=payload, schema=CONFIG_SCHEMA)
-        return {"valid": True, "errors": []}
     except jsonschema.ValidationError as err:
         return {"valid": False, "errors": [err.message]}
+    errors = semantic_config_errors(payload)
+    return {"valid": not errors, "errors": errors}
 
 
 # ── Full Simulation Lifecycle REST Routes ───────────────────────────────────
 @app.post("/api/simulation/new", dependencies=[Depends(require_api_key)])
 def create_simulation_v2(payload: ScenarioConfiguration) -> Dict[str, Any]:
     config_dict = payload.model_dump(exclude_none=True)
-    return create_simulation(config_dict)
+    # Cross-field rules are checked against what the client actually sent,
+    # not the defaults-filled dump: warmupTime's 30 s default must not turn a
+    # short run into a rejected one (see semantic_config_errors).
+    return _create_simulation(
+        config_dict,
+        semantic_source=payload.model_dump(exclude_none=True, exclude_unset=True),
+    )
 
 
 def _persist_completed_run(
@@ -408,6 +435,13 @@ def _persist_completed_run(
                 duration=elapsed,
                 config=config,
                 summary_metrics=final_metrics,
+                provenance=build_run_provenance(
+                    config_source="engine",
+                    run_mode="single",
+                    time_step=engine.clock.time_step,
+                    duration=engine.duration,
+                    warmup_time=collector.warmup_time,
+                ),
             )
     except Exception:
         logger.exception("Failed to persist simulation run %s to history", sim_id)
@@ -445,12 +479,27 @@ def _evict_completed_simulations() -> None:
     dependencies=[Depends(require_api_key)],
 )
 def create_simulation(config: Dict[str, Any]) -> Dict[str, Any]:
+    return _create_simulation(config, semantic_source=config)
+
+
+def _create_simulation(
+    config: Dict[str, Any], semantic_source: Dict[str, Any]
+) -> Dict[str, Any]:
     # Validate configuration against the schema (schema-level shape/bounds).
     try:
         jsonschema.validate(instance=config, schema=CONFIG_SCHEMA)
     except jsonschema.ValidationError as err:
         raise HTTPException(
             status_code=400, detail=f"Invalid configuration: {err.message}"
+        )
+    # ...and against the contract's cross-field rules, which the schema
+    # cannot express (docs/architecture/06-scenario-configuration-contract.md
+    # §5). These were documented but never enforced.
+    semantic_errors = semantic_config_errors(semantic_source)
+    if semantic_errors:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid configuration: {'; '.join(semantic_errors)}",
         )
 
     sim_id = str(uuid.uuid4())
@@ -790,12 +839,9 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "vehicleGeneration": {
         "stopSpeedThreshold": 0.1,
         "waitSpeedThreshold": 0.5,
-        "maxAcceleration": 3.0,
-        "comfortDeceleration": 3.5,
-        "desiredSpeed": {
-            "min": 18.0,
-            "max": 25.0,
-        },
+        # Acceleration, braking and desired speed are the engine defaults
+        # (IDM a = 2.0, b = 3.0 m/s^2; desired speed from roads.speedLimit),
+        # i.e. the same vehicles as the calibrated capacity study.
     },
 }
 
@@ -1080,63 +1126,43 @@ def _reseed_unless_user_pinned(session: "_LiveSession") -> None:
     session.current_live_config["simulation"]["randomSeed"] = _generate_random_seed()
 
 
-@app.post("/api/simulation/config", dependencies=[Depends(require_api_key)])
-def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
-    # Unlike /api/v1/simulations and /api/simulation/new, this endpoint
-    # builds its config dict directly from the raw payload without ever
-    # running it through CONFIG_SCHEMA or a Pydantic model. An unrecognized
-    # intersectionType previously passed through silently: the controller
-    # dict below is shaped by `== "fixed_time_signal"` (so any other value,
-    # typo or not, gets the roundabout-shaped controller dict), while
-    # create_controller() separately checks `== "roundabout"` (so anything
-    # else, including that same typo, builds a FixedTimeSignalController) —
-    # the two checks disagree for any value that is neither, so a typo
-    # silently ignored the user's submitted signal-timing parameters
-    # instead of failing. Reject it up front instead, consistent with how
-    # the versioned creation endpoints already validate this field.
-    intersection_type = payload.get("intersectionType")
-    if (
-        intersection_type is not None
-        and intersection_type not in _VALID_INTERSECTION_TYPES
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Invalid intersectionType '{intersection_type}'. "
-                f"Must be one of: {', '.join(_VALID_INTERSECTION_TYPES)}."
-            ),
-        )
+def _live_config_errors(config: Dict[str, Any]) -> list[str]:
+    """Schema bounds plus cross-field rules for a compiled live-dashboard config.
 
-    session = _current_session()
-    # Shutdown existing simulation if running
-    if session.live_sim_data["engine"] is not None:
+    The live config carries one shape the versioned schema does not accept —
+    a per-direction ``lanesPerApproach`` object (see §2.4 of the scenario
+    contract) — so each direction's lane count is checked as if it were the
+    scalar the schema expects. Everything else is validated as-is.
+    """
+    lanes = config.get("roads", {}).get("lanesPerApproach")
+    per_direction = lanes if isinstance(lanes, dict) else {"all": lanes}
+    for direction, count in per_direction.items():
+        candidate = copy.deepcopy(config)
+        candidate["roads"]["lanesPerApproach"] = count
         try:
-            session.live_sim_data["engine"].stop()
-        except Exception:
-            pass
-        session.live_sim_data["engine"] = None
+            jsonschema.validate(instance=candidate, schema=CONFIG_SCHEMA)
+        except jsonschema.ValidationError as err:
+            where = "/".join(str(p) for p in err.absolute_path)
+            if where == "roads/lanesPerApproach" and direction != "all":
+                where = f"lanes{direction.capitalize()}"
+            return [f"{where}: {err.message}" if where else err.message]
+    # warmupTime is not a dashboard input — it is always DEFAULT_CONFIG's
+    # 30 s — so a short dashboard run must not be rejected for it (the same
+    # "explicit warmupTime only" rule the versioned API applies).
+    user_supplied = copy.deepcopy(config)
+    user_supplied.get("simulation", {}).pop("warmupTime", None)
+    return semantic_config_errors(user_supplied)
 
-    # Reset dual orchestrator if existing
-    if session.dual_sim_orchestrator is not None:
-        try:
-            session.dual_sim_orchestrator.stop()
-        except Exception:
-            pass
-        session.dual_sim_orchestrator = None
 
-    # Determine randomSeed (preserve user-provided seed explicitly)
-    raw_seed = payload.get("randomSeed")
-    if raw_seed is not None and str(raw_seed).strip() != "":
-        try:
-            seed_val = int(raw_seed)
-            session.is_user_defined_seed = True
-        except (ValueError, TypeError):
-            seed_val = _generate_random_seed()
-            session.is_user_defined_seed = False
-    else:
-        seed_val = _generate_random_seed()
-        session.is_user_defined_seed = False
+def _compile_dashboard_config(payload: Dict[str, Any], seed_val: int) -> Dict[str, Any]:
+    """Compiles the dashboard's flat scenario payload into an engine config.
 
+    The single definition of what a dashboard scenario means: the live
+    session (/api/simulation/config) runs it, and the reliability check
+    (/api/v1/study/validate/monte-carlo with ``scenario``) repeats exactly
+    the same scenario over other seeds. Raises HTTPException(400) for a
+    payload the simulator would reject.
+    """
     # Duration must fall within the same bounds the versioned API enforces
     # via SimulationSection.duration (ge=1, le=3600 — see config_models.py
     # and config.schema.json). This endpoint builds its config by hand
@@ -1160,13 +1186,40 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
             ),
         )
 
+    # Optional asymmetric corridor greens (see FixedTimeSignalController.
+    # _green_duration_for): when present, the NS or EW corridor uses its own
+    # green instead of greenDuration/straightRightDuration. Same bounds as
+    # ControllerSection.nsGreenDuration/ewGreenDuration (gt=5, le=120).
+    # Omitted or null keeps the single shared green exactly as before.
+    corridor_greens: Dict[str, float] = {}
+    for corridor_key in ("nsGreenDuration", "ewGreenDuration"):
+        raw_green = payload.get(corridor_key)
+        if raw_green is None:
+            continue
+        try:
+            green_val = float(raw_green)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid {corridor_key} {raw_green!r}: must be a number.",
+            ) from exc
+        if not (5.0 < green_val <= 120.0):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Invalid {corridor_key} {green_val}: must be greater than 5 "
+                    "and at most 120 seconds."
+                ),
+            )
+        corridor_greens[corridor_key] = green_val
+
     # Compile the config dictionary based on user payload. The remaining
     # numeric fields are coerced directly from the raw payload (same as
     # duration above); wrap them the same way create_simulation() already
     # does for /api/v1/simulations so malformed input is a 400, not a raw
     # 500 that leaks past the client-facing error envelope.
     try:
-        session.current_live_config = {
+        config: Dict[str, Any] = {
             "simulation": {
                 "timeStep": DEFAULT_CONFIG["simulation"]["timeStep"],
                 "duration": duration_val,
@@ -1193,6 +1246,11 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
             "traffic": {
                 "arrivalRate": float(payload.get("arrivalRate", 0.5)),
                 "arrivalDistribution": "poisson",
+                # Sized to the scenario so the default 200-vehicle cap can
+                # never silently truncate the demand asked for.
+                "totalVehicles": demand_vehicle_limit(
+                    float(payload.get("arrivalRate", 0.5)), duration_val
+                ),
             },
             "controller": (
                 {
@@ -1230,6 +1288,7 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
                     "phaseSequence": copy.deepcopy(
                         DEFAULT_CONFIG["controller"]["phaseSequence"]
                     ),
+                    **corridor_greens,
                 }
                 if payload.get("intersectionType", "fixed_time_signal")
                 == "fixed_time_signal"
@@ -1253,6 +1312,86 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
         raise HTTPException(
             status_code=400, detail=f"Invalid configuration: {exc}"
         ) from exc
+
+    # The coercions above only reject values that are not numbers at all.
+    # Range checks were missing entirely, so lanesNorth=0 or -1, a negative or
+    # NaN arrivalRate, a negative yellow/all-red or a negative critical gap
+    # were all accepted and quietly simulated as something meaningless. Hold
+    # the compiled config to the same schema bounds as the versioned API.
+    live_errors = _live_config_errors(config)
+    if live_errors:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid configuration: {'; '.join(live_errors)}",
+        )
+    return config
+
+
+@app.post("/api/simulation/config", dependencies=[Depends(require_api_key)])
+def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
+    # Unlike /api/v1/simulations and /api/simulation/new, this endpoint
+    # builds its config dict directly from the raw payload without ever
+    # running it through CONFIG_SCHEMA or a Pydantic model. An unrecognized
+    # intersectionType previously passed through silently: the controller
+    # dict below is shaped by `== "fixed_time_signal"` (so any other value,
+    # typo or not, gets the roundabout-shaped controller dict), while
+    # create_controller() separately checks `== "roundabout"` (so anything
+    # else, including that same typo, builds a FixedTimeSignalController) —
+    # the two checks disagree for any value that is neither, so a typo
+    # silently ignored the user's submitted signal-timing parameters
+    # instead of failing. Reject it up front instead, consistent with how
+    # the versioned creation endpoints already validate this field.
+    intersection_type = payload.get("intersectionType")
+    if (
+        intersection_type is not None
+        and intersection_type not in _VALID_INTERSECTION_TYPES
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Invalid intersectionType '{intersection_type}'. "
+                f"Must be one of: {', '.join(_VALID_INTERSECTION_TYPES)}."
+            ),
+        )
+
+    session = _current_session()
+
+    # Determine randomSeed (preserve user-provided seed explicitly)
+    raw_seed = payload.get("randomSeed")
+    if raw_seed is not None and str(raw_seed).strip() != "":
+        try:
+            seed_val = int(raw_seed)
+            session.is_user_defined_seed = True
+        except (ValueError, TypeError):
+            seed_val = _generate_random_seed()
+            session.is_user_defined_seed = False
+    else:
+        seed_val = _generate_random_seed()
+        session.is_user_defined_seed = False
+
+    # Leave the session on its previous (valid) config — and its runs
+    # untouched — if this one is rejected: the compile raises before
+    # anything is assigned.
+    session.current_live_config = _compile_dashboard_config(payload, seed_val)
+
+    # Only now tear down the old runs. The dual stream recreates a missing
+    # orchestrator from current_live_config on its next frame (see
+    # websocket_dual_stream), so clearing it while the old config was still
+    # in place let the stream rebuild the previous scenario, and the next
+    # Play ran that instead of the one just configured.
+    if session.live_sim_data["engine"] is not None:
+        try:
+            session.live_sim_data["engine"].stop()
+        except Exception:
+            pass
+        session.live_sim_data["engine"] = None
+
+    if session.dual_sim_orchestrator is not None:
+        try:
+            session.dual_sim_orchestrator.stop()
+        except Exception:
+            pass
+        session.dual_sim_orchestrator = None
 
     # Reset live simulation cache
     session.live_sim_data["engine"] = None
@@ -1485,10 +1624,41 @@ MAX_SWEEP_ARRIVAL_RATES = 20
 MAX_MONTE_CARLO_SEEDS = 30
 
 
+# Pagination for the history/sweep/replay listings. The values go straight
+# into SQL "LIMIT ? OFFSET ?", where SQLite reads a negative LIMIT as "no
+# limit": ?limit=-1 dumped the entire table, sweep result blobs included, in
+# one response.
+MAX_PAGE_SIZE = 500
+PageLimit = Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)]
+PageOffset = Annotated[int, Query(ge=0)]
+
 # Each swept arrival rate is bounded by the same range the scenario config
 # already enforces for traffic.arrivalRate, so a sweep cannot ask for a
 # workload the simulator would reject if configured directly.
 StudyArrivalRate = Annotated[float, Field(gt=0, le=10.0)]
+
+# Study runs honour customConfig.simulation.timeStep (the dashboards offer
+# 0.05 / 0.1 / 0.2 s). Cost scales with 1/timeStep, so it is bounded like
+# every other workload parameter: the floor is the finest step the dashboards
+# offer, the ceiling the scenario schema's own maximum.
+MIN_STUDY_TIME_STEP_SECONDS = 0.05
+MAX_STUDY_TIME_STEP_SECONDS = 1.0
+
+
+def _check_study_time_step(custom_config: Optional[Dict[str, Any]]) -> None:
+    sim = (custom_config or {}).get("simulation")
+    if not isinstance(sim, dict) or "timeStep" not in sim:
+        return
+    step = sim["timeStep"]
+    if (
+        not isinstance(step, (int, float))
+        or isinstance(step, bool)
+        or not (MIN_STUDY_TIME_STEP_SECONDS <= step <= MAX_STUDY_TIME_STEP_SECONDS)
+    ):
+        raise ValueError(
+            "customConfig.simulation.timeStep must be a number between "
+            f"{MIN_STUDY_TIME_STEP_SECONDS} and {MAX_STUDY_TIME_STEP_SECONDS} s"
+        )
 
 
 class VolumeSweepRequest(BaseModel):
@@ -1502,13 +1672,39 @@ class VolumeSweepRequest(BaseModel):
     name: str = Field(default="Comparative Volume Sweep", max_length=200)
     customConfig: Dict[str, Any] | None = None
 
+    @model_validator(mode="after")
+    def _time_step_in_bounds(self) -> "VolumeSweepRequest":
+        _check_study_time_step(self.customConfig)
+        return self
+
 
 class MonteCarloValidationRequest(BaseModel):
     numSeeds: int = Field(default=5, ge=1, le=MAX_MONTE_CARLO_SEEDS)
+    # Confidence level of the intervals and (as alpha = 1 - level) of the
+    # significance flags. One of 0.90 / 0.95 / 0.99.
+    confidenceLevel: float = Field(default=0.95)
     duration: float = Field(
         default=30.0, ge=MIN_STUDY_DURATION_SECONDS, le=MAX_STUDY_DURATION_SECONDS
     )
     customConfig: Dict[str, Any] | None = None
+    # The dashboard's own scenario payload (the body of /api/simulation/config).
+    # When given, the study repeats exactly that scenario — same geometry,
+    # demand, timings, warm-up and duration — over fresh seeds, so a
+    # "how reliable is this result?" check answers for the scenario the user
+    # actually ran rather than for a fixed study scenario. Its own duration
+    # then applies; ``duration`` and ``customConfig`` are not used with it.
+    scenario: Dict[str, Any] | None = None
+
+    @model_validator(mode="after")
+    def _time_step_in_bounds(self) -> "MonteCarloValidationRequest":
+        _check_study_time_step(self.customConfig)
+        if self.confidenceLevel not in SUPPORTED_CONFIDENCE_LEVELS:
+            raise ValueError(
+                f"confidenceLevel must be one of {list(SUPPORTED_CONFIDENCE_LEVELS)}"
+            )
+        if self.scenario is not None and self.customConfig is not None:
+            raise ValueError("Send either scenario or customConfig, not both")
+        return self
 
 
 class RepeatabilityValidationRequest(BaseModel):
@@ -1532,7 +1728,9 @@ def run_sweep_endpoint(payload: VolumeSweepRequest | None = None) -> Dict[str, A
 
 
 @app.get("/api/v1/study/sweeps")
-def list_sweeps_endpoint(limit: int = 20, offset: int = 0) -> list[Dict[str, Any]]:
+def list_sweeps_endpoint(
+    limit: PageLimit = 20, offset: PageOffset = 0
+) -> list[Dict[str, Any]]:
     """Lists past volume sweep benchmark experiments."""
     init_db()
     with get_db_connection() as conn:
@@ -1566,8 +1764,8 @@ class RunComparisonRequest(BaseModel):
 
 @app.get("/api/v1/study/history/runs")
 def list_simulation_runs_endpoint(
-    limit: int = 50,
-    offset: int = 0,
+    limit: PageLimit = 50,
+    offset: PageOffset = 0,
     intersection_type: str | None = None,
     seed: int | None = None,
     batch_id: str | None = None,
@@ -1597,6 +1795,213 @@ def get_simulation_run_endpoint(run_id: str) -> Dict[str, Any]:
         metrics = RunMetricsDAO.get_all_for_run(conn, run_id)
         return {"run": run, "metricsTimeline": metrics}
     raise HTTPException(status_code=500, detail="Database connection error")
+
+
+# Run ids are UUIDs, "sweep_<8 hex>_<sig|rnd>_<rate>" or other simple slugs.
+# Anything else (spaces, dots, slashes, unicode) cannot name a stored run and
+# is rejected up front as malformed rather than looked up.
+_RUN_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+
+
+def _validate_run_id(run_id: str) -> None:
+    if not _RUN_ID_PATTERN.fullmatch(run_id):
+        raise HTTPException(status_code=400, detail="Malformed run ID")
+
+
+def _run_record(conn: Any, run_id: str) -> Dict[str, Any]:
+    """The full reproducibility record of a run plus what the saved-run page
+    needs: its name (falling back to the saved replay's name for runs saved
+    before names were stored on the run) and whether a dashboard replay
+    exists to restore it from. 404 when the run does not exist."""
+    run = SimulationRunDAO.get(conn, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Simulation run not found")
+    record = describe_reproducibility(run)
+    replay = ReplayDAO.get(conn, run_id)
+    if record["name"] is None and replay is not None:
+        record["name"] = replay["name"]
+    record["savedReplay"] = replay is not None
+    return record
+
+
+@app.get("/api/v1/study/history/runs/{run_id}/reproducibility")
+def get_run_reproducibility_endpoint(run_id: str) -> Dict[str, Any]:
+    """Everything needed to re-run a stored experiment exactly: its config
+    (seed pinned), seed, git commit, Python version, timing and summary
+    metrics, plus its name, notes and tags. Fields a run never recorded
+    (runs saved before V1.1) are null."""
+    _validate_run_id(run_id)
+    init_db()
+    with get_db_connection() as conn:
+        return _run_record(conn, run_id)
+    raise HTTPException(status_code=500, detail="Database connection error")
+
+
+_MAX_TAGS = 20
+
+
+class RunMetadataUpdate(BaseModel):
+    """User-entered labels. Omitted fields are left unchanged; ``notes`` and
+    ``tags`` can be cleared with null / an empty value."""
+
+    name: Optional[str] = Field(default=None, max_length=120)
+    notes: Optional[str] = Field(default=None, max_length=4000)
+    tags: Optional[list[Annotated[str, Field(max_length=32)]]] = Field(
+        default=None, max_length=_MAX_TAGS
+    )
+
+
+def _clean_tags(tags: Optional[list[str]]) -> list[str]:
+    """Trimmed, non-empty, de-duplicated (case-insensitively, first spelling
+    kept) tags in their given order."""
+    seen: set[str] = set()
+    cleaned: list[str] = []
+    for tag in tags or []:
+        t = " ".join(tag.split())
+        if t and t.lower() not in seen:
+            seen.add(t.lower())
+            cleaned.append(t)
+    return cleaned
+
+
+@app.patch(
+    "/api/v1/study/history/runs/{run_id}",
+    dependencies=[Depends(require_api_key)],
+)
+def update_run_metadata_endpoint(
+    run_id: str, payload: RunMetadataUpdate
+) -> Dict[str, Any]:
+    """Renames a run and sets its notes/tags. Touches only these labels --
+    never the stored configuration, seed, provenance or metrics."""
+    _validate_run_id(run_id)
+    provided = payload.model_fields_set
+    name: Optional[str] = None
+    if "name" in provided:
+        name = (payload.name or "").strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="Run name cannot be empty")
+    notes = (payload.notes or "").strip() or None
+    tags = _clean_tags(payload.tags)
+    init_db()
+    with get_db_connection() as conn:
+        found = SimulationRunDAO.update_metadata(
+            conn,
+            run_id,
+            name=name,
+            notes=notes,
+            tags=tags,
+            set_name="name" in provided,
+            set_notes="notes" in provided,
+            set_tags="tags" in provided,
+        )
+        if not found:
+            raise HTTPException(status_code=404, detail="Simulation run not found")
+        if name is not None:
+            # Keep the History list (saved_replays) showing the same name.
+            ReplayDAO.rename(conn, run_id, name)
+        return _run_record(conn, run_id)
+    raise HTTPException(status_code=500, detail="Database connection error")
+
+
+def _flatten(prefix: str, value: Any, out: list[tuple[str, str]]) -> None:
+    """Dotted-path rows for nested dicts; lists are kept as JSON."""
+    if isinstance(value, dict):
+        for k, v in value.items():
+            _flatten(f"{prefix}.{k}" if prefix else str(k), v, out)
+    else:
+        out.append((prefix, _csv_value(value)))
+
+
+def _csv_value(value: Any) -> str:
+    """A cell for one value. Missing values stay empty -- never 0."""
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (list, dict)):
+        return json.dumps(value)
+    return str(value)
+
+
+def _run_export_csv(record: Dict[str, Any]) -> str:
+    rows: list[tuple[str, str, str]] = []
+    for key in (
+        "runId",
+        "name",
+        "createdAt",
+        "status",
+        "intersectionType",
+        "runMode",
+        "batchId",
+    ):
+        rows.append(("run", key, _csv_value(record.get(key))))
+    rows.append(("run", "tags", "; ".join(record.get("tags") or [])))
+    rows.append(("run", "notes", _csv_value(record.get("notes"))))
+    for key in (
+        "seed",
+        "provenanceRecorded",
+        "configSource",
+        "exactConfig",
+        "configAvailable",
+        "gitCommitHash",
+        "pythonVersion",
+    ):
+        rows.append(("reproducibility", key, _csv_value(record.get(key))))
+    for key, value in (record.get("timing") or {}).items():
+        rows.append(("timing", key, _csv_value(value)))
+    for section, payload in (
+        ("config", record.get("config") or {}),
+        ("metrics", record.get("summaryMetrics") or {}),
+    ):
+        flat: list[tuple[str, str]] = []
+        _flatten("", payload, flat)
+        rows.extend((section, k, v) for k, v in flat)
+
+    output = io.StringIO()
+    writer = csv.writer(output, lineterminator="\n")
+    writer.writerow(["section", "key", "value"])
+    writer.writerows(rows)
+    return output.getvalue()
+
+
+@app.get("/api/v1/study/history/runs/{run_id}/export")
+def export_run_endpoint(run_id: str, format: str = "json") -> Any:  # noqa: A002
+    """Downloads one stored run as JSON or CSV: identity, name/notes/tags,
+    seed, provenance, timing, the exact stored configuration and its stored
+    metrics (raw backend keys and units; see the metric catalog for labels).
+    Values the run never recorded are null (JSON) or empty (CSV)."""
+    _validate_run_id(run_id)
+    fmt = format.lower()
+    if fmt not in ("json", "csv"):
+        raise HTTPException(status_code=400, detail="format must be 'json' or 'csv'")
+    init_db()
+    with get_db_connection() as conn:
+        record = _run_record(conn, run_id)
+        timeline = RunMetricsDAO.get_all_for_run(conn, run_id)
+    filename = f"run_{run_id}.{fmt}"
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    if fmt == "csv":
+        return StreamingResponse(
+            iter([_run_export_csv(record)]),
+            media_type="text/csv; charset=utf-8",
+            headers=headers,
+        )
+    return JSONResponse(
+        content={
+            "exportFormat": "traffic-simulation-run",
+            "exportVersion": 1,
+            "exportedAt": datetime.now(timezone.utc).isoformat(),
+            # The server producing this file -- distinct from the run's own
+            # recorded provenance inside "run".
+            "exportedBy": {
+                "gitCommitHash": GIT_COMMIT_HASH,
+                "pythonVersion": PYTHON_VERSION,
+            },
+            "run": record,
+            "metricsTimeline": timeline,
+        },
+        headers=headers,
+    )
 
 
 @app.post("/api/v1/study/history/runs/compare")
@@ -1637,13 +2042,16 @@ def compare_runs_endpoint(payload: RunComparisonRequest) -> Dict[str, Any]:
         queue_delta = round(queue_b - queue_a, 1)
         stops_delta = stops_b - stops_a
 
-        # Winner evaluation based on lower delay
-        if delay_a < delay_b:
-            winner = run_a.get("intersection_type") or payload.runIdA
-        elif delay_b < delay_a:
-            winner = run_b.get("intersection_type") or payload.runIdB
-        else:
+        # Which run had the lower MEAN DELAY -- a description of these two
+        # single runs, not a ranking or a significance statement. "About the
+        # same" uses the one shared tie rule (study/tolerances.py), so this
+        # endpoint agrees with the sweep and the guided results page.
+        if delays_are_tied(delay_a, delay_b):
             winner = "tie"
+        elif delay_a < delay_b:
+            winner = run_a.get("intersection_type") or payload.runIdA
+        else:
+            winner = run_b.get("intersection_type") or payload.runIdB
 
         return {
             "runA": {
@@ -1667,6 +2075,11 @@ def compare_runs_endpoint(payload: RunComparisonRequest) -> Dict[str, Any]:
                 "queueDelta": queue_delta,
                 "stopsDelta": stops_delta,
                 "winner": winner,
+                "winnerBasis": (
+                    "lower mean delay between these two single runs; "
+                    "'tie' when within the shared tie tolerance. Descriptive "
+                    "only: not a significance test."
+                ),
             },
             "identicalSeed": run_a.get("random_seed") == run_b.get("random_seed"),
             "seed": run_a.get("random_seed")
@@ -1676,110 +2089,246 @@ def compare_runs_endpoint(payload: RunComparisonRequest) -> Dict[str, Any]:
     raise HTTPException(status_code=500, detail="Database connection error")
 
 
+# Tolerances for the determinism check (unchanged from the original
+# endpoint): absolute differences in seconds of delay and vehicles served.
+_REPRO_DELAY_TOLERANCE_S = 0.05
+_REPRO_THROUGHPUT_TOLERANCE_VEH = 0.1
+
+
+def _reproduce_single(
+    run_config: Dict[str, Any], time_step: float, duration: float, steps: int
+) -> Dict[str, Any]:
+    """Re-runs one engine headlessly for `steps` ticks; its final metrics."""
+    clock = Clock(time_step=time_step)
+    engine = SimulationEngine(clock, duration=duration, config=run_config)
+    controller = create_controller(run_config, engine.network)
+    engine.controller = controller
+    collector = MetricCollector(run_config)
+
+    def tick_callback() -> None:
+        # engine.step() already calls controller.update() once per tick
+        # (via engine.controller, set above) before running tick
+        # callbacks — calling it again here would advance the
+        # controller's phase/follow-up timing at double the rate of the
+        # original run, breaking reproduction. Only read its resulting
+        # state, exactly like build_tick_callback does for ordinary runs.
+        #
+        # conflict_manager mirrors build_tick_callback's own gating:
+        # PET is only geometrically valid for fixed_time_signal (see
+        # metrics/definitions/safety_conflicts.py).
+        collector.update(
+            clock.get_elapsed_time(),
+            engine.pool.active_vehicles,
+            engine.pool.exited_vehicles,
+            derive_signals_state(controller),
+            conflict_manager=(
+                engine.conflict_manager
+                if isinstance(controller, FixedTimeSignalController)
+                else None
+            ),
+        )
+
+    engine.register_tick_callback(tick_callback)
+    for _ in range(steps):
+        if engine.status == SimulationStatus.COMPLETED:
+            break
+        engine.step()
+    return dict(_engine_metrics(engine, collector))
+
+
+def _reproduce_dual(run_config: Dict[str, Any], steps: int) -> Dict[str, Any]:
+    """Re-runs a signal-vs-roundabout comparison headlessly through the same
+    DualSimulationOrchestrator the live comparison uses (one lockstep step
+    per tick, as its run loop does); both sides' final metrics."""
+    orch = DualSimulationOrchestrator(run_config)
+    for _ in range(steps):
+        if orch.engine_signal.status == SimulationStatus.COMPLETED:
+            break
+        orch.step()
+    return {
+        "signal": dict(_engine_metrics(orch.engine_signal, orch.collector_signal)),
+        "roundabout": dict(
+            _engine_metrics(orch.engine_roundabout, orch.collector_roundabout)
+        ),
+    }
+
+
+def _compare_key_metrics(
+    original: Dict[str, Any], reproduced: Dict[str, Any], prefix: str = ""
+) -> tuple[list[str], list[str]]:
+    """Compares delay and vehicles served; returns (compared, discrepancies).
+    A metric is compared only when both sides actually have a value."""
+    compared: list[str] = []
+    discrepancies: list[str] = []
+    orig_delay = original.get("averageDelay", original.get("averageWaitTime"))
+    repro_delay = reproduced.get("averageDelay", reproduced.get("averageWaitTime"))
+    if orig_delay is not None and repro_delay is not None:
+        compared.append(f"{prefix}averageDelay")
+        if abs(orig_delay - repro_delay) > _REPRO_DELAY_TOLERANCE_S:
+            discrepancies.append(
+                f"{prefix}Delay mismatch: original={orig_delay}, "
+                f"reproduced={repro_delay}"
+            )
+    orig_tp = original.get("throughput")
+    repro_tp = reproduced.get("throughput")
+    if orig_tp is not None and repro_tp is not None:
+        compared.append(f"{prefix}throughput")
+        if abs(orig_tp - repro_tp) > _REPRO_THROUGHPUT_TOLERANCE_VEH:
+            discrepancies.append(
+                f"{prefix}Throughput mismatch: original={orig_tp}, "
+                f"reproduced={repro_tp}"
+            )
+    return compared, discrepancies
+
+
+def _reproduction_limitations(
+    provenance: Optional[Dict[str, Any]], compared: list[str]
+) -> list[str]:
+    """Every reason a reproduction result should be read with care."""
+    limitations: list[str] = []
+    if provenance is None:
+        limitations.append(
+            "This run was saved before provenance was recorded: its code "
+            "version, timing and configuration source are unknown, and it is "
+            "re-run to its full duration."
+        )
+    elif provenance.get("configSource") != "engine":
+        limitations.append(
+            "The stored configuration is the dashboard's summary, not the "
+            "exact engine configuration; anything it omits is re-run with "
+            "backend defaults."
+        )
+    recorded = (provenance or {}).get("gitCommitHash")
+    if recorded == "unknown" or (recorded and GIT_COMMIT_HASH == "unknown"):
+        limitations.append(
+            "The code version of the recording or of this server is unknown, "
+            "so it cannot be confirmed that both ran the same code."
+        )
+    elif recorded and recorded != GIT_COMMIT_HASH:
+        limitations.append(
+            f"The run was recorded at commit {recorded[:12]}; this server runs "
+            f"{GIT_COMMIT_HASH[:12]}. Code changes can explain differences."
+        )
+    if not compared:
+        limitations.append(
+            "The stored run has no delay or throughput values to compare "
+            "against, so determinism was not assessed."
+        )
+    return limitations
+
+
 @app.post(
     "/api/v1/study/history/runs/{run_id}/reproduce",
     dependencies=[Depends(require_api_key)],
 )
 def reproduce_run_endpoint(run_id: str) -> Dict[str, Any]:
-    """Re-executes the exact run headlessly using its stored configuration and seed to verify determinism."""
+    """Re-executes a stored run headlessly from its stored configuration and
+    seed, up to its recorded elapsed time, and compares key metrics.
+
+    Never modifies the stored run. ``isDeterministic`` is null when there
+    was nothing to compare, and ``limitations`` lists every reason a match
+    (or mismatch) should be read with care, rather than claiming more than
+    the stored record supports.
+    """
     init_db()
     with get_db_connection() as conn:
         run = SimulationRunDAO.get(conn, run_id)
-        if not run:
-            raise HTTPException(
-                status_code=404, detail=f"Simulation run '{run_id}' not found"
-            )
-
-        config = run.get("config")
-        if not config or not isinstance(config, dict) or len(config) == 0:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Run '{run_id}' does not have a saved configuration to reproduce.",
-            )
-
-        random_seed = run.get("random_seed", 0)
-        time_step = config.get("simulation", {}).get("timeStep", 0.1)
-        duration = run.get("duration") or run.get("elapsed", 30.0)
-
-        # Clone config and ensure seed, timeStep, duration match
-        run_config = json.loads(json.dumps(config))
-        if "simulation" not in run_config:
-            run_config["simulation"] = {}
-        run_config["simulation"]["randomSeed"] = random_seed
-        run_config["simulation"]["timeStep"] = time_step
-        run_config["simulation"]["duration"] = duration
-
-        clock = Clock(time_step=time_step)
-        engine = SimulationEngine(clock, duration=duration, config=run_config)
-        controller = create_controller(run_config, engine.network)
-        engine.controller = controller
-        collector = MetricCollector(run_config)
-
-        def tick_callback() -> None:
-            # engine.step() already calls controller.update() once per tick
-            # (via engine.controller, set above) before running tick
-            # callbacks — calling it again here would advance the
-            # controller's phase/follow-up timing at double the rate of the
-            # original run, breaking reproduction. Only read its resulting
-            # state, exactly like build_tick_callback does for ordinary runs.
-            collector.update(
-                clock.get_elapsed_time(),
-                engine.pool.active_vehicles,
-                engine.pool.exited_vehicles,
-                derive_signals_state(controller),
-            )
-
-        engine.register_tick_callback(tick_callback)
-
-        steps = int(duration / time_step)
-        for _ in range(steps):
-            engine.step()
-
-        reproduced_metrics = collector.get_metrics(
-            clock.get_elapsed_time(),
-            engine.pool.active_vehicles,
-            engine.pool.exited_vehicles,
-            engine.spawner.spawned_count if engine.spawner else 0,
-            engine.pool.collision_count,
+    if not run:
+        raise HTTPException(
+            status_code=404, detail=f"Simulation run '{run_id}' not found"
         )
 
-        original_metrics = run.get("summary_metrics", {})
-
-        # Compare determinism on key metrics
-        orig_delay = original_metrics.get(
-            "averageDelay", original_metrics.get("averageWaitTime")
+    config = run.get("config")
+    if not config or not isinstance(config, dict) or len(config) == 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Run '{run_id}' does not have a saved configuration to reproduce.",
         )
-        repro_delay = reproduced_metrics.get(
-            "averageDelay", reproduced_metrics.get("averageWaitTime")
+
+    provenance = run.get("provenance")
+    mode = (provenance or {}).get("runMode") or "single"
+    original_metrics = run.get("summary_metrics", {})
+    if mode == "dual" and not (
+        isinstance(original_metrics.get("signal"), dict)
+        and isinstance(original_metrics.get("roundabout"), dict)
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Run '{run_id}' is a comparison but has no per-geometry "
+                "metrics to compare against."
+            ),
         )
-        orig_tp = original_metrics.get("throughput")
-        repro_tp = reproduced_metrics.get("throughput")
 
-        discrepancies = []
-        if orig_delay is not None and repro_delay is not None:
-            if abs(orig_delay - repro_delay) > 0.05:
-                discrepancies.append(
-                    f"Delay mismatch: original={orig_delay}, reproduced={repro_delay}"
-                )
-        if orig_tp is not None and repro_tp is not None:
-            if abs(orig_tp - repro_tp) > 0.1:
-                discrepancies.append(
-                    f"Throughput mismatch: original={orig_tp}, reproduced={repro_tp}"
-                )
+    random_seed = run.get("random_seed", 0)
+    timing = (provenance or {}).get("timing") or {}
+    time_step = timing.get("timeStep") or config.get("simulation", {}).get(
+        "timeStep", 0.1
+    )
+    duration = timing.get("duration") or run.get("duration") or run.get("elapsed", 30.0)
+    elapsed = run.get("elapsed") or 0.0
 
-        is_deterministic = len(discrepancies) == 0
+    # Runs with recorded provenance also recorded the engine's true elapsed
+    # time, so a run saved part-way through is reproduced to that instant.
+    # Older runs did not (replay saves stored the duration there), so they
+    # keep the original full-duration behaviour.
+    if provenance is not None and 0 < elapsed < duration:
+        target_elapsed = elapsed
+        steps = int(round(elapsed / time_step))
+    else:
+        target_elapsed = duration
+        steps = Clock(time_step).ticks_for_duration(duration)
 
-        return {
-            "runId": run_id,
-            "seed": random_seed,
-            "intersectionType": run.get("intersection_type"),
-            "duration": duration,
-            "isDeterministic": is_deterministic,
-            "originalMetrics": original_metrics,
-            "reproducedMetrics": reproduced_metrics,
-            "discrepancies": discrepancies,
-        }
-    raise HTTPException(status_code=500, detail="Database connection error")
+    # Clone config and ensure seed, timeStep, duration match
+    run_config = json.loads(json.dumps(config))
+    if "simulation" not in run_config:
+        run_config["simulation"] = {}
+    run_config["simulation"]["randomSeed"] = random_seed
+    run_config["simulation"]["timeStep"] = time_step
+    run_config["simulation"]["duration"] = duration
+
+    compared: list[str] = []
+    discrepancies: list[str] = []
+    if mode == "dual":
+        reproduced_metrics = _reproduce_dual(run_config, steps)
+        for side in ("signal", "roundabout"):
+            c, d = _compare_key_metrics(
+                original_metrics[side], reproduced_metrics[side], f"{side}."
+            )
+            compared += c
+            discrepancies += d
+    else:
+        reproduced_metrics = _reproduce_single(run_config, time_step, duration, steps)
+        compared, discrepancies = _compare_key_metrics(
+            original_metrics, reproduced_metrics
+        )
+
+    return {
+        "runId": run_id,
+        "mode": mode,
+        "seed": random_seed,
+        "intersectionType": run.get("intersection_type"),
+        "duration": duration,
+        "reproducedElapsed": round(target_elapsed, 6),
+        "isDeterministic": (len(discrepancies) == 0) if compared else None,
+        "comparedMetrics": compared,
+        "tolerances": {
+            "averageDelaySeconds": _REPRO_DELAY_TOLERANCE_S,
+            "throughputVehicles": _REPRO_THROUGHPUT_TOLERANCE_VEH,
+        },
+        "originalMetrics": original_metrics,
+        "reproducedMetrics": reproduced_metrics,
+        "discrepancies": discrepancies,
+        "limitations": _reproduction_limitations(provenance, compared),
+        "recordedGitCommitHash": (provenance or {}).get("gitCommitHash"),
+        # Best-effort provenance (src/core/provenance.py): "unknown"
+        # rather than a failure wherever .git isn't available, e.g. the
+        # production Docker image.
+        "provenance": {
+            "gitCommitHash": GIT_COMMIT_HASH,
+            "pythonVersion": PYTHON_VERSION,
+        },
+    }
 
 
 @app.post(
@@ -1802,14 +2351,33 @@ def validate_monte_carlo_endpoint(
 ) -> Dict[str, Any]:
     """Runs multi-seed Monte Carlo statistical validation with confidence intervals."""
     req = payload or MonteCarloValidationRequest()
+    if req.scenario is not None:
+        # Compiled as the comparison view compiles it: the signal side's
+        # timings in "controller", the roundabout's gap acceptance in
+        # "roundaboutController" (DualSimulationOrchestrator splits them).
+        # The seed is a placeholder; every repetition draws its own.
+        config = _compile_dashboard_config(
+            {**req.scenario, "intersectionType": "fixed_time_signal"}, seed_val=0
+        )
+        return run_statistical_validation(
+            config=config,
+            num_seeds=req.numSeeds,
+            duration=float(config["simulation"]["duration"]),
+            confidence_level=req.confidenceLevel,
+        )
     return run_statistical_validation(
         config=req.customConfig,
         num_seeds=req.numSeeds,
         duration=req.duration,
+        confidence_level=req.confidenceLevel,
     )
 
 
-@app.get("/api/v1/study/export")
+# Protected like the other study routes: building this report runs a fresh
+# 16-simulation volume sweep plus a Monte-Carlo validation and persists the
+# sweep to run history. As an open GET it let any caller do both on a deployment
+# whose POST study endpoints require the API key.
+@app.get("/api/v1/study/export", dependencies=[Depends(require_api_key)])
 def export_study_report_endpoint(format: str = "json") -> Any:  # noqa: A002
     """Exports full comprehensive validated study dataset in JSON or CSV format."""
     if format.lower() == "csv":
@@ -1828,41 +2396,206 @@ class SaveReplayRequest(BaseModel):
     name: str
     config: Dict[str, Any]
     metrics: Dict[str, Any]
+    # "dual" for a signal-vs-roundabout comparison. Optional for older
+    # clients: inferred from the metrics shape ({signal, roundabout}).
+    mode: Optional[Literal["single", "dual"]] = None
+
+
+def _find_live_session(request: Request) -> Optional[_LiveSession]:
+    """The caller's existing live session, looked up (never created) from
+    its session cookie. /api/v1/replays is outside the live-session
+    middleware's prefix, so it resolves the session itself, as the
+    WebSocket handlers do. No cookie -> None: never guess at another
+    client's (or the shared default) session."""
+    key = request.cookies.get(LIVE_SESSION_COOKIE)
+    if not key:
+        return None
+    with _live_sessions_lock:
+        return _live_sessions.get(key)
+
+
+def _engine_metrics(engine: SimulationEngine, collector: MetricCollector) -> Any:
+    """The collector's metrics for the engine's current state -- the same
+    call that produces every snapshot's "metrics" -- read under the engine
+    lock so a concurrent tick cannot interleave."""
+    with engine.lock:
+        return collector.get_metrics(
+            engine.clock.get_elapsed_time(),
+            engine.pool.active_vehicles,
+            engine.pool.exited_vehicles,
+            engine.spawner.spawned_count if engine.spawner else 0,
+            engine.pool.collision_count,
+        )
+
+
+def _capture_engine_run(
+    session: Optional[_LiveSession], mode: str, claimed_seed: Any
+) -> Optional[Dict[str, Any]]:
+    """Reads the exact config, seed, elapsed time, timing and metrics of the
+    run the caller is saving from its live engine (or dual orchestrator).
+
+    The metrics are computed here, at the recorded elapsed time, rather than
+    taken from the client: the last snapshot a client received can trail the
+    engine by a tick or more, and stored metrics must describe the same
+    instant as the stored elapsed time for the run to be reproducible.
+
+    Returns None -- the caller then falls back to the client-supplied
+    config -- when no engine has actually run, or when the engine's seed is
+    not the seed the client says it is saving, so a stale or different
+    engine's configuration is never attributed to this run.
+    """
+    if session is None:
+        return None
+    engine: Optional[SimulationEngine]
+    collector: Optional[MetricCollector]
+    if mode == "dual":
+        orch = session.dual_sim_orchestrator
+        if orch is None:
+            return None
+        engine = orch.engine_signal
+        clock = orch.clock_signal
+        collector = orch.collector_signal
+        # The orchestrator derives both engines' configs from this one.
+        config = orch.config
+
+        def read_metrics() -> Dict[str, Any]:
+            return {
+                "signal": _engine_metrics(orch.engine_signal, orch.collector_signal),
+                "roundabout": _engine_metrics(
+                    orch.engine_roundabout, orch.collector_roundabout
+                ),
+            }
+    else:
+        engine = session.live_sim_data.get("engine")
+        collector = session.live_sim_data.get("collector")
+        if engine is None or collector is None:
+            return None
+        clock = engine.clock
+        config = engine.config
+        live_engine, live_collector = engine, collector
+
+        def read_metrics() -> Dict[str, Any]:
+            return dict(_engine_metrics(live_engine, live_collector))
+
+    elapsed = clock.get_elapsed_time()
+    seed = engine.spawner.random_seed if engine.spawner is not None else None
+    if elapsed <= 0 or seed is None:
+        return None
+    if claimed_seed is not None and claimed_seed != seed:
+        return None
+    exact_config = copy.deepcopy(config)
+    exact_config.setdefault("simulation", {})["randomSeed"] = seed
+    return {
+        "config": exact_config,
+        "seed": seed,
+        "elapsed": elapsed,
+        "timeStep": clock.time_step,
+        "duration": engine.duration,
+        "warmupTime": collector.warmup_time,
+        "metrics": read_metrics(),
+    }
+
+
+def _with_reproducibility(
+    replays: list[Dict[str, Any]], conn: Any
+) -> list[Dict[str, Any]]:
+    """Attaches each saved replay's compact reproducibility summary from its
+    simulation_runs row (same id); None where no such row exists."""
+    runs = SimulationRunDAO.get_many(conn, [r["id"] for r in replays])
+    for replay in replays:
+        run = runs.get(replay["id"])
+        replay["reproducibility"] = (
+            describe_reproducibility(run, include_payload=False) if run else None
+        )
+    return replays
 
 
 @app.post("/api/v1/replays", dependencies=[Depends(require_api_key)])
-def save_replay(payload: SaveReplayRequest) -> Dict[str, Any]:
+def save_replay(payload: SaveReplayRequest, request: Request) -> Dict[str, Any]:
     init_db()
+    mode = payload.mode or (
+        "dual"
+        if "signal" in payload.metrics and "roundabout" in payload.metrics
+        else "single"
+    )
+    client_sim = payload.config.get("simulation", {})
+    captured = _capture_engine_run(
+        _find_live_session(request), mode, client_sim.get("randomSeed")
+    )
+    metrics = payload.metrics
+    if captured is not None:
+        run_config = captured["config"]
+        metrics = captured["metrics"]
+        seed = captured["seed"]
+        duration = captured["duration"]
+        elapsed = captured["elapsed"]
+        provenance = build_run_provenance(
+            config_source="engine",
+            run_mode=mode,
+            time_step=captured["timeStep"],
+            duration=duration,
+            warmup_time=captured["warmupTime"],
+        )
+    else:
+        # No engine to read from: keep the client's summary, as before, and
+        # say so in the provenance rather than presenting it as exact.
+        run_config = payload.config
+        seed = client_sim.get("randomSeed")
+        duration = client_sim.get("duration", 60.0)
+        elapsed = client_sim.get("elapsed", duration)
+        provenance = build_run_provenance(
+            config_source="client",
+            run_mode=mode,
+            time_step=client_sim.get("timeStep"),
+            duration=client_sim.get("duration"),
+            warmup_time=client_sim.get("warmupTime"),
+        )
+    itype = (
+        "comparative"
+        if mode == "dual"
+        else run_config.get("geometry", {}).get("intersectionType", "unknown")
+    )
+    arr_rate = run_config.get("traffic", {}).get("arrivalRate", 0.5)
     with get_db_connection() as conn:
-        replay_id = ReplayDAO.save(conn, payload.name, payload.config, payload.metrics)
-        # Also persist to simulation_runs for history and reproducible comparison
-        itype = payload.config.get("geometry", {}).get("intersectionType", "unknown")
-        seed = payload.config.get("simulation", {}).get("randomSeed", 0)
-        arr_rate = payload.config.get("traffic", {}).get("arrivalRate", 0.5)
-        duration = payload.config.get("simulation", {}).get("duration", 60.0)
+        replay_id = ReplayDAO.save(conn, payload.name, payload.config, metrics)
+        # Also persist to simulation_runs (same id) for history, reproducible
+        # comparison and the reproducibility record.
         SimulationRunDAO.save(
             conn,
             replay_id,
             "completed",
-            duration,
+            elapsed,
             intersection_type=itype,
             random_seed=seed,
             arrival_rate=arr_rate,
             duration=duration,
             batch_id="replay",
-            config=payload.config,
-            summary_metrics=payload.metrics,
+            config=run_config,
+            summary_metrics=metrics,
+            provenance=provenance,
+            # Same fallback as ReplayDAO.save, so both tables agree.
+            name=(payload.name or "").strip() or "Saved Replay",
         )
         conn.commit()
-        return {"status": "ok", "replay_id": replay_id}
+        run = SimulationRunDAO.get(conn, replay_id)
+        return {
+            "status": "ok",
+            "replay_id": replay_id,
+            "runId": replay_id,
+            "reproducibility": (
+                describe_reproducibility(run, include_payload=False) if run else None
+            ),
+        }
     raise HTTPException(status_code=500, detail="Database connection error")
 
 
 @app.get("/api/v1/replays")
-def list_replays(limit: int = 50, offset: int = 0) -> list[Dict[str, Any]]:
+def list_replays(limit: PageLimit = 50, offset: PageOffset = 0) -> list[Dict[str, Any]]:
     init_db()
     with get_db_connection() as conn:
-        return ReplayDAO.list_all(conn, limit=limit, offset=offset)
+        return _with_reproducibility(
+            ReplayDAO.list_all(conn, limit=limit, offset=offset), conn
+        )
     return []
 
 
@@ -1873,7 +2606,7 @@ def get_replay(replay_id: str) -> Dict[str, Any]:
         replay = ReplayDAO.get(conn, replay_id)
         if not replay:
             raise HTTPException(status_code=404, detail="Replay not found")
-        return replay
+        return _with_reproducibility([replay], conn)[0]
     raise HTTPException(status_code=500, detail="Database connection error")
 
 
@@ -1884,5 +2617,9 @@ def delete_replay(replay_id: str) -> Dict[str, Any]:
         success = ReplayDAO.delete(conn, replay_id)
         if not success:
             raise HTTPException(status_code=404, detail="Replay not found")
+        # The replay and its simulation_runs record are one saved experiment
+        # (same id): remove both, so "deleted" also means its run page and
+        # exports are gone rather than lingering as an orphan record.
+        SimulationRunDAO.delete(conn, replay_id)
         return {"status": "ok"}
     raise HTTPException(status_code=500, detail="Database connection error")

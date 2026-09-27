@@ -208,6 +208,13 @@ class SnapshotBuilder:
             "wallClockTime": datetime.now(timezone.utc).isoformat(),
             "samplingFrequency": round(1.0 / dt, 1) if dt > 0 else 10.0,
             "deltaTime": round(dt, 3),
+            # Most of "metrics" only starts accumulating once timestamp
+            # reaches this (the exceptions are instantaneous or whole-run
+            # values: currentQueueLengths, activeVehicleCount,
+            # averageTravelSpeed, totalVehiclesSpawned, collisionCount and
+            # the config-derived spaceFootprintConsumed). Clients use it to
+            # label warm-up zeros instead of presenting them as results.
+            "warmupTime": self.collector.warmup_time,
             "simulationStatus": self.engine.status.value.lower(),
             "vehicles": vehicles_list,
             "intersection": {

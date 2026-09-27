@@ -308,6 +308,16 @@ def test_api_run_reproduce(test_db):
     assert len(second_data["discrepancies"]) == 0
     assert second_data["seed"] == 54321
 
+    # Provenance is best-effort and additive: present on every reproduction,
+    # never causes the endpoint to fail, and matches this environment's
+    # actual git HEAD / interpreter rather than a placeholder.
+    from src.core.provenance import get_git_commit_hash, get_python_version
+
+    provenance = second_data["provenance"]
+    assert provenance["gitCommitHash"] == get_git_commit_hash()
+    assert provenance["pythonVersion"] == get_python_version()
+    assert provenance == first_data["provenance"]
+
 
 def test_reproduce_drives_controller_at_the_same_rate_as_a_normal_run(
     test_db, monkeypatch
@@ -581,3 +591,41 @@ def test_persistence_failure_does_not_mask_simulation_error(test_db, monkeypatch
 
     # Engine status should still be ERROR despite persistence failure
     assert engine.status == SimulationStatus.ERROR
+
+
+def test_compare_endpoint_uses_the_shared_tie_rule(test_db):
+    """Two single-run delays within the shared tolerance (1 s or 5 %) are a
+    tie, not a win by the fractionally lower one (this endpoint used to
+    compare with exact float equality)."""
+    from src.database.dao import SimulationRunDAO
+    from src.database.db import get_db_connection
+
+    with get_db_connection() as conn:
+        for run_id, itype, delay in (
+            ("tie_sig", "fixed_time_signal", 20.0),
+            ("tie_rnd", "roundabout", 20.6),
+        ):
+            SimulationRunDAO.save(
+                conn,
+                run_id=run_id,
+                status="completed",
+                elapsed=20.0,
+                intersection_type=itype,
+                random_seed=5,
+                arrival_rate=0.3,
+                duration=20.0,
+                batch_id="tie_batch",
+                config={"simulation": {"randomSeed": 5}},
+                summary_metrics={"averageDelay": delay, "throughput": 10.0},
+            )
+        conn.commit()
+
+    client = TestClient(app)
+    res = client.post(
+        "/api/v1/study/history/runs/compare",
+        json={"runIdA": "tie_sig", "runIdB": "tie_rnd"},
+    )
+    assert res.status_code == 200
+    comparison = res.json()["comparison"]
+    assert comparison["winner"] == "tie"
+    assert "single runs" in comparison["winnerBasis"]

@@ -59,3 +59,18 @@ def test_clock_ticks_to_seconds() -> None:
 
     with pytest.raises(ValueError, match="Ticks cannot be negative"):
         clock.ticks_to_seconds(-1)
+
+
+def test_ticks_for_duration_matches_the_engine_stop_rule() -> None:
+    """Regression: study runners stepped int(duration / dt) ticks, which for
+    many fractional durations is one short (2.3 / 0.1 = 22.999...)."""
+    clock = Clock(0.1)
+    assert clock.ticks_for_duration(2.3) == 23
+    assert clock.ticks_for_duration(60.0) == 600
+    assert clock.ticks_for_duration(2.35) == 24
+    for tenths in range(10, 3000):
+        duration = tenths / 10
+        ticks = clock.ticks_for_duration(duration)
+        # the engine completes on the first tick with ticks * dt >= duration
+        assert ticks * 0.1 >= duration - 1e-9
+        assert (ticks - 1) * 0.1 < duration - 1e-9

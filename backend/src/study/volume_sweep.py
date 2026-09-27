@@ -3,6 +3,8 @@ import logging
 import uuid
 from typing import Any, Dict, List, Optional
 
+from src.core.limits import demand_vehicle_limit
+from src.core.provenance import build_run_provenance
 from src.database.dao import (
     RunMetricsDAO,
     SimulationRunDAO,
@@ -10,10 +12,40 @@ from src.database.dao import (
 )
 from src.database.db import DB_PATH, get_db_connection, init_db  # noqa: F401
 from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
+from src.study.calibration import calibration_status, study_warmup, sweep_rates
+from src.study.tolerances import delays_are_tied, tie_tolerance
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_ARRIVAL_RATES = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+# 20%-160% of the measured 1-lane reference capacity (study/calibration.py).
+DEFAULT_ARRIVAL_RATES = sweep_rates(1)
+
+# Fewer exited vehicles than this on either side and a tier's mean delay rests
+# on too few drivers to call a direction (same convention as the planning
+# time index's low-sample flag, metrics/definitions/travel_time.py).
+MIN_TIER_SAMPLE = 20
+
+
+def find_delay_crossover(runs: List[Dict[str, Any]]) -> Optional[Dict[str, float]]:
+    """The first change of which control had the lower mean delay.
+
+    Only tiers with a decided winner take part: a tie or an inconclusive tier
+    (too few vehicles, or demand truncated by the vehicle limit) neither
+    starts nor ends a change, so noise inside the tie band can never create a
+    crossover. Runs are ordered by arrival rate first.
+
+    Returns ``{"lowerRate", "upperRate"}`` -- the arrival rates of the two
+    adjacent decided tiers whose winners differ -- or None. The crossover lies
+    somewhere in that bracket; it is not interpolated.
+    """
+    decided = sorted(
+        (r for r in runs if r.get("winner") in ("signal", "roundabout")),
+        key=lambda r: r["arrivalRate"],
+    )
+    for prev, curr in zip(decided, decided[1:]):
+        if prev["winner"] != curr["winner"]:
+            return {"lowerRate": prev["arrivalRate"], "upperRate": curr["arrivalRate"]}
+    return None
 
 
 def run_volume_sweep_experiment(
@@ -41,17 +73,20 @@ def run_volume_sweep_experiment(
         "simulation": {
             "timeStep": time_step,
             "duration": duration,
-            "warmupTime": 15.0,
+            "warmupTime": study_warmup(duration),
             "randomSeed": random_seed,
         },
         "roads": {
             "approachLength": 200.0,
             "laneWidth": 3.5,
+            # One lane per approach: the calibrated comparison
+            # (see study/calibration.py). Callers may override through
+            # customConfig; the result then reports itself as exploratory.
             "lanesPerApproach": {
-                "north": 2,
-                "south": 2,
-                "east": 2,
-                "west": 2,
+                "north": 1,
+                "south": 1,
+                "east": 1,
+                "west": 1,
             },
         },
         "traffic": {
@@ -61,12 +96,9 @@ def run_volume_sweep_experiment(
         "vehicleGeneration": {
             "stopSpeedThreshold": 0.1,
             "waitSpeedThreshold": 0.5,
-            "maxAcceleration": 3.0,
-            "comfortDeceleration": 3.5,
-            "desiredSpeed": {
-                "min": 18.0,
-                "max": 25.0,
-            },
+            # Acceleration, braking and desired speed are the engine defaults
+            # (IDM a = 2.0, b = 3.0 m/s^2; desired speed from roads.speedLimit),
+            # i.e. the same vehicles as the calibrated capacity study.
         },
     }
 
@@ -78,7 +110,12 @@ def run_volume_sweep_experiment(
             else:
                 base_config[k] = v
 
-    steps_to_run = int(duration / time_step)
+    # The request's duration is the authoritative one (it is the bounded,
+    # validated field). A customConfig that also set simulation.duration used
+    # to win in the engine while the loop below still counted the request's
+    # duration — a shorter one completed the engine mid-loop and the next step
+    # raised (HTTP 500).
+    base_config["simulation"]["duration"] = duration
     runs_data: List[Dict[str, Any]] = []
 
     signal_delays: List[float] = []
@@ -98,15 +135,23 @@ def run_volume_sweep_experiment(
     signal_queue_maxs: List[float] = []
     roundabout_queue_maxs: List[float] = []
 
-    crossover_rate: Optional[float] = None
+    used_rate_labels: set[str] = set()
 
     with get_db_connection() as conn:
-        for rate in rates:
+        for rate_index, rate in enumerate(rates):
             step_config = json.loads(json.dumps(base_config))
             step_config["traffic"]["arrivalRate"] = rate
+            # Size the vehicle limit to this tier (unless the caller set one)
+            # so the default cap cannot silently truncate high-demand tiers.
+            step_config["traffic"].setdefault(
+                "totalVehicles", demand_vehicle_limit(rate, duration)
+            )
             step_config["simulation"]["randomSeed"] = random_seed
 
             orchestrator = DualSimulationOrchestrator(step_config)
+            # Counted with the engines' own clock, so a configured timeStep
+            # (see DualSimulationOrchestrator) runs the same simulated time.
+            steps_to_run = orchestrator.clock_signal.ticks_for_duration(duration)
 
             # Fast headless simulation execution
             for _ in range(steps_to_run):
@@ -189,23 +234,42 @@ def run_volume_sweep_experiment(
             signal_queue_maxs.append(sig_q_max)
             roundabout_queue_maxs.append(round_q_max)
 
-            # Detect crossover objectively when delay advantage inverts
-            if crossover_rate is None and len(roundabout_delays) > 1:
-                prev_diff = roundabout_delays[-2] - signal_delays[-2]
-                curr_diff = round_delay - sig_delay
-                if (prev_diff < 0 and curr_diff > 0) or (
-                    prev_diff > 0 and curr_diff < 0
-                ):
-                    crossover_rate = rate
+            # Save to database.
+            #
+            # The id used to end in int(rate * 100): truncation, so 0.29 was
+            # labelled "_28", and any two rates in the same hundredth (0.285
+            # and 0.289, or a rate listed twice) got the same id — and
+            # INSERT OR REPLACE then silently overwrote the earlier run. The
+            # label is now rounded, and a clash gets the rate's position
+            # appended, so every run in the sweep keeps its own row.
+            rate_label = str(int(round(rate * 100)))
+            if rate_label in used_rate_labels:
+                rate_label = f"{rate_label}_{rate_index}"
+            used_rate_labels.add(rate_label)
+            sig_run_id = f"sweep_{session_id[:8]}_sig_{rate_label}"
+            round_run_id = f"sweep_{session_id[:8]}_rnd_{rate_label}"
 
-            # Save to database
-            sig_run_id = f"sweep_{session_id[:8]}_sig_{int(rate * 100)}"
-            round_run_id = f"sweep_{session_id[:8]}_rnd_{int(rate * 100)}"
-
-            sig_config = json.loads(json.dumps(step_config))
-            sig_config["geometry"] = {"intersectionType": "fixed_time_signal"}
-            round_config = json.loads(json.dumps(step_config))
-            round_config["geometry"] = {"intersectionType": "roundabout"}
+            # Each stored run carries the exact config its own engine ran
+            # with (the orchestrator's per-geometry copy, including the
+            # controller settings it injects), so the run can be reproduced
+            # on its own. Timing is read from the engines, not the request:
+            # the orchestrator's clocks step at their own fixed time step.
+            sig_config = json.loads(json.dumps(orchestrator.config_signal))
+            round_config = json.loads(json.dumps(orchestrator.config_roundabout))
+            sig_provenance = build_run_provenance(
+                config_source="engine",
+                run_mode="single",
+                time_step=orchestrator.clock_signal.time_step,
+                duration=orchestrator.engine_signal.duration,
+                warmup_time=orchestrator.collector_signal.warmup_time,
+            )
+            round_provenance = build_run_provenance(
+                config_source="engine",
+                run_mode="single",
+                time_step=orchestrator.clock_roundabout.time_step,
+                duration=orchestrator.engine_roundabout.duration,
+                warmup_time=orchestrator.collector_roundabout.warmup_time,
+            )
 
             SimulationRunDAO.save(
                 conn,
@@ -219,6 +283,7 @@ def run_volume_sweep_experiment(
                 batch_id=session_id,
                 config=sig_config,
                 summary_metrics=sig_metrics,
+                provenance=sig_provenance,
             )
             RunMetricsDAO.save(conn, sig_run_id, steps_to_run, sig_metrics)
 
@@ -234,11 +299,11 @@ def run_volume_sweep_experiment(
                 batch_id=session_id,
                 config=round_config,
                 summary_metrics=round_metrics,
+                provenance=round_provenance,
             )
             RunMetricsDAO.save(conn, round_run_id, steps_to_run, round_metrics)
 
-            # Objective winner and symmetric delta calculations
-            delay_diff = round_delay - sig_delay
+            # Symmetric percentage deltas (descriptive; positive = roundabout higher)
             delay_delta_pct = (
                 round(((round_delay - sig_delay) / max(sig_delay, 0.01)) * 100, 1)
                 if sig_delay > 0
@@ -255,8 +320,24 @@ def run_volume_sweep_experiment(
                 else 0.0
             )
 
-            # Objective parity tolerance: difference <= 0.2s or < 2% is a statistical tie
-            if abs(delay_diff) <= 0.2 or abs(delay_delta_pct) < 2.0:
+            # Same "about the same" rule everywhere (study/tolerances.py).
+            # A tier is inconclusive, rather than won, when either side had
+            # too few exited vehicles or generation hit the vehicle limit
+            # (later demand was cut off, and not necessarily identically).
+            limit_reached = bool(
+                sig_metrics.get("vehicleLimitReached")
+                or round_metrics.get("vehicleLimitReached")
+            )
+            low_sample = min(sig_tp, round_tp) < MIN_TIER_SAMPLE
+            inconclusive_reason: Optional[str] = None
+            if limit_reached:
+                inconclusive_reason = "vehicle_limit_reached"
+            elif low_sample:
+                inconclusive_reason = "low_sample"
+
+            if inconclusive_reason is not None:
+                winner = "inconclusive"
+            elif delays_are_tied(round_delay, sig_delay):
                 winner = "tie"
             elif round_delay < sig_delay:
                 winner = "roundabout"
@@ -266,9 +347,12 @@ def run_volume_sweep_experiment(
             runs_data.append(
                 {
                     "arrivalRate": rate,
-                    "hourlyVolumeVehPerHour": int(
-                        rate * 3600 * 4
-                    ),  # 4 approaches total
+                    # arrivalRate is the whole junction's rate (the
+                    # spawner splits it across the four approaches), so
+                    # offered demand is rate x 3600 -- the same convention as
+                    # docs/reports/comparative_report.md. This previously
+                    # multiplied by 4 again, overstating demand four-fold.
+                    "hourlyVolumeVehPerHour": int(round(rate * 3600)),
                     "signal": {
                         "runId": sig_run_id,
                         "delay": sig_delay,
@@ -300,15 +384,18 @@ def run_volume_sweep_experiment(
                         "metrics": round_metrics,
                     },
                     "winner": winner,
+                    "inconclusiveReason": inconclusive_reason,
+                    "vehicleLimitReached": limit_reached,
                     "delayDeltaPercent": delay_delta_pct,
                     "throughputDeltaPercent": tp_delta_pct,
                     "queueDeltaPercent": queue_delta_pct,
                 }
             )
 
+        crossover = find_delay_crossover(runs_data)
         summary_curves = {
             "rates": rates,
-            "volumesVehPerHour": [int(r * 3600 * 4) for r in rates],
+            "volumesVehPerHour": [int(round(r * 3600)) for r in rates],
             "signal": {
                 "delays": signal_delays,
                 "delayStds": signal_delay_stds,
@@ -329,10 +416,15 @@ def run_volume_sweep_experiment(
                 "queueStds": roundabout_queue_stds,
                 "queueMaxs": roundabout_queue_maxs,
             },
-            "crossoverArrivalRate": crossover_rate,
-            "crossoverHourlyVolume": int(crossover_rate * 3600 * 4)
-            if crossover_rate
+            "crossoverArrivalRate": crossover["upperRate"] if crossover else None,
+            "crossoverHourlyVolume": int(round(crossover["upperRate"] * 3600))
+            if crossover
             else None,
+            # The change lies between these two decided tiers (not
+            # interpolated): the last tier before it and the first after.
+            "crossoverBracketArrivalRates": (
+                [crossover["lowerRate"], crossover["upperRate"]] if crossover else None
+            ),
         }
 
         sweep_result = {
@@ -340,6 +432,9 @@ def run_volume_sweep_experiment(
             "name": name,
             "duration": duration,
             "randomSeed": random_seed,
+            "seedsPerTier": 1,
+            "tieTolerance": tie_tolerance(),
+            "calibration": calibration_status(base_config),
             "curves": summary_curves,
             "runs": runs_data,
         }

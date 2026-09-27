@@ -229,7 +229,7 @@ function drawTrafficLights(
 
   // Draw light labels
   ctx.fillStyle = "#fff";
-  ctx.font = "bold 10px Arial";
+  ctx.font = "bold 10px Roboto, Arial, sans-serif";
   ctx.textAlign = "center";
   ctx.fillText("R/G", southLightX, southLightY + 12);
 }
@@ -287,7 +287,7 @@ function drawInfoOverlay(
   ctx.fillRect(10, 10, 250, 130);
 
   ctx.fillStyle = "#fff";
-  ctx.font = "11px monospace";
+  ctx.font = '11px "Roboto Mono", monospace';
   ctx.textAlign = "left";
 
   let y = 25;

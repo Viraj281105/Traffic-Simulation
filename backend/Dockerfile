@@ -24,6 +24,14 @@ COPY backend/src/ ./src/
 COPY shared/ ./shared/
 COPY backend/docker-entrypoint.py /docker-entrypoint.py
 
+# Code version recorded with every saved run (src/core/provenance.py). The
+# build context excludes .git, so the commit is passed in instead, e.g.
+# `GIT_COMMIT=$(git rev-parse HEAD) docker compose build`. Empty (the
+# default) records "unknown" rather than a guess. Declared after the source
+# COPY so it only invalidates the layers below.
+ARG GIT_COMMIT=""
+ENV GIT_COMMIT=${GIT_COMMIT}
+
 # Create the non-root user the app actually runs as. /app is owned by it so
 # a *fresh* named volume mounted at /app/data (docker-compose.yml) is
 # correctly seeded with that ownership by Docker on first creation. The

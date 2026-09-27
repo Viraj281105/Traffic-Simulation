@@ -48,6 +48,13 @@ export class SimulationWebSocket {
       this.retryTimer = null;
     }
     if (this.ws) {
+      // Detach first: closing a socket that is still connecting fires
+      // "error", which would surface a spurious connection error for what
+      // is an intentional disconnect (view change, unmount).
+      this.ws.onopen = null;
+      this.ws.onmessage = null;
+      this.ws.onerror = null;
+      this.ws.onclose = null;
       this.ws.close(1000, "Client disconnect");
       this.ws = null;
     }

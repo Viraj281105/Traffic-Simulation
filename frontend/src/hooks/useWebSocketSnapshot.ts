@@ -11,6 +11,7 @@ import {
 } from "../services/api";
 import type { ConnectionStatus } from "../services/websocket";
 import { WS_BASE_URL } from "../config";
+import { whenLiveSessionReady } from "../services/liveSession";
 
 export interface WebSocketSnapshotState {
   snapshot: LiveSnapshot | DualSnapshot | null;
@@ -48,10 +49,21 @@ export function useWebSocketSnapshot(
         ? `${WS_BASE_URL}/ws/simulation/dual`
         : `${WS_BASE_URL}/ws/simulation/live`;
 
+    // The backend streams at ~10 Hz regardless of whether the simulation has
+    // advanced: while idle/paused, and whenever its send loop outpaces the
+    // simulation thread, consecutive messages describe the same tick. Such a
+    // message carries no new state, so re-publishing it would only re-render
+    // the whole dashboard (and every page, since this stream stays open).
+    let lastKey: string | null = null;
+
     const ws = new SimulationWebSocket(
       {
         onSnapshot: (snap) => {
-          setSnapshot(snap);
+          const key = snapshotKey(snap);
+          if (key !== lastKey) {
+            lastKey = key;
+            setSnapshot(snap);
+          }
           setError(null);
           const status =
             "signal" in snap
@@ -75,9 +87,14 @@ export function useWebSocketSnapshot(
     );
 
     wsRef.current = ws;
-    ws.connect();
+    // Open the stream inside the same backend session as the REST calls
+    // (see liveSession.ts); a socket opened first is bound to another one.
+    const cancelConnect = whenLiveSessionReady(() => {
+      ws.connect();
+    });
 
     return () => {
+      cancelConnect();
       ws.disconnect();
     };
   }, [mode]);
@@ -128,4 +145,16 @@ export function useWebSocketSnapshot(
   }, [mode]);
 
   return { snapshot, connectionStatus, isPlaying, error, play, pause, stop };
+}
+
+/** Identity of the simulation state a snapshot describes. Two snapshots with
+ *  the same run, tick, timestamp and status describe the same engine state. */
+function snapshotKey(snap: LiveSnapshot | DualSnapshot): string {
+  const one = (s: LiveSnapshot) =>
+    [s.simulationId, s.configId, s.tick, s.timestamp, s.simulationStatus].join(
+      "|",
+    );
+  return "signal" in snap
+    ? `${one(snap.signal)}#${one(snap.roundabout)}`
+    : one(snap);
 }

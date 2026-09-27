@@ -55,12 +55,40 @@ The result is a distance the yielding vehicle may still travel. The caller
 feeds it to IDM as an ordinary stationary obstacle, so vehicles decelerate
 smoothly and the existing car-following model stays in charge — this layer
 never writes speeds or positions directly.
+
+Stability
+---------
+The geometry above is recomputed from scratch every tick, but the *decision*
+about who gives way must not be. It was originally re-derived each tick from
+instantaneous speed, and that is a feedback loop: braking the yielder changes
+the very speed the rule was keyed on, so two vehicles creeping out of adjacent
+entry lanes swapped roles every tick — one stopped while the other moved, then
+the reverse — at ~0.2 m/s, indefinitely. That limit cycle is what locked the
+ring at high demand (and, as the vehicles crept, eventually produced contact).
+
+Four things keep the decision stable, and the resolver therefore keeps a
+small amount of per-run state (see :meth:`PredictiveConflictResolver.reset`):
+
+* *structural* priority (a vehicle leaving beats one inside, which beats one
+  still waiting) only ever moves one way as a vehicle progresses, so it cannot
+  oscillate, and it is applied before anything speed-dependent;
+* "stopped" is hysteretic — a vehicle stops counting as stopped only once it
+  has genuinely got going, not the tick after it was braked to a crawl;
+* a stopped vehicle whose box really is in a mover's path is an obstacle, and
+  the mover yields. That is re-derived every tick rather than remembered —
+  a remembered "A yields to B" is wrong once A has stopped in B's way — and,
+  given the hysteresis, cannot flap;
+* whatever remains is an arbitrary tie between equals, made once and remembered
+  for as long as the pair stays in conflict: vehicles that came in through the
+  same mouth go in the order they physically are, and vehicles from different
+  approaches go first-in-first-out (a total order, so waits cannot form a
+  cycle).
 """
 
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, FrozenSet, List, Optional, Sequence, Set, Tuple
 
 from src.core.enums import VehicleState
 from src.vehicles.vehicle import Vehicle
@@ -94,6 +122,44 @@ _SAFE_HEADWAY: float = 2.5
 # project-wide stopSpeedThreshold default.
 _STOPPED_SPEED: float = 0.1
 
+# Speed (m/s) a stopped vehicle must exceed before it counts as moving again.
+# Deliberately well above _STOPPED_SPEED: a vehicle that has just been released
+# from a hold accelerates through 0.1-0.2 m/s within a tick, and treating that
+# as "moving" is what let the yielder role flip every tick (see the module
+# docstring). Matches the project-wide waitSpeedThreshold default.
+_MOVING_SPEED: float = 0.5
+
+# A stationary vehicle is compared against its neighbour's path by real
+# oriented-box clearance rather than by circumscribed circle: it cannot be
+# closing on anything, so the circle's orientation-independence buys nothing,
+# while its radius (sum of two half-diagonals, ~5 m) exceeds the 3.5 m spacing
+# of adjacent entry lanes and flagged every vehicle passing a queue as a
+# conflict. The other vehicle's path is sampled this densely (metres) up to
+# _DENSE_REACH because the boxes are small next to the coarse sample ladder.
+#
+# _BOX_CLEARANCE is how close a mover's box may come to a stationary vehicle's
+# before the mover is made to stop. It is deliberately smaller than
+# _SAFETY_MARGIN, which pads the coarse circle test that has to tolerate
+# sampling error. Here the geometry is exact, and in a two-lane mouth a turning
+# car's swinging tail routinely passes within ~0.5 m of its neighbour without
+# touching. At 0.5 m that near-miss counted as a block, the vehicle that had
+# priority stopped for the one giving way to it, and the pair crept in a limit
+# cycle (measured: one contact in 32 runs, and a run that cleared 17 vehicles
+# a minute instead of ~35). At 0.2 m both are gone.
+_BOX_CLEARANCE: float = 0.2
+_DENSE_STEP: float = 1.0
+_DENSE_REACH: float = 20.0
+_DENSE_DISTANCES: Tuple[float, ...] = tuple(
+    i * _DENSE_STEP for i in range(int(_DENSE_REACH / _DENSE_STEP) + 1)
+)
+
+# How many calls (ticks) a remembered give-way decision outlives the conflict
+# it was made for. Two vehicles that have just braked apart can drop out of
+# conflict for a tick or two and come back; forgetting the decision in between
+# meant it was re-made from the changed situation, sometimes the other way
+# round, and the vehicle that had been told to go was then told to stop.
+_DECISION_MEMORY_TICKS: int = 30
+
 # Speed floor used when converting a distance to an arrival time, so a nearly
 # stopped vehicle yields a large (but finite) time rather than dividing by zero.
 _MIN_SPEED_FOR_ETA: float = 0.5
@@ -117,10 +183,14 @@ def _footprint_radius(vehicle: Vehicle) -> float:
     return math.hypot(vehicle.length, vehicle.width) / 2.0
 
 
-def _project_path(
+# (x, y, heading in degrees) — the pose of a vehicle at some point on its path.
+_Pose = Tuple[float, float, float]
+
+
+def _project_poses(
     vehicle: Vehicle, distances: Sequence[float]
-) -> List[Optional[Tuple[float, float]]]:
-    """Return the vehicle's position after travelling each of ``distances``.
+) -> List[Optional[_Pose]]:
+    """Return the vehicle's pose after travelling each of ``distances``.
 
     The walk follows the vehicle's real route lane by lane, so a projection
     that runs off the end of the current lane continues onto the next one
@@ -129,7 +199,7 @@ def _project_path(
     route — the vehicle will have left the network by then and can no longer
     conflict with anything.
     """
-    results: List[Optional[Tuple[float, float]]] = []
+    results: List[Optional[_Pose]] = []
     if vehicle.lane is None or not vehicle.route:
         return [None] * len(distances)
 
@@ -141,25 +211,78 @@ def _project_path(
     for distance in distances:
         remaining = vehicle.position + distance
         idx = start_idx
-        point: Optional[Tuple[float, float]] = None
+        pose: Optional[_Pose] = None
         while idx < len(vehicle.route):
             lane = vehicle.route[idx]
             if remaining <= lane.length:
-                point = lane.get_point_at_distance(remaining)
+                x, y = lane.get_point_at_distance(remaining)
+                pose = (x, y, lane.get_heading_at_distance(remaining))
                 break
             remaining -= lane.length
             idx += 1
-        results.append(point)
+        results.append(pose)
     return results
+
+
+def _project_path(
+    vehicle: Vehicle, distances: Sequence[float]
+) -> List[Optional[Tuple[float, float]]]:
+    """Positions only; see :func:`_project_poses`."""
+    return [
+        None if pose is None else (pose[0], pose[1])
+        for pose in _project_poses(vehicle, distances)
+    ]
+
+
+def _boxes_overlap(
+    pose_a: _Pose,
+    vehicle_a: Vehicle,
+    pose_b: _Pose,
+    vehicle_b: Vehicle,
+    clearance: float,
+) -> bool:
+    """True if the two vehicles' boxes come within ``clearance`` of each other.
+
+    Separating-axis test on two oriented rectangles, each grown by half of
+    ``clearance`` per side, so that boxes whose gap is under ``clearance`` count
+    as overlapping.
+    """
+    pad = clearance / 2.0
+    ax, ay, ah = pose_a
+    bx, by, bh = pose_b
+    rad_a, rad_b = math.radians(ah), math.radians(bh)
+    # Each rectangle contributes its forward and right unit vectors as axes.
+    axes = (
+        (math.sin(rad_a), math.cos(rad_a)),
+        (math.cos(rad_a), -math.sin(rad_a)),
+        (math.sin(rad_b), math.cos(rad_b)),
+        (math.cos(rad_b), -math.sin(rad_b)),
+    )
+    half_la, half_wa = vehicle_a.length / 2.0 + pad, vehicle_a.width / 2.0 + pad
+    half_lb, half_wb = vehicle_b.length / 2.0 + pad, vehicle_b.width / 2.0 + pad
+    dx, dy = bx - ax, by - ay
+    for ux, uy in axes:
+        reach_a = half_la * abs(math.sin(rad_a) * ux + math.cos(rad_a) * uy) + (
+            half_wa * abs(math.cos(rad_a) * ux - math.sin(rad_a) * uy)
+        )
+        reach_b = half_lb * abs(math.sin(rad_b) * ux + math.cos(rad_b) * uy) + (
+            half_wb * abs(math.cos(rad_b) * ux - math.sin(rad_b) * uy)
+        )
+        if abs(dx * ux + dy * uy) > reach_a + reach_b:
+            return False
+    return True
 
 
 class PredictiveConflictResolver:
     """Computes per-vehicle braking constraints from projected trajectories.
 
-    Stateless between ticks by design: every call re-projects from the live
-    vehicle states, so there is no reservation table to leak, expire or reset
-    (which also means :meth:`SimulationEngine.reset` has nothing extra to
-    clear here).
+    The *geometry* is recomputed from live vehicle states every call, so there
+    is no reservation table. The give-way *decision* is not: it has to outlive
+    a single tick or it oscillates (see the module docstring). The state kept
+    for that is small and self-cleaning — everything is keyed by vehicle id and
+    dropped as soon as the vehicle or the conflict is gone — but ids repeat
+    from run to run, so :meth:`reset` must be called when a run restarts
+    (:meth:`VehiclePool.reset` does).
     """
 
     def __init__(
@@ -168,13 +291,58 @@ class PredictiveConflictResolver:
         safety_margin: float = _SAFETY_MARGIN,
         safe_headway: float = _SAFE_HEADWAY,
         eta_speed_floor: float = _MIN_SPEED_FOR_ETA,
-        protect_circulating: bool = True,
     ) -> None:
         self.sample_distances: Tuple[float, ...] = tuple(sample_distances)
         self.safety_margin: float = safety_margin
         self.safe_headway: float = safe_headway
         self.eta_speed_floor: float = eta_speed_floor
-        self.protect_circulating: bool = protect_circulating
+
+        # Monotonic call counter; orders junction entries (see _entry_order).
+        self._tick: int = 0
+        # Vehicles currently counted as stopped, with hysteresis
+        # (_STOPPED_SPEED to enter, _MOVING_SPEED to leave).
+        self._stopped: Set[str] = set()
+        # vehicle_id -> tick on which it was first seen inside the junction.
+        self._entry_order: Dict[str, int] = {}
+        # Remembered give-way decision per pair -> (yielder's id, last tick the
+        # pair was in conflict).
+        self._priority: Dict[FrozenSet[str], Tuple[str, int]] = {}
+        # Per-call cache of densely projected poses for moving vehicles.
+        self._dense_poses: Dict[str, List[Optional[_Pose]]] = {}
+
+    def reset(self) -> None:
+        """Forget every remembered decision. Call when a run restarts."""
+        self._tick = 0
+        self._stopped = set()
+        self._entry_order = {}
+        self._priority = {}
+        self._dense_poses = {}
+
+    def _refresh_vehicle_state(self, movers: List[Vehicle]) -> None:
+        """Update stopped-ness and entry order, dropping vehicles that are gone."""
+        self._tick += 1
+        live = {v.vehicle_id for v in movers}
+        stopped: Set[str] = set()
+        entry_order: Dict[str, int] = {}
+        for v in movers:
+            vid = v.vehicle_id
+            if v.speed <= _STOPPED_SPEED or (
+                v.speed <= _MOVING_SPEED and vid in self._stopped
+            ):
+                stopped.add(vid)
+            if vid in self._entry_order:
+                entry_order[vid] = self._entry_order[vid]
+            elif self._inside_intersection(v) or self._has_left_intersection(v):
+                entry_order[vid] = self._tick
+        self._stopped = stopped
+        self._entry_order = entry_order
+        self._dense_poses = {}
+        self._priority = {
+            pair: (yielder, seen)
+            for pair, (yielder, seen) in self._priority.items()
+            if self._tick - seen <= _DECISION_MEMORY_TICKS
+            and all(vid in live for vid in pair)
+        }
 
     # ------------------------------------------------------------------
     # Entry point
@@ -211,6 +379,7 @@ class PredictiveConflictResolver:
             for v in active_vehicles
             if v.lane is not None and v.state != VehicleState.EXITED
         ]
+        self._refresh_vehicle_state(movers)
         if len(movers) < 2:
             return constraints
 
@@ -225,7 +394,7 @@ class PredictiveConflictResolver:
             # road it occupies is where it already is. Sampling its path ahead
             # would claim territory it has no way of reaching and would make
             # every queue look like a wall of conflicts.
-            dists = (0.0,) if v.speed <= _STOPPED_SPEED else self.sample_distances
+            dists = (0.0,) if v.vehicle_id in self._stopped else self.sample_distances
             samples[v.vehicle_id] = dists
             projections[v.vehicle_id] = _project_path(v, dists)
             coords[v.vehicle_id] = v.coords
@@ -328,7 +497,7 @@ class PredictiveConflictResolver:
         hit = self._find_conflict(va, vb, projections, samples)
         if hit is None:
             return
-        dist_a, dist_b = hit
+        dist_a, dist_b, by_box = hit
 
         yielder, dist = self._select_yielder(va, vb, dist_a, dist_b)
 
@@ -337,45 +506,86 @@ class PredictiveConflictResolver:
             # second, independent gate only rejects gaps it already accepted.
             return
 
-        other = vb if yielder is va else va
-        other_dist = dist_b if yielder is va else dist_a
+        # A vehicle already inside the junction is never asked to stop for one
+        # that has not entered yet — stopping mid-junction blocks everything
+        # behind it and seizes the ring — and _select_yielder guarantees that
+        # by ranking "inside" above every other consideration. That conflict
+        # is prevented earlier instead, at the give-way line.
+        #
+        # This used to be an explicit filter here with an exception for a
+        # vehicle "parked on the conflict point". The exception is what broke
+        # it: a vehicle the controller was holding at the give-way line counts
+        # as stopped, so it qualified, and the vehicle already inside the mouth
+        # beside it was braked to a halt for it. That is the deadlock.
 
-        if (
-            self.protect_circulating
-            and self._inside_intersection(yielder)
-            and not self._inside_intersection(other)
-        ):
-            # Never ask a vehicle that is already inside the junction to stop
-            # for one that has not entered yet. Stopping mid-junction blocks
-            # the path of everything behind it, which on a roundabout means the
-            # ring seizes up: circulating traffic halts, so nobody can enter,
-            # so the halted traffic never clears. That conflict is prevented
-            # earlier instead, at the give-way line, where rule 2 of
-            # _select_yielder holds the entering vehicle back until the
-            # crossing is genuinely clear.
-            #
-            # This deliberately does NOT apply when both vehicles are inside.
-            # Two circulating vehicles on converging paths — an inner-ring
-            # vehicle crossing the outer ring to reach its exit is the common
-            # one — are a real weaving conflict that only this layer can
-            # arbitrate: same-ring car-following ignores them because their
-            # ring indices differ, and ConflictManager is disabled for
-            # roundabouts. Exempting them left the conflict completely
-            # unarbitrated, and vehicles drove into each other at close to the
-            # full circulating speed with no braking applied at any point.
-            #
-            # The one exception to the exemption is a vehicle physically parked
-            # on the conflict point: that is an obstacle rather than a
-            # negotiation, and driving through it is never the better outcome.
-            if not (other.speed <= _STOPPED_SPEED and other_dist <= 1e-9):
-                return
-
-        # Stop short of the conflict point by the yielder's own half-length
-        # plus clearance, so its nose does not end up inside the crossing.
-        allowed = max(0.0, dist - _footprint_radius(yielder) - self.safety_margin)
+        if by_box:
+            # ``dist`` is where the yielder's box first comes within clearance
+            # of the other's, so its nose is already at the obstacle there;
+            # stopping one probe step short is all that is needed.
+            allowed = max(0.0, dist - _DENSE_STEP)
+        else:
+            # Stop short of the conflict point by the yielder's own half-length
+            # plus clearance, so its nose does not end up inside the crossing.
+            allowed = max(0.0, dist - _footprint_radius(yielder) - self.safety_margin)
         existing = constraints.get(yielder.vehicle_id)
         if existing is None or allowed < existing:
             constraints[yielder.vehicle_id] = allowed
+
+    def _dense_poses_for(self, vehicle: Vehicle) -> List[Optional[_Pose]]:
+        """Fine-grained path poses, cached for the current call."""
+        cached = self._dense_poses.get(vehicle.vehicle_id)
+        if cached is None:
+            cached = _project_poses(vehicle, _DENSE_DISTANCES)
+            self._dense_poses[vehicle.vehicle_id] = cached
+        return cached
+
+    def _find_box_conflict(
+        self, va: Vehicle, vb: Vehicle
+    ) -> Optional[Tuple[float, float]]:
+        """Conflict test for a pair in which at least one vehicle is stopped.
+
+        A stopped vehicle occupies exactly the road under it, so the question
+        is simply whether the other vehicle's path runs through that box (with
+        the safety margin as clearance). There is no arrival-time question —
+        the stopped vehicle is not going to arrive anywhere.
+
+        Returns ``(distance_along_a, distance_along_b)``, or ``None``.
+        """
+        a_stopped = va.vehicle_id in self._stopped
+        b_stopped = vb.vehicle_id in self._stopped
+        threshold = _footprint_radius(va) + _footprint_radius(vb) + self.safety_margin
+
+        if a_stopped and b_stopped:
+            (pose_a,) = _project_poses(va, (0.0,))
+            (pose_b,) = _project_poses(vb, (0.0,))
+            if pose_a is None or pose_b is None:
+                return None
+            if _boxes_overlap(pose_a, va, pose_b, vb, _BOX_CLEARANCE):
+                return (0.0, 0.0)
+            return None
+
+        still, mover = (va, vb) if a_stopped else (vb, va)
+        (still_pose,) = _project_poses(still, (0.0,))
+        if still_pose is None:
+            return None
+        # Forward path only: index 0 is where the mover already is. Braking
+        # cannot help with a pair that is already that close, and in the mouth
+        # a turning car's swinging tail is routinely within clearance of its
+        # neighbour's box while pulling *away* from it. Testing that pose made
+        # the mover stop for a vehicle it was leaving behind, which is the
+        # other half of a limit cycle.
+        for step, mover_pose in zip(
+            _DENSE_DISTANCES[1:], self._dense_poses_for(mover)[1:]
+        ):
+            if mover_pose is None:
+                break
+            if math.hypot(
+                mover_pose[0] - still_pose[0], mover_pose[1] - still_pose[1]
+            ) < threshold and _boxes_overlap(
+                mover_pose, mover, still_pose, still, _BOX_CLEARANCE
+            ):
+                return (0.0, step) if a_stopped else (step, 0.0)
+        return None
 
     def _find_conflict(
         self,
@@ -383,7 +593,7 @@ class PredictiveConflictResolver:
         vb: Vehicle,
         projections: Dict[str, List[Optional[Tuple[float, float]]]],
         samples: Dict[str, Tuple[float, ...]],
-    ) -> Optional[Tuple[float, float]]:
+    ) -> Optional[Tuple[float, float, bool]]:
         """Earliest point where the paths share road *at the same time*.
 
         Space and time are tested together, per sampled pair. Testing them
@@ -392,16 +602,19 @@ class PredictiveConflictResolver:
         (true for nearly every pair at a junction) with "these two vehicles
         will be there together", and brings the whole network to a standstill.
 
-        Returns ``(distance_along_a, distance_along_b)``, or ``None``.
+        Returns ``(distance_along_a, distance_along_b, by_box)``, or ``None``.
+        ``by_box`` marks a pair with a stationary member, resolved by exact box
+        clearance (:meth:`_find_box_conflict`) rather than by the sampled ladder.
         """
+        if va.vehicle_id in self._stopped or vb.vehicle_id in self._stopped:
+            box_hit = self._find_box_conflict(va, vb)
+            return None if box_hit is None else (box_hit[0], box_hit[1], True)
+
         threshold = _footprint_radius(va) + _footprint_radius(vb) + self.safety_margin
         proj_a = projections[va.vehicle_id]
         proj_b = projections[vb.vehicle_id]
         dists_a = samples[va.vehicle_id]
         dists_b = samples[vb.vehicle_id]
-
-        a_moving = va.speed > _STOPPED_SPEED
-        b_moving = vb.speed > _STOPPED_SPEED
 
         best: Optional[Tuple[float, float]] = None
 
@@ -417,20 +630,16 @@ class PredictiveConflictResolver:
                 if math.hypot(pa[0] - pb[0], pa[1] - pb[1]) >= threshold:
                     continue
 
-                if a_moving and b_moving:
-                    # Both under way: they only conflict if they arrive at
-                    # this shared patch at roughly the same moment.
-                    eta_a = sa / max(va.speed, self.eta_speed_floor)
-                    eta_b = sb / max(vb.speed, self.eta_speed_floor)
-                    if abs(eta_a - eta_b) > self.safe_headway:
-                        continue
-                # Otherwise at least one vehicle is stationary and is sampled
-                # only at its current position, so proximity alone already
-                # means "something is parked in the way".
+                # Both under way: they only conflict if they arrive at this
+                # shared patch at roughly the same moment.
+                eta_a = sa / max(va.speed, self.eta_speed_floor)
+                eta_b = sb / max(vb.speed, self.eta_speed_floor)
+                if abs(eta_a - eta_b) > self.safe_headway:
+                    continue
 
                 if best is None or sa + sb < best[0] + best[1]:
                     best = (sa, sb)
-        return best
+        return None if best is None else (best[0], best[1], False)
 
     # ------------------------------------------------------------------
     # Priority
@@ -457,20 +666,17 @@ class PredictiveConflictResolver:
         one: both vehicles alternately brake, neither clears, and the junction
         locks up. Right of way is therefore decided by *where the vehicles
         are*, never by how fast they happen to be going at this instant.
-        """
-        # 1. A vehicle stopped right on the conflict point is an obstacle, not
-        #    a negotiating party — it cannot yield any harder than it already
-        #    is. This is checked first, but deliberately requires the stopped
-        #    vehicle to be AT the conflict (its sampled distance is 0 only
-        #    when it is stationary), so a vehicle merely queuing behind the
-        #    give-way line never steals priority from circulating traffic.
-        a_blocking = va.speed <= _STOPPED_SPEED and dist_a <= 1e-9
-        b_blocking = vb.speed <= _STOPPED_SPEED and dist_b <= 1e-9
-        if a_blocking != b_blocking:
-            yielder = vb if a_blocking else va
-            return yielder, (dist_b if a_blocking else dist_a)
 
-        # 2. A vehicle that has reached its outgoing lane has cleared the
+        Rules 1 and 2 are structural: a vehicle only ever progresses from
+        outside to inside to leaving, so they cannot flip back and need no
+        memory. They also come *first*. A stopped vehicle used to outrank them
+        (as an "obstacle"), which let a vehicle the controller was holding at
+        the give-way line beat one already inside the mouth beside it.
+        Rule 3 is geometric and re-derived every tick. Whatever remains is an
+        arbitrary tie between equals, remembered for as long as the pair stays
+        in conflict.
+        """
+        # 1. A vehicle that has reached its outgoing lane has cleared the
         #    junction and is driving away. It must never be the one to stop.
         #
         #    _inside_intersection is a binary "on a connection lane or not",
@@ -495,7 +701,7 @@ class PredictiveConflictResolver:
         a_inside = self._inside_intersection(va)
         b_inside = self._inside_intersection(vb)
 
-        # 3. Traffic already inside the junction has right of way over traffic
+        # 2. Traffic already inside the junction has right of way over traffic
         #    still waiting to enter. Braking the vehicle that has not entered
         #    yet is also the only safe option: it can still stop at the
         #    give-way line, whereas stopping the one already crossing would
@@ -504,16 +710,81 @@ class PredictiveConflictResolver:
             yielder = vb if a_inside else va
             return yielder, (dist_b if a_inside else dist_a)
 
-        # 4. Both on the same side of the give-way line. The more committed
-        #    vehicle (further along its current lane) keeps priority.
-        if abs(va.position - vb.position) > 1e-9:
-            yielder = va if va.position < vb.position else vb
+        # 3. A stopped vehicle in the way is an obstacle, not a negotiating
+        #    party: it cannot yield any harder than it already is, and the
+        #    mover has to stop for it. (Only reached for a pair the geometry
+        #    says really does overlap — see _find_box_conflict — so a stopped
+        #    vehicle merely nearby never claims priority.)
+        #
+        #    This is deliberately re-evaluated every tick and never
+        #    remembered. A remembered "A yields to B" is wrong the moment A has
+        #    stopped in B's path: B is then unconstrained and drives into it.
+        #    It cannot flip-flop either, because "stopped" has hysteresis.
+        a_stopped = va.vehicle_id in self._stopped
+        b_stopped = vb.vehicle_id in self._stopped
+        if a_stopped != b_stopped:
+            yielder = vb if a_stopped else va
             return yielder, (dist_a if yielder is va else dist_b)
 
-        # 5. Deterministic tiebreak — never depends on iteration order, so
-        #    identical seeds keep producing identical runs.
-        yielder = va if va.vehicle_id > vb.vehicle_id else vb
+        # Same class and same motion state from here on: the choice is
+        # arbitrary, so what matters is only that it is made once. Reuse the
+        # decision already taken for this pair, if any.
+        pair = frozenset((va.vehicle_id, vb.vehicle_id))
+        remembered = self._priority.get(pair)
+        if remembered is not None:
+            yielder = va if va.vehicle_id == remembered[0] else vb
+        else:
+            yielder = self._first_decision(va, vb, a_inside)
+        self._priority[pair] = (yielder.vehicle_id, self._tick)
         return yielder, (dist_a if yielder is va else dist_b)
+
+    @staticmethod
+    def _entered_from(vehicle: Vehicle) -> Optional[str]:
+        """Approach a vehicle inside the junction came in from, e.g. ``"west"``.
+
+        Connection lanes are named ``conn_{origin}_{lane}_{turn}``.
+        """
+        parts = vehicle.lane.lane_id.lower().split("_") if vehicle.lane else []
+        return parts[1] if len(parts) >= 4 and parts[0] == "conn" else None
+
+    def _first_decision(self, va: Vehicle, vb: Vehicle, both_inside: bool) -> Vehicle:
+        """Decide a same-class, same-motion pair that has no decision yet."""
+        if both_inside:
+            origin = self._entered_from(va)
+            if origin is not None and origin == self._entered_from(vb):
+                # 4. Two vehicles that came in through the same mouth (adjacent
+                #    lanes) share it and merge or diverge within a few metres,
+                #    so the physical truth is simply who is ahead: the one
+                #    further along goes first. Entry order is no guide here —
+                #    two vehicles released together have no meaningful order,
+                #    and giving way to the one *behind* leaves both wedged in
+                #    the mouth. ``position`` is comparable because both lanes
+                #    start at the same give-way line. (Distance to the conflict
+                #    would be the other candidate, but it moves as the yielder
+                #    brakes and so can invert the very decision it produced.)
+                if abs(va.position - vb.position) > 1e-9:
+                    return va if va.position < vb.position else vb
+
+            # 5. Vehicles from different approaches: first in, first through.
+            #    Entry order is a total order fixed at the moment of entry, so
+            #    it cannot flip, and because every wait it creates points at an
+            #    earlier entrant, no cycle of vehicles each waiting for the next
+            #    can form. (Comparing ``position`` across different approaches,
+            #    as this used to, is meaningless: connection lanes differ in
+            #    length by turn, so 16 m along a 55 m lane says nothing about
+            #    53 m along a 73 m one.)
+            order_a = self._entry_order.get(va.vehicle_id, self._tick)
+            order_b = self._entry_order.get(vb.vehicle_id, self._tick)
+            if order_a != order_b:
+                return va if order_a > order_b else vb
+        # 6. Both still on approach lanes, which are all the same length, so
+        #    the vehicle further along its lane is the more committed one.
+        elif abs(va.position - vb.position) > 1e-9:
+            return va if va.position < vb.position else vb
+
+        # 7. Deterministic tiebreak — never depends on iteration order, so
+        #    identical seeds keep producing identical runs.
+        return va if va.vehicle_id > vb.vehicle_id else vb
 
     # ------------------------------------------------------------------
     # Pair filters

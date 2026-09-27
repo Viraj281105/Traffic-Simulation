@@ -102,7 +102,9 @@ def test_validation_passes_actual_collision_count_to_metrics(
     captured_metrics.clear()
     run_invariant_checks(duration=1.0, time_step=0.1, random_seed=999)
 
-    assert len(captured_metrics) == 2  # orchestrator1 and orchestrator2
+    # Both geometries are checked in both runs (orchestrator1 and orchestrator2)
+    # -- the integrity check used to read only the signal side.
+    assert len(captured_metrics) == 4
     for coll_arg, collision_count in captured_metrics:
         assert coll_arg >= 1, (
             f"Expected non-zero collision_count passed in invariants, got {coll_arg}"

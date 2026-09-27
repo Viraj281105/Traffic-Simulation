@@ -28,6 +28,15 @@ vi.mock("../services/websocket", () => ({
   },
 }));
 
+// The backend session already exists: connect straight away (liveSession.ts
+// has its own tests for the waiting).
+vi.mock("../services/liveSession", () => ({
+  whenLiveSessionReady: (callback: () => void) => {
+    callback();
+    return () => undefined;
+  },
+}));
+
 const playSimulation = vi.fn();
 const pauseSimulation = vi.fn();
 const stopSimulation = vi.fn();
@@ -119,6 +128,26 @@ describe("useWebSocketSnapshot", () => {
       tick: 3,
       simulationStatus: "running",
     });
+  });
+
+  it("ignores a message that repeats the current simulation state", () => {
+    const { result } = renderHook(() => useWebSocketSnapshot("single"));
+
+    act(() => {
+      capturedCallbacks.onSnapshot({ tick: 3, simulationStatus: "paused" });
+    });
+    const first = result.current.snapshot;
+    act(() => {
+      capturedCallbacks.onSnapshot({ tick: 3, simulationStatus: "paused" });
+    });
+    expect(result.current.snapshot).toBe(first);
+
+    // A status change at the same tick is new state and does get through.
+    act(() => {
+      capturedCallbacks.onSnapshot({ tick: 3, simulationStatus: "running" });
+    });
+    expect(result.current.snapshot).not.toBe(first);
+    expect(result.current.isPlaying).toBe(true);
   });
 
   it("marks the simulation as playing while it is running", () => {

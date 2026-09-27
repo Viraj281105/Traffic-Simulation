@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 
 from src.controllers.factory import build_tick_callback, create_controller
 from src.core.clock import Clock
+from src.core.config_models import DEFAULT_PHASE_SEQUENCE
 from src.core.engine import SimulationEngine
 from src.core.enums import SimulationStatus
 from src.metrics.collector import MetricCollector
@@ -31,13 +32,24 @@ class DualSimulationOrchestrator:
         self.config_roundabout["geometry"]["intersectionType"] = "roundabout"
 
         # ── Inject proper controller configs for each mode ──────────────
-        # Signal controller needs signal timing parameters
-        self.config_signal["controller"] = self.config_signal.get("controller", {})
-        if "straightRightDuration" not in self.config_signal["controller"]:
-            self.config_signal["controller"].setdefault("straightRightDuration", 15.0)
-            self.config_signal["controller"].setdefault("leftDuration", 5.0)
-            self.config_signal["controller"].setdefault("yellowDuration", 3.0)
-            self.config_signal["controller"].setdefault("allRedDuration", 2.0)
+        # Signal controller needs signal timing parameters. When the source
+        # config carries none (the live dashboard was set to "roundabout", so
+        # its controller block holds ring parameters), the signal side gets the
+        # canonical signal defaults: the paired NS/EW phaseSequence and
+        # FixedTimeSignalController's own 30/5/4/2 s fallbacks.
+        #
+        # It used to get 15 s greens, a 3 s yellow and no phaseSequence — the
+        # one-direction-at-a-time cycle — so the "same" signal in the dual
+        # comparison ran a 100 s one-way cycle or a 72 s paired cycle
+        # depending only on which geometry the dashboard happened to have
+        # selected.
+        signal_ctrl = self.config_signal.get("controller") or {}
+        if not any(
+            key in signal_ctrl
+            for key in ("straightRightDuration", "greenDuration", "greenTime")
+        ):
+            signal_ctrl = {"phaseSequence": list(DEFAULT_PHASE_SEQUENCE)}
+        self.config_signal["controller"] = signal_ctrl
 
         # Roundabout controller needs gap-acceptance / geometry parameters
         round_ctrl = config.get("roundaboutController", config.get("controller", {}))
@@ -76,8 +88,15 @@ class DualSimulationOrchestrator:
         self.config_signal["simulation"]["randomSeed"] = seed
         self.config_roundabout["simulation"]["randomSeed"] = seed
 
+        # Both engines step with the configured time step. This used to be a
+        # hard-coded 0.1 s, so the sweep and Monte-Carlo dashboards' Δt
+        # choice (0.05 / 0.1 / 0.2 s, shown next to their results) was
+        # silently ignored, and a reproduction of a run recorded at another
+        # time step could not honour it either.
+        time_step = float(config.get("simulation", {}).get("timeStep", 0.1))
+
         # ── Build Signal Simulation ─────────────────────────────────────
-        self.clock_signal = Clock(time_step=0.1)
+        self.clock_signal = Clock(time_step=time_step)
         duration = config.get("simulation", {}).get("duration", 300)
         self.engine_signal = SimulationEngine(
             self.clock_signal, duration=duration, config=self.config_signal
@@ -109,7 +128,7 @@ class DualSimulationOrchestrator:
         )
 
         # ── Build Roundabout Simulation ─────────────────────────────────
-        self.clock_roundabout = Clock(time_step=0.1)
+        self.clock_roundabout = Clock(time_step=time_step)
         self.engine_roundabout = SimulationEngine(
             self.clock_roundabout, duration=duration, config=self.config_roundabout
         )

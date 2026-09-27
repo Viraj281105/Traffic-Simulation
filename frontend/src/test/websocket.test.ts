@@ -266,6 +266,20 @@ describe("SimulationWebSocket", () => {
     expect(socket.closeCode).toBe(1000);
   });
 
+  it("reports no error when a still-connecting socket is closed on purpose", () => {
+    // A browser fires "error" when a CONNECTING socket is closed; an
+    // intentional disconnect (view change, unmount) must not surface that.
+    const { callbacks, errors } = makeCallbacks();
+    const client = new SimulationWebSocket(callbacks, "ws://test");
+    client.connect();
+    const socket = FakeWebSocket.latest();
+
+    client.disconnect();
+    socket.fail();
+
+    expect(errors).toEqual([]);
+  });
+
   it("keeps streaming snapshots after a reconnect", () => {
     const { callbacks, snapshots } = makeCallbacks();
     new SimulationWebSocket(callbacks, "ws://test").connect();

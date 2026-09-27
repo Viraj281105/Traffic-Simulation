@@ -1,23 +1,29 @@
 === COMPREHENSIVE TRAFFIC STUDY REPORT ===
 Title,Comprehensive Comparative Traffic Simulation Study: Fixed-Time Signal vs. Modern Roundabout
-Version,1.0.0
-Critical Crossover Flow (veh/s),N/A
-Critical Crossover Flow (veh/hr),N/A
-Executive Recommendation,"Modern roundabouts exhibit significantly superior performance at lower to medium demand (< 0.60 veh/s/appr). Above this critical saturation threshold, Fixed-Time Signals maintain better queue stability and throughput."
+Version,1.1.0
+"Delay-ordering change, upper decided tier (veh/s)",0.417
+"Delay-ordering change, upper decided tier (veh/h)",1501
+Sweep duration per point (s),240.0
+Random patterns per sweep point,1
+Sweep random seed,42
+Validation random patterns,5
+Validation duration per pattern (s),240.0
+Calibration,calibrated,"Calibrated comparison: one lane per approach, the configuration both geometries are validated for."
+Evidence summary,"The control with the lower measured delay changed 2 times across the sweep (signal at 2, roundabout at 1 of 8 points, 4 tie(s), 1 inconclusive); there is no single crossover and no consistent direction. Each point is one random traffic pattern, so a difference here may be chance; only the repeated-seed validation tests that. Delay: signal mean 31.91 s, roundabout mean 16.4 s over 5 random traffic patterns; the difference is statistically supported at alpha = 0.05 (p = 0.0, Cohen's d = 6.016), with the lower mean at the roundabout. Vehicles served: signal mean 45.8 veh, roundabout mean 51.2 veh over 5 random traffic patterns; not statistically supported at alpha = 0.05 (p = 0.0681, Cohen's d = -1.385): this study cannot distinguish the controls on this metric, which is not the same as showing they are equal. Average queue: signal mean 1.55 veh, roundabout mean 0.16 veh over 5 random traffic patterns; the difference is statistically supported at alpha = 0.05 (p = 0.0001, Cohen's d = 8.083), with the lower mean at the roundabout."
 
 === VOLUME SWEEP RESULTS ===
-Arrival Rate (veh/s),Total Hourly Volume (veh/h),Signal Delay (s),Roundabout Delay (s),Signal Throughput (veh/h),Roundabout Throughput (veh/h),Signal Avg Queue,Roundabout Avg Queue,Optimal Strategy,Delay Delta (%)
-0.1,1440,0.0,0.0,0,0,0.1,0.0,tie,0.0
-0.2,2880,0.0,0.0,1,1,0.0,0.0,tie,0.0
-0.3,4320,0.0,0.0,0,1,0.2,0.0,tie,0.0
-0.4,5760,0.0,0.0,0,1,0.5,0.0,tie,0.0
-0.5,7200,0.0,0.0,0,2,0.8,0.0,tie,0.0
-0.6,8640,0.0,0.0,0,3,0.9,0.0,tie,0.0
-0.7,10080,0.0,0.0,0,3,1.2,0.0,tie,0.0
-0.8,11520,0.0,0.0,0,1,1.3,0.0,tie,0.0
+Arrival Rate (veh/s),Total Hourly Volume (veh/h),Signal Delay (s),Roundabout Delay (s),Signal Throughput (vehicles served),Roundabout Throughput (vehicles served),Signal Avg Queue,Roundabout Avg Queue,Lower mean delay (tie / inconclusive shown as such),Delay Delta (%) (roundabout vs signal; + = signal lower)
+0.069,248,16.01,8.08,8,7,0.1,0.0,inconclusive,-49.5
+0.139,500,9.18,9.51,20,21,0.2,0.0,tie,3.6
+0.208,749,10.94,10.76,27,27,0.2,0.0,tie,-1.6
+0.278,1001,12.25,12.1,33,35,0.6,0.1,tie,-1.2
+0.312,1123,13.69,13.72,43,42,0.6,0.2,tie,0.2
+0.347,1249,12.22,16.65,49,48,0.6,0.3,signal,36.3
+0.417,1501,21.6,20.33,55,56,1.5,0.6,roundabout,-5.9
+0.556,2002,23.74,31.18,59,71,3.9,1.4,signal,31.3
 
 === STATISTICAL MONTE CARLO VALIDATION ===
-Metric,Signal Mean,Signal StdDev,Signal 95% CI,Roundabout Mean,Roundabout StdDev,Roundabout 95% CI
-Delay,0.0,0.0,0.0,0.0,0.0,0.0
-Throughput,0.0,0.0,0.0,0.0,0.0,0.0
-Queue,0.1,0.11,0.13,0.0,0.0,0.0
+Metric,Signal Mean,Signal StdDev,Signal 95% CI half-width (Student t),Roundabout Mean,Roundabout StdDev,Roundabout 95% CI half-width (Student t),Welch p-value,Cohen's d (+ = signal higher),Significant at alpha = 0.05
+Delay,31.91,2.7,3.36,16.4,2.45,3.04,0.0,6.016,True
+Throughput,45.8,2.77,3.45,51.2,4.76,5.92,0.0681,-1.385,False
+Queue,1.55,0.24,0.29,0.16,0.06,0.07,0.0001,8.083,True

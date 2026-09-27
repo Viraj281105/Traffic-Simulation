@@ -40,7 +40,6 @@ const metricGroups = [
     metrics: [
       { name: 'Average delay', value: '8.4 s', width: '82%', tone: 'cyan' },
       { name: 'Travel time index', value: '1.08', width: '76%', tone: 'orange' },
-      { name: 'Fuel consumption', value: '−14.2%', width: '70%', tone: 'cyan' },
     ],
   },
   {
@@ -234,7 +233,7 @@ function App() {
             <div className="eyebrow">03 / The evidence</div>
             <h2 id="metrics-title" className="display">Ten ways<br />to measure<br /><em>better.</em></h2>
             <p>Performance is more than speed. We score what the driver feels, what the network absorbs, and what the street can safely hold.</p>
-            <div className="hero-actions" style={{ marginTop: 30 }}><a className="ghost-btn" href="#winner" data-testid="link-see-result">See the result <ArrowDownRight size={14} /></a></div>
+            <div className="hero-actions" style={{ marginTop: 30 }}><a className="ghost-btn" href="#winner" data-testid="link-see-result">See how weights work <ArrowDownRight size={14} /></a></div>
           </div>
           <div className="metric-list">
             {metricGroups.map((group) => (
@@ -256,14 +255,14 @@ function App() {
       <section className="section-wrap section-space reveal" id="winner" aria-labelledby="winner-title">
         <div className="score-card">
           <div>
-            <div className="eyebrow">04 / Master Efficiency Score</div>
-            <h2 id="winner-title" className="display">The roundabout<br /><em>takes the lead.</em></h2>
-            <p>A weighted composite across throughput, delay, fuel, stability, and fairness. The score keeps the trade-offs visible — then makes the decision legible.</p>
+            <div className="eyebrow">04 / Weigh your priorities</div>
+            <h2 id="winner-title" className="display">Weigh the trade-offs<br /><em>your way.</em></h2>
+            <p>A weighted score across the measures you care about, using weights you choose. It shows how your priorities would tilt a comparison; it never declares a winner, and the measurements always stay visible. The figures shown here are an illustration, not results.</p>
             <div className="score-vs"><span>SIGNAL CONTROL <b>64.8</b></span><ArrowRight size={13} /><span>ROUNDABOUT <b>78.6</b></span></div>
           </div>
           <div>
             <div className="score-number" data-testid="text-winning-score">78.6</div>
-            <div className="score-caption mono">MASTER EFFICIENCY SCORE / 100</div>
+            <div className="score-caption mono">EXAMPLE WEIGHTED SCORE / 100 (ILLUSTRATIVE)</div>
           </div>
         </div>
       </section>
