@@ -31,6 +31,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, model_validator
 
+from src.auth import get_current_user_email, get_current_user_id
 from src.controllers.factory import (
     build_tick_callback,
     create_controller,
@@ -60,7 +61,6 @@ from src.metrics.collector import MetricCollector
 from src.snapshot.buffer import SnapshotBuffer
 from src.snapshot.builder import SnapshotBuilder
 from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
-from src.auth import get_current_user_id, get_current_user_email
 from src.study.report_generator import (
     generate_study_report_csv,
     generate_study_report_json,

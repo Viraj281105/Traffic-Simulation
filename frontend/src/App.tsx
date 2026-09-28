@@ -35,6 +35,7 @@ import { StepNav, type GuidedStage } from "./components/guided/StepNav";
 import "./components/guided/Guided.css";
 import { Login } from "./components/Login";
 import { getCurrentUser } from "./auth/cognito";
+import type { CognitoUserSession, CognitoUserAttribute } from "amazon-cognito-identity-js";
 import { Sun, Moon } from "lucide-react";
 import type { SimulationConfigValues } from "./types/config";
 import { DEFAULT_CONFIG_VALUES, dashboardPayload } from "./types/config";
@@ -180,9 +181,9 @@ function Dashboard({
     if (isAuthenticated) {
       const user = getCurrentUser();
       if (user) {
-        user.getSession((err: Error | null, session: unknown) => {
+        user.getSession((err: Error | null | undefined, session: CognitoUserSession | null | undefined) => {
           if (!err && session) {
-            user.getUserAttributes((attrErr: Error | null, attributes: { getName: () => string; getValue: () => string }[] | undefined) => {
+            user.getUserAttributes((attrErr: Error | undefined, attributes: CognitoUserAttribute[] | undefined) => {
               if (!attrErr && attributes && active) {
                 const profile: Record<string, string> = {};
                 attributes.forEach((attr) => {
