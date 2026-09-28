@@ -78,3 +78,30 @@ def stop_engines_left_running() -> Iterator[None]:
             # that cannot be stopped is reported by the test that leaked it,
             # not by this fixture.
             pass
+
+
+TEST_USER_ID = "test-user-sub"
+TEST_USER_EMAIL = "test-user@example.com"
+
+
+@pytest.fixture
+def signed_in_user() -> Iterator[str]:
+    """Authenticate API requests as one Cognito user.
+
+    Saved replays belong to the signed-in user: their endpoints resolve the
+    user from a verified Cognito token (``src.auth``). Tests have no Cognito
+    pool to issue one, so this overrides the two identity dependencies with a
+    fixed user, the standard FastAPI way to test a protected route. Token
+    verification itself is left in place for every test that does not ask
+    for this fixture, so the unauthenticated behaviour stays covered.
+    """
+    from src.auth import get_current_user_email, get_current_user_id
+    from src.main import app
+
+    app.dependency_overrides[get_current_user_id] = lambda: TEST_USER_ID
+    app.dependency_overrides[get_current_user_email] = lambda: TEST_USER_EMAIL
+    try:
+        yield TEST_USER_ID
+    finally:
+        app.dependency_overrides.pop(get_current_user_id, None)
+        app.dependency_overrides.pop(get_current_user_email, None)

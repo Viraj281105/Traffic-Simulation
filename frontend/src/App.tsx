@@ -1,10 +1,4 @@
-import {
-  useState,
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useRef,
-} from "react";
+import { useState, useEffect, useId, useLayoutEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { useWebSocketSnapshot } from "./hooks/useWebSocketSnapshot";
 import { useSimulationPolling } from "./hooks/useSimulationPolling";
@@ -35,7 +29,10 @@ import { StepNav, type GuidedStage } from "./components/guided/StepNav";
 import "./components/guided/Guided.css";
 import { Login } from "./components/Login";
 import { getCurrentUser } from "./auth/cognito";
-import type { CognitoUserSession, CognitoUserAttribute } from "amazon-cognito-identity-js";
+import type {
+  CognitoUserSession,
+  CognitoUserAttribute,
+} from "amazon-cognito-identity-js";
 import { Sun, Moon } from "lucide-react";
 import type { SimulationConfigValues } from "./types/config";
 import { DEFAULT_CONFIG_VALUES, dashboardPayload } from "./types/config";
@@ -79,7 +76,10 @@ export function App() {
   // simulation keeps its configuration and live stream mounted.
   if (route.kind === "run") {
     return (
-      <Dashboard viewMode="history" page={{ kind: "run", runId: route.runId }} />
+      <Dashboard
+        viewMode="history"
+        page={{ kind: "run", runId: route.runId }}
+      />
     );
   }
   if (route.kind === "compare") {
@@ -139,7 +139,8 @@ function configFromReplay(
   replay: SavedReplay,
   current: SimulationConfigValues,
 ): SimulationConfigValues {
-  if (replay.config.ui) return { ...DEFAULT_CONFIG_VALUES, ...replay.config.ui };
+  if (replay.config.ui)
+    return { ...DEFAULT_CONFIG_VALUES, ...replay.config.ui };
   const lanes = replay.config.roads?.lanesPerApproach?.north ?? current.lanes;
   return {
     ...current,
@@ -171,31 +172,46 @@ function Dashboard({
   const setViewMode = (view: RoutedView) => {
     navigate(VIEW_ROUTES[view]);
   };
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!!getCurrentUser());
+  const [isAuthenticated, setIsAuthenticated] =
+    useState<boolean>(!!getCurrentUser());
   const [showLogin, setShowLogin] = useState<boolean>(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
-  const [userProfile, setUserProfile] = useState<{name?: string, email?: string} | null>(null);
+  const [userProfile, setUserProfile] = useState<{
+    name?: string;
+    email?: string;
+  } | null>(null);
 
   useEffect(() => {
     let active = true;
     if (isAuthenticated) {
       const user = getCurrentUser();
       if (user) {
-        user.getSession((err: Error | null | undefined, session: CognitoUserSession | null | undefined) => {
-          if (!err && session) {
-            user.getUserAttributes((attrErr: Error | undefined, attributes: CognitoUserAttribute[] | undefined) => {
-              if (!attrErr && attributes && active) {
-                const profile: Record<string, string> = {};
-                attributes.forEach((attr) => {
-                  profile[attr.getName()] = attr.getValue();
-                });
-                const emailStr = profile.email || "";
-                const nameStr = profile.name || (emailStr ? emailStr.split("@")[0] : "");
-                setUserProfile({ name: nameStr, email: emailStr });
-              }
-            });
-          }
-        });
+        user.getSession(
+          (
+            err: Error | null | undefined,
+            session: CognitoUserSession | null | undefined,
+          ) => {
+            if (!err && session) {
+              user.getUserAttributes(
+                (
+                  attrErr: Error | undefined,
+                  attributes: CognitoUserAttribute[] | undefined,
+                ) => {
+                  if (!attrErr && attributes && active) {
+                    const profile: Record<string, string> = {};
+                    attributes.forEach((attr) => {
+                      profile[attr.getName()] = attr.getValue();
+                    });
+                    const emailStr = profile.email || "";
+                    const nameStr =
+                      profile.name || (emailStr ? emailStr.split("@")[0] : "");
+                    setUserProfile({ name: nameStr, email: emailStr });
+                  }
+                },
+              );
+            }
+          },
+        );
       }
     } else {
       // Defer state update to avoid synchronous state update inside effect
@@ -226,12 +242,11 @@ function Dashboard({
     }
   };
 
-
   const [activeReplay, setActiveReplay] = useState<SavedReplay | null>(null);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isLight, setIsLight] = useState(
-    () => sessionStorage.getItem("signals-theme") === "light",
+    () => sessionStorage.getItem("signals-theme") !== "dark",
   );
 
   useEffect(() => {
@@ -346,7 +361,7 @@ function Dashboard({
         .then(() => {
           if (version === syncVersion.current && playAfterSync.current) {
             playAfterSync.current = false;
-            playRef.current().catch(() => { });
+            playRef.current().catch(() => {});
           }
         })
         .catch((err: unknown) => {
@@ -355,7 +370,9 @@ function Dashboard({
         });
     }, 50);
 
-    return () => { clearTimeout(timeoutId); };
+    return () => {
+      clearTimeout(timeoutId);
+    };
   }, [
     viewMode,
     lanes,
@@ -411,7 +428,7 @@ function Dashboard({
     setActiveReplay(null);
     setStage("watch");
     if (sameConfig(next, configValues)) {
-      if (!isPlaying) play().catch(() => { });
+      if (!isPlaying) play().catch(() => {});
       return;
     }
     playAfterSync.current = true;
@@ -434,17 +451,17 @@ function Dashboard({
   const handlePlay = () => {
     setActiveReplay(null);
     if (viewMode === "single") {
-      singleStart().catch(() => { });
+      singleStart().catch(() => {});
     } else {
-      play().catch(() => { });
+      play().catch(() => {});
     }
   };
 
   const handlePause = () => {
     if (viewMode === "single") {
-      singleStop().catch(() => { });
+      singleStop().catch(() => {});
     } else {
-      pause().catch(() => { });
+      pause().catch(() => {});
     }
   };
 
@@ -452,9 +469,9 @@ function Dashboard({
     randomizeSeed();
     setActiveReplay(null);
     if (viewMode === "single") {
-      singleReset().catch(() => { });
+      singleReset().catch(() => {});
     } else {
-      stop().catch(() => { });
+      stop().catch(() => {});
     }
   };
 
@@ -473,18 +490,19 @@ function Dashboard({
       ? (singlePlaybackEnvelope as unknown as LiveSnapshot)
       : dualSnapshot
         ? ({
-          timestamp: dualSnapshot.elapsed,
-          tick: dualSnapshot.tick,
-          samplingFrequency: dualSnapshot.signal.samplingFrequency,
-          simulationStatus: dualSnapshot.signal.simulationStatus,
-        } as unknown as LiveSnapshot)
+            timestamp: dualSnapshot.elapsed,
+            tick: dualSnapshot.tick,
+            samplingFrequency: dualSnapshot.signal.samplingFrequency,
+            simulationStatus: dualSnapshot.signal.simulationStatus,
+          } as unknown as LiveSnapshot)
         : singleSnapshot;
 
   // A run can be saved once it has produced data and is not running.
   const liveTimestamp = isDual
     ? (dualSnapshot?.elapsed ?? 0)
     : (singleSnapshot?.timestamp ?? 0);
-  const canSave = !activeIsPlaying && activeReplay === null && liveTimestamp > 0;
+  const canSave =
+    !activeIsPlaying && activeReplay === null && liveTimestamp > 0;
 
   const handleSaveHistory = () => {
     requireAuth(() => {
@@ -564,9 +582,9 @@ function Dashboard({
   const replayDual: DualSnapshot | null =
     activeReplay?.metrics.signal && activeReplay.metrics.roundabout
       ? ({
-        signal: { metrics: activeReplay.metrics.signal },
-        roundabout: { metrics: activeReplay.metrics.roundabout },
-      } as unknown as DualSnapshot)
+          signal: { metrics: activeReplay.metrics.signal },
+          roundabout: { metrics: activeReplay.metrics.roundabout },
+        } as unknown as DualSnapshot)
       : null;
   const replaySingle: LiveSnapshot | null =
     activeReplay && "averageWaitTime" in activeReplay.metrics
@@ -641,8 +659,8 @@ function Dashboard({
           <ViewTab view="history" current={section === "saved"}>
             Saved
           </ViewTab>
-          <ViewTab 
-            view="research" 
+          <ViewTab
+            view="research"
             current={section === "research"}
             onIntercept={(e, href) => {
               e.preventDefault();
@@ -691,16 +709,47 @@ function Dashboard({
 
           {!isAuthenticated ? (
             <button
-              onClick={() => { setShowLogin(true); }}
-              style={{ marginLeft: '16px', background: '#38bdf8', color: '#0f172a', padding: '6px 12px', borderRadius: '4px', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
+              onClick={() => {
+                setShowLogin(true);
+              }}
+              style={{
+                marginLeft: "16px",
+                background: "#38bdf8",
+                color: "#0f172a",
+                padding: "6px 12px",
+                borderRadius: "4px",
+                fontWeight: "bold",
+                border: "none",
+                cursor: "pointer",
+              }}
             >
               Sign In
             </button>
           ) : (
-            <div style={{ marginLeft: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ color: '#cbd5e1', fontSize: '14px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: '1.2' }}>
-                <span style={{ fontWeight: 'bold' }}>{userProfile?.name || 'User'}</span>
-                <span style={{ fontSize: '12px' }}>{userProfile?.email || ''}</span>
+            <div
+              style={{
+                marginLeft: "16px",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              <div
+                style={{
+                  color: "var(--text-secondary)",
+                  fontSize: "14px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "flex-end",
+                  lineHeight: "1.2",
+                }}
+              >
+                <span style={{ fontWeight: "bold" }}>
+                  {userProfile?.name || "User"}
+                </span>
+                <span style={{ fontSize: "12px" }}>
+                  {userProfile?.email || ""}
+                </span>
               </div>
               <button
                 onClick={() => {
@@ -708,7 +757,15 @@ function Dashboard({
                   if (user) user.signOut();
                   setIsAuthenticated(false);
                 }}
-                style={{ background: 'transparent', color: '#cbd5e1', border: '1px solid #475569', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}
+                style={{
+                  background: "transparent",
+                  color: "var(--text-secondary)",
+                  border: "1px solid var(--border-accent)",
+                  padding: "4px 8px",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                }}
               >
                 Logout
               </button>
@@ -993,11 +1050,33 @@ function Dashboard({
       </div>
 
       {showLogin && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, background: 'rgba(0,0,0,0.8)' }}>
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999,
+            background: "rgba(0,0,0,0.8)",
+          }}
+        >
           <Login onLogin={handleLoginSuccess} />
           <button
-            onClick={() => { setShowLogin(false); }}
-            style={{ position: 'absolute', top: '20px', right: '20px', background: 'transparent', color: 'white', border: 'none', cursor: 'pointer', fontSize: '18px' }}>
+            onClick={() => {
+              setShowLogin(false);
+            }}
+            style={{
+              position: "absolute",
+              top: "20px",
+              right: "20px",
+              background: "transparent",
+              color: "white",
+              border: "none",
+              cursor: "pointer",
+              fontSize: "18px",
+            }}
+          >
             Close
           </button>
         </div>
@@ -1042,7 +1121,7 @@ function ViewTab({
 
 function NotFound({ path }: { path: string }) {
   useEffect(() => {
-    const isLight = sessionStorage.getItem("signals-theme") === "light";
+    const isLight = sessionStorage.getItem("signals-theme") !== "dark";
     document.documentElement.classList.toggle("light", isLight);
     document.documentElement.classList.toggle("dark", !isLight);
   }, []);

@@ -1515,6 +1515,60 @@
   color: #1e40af;
 }
 
+/* Readouts coloured by control type keep the same hues (signal amber,
+   roundabout cyan) in shades that read on the light cards. Chart strokes and
+   legends are unaffected. */
+.light .analytics-warmup-notice,
+.light .control-tag.signal-tag,
+.light .kpi-val.signal,
+.light .gauge-val.signal,
+.light .val-signal,
+.light .control-pill.signal,
+.light .ttc-readout.signal,
+.light .ring-val.signal,
+.light .stat-val.signal,
+.light .d-val.signal,
+.light .score-badge.signal {
+  color: #b45309;
+}
+
+.light .control-tag.roundabout-tag,
+.light .kpi-val.roundabout,
+.light .gauge-val.roundabout,
+.light .val-roundabout,
+.light .control-pill.roundabout,
+.light .ttc-readout.roundabout,
+.light .ring-val.roundabout,
+.light .stat-val.roundabout,
+.light .d-val.roundabout,
+.light .score-badge.roundabout {
+  color: #0e7490;
+}
+
+.light .delta-val.positive {
+  color: #0369a1;
+}
+
+.light .delta-val.negative,
+.light .low-sample-warning,
+.light .idle-pct-num {
+  color: #c2410c;
+}
+
+.light .live-pill-tag,
+.light .rate-badge {
+  color: #047857;
+}
+
+.light .collision-card.has-events .collision-count {
+  color: #b91c1c;
+}
+
+/* Sits at the track's right end, which is light grey here, not dark. */
+.light .approach-bar-num {
+  color: var(--color-text);
+}
+
 @media (max-width: 640px) {
   .comparison-layout .comparison-side-panel {
     width: 100%;

@@ -119,7 +119,7 @@ import { Reveal } from "./components/Reveal";
 
 function App() {
   const [isLight, setIsLight] = useState(
-    () => sessionStorage.getItem("signals-theme") === "light",
+    () => sessionStorage.getItem("signals-theme") !== "dark",
   );
   useEffect(() => {
     document.title = "UrbanFlow — Signal or roundabout?";

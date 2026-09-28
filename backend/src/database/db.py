@@ -75,6 +75,7 @@ def init_db() -> None:
         ("name", "TEXT"),
         ("notes", "TEXT"),
         ("tags_json", "TEXT"),
+        ("user_id", "TEXT"),
         ("email", "TEXT"),
     ]
     for col_name, col_def in columns_to_add:

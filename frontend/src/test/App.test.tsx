@@ -101,6 +101,25 @@ vi.mock("../hooks/useSimulationPolling", () => ({
   }),
 }));
 
+// Signed out by default, as a first visit is. The Research lab tab asks for a
+// sign-in first, so tests that navigate there sign in with signIn(). The
+// user's session and profile are not under test: getSession reports none.
+const authState: { user: object | null } = { user: null };
+const signIn = () => {
+  authState.user = {
+    getSession: (cb: (err: Error | null, session: null) => void) => {
+      cb(null, null);
+    },
+    signOut: vi.fn(),
+  };
+};
+
+vi.mock("../auth/cognito", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../auth/cognito")>()),
+  getCurrentUser: () => authState.user,
+  getAuthToken: () => Promise.resolve(null),
+}));
+
 vi.mock("../hooks/useContainerSize", () => ({
   useContainerSize: () => [() => undefined, { width: 800, height: 600 }],
 }));
@@ -114,6 +133,7 @@ beforeEach(() => {
   wsState.snapshot = null;
   wsState.isPlaying = false;
   wsState.error = null;
+  authState.user = null;
   sessionStorage.clear();
   window.history.replaceState(null, "", "/app/comparative");
 });
@@ -169,6 +189,7 @@ describe("App", () => {
   });
 
   it("re-syncs the config when the view switches to the roundabout", async () => {
+    signIn();
     const user = userEvent.setup();
     render(<App />);
     await waitFor(() => {
@@ -184,14 +205,16 @@ describe("App", () => {
       ).getByRole("link", { name: /roundabout on its own/i }),
     );
 
+    // The sync is debounced, so a sync scheduled by the Research-lab
+    // navigation can still land after mockClear(); wait for the latest one.
     await waitFor(() => {
-      expect(updateSimulationConfig).toHaveBeenCalled();
+      const allCalls = updateSimulationConfig.mock.calls;
+      expect(allCalls.length).toBeGreaterThan(0);
+      const payload = allCalls[allCalls.length - 1][0] as {
+        intersectionType: string;
+      };
+      expect(payload.intersectionType).toBe("roundabout");
     });
-    const allCalls = updateSimulationConfig.mock.calls;
-    const payload = allCalls[allCalls.length - 1][0] as {
-      intersectionType: string;
-    };
-    expect(payload.intersectionType).toBe("roundabout");
   });
 
   it("remembers the light theme across mounts", async () => {
@@ -204,10 +227,24 @@ describe("App", () => {
     });
   });
 
-  it("renders without a theme preference stored", () => {
+  it("defaults to the light theme when no preference is stored", async () => {
     sessionStorage.removeItem("signals-theme");
 
     expect(() => render(<App />)).not.toThrow();
+    await waitFor(() => {
+      expect(document.documentElement.classList.contains("light")).toBe(true);
+    });
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
+  });
+
+  it("keeps the dark theme when the visitor chose it", async () => {
+    sessionStorage.setItem("signals-theme", "dark");
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(document.documentElement.classList.contains("dark")).toBe(true);
+    });
     expect(document.documentElement.classList.contains("light")).toBe(false);
   });
 
@@ -222,7 +259,20 @@ describe("App", () => {
     );
   });
 
+  it("asks a signed-out visitor to sign in before opening the Research lab", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("link", { name: "Research lab" }));
+
+    expect(window.location.pathname).toBe("/app/comparative");
+    expect(
+      screen.getByRole("heading", { name: "Traffic Simulation" }),
+    ).toBeInTheDocument();
+  });
+
   it("gives every view tab its own URL and follows back/forward", async () => {
+    signIn();
     const user = userEvent.setup();
     render(<App />);
 
