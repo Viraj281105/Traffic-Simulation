@@ -13,7 +13,9 @@ security = HTTPBearer()
 # Load from .env if variables are not set
 # Load from .env if variables are not set
 try:
-    env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "backend", ".env"))
+    env_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "backend", ".env")
+    )
     if not os.path.exists(env_path):
         env_path = ".env"
     with open(env_path) as f:

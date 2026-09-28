@@ -2519,7 +2519,7 @@ def save_replay(
     payload: SaveReplayRequest,
     request: Request,
     user_id: str = Depends(get_current_user_id),
-    email: str = Depends(get_current_user_email)
+    email: str = Depends(get_current_user_email),
 ) -> Dict[str, Any]:
     init_db()
     mode = payload.mode or (
@@ -2566,7 +2566,9 @@ def save_replay(
     )
     arr_rate = run_config.get("traffic", {}).get("arrivalRate", 0.5)
     with get_db_connection() as conn:
-        replay_id = ReplayDAO.save(conn, payload.name, payload.config, metrics, user_id=user_id, email=email)
+        replay_id = ReplayDAO.save(
+            conn, payload.name, payload.config, metrics, user_id=user_id, email=email
+        )
         # Also persist to simulation_runs (same id) for history, reproducible
         # comparison and the reproducibility record.
         SimulationRunDAO.save(
@@ -2604,7 +2606,7 @@ def save_replay(
 def list_replays(
     limit: PageLimit = 50,
     offset: PageOffset = 0,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id),
 ) -> list[Dict[str, Any]]:
     init_db()
     with get_db_connection() as conn:
@@ -2615,25 +2617,37 @@ def list_replays(
 
 
 @app.get("/api/v1/replays/{replay_id}")
-def get_replay(replay_id: str, user_id: str = Depends(get_current_user_id)) -> Dict[str, Any]:
+def get_replay(
+    replay_id: str, user_id: str = Depends(get_current_user_id)
+) -> Dict[str, Any]:
     init_db()
     with get_db_connection() as conn:
         replay = ReplayDAO.get(conn, replay_id)
         if not replay:
             raise HTTPException(status_code=404, detail="Replay not found")
         # Ensure user owns this replay
-        row = conn.cursor().execute("SELECT user_id FROM saved_replays WHERE id = ?", (replay_id,)).fetchone()
+        row = (
+            conn.cursor()
+            .execute("SELECT user_id FROM saved_replays WHERE id = ?", (replay_id,))
+            .fetchone()
+        )
         if row and row["user_id"] and row["user_id"] != user_id:
-             raise HTTPException(status_code=403, detail="Forbidden")
+            raise HTTPException(status_code=403, detail="Forbidden")
         return _with_reproducibility([replay], conn)[0]
     raise HTTPException(status_code=500, detail="Database connection error")
 
 
 @app.delete("/api/v1/replays/{replay_id}", dependencies=[Depends(require_api_key)])
-def delete_replay(replay_id: str, user_id: str = Depends(get_current_user_id)) -> Dict[str, Any]:
+def delete_replay(
+    replay_id: str, user_id: str = Depends(get_current_user_id)
+) -> Dict[str, Any]:
     init_db()
     with get_db_connection() as conn:
-        row = conn.cursor().execute("SELECT user_id FROM saved_replays WHERE id = ?", (replay_id,)).fetchone()
+        row = (
+            conn.cursor()
+            .execute("SELECT user_id FROM saved_replays WHERE id = ?", (replay_id,))
+            .fetchone()
+        )
         if not row:
             raise HTTPException(status_code=404, detail="Replay not found")
         if row["user_id"] and row["user_id"] != user_id:

@@ -40,7 +40,14 @@ class ReplayDAO:
             INSERT INTO saved_replays (id, user_id, email, name, config_json, metrics_json)
             VALUES (?, ?, ?, ?, ?, ?);
             """,
-            (replay_id, user_id, email, clean_name, json.dumps(config), json.dumps(metrics)),
+            (
+                replay_id,
+                user_id,
+                email,
+                clean_name,
+                json.dumps(config),
+                json.dumps(metrics),
+            ),
         )
         conn.commit()
         return replay_id

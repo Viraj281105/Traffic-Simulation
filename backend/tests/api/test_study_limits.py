@@ -206,6 +206,8 @@ def test_study_time_step_is_bounded(step: object) -> None:
     ["/api/v1/study/history/runs", "/api/v1/study/sweeps", "/api/v1/replays"],
 )
 @pytest.mark.parametrize("query", ["limit=-1", "limit=0", "limit=100000", "offset=-5"])
+# /api/v1/replays lists the signed-in user's replays.
+@pytest.mark.usefixtures("signed_in_user")
 def test_listing_pagination_is_bounded(path: str, query: str) -> None:
     """Regression: limit went straight into SQL LIMIT, where SQLite treats a
     negative value as "no limit", so ?limit=-1 dumped the whole table."""

@@ -8,8 +8,10 @@ html,
 body {
   width: 100%;
   height: 100%;
-  background: #1a1a1a;
-  color: #eee;
+  /* Theme tokens (styles/tokens.css), so inherited text follows the active
+     theme instead of staying near-white on the light palette. */
+  background: var(--color-bg);
+  color: var(--color-text);
   font-family: var(--font-sans);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;

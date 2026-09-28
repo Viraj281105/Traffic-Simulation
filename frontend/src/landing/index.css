@@ -288,10 +288,14 @@ button {
   animation: pulse-dot 2s infinite;
 }
 .hero h1 {
-  font-size: clamp(3.3rem, 7.2vw, 7.35rem);
+  font-size: calc(clamp(3.3rem, 7.2vw, 7.35rem) - 8px);
   line-height: 0.88;
   margin: 0;
-  max-width: 670px;
+  /* Wide enough for "ROUNDABOUT?" at the largest size, plus room for the
+     "?" to overhang its tightened letter-spacing: the Reveal wrapper clips
+     anything outside this box. */
+  max-width: 720px;
+  padding-right: 0.08em;
   font-weight: 700;
 }
 .hero h1 em {
@@ -1177,6 +1181,12 @@ button {
 }
 .light .tech-item span {
   color: hsl(220 45% 92% / 0.72);
+}
+/* Faint captions on the light page background need more ink to read. */
+.light .hero-meta span,
+.light .scroll-cue,
+.light .footer {
+  color: hsl(var(--foreground) / 0.72);
 }
 
 .final-cta {

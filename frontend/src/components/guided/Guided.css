@@ -342,6 +342,13 @@
   opacity: 0.45;
 }
 
+/* The dark theme's accent is a light blue: white on it is ~2.7:1, so the
+   same fill carries dark text instead. */
+.dark .guided-primary-btn,
+.dark .step-btn.is-current .step-index {
+  color: var(--color-bg);
+}
+
 /* ── Live guide (watch step) ─────────────────────────────────────────────── */
 .live-guide-column {
   display: flex;

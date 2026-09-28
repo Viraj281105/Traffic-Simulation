@@ -355,6 +355,9 @@
 .light .config-presets-label {
   color: var(--text-secondary);
 }
+.light .config-active-badge {
+  color: #0369a1;
+}
 .light .config-preset-pill {
   background: var(--bg-card);
   border-color: var(--border-color);

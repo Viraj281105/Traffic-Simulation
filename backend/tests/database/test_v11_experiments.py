@@ -15,6 +15,9 @@ from src.database.db import get_db_connection, init_db
 from src.main import LIVE_SESSION_COOKIE, _live_sessions, app
 from src.study.volume_sweep import run_volume_sweep_experiment
 
+# Saved replays belong to the signed-in user (see conftest.signed_in_user).
+pytestmark = pytest.mark.usefixtures("signed_in_user")
+
 
 @pytest.fixture
 def test_db(tmp_path, monkeypatch):

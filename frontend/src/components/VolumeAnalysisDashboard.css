@@ -2041,6 +2041,32 @@
   border-color: var(--border-color);
   box-shadow: var(--shadow-sm);
 }
+
+/* Header cells keep the dark-theme slate otherwise, under black light-theme
+   text (App.css); matches the validation table's light header. */
+.light .sweep-summary-table-wrapper th {
+  background: #f8fafc;
+}
+
+/* LOS grades and deltas take their colour inline; darken the same hue so it
+   reads on the light cards. */
+.light .los-chip,
+.light .los-badge,
+.light .delta-pill {
+  filter: brightness(0.55);
+}
+
+.light .sweep-error-banner {
+  color: #b91c1c;
+}
+
+/* Peak queue beside the average: smaller, in the theme's secondary text
+   colour rather than faded with opacity. */
+.queue-peak-note {
+  font-size: 10.5px;
+  margin-left: 3px;
+  color: var(--text-secondary);
+}
 .light .studio-tabs-bar {
   background: var(--bg-card);
   border-color: var(--border-color);

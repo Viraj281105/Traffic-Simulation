@@ -1915,6 +1915,77 @@
   color: #64748b;
 }
 
+/* Same hues as the dark-theme badges, in shades that read on white. */
+.light .header-confidence-chip {
+  color: #047857;
+}
+
+.light .preflight-badge.quick {
+  color: #1d4ed8;
+}
+
+.light .preflight-badge.rigor {
+  color: #92400e;
+}
+
+.light .method-tag.null {
+  color: #475569;
+}
+
+.light .method-tag.alt {
+  color: #047857;
+}
+
+.light .method-tag.effect {
+  color: #92400e;
+}
+
+.light .scale-pill.sm {
+  color: #6d28d9;
+}
+
+.light .scale-pill.med {
+  color: #1d4ed8;
+}
+
+.light .scale-pill.lg {
+  color: #92400e;
+}
+
+.light .effect-note {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.light .win-rate-pill,
+.light .seed-winner-rnd {
+  color: #065f46;
+}
+
+.light .seed-winner-sig {
+  color: #1d4ed8;
+}
+
+.light .sig-pill.active,
+.light .tooltip-delta-val.positive {
+  color: #047857;
+}
+
+.light .sig-status-badge.significant {
+  color: #b45309;
+}
+
+.light .validation-error,
+.light .tooltip-delta-val.negative {
+  color: #b91c1c;
+}
+
+/* These take their colour inline from the chart series constants, so darken
+   the same hue rather than replace it. */
+.light .ci-mean,
+.light .effect-badge {
+  filter: brightness(0.68);
+}
+
 .light .val-tab-btn {
   color: #475569;
 }

@@ -1,5 +1,6 @@
 import sqlite3
 
+import pytest
 from fastapi.testclient import TestClient
 
 from src.database.db import DB_PATH, init_db
@@ -7,6 +8,9 @@ from src.database.replay_dao import ReplayDAO, _safe_json_loads
 from src.main import app
 
 client = TestClient(app)
+
+# Saved replays belong to the signed-in user (see conftest.signed_in_user).
+pytestmark = pytest.mark.usefixtures("signed_in_user")
 
 
 def test_replay_dao_crud() -> None:

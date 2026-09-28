@@ -2547,13 +2547,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                               <span>
                                 🚦 {run.signal.queue.toFixed(1)}
                                 {run.signal.queueMax !== undefined && (
-                                  <span
-                                    style={{
-                                      fontSize: "10.5px",
-                                      opacity: 0.8,
-                                      marginLeft: "3px",
-                                    }}
-                                  >
+                                  <span className="queue-peak-note">
                                     (pk {run.signal.queueMax.toFixed(0)})
                                   </span>
                                 )}
@@ -2561,13 +2555,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                               <span>
                                 🔄 {run.roundabout.queue.toFixed(1)}
                                 {run.roundabout.queueMax !== undefined && (
-                                  <span
-                                    style={{
-                                      fontSize: "10.5px",
-                                      opacity: 0.8,
-                                      marginLeft: "3px",
-                                    }}
-                                  >
+                                  <span className="queue-peak-note">
                                     (pk {run.roundabout.queueMax.toFixed(0)})
                                   </span>
                                 )}
