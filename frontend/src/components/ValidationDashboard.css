@@ -7,24 +7,12 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
-  padding: 20px 28px 40px;
+  padding: 24px 28px 48px;
   height: 100%;
   overflow-y: auto;
-  background: radial-gradient(circle at top right, #1a122e 0%, #0a0f18 100%);
-  color: var(--text-primary);
-  background:
-    radial-gradient(
-      circle at 80% 5%,
-      hsl(265 72% 30% / 0.16),
-      transparent 34rem
-    ),
-    radial-gradient(
-      circle at 10% 45%,
-      hsl(190 100% 38% / 0.08),
-      transparent 32rem
-    ),
-    hsl(var(--background));
-  color: hsl(var(--foreground));
+  /* Transparent: the app shell supplies the ambient background. */
+  background: transparent;
+  color: var(--color-text);
   box-sizing: border-box;
 }
 
@@ -50,7 +38,7 @@
   margin: 0;
   font-size: 20px;
   font-weight: 700;
-  background: linear-gradient(90deg, #c084fc, #818cf8);
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   display: flex;
@@ -107,9 +95,9 @@
   font-weight: 700;
   padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(16, 185, 129, 0.12);
-  color: #10b981;
-  border: 1px solid rgba(16, 185, 129, 0.28);
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+  color: var(--color-success);
+  border: 1px solid color-mix(in srgb, var(--color-success) 28%, transparent);
 }
 
 .header-subtitle {
@@ -157,8 +145,8 @@
 }
 
 .validation-field input[type="number"] {
-  background: #0f172a;
-  border: 1px solid #1e293b;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   color: var(--text-primary);
   padding: 7px 10px;
@@ -199,8 +187,8 @@
 }
 
 .preset-tag {
-  background: rgba(30, 41, 59, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--color-surface) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 8%, transparent);
   color: var(--text-secondary);
   border-radius: 6px;
   padding: 3px 8px;
@@ -216,8 +204,8 @@
 }
 
 .header-run-btn {
-  background: linear-gradient(135deg, hsl(var(--primary)), hsl(190 100% 45%));
-  color: hsl(var(--primary-foreground));
+  background: var(--color-primary);
+  color: var(--color-on-primary);
   border: none;
   border-radius: 6px;
   padding: 5px 13px;
@@ -373,18 +361,18 @@
 }
 
 .method-tag.null {
-  background: rgba(148, 163, 184, 0.15);
-  color: #94a3b8;
+  background: color-mix(in srgb, var(--color-text-3) 15%, transparent);
+  color: var(--color-text-3);
 }
 
 .method-tag.alt {
-  background: rgba(16, 185, 129, 0.15);
-  color: #10b981;
+  background: color-mix(in srgb, var(--color-success) 15%, transparent);
+  color: var(--color-success);
 }
 
 .method-tag.effect {
-  background: rgba(245, 158, 11, 0.15);
-  color: #f59e0b;
+  background: color-mix(in srgb, var(--series-signal) 15%, transparent);
+  color: var(--series-signal);
 }
 
 .methodology-card h5 {
@@ -418,7 +406,7 @@
 }
 
 .scale-item.neg {
-  background: rgba(100, 116, 139, 0.2);
+  background: color-mix(in srgb, var(--color-text-3) 20%, transparent);
   color: var(--text-secondary);
 }
 .scale-pill.neg {
@@ -427,18 +415,18 @@
 }
 
 .scale-pill.sm {
-  background: rgba(139, 92, 246, 0.15);
-  color: #a78bfa;
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  color: var(--color-accent);
 }
 
 .scale-pill.med {
-  background: rgba(59, 130, 246, 0.15);
-  color: #60a5fa;
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  color: var(--color-accent);
 }
 
 .scale-pill.lg {
-  background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
+  background: color-mix(in srgb, var(--series-signal) 15%, transparent);
+  color: var(--color-warning);
 }
 
 .effect-note {
@@ -534,9 +522,9 @@
 }
 
 .sig-tag.no {
-  background: rgba(148, 163, 184, 0.15);
+  background: color-mix(in srgb, var(--color-text-3) 15%, transparent);
   color: var(--text-secondary);
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  border: 1px solid color-mix(in srgb, var(--color-text-3) 25%, transparent);
 }
 .adv-label-row {
   display: flex;
@@ -722,8 +710,8 @@
 }
 
 .adv-apply-btn {
-  background: linear-gradient(135deg, hsl(var(--primary)), hsl(190 100% 45%));
-  color: hsl(var(--primary-foreground));
+  background: var(--color-primary);
+  color: var(--color-on-primary);
   border: none;
   border-radius: 6px;
   padding: 6px 16px;
@@ -812,8 +800,8 @@
 }
 
 .validation-run-btn {
-  background: linear-gradient(135deg, hsl(var(--primary)), hsl(190 100% 45%));
-  color: hsl(var(--primary-foreground));
+  background: var(--color-primary);
+  color: var(--color-on-primary);
   border: none;
   border-radius: 6px;
   padding: 7px 18px;
@@ -838,9 +826,9 @@
 }
 
 .validation-error {
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #f87171;
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
+  color: var(--color-danger);
   border-radius: 6px;
   padding: 8px 12px;
   font-size: 12px;
@@ -952,8 +940,8 @@
 }
 
 .preflight-badge.quick {
-  background: rgba(59, 130, 246, 0.15);
-  color: #60a5fa;
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  color: var(--color-accent);
 }
 
 .preflight-badge.standard {
@@ -962,8 +950,8 @@
 }
 
 .preflight-badge.rigor {
-  background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
+  background: color-mix(in srgb, var(--series-signal) 15%, transparent);
+  color: var(--color-warning);
 }
 
 .preflight-time {
@@ -1008,18 +996,18 @@
 }
 
 .verdict-card.all-sig {
-  background: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: color-mix(in srgb, var(--color-success) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent);
 }
 
 .verdict-card.partial-sig {
-  background: rgba(59, 130, 246, 0.08);
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
 .verdict-card.non-sig {
-  background: rgba(148, 163, 184, 0.08);
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: color-mix(in srgb, var(--color-text-3) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text-3) 25%, transparent);
 }
 
 .verdict-icon-box {
@@ -1055,9 +1043,9 @@
   font-weight: 700;
   padding: 3px 10px;
   border-radius: 999px;
-  background: rgba(16, 185, 129, 0.15);
-  color: #10b981;
-  border: 1px solid rgba(16, 185, 129, 0.35);
+  background: color-mix(in srgb, var(--color-success) 15%, transparent);
+  color: var(--color-success);
+  border: 1px solid color-mix(in srgb, var(--color-success) 35%, transparent);
 }
 
 .verdict-meta-row {
@@ -1091,9 +1079,9 @@
 }
 
 .sig-pill.active {
-  background: rgba(16, 185, 129, 0.15);
-  color: #10b981;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: color-mix(in srgb, var(--color-success) 15%, transparent);
+  color: var(--color-success);
+  border: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent);
 }
 
 .sig-pill.inactive {
@@ -1190,7 +1178,7 @@
   font-weight: 800;
   padding: 1px 6px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
 }
 
 .effect-badge {
@@ -1258,7 +1246,7 @@
   position: absolute;
   top: -2px;
   height: 13px;
-  background: rgba(255, 255, 255, 0.3);
+  background: color-mix(in srgb, var(--color-text) 30%, transparent);
   border-left: 2px solid hsl(var(--foreground));
   border-right: 2px solid hsl(var(--foreground));
   border-radius: 2px;
@@ -1323,7 +1311,7 @@
 }
 
 .sig-status-badge.significant {
-  color: #f59e0b;
+  color: var(--series-signal);
 }
 
 .sig-status-badge.not-significant {
@@ -1492,11 +1480,11 @@
   color: var(--text-primary);
 }
 .tooltip-delta-val.positive {
-  color: #10b981;
+  color: var(--color-success);
 }
 
 .tooltip-delta-val.negative {
-  color: #ef4444;
+  color: var(--color-danger);
 }
 
 /* ── Tab 2: Raw Seed Runs Table ──────────────────────────────────────────── */
@@ -1567,7 +1555,7 @@
 }
 
 .seed-runs-table-wrapper th {
-  background: rgba(30, 41, 59, 0.85);
+  background: color-mix(in srgb, var(--color-surface) 85%, transparent);
   color: var(--text-secondary);
   font-weight: 600;
   font-size: 11px;
@@ -1600,18 +1588,18 @@
 }
 
 .seed-winner-rnd {
-  color: #10b981;
+  color: var(--color-success);
   font-weight: 700;
-  background: rgba(16, 185, 129, 0.12);
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
   padding: 2px 7px;
   border-radius: 4px;
   font-size: 10.5px;
 }
 
 .seed-winner-sig {
-  color: #3b82f6;
+  color: var(--color-accent);
   font-weight: 700;
-  background: rgba(59, 130, 246, 0.12);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   padding: 2px 7px;
   border-radius: 4px;
   font-size: 10.5px;
@@ -1684,79 +1672,67 @@
 /* ── LIGHT THEME COMPATIBILITY ───────────────────────────────────────────── */
 
 .light .validation-dashboard {
-  background:
-    radial-gradient(
-      circle at 80% 0%,
-      hsl(251 70% 90% / 0.5),
-      transparent 35rem
-    ),
-    radial-gradient(
-      circle at 10% 40%,
-      hsl(187 75% 85% / 0.4),
-      transparent 30rem
-    ),
-    #f8fafc;
-  color: #0f172a;
+  color: var(--color-text);
 }
 
 .light .header-badge-row h2 {
-  color: #0f172a;
+  color: var(--color-text);
 }
 
 .light .header-subtitle {
-  color: #475569;
+  color: var(--color-text-2);
 }
 
 .light .header-inline-controls {
-  background: #ffffff;
-  border-color: #cbd5e1;
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
 }
 
 .light .inline-param label {
-  color: #475569;
+  color: var(--color-text-2);
 }
 
 .light .inline-param input {
-  background: #f8fafc;
-  border-color: #cbd5e1;
-  color: #0f172a;
+  background: var(--color-surface-2);
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
 }
 
 .light .inline-unit-wrap span {
-  color: #64748b;
+  color: var(--color-text-3);
 }
 
 .light .header-tool-btn,
 .light .methodology-toggle-btn {
-  background: #ffffff;
-  border-color: #cbd5e1;
-  color: #1e293b;
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
 }
 
 .light .header-tool-btn:hover,
 .light .methodology-toggle-btn:hover {
-  background: rgba(79, 70, 229, 0.1);
-  border-color: #4f46e5;
-  color: #4338ca;
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 
 .light .header-tool-btn.active,
 .light .methodology-toggle-btn.active {
-  background: #4f46e5;
-  color: #ffffff;
-  border-color: #4338ca;
+  background: var(--color-accent);
+  color: #fff;
+  border-color: var(--color-accent);
 }
 
 .light .export-csv-btn {
-  background: #ffffff;
-  border-color: #cbd5e1;
-  color: #1e293b;
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
 }
 
 .light .export-csv-btn:hover {
-  background: #f1f5f9;
-  border-color: #4f46e5;
-  color: #4338ca;
+  background: var(--color-surface-2);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 
 .light .methodology-drawer,
@@ -1766,79 +1742,79 @@
 .light .seed-runs-table-wrapper,
 .light .proof-card,
 .light .validation-empty-card {
-  background: #ffffff;
-  border-color: #e2e8f0;
+  background: var(--color-surface);
+  border-color: var(--color-border);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
 .light .advanced-title-group h4,
 .light .adv-card-header h5 {
-  color: #0f172a !important;
+  color: var(--color-text) !important;
 }
 
 .light .advanced-card {
-  background: #f8fafc;
-  border-color: #e2e8f0;
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
 }
 
 .light .adv-field label {
-  color: #475569;
+  color: var(--color-text-2);
 }
 
 .light .adv-val-pill {
-  background: rgba(79, 70, 229, 0.1);
-  color: #4338ca;
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  color: var(--color-accent);
 }
 
 .light .adv-pill-btn {
-  background: #ffffff;
-  border-color: #cbd5e1;
-  color: #475569;
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+  color: var(--color-text-2);
 }
 
 .light .adv-pill-btn:hover {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: var(--color-surface-2);
+  color: var(--color-text);
 }
 
 .light .adv-pill-btn.active {
-  background: #4f46e5;
-  color: #ffffff;
-  border-color: #4338ca;
+  background: var(--color-accent);
+  color: #fff;
+  border-color: var(--color-accent);
 }
 
 .light .adv-field input[type="number"] {
-  background: #ffffff;
-  border-color: #cbd5e1;
-  color: #0f172a;
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
 }
 
 .light .adv-summary-box {
-  background: rgba(79, 70, 229, 0.06);
-  border-color: rgba(79, 70, 229, 0.2);
-  color: #1e293b;
+  background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color: var(--color-text);
 }
 
 .light .foot-chip {
-  background: #ffffff;
-  border-color: #cbd5e1;
-  color: #1e293b;
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
 }
 
 .light .adv-reset-btn {
-  border-color: #cbd5e1;
-  color: #475569;
+  border-color: var(--color-border-strong);
+  color: var(--color-text-2);
 }
 
 .light .adv-reset-btn:hover {
-  color: #0f172a;
-  border-color: #94a3b8;
+  color: var(--color-text);
+  border-color: var(--color-text-3);
 }
 
 .light .adv-close-btn {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-  color: #1e293b;
+  background: var(--color-surface-2);
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
 }
 
 .light .panel-header-badge h3,
@@ -1849,107 +1825,116 @@
 .light .seed-chart-titles h4,
 .light .table-header-titles h4,
 .light .proof-card h4 {
-  color: #0f172a !important;
+  color: var(--color-text) !important;
 }
 
 .light .badge-pill {
-  background: rgba(79, 70, 229, 0.1) !important;
-  color: #4338ca !important;
-  border-color: rgba(79, 70, 229, 0.28) !important;
+  background: color-mix(
+    in srgb,
+    var(--color-accent) 10%,
+    transparent
+  ) !important;
+  color: var(--color-accent) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--color-accent) 28%,
+    transparent
+  ) !important;
   font-weight: 700 !important;
 }
 
 .light .validation-field label {
-  color: #475569;
+  color: var(--color-text-2);
 }
 
 .light .validation-field input[type="number"] {
-  background: #f8fafc;
-  border-color: #cbd5e1;
-  color: #0f172a;
+  background: var(--color-surface-2);
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
 }
 
 .light .validation-field input[type="number"]:focus {
-  border-color: #4f46e5;
-  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 15%, transparent);
 }
 
 .light .preset-label {
-  color: #475569;
+  color: var(--color-text-2);
 }
 
 .light .preset-tag {
-  background: rgba(15, 23, 42, 0.05) !important;
-  border-color: #cbd5e1 !important;
-  color: #1e293b !important;
+  background: color-mix(in srgb, var(--color-text) 5%, transparent) !important;
+  border-color: var(--color-border-strong) !important;
+  color: var(--color-text) !important;
   font-weight: 600 !important;
 }
 
 .light .preset-tag:hover {
-  background: #4f46e5 !important;
-  border-color: #4338ca !important;
-  color: #ffffff !important;
-  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.3) !important;
+  background: var(--color-accent) !important;
+  border-color: var(--color-accent) !important;
+  color: #fff !important;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--color-accent) 30%, transparent) !important;
 }
 
 .light .preflight-card {
-  background: #f8fafc;
-  border-color: #e2e8f0;
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
 }
 
 .light .preflight-card:hover {
-  background: #ffffff;
-  border-color: #4f46e5;
-  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.12);
+  background: var(--color-surface);
+  border-color: var(--color-accent);
+  box-shadow: 0 6px 20px
+    color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 
 .light .preflight-card h4 {
-  color: #0f172a;
+  color: var(--color-text);
 }
 
 .light .preflight-card p {
-  color: #475569;
+  color: var(--color-text-2);
 }
 
 .light .preflight-time {
-  color: #64748b;
+  color: var(--color-text-3);
 }
 
 /* Same hues as the dark-theme badges, in shades that read on white. */
 .light .header-confidence-chip {
-  color: #047857;
+  color: var(--color-success);
 }
 
 .light .preflight-badge.quick {
-  color: #1d4ed8;
+  color: var(--color-accent);
 }
 
 .light .preflight-badge.rigor {
-  color: #92400e;
+  color: var(--color-warning);
 }
 
 .light .method-tag.null {
-  color: #475569;
+  color: var(--color-text-2);
 }
 
 .light .method-tag.alt {
-  color: #047857;
+  color: var(--color-success);
 }
 
 .light .method-tag.effect {
-  color: #92400e;
+  color: var(--color-warning);
 }
 
 .light .scale-pill.sm {
-  color: #6d28d9;
+  color: var(--color-accent);
 }
 
 .light .scale-pill.med {
-  color: #1d4ed8;
+  color: var(--color-accent);
 }
 
 .light .scale-pill.lg {
-  color: #92400e;
+  color: var(--color-warning);
 }
 
 .light .effect-note {
@@ -1958,25 +1943,25 @@
 
 .light .win-rate-pill,
 .light .seed-winner-rnd {
-  color: #065f46;
+  color: var(--color-success);
 }
 
 .light .seed-winner-sig {
-  color: #1d4ed8;
+  color: var(--color-accent);
 }
 
 .light .sig-pill.active,
 .light .tooltip-delta-val.positive {
-  color: #047857;
+  color: var(--color-success);
 }
 
 .light .sig-status-badge.significant {
-  color: #b45309;
+  color: var(--series-signal-ink);
 }
 
 .light .validation-error,
 .light .tooltip-delta-val.negative {
-  color: #b91c1c;
+  color: var(--color-danger);
 }
 
 /* These take their colour inline from the chart series constants, so darken
@@ -1987,110 +1972,110 @@
 }
 
 .light .val-tab-btn {
-  color: #475569;
+  color: var(--color-text-2);
 }
 
 .light .val-tab-btn:hover {
-  color: #0f172a;
-  background: #f1f5f9;
+  color: var(--color-text);
+  background: var(--color-surface-2);
 }
 
 .light .val-tab-btn.active {
-  background: #4f46e5;
-  color: #ffffff;
+  background: var(--color-accent);
+  color: #fff;
 }
 
 .light .ci-model-name {
-  color: #0f172a;
+  color: var(--color-text);
 }
 
 .light .ci-range-hint,
 .light .ci-range {
-  color: #64748b;
+  color: var(--color-text-3);
 }
 
 .light .ci-bar-track {
-  background: #f1f5f9;
-  border-color: #e2e8f0;
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
 }
 
 .light .ci-bar-ci {
   background: rgba(0, 0, 0, 0.06);
-  border-color: #0f172a;
+  border-color: var(--color-border-strong);
 }
 
 .light .stat-badge-chip {
-  background: #f8fafc;
-  border-color: #e2e8f0;
-  color: #475569;
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
+  color: var(--color-text-2);
 }
 
 .light .stat-badge-chip strong {
-  color: #0f172a;
+  color: var(--color-text);
 }
 
 .light .chart-metric-pills {
-  background: #f1f5f9;
-  border-color: #e2e8f0;
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
 }
 
 .light .metric-pill-btn {
-  color: #475569;
+  color: var(--color-text-2);
 }
 
 .light .metric-pill-btn:hover {
-  color: #0f172a;
+  color: var(--color-text);
 }
 
 .light .metric-pill-btn.active {
-  background: #4f46e5;
-  color: #ffffff;
+  background: var(--color-accent);
+  color: #fff;
 }
 
 .light .validation-chart-tooltip {
-  background: #ffffff;
-  border-color: #e2e8f0;
+  background: var(--color-surface);
+  border-color: var(--color-border);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 }
 
 .light .tooltip-seed-title {
-  color: #0f172a;
+  color: var(--color-text);
 }
 
 .light .tooltip-val {
-  color: #0f172a;
+  color: var(--color-text);
 }
 
 .light .seed-runs-table-wrapper th {
-  background: #f8fafc;
-  color: #475569;
-  border-color: #e2e8f0;
+  background: var(--color-surface-2);
+  color: var(--color-text-2);
+  border-color: var(--color-border);
 }
 
 .light .seed-runs-table-wrapper td {
-  color: #0f172a;
-  border-color: #f1f5f9;
+  color: var(--color-text);
+  border-color: var(--color-surface-2);
 }
 
 .light .seed-runs-table-wrapper tbody tr:hover {
-  background: #f8fafc;
+  background: var(--color-surface-2);
 }
 
 .light .math-box {
-  background: #f8fafc;
-  border-color: #e2e8f0;
-  color: #4338ca;
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
+  color: var(--color-accent);
 }
 
 .light .table-export-btn {
-  background: #f8fafc;
-  border-color: #cbd5e1;
-  color: #1e293b;
+  background: var(--color-surface-2);
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
 }
 
 .light .table-export-btn:hover {
-  border-color: #4f46e5;
-  color: #4338ca;
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 
 /* Preset cards are buttons (keyboard operable); keep the card look. */
@@ -2174,13 +2159,51 @@ button.preflight-card:focus-visible {
   margin: 0 0 12px;
   padding: 10px 14px;
   border-radius: 8px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid color-mix(in srgb, var(--color-text-3) 35%, transparent);
+  background: color-mix(in srgb, var(--color-text-3) 10%, transparent);
   font-size: 0.85rem;
   line-height: 1.45;
 }
 
 .validation-banner.is-exploratory {
-  border-color: rgba(245, 158, 11, 0.55);
-  background: rgba(245, 158, 11, 0.12);
+  border-color: color-mix(in srgb, var(--series-signal) 55%, transparent);
+  background: color-mix(in srgb, var(--series-signal) 12%, transparent);
+}
+
+/* ── Shared UrbanFlow page language (both themes) ─────────────────────── */
+/* Page titles: solid, tight, the same in both research tools. */
+.validation-dashboard .header-title-group h2,
+.validation-dashboard .header-badge-row h2 {
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  color: var(--color-text);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.validation-dashboard .header-title-group h2 .uf-glyph,
+.validation-dashboard .header-badge-row h2 .uf-glyph {
+  width: 20px;
+  height: 20px;
+  color: var(--brand-green-ink);
+}
+/* Empty states share the .uf-state icon tile (styles/components.css). */
+.validation-dashboard .empty-icon-halo {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-lg);
+  color: var(--brand-green-ink);
+  background: var(--brand-green-soft);
+  border: 1px solid color-mix(in srgb, var(--brand-green) 24%, transparent);
+  box-shadow: var(--glass-highlight);
+  font-size: 0;
+}
+.validation-dashboard .validation-empty-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-raised);
+  animation: uf-rise-in var(--dur-slow) var(--ease-out) both;
 }

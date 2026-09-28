@@ -7,9 +7,18 @@
 
 .run-back-link {
   align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 13px;
+  font-weight: 600;
   color: var(--accent-blue);
   text-decoration: none;
+  transition: transform var(--dur-base) var(--ease-out);
+}
+
+.run-back-link:hover {
+  transform: translateX(-2px);
 }
 
 .run-back-link:hover,
@@ -42,9 +51,11 @@
 
 .run-card {
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: var(--bg-secondary);
-  padding: 16px;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-raised);
+  padding: 18px 20px;
+  animation: uf-rise-in var(--dur-slow) var(--ease-out) both;
   display: flex;
   flex-direction: column;
   gap: 10px;

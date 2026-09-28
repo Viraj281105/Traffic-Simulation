@@ -17,6 +17,7 @@ import type { RunningMetrics } from "../types/simulation";
 import type { SimulationConfigValues } from "../types/config";
 import { parseStoredTimestamp } from "../utils/time";
 import { LoaderMark } from "./ui/Loader";
+import { StatusState } from "./ui/StatusState";
 
 export interface SavedReplay {
   id: string;
@@ -70,9 +71,9 @@ function seedOf(r: SavedReplay): string {
 }
 
 const KIND_LABEL = {
-  comparative: "📊 Comparison",
-  roundabout: "🔄 Roundabout",
-  signal: "🚦 Signal",
+  comparative: "Comparison",
+  roundabout: "Roundabout",
+  signal: "Signal",
 } as const;
 
 /** "S / R" for a comparison, the single value otherwise. */
@@ -200,20 +201,32 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
           Loading saved runs…
         </p>
       ) : loadError ? (
-        <div className="history-status error" role="alert">
-          <p>{loadError}</p>
-          <button type="button" className="pb-btn pb-secondary" onClick={retry}>
-            Retry
-          </button>
-        </div>
+        <StatusState
+          tone="unavailable"
+          role="alert"
+          className="history-state"
+          title={loadError}
+          actions={
+            <button
+              type="button"
+              className="pb-btn pb-secondary"
+              onClick={retry}
+            >
+              Retry
+            </button>
+          }
+        />
       ) : replays.length === 0 ? (
-        <div className="history-status empty">
-          <p>No saved runs yet.</p>
+        <StatusState
+          tone="empty"
+          className="history-state"
+          title="No saved runs yet."
+        >
           <p className="hint">
             Run a simulation, pause it or let it finish, then choose “Save to
             History”.
           </p>
-        </div>
+        </StatusState>
       ) : (
         <div className="history-table-wrap">
           <table className="history-table">

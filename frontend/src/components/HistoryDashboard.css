@@ -1,27 +1,36 @@
+/* Saved runs: the list, its states and the delete confirmation. Colours,
+   depth and motion from styles/tokens.css; states from .uf-state. */
 .history-dashboard {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 24px;
+  gap: 18px;
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 32px 28px 56px;
   color: var(--text-primary);
   min-height: 0;
-  overflow-y: auto;
+}
+
+.history-header {
+  animation: uf-rise-in 420ms var(--ease-out) both;
 }
 
 .history-header h1 {
-  margin: 0 0 6px;
-  font-size: 22px;
+  margin: 0 0 8px;
+  font-size: clamp(24px, 2.6vw, 30px);
   font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--text-primary);
 }
 
 .history-header p {
   margin: 0;
-  max-width: 72ch;
+  max-width: 76ch;
   color: var(--text-secondary);
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 1.55;
 }
 
 .history-status {
@@ -29,30 +38,49 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 10px;
-  padding: 16px;
-  border: 1px dashed var(--border-color);
+  padding: 16px 18px;
+  border: 1px dashed var(--border-accent);
   border-radius: var(--radius-md);
+  background: var(--color-surface);
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: 13.5px;
+  animation: uf-rise-in var(--dur-slow) var(--ease-out) both;
 }
 
 .history-status.error {
   border-style: solid;
-  border-color: hsl(0 80% 60% / 0.5);
-  color: var(--accent-red);
+  border-color: color-mix(in srgb, var(--color-danger) 35%, transparent);
+  background: color-mix(in srgb, var(--color-danger) 6%, var(--color-surface));
+  color: var(--color-danger);
 }
 
 .history-status.is-loading {
   flex-direction: row;
   align-items: center;
+  border-style: solid;
+  border-color: var(--border-color);
+}
+
+/* Empty and unavailable states sit in a quiet framed panel. */
+.history-state {
+  max-width: none;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-raised);
 }
 
 .history-dashboard > * {
   min-width: 0;
 }
 
-.history-status .hint {
+.history-status .hint,
+.history-state .hint {
   color: var(--text-muted);
+}
+
+.run-actions {
+  animation: uf-rise-in 420ms var(--ease-out) 60ms both;
 }
 
 .history-table-wrap {
@@ -63,22 +91,26 @@
   min-width: 0;
   overflow-x: auto;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-raised);
+  animation: uf-rise-in 420ms var(--ease-out) 90ms both;
 }
 
 .history-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   text-align: left;
   font-size: 13px;
 }
 
 .history-table th,
 .history-table td {
-  padding: 10px 14px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--border-color);
   white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease-out);
 }
 
 .history-table tbody tr:last-child th,
@@ -87,16 +119,35 @@
 }
 
 .history-table thead th {
-  background: var(--bg-tertiary);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-surface-2);
   color: var(--text-secondary);
-  font-weight: 600;
+  font-weight: 700;
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.06em;
+  border-bottom-color: var(--border-accent);
 }
 
 .history-table tbody tr:hover > * {
-  background: var(--bg-hover);
+  background: color-mix(in srgb, var(--color-text) 3.5%, transparent);
+}
+
+/* A ticked row reads as selected, not only through its checkbox. */
+.history-table tbody tr:has(input:checked) > * {
+  background: var(--color-accent-soft);
+}
+.history-table tbody tr:has(input:checked) > :first-child {
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
+.history-table input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-accent);
+  cursor: pointer;
 }
 
 .history-table .run-name {
@@ -104,6 +155,22 @@
   color: var(--text-primary);
   white-space: normal;
   min-width: 180px;
+}
+
+.history-table .run-name a {
+  color: inherit;
+  text-decoration: none;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-size: 0% 1px;
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  transition:
+    background-size var(--dur-base) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.history-table .run-name a:hover {
+  color: var(--color-accent);
+  background-size: 100% 1px;
 }
 
 .history-table .mono {
@@ -121,42 +188,56 @@
   font-size: 12px;
 }
 
-/* ── Confirmation dialog ────────────────────────────────────────────────── */
+/* ── Confirmation dialog (shared dialog language) ───────────────────────── */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background: var(--scrim);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10000;
   padding: 16px;
+  animation: uf-fade-in var(--dur-base) var(--ease-out);
 }
 
 .modal-content {
-  background-color: var(--bg-card);
-  padding: 24px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-color);
-  box-shadow: var(--shadow-lg);
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: blur(20px) saturate(var(--glass-saturate));
+  backdrop-filter: blur(20px) saturate(var(--glass-saturate));
+  padding: 26px 26px 22px;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight), var(--shadow-overlay);
   max-width: 420px;
+  width: 100%;
   text-align: center;
+  animation: uf-dialog-in var(--dur-slow) var(--ease-spring);
 }
 
 .modal-content h2 {
-  margin: 0 0 10px;
+  margin: 0 0 8px;
   color: var(--text-primary);
   font-size: 18px;
+  letter-spacing: -0.01em;
 }
 
 .modal-content p {
   color: var(--text-secondary);
   font-size: 14px;
-  margin: 0 0 20px;
+  margin: 0 0 22px;
 }
 
 .modal-actions {
   display: flex;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .history-dashboard {
+    padding: 20px 14px 40px;
+  }
 }

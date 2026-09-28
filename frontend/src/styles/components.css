@@ -1,9 +1,10 @@
 /*
- * Shared UrbanFlow controls used across the existing pages: the compact
- * close button and the loading mark. Colours come from styles/tokens.css.
+ * Shared UrbanFlow primitives used across every page after the landing page:
+ * the logo and loader, status states, glass surfaces, badges, the dialog
+ * frame and the compact close button. Colours come from styles/tokens.css.
  */
 
-/* ── Close button (every dialog, drawer and panel) ──────────────────────── */
+/* ── Close / icon button (every dialog, drawer and panel) ──────────────── */
 .uf-icon-btn {
   display: inline-flex;
   align-items: center;
@@ -20,12 +21,16 @@
   transition:
     background-color var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out),
-    border-color var(--dur-fast) var(--ease-out);
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 .uf-icon-btn:hover {
   background: var(--color-surface-2);
   border-color: var(--color-border);
   color: var(--color-text);
+}
+.uf-icon-btn:active {
+  transform: scale(0.94);
 }
 .uf-icon-btn:focus-visible {
   outline: none;
@@ -35,61 +40,101 @@
   width: var(--icon-size);
   height: var(--icon-size);
 }
+.uf-close-btn:hover svg {
+  transform: rotate(90deg);
+}
+.uf-close-btn svg {
+  transition: transform var(--dur-base) var(--ease-out);
+}
 
-/* ── Loading mark: a small roundabout with vehicles circulating ────────── */
+/* ── Logo ──────────────────────────────────────────────────────────────── */
+.uf-logo {
+  display: block;
+  flex-shrink: 0;
+  overflow: visible;
+}
+.uf-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.uf-wordmark {
+  /* As in the reference artwork: URBAN bold, FLOW light, one colour. The
+     DOM text stays "UrbanFlow" for assistive technology. */
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--logo-road);
+  line-height: 1;
+}
+.uf-wordmark__flow {
+  font-weight: 400;
+}
+
+/* Loader treatment: green flow travels along the four paths while the
+   central roundabout breathes; the road structure stays still. */
+.uf-logo--animated .uf-logo__flow {
+  opacity: 0.35;
+}
+.uf-logo--animated .uf-logo__pulse {
+  stroke-dasharray: 34 66;
+  animation: uf-flow-travel 1.5s var(--ease-in-out) infinite;
+}
+.uf-logo--animated .uf-logo__ring {
+  transform-origin: 50px 50px;
+  transform-box: view-box;
+  animation: uf-ring-breathe 1.5s var(--ease-in-out) infinite;
+}
+@keyframes uf-flow-travel {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+@keyframes uf-ring-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.86);
+  }
+}
+/* A one-off "flow draws in" used by the header mark during a route change. */
+@keyframes uf-flow-draw {
+  from {
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dasharray: 100;
+    stroke-dashoffset: 0;
+  }
+}
+
 .uf-loader {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: var(--color-text-3);
 }
-.uf-loader svg {
-  display: block;
-  overflow: visible;
-}
-.uf-loader__road {
-  fill: none;
-  stroke: var(--color-border-strong);
-}
-.uf-loader__island {
-  fill: var(--color-surface-2);
-  stroke: var(--color-border-strong);
-}
-.uf-loader__car {
-  fill: var(--color-accent);
-  offset-path: path("M 24 10 A 14 14 0 1 1 23.99 10");
-  offset-rotate: auto;
-  animation: uf-loader-orbit 1.6s linear infinite;
-}
-.uf-loader__car--2 {
-  fill: var(--series-signal);
-  animation-delay: -0.53s;
-}
-.uf-loader__car--3 {
-  fill: var(--series-roundabout);
-  animation-delay: -1.07s;
-}
-@keyframes uf-loader-orbit {
-  from {
-    offset-distance: 0%;
-  }
-  to {
-    offset-distance: 100%;
-  }
-}
+
 @media (prefers-reduced-motion: reduce) {
-  /* No orbiting; the mark fades gently instead, which still says "working". */
-  .uf-loader__car {
+  /* No travelling flow; the whole mark fades gently instead, which still
+     says "working" without movement. */
+  .uf-logo--animated .uf-logo__pulse {
+    display: none;
+  }
+  .uf-logo--animated .uf-logo__flow {
+    opacity: 1;
+  }
+  .uf-logo--animated .uf-logo__ring {
     animation: none !important;
   }
-  .uf-loader__car--2 {
-    offset-distance: 33%;
-  }
-  .uf-loader__car--3 {
-    offset-distance: 66%;
-  }
-  .uf-loader svg {
+  .uf-loader .uf-logo--animated {
     animation: uf-loader-breathe 1.6s ease-in-out infinite alternate !important;
     animation-duration: 1.6s !important;
     animation-iteration-count: infinite !important;
@@ -102,4 +147,221 @@
   to {
     opacity: 0.45;
   }
+}
+
+/* ── Status states: loading, empty, success, warning, error, unavailable ─ */
+.uf-state {
+  --state-tone: var(--color-text-3);
+  --state-soft: var(--color-surface-2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 40px 24px;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 560px;
+  color: var(--color-text-2);
+  animation: uf-rise-in var(--dur-slow) var(--ease-out) both;
+}
+.uf-state__icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-lg);
+  color: var(--state-tone);
+  background: var(--state-soft);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--glass-highlight);
+}
+.uf-state__title {
+  margin: 4px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+.uf-state__body {
+  font-size: 13.5px;
+  line-height: 1.55;
+  max-width: 52ch;
+}
+.uf-state__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.uf-state--compact {
+  padding: 18px 16px;
+  gap: 6px;
+}
+.uf-state--compact .uf-state__icon {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+}
+.uf-state--loading .uf-state__title {
+  font-weight: 500;
+  color: var(--color-text-2);
+}
+.uf-state--info {
+  --state-tone: var(--color-info);
+  --state-soft: var(--color-accent-soft);
+}
+.uf-state--success {
+  --state-tone: var(--color-success);
+  --state-soft: color-mix(in srgb, var(--color-success) 12%, transparent);
+}
+.uf-state--warning {
+  --state-tone: var(--color-warning);
+  --state-soft: color-mix(in srgb, var(--color-warning) 12%, transparent);
+}
+.uf-state--error {
+  --state-tone: var(--color-danger);
+  --state-soft: color-mix(in srgb, var(--color-danger) 11%, transparent);
+}
+
+/* ── Surfaces ──────────────────────────────────────────────────────────── */
+/* Glass: for floating layers only (navigation, map overlays, dialogs). */
+.uf-glass {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight), var(--shadow-float);
+  -webkit-backdrop-filter: blur(var(--glass-blur))
+    saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+}
+
+/* ── Status badge ──────────────────────────────────────────────────────── */
+.uf-badge {
+  --badge-tone: var(--color-text-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--badge-tone);
+  background: color-mix(in srgb, var(--badge-tone) 11%, transparent);
+  border: 1px solid color-mix(in srgb, var(--badge-tone) 26%, transparent);
+  white-space: nowrap;
+}
+
+/* ── Dialog frame (login, analytics, confirmations) ───────────────────── */
+.uf-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: var(--scrim);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  animation: uf-fade-in var(--dur-base) var(--ease-out);
+}
+.uf-dialog {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  max-height: calc(100dvh - 48px);
+  overflow: auto;
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight), var(--shadow-overlay);
+  -webkit-backdrop-filter: blur(20px) saturate(var(--glass-saturate));
+  backdrop-filter: blur(20px) saturate(var(--glass-saturate));
+  animation: uf-dialog-in var(--dur-slow) var(--ease-spring);
+}
+.uf-dialog__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1;
+}
+
+/* ── Shared keyframes ──────────────────────────────────────────────────── */
+@keyframes uf-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes uf-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes uf-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+@keyframes uf-drawer-in {
+  from {
+    opacity: 0.4;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Scrollbars (app document only; thin, theme-aware) ─────────────────── */
+.app,
+.app * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+
+/* Inline icon beside a label (replaces the old emoji glyphs). */
+.uf-glyph {
+  display: inline-block;
+  flex-shrink: 0;
+  vertical-align: -2px;
+}
+
+/* ── Charts (Recharts) ─────────────────────────────────────────────────── */
+/* Tooltips glide rather than jump, labels use the theme's text colours. */
+.recharts-tooltip-wrapper {
+  transition:
+    transform var(--dur-base) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out) !important;
+}
+.recharts-default-tooltip .recharts-tooltip-label {
+  margin-bottom: 4px !important;
+  font-weight: 600;
+  color: var(--color-text);
+}
+.recharts-cartesian-axis-tick-value {
+  fill: var(--chart-axis);
+}
+.recharts-legend-item-text {
+  color: var(--color-text-2) !important;
+}
+.recharts-active-dot circle,
+.recharts-dot {
+  transition: r var(--dur-fast) var(--ease-out);
 }

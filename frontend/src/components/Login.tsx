@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { AuthenticationDetails, CognitoUser } from "amazon-cognito-identity-js";
 import { userPool } from "../auth/cognito";
+import { CloseButton } from "./ui/CloseButton";
+import { UrbanFlowLogo } from "./ui/UrbanFlowLogo";
 import "./Login.css";
 
 export const Login: React.FC<{ onLogin: () => void; onClose?: () => void }> = ({
@@ -109,26 +111,18 @@ export const Login: React.FC<{ onLogin: () => void; onClose?: () => void }> = ({
 
   return (
     <div className="login-container">
-      <div className="login-box" style={{ position: "relative" }}>
+      <div className="login-box">
         {onClose && (
-          <button
+          <CloseButton
+            className="uf-dialog__close"
+            label="Close sign-in"
             onClick={onClose}
-            style={{
-              position: "absolute",
-              top: "16px",
-              right: "16px",
-              background: "transparent",
-              border: "none",
-              color: "var(--text-muted, #94a3b8)",
-              fontSize: "24px",
-              cursor: "pointer",
-              lineHeight: 1,
-            }}
-          >
-            &times;
-          </button>
+          />
         )}
-        <h1 className="login-title">Traffic Simulation</h1>
+        <UrbanFlowLogo size={44} className="login-logo" />
+        <h1 className="login-title" id="login-title">
+          UrbanFlow
+        </h1>
         <p className="login-subtitle">
           {isConfirming
             ? "We emailed you a verification code"
@@ -137,7 +131,11 @@ export const Login: React.FC<{ onLogin: () => void; onClose?: () => void }> = ({
               : "Sign in to access your simulation"}
         </p>
 
-        {error && <div className="login-error">{error}</div>}
+        {error && (
+          <div className="login-error" role="alert">
+            {error}
+          </div>
+        )}
 
         {isConfirming ? (
           <>
@@ -161,38 +159,15 @@ export const Login: React.FC<{ onLogin: () => void; onClose?: () => void }> = ({
               </button>
             </form>
 
-            <div
-              className="login-toggle"
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                padding: "0 10px",
-              }}
-            >
-              <button
-                type="button"
-                onClick={handleResendCode}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "var(--color-primary)",
-                  cursor: "pointer",
-                  padding: 0,
-                }}
-              >
+            <div className="login-toggle login-toggle--split">
+              <button type="button" onClick={handleResendCode}>
                 Resend Code
               </button>
               <button
                 type="button"
+                className="is-quiet"
                 onClick={() => {
                   setIsConfirming(false);
-                }}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "var(--text-secondary)",
-                  cursor: "pointer",
-                  padding: 0,
                 }}
               >
                 Back to Login
@@ -212,6 +187,8 @@ export const Login: React.FC<{ onLogin: () => void; onClose?: () => void }> = ({
                     setEmail(e.target.value);
                   }}
                   placeholder="you@example.com"
+                  autoComplete="email"
+                  autoFocus
                   required
                 />
               </div>
@@ -226,6 +203,7 @@ export const Login: React.FC<{ onLogin: () => void; onClose?: () => void }> = ({
                     setPassword(e.target.value);
                   }}
                   placeholder="••••••••"
+                  autoComplete={isSignUp ? "new-password" : "current-password"}
                   required
                 />
               </div>

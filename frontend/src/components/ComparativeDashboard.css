@@ -18,21 +18,26 @@
   display: flex;
   gap: 4px;
   padding: 8px 12px;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--color-surface-2);
   border-bottom: 1px solid var(--border-color);
   overflow-x: auto;
 }
 
 .cat-pill {
-  padding: 5px 10px;
-  font-size: 11px;
+  padding: 5px 11px;
+  font-size: 11.5px;
   font-weight: 600;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--text-secondary);
   border: 1px solid transparent;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out);
   white-space: nowrap;
 }
 
@@ -42,9 +47,10 @@
 }
 
 .cat-pill.active {
-  background: hsl(var(--primary) / 0.18);
-  color: hsl(var(--primary));
-  border-color: hsl(var(--primary) / 0.4);
+  background: var(--color-surface);
+  color: var(--text-primary);
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-raised);
 }
 
 .panel-content-scroll {
@@ -70,9 +76,9 @@
   letter-spacing: 0.05em;
   padding: 2px 6px;
   border-radius: 4px;
-  background: rgba(16, 185, 129, 0.2);
-  color: #10b981;
-  border: 1px solid rgba(16, 185, 129, 0.4);
+  background: color-mix(in srgb, var(--color-success) 20%, transparent);
+  color: var(--color-success);
+  border: 1px solid color-mix(in srgb, var(--color-success) 40%, transparent);
 }
 
 .section-divider {
@@ -90,9 +96,9 @@
   gap: 8px;
   padding: 8px 12px;
   border-radius: var(--radius-sm);
-  background: rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(245, 158, 11, 0.35);
-  color: #f59e0b;
+  background: color-mix(in srgb, var(--series-signal) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--series-signal) 35%, transparent);
+  color: var(--series-signal);
   font-size: 11px;
   line-height: 1.4;
   margin-bottom: 8px;
@@ -103,8 +109,8 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #f59e0b;
-  box-shadow: 0 0 8px #f59e0b;
+  background: var(--series-signal);
+  box-shadow: 0 0 8px var(--series-signal);
   animation: pulse-dot 1.8s infinite;
   flex-shrink: 0;
 }
@@ -151,7 +157,7 @@
 }
 
 .flow-stage-card:hover {
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: color-mix(in srgb, var(--color-text) 20%, transparent);
 }
 
 .stage-header {
@@ -212,13 +218,14 @@
 }
 
 .control-dot.signal-dot {
-  background: #f59e0b;
-  box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
+  background: var(--series-signal);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--series-signal) 40%, transparent);
 }
 
 .control-dot.roundabout-dot {
-  background: #06b6d4;
-  box-shadow: 0 0 6px rgba(6, 182, 212, 0.4);
+  background: var(--series-roundabout);
+  box-shadow: 0 0 6px
+    color-mix(in srgb, var(--series-roundabout) 40%, transparent);
 }
 
 .val-number {
@@ -241,7 +248,7 @@
   gap: 2px;
   padding: 1px 4px;
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
 }
 
 .delta-label {
@@ -249,11 +256,11 @@
 }
 
 .delta-val.positive {
-  color: #38bdf8;
+  color: var(--color-accent);
 }
 
 .delta-val.negative {
-  color: #fb923c;
+  color: var(--color-orange);
 }
 
 .delta-val.zero {
@@ -303,13 +310,13 @@
 }
 
 .legend-box.wait-box {
-  background: #ef4444;
+  background: var(--color-danger);
 }
 .legend-box.junc-box {
-  background: #f59e0b;
+  background: var(--series-signal);
 }
 .legend-box.move-box {
-  background: #10b981;
+  background: var(--color-success);
 }
 
 .flow-bars-wrapper {
@@ -332,17 +339,17 @@
 }
 
 .control-tag.signal-tag {
-  color: #f59e0b;
+  color: var(--series-signal);
 }
 .control-tag.roundabout-tag {
-  color: #06b6d4;
+  color: var(--series-roundabout);
 }
 
 .flow-bar-track {
   flex: 1;
   height: 12px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
   display: flex;
   overflow: hidden;
 }
@@ -353,13 +360,13 @@
 }
 
 .flow-bar-seg.seg-waiting {
-  background: #ef4444;
+  background: var(--color-danger);
 }
 .flow-bar-seg.seg-junction {
-  background: #f59e0b;
+  background: var(--series-signal);
 }
 .flow-bar-seg.seg-moving {
-  background: #10b981;
+  background: var(--color-success);
 }
 
 .flow-total-badge {
@@ -394,14 +401,19 @@
   border-radius: var(--radius-sm);
   padding: 10px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out);
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
 .perf-kpi-card:hover {
-  border-color: rgba(255, 255, 255, 0.25);
+  border-color: color-mix(in srgb, var(--color-text) 25%, transparent);
   background: var(--bg-hover);
 }
 
@@ -441,10 +453,10 @@
 }
 
 .kpi-val.signal {
-  color: #f59e0b;
+  color: var(--series-signal);
 }
 .kpi-val.roundabout {
-  color: #06b6d4;
+  color: var(--series-roundabout);
 }
 
 .kpi-divider {
@@ -458,7 +470,7 @@
 }
 
 .low-sample-warning {
-  color: #fb923c;
+  color: var(--color-orange);
   font-weight: 600;
 }
 
@@ -479,12 +491,17 @@
   color: var(--text-secondary);
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.15s ease;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out);
 }
 
 .chart-tab-btn:hover {
   color: var(--text-primary);
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: color-mix(in srgb, var(--color-text) 20%, transparent);
 }
 
 .chart-tab-btn.active {
@@ -581,7 +598,7 @@
 .approach-bar-track {
   height: 12px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
   display: flex;
   align-items: center;
   position: relative;
@@ -594,16 +611,16 @@
 }
 
 .approach-bar-fill.signal {
-  background: #f59e0b;
+  background: var(--series-signal);
 }
 .approach-bar-fill.roundabout {
-  background: #06b6d4;
+  background: var(--series-roundabout);
 }
 
 .approach-bar-num {
   font-size: 9px;
   font-weight: 700;
-  color: #fff;
+  color: var(--color-text);
   position: absolute;
   right: 6px;
 }
@@ -678,10 +695,10 @@
 }
 
 .gauge-val.signal {
-  color: #f59e0b;
+  color: var(--series-signal);
 }
 .gauge-val.roundabout {
-  color: #06b6d4;
+  color: var(--series-roundabout);
 }
 
 .gauge-label {
@@ -720,10 +737,10 @@
 }
 
 .val-signal {
-  color: #f59e0b;
+  color: var(--series-signal);
 }
 .val-roundabout {
-  color: #06b6d4;
+  color: var(--series-roundabout);
 }
 .val-vs {
   color: var(--text-muted);
@@ -755,8 +772,8 @@
 }
 
 .collision-card.has-events {
-  border-color: rgba(239, 68, 68, 0.6);
-  background: rgba(239, 68, 68, 0.06);
+  border-color: color-mix(in srgb, var(--color-danger) 60%, transparent);
+  background: color-mix(in srgb, var(--color-danger) 6%, transparent);
 }
 
 .collision-card-header {
@@ -771,10 +788,10 @@
 }
 
 .control-pill.signal {
-  color: #f59e0b;
+  color: var(--series-signal);
 }
 .control-pill.roundabout {
-  color: #06b6d4;
+  color: var(--series-roundabout);
 }
 
 .collision-type {
@@ -796,7 +813,7 @@
 }
 
 .collision-card.has-events .collision-count {
-  color: #ef4444;
+  color: var(--color-danger);
 }
 
 .collision-status-text {
@@ -830,15 +847,15 @@
   font-size: 10px;
   padding: 3px 8px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 10%, transparent);
 }
 
 .timeline-chip.signal {
-  border-color: rgba(245, 158, 11, 0.4);
+  border-color: color-mix(in srgb, var(--series-signal) 40%, transparent);
 }
 .timeline-chip.roundabout {
-  border-color: rgba(6, 182, 212, 0.4);
+  border-color: color-mix(in srgb, var(--series-roundabout) 40%, transparent);
 }
 
 .ttc-trend-card {
@@ -876,10 +893,10 @@
 }
 
 .ttc-readout.signal {
-  color: #f59e0b;
+  color: var(--series-signal);
 }
 .ttc-readout.roundabout {
-  color: #06b6d4;
+  color: var(--series-roundabout);
 }
 
 .safety-surrogates-grid {
@@ -938,8 +955,8 @@
 }
 
 .safety-disclaimer-banner {
-  background: rgba(59, 130, 246, 0.08);
-  border: 1px solid rgba(59, 130, 246, 0.25);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
   border-radius: var(--radius-sm);
   padding: 10px 12px;
   display: flex;
@@ -955,7 +972,7 @@
 .disclaimer-text {
   font-size: 10px;
   line-height: 1.45;
-  color: #93c5fd;
+  color: var(--color-accent);
   margin: 0;
 }
 
@@ -1004,13 +1021,13 @@
 .rate-badge {
   font-size: 10px;
   font-weight: 700;
-  color: #10b981;
+  color: var(--color-success);
 }
 
 .balance-track {
   height: 12px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
   display: flex;
   overflow: hidden;
 }
@@ -1021,17 +1038,17 @@
 }
 
 .balance-fill.served.signal {
-  background: #f59e0b;
+  background: var(--series-signal);
 }
 .balance-fill.active.signal {
-  background: rgba(245, 158, 11, 0.4);
+  background: color-mix(in srgb, var(--series-signal) 40%, transparent);
 }
 
 .balance-fill.served.roundabout {
-  background: #06b6d4;
+  background: var(--series-roundabout);
 }
 .balance-fill.active.roundabout {
-  background: rgba(6, 182, 212, 0.4);
+  background: color-mix(in srgb, var(--series-roundabout) 40%, transparent);
 }
 
 .balance-numbers {
@@ -1085,10 +1102,10 @@
 }
 
 .ring-val.signal {
-  color: #f59e0b;
+  color: var(--series-signal);
 }
 .ring-val.roundabout {
-  color: #06b6d4;
+  color: var(--series-roundabout);
 }
 
 .ring-label {
@@ -1123,10 +1140,10 @@
 }
 
 .stat-val.signal {
-  color: #f59e0b;
+  color: var(--series-signal);
 }
 .stat-val.roundabout {
-  color: #06b6d4;
+  color: var(--series-roundabout);
 }
 
 .card-explanation {
@@ -1137,9 +1154,9 @@
 }
 
 .tag-signal-only {
-  background: rgba(245, 158, 11, 0.15);
-  color: #f59e0b;
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  background: color-mix(in srgb, var(--series-signal) 15%, transparent);
+  color: var(--series-signal);
+  border: 1px solid color-mix(in srgb, var(--series-signal) 30%, transparent);
   padding: 1px 4px;
   border-radius: 3px;
 }
@@ -1160,7 +1177,7 @@
 .idle-pct-num {
   font-size: 18px;
   font-weight: 800;
-  color: #fb923c;
+  color: var(--color-orange);
 }
 
 .idle-desc {
@@ -1171,13 +1188,13 @@
 .idle-progress-track {
   height: 8px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
   overflow: hidden;
 }
 
 .idle-progress-fill {
   height: 100%;
-  background: #fb923c;
+  background: var(--color-orange);
   border-radius: 4px;
 }
 
@@ -1228,7 +1245,7 @@
 
 .whisker-track {
   height: 14px;
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
   border-radius: 7px;
   position: relative;
   overflow: hidden;
@@ -1241,10 +1258,10 @@
 }
 
 .whisker-range-line.signal {
-  background: rgba(245, 158, 11, 0.5);
+  background: color-mix(in srgb, var(--series-signal) 50%, transparent);
 }
 .whisker-range-line.roundabout {
-  background: rgba(6, 182, 212, 0.5);
+  background: color-mix(in srgb, var(--series-roundabout) 50%, transparent);
 }
 
 .whisker-iqr-box {
@@ -1255,11 +1272,11 @@
 }
 
 .whisker-iqr-box.signal {
-  background: #f59e0b;
+  background: var(--series-signal);
   opacity: 0.7;
 }
 .whisker-iqr-box.roundabout {
-  background: #06b6d4;
+  background: var(--series-roundabout);
   opacity: 0.7;
 }
 
@@ -1269,15 +1286,15 @@
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  border: 2px solid #fff;
+  border: 2px solid var(--color-surface);
   transform: translateX(-50%);
 }
 
 .whisker-mean-dot.signal {
-  background: #f59e0b;
+  background: var(--series-signal);
 }
 .whisker-mean-dot.roundabout {
-  background: #06b6d4;
+  background: var(--series-roundabout);
 }
 
 .diag-grid {
@@ -1307,11 +1324,11 @@
   color: var(--text-secondary);
 }
 .d-val.signal {
-  color: #f59e0b;
+  color: var(--series-signal);
   font-weight: 700;
 }
 .d-val.roundabout {
-  color: #06b6d4;
+  color: var(--series-roundabout);
   font-weight: 700;
 }
 .d-vs {
@@ -1341,15 +1358,16 @@
 }
 
 .score-badge.signal {
-  background: rgba(245, 158, 11, 0.15);
-  border: 1px solid rgba(245, 158, 11, 0.4);
-  color: #f59e0b;
+  background: color-mix(in srgb, var(--series-signal) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--series-signal) 40%, transparent);
+  color: var(--series-signal);
 }
 
 .score-badge.roundabout {
-  background: rgba(6, 182, 212, 0.15);
-  border: 1px solid rgba(6, 182, 212, 0.4);
-  color: #06b6d4;
+  background: color-mix(in srgb, var(--series-roundabout) 15%, transparent);
+  border: 1px solid
+    color-mix(in srgb, var(--series-roundabout) 40%, transparent);
+  color: var(--series-roundabout);
 }
 
 .score-num {
@@ -1374,10 +1392,10 @@
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-highlight), var(--shadow-overlay);
   overflow: hidden;
 }
 
@@ -1389,28 +1407,36 @@
 
 .modal-view-toggle {
   display: flex;
-  background: rgba(0, 0, 0, 0.25);
-  border-radius: var(--radius-sm);
-  padding: 2px;
+  gap: 2px;
+  background: var(--color-surface-2);
+  border-radius: var(--radius-pill);
+  padding: 3px;
   border: 1px solid var(--border-color);
 }
 
 .toggle-tab-btn {
-  padding: 4px 10px;
-  font-size: 11px;
+  padding: 5px 12px;
+  font-size: 12px;
   font-weight: 600;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--text-secondary);
   border: none;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:
+    background var(--dur-base) var(--ease-out),
+    color var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out);
+}
+
+.toggle-tab-btn:hover {
+  color: var(--text-primary);
 }
 
 .toggle-tab-btn.active {
-  background: var(--bg-secondary);
+  background: var(--color-surface);
   color: var(--text-primary);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-raised);
 }
 
 .comparative-dashboard .modal-body {
@@ -1429,23 +1455,25 @@
 }
 
 .modal-section-card {
-  background: var(--bg-secondary);
+  background: var(--color-surface);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: 16px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-raised);
+  padding: 18px;
+  animation: uf-rise-in var(--dur-slow) var(--ease-out) both;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
 .modal-section-title {
-  font-size: 13px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 700;
   color: var(--text-primary);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.07em;
   margin: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text) 6%, transparent);
   padding-bottom: 8px;
 }
 
@@ -1473,99 +1501,98 @@
   border-top: 1px solid var(--border-color);
 }
 
-/* Light Theme Overrides */
-.light .comparison-side-panel {
-  background: #ffffff;
+/* Surfaces and readouts (both themes, from tokens) */
+.comparison-side-panel {
+  background: var(--color-surface);
 }
 
-.light .flow-stage-card,
-.light .flow-distribution-section,
-.light .perf-kpi-card,
-.light .chart-canvas-card,
-.light .flow-radar-card,
-.light .flow-metric-card,
-.light .collision-card,
-.light .ttc-trend-card,
-.light .surrogate-metric-card,
-.light .capacity-card,
-.light .diag-card,
-.light .modal-section-card {
-  background: #f8fafc;
-  border-color: #e2e8f0;
+.flow-stage-card,
+.flow-distribution-section,
+.perf-kpi-card,
+.chart-canvas-card,
+.flow-radar-card,
+.flow-metric-card,
+.collision-card,
+.ttc-trend-card,
+.surrogate-metric-card,
+.capacity-card,
+.diag-card,
+.modal-section-card {
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
 }
 
-.light .panel-category-tabs {
-  background: #f1f5f9;
+.panel-category-tabs {
+  background: var(--color-surface-2);
 }
 
-.light .flow-bar-track,
-.light .approach-bar-track,
-.light .balance-track,
-.light .idle-progress-track,
-.light .whisker-track {
-  background: #e2e8f0;
+.flow-bar-track,
+.approach-bar-track,
+.balance-track,
+.idle-progress-track,
+.whisker-track {
+  background: var(--color-surface-3);
 }
 
-.light .safety-disclaimer-banner {
-  background: #eff6ff;
-  border-color: #bfdbfe;
+.safety-disclaimer-banner {
+  background: var(--color-accent-soft);
+  border-color: var(--color-border);
 }
 
-.light .disclaimer-text {
-  color: #1e40af;
+.disclaimer-text {
+  color: var(--color-accent);
 }
 
 /* Readouts coloured by control type keep the same hues (signal amber,
    roundabout cyan) in shades that read on the light cards. Chart strokes and
    legends are unaffected. */
-.light .analytics-warmup-notice,
-.light .control-tag.signal-tag,
-.light .kpi-val.signal,
-.light .gauge-val.signal,
-.light .val-signal,
-.light .control-pill.signal,
-.light .ttc-readout.signal,
-.light .ring-val.signal,
-.light .stat-val.signal,
-.light .d-val.signal,
-.light .score-badge.signal {
-  color: #b45309;
+.analytics-warmup-notice,
+.control-tag.signal-tag,
+.kpi-val.signal,
+.gauge-val.signal,
+.val-signal,
+.control-pill.signal,
+.ttc-readout.signal,
+.ring-val.signal,
+.stat-val.signal,
+.d-val.signal,
+.score-badge.signal {
+  color: var(--series-signal-ink);
 }
 
-.light .control-tag.roundabout-tag,
-.light .kpi-val.roundabout,
-.light .gauge-val.roundabout,
-.light .val-roundabout,
-.light .control-pill.roundabout,
-.light .ttc-readout.roundabout,
-.light .ring-val.roundabout,
-.light .stat-val.roundabout,
-.light .d-val.roundabout,
-.light .score-badge.roundabout {
-  color: #0e7490;
+.control-tag.roundabout-tag,
+.kpi-val.roundabout,
+.gauge-val.roundabout,
+.val-roundabout,
+.control-pill.roundabout,
+.ttc-readout.roundabout,
+.ring-val.roundabout,
+.stat-val.roundabout,
+.d-val.roundabout,
+.score-badge.roundabout {
+  color: var(--series-roundabout-ink);
 }
 
-.light .delta-val.positive {
-  color: #0369a1;
+.delta-val.positive {
+  color: var(--color-accent);
 }
 
-.light .delta-val.negative,
-.light .low-sample-warning,
-.light .idle-pct-num {
-  color: #c2410c;
+.delta-val.negative,
+.low-sample-warning,
+.idle-pct-num {
+  color: var(--color-orange);
 }
 
-.light .live-pill-tag,
-.light .rate-badge {
-  color: #047857;
+.live-pill-tag,
+.rate-badge {
+  color: var(--color-success);
 }
 
-.light .collision-card.has-events .collision-count {
-  color: #b91c1c;
+.collision-card.has-events .collision-count {
+  color: var(--color-danger);
 }
 
-/* Sits at the track's right end, which is light grey here, not dark. */
-.light .approach-bar-num {
+.approach-bar-num {
   color: var(--color-text);
 }
 

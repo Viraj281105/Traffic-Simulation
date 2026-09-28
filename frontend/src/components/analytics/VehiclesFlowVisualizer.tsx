@@ -1,3 +1,4 @@
+import { Car, Flag, Hourglass, Shuffle } from "lucide-react";
 import type { LiveSnapshot } from "../../types/simulation";
 
 interface VehiclesFlowVisualizerProps {
@@ -40,7 +41,7 @@ export function VehiclesFlowVisualizer({
       sigVal: sigCounts.active,
       rndVal: rndCounts.active,
       unit: "veh",
-      icon: "🚗",
+      icon: Car,
     },
     {
       id: "waiting",
@@ -49,7 +50,7 @@ export function VehiclesFlowVisualizer({
       sigVal: sigCounts.waiting,
       rndVal: rndCounts.waiting,
       unit: "veh",
-      icon: "⏳",
+      icon: Hourglass,
     },
     {
       id: "junction",
@@ -58,7 +59,7 @@ export function VehiclesFlowVisualizer({
       sigVal: sigInJunction,
       rndVal: rndInJunction,
       unit: "veh",
-      icon: "🔀",
+      icon: Shuffle,
     },
     {
       id: "exited",
@@ -67,7 +68,7 @@ export function VehiclesFlowVisualizer({
       sigVal: sigCounts.exited,
       rndVal: rndCounts.exited,
       unit: "veh",
-      icon: "🏁",
+      icon: Flag,
     },
   ];
 
@@ -93,7 +94,9 @@ export function VehiclesFlowVisualizer({
           return (
             <div className="flow-stage-card" key={stage.id}>
               <div className="stage-header">
-                <span className="stage-icon">{stage.icon}</span>
+                <span className="stage-icon">
+                  <stage.icon size={14} aria-hidden="true" />
+                </span>
                 <div className="stage-meta">
                   <span className="stage-name">{stage.label}</span>
                   {!compact && (
@@ -161,7 +164,10 @@ export function VehiclesFlowVisualizer({
 
           <div className="flow-bars-wrapper">
             <div className="flow-bar-row">
-              <span className="control-tag signal-tag">🚦 Signal</span>
+              <span className="control-tag signal-tag">
+                <span className="series-dot is-signal" aria-hidden="true" />{" "}
+                Signal
+              </span>
               <div
                 className="flow-bar-track"
                 title={`Waiting: ${sigWaitingPct.toFixed(1)}%, Junction: ${sigJunctionPct.toFixed(1)}%, Cruising: ${sigMovingPct.toFixed(1)}%`}
@@ -185,7 +191,10 @@ export function VehiclesFlowVisualizer({
             </div>
 
             <div className="flow-bar-row">
-              <span className="control-tag roundabout-tag">🔄 Roundabout</span>
+              <span className="control-tag roundabout-tag">
+                <span className="series-dot is-roundabout" aria-hidden="true" />{" "}
+                Roundabout
+              </span>
               <div
                 className="flow-bar-track"
                 title={`Waiting: ${rndWaitingPct.toFixed(1)}%, Junction: ${rndJunctionPct.toFixed(1)}%, Cruising: ${rndMovingPct.toFixed(1)}%`}

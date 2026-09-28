@@ -1,33 +1,53 @@
+import {
+  ArrowUpRight,
+  ChartSpline,
+  History,
+  Orbit,
+  Sigma,
+  TrafficCone,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { VIEW_ROUTES, followLink } from "../routing";
 import { PLAIN_METRIC_MAP, metricDef } from "../metrics/plainLanguage";
 
-const TOOLS: { href: string; title: string; body: string; use: string }[] = [
+const TOOLS: {
+  href: string;
+  title: string;
+  body: string;
+  use: string;
+  icon: LucideIcon;
+}[] = [
   {
     href: VIEW_ROUTES.volume,
+    icon: ChartSpline,
     title: "Traffic-level sweep",
     body: "Runs both controls across a range of demand tiers, one random traffic pattern per tier, and plots delay, throughput and queue against volume, with where the lower-delay control changes and indicative level-of-service bands. Descriptive: use Statistical validation to test a difference.",
     use: "Where does the comparison change as traffic grows?",
   },
   {
     href: VIEW_ROUTES.validation,
+    icon: Sigma,
     title: "Statistical validation",
     body: "Monte Carlo study on a configurable scenario: the same random patterns for both controls, Student-t confidence intervals, an unpaired Welch t-test, Cohen’s d, per-seed data and CSV export, plus model integrity checks on both geometries.",
     use: "Is a difference statistically robust for a study design?",
   },
   {
     href: VIEW_ROUTES.signal,
+    icon: TrafficCone,
     title: "Signal on its own",
     body: "One fixed-time signal with its live metric set, phase state, queue labels and stop-line display.",
     use: "How does the signal behave in detail?",
   },
   {
     href: VIEW_ROUTES.roundabout,
+    icon: Orbit,
     title: "Roundabout on its own",
     body: "One roundabout with its live metric set, circulating and yielding counts.",
     use: "How does the roundabout behave in detail?",
   },
   {
     href: VIEW_ROUTES.history,
+    icon: History,
     title: "Saved runs & reproducibility",
     body: "Every saved run with its exact configuration, seed, code version and metrics; re-run to check determinism, export JSON/CSV, compare up to six runs.",
     use: "Can this result be reproduced and audited?",
@@ -60,6 +80,12 @@ export function ResearchHub() {
               followLink(e, tool.href);
             }}
           >
+            <span className="tool-card-top" aria-hidden="true">
+              <span className="tool-icon">
+                <tool.icon size={18} strokeWidth={1.9} />
+              </span>
+              <ArrowUpRight size={16} className="tool-arrow" />
+            </span>
             <span className="tool-use">{tool.use}</span>
             <span className="tool-title">{tool.title}</span>
             <span className="tool-body">{tool.body}</span>

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- UrbanFlow mark. Generated from src/components/ui/logoGeometry.ts
+       (kept in step by logoGeometry.test.ts). -->
+  <style>
+    .road { stroke: #132a4a; }
+    .flow { stroke: #638965; }
+    @media (prefers-color-scheme: dark) {
+      .road { stroke: #fdfefe; }
+      .flow { stroke: #94d182; }
+    }
+  </style>
+  <defs>
+    <mask id="roads" maskUnits="userSpaceOnUse" x="-10" y="-10" width="120" height="120">
+      <rect x="-10" y="-10" width="120" height="120" fill="#fff"/>
+      <path d="M50 0V10C50 17 43.55 23.8 39.25 28C32.81 34.28 29.8 40 29.8 50C29.8 52 35.5 60.5 40 64.3" stroke="#000" stroke-width="10.4"/>
+      <path d="M50 0V10C50 17 43.55 23.8 39.25 28C32.81 34.28 29.8 40 29.8 50C29.8 52 35.5 60.5 40 64.3" stroke="#000" stroke-width="10.4" transform="rotate(90 50 50)"/>
+      <path d="M50 0V10C50 17 43.55 23.8 39.25 28C32.81 34.28 29.8 40 29.8 50C29.8 52 35.5 60.5 40 64.3" stroke="#000" stroke-width="10.4" transform="rotate(180 50 50)"/>
+      <path d="M50 0V10C50 17 43.55 23.8 39.25 28C32.81 34.28 29.8 40 29.8 50C29.8 52 35.5 60.5 40 64.3" stroke="#000" stroke-width="10.4" transform="rotate(270 50 50)"/>
+    </mask>
+    <mask id="under" maskUnits="userSpaceOnUse" x="-10" y="-10" width="120" height="120">
+      <rect x="-10" y="-10" width="120" height="120" fill="#fff"/>
+      <path d="M50 0V10C50 17 43.55 23.8 39.25 28C32.81 34.28 29.8 40 29.8 50C29.8 52 35.5 60.5 40 64.3" stroke="#000" stroke-width="10.4" transform="rotate(-90 50 50)"/>
+    </mask>
+  </defs>
+  <g class="road" mask="url(#roads)" stroke-width="5.6">
+    <path d="M60.9 0V14C60.9 17.5 62.52 21.32 65.55 23.07M50 18.9A31.1 31.1 0 0 1 76.93 34.45C78.68 37.48 82.5 39.1 86 39.1H100"/>
+    <path d="M60.9 0V14C60.9 17.5 62.52 21.32 65.55 23.07M50 18.9A31.1 31.1 0 0 1 76.93 34.45C78.68 37.48 82.5 39.1 86 39.1H100" transform="rotate(90 50 50)"/>
+    <path d="M60.9 0V14C60.9 17.5 62.52 21.32 65.55 23.07M50 18.9A31.1 31.1 0 0 1 76.93 34.45C78.68 37.48 82.5 39.1 86 39.1H100" transform="rotate(180 50 50)"/>
+    <path d="M60.9 0V14C60.9 17.5 62.52 21.32 65.55 23.07M50 18.9A31.1 31.1 0 0 1 76.93 34.45C78.68 37.48 82.5 39.1 86 39.1H100" transform="rotate(270 50 50)"/>
+  </g>
+  <g class="flow" mask="url(#under)" stroke-width="5.6"><path d="M50 0V10C50 17 43.55 23.8 39.25 28C32.81 34.28 29.8 40 29.8 50C29.8 52 35.5 60.5 40 64.3"/></g>
+  <g class="flow" transform="rotate(90 50 50)" mask="url(#under)" stroke-width="5.6"><path d="M50 0V10C50 17 43.55 23.8 39.25 28C32.81 34.28 29.8 40 29.8 50C29.8 52 35.5 60.5 40 64.3"/></g>
+  <g class="flow" transform="rotate(180 50 50)" mask="url(#under)" stroke-width="5.6"><path d="M50 0V10C50 17 43.55 23.8 39.25 28C32.81 34.28 29.8 40 29.8 50C29.8 52 35.5 60.5 40 64.3"/></g>
+  <g class="flow" transform="rotate(270 50 50)" mask="url(#under)" stroke-width="5.6"><path d="M50 0V10C50 17 43.55 23.8 39.25 28C32.81 34.28 29.8 40 29.8 50C29.8 52 35.5 60.5 40 64.3"/></g>
+  <circle class="road" cx="50" cy="50" r="14.85" stroke-width="5.6"/>
+</svg>

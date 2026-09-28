@@ -7,24 +7,12 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
-  padding: 20px 28px 40px;
+  padding: 24px 28px 48px;
   height: 100%;
   overflow-y: auto;
-  background: radial-gradient(circle at top right, #111a2e 0%, #0a0f18 100%);
-  color: var(--text-primary);
-  background:
-    radial-gradient(
-      circle at 77% 5%,
-      hsl(265 72% 30% / 0.14),
-      transparent 33rem
-    ),
-    radial-gradient(
-      circle at 4% 48%,
-      hsl(190 100% 38% / 0.06),
-      transparent 32rem
-    ),
-    hsl(var(--background));
-  color: hsl(var(--foreground));
+  /* Transparent: the app shell supplies the ambient background. */
+  background: transparent;
+  color: var(--color-text);
   box-sizing: border-box;
 }
 
@@ -178,8 +166,8 @@
 }
 
 .sweep-field input[type="number"] {
-  background: #0f172a;
-  border: 1px solid #1e293b;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   color: var(--text-primary);
   padding: 7px 10px;
@@ -224,7 +212,7 @@
 }
 
 .dice-btn:hover {
-  background: #334155;
+  background: var(--color-surface-3);
   transform: scale(1.05);
 }
 
@@ -243,16 +231,16 @@
 }
 
 .preset-tag {
-  background: rgba(30, 41, 59, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--color-surface) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 8%, transparent);
   color: var(--text-secondary);
   background: hsl(var(--muted) / 0.8);
   transform: scale(1.06);
 }
 
 .header-run-btn {
-  background: linear-gradient(135deg, hsl(var(--primary)), hsl(190 100% 45%));
-  color: hsl(var(--primary-foreground));
+  background: var(--color-primary);
+  color: var(--color-on-primary);
   border: none;
   border-radius: 6px;
   padding: 5px 13px;
@@ -306,7 +294,7 @@
 .export-csv-btn {
   background: hsl(142 71% 45% / 0.12);
   border: 1px solid hsl(142 71% 45% / 0.35);
-  color: #34d399;
+  color: var(--color-success);
   border-radius: 6px;
   padding: 7px 14px;
   font-size: 12px;
@@ -320,7 +308,7 @@
 
 .export-csv-btn:hover {
   background: hsl(142 71% 45% / 0.22);
-  border-color: #10b981;
+  border-color: var(--color-success);
   transform: translateY(-1px);
 }
 
@@ -455,7 +443,7 @@
 }
 
 .crossover-text strong {
-  color: #ffd93d;
+  color: var(--color-warning);
   font-size: 14px;
 }
 
@@ -496,8 +484,8 @@
 }
 
 .toolbar-btn {
-  background: rgba(30, 41, 59, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 8%, transparent);
   color: var(--text-secondary);
   border-radius: 6px;
   padding: 5px 11px;
@@ -530,7 +518,7 @@
 
 .insights-toggle-btn {
   background: transparent;
-  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border: 1px dashed color-mix(in srgb, var(--color-text) 20%, transparent);
   color: var(--text-secondary);
 }
 .option-pill {
@@ -674,8 +662,8 @@
 }
 
 .advanced-apply-btn {
-  background: linear-gradient(135deg, hsl(var(--primary)), hsl(190 100% 45%));
-  color: hsl(var(--primary-foreground));
+  background: var(--color-primary);
+  color: var(--color-on-primary);
   border: none;
   border-radius: 6px;
   padding: 6px 16px;
@@ -829,16 +817,16 @@
 }
 
 .sweep-error-banner {
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 35%, transparent);
   border-radius: 8px;
   padding: 10px 14px;
-  color: #fca5a5;
+  color: var(--color-danger);
   font-size: 12.5px;
 }
 
 .tooltip-winner-badge.winner-tie {
-  background: rgba(148, 163, 184, 0.2);
+  background: color-mix(in srgb, var(--color-text-3) 20%, transparent);
   color: var(--text-secondary);
 }
 .sweep-loading {
@@ -902,8 +890,8 @@
 }
 
 .hero-run-btn {
-  background: linear-gradient(135deg, hsl(var(--primary)), hsl(190 100% 45%));
-  color: hsl(var(--primary-foreground));
+  background: var(--color-primary);
+  color: var(--color-on-primary);
   border: none;
   border-radius: 8px;
   padding: 9px 20px;
@@ -971,16 +959,16 @@
 }
 
 .kpi-card.kpi-crossover-card {
-  border-color: rgba(245, 158, 11, 0.35);
+  border-color: color-mix(in srgb, var(--series-signal) 35%, transparent);
   background: linear-gradient(
     135deg,
-    rgba(245, 158, 11, 0.07) 0%,
+    color-mix(in srgb, var(--series-signal) 7%, transparent) 0%,
     hsl(var(--card) / 0.75) 100%
   );
 }
 
 .kpi-card.kpi-crossover-card:hover {
-  border-color: rgba(245, 158, 11, 0.6);
+  border-color: color-mix(in srgb, var(--series-signal) 60%, transparent);
 }
 
 .kpi-top {
@@ -1017,11 +1005,11 @@
 }
 
 .kpi-value.highlight-amber {
-  color: #f59e0b;
+  color: var(--series-signal);
 }
 
 .kpi-value.highlight-blue {
-  color: #38bdf8;
+  color: var(--color-accent);
 }
 
 .kpi-hint {
@@ -1166,7 +1154,12 @@
   width: 100%;
   height: 6px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #10b981 0%, #f59e0b 50%, #38bdf8 100%);
+  background: linear-gradient(
+    90deg,
+    var(--color-success) 0%,
+    var(--series-signal) 50%,
+    var(--color-accent) 100%
+  );
   outline: none;
   cursor: pointer;
 }
@@ -1177,7 +1170,7 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--color-surface);
   border: 2px solid hsl(var(--primary));
   box-shadow: 0 0 10px hsl(var(--primary) / 0.5);
   cursor: pointer;
@@ -1219,11 +1212,11 @@
 }
 
 .scrubber-chip.signal-chip {
-  border-color: rgba(56, 189, 248, 0.4);
+  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
 }
 
 .scrubber-chip.roundabout-chip {
-  border-color: rgba(16, 185, 129, 0.4);
+  border-color: color-mix(in srgb, var(--color-success) 40%, transparent);
 }
 
 .chip-label {
@@ -1247,15 +1240,15 @@
 }
 
 .scrubber-verdict-chip.winner-roundabout {
-  background: rgba(16, 185, 129, 0.15);
-  border: 1px solid rgba(16, 185, 129, 0.4);
-  color: #34d399;
+  background: color-mix(in srgb, var(--color-success) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-success) 40%, transparent);
+  color: var(--color-success);
 }
 
 .scrubber-verdict-chip.winner-signal {
-  background: rgba(56, 189, 248, 0.15);
-  border: 1px solid rgba(56, 189, 248, 0.4);
-  color: #38bdf8;
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
+  color: var(--color-accent);
 }
 
 .scrubber-verdict-chip.winner-tie {
@@ -1526,13 +1519,13 @@
 }
 
 .tooltip-winner-badge.winner-roundabout {
-  background: rgba(16, 185, 129, 0.2);
-  color: #34d399;
+  background: color-mix(in srgb, var(--color-success) 20%, transparent);
+  color: var(--color-success);
 }
 
 .tooltip-winner-badge.winner-signal {
-  background: rgba(56, 189, 248, 0.2);
-  color: #38bdf8;
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color: var(--color-accent);
 }
 
 .tooltip-row {
@@ -1712,11 +1705,11 @@
 }
 
 .bar-fill.sig-fill {
-  background: #38bdf8;
+  background: var(--color-accent);
 }
 
 .bar-fill.rnd-fill {
-  background: #10b981;
+  background: var(--color-success);
 }
 
 .delay-los-cell {
@@ -1739,12 +1732,12 @@
 }
 
 .winner-roundabout {
-  color: #34d399;
+  color: var(--color-success);
   font-weight: 600;
 }
 
 .winner-signal {
-  color: #38bdf8;
+  color: var(--color-accent);
   font-weight: 600;
 }
 
@@ -1826,21 +1819,21 @@
 }
 
 .roundabout-badge {
-  background: rgba(16, 185, 129, 0.15);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: color-mix(in srgb, var(--color-success) 15%, transparent);
+  color: var(--color-success);
+  border: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent);
 }
 
 .signal-badge {
-  background: rgba(56, 189, 248, 0.15);
-  color: #38bdf8;
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
 .recommendation-badge {
-  background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  background: color-mix(in srgb, var(--series-signal) 15%, transparent);
+  color: var(--color-warning);
+  border: 1px solid color-mix(in srgb, var(--series-signal) 30%, transparent);
 }
 
 .insight-card-modern h5 {
@@ -1875,8 +1868,8 @@
 }
 
 .table-filter-btn {
-  background: rgba(30, 41, 59, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 6%, transparent);
   color: var(--text-secondary);
   border-radius: 5px;
   padding: 4px 9px;
@@ -1886,8 +1879,8 @@
 }
 
 .table-filter-btn:hover {
-  background: rgba(59, 130, 246, 0.15);
-  color: #93c5fd;
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  color: var(--color-accent);
 }
 .stat-highlight {
   font-size: 15px;
@@ -1926,7 +1919,7 @@
 }
 
 .sweep-summary-table-wrapper th {
-  background: rgba(30, 41, 59, 0.85);
+  background: color-mix(in srgb, var(--color-surface) 85%, transparent);
   color: var(--text-secondary);
   font-weight: 600;
   font-size: 11px;
@@ -1986,14 +1979,7 @@
 }
 
 /* ── LIGHT MODE OVERRIDES ────────────────────────────────────────────────── */
-.light .volume-dashboard {
-  background: radial-gradient(
-    circle at top right,
-    var(--bg-tertiary) 0%,
-    var(--bg-primary) 100%
-  );
-  color: var(--text-primary);
-}
+
 .light .header-title-group h2 {
   background: linear-gradient(90deg, hsl(215 80% 50%), hsl(260 70% 60%));
   -webkit-background-clip: text;
@@ -2014,21 +2000,25 @@
 .light .sweep-trigger-panel .panel-header-badge h3,
 .light .saved-sweeps-panel .panel-header-badge h3,
 .light .volume-dashboard .panel-header-badge h3 {
-  color: #0f172a !important;
+  color: var(--color-text) !important;
   font-weight: 700;
 }
 .light .badge-pill,
 .light .volume-dashboard .badge-pill {
-  background: rgba(79, 70, 229, 0.1) !important;
-  color: #4338ca !important;
-  border: 1px solid rgba(79, 70, 229, 0.28) !important;
+  background: color-mix(
+    in srgb,
+    var(--color-accent) 10%,
+    transparent
+  ) !important;
+  color: var(--color-accent) !important;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 28%, transparent) !important;
   font-weight: 700 !important;
 }
 .light .count-pill,
 .light .volume-dashboard .count-pill {
-  background: rgba(15, 23, 42, 0.08) !important;
-  color: #0f172a !important;
-  border: 1px solid rgba(15, 23, 42, 0.18) !important;
+  background: color-mix(in srgb, var(--color-text) 8%, transparent) !important;
+  color: var(--color-text) !important;
+  border: 1px solid color-mix(in srgb, var(--color-text) 18%, transparent) !important;
   font-weight: 700 !important;
 }
 .light .sweep-trigger-panel,
@@ -2045,7 +2035,7 @@
 /* Header cells keep the dark-theme slate otherwise, under black light-theme
    text (App.css); matches the validation table's light header. */
 .light .sweep-summary-table-wrapper th {
-  background: #f8fafc;
+  background: var(--color-surface-2);
 }
 
 /* LOS grades and deltas take their colour inline; darken the same hue so it
@@ -2057,7 +2047,7 @@
 }
 
 .light .sweep-error-banner {
-  color: #b91c1c;
+  color: var(--color-danger);
 }
 
 /* Peak queue beside the average: smaller, in the theme's secondary text
@@ -2080,7 +2070,7 @@
 }
 .light .studio-tab-btn.active {
   background: hsl(var(--primary));
-  color: #ffffff;
+  color: #fff;
   box-shadow: 0 2px 8px hsl(var(--primary) / 0.35);
 }
 .light .volume-scrubber-bar {
@@ -2131,7 +2121,7 @@
 }
 .light .metric-pill-btn.active {
   background: hsl(var(--primary));
-  color: #ffffff;
+  color: #fff;
 }
 .light .axis-pill-btn {
   color: var(--text-secondary);
@@ -2179,7 +2169,7 @@
 }
 .light .sweep-field input[type="number"]:focus {
   border-color: var(--accent-blue);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 15%, transparent);
 }
 .light .dice-btn {
   background: var(--bg-tertiary);
@@ -2194,26 +2184,26 @@
 }
 .light .preset-tag,
 .light .volume-dashboard .preset-tag {
-  background: rgba(15, 23, 42, 0.05) !important;
-  border: 1px solid rgba(15, 23, 42, 0.14) !important;
-  color: #1e293b !important;
+  background: color-mix(in srgb, var(--color-text) 5%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--color-text) 14%, transparent) !important;
+  color: var(--color-text) !important;
   font-weight: 600 !important;
 }
 .light .preset-tag:hover,
 .light .volume-dashboard .preset-tag:hover {
-  background: #4f46e5 !important;
-  border-color: #4338ca !important;
-  color: #ffffff !important;
-  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.3) !important;
+  background: var(--color-accent) !important;
+  border-color: var(--color-accent) !important;
+  color: #fff !important;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--color-accent) 30%, transparent) !important;
 }
 .light .sweep-error {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.2);
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  border-color: color-mix(in srgb, var(--color-danger) 20%, transparent);
   color: var(--accent-red);
 }
 .light .sweep-loading {
-  background: rgba(59, 130, 246, 0.1);
-  border-color: rgba(59, 130, 246, 0.2);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 20%, transparent);
   color: var(--accent-blue);
 }
 .light .sweep-list-item {
@@ -2225,7 +2215,7 @@
   background: var(--bg-hover);
 }
 .light .sweep-list-item.active {
-  background: rgba(59, 130, 246, 0.1);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
   border-color: var(--accent-blue);
 }
 .light .sweep-name {
@@ -2262,18 +2252,18 @@
   border-color: var(--border-color);
 }
 .light .roundabout-badge {
-  background: rgba(46, 204, 64, 0.1);
-  border-color: rgba(46, 204, 64, 0.3);
+  background: color-mix(in srgb, var(--color-success) 10%, transparent);
+  border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
   color: var(--accent-green);
 }
 .light .signal-badge {
-  background: rgba(59, 130, 246, 0.1);
-  border-color: rgba(59, 130, 246, 0.3);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
   color: var(--accent-blue);
 }
 .light .recommendation-badge {
-  background: rgba(255, 180, 0, 0.1);
-  border-color: rgba(255, 180, 0, 0.3);
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+  border-color: color-mix(in srgb, var(--color-warning) 30%, transparent);
   color: hsl(35 90% 40%);
 }
 .light .insight-item p {
@@ -2342,11 +2332,11 @@
 }
 .light .winner-roundabout {
   color: var(--accent-green);
-  background: rgba(46, 204, 64, 0.1);
+  background: color-mix(in srgb, var(--color-success) 10%, transparent);
 }
 .light .winner-signal {
   color: var(--accent-blue);
-  background: rgba(59, 130, 246, 0.1);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
 }
 .light .winner-tie {
   color: var(--text-secondary);
@@ -2354,184 +2344,264 @@
 
 /* ── Light Mode Rules for Advanced Config Drawer & History ── */
 .light .header-inline-controls {
-  background: #ffffff !important;
-  border-color: rgba(15, 23, 42, 0.15) !important;
+  background: var(--color-surface) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--color-text) 15%,
+    transparent
+  ) !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
 }
 
 .light .inline-param label {
-  color: #64748b !important;
+  color: var(--color-text-3) !important;
 }
 
 .light .inline-param input,
 .light .inline-unit-wrap input,
 .light .inline-seed-wrap input {
-  background: #f8fafc !important;
-  border-color: rgba(15, 23, 42, 0.15) !important;
-  color: #0f172a !important;
+  background: var(--color-surface-2) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--color-text) 15%,
+    transparent
+  ) !important;
+  color: var(--color-text) !important;
 }
 
 .light .header-tool-btn {
-  background: rgba(15, 23, 42, 0.05) !important;
-  border-color: rgba(15, 23, 42, 0.14) !important;
-  color: #1e293b !important;
+  background: color-mix(in srgb, var(--color-text) 5%, transparent) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--color-text) 14%,
+    transparent
+  ) !important;
+  color: var(--color-text) !important;
 }
 
 .light .header-tool-btn:hover {
-  background: rgba(79, 70, 229, 0.1) !important;
-  border-color: #4f46e5 !important;
-  color: #4f46e5 !important;
+  background: color-mix(
+    in srgb,
+    var(--color-accent) 10%,
+    transparent
+  ) !important;
+  border-color: var(--color-accent) !important;
+  color: var(--color-accent) !important;
 }
 
 .light .header-tool-btn.active {
-  background: rgba(79, 70, 229, 0.15) !important;
-  border-color: #4f46e5 !important;
-  color: #4f46e5 !important;
+  background: color-mix(
+    in srgb,
+    var(--color-accent) 15%,
+    transparent
+  ) !important;
+  border-color: var(--color-accent) !important;
+  color: var(--color-accent) !important;
 }
 
 .light .volume-advanced-drawer,
 .light .volume-history-drawer {
-  background: rgba(255, 255, 255, 0.95) !important;
-  border-color: rgba(79, 70, 229, 0.3) !important;
+  background: color-mix(
+    in srgb,
+    var(--color-surface) 95%,
+    transparent
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--color-accent) 30%,
+    transparent
+  ) !important;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1) !important;
 }
 
 .light .advanced-drawer-header h3,
 .light .history-drawer-header h3 {
-  color: #0f172a !important;
+  color: var(--color-text) !important;
 }
 
 .light .advanced-drawer-header p,
 .light .history-drawer-header p {
-  color: #64748b !important;
+  color: var(--color-text-3) !important;
 }
 
 .light .advanced-card {
-  background: #f8fafc !important;
-  border-color: rgba(15, 23, 42, 0.1) !important;
+  background: var(--color-surface-2) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--color-text) 10%,
+    transparent
+  ) !important;
 }
 
 .light .advanced-card-header h4 {
-  color: #0f172a !important;
+  color: var(--color-text) !important;
 }
 
 .light .card-desc {
-  color: #64748b !important;
+  color: var(--color-text-3) !important;
 }
 
 .light .advanced-field-group > label,
 .light .field-label-row label {
-  color: #334155 !important;
+  color: var(--color-text-2) !important;
 }
 
 .light .field-hint {
-  color: #64748b !important;
+  color: var(--color-text-3) !important;
 }
 
 .light .option-pill {
-  background: #ffffff !important;
-  border-color: rgba(15, 23, 42, 0.12) !important;
-  color: #334155 !important;
+  background: var(--color-surface) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--color-text) 12%,
+    transparent
+  ) !important;
+  color: var(--color-text-2) !important;
 }
 
 .light .option-pill:hover {
-  background: #f1f5f9 !important;
-  color: #0f172a !important;
+  background: var(--color-surface-2) !important;
+  color: var(--color-text) !important;
 }
 
 .light .option-pill.active {
-  background: rgba(79, 70, 229, 0.1) !important;
-  border-color: #4f46e5 !important;
-  color: #4f46e5 !important;
+  background: color-mix(
+    in srgb,
+    var(--color-accent) 10%,
+    transparent
+  ) !important;
+  border-color: var(--color-accent) !important;
+  color: var(--color-accent) !important;
 }
 
 .light .option-pill .pill-title {
-  color: #0f172a !important;
+  color: var(--color-text) !important;
 }
 
 .light .option-pill.active .pill-title {
-  color: #4f46e5 !important;
+  color: var(--color-accent) !important;
 }
 
 .light .preset-pill {
-  background: #ffffff !important;
-  border-color: rgba(15, 23, 42, 0.15) !important;
-  color: #334155 !important;
+  background: var(--color-surface) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--color-text) 15%,
+    transparent
+  ) !important;
+  color: var(--color-text-2) !important;
 }
 
 .light .preset-pill:hover,
 .light .preset-pill.active {
-  background: rgba(79, 70, 229, 0.12) !important;
-  border-color: #4f46e5 !important;
-  color: #4f46e5 !important;
+  background: color-mix(
+    in srgb,
+    var(--color-accent) 12%,
+    transparent
+  ) !important;
+  border-color: var(--color-accent) !important;
+  color: var(--color-accent) !important;
 }
 
 .light .drawer-footprint-chip {
-  background: #ffffff !important;
-  border-color: rgba(15, 23, 42, 0.12) !important;
-  color: #64748b !important;
+  background: var(--color-surface) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--color-text) 12%,
+    transparent
+  ) !important;
+  color: var(--color-text-3) !important;
 }
 
 .light .drawer-footprint-chip strong {
-  color: #0f172a !important;
+  color: var(--color-text) !important;
 }
 
 .light .advanced-reset-btn {
-  border-color: rgba(15, 23, 42, 0.15) !important;
-  color: #64748b !important;
+  border-color: color-mix(
+    in srgb,
+    var(--color-text) 15%,
+    transparent
+  ) !important;
+  color: var(--color-text-3) !important;
 }
 
 .light .advanced-reset-btn:hover {
-  background: #f1f5f9 !important;
-  color: #0f172a !important;
+  background: var(--color-surface-2) !important;
+  color: var(--color-text) !important;
 }
 
 .light .advanced-close-btn {
-  background: #f1f5f9 !important;
-  border-color: rgba(15, 23, 42, 0.15) !important;
-  color: #334155 !important;
+  background: var(--color-surface-2) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--color-text) 15%,
+    transparent
+  ) !important;
+  color: var(--color-text-2) !important;
 }
 
 .light .saved-sweep-card {
-  background: #ffffff !important;
-  border-color: rgba(15, 23, 42, 0.12) !important;
+  background: var(--color-surface) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--color-text) 12%,
+    transparent
+  ) !important;
 }
 
 .light .saved-sweep-card:hover {
-  background: #f8fafc !important;
-  border-color: #4f46e5 !important;
+  background: var(--color-surface-2) !important;
+  border-color: var(--color-accent) !important;
 }
 
 .light .saved-sweep-card.active {
-  background: rgba(79, 70, 229, 0.08) !important;
-  border-color: #4f46e5 !important;
+  background: color-mix(
+    in srgb,
+    var(--color-accent) 8%,
+    transparent
+  ) !important;
+  border-color: var(--color-accent) !important;
 }
 
 .light .sweep-card-name {
-  color: #0f172a !important;
+  color: var(--color-text) !important;
 }
 
 .light .sweep-card-date {
-  color: #64748b !important;
+  color: var(--color-text-3) !important;
 }
 
 .light .empty-sweep-hero {
-  background: rgba(255, 255, 255, 0.7) !important;
-  border-color: rgba(15, 23, 42, 0.2) !important;
+  background: color-mix(
+    in srgb,
+    var(--color-surface) 70%,
+    transparent
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--color-text) 20%,
+    transparent
+  ) !important;
 }
 
 .light .empty-sweep-hero h3 {
-  color: #0f172a !important;
+  color: var(--color-text) !important;
 }
 
 .light .empty-sweep-hero p {
-  color: #64748b !important;
+  color: var(--color-text-3) !important;
 }
 
 .light .hero-secondary-btn {
-  background: #f1f5f9 !important;
-  border-color: rgba(15, 23, 42, 0.15) !important;
-  color: #1e293b !important;
+  background: var(--color-surface-2) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--color-text) 15%,
+    transparent
+  ) !important;
+  color: var(--color-text) !important;
 }
 
 /* ── Per-tier full metrics ─────────────────────────────────────────────── */
@@ -2577,15 +2647,15 @@
   margin: 0 0 12px;
   padding: 10px 14px;
   border-radius: 8px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid color-mix(in srgb, var(--color-text-3) 35%, transparent);
+  background: color-mix(in srgb, var(--color-text-3) 10%, transparent);
   font-size: 0.85rem;
   line-height: 1.45;
 }
 
 .sweep-banner.is-exploratory {
-  border-color: rgba(245, 158, 11, 0.55);
-  background: rgba(245, 158, 11, 0.12);
+  border-color: color-mix(in srgb, var(--series-signal) 55%, transparent);
+  background: color-mix(in srgb, var(--series-signal) 12%, transparent);
 }
 
 .insight-list {
@@ -2593,4 +2663,42 @@
   padding-left: 18px;
   font-size: 0.85rem;
   line-height: 1.5;
+}
+
+/* ── Shared UrbanFlow page language (both themes) ─────────────────────── */
+/* Page titles: solid, tight, the same in both research tools. */
+.volume-dashboard .header-title-group h2,
+.volume-dashboard .header-badge-row h2 {
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  color: var(--color-text);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.volume-dashboard .header-title-group h2 .uf-glyph,
+.volume-dashboard .header-badge-row h2 .uf-glyph {
+  width: 20px;
+  height: 20px;
+  color: var(--brand-green-ink);
+}
+/* Empty states share the .uf-state icon tile (styles/components.css). */
+.volume-dashboard .empty-hero-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-lg);
+  color: var(--brand-green-ink);
+  background: var(--brand-green-soft);
+  border: 1px solid color-mix(in srgb, var(--brand-green) 24%, transparent);
+  box-shadow: var(--glass-highlight);
+  font-size: 0;
+}
+.volume-dashboard .empty-sweep-hero {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-raised);
+  animation: uf-rise-in var(--dur-slow) var(--ease-out) both;
 }

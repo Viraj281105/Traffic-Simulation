@@ -1,4 +1,5 @@
 import React from "react";
+import { Pause, Play, RotateCcw } from "lucide-react";
 import type { LiveSnapshot } from "../types/simulation";
 
 interface PlaybackControlsProps {
@@ -43,13 +44,26 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
 
   const statusTone =
     status === "running"
-      ? "var(--accent-green)"
+      ? "running"
       : status === "paused"
-        ? "var(--accent-yellow)"
-        : "var(--text-secondary)";
+        ? "paused"
+        : status === "completed"
+          ? "completed"
+          : "idle";
+  const progress =
+    simple && durationSeconds
+      ? Math.min(100, (simTime / durationSeconds) * 100)
+      : null;
 
   return (
     <div className="playback-bar" role="group" aria-label="Playback">
+      {progress !== null && (
+        <span
+          className="playback-progress"
+          style={{ width: `${String(progress)}%` }}
+          aria-hidden="true"
+        />
+      )}
       <div className="playback-btns">
         <button
           id="btn-play"
@@ -63,7 +77,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
               : "Start or resume the simulation"
           }
         >
-          <span aria-hidden="true">▶ </span>
+          <Play size={15} aria-hidden="true" className="pb-icon" />
           {status === "completed" ? "Run again" : "Play"}
         </button>
         <button
@@ -74,7 +88,8 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           disabled={disabled || !isPlaying || status === "completed"}
           title="Pause the simulation"
         >
-          <span aria-hidden="true">⏸ </span>Pause
+          <Pause size={15} aria-hidden="true" className="pb-icon" />
+          Pause
         </button>
         <button
           id="btn-stop"
@@ -88,7 +103,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
               : "Stop and reset the simulation with a new random seed"
           }
         >
-          <span aria-hidden="true">⏹ </span>
+          <RotateCcw size={15} aria-hidden="true" className="pb-icon" />
           {simple ? "Start over" : "Reset"}
         </button>
       </div>
@@ -107,12 +122,10 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           <div className="pb-divider" aria-hidden="true" />
           <div className="pb-stat">
             <dt className="pb-stat-label">Status</dt>
-            <dd
-              className="pb-stat-value"
-              style={{ color: statusTone }}
-              aria-live="polite"
-            >
-              {STATUS_WORDS[status] ?? "Ready"}
+            <dd className="pb-stat-value" aria-live="polite">
+              <span className={`pb-status is-${statusTone}`}>
+                {STATUS_WORDS[status] ?? "Ready"}
+              </span>
             </dd>
           </div>
         </dl>
@@ -138,12 +151,10 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           <div className="pb-divider" aria-hidden="true" />
           <div className="pb-stat">
             <dt className="pb-stat-label">Status</dt>
-            <dd
-              className="pb-stat-value"
-              style={{ color: statusTone }}
-              aria-live="polite"
-            >
-              {status.toUpperCase()}
+            <dd className="pb-stat-value" aria-live="polite">
+              <span className={`pb-status is-${statusTone}`}>
+                {status.toUpperCase()}
+              </span>
             </dd>
           </div>
         </dl>

@@ -18,11 +18,15 @@ export const SERIES = {
 export const CHART_GRID = "var(--chart-grid)";
 export const CHART_AXIS = "var(--chart-axis)";
 
-/** Recharts <Tooltip contentStyle>. */
+/** Recharts <Tooltip contentStyle>: the shared glass surface. */
 export const TOOLTIP_STYLE: CSSProperties = {
-  backgroundColor: "var(--color-surface-2)",
-  borderColor: "var(--color-border-strong)",
-  borderRadius: "var(--radius-sm)",
+  backgroundColor: "var(--glass-bg-strong)",
+  backdropFilter: "blur(12px) saturate(160%)",
+  WebkitBackdropFilter: "blur(12px) saturate(160%)",
+  border: "1px solid var(--glass-border)",
+  borderRadius: "var(--radius-md)",
+  boxShadow: "var(--glass-highlight), var(--shadow-float)",
   color: "var(--color-text)",
   fontSize: 12,
+  padding: "8px 12px",
 };
