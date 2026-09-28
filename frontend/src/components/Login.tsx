@@ -3,7 +3,7 @@ import { AuthenticationDetails, CognitoUser } from "amazon-cognito-identity-js";
 import { userPool } from "../auth/cognito";
 import "./Login.css";
 
-export const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
+export const Login: React.FC<{ onLogin: () => void; onClose?: () => void }> = ({ onLogin, onClose }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
@@ -106,7 +106,25 @@ export const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
 
   return (
     <div className="login-container">
-      <div className="login-box">
+      <div className="login-box" style={{ position: 'relative' }}>
+        {onClose && (
+          <button
+            onClick={onClose}
+            style={{
+              position: 'absolute',
+              top: '16px',
+              right: '16px',
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-muted, #94a3b8)',
+              fontSize: '24px',
+              cursor: 'pointer',
+              lineHeight: 1
+            }}
+          >
+            &times;
+          </button>
+        )}
         <h1 className="login-title">Traffic Simulation</h1>
         <p className="login-subtitle">
           {isConfirming

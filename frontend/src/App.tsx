@@ -1050,35 +1050,8 @@ function Dashboard({
       </div>
 
       {showLogin && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 9999,
-            background: "rgba(0,0,0,0.8)",
-          }}
-        >
-          <Login onLogin={handleLoginSuccess} />
-          <button
-            onClick={() => {
-              setShowLogin(false);
-            }}
-            style={{
-              position: "absolute",
-              top: "20px",
-              right: "20px",
-              background: "transparent",
-              color: "white",
-              border: "none",
-              cursor: "pointer",
-              fontSize: "18px",
-            }}
-          >
-            Close
-          </button>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}>
+          <Login onLogin={handleLoginSuccess} onClose={() => { setShowLogin(false); }} />
         </div>
       )}
     </div>
