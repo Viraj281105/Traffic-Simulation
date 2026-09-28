@@ -34,6 +34,23 @@ CLIENT_ID = os.getenv("COGNITO_CLIENT_ID", "")
 # Cache the keys so we don't fetch them on every request
 _JWKS_CACHE = None
 
+# ── Local development auth bypass ──────────────────────────────────────────
+# Cognito is not connected in local development. The Vite dev server sends
+# DEV_AUTH_TOKEN as its bearer token (frontend/src/auth/cognito.ts); it is
+# accepted here only when the backend is started with DEV_AUTH_BYPASS=1
+# (start.ps1 and docker-compose.dev.yml do; docker-compose.yml, the
+# production stack, does not), and then stands for one clearly local
+# identity, DEV_AUTH_CLAIMS. Every other token takes the Cognito path
+# unchanged, and without the flag the marker is refused.
+DEV_AUTH_TOKEN = "urbanflow-local-dev"
+DEV_AUTH_CLAIMS: Dict[str, Any] = {"sub": "local-dev", "email": ""}
+
+
+def dev_auth_bypass_enabled() -> bool:
+    """True only when DEV_AUTH_BYPASS is explicitly switched on. Read per
+    request, so nothing at import time can leave it on."""
+    return os.getenv("DEV_AUTH_BYPASS", "").strip().lower() in {"1", "true", "yes"}
+
 
 def get_jwks() -> List[Dict[str, Any]]:
     global _JWKS_CACHE
@@ -57,9 +74,18 @@ def verify_token(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Token missing"
         )
 
+    if token == DEV_AUTH_TOKEN:
+        if dev_auth_bypass_enabled():
+            return dict(DEV_AUTH_CLAIMS)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Development auth token rejected: DEV_AUTH_BYPASS is not "
+            "enabled on this server",
+        )
+
     if not USER_POOL_ID:
-        # For local dev without Cognito, you can bypass by returning a dummy user if preferred,
-        # but here we require it.
+        # Local development without Cognito uses DEV_AUTH_BYPASS (above);
+        # a real token always needs a configured pool.
         raise HTTPException(
             status_code=500, detail="Cognito User Pool ID not configured on server"
         )

@@ -28,7 +28,11 @@ import {
 import { StepNav, type GuidedStage } from "./components/guided/StepNav";
 import "./components/guided/Guided.css";
 import { Login } from "./components/Login";
-import { getCurrentUser } from "./auth/cognito";
+import {
+  DEV_AUTH_BYPASS,
+  DEV_AUTH_PROFILE,
+  getCurrentUser,
+} from "./auth/cognito";
 import type {
   CognitoUserSession,
   CognitoUserAttribute,
@@ -189,16 +193,20 @@ function Dashboard({
   const setViewMode = (view: RoutedView) => {
     navigate(VIEW_ROUTES[view]);
   };
-  const [isAuthenticated, setIsAuthenticated] =
-    useState<boolean>(!!getCurrentUser());
+  // The local dev server stands in a developer session (auth/cognito.ts);
+  // a production build always starts from Cognito.
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(
+    () => DEV_AUTH_BYPASS || !!getCurrentUser(),
+  );
   const [showLogin, setShowLogin] = useState<boolean>(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [userProfile, setUserProfile] = useState<{
     name?: string;
     email?: string;
-  } | null>(null);
+  } | null>(DEV_AUTH_BYPASS ? DEV_AUTH_PROFILE : null);
 
   useEffect(() => {
+    if (DEV_AUTH_BYPASS) return;
     let active = true;
     if (isAuthenticated) {
       const user = getCurrentUser();
@@ -749,19 +757,28 @@ function Dashboard({
                 <span className="user-name">{userProfile?.name || "User"}</span>
                 <span className="user-email">{userProfile?.email || ""}</span>
               </span>
-              <button
-                type="button"
-                className="uf-icon-btn user-logout"
-                onClick={() => {
-                  const user = getCurrentUser();
-                  if (user) user.signOut();
-                  setIsAuthenticated(false);
-                }}
-                aria-label="Logout"
-                title="Logout"
-              >
-                <LogOut aria-hidden="true" />
-              </button>
+              {DEV_AUTH_BYPASS ? (
+                <span
+                  className="uf-badge dev-auth-badge"
+                  title="Local development session: authentication is bypassed on the dev server only"
+                >
+                  DEV AUTH
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="uf-icon-btn user-logout"
+                  onClick={() => {
+                    const user = getCurrentUser();
+                    if (user) user.signOut();
+                    setIsAuthenticated(false);
+                  }}
+                  aria-label="Logout"
+                  title="Logout"
+                >
+                  <LogOut aria-hidden="true" />
+                </button>
+              )}
             </div>
           )}
         </div>

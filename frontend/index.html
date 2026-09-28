@@ -3,6 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <script src="/theme-init.js"></script>
+    <!-- Page colour before the stylesheets load (tokens.css --color-bg), so
+         neither theme flashes while the first-load loader mounts. -->
+    <style>
+      html {
+        background: #f3f5f9;
+      }
+      html.dark {
+        background: #0a1220;
+      }
+    </style>
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1"

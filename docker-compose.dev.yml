@@ -15,6 +15,10 @@ services:
       # empty (auth disabled). Override via .env/shell export if needed.
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
       - API_KEY=${API_KEY:-}
+      # Local development auth bypass (src/auth.py): accepts the Vite dev
+      # server's development token until Cognito is connected. Development
+      # stack only; docker-compose.yml (production) never sets it.
+      - DEV_AUTH_BYPASS=${DEV_AUTH_BYPASS:-1}
     # Local Cognito/AWS settings. Optional: backend/.env is gitignored, so it
     # is absent in CI and fresh clones, and src/auth.py has defaults.
     env_file:

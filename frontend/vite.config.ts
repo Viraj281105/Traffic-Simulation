@@ -98,6 +98,10 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
+    // Tests run in DEV mode, where the dashboard would bypass sign-in
+    // (src/auth/cognito.ts). Keep the real Cognito flow under test by
+    // default; devAuthBypass.test.tsx switches the bypass on explicitly.
+    env: { VITE_DEV_AUTH_BYPASS: "false" },
     pool: "vmThreads",
     server: {
       deps: {
