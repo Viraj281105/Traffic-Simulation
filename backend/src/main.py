@@ -31,6 +31,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, model_validator
 
+from src.auth import get_current_user_email, get_current_user_id
 from src.controllers.factory import (
     build_tick_callback,
     create_controller,
@@ -2514,7 +2515,12 @@ def _with_reproducibility(
 
 
 @app.post("/api/v1/replays", dependencies=[Depends(require_api_key)])
-def save_replay(payload: SaveReplayRequest, request: Request) -> Dict[str, Any]:
+def save_replay(
+    payload: SaveReplayRequest,
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+    email: str = Depends(get_current_user_email)
+) -> Dict[str, Any]:
     init_db()
     mode = payload.mode or (
         "dual"
@@ -2560,7 +2566,7 @@ def save_replay(payload: SaveReplayRequest, request: Request) -> Dict[str, Any]:
     )
     arr_rate = run_config.get("traffic", {}).get("arrivalRate", 0.5)
     with get_db_connection() as conn:
-        replay_id = ReplayDAO.save(conn, payload.name, payload.config, metrics)
+        replay_id = ReplayDAO.save(conn, payload.name, payload.config, metrics, user_id=user_id, email=email)
         # Also persist to simulation_runs (same id) for history, reproducible
         # comparison and the reproducibility record.
         SimulationRunDAO.save(
@@ -2578,6 +2584,8 @@ def save_replay(payload: SaveReplayRequest, request: Request) -> Dict[str, Any]:
             provenance=provenance,
             # Same fallback as ReplayDAO.save, so both tables agree.
             name=(payload.name or "").strip() or "Saved Replay",
+            user_id=user_id,
+            email=email,
         )
         conn.commit()
         run = SimulationRunDAO.get(conn, replay_id)
@@ -2593,30 +2601,44 @@ def save_replay(payload: SaveReplayRequest, request: Request) -> Dict[str, Any]:
 
 
 @app.get("/api/v1/replays")
-def list_replays(limit: PageLimit = 50, offset: PageOffset = 0) -> list[Dict[str, Any]]:
+def list_replays(
+    limit: PageLimit = 50,
+    offset: PageOffset = 0,
+    user_id: str = Depends(get_current_user_id)
+) -> list[Dict[str, Any]]:
     init_db()
     with get_db_connection() as conn:
         return _with_reproducibility(
-            ReplayDAO.list_all(conn, limit=limit, offset=offset), conn
+            ReplayDAO.list_all(conn, limit=limit, offset=offset, user_id=user_id), conn
         )
     return []
 
 
 @app.get("/api/v1/replays/{replay_id}")
-def get_replay(replay_id: str) -> Dict[str, Any]:
+def get_replay(replay_id: str, user_id: str = Depends(get_current_user_id)) -> Dict[str, Any]:
     init_db()
     with get_db_connection() as conn:
         replay = ReplayDAO.get(conn, replay_id)
         if not replay:
             raise HTTPException(status_code=404, detail="Replay not found")
+        # Ensure user owns this replay
+        row = conn.cursor().execute("SELECT user_id FROM saved_replays WHERE id = ?", (replay_id,)).fetchone()
+        if row and row["user_id"] and row["user_id"] != user_id:
+             raise HTTPException(status_code=403, detail="Forbidden")
         return _with_reproducibility([replay], conn)[0]
     raise HTTPException(status_code=500, detail="Database connection error")
 
 
 @app.delete("/api/v1/replays/{replay_id}", dependencies=[Depends(require_api_key)])
-def delete_replay(replay_id: str) -> Dict[str, Any]:
+def delete_replay(replay_id: str, user_id: str = Depends(get_current_user_id)) -> Dict[str, Any]:
     init_db()
     with get_db_connection() as conn:
+        row = conn.cursor().execute("SELECT user_id FROM saved_replays WHERE id = ?", (replay_id,)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Replay not found")
+        if row["user_id"] and row["user_id"] != user_id:
+            raise HTTPException(status_code=403, detail="Forbidden")
+
         success = ReplayDAO.delete(conn, replay_id)
         if not success:
             raise HTTPException(status_code=404, detail="Replay not found")

@@ -30,16 +30,17 @@ class ReplayDAO:
         config: Dict[str, Any],
         metrics: Dict[str, Any],
         user_id: Optional[str] = None,
+        email: Optional[str] = None,
     ) -> str:
         replay_id = str(uuid.uuid4())
         clean_name = (name or "").strip() or "Saved Replay"
         cursor = conn.cursor()
         cursor.execute(
             """
-            INSERT INTO saved_replays (id, user_id, name, config_json, metrics_json)
-            VALUES (?, ?, ?, ?, ?);
+            INSERT INTO saved_replays (id, user_id, email, name, config_json, metrics_json)
+            VALUES (?, ?, ?, ?, ?, ?);
             """,
-            (replay_id, user_id, clean_name, json.dumps(config), json.dumps(metrics)),
+            (replay_id, user_id, email, clean_name, json.dumps(config), json.dumps(metrics)),
         )
         conn.commit()
         return replay_id

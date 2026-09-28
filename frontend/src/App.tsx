@@ -35,6 +35,7 @@ import { StepNav, type GuidedStage } from "./components/guided/StepNav";
 import "./components/guided/Guided.css";
 import { Login } from "./components/Login";
 import { getCurrentUser } from "./auth/cognito";
+import type { CognitoUserSession, CognitoUserAttribute } from "amazon-cognito-identity-js";
 import { Sun, Moon } from "lucide-react";
 import type { SimulationConfigValues } from "./types/config";
 import { DEFAULT_CONFIG_VALUES, dashboardPayload } from "./types/config";
@@ -172,10 +173,57 @@ function Dashboard({
   };
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!!getCurrentUser());
   const [showLogin, setShowLogin] = useState<boolean>(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  const [userProfile, setUserProfile] = useState<{name?: string, email?: string} | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    if (isAuthenticated) {
+      const user = getCurrentUser();
+      if (user) {
+        user.getSession((err: Error | null | undefined, session: CognitoUserSession | null | undefined) => {
+          if (!err && session) {
+            user.getUserAttributes((attrErr: Error | undefined, attributes: CognitoUserAttribute[] | undefined) => {
+              if (!attrErr && attributes && active) {
+                const profile: Record<string, string> = {};
+                attributes.forEach((attr) => {
+                  profile[attr.getName()] = attr.getValue();
+                });
+                const emailStr = profile.email || "";
+                const nameStr = profile.name || (emailStr ? emailStr.split("@")[0] : "");
+                setUserProfile({ name: nameStr, email: emailStr });
+              }
+            });
+          }
+        });
+      }
+    } else {
+      // Defer state update to avoid synchronous state update inside effect
+      requestAnimationFrame(() => {
+        if (active) setUserProfile(null);
+      });
+    }
+    return () => {
+      active = false;
+    };
+  }, [isAuthenticated]);
+
+  const requireAuth = (action: () => void) => {
+    if (isAuthenticated) {
+      action();
+    } else {
+      setPendingAction(() => action);
+      setShowLogin(true);
+    }
+  };
 
   const handleLoginSuccess = () => {
     setIsAuthenticated(true);
     setShowLogin(false);
+    if (pendingAction) {
+      pendingAction();
+      setPendingAction(null);
+    }
   };
 
 
@@ -439,60 +487,62 @@ function Dashboard({
   const canSave = !activeIsPlaying && activeReplay === null && liveTimestamp > 0;
 
   const handleSaveHistory = () => {
-    const geometryType =
-      viewMode === "roundabout" ? "roundabout" : "fixed_time_signal";
-    const configToSave: SavedReplay["config"] = {
-      // Everything needed to re-run the same scenario from History.
-      ui: configValues,
-      simulation: { duration, randomSeed, elapsed: liveTimestamp },
-      geometry: { intersectionType: geometryType, laneWidth },
-      roads: {
-        lanesPerApproach: {
-          north: lanes,
-          south: lanes,
-          east: lanes,
-          west: lanes,
+    requireAuth(() => {
+      const geometryType =
+        viewMode === "roundabout" ? "roundabout" : "fixed_time_signal";
+      const configToSave: SavedReplay["config"] = {
+        // Everything needed to re-run the same scenario from History.
+        ui: configValues,
+        simulation: { duration, randomSeed, elapsed: liveTimestamp },
+        geometry: { intersectionType: geometryType, laneWidth },
+        roads: {
+          lanesPerApproach: {
+            north: lanes,
+            south: lanes,
+            east: lanes,
+            west: lanes,
+          },
         },
-      },
-      traffic: { arrivalRate },
-    };
-
-    let metricsToSave: Record<string, unknown> = {};
-    if (isDual && dualSnapshot) {
-      metricsToSave = {
-        signal: dualSnapshot.signal.metrics,
-        roundabout: dualSnapshot.roundabout.metrics,
+        traffic: { arrivalRate },
       };
-    } else if (singleSnapshot) {
-      metricsToSave = { ...singleSnapshot.metrics };
-    }
 
-    const label =
-      viewMode === "comparative"
-        ? "Comparison"
-        : viewMode === "roundabout"
-          ? "Roundabout"
-          : "Signal";
-    const payload = {
-      name: `${label} · seed ${String(randomSeed)} · ${liveTimestamp.toFixed(0)} s`,
-      config: configToSave,
-      metrics: metricsToSave,
-      mode: isDual ? ("dual" as const) : ("single" as const),
-    };
+      let metricsToSave: Record<string, unknown> = {};
+      if (isDual && dualSnapshot) {
+        metricsToSave = {
+          signal: dualSnapshot.signal.metrics,
+          roundabout: dualSnapshot.roundabout.metrics,
+        };
+      } else if (singleSnapshot) {
+        metricsToSave = { ...singleSnapshot.metrics };
+      }
 
-    saveReplay(payload)
-      .then((saved: { runId?: string } | undefined) => {
-        const runId = saved?.runId;
-        showToast(
-          runId
-            ? `Run ${runId.slice(0, 8)} saved to History.`
-            : "Run saved to History.",
-        );
-      })
-      .catch((e: unknown) => {
-        console.error(e);
-        showToast("Could not save the run — is the backend reachable?");
-      });
+      const label =
+        viewMode === "comparative"
+          ? "Comparison"
+          : viewMode === "roundabout"
+            ? "Roundabout"
+            : "Signal";
+      const payload = {
+        name: `${label} · seed ${String(randomSeed)} · ${liveTimestamp.toFixed(0)} s`,
+        config: configToSave,
+        metrics: metricsToSave,
+        mode: isDual ? ("dual" as const) : ("single" as const),
+      };
+
+      saveReplay(payload)
+        .then((saved: { runId?: string } | undefined) => {
+          const runId = saved?.runId;
+          showToast(
+            runId
+              ? `Run ${runId.slice(0, 8)} saved to History.`
+              : "Run saved to History.",
+          );
+        })
+        .catch((e: unknown) => {
+          console.error(e);
+          showToast("Could not save the run — is the backend reachable?");
+        });
+    });
   };
 
   const handleReplay = (replay: SavedReplay) => {
@@ -591,7 +641,16 @@ function Dashboard({
           <ViewTab view="history" current={section === "saved"}>
             Saved
           </ViewTab>
-          <ViewTab view="research" current={section === "research"}>
+          <ViewTab 
+            view="research" 
+            current={section === "research"}
+            onIntercept={(e, href) => {
+              e.preventDefault();
+              requireAuth(() => {
+                navigate(href);
+              });
+            }}
+          >
             Research lab
           </ViewTab>
         </nav>
@@ -633,13 +692,26 @@ function Dashboard({
           {!isAuthenticated ? (
             <button
               onClick={() => { setShowLogin(true); }}
-              style={{ marginLeft: '16px', background: '#38bdf8', color: '#0f172a', padding: '6px 12px', borderRadius: '4px', fontWeight: 'bold' }}
+              style={{ marginLeft: '16px', background: '#38bdf8', color: '#0f172a', padding: '6px 12px', borderRadius: '4px', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
             >
               Sign In
             </button>
           ) : (
-            <div style={{ marginLeft: '16px', color: '#cbd5e1', fontSize: '14px' }}>
-              Logged In
+            <div style={{ marginLeft: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ color: '#cbd5e1', fontSize: '14px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: '1.2' }}>
+                <span style={{ fontWeight: 'bold' }}>{userProfile?.name || 'User'}</span>
+                <span style={{ fontSize: '12px' }}>{userProfile?.email || ''}</span>
+              </div>
+              <button
+                onClick={() => {
+                  const user = getCurrentUser();
+                  if (user) user.signOut();
+                  setIsAuthenticated(false);
+                }}
+                style={{ background: 'transparent', color: '#cbd5e1', border: '1px solid #475569', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}
+              >
+                Logout
+              </button>
             </div>
           )}
         </div>
@@ -942,10 +1014,12 @@ function ViewTab({
   view,
   current: isActive,
   children,
+  onIntercept,
 }: {
   view: RoutedView;
   current: boolean;
   children: ReactNode;
+  onIntercept?: (e: React.MouseEvent, href: string) => void;
 }) {
   const href = VIEW_ROUTES[view];
   return (
@@ -954,7 +1028,11 @@ function ViewTab({
       className={`tab-btn ${isActive ? "active" : ""}`}
       aria-current={isActive ? "page" : undefined}
       onClick={(event) => {
-        followLink(event, href);
+        if (onIntercept) {
+          onIntercept(event, href);
+        } else {
+          followLink(event, href);
+        }
       }}
     >
       {children}

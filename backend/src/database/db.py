@@ -53,6 +53,7 @@ def init_db() -> None:
             name TEXT,
             notes TEXT,
             tags_json TEXT,
+            email TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """
@@ -74,6 +75,7 @@ def init_db() -> None:
         ("name", "TEXT"),
         ("notes", "TEXT"),
         ("tags_json", "TEXT"),
+        ("email", "TEXT"),
     ]
     for col_name, col_def in columns_to_add:
         if col_name not in existing_cols:
@@ -141,12 +143,16 @@ def init_db() -> None:
     sr_cols = {row[1] for row in cursor.fetchall()}
     if "user_id" not in sr_cols:
         cursor.execute("ALTER TABLE saved_replays ADD COLUMN user_id TEXT;")
+    if "email" not in sr_cols:
+        cursor.execute("ALTER TABLE saved_replays ADD COLUMN email TEXT;")
 
     # Safe migration for sweep_sessions
     cursor.execute("PRAGMA table_info(sweep_sessions);")
     ss_cols = {row[1] for row in cursor.fetchall()}
     if "user_id" not in ss_cols:
         cursor.execute("ALTER TABLE sweep_sessions ADD COLUMN user_id TEXT;")
+    if "email" not in ss_cols:
+        cursor.execute("ALTER TABLE sweep_sessions ADD COLUMN email TEXT;")
 
     conn.commit()
     conn.close()

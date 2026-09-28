@@ -91,6 +91,8 @@ class SimulationRunDAO:
         summary_metrics: Optional[Dict[str, Any]] = None,
         provenance: Optional[Dict[str, Any]] = None,
         name: Optional[str] = None,
+        user_id: Optional[str] = None,
+        email: Optional[str] = None,
     ) -> None:
         """Inserts or replaces a run.
 
@@ -115,8 +117,8 @@ class SimulationRunDAO:
                 INSERT OR REPLACE INTO simulation_runs (
                     id, status, elapsed, intersection_type, random_seed, arrival_rate,
                     duration, batch_id, config_json, summary_metrics_json,
-                    git_commit, provenance_json, name
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                    git_commit, provenance_json, name, user_id, email
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
                 """,
                 (
                     run_id,
@@ -132,6 +134,8 @@ class SimulationRunDAO:
                     git_commit,
                     provenance_str,
                     name,
+                    user_id,
+                    email,
                 ),
             )
             conn.commit()
