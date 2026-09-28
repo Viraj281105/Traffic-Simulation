@@ -72,7 +72,9 @@ else {
         Start-Process powershell.exe -WorkingDirectory $backend -ArgumentList @(
             "-NoExit",
             "-Command",
-            "& '$python' -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8000"
+            # DEV_AUTH_BYPASS: accept the Vite dev server's development auth
+            # token (backend/src/auth.py). Local mode only, never Docker.
+            "`$env:DEV_AUTH_BYPASS = '1'; & '$python' -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8000"
         )
         Start-Sleep -Seconds 2
     }

@@ -48,12 +48,13 @@ export const Reveal = ({
     <div ref={ref} style={{ position: "relative", width, overflow: "hidden" }}>
       <motion.div
         variants={{
-          hidden: { opacity: 0, y: 35 },
+          hidden: { opacity: 0, y: 16 },
           visible: { opacity: 1, y: 0 },
         }}
         initial="hidden"
         animate={isInView ? "visible" : "hidden"}
-        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay }}
+        // The app's --ease-out and a --dur-slow-scale duration (tokens.css).
+        transition={{ duration: 0.5, ease: [0.2, 0.8, 0.2, 1], delay }}
       >
         {children}
       </motion.div>

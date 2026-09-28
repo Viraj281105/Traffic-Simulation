@@ -5,7 +5,8 @@
       "name": "backend",
       "runtimeExecutable": "C:\\Viraj\\Code\\Traffic-Simulation\\backend\\.venv\\Scripts\\python.exe",
       "runtimeArgs": ["-m", "uvicorn", "src.main:app", "--app-dir", "C:\\Viraj\\Code\\Traffic-Simulation\\backend", "--port", "8000"],
-      "port": 8000
+      "port": 8000,
+      "env": { "DEV_AUTH_BYPASS": "1" }
     },
     {
       "name": "frontend",

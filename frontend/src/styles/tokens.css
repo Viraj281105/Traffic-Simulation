@@ -1,8 +1,8 @@
 /*
  * Shared UrbanFlow tokens: the app's colour palette (dark by default, `.light`
  * on <html> switches), the Roboto font stacks, and the shape, depth, glass and
- * motion values every page draws from. Imported first by both documents; the
- * landing page keeps its own palette on top of it.
+ * motion values every page draws from. Imported first by both documents, the
+ * landing page included.
  *
  * Identity: navy structure + green flow (the UrbanFlow mark). Signal is always
  * amber and the roundabout always teal (--series-*), in both themes.

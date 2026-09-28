@@ -16,7 +16,10 @@ import {
   TrendingUp,
   Clock,
   BarChart2,
+  LogIn,
 } from "lucide-react";
+import { UrbanFlowLockup } from "../components/ui/UrbanFlowLogo";
+import { RouteLoader } from "../components/ui/RouteLoader";
 
 declare global {
   interface Window {
@@ -140,10 +143,12 @@ function App() {
 
   return (
     <main className="site-shell">
+      {/* The app's loader, for the first load of the page. */}
+      <RouteLoader routeKey="/" />
       <header className="top-nav">
         <a className="brand" href="#top" data-testid="link-brand">
-          <span className="brand-mark" aria-hidden="true" />
-          <span className="brand-name">URBANFLOW</span>
+          <UrbanFlowLockup size={30} />
+          <span className="sr-only">Home</span>
         </a>
         <nav className="nav-links" aria-label="Primary navigation">
           <a href="#how" data-testid="link-compare">
@@ -162,17 +167,21 @@ function App() {
             aria-label={
               isLight ? "Switch to dark mode" : "Switch to light mode"
             }
+            title={isLight ? "Dark mode" : "Light mode"}
             data-testid="button-theme-toggle"
           >
-            {isLight ? <Moon size={15} /> : <Sun size={15} />}
+            <span className="theme-icon" key={isLight ? "moon" : "sun"}>
+              {isLight ? <Moon size={16} /> : <Sun size={16} />}
+            </span>
           </button>
           <button
             type="button"
-            className="login-btn-glass"
+            className="header-signin"
             onClick={() => {
               window.openAuthModal();
             }}
           >
+            <LogIn size={15} aria-hidden="true" />
             Login
           </button>
         </nav>
@@ -203,18 +212,18 @@ function App() {
             </Reveal>
             <div className="hero-actions">
               <a
-                className="primary-btn"
+                className="pb-btn pb-primary pb-lg"
                 href="/app/comparative"
                 data-testid="link-explore-simulation"
               >
-                Compare your junction <ArrowDownRight size={15} />
+                Compare your junction <ArrowDownRight size={16} />
               </a>
               <a
-                className="ghost-btn"
+                className="pb-btn pb-secondary pb-lg"
                 href="#how"
                 data-testid="link-read-method"
               >
-                How it works <ArrowRight size={14} />
+                How it works <ArrowRight size={16} />
               </a>
             </div>
             <div className="hero-meta" aria-label="At a glance">
@@ -253,32 +262,42 @@ function App() {
               ))}
               <span
                 className="car one"
-                style={{ "--car-color": "hsl(188 100% 61%)" } as CSSProperties}
+                style={
+                  { "--car-color": "var(--series-roundabout)" } as CSSProperties
+                }
                 aria-hidden="true"
               />
               <span
                 className="car two"
-                style={{ "--car-color": "hsl(22 100% 69%)" } as CSSProperties}
+                style={
+                  { "--car-color": "var(--series-signal)" } as CSSProperties
+                }
                 aria-hidden="true"
               />
               <span
                 className="car three"
-                style={{ "--car-color": "hsl(260 54% 72%)" } as CSSProperties}
+                style={{ "--car-color": "var(--brand-green)" } as CSSProperties}
                 aria-hidden="true"
               />
               <span
                 className="car four"
-                style={{ "--car-color": "hsl(188 100% 61%)" } as CSSProperties}
+                style={
+                  { "--car-color": "var(--series-roundabout)" } as CSSProperties
+                }
                 aria-hidden="true"
               />
               <span
                 className="car five"
-                style={{ "--car-color": "hsl(22 100% 69%)" } as CSSProperties}
+                style={
+                  { "--car-color": "var(--series-signal)" } as CSSProperties
+                }
                 aria-hidden="true"
               />
               <span
                 className="car six"
-                style={{ "--car-color": "hsl(188 100% 61%)" } as CSSProperties}
+                style={
+                  { "--car-color": "var(--series-roundabout)" } as CSSProperties
+                }
                 aria-hidden="true"
               />
               <div className="radar" />
@@ -433,11 +452,11 @@ function App() {
               </p>
               <div className="hero-actions" style={{ marginTop: 30 }}>
                 <a
-                  className="ghost-btn"
+                  className="pb-btn pb-secondary pb-lg"
                   href="/app/comparative"
                   data-testid="link-see-result"
                 >
-                  Start a comparison <ArrowDownRight size={14} />
+                  Start a comparison <ArrowDownRight size={16} />
                 </a>
               </div>
             </div>
@@ -554,11 +573,11 @@ function App() {
             handle its traffic.
           </p>
           <a
-            className="primary-btn"
+            className="pb-btn pb-primary pb-lg"
             href="/app/comparative"
             data-testid="link-run-another-scenario"
           >
-            Compare your junction <ArrowRight size={15} />
+            Compare your junction <ArrowRight size={16} />
           </a>
         </Reveal>
       </section>
