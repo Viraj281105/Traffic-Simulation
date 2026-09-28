@@ -45,15 +45,16 @@
     <script type="module" src="/src/landing/main.tsx"></script>
 
     <!-- AUTH MODAL OVERLAY -->
-    <div
-      class="auth-overlay"
-      id="authOverlay"
-      onclick="handleOverlayClick(event)"
-    >
+    <div class="auth-overlay" id="authOverlay">
       <div class="auth-modal" id="authModal">
         <!-- Modal Header Controls -->
         <div class="auth-header" style="justify-content: flex-end">
-          <button class="close-btn" onclick="closeAuthModal()" title="Close">
+          <button
+            class="close-btn"
+            id="authClose"
+            title="Close"
+            aria-label="Close"
+          >
             &times;
           </button>
         </div>
@@ -66,28 +67,16 @@
 
         <!-- Tab Switcher (Sign In / Sign Up) -->
         <div class="auth-tabs">
-          <button
-            class="tab-btn active"
-            id="tabLogin"
-            onclick="switchAuthTab('login')"
-          >
+          <button class="tab-btn active" id="tabLogin" data-auth-tab="login">
             Sign In
           </button>
-          <button
-            class="tab-btn"
-            id="tabRegister"
-            onclick="switchAuthTab('register')"
-          >
+          <button class="tab-btn" id="tabRegister" data-auth-tab="register">
             Sign Up
           </button>
         </div>
 
         <!-- Form Area -->
-        <form
-          class="auth-form"
-          id="authForm"
-          onsubmit="handleAuthSubmit(event)"
-        >
+        <form class="auth-form" id="authForm">
           <!-- Name Field (Hidden on Login) -->
           <div class="form-group" id="nameGroup" style="display: none">
             <label for="fullName">Full Name</label>
@@ -119,7 +108,7 @@
             <a
               href="#"
               class="forgot-pass"
-              onclick="alert('Password reset instructions sent!')"
+              data-auth-notice="Password reset instructions sent!"
               >Forgot password?</a
             >
           </div>
@@ -138,7 +127,7 @@
           <button
             type="button"
             class="social-btn"
-            onclick="alert('Google Login Triggered')"
+            data-auth-notice="Google Login Triggered"
           >
             <svg width="18" height="18" viewBox="0 0 24 24">
               <path
@@ -163,7 +152,7 @@
           <button
             type="button"
             class="social-btn"
-            onclick="alert('GitHub Login Triggered')"
+            data-auth-notice="GitHub Login Triggered"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
               <path
@@ -176,60 +165,8 @@
       </div>
     </div>
 
-    <script>
-      // Open Modal
-      function openAuthModal() {
-        document.getElementById("authOverlay").classList.add("open");
-      }
-
-      // Close Modal
-      function closeAuthModal() {
-        document.getElementById("authOverlay").classList.remove("open");
-      }
-
-      // Close modal when clicking on the dark backdrop area
-      function handleOverlayClick(event) {
-        if (event.target.id === "authOverlay") {
-          closeAuthModal();
-        }
-      }
-
-      // Switch between "Sign In" and "Sign Up" tabs
-      function switchAuthTab(tab) {
-        const isLogin = tab === "login";
-
-        // Toggle tab active styles
-        document.getElementById("tabLogin").classList.toggle("active", isLogin);
-        document
-          .getElementById("tabRegister")
-          .classList.toggle("active", !isLogin);
-
-        // Dynamic Title & Field updates
-        document.getElementById("authTitle").textContent = isLogin
-          ? "Welcome Back"
-          : "Create Account";
-        document.getElementById("authSubtitle").textContent = isLogin
-          ? "Sign in to access your simulation"
-          : "Create a new account";
-
-        document.getElementById("nameGroup").style.display = isLogin
-          ? "none"
-          : "flex";
-        document.getElementById("forgotPassGroup").style.display = isLogin
-          ? "flex"
-          : "none";
-        document.getElementById("submitBtn").textContent = isLogin
-          ? "Sign In"
-          : "Sign Up";
-      }
-
-      // Handle Form Submit
-      function handleAuthSubmit(e) {
-        e.preventDefault();
-        const email = document.getElementById("email").value;
-        alert(`Form submitted for: ${email}`);
-        closeAuthModal();
-      }
-    </script>
+    <!-- Behaviour lives in a same-origin file: the production CSP is
+         script-src 'self', which blocks inline scripts and on* handlers. -->
+    <script src="/auth-modal.js"></script>
   </body>
 </html>

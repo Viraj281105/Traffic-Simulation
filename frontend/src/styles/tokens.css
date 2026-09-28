@@ -85,10 +85,10 @@
   --color-primary-hover: #5ae69a;
   --color-on-primary: #05180d;
 
-  /* Logo palette (UrbanFlowLogo reads these when variant="auto"). */
-  --logo-road: #f4f7fb;
-  --logo-flow: #3ddc84;
-  --logo-gap: #0a1220;
+  /* Logo palette, sampled from the reference artwork (UrbanFlowLogo reads
+     these when variant="auto"). */
+  --logo-road: #fdfefe;
+  --logo-flow: #94d182;
 
   /* Translucent layers: navigation, floating panels, dialogs. */
   --glass-bg: rgba(16, 27, 45, 0.72);
@@ -187,9 +187,8 @@
   --color-primary-hover: #17305f;
   --color-on-primary: #ffffff;
 
-  --logo-road: #0e2146;
-  --logo-flow: #12a150;
-  --logo-gap: #ffffff;
+  --logo-road: #132a4a;
+  --logo-flow: #638965;
 
   --glass-bg: rgba(255, 255, 255, 0.72);
   --glass-bg-strong: rgba(255, 255, 255, 0.9);

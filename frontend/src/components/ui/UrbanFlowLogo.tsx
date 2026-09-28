@@ -8,6 +8,8 @@ import { LOGO_GEOMETRY, LOGO_PALETTES } from "./logoGeometry";
 
 export type LogoVariant = "auto" | "light" | "dark";
 
+const MASK_BOX = { x: -10, y: -10, width: 120, height: 120 } as const;
+
 export function UrbanFlowLogo({
   variant = "auto",
   size = 28,
@@ -20,13 +22,14 @@ export function UrbanFlowLogo({
   /** Accessible name. Omit when the mark sits beside visible "UrbanFlow"
    *  text, so screen readers don't hear the name twice. */
   title?: string;
-  /** The loader treatment: flow travels through the junction, the island
-   *  breathes. Static under prefers-reduced-motion. */
+  /** The loader treatment: flow travels along the four paths, the central
+   *  roundabout breathes. Static under prefers-reduced-motion. */
   animated?: boolean;
   className?: string;
 }) {
   const uid = useId().replace(/:/g, "");
-  const maskId = `uf-logo-mask-${uid}`;
+  const roadMask = `uf-logo-roads-${uid}`;
+  const flowMask = `uf-logo-flow-${uid}`;
   const titleId = `uf-logo-title-${uid}`;
   const g = LOGO_GEOMETRY;
   const palette = variant === "auto" ? null : LOGO_PALETTES[variant];
@@ -51,73 +54,68 @@ export function UrbanFlowLogo({
     >
       {title && <title id={titleId}>{title}</title>}
       <defs>
-        {/* Knocks the flow path (plus its separation) out of the roads. */}
-        <mask
-          id={maskId}
-          maskUnits="userSpaceOnUse"
-          x="0"
-          y="0"
-          width="64"
-          height="64"
-        >
-          <rect width="64" height="64" fill="#fff" />
+        {/* The flow paths (plus their separation) knocked out of the roads. */}
+        <mask id={roadMask} maskUnits="userSpaceOnUse" {...MASK_BOX}>
+          <rect {...MASK_BOX} fill="#fff" />
+          {g.rotations.map((deg) => (
+            <path
+              key={deg}
+              d={g.flow}
+              stroke="#000"
+              strokeWidth={g.gapWidth}
+              transform={`rotate(${String(deg)} 50 50)`}
+            />
+          ))}
+        </mask>
+        {/* Each flow path passes under the next one anticlockwise. Applied
+            inside each path's rotated frame, so one mask serves all four. */}
+        <mask id={flowMask} maskUnits="userSpaceOnUse" {...MASK_BOX}>
+          <rect {...MASK_BOX} fill="#fff" />
           <path
             d={g.flow}
             stroke="#000"
             strokeWidth={g.gapWidth}
-            strokeLinecap="round"
-            strokeLinejoin="round"
+            transform="rotate(-90 50 50)"
           />
         </mask>
       </defs>
-      <g mask={`url(#${maskId})`} stroke={road} strokeLinecap="round">
-        {g.armRotations.map((deg) => (
+      <g mask={`url(#${roadMask})`} stroke={road} strokeWidth={g.strokeWidth}>
+        {g.rotations.map((deg) => (
           <path
             key={deg}
-            d={g.arm}
-            strokeWidth={g.roadWidth}
-            transform={deg ? `rotate(${String(deg)} 32 32)` : undefined}
+            d={g.road}
+            transform={deg ? `rotate(${String(deg)} 50 50)` : undefined}
           />
         ))}
-        <circle
-          cx={g.ring.cx}
-          cy={g.ring.cy}
-          r={g.ring.r}
-          strokeWidth={g.roadWidth}
-        />
       </g>
-      <circle
-        className="uf-logo__island"
-        cx={g.island.cx}
-        cy={g.island.cy}
-        r={g.island.r}
-        fill={road}
-      />
-      <path
-        className="uf-logo__flow"
-        d={g.flow}
-        stroke={flow}
-        strokeWidth={g.flowWidth}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        pathLength={100}
-      />
-      {animated && (
-        <path
-          className="uf-logo__pulse"
-          d={g.flow}
+      {g.rotations.map((deg) => (
+        <g
+          key={deg}
+          transform={deg ? `rotate(${String(deg)} 50 50)` : undefined}
+          mask={`url(#${flowMask})`}
           stroke={flow}
-          strokeWidth={g.flowWidth}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          pathLength={100}
-        />
-      )}
+          strokeWidth={g.strokeWidth}
+        >
+          <path className="uf-logo__flow" d={g.flow} pathLength={100} />
+          {animated && (
+            <path className="uf-logo__pulse" d={g.flow} pathLength={100} />
+          )}
+        </g>
+      ))}
+      <circle
+        className="uf-logo__ring"
+        cx={g.ring.cx}
+        cy={g.ring.cy}
+        r={g.ring.r}
+        stroke={road}
+        strokeWidth={g.strokeWidth}
+      />
     </svg>
   );
 }
 
-/** The mark with the UrbanFlow wordmark, for the app header and splash. */
+/** The mark with the UrbanFlow wordmark (URBAN bold, FLOW light), for the
+ *  app header and sign-in. */
 export function UrbanFlowLockup({
   size = 28,
   variant = "auto",

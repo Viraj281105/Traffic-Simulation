@@ -59,18 +59,21 @@
   gap: 10px;
 }
 .uf-wordmark {
+  /* As in the reference artwork: URBAN bold, FLOW light, one colour. The
+     DOM text stays "UrbanFlow" for assistive technology. */
   font-size: 16px;
   font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--color-text);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--logo-road);
   line-height: 1;
 }
 .uf-wordmark__flow {
-  color: var(--brand-green-ink);
+  font-weight: 400;
 }
 
-/* Loader treatment: the green flow travels through the junction while the
-   island breathes; the navy structure stays still. */
+/* Loader treatment: green flow travels along the four paths while the
+   central roundabout breathes; the road structure stays still. */
 .uf-logo--animated .uf-logo__flow {
   opacity: 0.35;
 }
@@ -78,10 +81,10 @@
   stroke-dasharray: 34 66;
   animation: uf-flow-travel 1.5s var(--ease-in-out) infinite;
 }
-.uf-logo--animated .uf-logo__island {
-  transform-origin: 32px 32px;
+.uf-logo--animated .uf-logo__ring {
+  transform-origin: 50px 50px;
   transform-box: view-box;
-  animation: uf-island-breathe 1.5s var(--ease-in-out) infinite;
+  animation: uf-ring-breathe 1.5s var(--ease-in-out) infinite;
 }
 @keyframes uf-flow-travel {
   from {
@@ -91,13 +94,13 @@
     stroke-dashoffset: -100;
   }
 }
-@keyframes uf-island-breathe {
+@keyframes uf-ring-breathe {
   0%,
   100% {
     transform: scale(1);
   }
   50% {
-    transform: scale(0.72);
+    transform: scale(0.86);
   }
 }
 /* A one-off "flow draws in" used by the header mark during a route change. */
@@ -128,7 +131,7 @@
   .uf-logo--animated .uf-logo__flow {
     opacity: 1;
   }
-  .uf-logo--animated .uf-logo__island {
+  .uf-logo--animated .uf-logo__ring {
     animation: none !important;
   }
   .uf-loader .uf-logo--animated {
