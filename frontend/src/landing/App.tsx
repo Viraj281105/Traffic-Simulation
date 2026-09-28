@@ -160,11 +160,13 @@ function App() {
           >
             {isLight ? <Moon size={15} /> : <Sun size={15} />}
           </button>
-          <button 
-            type="button" 
+          <button
+            type="button"
             className="login-btn-glass"
             // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-            onClick={() => { (window as any).openAuthModal(); }}
+            onClick={() => {
+              (window as any).openAuthModal();
+            }}
           >
             Login
           </button>

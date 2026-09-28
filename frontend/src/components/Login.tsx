@@ -3,7 +3,10 @@ import { AuthenticationDetails, CognitoUser } from "amazon-cognito-identity-js";
 import { userPool } from "../auth/cognito";
 import "./Login.css";
 
-export const Login: React.FC<{ onLogin: () => void; onClose?: () => void }> = ({ onLogin, onClose }) => {
+export const Login: React.FC<{ onLogin: () => void; onClose?: () => void }> = ({
+  onLogin,
+  onClose,
+}) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
@@ -106,20 +109,20 @@ export const Login: React.FC<{ onLogin: () => void; onClose?: () => void }> = ({
 
   return (
     <div className="login-container">
-      <div className="login-box" style={{ position: 'relative' }}>
+      <div className="login-box" style={{ position: "relative" }}>
         {onClose && (
           <button
             onClick={onClose}
             style={{
-              position: 'absolute',
-              top: '16px',
-              right: '16px',
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--text-muted, #94a3b8)',
-              fontSize: '24px',
-              cursor: 'pointer',
-              lineHeight: 1
+              position: "absolute",
+              top: "16px",
+              right: "16px",
+              background: "transparent",
+              border: "none",
+              color: "var(--text-muted, #94a3b8)",
+              fontSize: "24px",
+              cursor: "pointer",
+              lineHeight: 1,
             }}
           >
             &times;
