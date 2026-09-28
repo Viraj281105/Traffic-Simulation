@@ -65,7 +65,10 @@ export function SafetyTimelineVisualizer({
           className={`collision-card signal ${sigCollisions > 0 ? "has-events" : "zero-events"}`}
         >
           <div className="collision-card-header">
-            <span className="control-pill signal">🚦 Fixed-Time Signal</span>
+            <span className="control-pill signal">
+              <span className="series-dot is-signal" aria-hidden="true" />{" "}
+              Fixed-Time Signal
+            </span>
             <span className="collision-type">Distinct Overlaps</span>
           </div>
           <div className="collision-stat-body">
@@ -83,7 +86,8 @@ export function SafetyTimelineVisualizer({
         >
           <div className="collision-card-header">
             <span className="control-pill roundabout">
-              🔄 Modern Roundabout
+              <span className="series-dot is-roundabout" aria-hidden="true" />{" "}
+              Modern Roundabout
             </span>
             <span className="collision-type">Distinct Overlaps</span>
           </div>
@@ -106,7 +110,7 @@ export function SafetyTimelineVisualizer({
             {collisionEvents.map((evt) => (
               <span key={evt.id} className={`timeline-chip ${evt.control}`}>
                 <strong>
-                  {evt.control === "signal" ? "🚦 Signal" : "🔄 Roundabout"}
+                  {evt.control === "signal" ? "Signal" : "Roundabout"}
                 </strong>{" "}
                 at {evt.timeFormatted} (count #{evt.newCount})
               </span>
@@ -150,7 +154,11 @@ export function SafetyTimelineVisualizer({
                 data={history}
                 margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
+                <CartesianGrid
+                  strokeDasharray="3 4"
+                  stroke={CHART_GRID}
+                  vertical={false}
+                />
                 <XAxis
                   dataKey="timeFormatted"
                   stroke={CHART_AXIS}

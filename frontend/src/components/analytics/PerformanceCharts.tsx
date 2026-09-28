@@ -1,3 +1,12 @@
+import {
+  ChartColumn,
+  ChartSpline,
+  Gauge,
+  Target,
+  Timer,
+  TriangleAlert,
+  Zap,
+} from "lucide-react";
 import { useState } from "react";
 import {
   ResponsiveContainer,
@@ -263,7 +272,12 @@ export function PerformanceCharts({
                 className="low-sample-warning"
                 title="Fewer than 20 vehicles exited"
               >
-                ⚠️ Low sample (n &lt; 20)
+                <TriangleAlert
+                  size={14}
+                  aria-hidden="true"
+                  className="uf-glyph"
+                />{" "}
+                Low sample (n &lt; 20)
               </span>
             ) : (
               "P95 / Median travel time"
@@ -281,7 +295,8 @@ export function PerformanceCharts({
             setActiveTab("delays");
           }}
         >
-          📈 Delay Dynamics (Avg, Median, P95)
+          <ChartSpline size={14} aria-hidden="true" className="uf-glyph" />{" "}
+          Delay Dynamics (Avg, Median, P95)
         </button>
         <button
           type="button"
@@ -290,7 +305,8 @@ export function PerformanceCharts({
             setActiveTab("queuedTime");
           }}
         >
-          ⏱️ Queued Time Trend
+          <Timer size={14} aria-hidden="true" className="uf-glyph" /> Queued
+          Time Trend
         </button>
         <button
           type="button"
@@ -299,7 +315,8 @@ export function PerformanceCharts({
             setActiveTab("served");
           }}
         >
-          📊 Cumulative Vehicles Served
+          <ChartColumn size={14} aria-hidden="true" className="uf-glyph" />{" "}
+          Cumulative Vehicles Served
         </button>
         <button
           type="button"
@@ -308,7 +325,8 @@ export function PerformanceCharts({
             setActiveTab("throughputRate");
           }}
         >
-          🚀 Throughput Rate
+          <Gauge size={14} aria-hidden="true" className="uf-glyph" /> Throughput
+          Rate
         </button>
         <button
           type="button"
@@ -317,7 +335,8 @@ export function PerformanceCharts({
             setActiveTab("speed");
           }}
         >
-          ⚡ Mean Travel Speed (m/s)
+          <Zap size={14} aria-hidden="true" className="uf-glyph" /> Mean Travel
+          Speed (m/s)
         </button>
         <button
           type="button"
@@ -326,7 +345,8 @@ export function PerformanceCharts({
             setActiveTab("reliability");
           }}
         >
-          🎯 Planning Time Index (PTI)
+          <Target size={14} aria-hidden="true" className="uf-glyph" /> Planning
+          Time Index (PTI)
         </button>
       </div>
 
@@ -355,7 +375,11 @@ export function PerformanceCharts({
                   data={history}
                   margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
+                  <CartesianGrid
+                    strokeDasharray="3 4"
+                    stroke={CHART_GRID}
+                    vertical={false}
+                  />
                   <XAxis
                     dataKey="timeFormatted"
                     stroke={CHART_AXIS}
@@ -434,7 +458,11 @@ export function PerformanceCharts({
                   data={history}
                   margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
+                  <CartesianGrid
+                    strokeDasharray="3 4"
+                    stroke={CHART_GRID}
+                    vertical={false}
+                  />
                   <XAxis
                     dataKey="timeFormatted"
                     stroke={CHART_AXIS}
@@ -509,7 +537,11 @@ export function PerformanceCharts({
                       />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
+                  <CartesianGrid
+                    strokeDasharray="3 4"
+                    stroke={CHART_GRID}
+                    vertical={false}
+                  />
                   <XAxis
                     dataKey="timeFormatted"
                     stroke={CHART_AXIS}
@@ -548,7 +580,11 @@ export function PerformanceCharts({
                   data={history}
                   margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
+                  <CartesianGrid
+                    strokeDasharray="3 4"
+                    stroke={CHART_GRID}
+                    vertical={false}
+                  />
                   <XAxis
                     dataKey="timeFormatted"
                     stroke={CHART_AXIS}
@@ -585,7 +621,11 @@ export function PerformanceCharts({
                   data={history}
                   margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
+                  <CartesianGrid
+                    strokeDasharray="3 4"
+                    stroke={CHART_GRID}
+                    vertical={false}
+                  />
                   <XAxis
                     dataKey="timeFormatted"
                     stroke={CHART_AXIS}
@@ -638,7 +678,11 @@ export function PerformanceCharts({
                   data={history}
                   margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
+                  <CartesianGrid
+                    strokeDasharray="3 4"
+                    stroke={CHART_GRID}
+                    vertical={false}
+                  />
                   <XAxis
                     dataKey="timeFormatted"
                     stroke={CHART_AXIS}

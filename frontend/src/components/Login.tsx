@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { AuthenticationDetails, CognitoUser } from "amazon-cognito-identity-js";
 import { userPool } from "../auth/cognito";
+import { UrbanFlowLogo } from "./ui/UrbanFlowLogo";
 import "./Login.css";
 
 export const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
@@ -107,7 +108,10 @@ export const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
   return (
     <div className="login-container">
       <div className="login-box">
-        <h1 className="login-title">Traffic Simulation</h1>
+        <UrbanFlowLogo size={44} className="login-logo" />
+        <h1 className="login-title" id="login-title">
+          UrbanFlow
+        </h1>
         <p className="login-subtitle">
           {isConfirming
             ? "We emailed you a verification code"
@@ -116,7 +120,11 @@ export const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
               : "Sign in to access your simulation"}
         </p>
 
-        {error && <div className="login-error">{error}</div>}
+        {error && (
+          <div className="login-error" role="alert">
+            {error}
+          </div>
+        )}
 
         {isConfirming ? (
           <>
@@ -140,38 +148,15 @@ export const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
               </button>
             </form>
 
-            <div
-              className="login-toggle"
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                padding: "0 10px",
-              }}
-            >
-              <button
-                type="button"
-                onClick={handleResendCode}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "var(--color-primary)",
-                  cursor: "pointer",
-                  padding: 0,
-                }}
-              >
+            <div className="login-toggle login-toggle--split">
+              <button type="button" onClick={handleResendCode}>
                 Resend Code
               </button>
               <button
                 type="button"
+                className="is-quiet"
                 onClick={() => {
                   setIsConfirming(false);
-                }}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "var(--text-secondary)",
-                  cursor: "pointer",
-                  padding: 0,
                 }}
               >
                 Back to Login
@@ -191,6 +176,8 @@ export const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
                     setEmail(e.target.value);
                   }}
                   placeholder="you@example.com"
+                  autoComplete="email"
+                  autoFocus
                   required
                 />
               </div>
@@ -205,6 +192,7 @@ export const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
                     setPassword(e.target.value);
                   }}
                   placeholder="••••••••"
+                  autoComplete={isSignUp ? "new-password" : "current-password"}
                   required
                 />
               </div>

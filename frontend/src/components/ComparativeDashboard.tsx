@@ -1,3 +1,4 @@
+import { ChartColumn, Table } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import type { DualSnapshot, LiveSnapshot } from "../types/simulation";
 import type { ConnectionStatus } from "../services/websocket";
@@ -391,7 +392,12 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
                   setViewMode("visual");
                 }}
               >
-                📊 Visual Analytics
+                <ChartColumn
+                  size={14}
+                  aria-hidden="true"
+                  className="uf-glyph"
+                />{" "}
+                Visual Analytics
               </button>
               <button
                 type="button"
@@ -400,7 +406,8 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
                   setViewMode("table");
                 }}
               >
-                📋 Data Table
+                <Table size={14} aria-hidden="true" className="uf-glyph" /> Data
+                Table
               </button>
             </div>
           </div>

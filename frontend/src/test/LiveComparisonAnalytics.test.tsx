@@ -254,7 +254,8 @@ describe("Live Comparison Analytics Visualizers", () => {
     expect(screen.getByText("Average Delay")).toBeInTheDocument();
     expect(screen.getByText("Queued Time")).toBeInTheDocument();
     expect(screen.getByText("Vehicles Served")).toBeInTheDocument();
-    expect(screen.getByText("Throughput Rate")).toBeInTheDocument();
+    // Both the KPI card and its chart tab carry this label.
+    expect(screen.getAllByText("Throughput Rate").length).toBeGreaterThan(0);
     expect(screen.getByText("Mean Speed")).toBeInTheDocument();
     expect(screen.getByText("Planning Time Index")).toBeInTheDocument();
 

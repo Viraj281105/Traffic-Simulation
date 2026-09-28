@@ -277,7 +277,7 @@ describe("VolumeAnalysisDashboard", () => {
     fireEvent.click(screen.getByText(/Head-to-Head Volume Matrix/i));
     await waitFor(() => {
       expect(
-        screen.getByRole("button", { name: /⚖️ About the same/i }),
+        screen.getByRole("button", { name: /About the same/i }),
       ).toBeInTheDocument();
     });
   });

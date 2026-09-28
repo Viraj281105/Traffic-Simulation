@@ -1,3 +1,21 @@
+import {
+  BookOpen,
+  Car,
+  ChartColumn,
+  CircleCheck,
+  CircleX,
+  Dices,
+  Download,
+  FlaskConical,
+  Microscope,
+  Scale,
+  Settings2,
+  Table,
+  Timer,
+  TriangleAlert,
+  X,
+  Zap,
+} from "lucide-react";
 import React, { useState, useMemo } from "react";
 import {
   ResponsiveContainer,
@@ -518,7 +536,10 @@ export const ValidationDashboard: React.FC = () => {
       <div className="validation-header-row">
         <div className="header-title-group">
           <div className="header-badge-row">
-            <h2>🔬 Statistical Validation Studio</h2>
+            <h2>
+              <Microscope size={14} aria-hidden="true" className="uf-glyph" />{" "}
+              Statistical Validation Studio
+            </h2>
             <span className="header-mini-chip">Monte Carlo Engine</span>
             <span className="header-confidence-chip">
               Next run: {Math.round(confidenceLevel * 100)}% confidence (α ={" "}
@@ -579,7 +600,7 @@ export const ValidationDashboard: React.FC = () => {
               disabled={isRunning}
               title="Execute Monte Carlo validation"
             >
-              {isRunning ? "⏳ Running…" : "▶ Run"}
+              {isRunning ? "Running…" : "Run"}
             </button>
           </div>
 
@@ -592,7 +613,8 @@ export const ValidationDashboard: React.FC = () => {
             }}
             title="Configure advanced simulation and statistical parameters"
           >
-            ⚙️ Advanced Config
+            <Settings2 size={14} aria-hidden="true" className="uf-glyph" />{" "}
+            Advanced Config
           </button>
 
           {/* Theory / Methodology Button */}
@@ -604,7 +626,8 @@ export const ValidationDashboard: React.FC = () => {
             }}
             title="Toggle statistical hypothesis & methodology reference"
           >
-            📐 {showMethodologyDrawer ? "Hide Theory" : "Theory & Methodology"}
+            <BookOpen size={14} aria-hidden="true" className="uf-glyph" />{" "}
+            {showMethodologyDrawer ? "Hide Theory" : "Theory & Methodology"}
           </button>
 
           {result && (
@@ -614,7 +637,8 @@ export const ValidationDashboard: React.FC = () => {
               onClick={exportValidationCSV}
               title="Download stochastic seed dataset as CSV"
             >
-              📥 Export CSV
+              <Download size={14} aria-hidden="true" className="uf-glyph" />{" "}
+              Export CSV
             </button>
           )}
         </div>
@@ -624,7 +648,10 @@ export const ValidationDashboard: React.FC = () => {
       {showMethodologyDrawer && (
         <div className="methodology-drawer">
           <div className="methodology-drawer-header">
-            <h4>📐 Statistical Hypothesis & Testing Framework</h4>
+            <h4>
+              <BookOpen size={14} aria-hidden="true" className="uf-glyph" />{" "}
+              Statistical Hypothesis & Testing Framework
+            </h4>
             <span className="drawer-sub">
               Mathematical criteria for formal validation
             </span>
@@ -679,7 +706,10 @@ export const ValidationDashboard: React.FC = () => {
         <div className="validation-advanced-drawer">
           <div className="advanced-drawer-header">
             <div className="advanced-title-group">
-              <h4>⚙️ Advanced Stochastic Simulation & Statistical Config</h4>
+              <h4>
+                <Settings2 size={14} aria-hidden="true" className="uf-glyph" />{" "}
+                Advanced Stochastic Simulation & Statistical Config
+              </h4>
               <span className="drawer-sub">
                 Fine-tune traffic Poisson generation, physical discretization,
                 warmup periods, and statistical rigor
@@ -697,7 +727,9 @@ export const ValidationDashboard: React.FC = () => {
             {/* Section 1: Traffic Demand & Arrival Dynamics */}
             <div className="advanced-card">
               <div className="adv-card-header">
-                <span className="adv-icon">🚗</span>
+                <span className="adv-icon">
+                  <Car size={14} aria-hidden="true" className="uf-glyph" />
+                </span>
                 <div>
                   <h5>Traffic Demand & Flow Dynamics</h5>
                   <span className="adv-sub">
@@ -753,7 +785,8 @@ export const ValidationDashboard: React.FC = () => {
                       setArrivalDistribution("poisson");
                     }}
                   >
-                    🎲 Poisson (Stochastic Jitter)
+                    <Dices size={14} aria-hidden="true" className="uf-glyph" />{" "}
+                    Poisson (Stochastic Jitter)
                   </button>
                   <button
                     type="button"
@@ -762,7 +795,8 @@ export const ValidationDashboard: React.FC = () => {
                       setArrivalDistribution("uniform");
                     }}
                   >
-                    ⏱️ Uniform (Constant Headway)
+                    <Timer size={14} aria-hidden="true" className="uf-glyph" />{" "}
+                    Uniform (Constant Headway)
                   </button>
                 </div>
               </div>
@@ -771,7 +805,9 @@ export const ValidationDashboard: React.FC = () => {
             {/* Section 2: Physical Discretization & Boundaries */}
             <div className="advanced-card">
               <div className="adv-card-header">
-                <span className="adv-icon">⏱️</span>
+                <span className="adv-icon">
+                  <Timer size={14} aria-hidden="true" className="uf-glyph" />
+                </span>
                 <div>
                   <h5>Simulation Physics & Boundaries</h5>
                   <span className="adv-sub">
@@ -872,7 +908,9 @@ export const ValidationDashboard: React.FC = () => {
             {/* Section 3: Statistical Rigor & Hypothesis Testing */}
             <div className="advanced-card">
               <div className="adv-card-header">
-                <span className="adv-icon">📐</span>
+                <span className="adv-icon">
+                  <BookOpen size={14} aria-hidden="true" className="uf-glyph" />
+                </span>
                 <div>
                   <h5>Statistical Rigor & Confidence</h5>
                   <span className="adv-sub">
@@ -976,7 +1014,8 @@ export const ValidationDashboard: React.FC = () => {
 
               <div className="adv-summary-box">
                 <span>
-                  ⚡ <strong>{numSeeds}</strong> seed pairs ×{" "}
+                  <Zap size={14} aria-hidden="true" className="uf-glyph" />{" "}
+                  <strong>{numSeeds}</strong> seed pairs ×{" "}
                   <strong>{duration}s</strong> duration ={" "}
                   <strong>{numSeeds * 2}</strong> synchronized simulation
                   trials.
@@ -989,9 +1028,7 @@ export const ValidationDashboard: React.FC = () => {
             <div className="adv-foot-summary">
               <span>Active Config:</span>
               <span className="foot-chip">
-                {arrivalDistribution === "poisson"
-                  ? "🎲 Poisson"
-                  : "⏱️ Uniform"}
+                {arrivalDistribution === "poisson" ? "Poisson" : "Uniform"}
               </span>
               <span className="foot-chip">λ = {arrivalRate} veh/s</span>
               <span className="foot-chip">
@@ -1017,7 +1054,7 @@ export const ValidationDashboard: React.FC = () => {
                   setShowConfigPanel(false);
                 }}
               >
-                ✕ Close
+                <X size={14} aria-hidden="true" className="uf-glyph" /> Close
               </button>
               <button
                 type="button"
@@ -1025,16 +1062,19 @@ export const ValidationDashboard: React.FC = () => {
                 onClick={runValidation}
                 disabled={isRunning}
               >
-                {isRunning
-                  ? "⏳ Executing Trials…"
-                  : "▶ Apply & Run Validation"}
+                {isRunning ? "Executing Trials…" : "Apply & Run Validation"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {error && <div className="validation-error">⚠ {error}</div>}
+      {error && (
+        <div className="validation-error">
+          <TriangleAlert size={14} aria-hidden="true" className="uf-glyph" />{" "}
+          {error}
+        </div>
+      )}
 
       {isRunning && (
         <div className="validation-loading">
@@ -1049,7 +1089,9 @@ export const ValidationDashboard: React.FC = () => {
       {/* ── Empty State: Interactive Pre-Flight Launchpad ────────── */}
       {!result && !isRunning && (
         <div className="validation-empty-card">
-          <div className="empty-icon-halo">🔬</div>
+          <div className="empty-icon-halo">
+            <Microscope size={26} strokeWidth={1.7} aria-hidden="true" />
+          </div>
           <h3>Stochastic Validation Engine Ready</h3>
           <p className="empty-desc">
             A single run reflects one random arrival sequence. Monte Carlo
@@ -1068,7 +1110,10 @@ export const ValidationDashboard: React.FC = () => {
               }}
             >
               <div className="preflight-header">
-                <span className="preflight-badge quick">⚡ Quick Check</span>
+                <span className="preflight-badge quick">
+                  <Zap size={14} aria-hidden="true" className="uf-glyph" />{" "}
+                  Quick Check
+                </span>
                 <span className="preflight-time">~15s</span>
               </div>
               <h4>3 Seeds × 120 Seconds</h4>
@@ -1087,7 +1132,14 @@ export const ValidationDashboard: React.FC = () => {
               }}
             >
               <div className="preflight-header">
-                <span className="preflight-badge standard">🧪 Recommended</span>
+                <span className="preflight-badge standard">
+                  <FlaskConical
+                    size={14}
+                    aria-hidden="true"
+                    className="uf-glyph"
+                  />{" "}
+                  Recommended
+                </span>
                 <span className="preflight-time">~40s</span>
               </div>
               <h4>5 Seeds × 240 Seconds</h4>
@@ -1106,7 +1158,14 @@ export const ValidationDashboard: React.FC = () => {
               }}
             >
               <div className="preflight-header">
-                <span className="preflight-badge rigor">🔬 High Rigor</span>
+                <span className="preflight-badge rigor">
+                  <Microscope
+                    size={14}
+                    aria-hidden="true"
+                    className="uf-glyph"
+                  />{" "}
+                  High Rigor
+                </span>
                 <span className="preflight-time">~2 min</span>
               </div>
               <h4>10 Seeds × 300 Seconds</h4>
@@ -1134,7 +1193,13 @@ export const ValidationDashboard: React.FC = () => {
             }`}
           >
             <div className="verdict-icon-box">
-              {allSignificant ? "✅" : anySignificant ? "⚖️" : "❌"}
+              {allSignificant ? (
+                <CircleCheck size={22} aria-hidden="true" />
+              ) : anySignificant ? (
+                <Scale size={22} aria-hidden="true" />
+              ) : (
+                <CircleX size={22} aria-hidden="true" />
+              )}
             </div>
             <div className="verdict-content">
               <div className="verdict-headline">
@@ -1207,7 +1272,8 @@ export const ValidationDashboard: React.FC = () => {
                 setActiveTab("visual");
               }}
             >
-              📊 Visual Comparison & Charts
+              <ChartColumn size={14} aria-hidden="true" className="uf-glyph" />{" "}
+              Visual Comparison & Charts
             </button>
             <button
               type="button"
@@ -1216,7 +1282,8 @@ export const ValidationDashboard: React.FC = () => {
                 setActiveTab("table");
               }}
             >
-              📋 Per-Seed Raw Table ({result.numSeeds} trials)
+              <Table size={14} aria-hidden="true" className="uf-glyph" />{" "}
+              Per-Seed Raw Table ({result.numSeeds} trials)
             </button>
             <button
               type="button"
@@ -1225,7 +1292,8 @@ export const ValidationDashboard: React.FC = () => {
                 setActiveTab("methodology");
               }}
             >
-              📐 Statistical Method
+              <BookOpen size={14} aria-hidden="true" className="uf-glyph" />{" "}
+              Statistical Method
             </button>
           </div>
 
@@ -1472,7 +1540,8 @@ export const ValidationDashboard: React.FC = () => {
                   className="table-export-btn"
                   onClick={exportValidationCSV}
                 >
-                  📥 Download CSV
+                  <Download size={14} aria-hidden="true" className="uf-glyph" />{" "}
+                  Download CSV
                 </button>
               </div>
 
@@ -1534,9 +1603,9 @@ export const ValidationDashboard: React.FC = () => {
                               }
                             >
                               {winner === "roundabout"
-                                ? "🔄 Roundabout"
+                                ? "Roundabout"
                                 : winner === "signal"
-                                  ? "🚦 Signal"
+                                  ? "Signal"
                                   : "About the same"}
                             </span>
                           </td>

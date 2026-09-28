@@ -267,7 +267,7 @@ describe("App", () => {
 
     expect(window.location.pathname).toBe("/app/comparative");
     expect(
-      screen.getByRole("heading", { name: "Traffic Simulation" }),
+      screen.getByRole("heading", { name: "UrbanFlow" }),
     ).toBeInTheDocument();
   });
 

@@ -1,8 +1,11 @@
 /*
  * Shared UrbanFlow tokens: the app's colour palette (dark by default, `.light`
- * on <html> switches), the Roboto font stacks, and the few control and motion
- * values used by the shared close button and loading mark. Imported first by
- * both documents; the landing page keeps its own palette on top of it.
+ * on <html> switches), the Roboto font stacks, and the shape, depth, glass and
+ * motion values every page draws from. Imported first by both documents; the
+ * landing page keeps its own palette on top of it.
+ *
+ * Identity: navy structure + green flow (the UrbanFlow mark). Signal is always
+ * amber and the roundabout always teal (--series-*), in both themes.
  */
 
 :root {
@@ -14,9 +17,12 @@
   --font-mono: "Roboto Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 
   /* ── Shape ──────────────────────────────────────────────────────────── */
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 8px;
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
   --border-width: 1px;
 
   /* ── Controls ───────────────────────────────────────────────────────── */
@@ -26,34 +32,80 @@
 
   /* ── Motion ─────────────────────────────────────────────────────────── */
   --dur-fast: 150ms;
+  --dur-base: 220ms;
+  --dur-slow: 360ms;
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  /* A spring with a barely-there overshoot, for things that "land". */
+  --ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1);
+
+  /* ── Glass ──────────────────────────────────────────────────────────── */
+  --glass-blur: 16px;
+  --glass-saturate: 160%;
+
+  /* ── Brand (shared by both themes) ──────────────────────────────────── */
+  --brand-navy: #0e2146;
+  --brand-navy-2: #17305f;
 
   /* ── Colour: dark theme (default) ───────────────────────────────────── */
   color-scheme: dark;
-  --color-bg: #0f1318;
-  --color-surface: #151a21;
-  --color-surface-2: #1b212a;
-  --color-surface-3: #232a34;
-  --color-border: #262e39;
-  --color-border-strong: #36404d;
-  --color-text: #e7eaef;
-  --color-text-2: #aab2be;
-  --color-text-3: #8a94a2;
-  --color-accent: #5b9dff;
-  --color-accent-soft: rgba(91, 157, 255, 0.12);
+  --color-bg: #0a1220;
+  --color-surface: #101b2d;
+  --color-surface-2: #16233a;
+  --color-surface-3: #1d2d48;
+  --color-border: #22324c;
+  --color-border-strong: #33486a;
+  --color-text: #e9eef6;
+  --color-text-2: #b3bfd1;
+  --color-text-3: #8d9bb2;
+  --color-accent: #7fb0ff;
+  --color-accent-soft: rgba(127, 176, 255, 0.13);
   --color-focus: #5b9dff;
-  --color-success: #3fb772;
+  --color-success: #3fc07a;
   --color-warning: #e3a73a;
-  --color-danger: #ef5f5f;
+  --color-danger: #f06a6a;
+  --color-info: #7fb0ff;
   --series-signal: #e3a73a;
   --series-roundabout: #3bb7c9;
-  --series-neutral: #8a94a2;
-  --chart-grid: #262e39;
-  --chart-axis: #8a94a2;
+  --series-neutral: #8d9bb2;
+  /* Series colours as text on the page's surfaces. */
+  --series-signal-ink: #e3a73a;
+  --series-roundabout-ink: #3bb7c9;
+  /* Secondary caution (negative deltas, idle share): distinct from amber. */
+  --color-orange: #fb923c;
+  --chart-grid: #22324c;
+  --chart-axis: #8d9bb2;
 
+  --brand-green: #3ddc84;
+  /* Green used as text/icon colour on the page background. */
+  --brand-green-ink: #4ee290;
+  --brand-green-soft: rgba(61, 220, 132, 0.14);
+  /* The primary action: green on navy in the dark theme. */
+  --color-primary: #3ddc84;
+  --color-primary-hover: #5ae69a;
+  --color-on-primary: #05180d;
+
+  /* Logo palette (UrbanFlowLogo reads these when variant="auto"). */
+  --logo-road: #f4f7fb;
+  --logo-flow: #3ddc84;
+  --logo-gap: #0a1220;
+
+  /* Translucent layers: navigation, floating panels, dialogs. */
+  --glass-bg: rgba(16, 27, 45, 0.72);
+  --glass-bg-strong: rgba(16, 27, 45, 0.9);
+  --glass-border: rgba(148, 178, 220, 0.14);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --scrim: rgba(3, 8, 16, 0.62);
+  /* Ambient page depth behind the content. */
+  --ambient-1: rgba(61, 220, 132, 0.06);
+  --ambient-2: rgba(80, 130, 230, 0.1);
+
+  --shadow-raised:
+    0 1px 2px rgba(0, 0, 0, 0.35), 0 2px 8px -2px rgba(0, 0, 0, 0.3);
+  --shadow-float:
+    0 10px 28px -10px rgba(0, 0, 0, 0.6), 0 2px 6px -2px rgba(0, 0, 0, 0.35);
   --shadow-overlay:
-    0 12px 32px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
-  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.3);
+    0 28px 64px -16px rgba(0, 0, 0, 0.7), 0 4px 14px -4px rgba(0, 0, 0, 0.4);
 
   /* ── Legacy aliases ─────────────────────────────────────────────────── */
   /* Older stylesheets reference these names; they now resolve to the
@@ -76,70 +128,99 @@
   --accent-yellow: var(--color-warning);
   --accent-red: var(--color-danger);
   --shadow-sm: var(--shadow-raised);
-  --shadow-md: var(--shadow-raised);
+  --shadow-md: var(--shadow-float);
   --shadow-lg: var(--shadow-overlay);
   --shadow-glow: none;
 
   /* HSL channel tokens used by `hsl(var(--x))` in older styles and by the
      Tailwind theme on the landing page. Kept equal to the palette above. */
-  --background: 214 23% 8%;
-  --foreground: 218 20% 92%;
-  --border: 214 20% 19%;
-  --input: 214 20% 19%;
-  --ring: 216 100% 68%;
-  --card: 215 22% 11%;
-  --card-foreground: 218 20% 92%;
-  --primary: 216 100% 68%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 215 22% 14%;
-  --secondary-foreground: 218 20% 92%;
-  --muted: 215 22% 14%;
-  --muted-foreground: 215 12% 71%;
+  --background: 218 52% 8%;
+  --foreground: 216 45% 94%;
+  --border: 216 38% 22%;
+  --input: 216 38% 22%;
+  --ring: 217 100% 75%;
+  --card: 217 48% 12%;
+  --card-foreground: 216 45% 94%;
+  --primary: 217 100% 75%;
+  --primary-foreground: 218 52% 8%;
+  --secondary: 218 45% 16%;
+  --secondary-foreground: 216 45% 94%;
+  --muted: 218 45% 16%;
+  --muted-foreground: 218 18% 63%;
   --accent: 38 75% 56%;
-  --accent-foreground: 214 23% 8%;
+  --accent-foreground: 218 52% 8%;
 }
 
 /* ── Colour: light theme ──────────────────────────────────────────────── */
 .light {
   color-scheme: light;
-  --color-bg: #f5f6f8;
+  --color-bg: #f3f5f9;
   --color-surface: #ffffff;
-  --color-surface-2: #f0f2f5;
-  --color-surface-3: #e6e9ee;
-  --color-border: #dadfe6;
-  --color-border-strong: #c2c9d3;
-  --color-text: #111722;
-  --color-text-2: #3d4757;
-  --color-text-3: #5b6676;
-  --color-accent: #1e62c8;
-  --color-accent-soft: rgba(30, 98, 200, 0.09);
+  --color-surface-2: #f1f4f8;
+  --color-surface-3: #e6ebf2;
+  --color-border: #dce2ea;
+  --color-border-strong: #c3ccd8;
+  --color-text: #0d1a2e;
+  --color-text-2: #3a4759;
+  --color-text-3: #536076;
+  --color-accent: #174ea6;
+  --color-accent-soft: rgba(23, 78, 166, 0.08);
   --color-focus: #1e62c8;
   --color-success: #1d7d45;
   --color-warning: #8f5a00;
   --color-danger: #c42b2f;
+  --color-info: #174ea6;
   --series-signal: #c07a00;
   --series-roundabout: #1686a0;
-  --series-neutral: #5b6676;
-  --chart-grid: #e1e5eb;
-  --chart-axis: #5b6676;
+  --series-neutral: #536076;
+  --series-signal-ink: #b45309;
+  --series-roundabout-ink: #0e7490;
+  --color-orange: #c2410c;
+  --chart-grid: #e3e8ef;
+  --chart-axis: #536076;
 
+  --brand-green: #12a150;
+  --brand-green-ink: #0b7a3e;
+  --brand-green-soft: rgba(18, 161, 80, 0.1);
+  /* The primary action: navy with white text in the light theme. */
+  --color-primary: #0e2146;
+  --color-primary-hover: #17305f;
+  --color-on-primary: #ffffff;
+
+  --logo-road: #0e2146;
+  --logo-flow: #12a150;
+  --logo-gap: #ffffff;
+
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-bg-strong: rgba(255, 255, 255, 0.9);
+  --glass-border: rgba(14, 33, 70, 0.1);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  --scrim: rgba(13, 26, 46, 0.34);
+  --ambient-1: rgba(18, 161, 80, 0.07);
+  --ambient-2: rgba(23, 78, 166, 0.07);
+
+  --shadow-raised:
+    0 1px 2px rgba(13, 26, 46, 0.05), 0 2px 8px -2px rgba(13, 26, 46, 0.06);
+  --shadow-float:
+    0 10px 28px -10px rgba(13, 26, 46, 0.16),
+    0 2px 6px -2px rgba(13, 26, 46, 0.06);
   --shadow-overlay:
-    0 12px 32px rgba(17, 23, 34, 0.16), 0 2px 6px rgba(17, 23, 34, 0.08);
-  --shadow-raised: 0 1px 2px rgba(17, 23, 34, 0.06);
+    0 28px 64px -16px rgba(13, 26, 46, 0.3),
+    0 4px 14px -4px rgba(13, 26, 46, 0.1);
 
-  --background: 220 17% 97%;
-  --foreground: 218 33% 10%;
-  --border: 216 18% 88%;
-  --input: 216 18% 88%;
-  --ring: 216 74% 45%;
+  --background: 220 33% 96%;
+  --foreground: 216 56% 12%;
+  --border: 214 25% 89%;
+  --input: 214 25% 89%;
+  --ring: 217 76% 37%;
   --card: 0 0% 100%;
-  --card-foreground: 218 33% 10%;
-  --primary: 216 74% 45%;
+  --card-foreground: 216 56% 12%;
+  --primary: 217 76% 37%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 216 20% 95%;
-  --secondary-foreground: 218 33% 10%;
-  --muted: 216 20% 95%;
-  --muted-foreground: 216 13% 41%;
+  --secondary: 214 33% 96%;
+  --secondary-foreground: 216 56% 12%;
+  --muted: 214 33% 96%;
+  --muted-foreground: 217 18% 39%;
   --accent: 38 100% 28%;
   --accent-foreground: 0 0% 100%;
 }

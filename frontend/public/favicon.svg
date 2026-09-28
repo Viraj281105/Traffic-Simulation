@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- UrbanFlow mark. Geometry mirrors LOGO_GEOMETRY in
+       src/components/ui/logoGeometry.ts (kept in step by logoGeometry.test.ts). -->
+  <style>
+    .road { stroke: #0e2146; }
+    .island { fill: #0e2146; }
+    .flow { stroke: #12a150; }
+    @media (prefers-color-scheme: dark) {
+      .road { stroke: #f4f7fb; }
+      .island { fill: #f4f7fb; }
+      .flow { stroke: #3ddc84; }
+    }
+  </style>
+  <defs>
+    <mask id="gap" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
+      <rect width="64" height="64" fill="#fff"/>
+      <path d="M5 53C12 50 17 46 23.2 40.8A12.5 12.5 0 0 1 40.8 23.2C46 17 50 12 59 11" stroke="#000" stroke-width="9.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </mask>
+  </defs>
+  <g class="road" mask="url(#gap)" stroke-linecap="round" stroke-width="7">
+    <path d="M26.9 20.6C30 16.8 32 13 32 4"/>
+    <path d="M26.9 20.6C30 16.8 32 13 32 4" transform="rotate(90 32 32)"/>
+    <path d="M26.9 20.6C30 16.8 32 13 32 4" transform="rotate(180 32 32)"/>
+    <path d="M26.9 20.6C30 16.8 32 13 32 4" transform="rotate(270 32 32)"/>
+    <circle cx="32" cy="32" r="12.5"/>
+  </g>
+  <circle class="island" cx="32" cy="32" r="4.2"/>
+  <path class="flow" d="M5 53C12 50 17 46 23.2 40.8A12.5 12.5 0 0 1 40.8 23.2C46 17 50 12 59 11" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

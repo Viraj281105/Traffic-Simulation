@@ -1,3 +1,26 @@
+import {
+  BookOpen,
+  Car,
+  ChartColumn,
+  ChartSpline,
+  Clock,
+  Dices,
+  Download,
+  FlaskConical,
+  FolderOpen,
+  MapPin,
+  Microscope,
+  Play,
+  Ruler,
+  Scale,
+  Settings2,
+  SlidersHorizontal,
+  Target,
+  Timer,
+  TriangleAlert,
+  X,
+  Zap,
+} from "lucide-react";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   LineChart,
@@ -55,10 +78,10 @@ function tieText(t: TieTolerance | undefined): string {
 }
 
 function winnerLabel(w: SweepWinner): string {
-  if (w === "roundabout") return "🔄 Lower delay: roundabout";
-  if (w === "signal") return "🚦 Lower delay: signal";
-  if (w === "tie") return "⚖️ About the same";
-  return "❔ Inconclusive";
+  if (w === "roundabout") return "Lower delay: roundabout";
+  if (w === "signal") return "Lower delay: signal";
+  if (w === "tie") return "About the same";
+  return "Inconclusive";
 }
 
 interface SweepRun {
@@ -871,7 +894,10 @@ export const VolumeAnalysisDashboard: React.FC = () => {
       <div className="volume-header-row">
         <div className="header-title-group">
           <div className="header-badge-row">
-            <h2>📈 Traffic Volume & Capacity Analysis</h2>
+            <h2>
+              <ChartSpline size={14} aria-hidden="true" className="uf-glyph" />{" "}
+              Traffic Volume & Capacity Analysis
+            </h2>
             <span className="header-mini-chip">Capacity Studio</span>
             <span className="header-version-chip">HCM 6th Ed.</span>
           </div>
@@ -923,7 +949,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                   }}
                   title="Randomize seed"
                 >
-                  🎲
+                  <Dices size={14} aria-hidden="true" className="uf-glyph" />
                 </button>
               </div>
             </div>
@@ -935,7 +961,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
               disabled={isRunning}
               title="Execute capacity volume sweep"
             >
-              {isRunning ? "⏳ Running…" : "▶ Run Sweep"}
+              {isRunning ? "Running…" : "Run Sweep"}
             </button>
           </div>
 
@@ -949,7 +975,8 @@ export const VolumeAnalysisDashboard: React.FC = () => {
             }}
             title="Configure granular demand tiers, physics, geometry and speed dynamics"
           >
-            ⚙️ Advanced Config
+            <Settings2 size={14} aria-hidden="true" className="uf-glyph" />{" "}
+            Advanced Config
           </button>
 
           {/* Saved Sweeps button */}
@@ -962,7 +989,8 @@ export const VolumeAnalysisDashboard: React.FC = () => {
             }}
             title="Browse and restore past saved sweep sessions"
           >
-            📁 Saved Sweeps ({savedSweeps.length.toString()})
+            <FolderOpen size={14} aria-hidden="true" className="uf-glyph" />{" "}
+            Saved Sweeps ({savedSweeps.length.toString()})
           </button>
 
           {activeSession && (
@@ -972,7 +1000,8 @@ export const VolumeAnalysisDashboard: React.FC = () => {
               onClick={exportCSV}
               title="Download study dataset as CSV"
             >
-              📥 Export CSV
+              <Download size={14} aria-hidden="true" className="uf-glyph" />{" "}
+              Export CSV
             </button>
           )}
         </div>
@@ -983,7 +1012,10 @@ export const VolumeAnalysisDashboard: React.FC = () => {
         <div className="volume-advanced-drawer">
           <div className="advanced-drawer-header">
             <div>
-              <h3>⚙️ Advanced Experiment Configuration</h3>
+              <h3>
+                <Settings2 size={14} aria-hidden="true" className="uf-glyph" />{" "}
+                Advanced Experiment Configuration
+              </h3>
               <p>
                 Tailor arrival spectrum granularity, integration fidelity, road
                 geometry, and vehicle kinematics.
@@ -1003,7 +1035,14 @@ export const VolumeAnalysisDashboard: React.FC = () => {
               <div className="advanced-card-header">
                 <span className="card-badge">01</span>
                 <div>
-                  <h4>📊 Demand Spectrum & Arrivals</h4>
+                  <h4>
+                    <ChartColumn
+                      size={14}
+                      aria-hidden="true"
+                      className="uf-glyph"
+                    />{" "}
+                    Demand Spectrum & Arrivals
+                  </h4>
                   <span className="card-desc">
                     Volume sweep resolution & arrival process
                   </span>
@@ -1083,7 +1122,14 @@ export const VolumeAnalysisDashboard: React.FC = () => {
               <div className="advanced-card-header">
                 <span className="card-badge">02</span>
                 <div>
-                  <h4>⚙️ Physics & Road Geometry</h4>
+                  <h4>
+                    <Settings2
+                      size={14}
+                      aria-hidden="true"
+                      className="uf-glyph"
+                    />{" "}
+                    Physics & Road Geometry
+                  </h4>
                   <span className="card-desc">
                     Numerical step size, warmup duration & approach road
                   </span>
@@ -1185,7 +1231,10 @@ export const VolumeAnalysisDashboard: React.FC = () => {
               <div className="advanced-card-header">
                 <span className="card-badge">03</span>
                 <div>
-                  <h4>🚗 Approach Lanes & Fleet Speed</h4>
+                  <h4>
+                    <Car size={14} aria-hidden="true" className="uf-glyph" />{" "}
+                    Approach Lanes & Fleet Speed
+                  </h4>
                   <span className="card-desc">
                     Lane capacity configuration and driver velocity bounds
                   </span>
@@ -1264,7 +1313,8 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                       setSweepDuration(120);
                     }}
                   >
-                    ⚡ 120s Rapid
+                    <Zap size={14} aria-hidden="true" className="uf-glyph" />{" "}
+                    120s Rapid
                   </button>
                   <button
                     type="button"
@@ -1273,7 +1323,8 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                       setSweepDuration(240);
                     }}
                   >
-                    ⚖️ 240s Balanced
+                    <Scale size={14} aria-hidden="true" className="uf-glyph" />{" "}
+                    240s Balanced
                   </button>
                   <button
                     type="button"
@@ -1282,7 +1333,12 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                       setSweepDuration(300);
                     }}
                   >
-                    🔬 300s High Rigor
+                    <Microscope
+                      size={14}
+                      aria-hidden="true"
+                      className="uf-glyph"
+                    />{" "}
+                    300s High Rigor
                   </button>
                 </div>
               </div>
@@ -1316,7 +1372,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                   setShowAdvancedDrawer(false);
                 }}
               >
-                ✕ Close
+                <X size={14} aria-hidden="true" className="uf-glyph" /> Close
               </button>
               <button
                 type="button"
@@ -1324,7 +1380,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                 onClick={runSweep}
                 disabled={isRunning}
               >
-                {isRunning ? "⏳ Simulating…" : "▶ Apply & Run Sweep"}
+                {isRunning ? "Simulating…" : "Apply & Run Sweep"}
               </button>
             </div>
           </div>
@@ -1336,7 +1392,10 @@ export const VolumeAnalysisDashboard: React.FC = () => {
         <div className="volume-history-drawer">
           <div className="history-drawer-header">
             <div>
-              <h3>📁 Saved Sweep Experiments</h3>
+              <h3>
+                <FolderOpen size={14} aria-hidden="true" className="uf-glyph" />{" "}
+                Saved Sweep Experiments
+              </h3>
               <p>
                 Select any historical volume sweep run to reload its capacity
                 curves and crossover metrics.
@@ -1367,7 +1426,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                     )}
                   </div>
                   <div className="sweep-card-date">
-                    🕒{" "}
+                    <Clock size={14} aria-hidden="true" className="uf-glyph" />{" "}
                     {new Date(s.created_at).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
@@ -1399,7 +1458,12 @@ export const VolumeAnalysisDashboard: React.FC = () => {
         </div>
       )}
 
-      {sweepError && <div className="sweep-error-banner">⚠ {sweepError}</div>}
+      {sweepError && (
+        <div className="sweep-error-banner">
+          <TriangleAlert size={14} aria-hidden="true" className="uf-glyph" />{" "}
+          {sweepError}
+        </div>
+      )}
 
       {/* ── Loading indicator ──────────────────────────── */}
       {loadingSession && (
@@ -1412,7 +1476,9 @@ export const VolumeAnalysisDashboard: React.FC = () => {
       {/* ── Empty State Hero (When No Active Session) ── */}
       {!activeSession && !loadingSession && !isRunning && (
         <div className="empty-sweep-hero">
-          <div className="empty-hero-icon">📈</div>
+          <div className="empty-hero-icon">
+            <ChartSpline size={26} strokeWidth={1.7} aria-hidden="true" />
+          </div>
           <h3>Ready to Execute Volume & Capacity Sweep</h3>
           <p>
             Systematic sensitivity study comparing Fixed-Time Signals vs. Modern
@@ -1426,7 +1492,8 @@ export const VolumeAnalysisDashboard: React.FC = () => {
               onClick={runSweep}
               disabled={isRunning}
             >
-              ▶ Run Volume Sweep ({ratesConfig.rates.length} Tiers)
+              <Play size={14} aria-hidden="true" className="uf-glyph" /> Run
+              Volume Sweep ({ratesConfig.rates.length} Tiers)
             </button>
             <button
               type="button"
@@ -1436,7 +1503,8 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                 setShowHistoryDrawer(false);
               }}
             >
-              ⚙️ Advanced Config
+              <Settings2 size={14} aria-hidden="true" className="uf-glyph" />{" "}
+              Advanced Config
             </button>
             {savedSweeps.length > 0 && (
               <button
@@ -1447,7 +1515,8 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                   setShowAdvancedDrawer(false);
                 }}
               >
-                📁 Load Past Sweep ({savedSweeps.length.toString()})
+                <FolderOpen size={14} aria-hidden="true" className="uf-glyph" />{" "}
+                Load Past Sweep ({savedSweeps.length.toString()})
               </button>
             )}
           </div>
@@ -1482,7 +1551,9 @@ export const VolumeAnalysisDashboard: React.FC = () => {
           <div className="volume-kpi-grid">
             <div className="kpi-card kpi-crossover-card">
               <div className="kpi-top">
-                <span className="kpi-icon-badge">🎯</span>
+                <span className="kpi-icon-badge">
+                  <Target size={14} aria-hidden="true" className="uf-glyph" />
+                </span>
                 <span className="kpi-category">Delay ordering</span>
               </div>
               <span className="kpi-label">
@@ -1506,12 +1577,18 @@ export const VolumeAnalysisDashboard: React.FC = () => {
 
             <div className="kpi-card">
               <div className="kpi-top">
-                <span className="kpi-icon-badge">⚖️</span>
+                <span className="kpi-icon-badge">
+                  <Scale size={14} aria-hidden="true" className="uf-glyph" />
+                </span>
                 <span className="kpi-category">Tier tally</span>
               </div>
               <span className="kpi-label">Lower mean delay, by tier</span>
               <span className="kpi-value">
-                🔄 {roundaboutWins.toString()} · 🚦 {signalWins.toString()} · ⚖️{" "}
+                <span className="series-dot is-roundabout" aria-hidden="true" />{" "}
+                {roundaboutWins.toString()} ·{" "}
+                <span className="series-dot is-signal" aria-hidden="true" />{" "}
+                {signalWins.toString()} ·{" "}
+                <Scale size={14} aria-hidden="true" className="uf-glyph" />{" "}
                 {tieWins.toString()}
               </span>
               <span className="kpi-hint">
@@ -1526,7 +1603,9 @@ export const VolumeAnalysisDashboard: React.FC = () => {
 
             <div className="kpi-card">
               <div className="kpi-top">
-                <span className="kpi-icon-badge">⏱️</span>
+                <span className="kpi-icon-badge">
+                  <Timer size={14} aria-hidden="true" className="uf-glyph" />
+                </span>
                 <span className="kpi-category">Largest gap</span>
               </div>
               <span className="kpi-label">Largest mean-delay difference</span>
@@ -1544,7 +1623,9 @@ export const VolumeAnalysisDashboard: React.FC = () => {
 
             <div className="kpi-card">
               <div className="kpi-top">
-                <span className="kpi-icon-badge">🚦</span>
+                <span className="kpi-icon-badge">
+                  <span className="series-dot is-signal" aria-hidden="true" />
+                </span>
                 <span className="kpi-category">Stress Boundary</span>
               </div>
               <span className="kpi-label">Peak Evaluated Volume</span>
@@ -1568,7 +1649,8 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                 setActiveTab("curves");
               }}
             >
-              📈 Interactive Curves & Crossover Studio
+              <ChartSpline size={14} aria-hidden="true" className="uf-glyph" />{" "}
+              Interactive Curves & Crossover Studio
             </button>
             <button
               type="button"
@@ -1577,7 +1659,8 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                 setActiveTab("matrix");
               }}
             >
-              🔬 Head-to-Head Volume Matrix
+              <Microscope size={14} aria-hidden="true" className="uf-glyph" />{" "}
+              Head-to-Head Volume Matrix
             </button>
             <button
               type="button"
@@ -1586,7 +1669,8 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                 setActiveTab("insights");
               }}
             >
-              📖 How to read this sweep
+              <BookOpen size={14} aria-hidden="true" className="uf-glyph" /> How
+              to read this sweep
             </button>
           </div>
 
@@ -1606,7 +1690,14 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                 <div className="volume-scrubber-bar">
                   <div className="scrubber-bar-left">
                     <div className="scrubber-label-group">
-                      <span className="scrubber-title">🎛️ Demand Explorer</span>
+                      <span className="scrubber-title">
+                        <SlidersHorizontal
+                          size={14}
+                          aria-hidden="true"
+                          className="uf-glyph"
+                        />{" "}
+                        Demand Explorer
+                      </span>
                       <span className="scrubber-rate">
                         Rate: {currentScrubberRun.arrivalRate.toFixed(2)} veh/s
                       </span>
@@ -1644,7 +1735,13 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                           }}
                           title={`Crossover: ${crossover.toLocaleString()} veh/h`}
                         >
-                          <span className="marker-pin">📍</span>
+                          <span className="marker-pin">
+                            <MapPin
+                              size={14}
+                              aria-hidden="true"
+                              className="uf-glyph"
+                            />
+                          </span>
                         </div>
                       )}
                     </div>
@@ -1655,7 +1752,13 @@ export const VolumeAnalysisDashboard: React.FC = () => {
 
                   <div className="scrubber-bar-right">
                     <div className="scrubber-chip signal-chip">
-                      <span className="chip-label">🚦 Fixed-Time Signal</span>
+                      <span className="chip-label">
+                        <span
+                          className="series-dot is-signal"
+                          aria-hidden="true"
+                        />{" "}
+                        Fixed-Time Signal
+                      </span>
                       <span className="chip-val">
                         {currentScrubberRun.signal.delay.toFixed(1)}s
                       </span>
@@ -1668,7 +1771,13 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                     </div>
 
                     <div className="scrubber-chip roundabout-chip">
-                      <span className="chip-label">🔄 Modern Roundabout</span>
+                      <span className="chip-label">
+                        <span
+                          className="series-dot is-roundabout"
+                          aria-hidden="true"
+                        />{" "}
+                        Modern Roundabout
+                      </span>
                       <span className="chip-val">
                         {currentScrubberRun.roundabout.delay.toFixed(1)}s
                       </span>
@@ -1733,7 +1842,12 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                         setMetricView("delay");
                       }}
                     >
-                      ⏱️ Delay
+                      <Timer
+                        size={14}
+                        aria-hidden="true"
+                        className="uf-glyph"
+                      />{" "}
+                      Delay
                     </button>
                     <button
                       type="button"
@@ -1742,7 +1856,8 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                         setMetricView("throughput");
                       }}
                     >
-                      🚗 Throughput
+                      <Car size={14} aria-hidden="true" className="uf-glyph" />{" "}
+                      Throughput
                     </button>
                     <button
                       type="button"
@@ -1751,7 +1866,12 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                         setMetricView("queue");
                       }}
                     >
-                      📏 Queue
+                      <Ruler
+                        size={14}
+                        aria-hidden="true"
+                        className="uf-glyph"
+                      />{" "}
+                      Queue
                     </button>
                     <button
                       type="button"
@@ -1760,7 +1880,12 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                         setMetricView("all");
                       }}
                     >
-                      📊 All 3
+                      <ChartColumn
+                        size={14}
+                        aria-hidden="true"
+                        className="uf-glyph"
+                      />{" "}
+                      All 3
                     </button>
                   </div>
 
@@ -1817,7 +1942,14 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                   <div className="chart-card">
                     {metricView === "all" && (
                       <div className="chart-card-mini-header">
-                        <span className="mini-title">⏱️ Control Delay (s)</span>
+                        <span className="mini-title">
+                          <Timer
+                            size={14}
+                            aria-hidden="true"
+                            className="uf-glyph"
+                          />{" "}
+                          Control Delay (s)
+                        </span>
                         <span className="mini-unit">s / vehicle</span>
                       </div>
                     )}
@@ -1981,7 +2113,14 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                   <div className="chart-card">
                     {metricView === "all" && (
                       <div className="chart-card-mini-header">
-                        <span className="mini-title">🚗 Throughput</span>
+                        <span className="mini-title">
+                          <Car
+                            size={14}
+                            aria-hidden="true"
+                            className="uf-glyph"
+                          />{" "}
+                          Throughput
+                        </span>
                         <span className="mini-unit">completed veh</span>
                       </div>
                     )}
@@ -2091,7 +2230,14 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                   <div className="chart-card">
                     {metricView === "all" && (
                       <div className="chart-card-mini-header">
-                        <span className="mini-title">📏 Queue Length</span>
+                        <span className="mini-title">
+                          <Ruler
+                            size={14}
+                            aria-hidden="true"
+                            className="uf-glyph"
+                          />{" "}
+                          Queue Length
+                        </span>
                         <span className="mini-unit">avg veh / lane</span>
                       </div>
                     )}
@@ -2230,7 +2376,12 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                   >
                     <div className="chart-card-mini-header">
                       <span className="mini-title">
-                        📈 Relative Performance Delta (% Difference)
+                        <ChartSpline
+                          size={14}
+                          aria-hidden="true"
+                          className="uf-glyph"
+                        />{" "}
+                        Relative Performance Delta (% Difference)
                       </span>
                       <span className="mini-unit">
                         Δ % (Objective Baseline: 0% Parity)
@@ -2371,7 +2522,11 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                       setFilterWinner("roundabout");
                     }}
                   >
-                    🔄 Roundabout ({roundaboutWins.toString()})
+                    <span
+                      className="series-dot is-roundabout"
+                      aria-hidden="true"
+                    />{" "}
+                    Roundabout ({roundaboutWins.toString()})
                   </button>
                   <button
                     type="button"
@@ -2380,7 +2535,8 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                       setFilterWinner("signal");
                     }}
                   >
-                    🚦 Signal ({signalWins.toString()})
+                    <span className="series-dot is-signal" aria-hidden="true" />{" "}
+                    Signal ({signalWins.toString()})
                   </button>
                   <button
                     type="button"
@@ -2389,7 +2545,8 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                       setFilterWinner("tie");
                     }}
                   >
-                    ⚖️ About the same ({tieWins.toString()})
+                    <Scale size={14} aria-hidden="true" className="uf-glyph" />{" "}
+                    About the same ({tieWins.toString()})
                   </button>
                 </div>
               </div>
@@ -2536,8 +2693,20 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                           {/* Throughput */}
                           <td>
                             <div className="table-multi-col">
-                              <span>🚦 {run.signal.throughput}</span>
-                              <span>🔄 {run.roundabout.throughput}</span>
+                              <span>
+                                <span
+                                  className="series-dot is-signal"
+                                  aria-hidden="true"
+                                />{" "}
+                                {run.signal.throughput}
+                              </span>
+                              <span>
+                                <span
+                                  className="series-dot is-roundabout"
+                                  aria-hidden="true"
+                                />{" "}
+                                {run.roundabout.throughput}
+                              </span>
                             </div>
                           </td>
 
@@ -2545,7 +2714,11 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                           <td>
                             <div className="table-multi-col">
                               <span>
-                                🚦 {run.signal.queue.toFixed(1)}
+                                <span
+                                  className="series-dot is-signal"
+                                  aria-hidden="true"
+                                />{" "}
+                                {run.signal.queue.toFixed(1)}
                                 {run.signal.queueMax !== undefined && (
                                   <span className="queue-peak-note">
                                     (pk {run.signal.queueMax.toFixed(0)})
@@ -2553,7 +2726,11 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                                 )}
                               </span>
                               <span>
-                                🔄 {run.roundabout.queue.toFixed(1)}
+                                <span
+                                  className="series-dot is-roundabout"
+                                  aria-hidden="true"
+                                />{" "}
+                                {run.roundabout.queue.toFixed(1)}
                                 {run.roundabout.queueMax !== undefined && (
                                   <span className="queue-peak-note">
                                     (pk {run.roundabout.queueMax.toFixed(0)})
@@ -2583,12 +2760,12 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                               }
                             >
                               {run.winner === "roundabout"
-                                ? "🔄 Roundabout"
+                                ? "Roundabout"
                                 : run.winner === "signal"
-                                  ? "🚦 Signal"
+                                  ? "Signal"
                                   : run.winner === "tie"
-                                    ? "⚖️ About the same"
-                                    : "❔ Inconclusive"}
+                                    ? "About the same"
+                                    : "Inconclusive"}
                             </span>
                           </td>
 
@@ -2637,7 +2814,14 @@ export const VolumeAnalysisDashboard: React.FC = () => {
             <div className="engineering-insights-container">
               <div className="insights-header">
                 <div>
-                  <h4>📖 How to read this sweep</h4>
+                  <h4>
+                    <BookOpen
+                      size={14}
+                      aria-hidden="true"
+                      className="uf-glyph"
+                    />{" "}
+                    How to read this sweep
+                  </h4>
                   <p className="insights-subtitle">
                     What this sweep measured, what it shows, and what it cannot
                     show. Every figure here comes from this sweep; the rest
@@ -2648,7 +2832,13 @@ export const VolumeAnalysisDashboard: React.FC = () => {
               <div className="insights-card-grid">
                 <div className="insight-card-modern">
                   <div className="insight-card-top">
-                    <span className="insight-card-icon">🧪</span>
+                    <span className="insight-card-icon">
+                      <FlaskConical
+                        size={14}
+                        aria-hidden="true"
+                        className="uf-glyph"
+                      />
+                    </span>
                     <span className="insight-badge recommendation-badge">
                       What was run
                     </span>
@@ -2666,7 +2856,13 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                 </div>
                 <div className="insight-card-modern">
                   <div className="insight-card-top">
-                    <span className="insight-card-icon">📊</span>
+                    <span className="insight-card-icon">
+                      <ChartColumn
+                        size={14}
+                        aria-hidden="true"
+                        className="uf-glyph"
+                      />
+                    </span>
                     <span className="insight-badge roundabout-badge">
                       What this sweep shows
                     </span>
@@ -2687,7 +2883,13 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                 </div>
                 <div className="insight-card-modern">
                   <div className="insight-card-top">
-                    <span className="insight-card-icon">⚠️</span>
+                    <span className="insight-card-icon">
+                      <TriangleAlert
+                        size={14}
+                        aria-hidden="true"
+                        className="uf-glyph"
+                      />
+                    </span>
                     <span className="insight-badge signal-badge">
                       What it cannot show
                     </span>
@@ -2727,7 +2929,8 @@ export const VolumeAnalysisDashboard: React.FC = () => {
               {/* Level-of-service reference: one definition for the whole app */}
               <div className="hcm-los-reference-box">
                 <h5>
-                  📖 Indicative level-of-service bands (Highway Capacity Manual
+                  <BookOpen size={14} aria-hidden="true" className="uf-glyph" />{" "}
+                  Indicative level-of-service bands (Highway Capacity Manual
                   delay bands, average delay in seconds)
                 </h5>
                 <p className="insights-subtitle">

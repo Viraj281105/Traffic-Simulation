@@ -2,6 +2,7 @@ import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { SimulationConfigValues } from "../types/config";
 import { DEFAULT_CONFIG_VALUES, SCENARIO_PRESETS } from "../types/config";
 import "./ConfigurationSidebar.css";
+import { CircleAlert, Dices, TriangleAlert } from "lucide-react";
 import { CloseButton } from "./ui/CloseButton";
 
 export type ConfigMode = "signal" | "roundabout" | "comparative";
@@ -272,9 +273,11 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
                 }`}
                 role={alert.type === "error" ? "alert" : undefined}
               >
-                <span aria-hidden="true">
-                  {alert.type === "error" ? "⛔" : "⚠️"}
-                </span>
+                {alert.type === "error" ? (
+                  <CircleAlert size={15} aria-hidden="true" />
+                ) : (
+                  <TriangleAlert size={15} aria-hidden="true" />
+                )}
                 <span>
                   <span className="sr-only">
                     {alert.type === "error" ? "Error: " : "Warning: "}
@@ -344,7 +347,14 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
                     );
                   }}
                 >
-                  <span aria-hidden="true">🎲 </span>New seed
+                  <span aria-hidden="true">
+                    <Dices
+                      size={14}
+                      aria-hidden="true"
+                      className="uf-glyph"
+                    />{" "}
+                  </span>
+                  New seed
                 </button>
               </div>
               <p className="config-hint" id={`${seedId}-hint`}>

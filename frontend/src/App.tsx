@@ -33,7 +33,25 @@ import type {
   CognitoUserSession,
   CognitoUserAttribute,
 } from "amazon-cognito-identity-js";
-import { Sun, Moon } from "lucide-react";
+import {
+  Sun,
+  Moon,
+  GitCompareArrows,
+  Bookmark,
+  FlaskConical,
+  Settings2,
+  Dices,
+  LogIn,
+  LogOut,
+  CircleAlert,
+  CircleCheck,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { UrbanFlowLockup } from "./components/ui/UrbanFlowLogo";
+import { PageTransition } from "./components/ui/PageTransition";
+import { StatusState } from "./components/ui/StatusState";
+import { CloseButton } from "./components/ui/CloseButton";
+import { useNavIndicator } from "./components/ui/useNavIndicator";
 import type { SimulationConfigValues } from "./types/config";
 import { DEFAULT_CONFIG_VALUES, dashboardPayload } from "./types/config";
 import { saveReplay, updateSimulationConfig } from "./services/api";
@@ -244,7 +262,11 @@ function Dashboard({
 
   const [activeReplay, setActiveReplay] = useState<SavedReplay | null>(null);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    tone: "success" | "error";
+  } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isLight, setIsLight] = useState(
     () => sessionStorage.getItem("signals-theme") !== "dark",
   );
@@ -255,10 +277,16 @@ function Dashboard({
     sessionStorage.setItem("signals-theme", isLight ? "light" : "dark");
   }, [isLight]);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage(null);
+  const showToast = (
+    message: string,
+    tone: "success" | "error" = "success",
+  ) => {
+    setToast({ message, tone });
+    // A newer message restarts the timer instead of being cut short by the
+    // previous one's.
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => {
+      setToast(null);
     }, 3000);
   };
 
@@ -558,7 +586,10 @@ function Dashboard({
         })
         .catch((e: unknown) => {
           console.error(e);
-          showToast("Could not save the run — is the backend reachable?");
+          showToast(
+            "Could not save the run — is the backend reachable?",
+            "error",
+          );
         });
     });
   };
@@ -596,12 +627,21 @@ function Dashboard({
   const guidedResultsAvailable = replayDual !== null || liveResultsReady;
   const warmupSeconds = dualSnapshot?.signal.warmupTime ?? null;
 
+  // Each page (and each guided step) enters with the shared transition.
+  const pageKey = [
+    viewMode,
+    viewMode === "comparative" ? stage : "",
+    page?.kind ?? "",
+    page?.kind === "run" ? page.runId : "",
+  ].join(":");
+
   const comparisonMaps = (
     <div className="comparison-maps-row">
       <section className="comparison-column" aria-labelledby="col-signal-title">
         <div className="column-header">
           <h2 className="column-title" id="col-signal-title">
-            <span aria-hidden="true">🚦 </span>Traffic signal
+            <span className="series-dot is-signal" aria-hidden="true" />
+            Traffic signal
           </h2>
         </div>
         <div className="canvas-wrapper">
@@ -624,7 +664,8 @@ function Dashboard({
       >
         <div className="column-header">
           <h2 className="column-title" id="col-roundabout-title">
-            <span aria-hidden="true">🔄 </span>Roundabout
+            <span className="series-dot is-roundabout" aria-hidden="true" />
+            Roundabout
           </h2>
         </div>
         <div className="canvas-wrapper">
@@ -646,32 +687,12 @@ function Dashboard({
       <header className="app-header">
         <div className="header-left">
           <a className="brand" href="/" data-testid="link-brand">
-            <span className="brand-mark" aria-hidden="true" />
-            <span className="brand-name">URBANFLOW</span>
+            <UrbanFlowLockup size={30} />
             <span className="sr-only">Home</span>
           </a>
         </div>
 
-        <nav className="header-tabs" aria-label="Main">
-          <ViewTab view="comparative" current={section === "compare"}>
-            Compare
-          </ViewTab>
-          <ViewTab view="history" current={section === "saved"}>
-            Saved
-          </ViewTab>
-          <ViewTab
-            view="research"
-            current={section === "research"}
-            onIntercept={(e, href) => {
-              e.preventDefault();
-              requireAuth(() => {
-                navigate(href);
-              });
-            }}
-          >
-            Research lab
-          </ViewTab>
-        </nav>
+        <MainNav section={section} requireAuth={requireAuth} />
 
         <div className="header-right">
           {isSingle && (
@@ -686,9 +707,8 @@ function Dashboard({
               aria-label="Scenario settings"
               title="Demand, geometry, signal timings and gap acceptance"
             >
-              <span aria-hidden="true">⚙️</span>
+              <Settings2 size={16} aria-hidden="true" />
               <span className="label-text" aria-hidden="true">
-                {" "}
                 Scenario settings
               </span>
             </button>
@@ -702,92 +722,55 @@ function Dashboard({
             aria-label={
               isLight ? "Switch to dark mode" : "Switch to light mode"
             }
+            title={isLight ? "Dark mode" : "Light mode"}
             data-testid="button-theme-toggle"
           >
-            {isLight ? <Moon size={15} /> : <Sun size={15} />}
+            <span className="theme-icon" key={isLight ? "moon" : "sun"}>
+              {isLight ? <Moon size={16} /> : <Sun size={16} />}
+            </span>
           </button>
 
           {!isAuthenticated ? (
             <button
+              type="button"
+              className="header-signin"
               onClick={() => {
                 setShowLogin(true);
               }}
-              style={{
-                marginLeft: "16px",
-                background: "#38bdf8",
-                color: "#0f172a",
-                padding: "6px 12px",
-                borderRadius: "4px",
-                fontWeight: "bold",
-                border: "none",
-                cursor: "pointer",
-              }}
             >
+              <LogIn size={15} aria-hidden="true" />
               Sign In
             </button>
           ) : (
-            <div
-              style={{
-                marginLeft: "16px",
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-              }}
-            >
-              <div
-                style={{
-                  color: "var(--text-secondary)",
-                  fontSize: "14px",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "flex-end",
-                  lineHeight: "1.2",
-                }}
-              >
-                <span style={{ fontWeight: "bold" }}>
-                  {userProfile?.name || "User"}
-                </span>
-                <span style={{ fontSize: "12px" }}>
-                  {userProfile?.email || ""}
-                </span>
-              </div>
+            <div className="user-chip">
+              <span className="user-avatar" aria-hidden="true">
+                {(userProfile?.name || "U").charAt(0).toUpperCase()}
+              </span>
+              <span className="user-meta">
+                <span className="user-name">{userProfile?.name || "User"}</span>
+                <span className="user-email">{userProfile?.email || ""}</span>
+              </span>
               <button
+                type="button"
+                className="uf-icon-btn user-logout"
                 onClick={() => {
                   const user = getCurrentUser();
                   if (user) user.signOut();
                   setIsAuthenticated(false);
                 }}
-                style={{
-                  background: "transparent",
-                  color: "var(--text-secondary)",
-                  border: "1px solid var(--border-accent)",
-                  padding: "4px 8px",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                }}
+                aria-label="Logout"
+                title="Logout"
               >
-                Logout
+                <LogOut aria-hidden="true" />
               </button>
             </div>
           )}
         </div>
+        <span className="route-progress" aria-hidden="true" />
       </header>
 
       {/* ── Section sub-navigation ───────────────────────────────────── */}
-      {section === "research" && (
-        <nav className="sub-nav" aria-label="Research tools">
-          {RESEARCH_TABS.map((tab) => (
-            <ViewTab
-              key={tab.view}
-              view={tab.view}
-              current={tab.view === viewMode}
-            >
-              {tab.label}
-            </ViewTab>
-          ))}
-        </nav>
-      )}
+      {section === "research" && <ResearchNav viewMode={viewMode} />}
       {section === "compare" && (
         <StepNav
           stage={stage}
@@ -818,8 +801,8 @@ function Dashboard({
           )}
           <div className="quick-seed-group">
             <span className="seed-badge" title="Random seed of the next run">
-              <span aria-hidden="true">🎲 </span>Seed:{" "}
-              <strong>{randomSeed}</strong>
+              <Dices size={13} aria-hidden="true" />
+              Seed: <strong>{randomSeed}</strong>
             </span>
             <button
               type="button"
@@ -849,7 +832,10 @@ function Dashboard({
       {/* ── Main content ──────────────────────────────────────────────── */}
       {viewMode === "comparative" ? (
         stage === "setup" ? (
-          <main className="app-main full-screen page-scroll">
+          <PageTransition
+            transitionKey={pageKey}
+            className="app-main full-screen page-scroll"
+          >
             <ScenarioSetup
               config={configValues}
               onRun={handleGuidedRun}
@@ -857,9 +843,12 @@ function Dashboard({
                 !activeReplay && liveTimestamp > 0 && !dualComplete
               }
             />
-          </main>
+          </PageTransition>
         ) : stage === "results" ? (
-          <main className="app-main full-screen page-scroll">
+          <PageTransition
+            transitionKey={pageKey}
+            className="app-main full-screen page-scroll"
+          >
             <ResultsReport
               snapshot={replayDual ?? dualSnapshot}
               config={configValues}
@@ -898,9 +887,12 @@ function Dashboard({
                 }}
               />
             )}
-          </main>
+          </PageTransition>
         ) : (
-          <main className="app-main comparison-layout">
+          <PageTransition
+            transitionKey={pageKey}
+            className="app-main comparison-layout"
+          >
             <h1 className="sr-only">
               Watch the traffic signal and the roundabout run side by side
             </h1>
@@ -934,10 +926,13 @@ function Dashboard({
                 }}
               />
             )}
-          </main>
+          </PageTransition>
         )
       ) : viewMode === "history" ? (
-        <main className="app-main full-screen page-scroll">
+        <PageTransition
+          transitionKey={pageKey}
+          className="app-main full-screen page-scroll"
+        >
           {page?.kind === "run" ? (
             <RunPage
               key={page.runId}
@@ -949,21 +944,30 @@ function Dashboard({
           ) : (
             <HistoryDashboard onReplay={handleReplay} />
           )}
-        </main>
+        </PageTransition>
       ) : viewMode === "research" ? (
-        <main className="app-main full-screen page-scroll">
+        <PageTransition
+          transitionKey={pageKey}
+          className="app-main full-screen page-scroll"
+        >
           <ResearchHub />
-        </main>
+        </PageTransition>
       ) : viewMode === "volume" ? (
-        <main className="app-main full-screen page-scroll">
+        <PageTransition
+          transitionKey={pageKey}
+          className="app-main full-screen page-scroll"
+        >
           <VolumeAnalysisDashboard />
-        </main>
+        </PageTransition>
       ) : viewMode === "validation" ? (
-        <main className="app-main full-screen page-scroll">
+        <PageTransition
+          transitionKey={pageKey}
+          className="app-main full-screen page-scroll"
+        >
           <ValidationDashboard />
-        </main>
+        </PageTransition>
       ) : (
-        <main className="app-main">
+        <PageTransition transitionKey={pageKey} className="app-main">
           <h1 className="sr-only">
             {viewMode === "roundabout"
               ? "Roundabout simulation"
@@ -1019,7 +1023,7 @@ function Dashboard({
               </div>
             )}
           </div>
-        </main>
+        </PageTransition>
       )}
 
       {/* ── Playback controls (live simulation views only) ───────────── */}
@@ -1036,7 +1040,8 @@ function Dashboard({
           />
           {activeError && (
             <div className="error-banner" role="alert">
-              ⚠ {activeError}
+              <CircleAlert size={15} aria-hidden="true" />
+              {activeError}
             </div>
           )}
         </footer>
@@ -1044,42 +1049,28 @@ function Dashboard({
 
       {/* ── Toast Notification ────────────────────────────────────────── */}
       <div className="toast-region" role="status" aria-live="polite">
-        {toastMessage && (
-          <div className="toast-notification">{toastMessage}</div>
+        {toast && (
+          <div
+            className={`toast-notification is-${toast.tone}`}
+            key={toast.message}
+          >
+            {toast.tone === "error" ? (
+              <CircleAlert size={17} aria-hidden="true" />
+            ) : (
+              <CircleCheck size={17} aria-hidden="true" />
+            )}
+            {toast.message}
+          </div>
         )}
       </div>
 
       {showLogin && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 9999,
-            background: "rgba(0,0,0,0.8)",
+        <LoginDialog
+          onClose={() => {
+            setShowLogin(false);
           }}
-        >
-          <Login onLogin={handleLoginSuccess} />
-          <button
-            onClick={() => {
-              setShowLogin(false);
-            }}
-            style={{
-              position: "absolute",
-              top: "20px",
-              right: "20px",
-              background: "transparent",
-              color: "white",
-              border: "none",
-              cursor: "pointer",
-              fontSize: "18px",
-            }}
-          >
-            Close
-          </button>
-        </div>
+          onLogin={handleLoginSuccess}
+        />
       )}
     </div>
   );
@@ -1087,17 +1078,89 @@ function Dashboard({
 
 // ── Navigation ─────────────────────────────────────────────────────────────
 
+const MAIN_TABS: {
+  view: RoutedView;
+  section: Section;
+  label: string;
+  icon: LucideIcon;
+}[] = [
+  {
+    view: "comparative",
+    section: "compare",
+    label: "Compare",
+    icon: GitCompareArrows,
+  },
+  { view: "history", section: "saved", label: "Saved", icon: Bookmark },
+  {
+    view: "research",
+    section: "research",
+    label: "Research lab",
+    icon: FlaskConical,
+  },
+];
+
+/** The three sections, with a sliding indicator under the current one. The
+ *  Research lab asks a signed-out visitor to sign in first. */
+function MainNav({
+  section,
+  requireAuth,
+}: {
+  section: Section;
+  requireAuth: (action: () => void) => void;
+}) {
+  const ref = useNavIndicator<HTMLElement>(section);
+  return (
+    <nav className="header-tabs" aria-label="Main" ref={ref}>
+      {MAIN_TABS.map((tab) => (
+        <ViewTab
+          key={tab.view}
+          view={tab.view}
+          current={section === tab.section}
+          icon={tab.icon}
+          onIntercept={
+            tab.section === "research"
+              ? (e, href) => {
+                  e.preventDefault();
+                  requireAuth(() => {
+                    navigate(href);
+                  });
+                }
+              : undefined
+          }
+        >
+          {tab.label}
+        </ViewTab>
+      ))}
+    </nav>
+  );
+}
+
+function ResearchNav({ viewMode }: { viewMode: ViewMode }) {
+  const ref = useNavIndicator<HTMLElement>(viewMode);
+  return (
+    <nav className="sub-nav" aria-label="Research tools" ref={ref}>
+      {RESEARCH_TABS.map((tab) => (
+        <ViewTab key={tab.view} view={tab.view} current={tab.view === viewMode}>
+          {tab.label}
+        </ViewTab>
+      ))}
+    </nav>
+  );
+}
+
 /** Client-side navigation for a same-document link, leaving modified clicks
  *  (new tab/window) to the browser. */
 function ViewTab({
   view,
   current: isActive,
   children,
+  icon: Icon,
   onIntercept,
 }: {
   view: RoutedView;
   current: boolean;
   children: ReactNode;
+  icon?: LucideIcon;
   onIntercept?: (e: React.MouseEvent, href: string) => void;
 }) {
   const href = VIEW_ROUTES[view];
@@ -1114,8 +1177,48 @@ function ViewTab({
         }
       }}
     >
+      {Icon && <Icon size={15} aria-hidden="true" className="tab-icon" />}
       {children}
     </a>
+  );
+}
+
+/** The sign-in form in the shared dialog frame: Escape or the backdrop
+ *  closes it, focus starts in the form. */
+function LoginDialog({
+  onClose,
+  onLogin,
+}: {
+  onClose: () => void;
+  onLogin: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      className="uf-dialog-overlay login-overlay"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="uf-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="login-title"
+      >
+        <CloseButton className="uf-dialog__close" onClick={onClose} />
+        <Login onLogin={onLogin} />
+      </div>
+    </div>
   );
 }
 
@@ -1132,30 +1235,36 @@ function NotFound({ path }: { path: string }) {
       <header className="app-header">
         <div className="header-left">
           <a className="brand" href="/" data-testid="link-brand">
-            <span className="brand-mark" aria-hidden="true" />
-            <span className="brand-name">URBANFLOW</span>
+            <UrbanFlowLockup size={30} />
           </a>
         </div>
       </header>
       <main className="app-main full-screen not-found" role="main">
-        <h1>Page not found</h1>
-        <p>
-          There is no page at <code>{path}</code>.
-        </p>
-        <p className="not-found-links">
-          <a
-            href={home}
-            className="pb-btn pb-primary"
-            onClick={(event) => {
-              followLink(event, home);
-            }}
-          >
-            Start a comparison
-          </a>
-          <a href="/" className="pb-btn pb-secondary">
-            Back to the landing page
-          </a>
-        </p>
+        <StatusState
+          tone="empty"
+          headingLevel={1}
+          title="Page not found"
+          actions={
+            <>
+              <a
+                href={home}
+                className="pb-btn pb-primary"
+                onClick={(event) => {
+                  followLink(event, home);
+                }}
+              >
+                Start a comparison
+              </a>
+              <a href="/" className="pb-btn pb-secondary">
+                Back to the landing page
+              </a>
+            </>
+          }
+        >
+          <p>
+            There is no page at <code>{path}</code>.
+          </p>
+        </StatusState>
       </main>
     </div>
   );
