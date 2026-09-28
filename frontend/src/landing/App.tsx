@@ -18,6 +18,12 @@ import {
   BarChart2,
 } from "lucide-react";
 
+declare global {
+  interface Window {
+    openAuthModal: () => void;
+  }
+}
+
 type IconComponent = ComponentType<{ size?: number; strokeWidth?: number }>;
 
 const steps: { icon: IconComponent; title: string; body: string }[] = [
@@ -163,9 +169,8 @@ function App() {
           <button
             type="button"
             className="login-btn-glass"
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
             onClick={() => {
-              (window as any).openAuthModal();
+              window.openAuthModal();
             }}
           >
             Login
