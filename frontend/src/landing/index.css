@@ -1430,3 +1430,332 @@ button {
     transform: none;
   }
 }
+
+/* ===================================================
+   AUTH MODAL STYLES (Light & Dark Theme)
+   =================================================== */
+
+/* Theme Color Variables */
+.auth-modal {
+  /* Default Light Mode Palette */
+  --modal-bg: rgba(255, 255, 255, 0.85);
+  --modal-border: rgba(255, 255, 255, 0.6);
+  --modal-shadow: rgba(99, 102, 241, 0.15);
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --input-bg: rgba(241, 245, 249, 0.8);
+  --input-border: #cbd5e1;
+  --input-text: #0f172a;
+  --tab-bg: #e2e8f0;
+  --tab-active-bg: #ffffff;
+  --tab-active-text: #4f46e5;
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --social-bg: #ffffff;
+  --social-border: #e2e8f0;
+}
+
+/* Dark Mode Palette Class */
+.dark .auth-modal {
+  --modal-bg: rgba(15, 23, 42, 0.88);
+  --modal-border: rgba(255, 255, 255, 0.1);
+  --modal-shadow: rgba(0, 0, 0, 0.5);
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --input-bg: rgba(30, 41, 59, 0.7);
+  --input-border: #334155;
+  --input-text: #f8fafc;
+  --tab-bg: #1e293b;
+  --tab-active-bg: #334155;
+  --tab-active-text: #818cf8;
+  --primary: #6366f1;
+  --primary-hover: #4f46e5;
+  --social-bg: #1e293b;
+  --social-border: #334155;
+}
+
+/* Overlay Background */
+.auth-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.auth-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Modal Box */
+.auth-modal {
+  width: 100%;
+  max-width: 360px;
+  background: var(--modal-bg);
+  border: 1px solid var(--modal-border);
+  box-shadow: 0 20px 40px var(--modal-shadow);
+  border-radius: 16px;
+  padding: 24px;
+  position: relative;
+  transform: translateY(20px) scale(0.95);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+  color: var(--text-main);
+}
+
+.auth-overlay.open .auth-modal {
+  transform: translateY(0) scale(1);
+}
+
+/* Modal Header Controls */
+.auth-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.theme-toggle,
+.close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.theme-toggle:hover,
+.close-btn:hover {
+  color: var(--text-main);
+  background: var(--tab-bg);
+}
+
+.close-btn {
+  font-size: 24px;
+  line-height: 1;
+  width: 32px;
+  height: 32px;
+}
+
+/* Toggle Icons Visibility */
+.auth-modal .icon-sun {
+  display: block;
+}
+.auth-modal .icon-moon {
+  display: none;
+}
+.dark .auth-modal .icon-sun {
+  display: none;
+}
+.dark .auth-modal .icon-moon {
+  display: block;
+}
+
+/* Titles */
+.auth-title-container {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.auth-title-container h2 {
+  margin: 0 0 4px 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.auth-title-container p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* Tab Controls */
+.auth-tabs {
+  display: flex;
+  background: var(--tab-bg);
+  padding: 4px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.85rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab-btn.active {
+  background: var(--tab-active-bg);
+  color: var(--tab-active-text);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Form Styles */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+
+.form-group label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.form-group input {
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+  color: var(--input-text);
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus {
+  border-color: var(--primary);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  font-size: 0.85rem;
+}
+
+.forgot-pass {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.forgot-pass:hover {
+  text-decoration: underline;
+}
+
+/* Submit Button */
+.submit-btn {
+  margin-top: 4px;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    transform 0.1s;
+}
+
+.submit-btn:hover {
+  background: var(--primary-hover);
+}
+
+.submit-btn:active {
+  transform: scale(0.98);
+}
+
+/* Divider & Social Buttons */
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 20px 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid var(--input-border);
+}
+
+.divider span {
+  padding: 0 10px;
+}
+
+.social-btns {
+  display: flex;
+  gap: 12px;
+}
+
+.social-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--social-border);
+  background: var(--social-bg);
+  color: var(--text-main);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.social-btn:hover {
+  background: var(--tab-bg);
+}
+
+/* Glassmorphism Login Button for Landing Page */
+.login-btn-glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: hsl(var(--foreground));
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.login-btn-glass:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}

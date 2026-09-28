@@ -18,6 +18,12 @@ import {
   BarChart2,
 } from "lucide-react";
 
+declare global {
+  interface Window {
+    openAuthModal: () => void;
+  }
+}
+
 type IconComponent = ComponentType<{ size?: number; strokeWidth?: number }>;
 
 const steps: { icon: IconComponent; title: string; body: string }[] = [
@@ -159,6 +165,15 @@ function App() {
             data-testid="button-theme-toggle"
           >
             {isLight ? <Moon size={15} /> : <Sun size={15} />}
+          </button>
+          <button
+            type="button"
+            className="login-btn-glass"
+            onClick={() => {
+              window.openAuthModal();
+            }}
+          >
+            Login
           </button>
         </nav>
       </header>
