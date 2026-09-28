@@ -15,6 +15,8 @@ services:
       # empty (auth disabled). Override via .env/shell export if needed.
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
       - API_KEY=${API_KEY:-}
+    env_file:
+      - backend/.env
     volumes:
       - ./backend/src:/app/src
       - ./shared:/app/shared

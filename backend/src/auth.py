@@ -11,8 +11,12 @@ from jose.utils import base64url_decode
 security = HTTPBearer()
 
 # Load from .env if variables are not set
+# Load from .env if variables are not set
 try:
-    with open(".env") as f:
+    env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "backend", ".env"))
+    if not os.path.exists(env_path):
+        env_path = ".env"
+    with open(env_path) as f:
         for line in f:
             if line.strip() and not line.startswith("#"):
                 key, val = line.strip().split("=", 1)
@@ -106,3 +110,8 @@ def verify_token(
 def get_current_user_id(claims: Dict[str, Any] = Security(verify_token)) -> str:
     """Returns the Cognito username (sub) from the token."""
     return str(claims.get("sub", ""))
+
+
+def get_current_user_email(claims: Dict[str, Any] = Security(verify_token)) -> str:
+    """Returns the user's email from the token."""
+    return str(claims.get("email", ""))
