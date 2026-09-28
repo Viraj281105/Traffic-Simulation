@@ -50,7 +50,6 @@ import type { LucideIcon } from "lucide-react";
 import { UrbanFlowLockup } from "./components/ui/UrbanFlowLogo";
 import { PageTransition } from "./components/ui/PageTransition";
 import { StatusState } from "./components/ui/StatusState";
-import { CloseButton } from "./components/ui/CloseButton";
 import { useNavIndicator } from "./components/ui/useNavIndicator";
 import type { SimulationConfigValues } from "./types/config";
 import { DEFAULT_CONFIG_VALUES, dashboardPayload } from "./types/config";
@@ -1215,8 +1214,7 @@ function LoginDialog({
         aria-modal="true"
         aria-labelledby="login-title"
       >
-        <CloseButton className="uf-dialog__close" onClick={onClose} />
-        <Login onLogin={onLogin} />
+        <Login onLogin={onLogin} onClose={onClose} />
       </div>
     </div>
   );

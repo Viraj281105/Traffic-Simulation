@@ -1,10 +1,14 @@
 import React, { useState } from "react";
 import { AuthenticationDetails, CognitoUser } from "amazon-cognito-identity-js";
 import { userPool } from "../auth/cognito";
+import { CloseButton } from "./ui/CloseButton";
 import { UrbanFlowLogo } from "./ui/UrbanFlowLogo";
 import "./Login.css";
 
-export const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
+export const Login: React.FC<{ onLogin: () => void; onClose?: () => void }> = ({
+  onLogin,
+  onClose,
+}) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
@@ -108,6 +112,13 @@ export const Login: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
   return (
     <div className="login-container">
       <div className="login-box">
+        {onClose && (
+          <CloseButton
+            className="uf-dialog__close"
+            label="Close sign-in"
+            onClick={onClose}
+          />
+        )}
         <UrbanFlowLogo size={44} className="login-logo" />
         <h1 className="login-title" id="login-title">
           UrbanFlow
