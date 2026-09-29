@@ -1,8 +1,19 @@
+# Development stack: hot reload for both services, all tooling in images.
+#   .\start.ps1 -Dev   (or: docker compose -f docker-compose.dev.yml up -d --build)
+#
+# Source is bind-mounted; dependencies live only in the images' "dev" targets
+# (backend/Dockerfile, frontend/Dockerfile), so editing code never rebuilds
+# anything and the host needs no Python or Node. Changing requirements.txt or
+# package*.json rebuilds the affected image.
 services:
   backend:
     build:
       context: .
       dockerfile: backend/Dockerfile
+      target: dev
+    # Own image names, so dev and production builds never overwrite each
+    # other's tags (both stacks use the same Compose project).
+    image: urbanflow-dev-backend
     ports:
       - "8000:8000"
     environment:
@@ -19,6 +30,10 @@ services:
       # server's development token until Cognito is connected. Development
       # stack only; docker-compose.yml (production) never sets it.
       - DEV_AUTH_BYPASS=${DEV_AUTH_BYPASS:-1}
+      - STUDY_WORKERS=${STUDY_WORKERS:-}
+    # Reload works on the bind mount as-is: without watchfiles installed,
+    # uvicorn's reloader polls file timestamps (StatReload), which needs no
+    # file events from the host.
     # Local Cognito/AWS settings. Optional: backend/.env is gitignored, so it
     # is absent in CI and fresh clones, and src/auth.py has defaults.
     env_file:
@@ -28,23 +43,42 @@ services:
       - ./backend/src:/app/src
       - ./shared:/app/shared
       - traffic_data_dev:/app/data
-    command: ["uvicorn", "src.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
 
   frontend:
-    image: node:20.20.2-alpine
-    working_dir: /app
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: dev
+    image: urbanflow-dev-frontend
     volumes:
       - ./frontend:/app
+      # The image's node_modules (Linux builds of esbuild/rolldown), not the
+      # host's. start.ps1 -Dev renews it whenever the image is rebuilt.
       - /app/node_modules
     ports:
       - "5173:5173"
     environment:
-      - VITE_API_URL=http://localhost:8000
-      - VITE_WS_URL=ws://localhost:8000
-    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+      # The browser talks only to the dev server (same origin, like
+      # production nginx); Vite proxies /api, /ws and /health to the backend
+      # service (frontend/vite.config.ts).
+      - URBANFLOW_DEV_BACKEND=backend:8000
+      - URBANFLOW_DEV_POLLING=true
     depends_on:
       - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:5173/"]
+      interval: 5s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
 
 volumes:
   traffic_data_dev:

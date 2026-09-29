@@ -98,11 +98,14 @@ docker compose up --build -d
 .\start.ps1 -Restart           # recreate containers from current images (data kept)
 .\start.ps1 -Rebuild           # rebuild images without cache
 .\start.ps1 -SmokeTest         # re-check the running stack
-.\start.ps1 -Clean             # remove containers and images; the database volume is kept
+.\start.ps1 -Clean             # remove containers and images; database volumes are kept
 .\start.ps1 -Clean -DeleteData # ...and delete the database volume (asks for confirmation)
+.\start.ps1 -Dev               # development stack with hot reload (combines with every switch above)
 ```
 
-The database lives in the named volume `traffic-simulation_traffic_data`; nothing but `-Clean -DeleteData` removes it. If port 80 or 3000 is taken, set `URBANFLOW_HTTP_PORT` / `URBANFLOW_ALT_HTTP_PORT` (shell or `.env`). The production image has no development sign-in, so without Cognito configured the app runs signed out.
+**Development mode (`-Dev`)** runs `docker-compose.dev.yml`: the Vite dev server at [http://localhost:5173](http://localhost:5173/app/comparative) and uvicorn `--reload` at [http://localhost:8000](http://localhost:8000/docs), both in containers with the source bind-mounted, so edits under `frontend/` and `backend/src` apply live. Dependencies stay inside the images (their `dev` build targets), which rebuild only when `requirements.txt` or `package*.json` change. The development sign-in is on (you are "Local developer"), so saving runs works without Cognito. Development has its own database volume (`traffic-simulation_traffic_data_dev`); production and development share one Compose project, so starting one replaces the other.
+
+The database lives in the named volume `traffic-simulation_traffic_data`; nothing but `-Clean -DeleteData` removes it. If port 80 or 3000 is taken, set `URBANFLOW_HTTP_PORT` / `URBANFLOW_ALT_HTTP_PORT` (shell or `.env`). The production image has no development sign-in, so without Cognito configured the app runs signed out; use `-Dev` to work signed in.
 
 To stop the containers:
 ```bash
@@ -111,7 +114,7 @@ docker compose down
 
 ### Running Natively for Local Development
 
-For working on the code with hot reload, run both services natively (or use `docker-compose.dev.yml`):
+For hot reload, use `.\start.ps1 -Dev` (or `docker compose -f docker-compose.dev.yml up -d --build`). To run the services natively instead:
 
 - **Manual Backend Setup**:
   ```bash

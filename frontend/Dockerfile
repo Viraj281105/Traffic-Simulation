@@ -1,5 +1,5 @@
-# ── Build Stage ─────────────────────────────────────────────────────────────
-FROM node:26.10.0-alpine AS builder
+# ── Dependencies ────────────────────────────────────────────────────────────
+FROM node:26.10.0-alpine AS deps
 
 WORKDIR /app
 
@@ -8,6 +8,18 @@ COPY package*.json ./
 
 # Install dependencies cleanly
 RUN npm ci
+
+# ── Development (docker-compose.dev.yml, start.ps1 -Dev) ────────────────────
+# The Vite dev server with hot reload. Source is bind-mounted over /app; the
+# dependencies installed above stay in the image (compose keeps them in an
+# anonymous volume at /app/node_modules), so nothing is installed on the host
+# and editing code never rebuilds this image.
+FROM deps AS dev
+EXPOSE 5173
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+
+# ── Build Stage ─────────────────────────────────────────────────────────────
+FROM deps AS builder
 
 # Copy frontend source files
 COPY . .

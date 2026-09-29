@@ -14,6 +14,14 @@
     unchanged service is a cache hit (no rebuild), and `docker compose up`
     recreates a container only when its image or configuration changed.
 
+    -Dev runs docker-compose.dev.yml instead: the Vite dev server (port 5173)
+    and uvicorn --reload (port 8000) in containers, with the source
+    bind-mounted so edits apply live, the development sign-in on, and its own
+    database volume. Its images hold only dependencies, so they rebuild only
+    when requirements.txt or package*.json change. -Dev combines with every
+    other switch (e.g. .\start.ps1 -Dev -Logs frontend). Production and
+    development share one Compose project, so starting one replaces the other.
+
 .EXAMPLE
     .\start.ps1                 Build what changed, start, wait for health, smoke test
     .\start.ps1 -Status         Read-only report of containers, images, database and source
@@ -21,8 +29,9 @@
     .\start.ps1 -Restart        Recreate containers from the current images (data kept)
     .\start.ps1 -Rebuild        Rebuild images without cache, then start
     .\start.ps1 -SmokeTest      Check the running stack end to end
-    .\start.ps1 -Clean          Remove containers and images (database volume kept)
+    .\start.ps1 -Clean          Remove containers and images of both stacks (database volumes kept)
     .\start.ps1 -Clean -DeleteData   ...and also delete the database volume (asks first)
+    .\start.ps1 -Dev            Development stack with hot reload (add to any of the above)
 #>
 [CmdletBinding(DefaultParameterSetName = 'Up')]
 param(
@@ -38,7 +47,8 @@ param(
     [Parameter(ParameterSetName = 'Clean')] [switch]$Force,
     [Parameter(ParameterSetName = 'Up')]
     [Parameter(ParameterSetName = 'Restart')]
-    [Parameter(ParameterSetName = 'Rebuild')] [switch]$NoBrowser
+    [Parameter(ParameterSetName = 'Rebuild')] [switch]$NoBrowser,
+    [switch]$Dev
 )
 
 # Native tools (docker, git) report progress on stderr; with 'Stop', Windows
@@ -48,6 +58,10 @@ $ErrorActionPreference = 'Continue'
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $Root
 
+# -Dev: every Compose call uses the development file (passed as -f rather than
+# through COMPOSE_FILE, which would leak into the caller's session).
+$ComposeFile = if ($Dev) { 'docker-compose.dev.yml' } else { $null }
+$StackName = if ($Dev) { 'development' } else { 'production' }
 $Services = @('backend', 'frontend')
 $HealthTimeoutSeconds = 180
 # Everything backend/Dockerfile copies into the image. The backend's recorded
@@ -79,8 +93,16 @@ function Fail([string]$Text, [string[]]$Hints = @()) {
 # Runs docker.exe and returns its output lines (stdout and stderr), with the exit
 # code in $LASTEXITCODE.
 function Invoke-Docker {
-    $out = & docker @args 2>&1 | ForEach-Object { "$_" }
+    $a = Add-ComposeFile $args
+    $out = & docker @a 2>&1 | ForEach-Object { "$_" }
     return $out
+}
+
+function Add-ComposeFile([object[]]$Arguments) {
+    if ($ComposeFile -and $Arguments.Count -gt 0 -and $Arguments[0] -eq 'compose') {
+        return @('compose', '-f', $ComposeFile) + @($Arguments | Select-Object -Skip 1)
+    }
+    return $Arguments
 }
 
 function Test-DockerDaemon {
@@ -96,7 +118,24 @@ function Get-ComposeModel {
     }
     $model = ($json -join "`n") | ConvertFrom-Json
     $script:Project = $model.name
+    $script:Model = $model
     return $model
+}
+
+# The image tag Compose builds for a service: its `image:` (the dev file sets
+# one), else Compose's default "<project>-<service>".
+function Get-ImageName([string]$Svc) {
+    $svcModel = $script:Model.services.$Svc
+    if ($svcModel -and $svcModel.PSObject.Properties['image'] -and $svcModel.image) { return $svcModel.image }
+    return "$script:Project-$Svc"
+}
+
+# Which stack a container belongs to, from the Compose file that created it.
+function Get-StackOf($c) {
+    if (-not $c) { return $null }
+    $files = "$($c.Config.Labels.'com.docker.compose.project.config_files')"
+    if ($files -match 'docker-compose\.dev\.yml') { return 'development' }
+    return 'production'
 }
 
 # `docker inspect` of every container of this project, by service name. Found
@@ -257,21 +296,28 @@ function Test-Environment {
     # Compose itself resolves every ${VAR} (including required ${VAR:?msg}
     # ones) - a failure here names the variable.
     $model = Get-ComposeModel
-    Ok "Compose configuration valid (project '$($model.name)')"
-    Info 'Sign-in: Cognito is not configured for the Docker build, so the app runs signed out (saving runs needs sign-in).'
-    return @{ Model = $model; HttpPort = $ports['URBANFLOW_HTTP_PORT']; AltPort = $ports['URBANFLOW_ALT_HTTP_PORT'] }
+    Ok "Compose configuration valid ($StackName stack, project '$($model.name)')"
+    if ($Dev) { Ok 'Sign-in: development bypass on (signed in as "Local developer"; saving runs works)' }
+    else { Info 'Sign-in: Cognito is not configured for the Docker build, so the app runs signed out (saving runs needs sign-in; use -Dev locally).' }
+    $published = @($model.services.PSObject.Properties | ForEach-Object { @($_.Value.ports) | Where-Object { $_ } | ForEach-Object { [int]$_.published } } | Select-Object -Unique)
+    return @{ Model = $model; HttpPort = [int](@($model.services.frontend.ports)[0].published); Ports = $published }
 }
 
 # -- Ports ----------------------------------------------------------------
 
-function Test-Ports([int[]]$Ports) {
-    $ours = @()
-    $fe = Get-Container 'frontend'
-    if ($fe -and $fe.State.Status -eq 'running' -and $fe.NetworkSettings.Ports) {
-        foreach ($binding in $fe.NetworkSettings.Ports.PSObject.Properties) {
-            foreach ($b in @($binding.Value)) { if ($b) { $ours += [int]$b.HostPort } }
+function Get-PublishedPorts($c) {
+    $ports = @()
+    if ($c -and $c.State.Status -eq 'running' -and $c.NetworkSettings.Ports) {
+        foreach ($binding in $c.NetworkSettings.Ports.PSObject.Properties) {
+            foreach ($b in @($binding.Value)) { if ($b) { $ports += [int]$b.HostPort } }
         }
     }
+    return $ports | Select-Object -Unique
+}
+
+function Test-Ports([int[]]$Ports) {
+    $ours = @()
+    foreach ($c in (Get-Containers).Values) { $ours += Get-PublishedPorts $c }
     foreach ($port in $Ports) {
         if ($ours -contains $port) { Ok "Port $port is served by this stack"; continue }
         $listener = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -285,9 +331,9 @@ function Test-Ports([int[]]$Ports) {
         elseif ($listener.OwningProcess -eq 4) {
             $owner = 'Windows HTTP.sys (PID 4: IIS, World Wide Web Publishing or another http.sys service)'
         }
-        Fail "Port $port is already in use by $owner." @(
-            'Stop that process/container, or choose other host ports, e.g.:',
-            '  $env:URBANFLOW_HTTP_PORT = 8080; $env:URBANFLOW_ALT_HTTP_PORT = 3001; .\start.ps1')
+        $hint = if ($Dev) { @('Stop it (e.g. a native uvicorn or npm run dev) and run this again; the dev ports are set in docker-compose.dev.yml.') }
+        else { @('Stop that process/container, or choose other host ports, e.g.:', '  $env:URBANFLOW_HTTP_PORT = 8080; $env:URBANFLOW_ALT_HTTP_PORT = 3001; .\start.ps1') }
+        Fail "Port $port is already in use by $owner." $hint
     }
 }
 
@@ -338,7 +384,7 @@ function Show-Provenance($prov) {
 
 function Invoke-Build($project, [switch]$NoCache) {
     $before = @{}
-    foreach ($s in $Services) { $before[$s] = Get-ImageId "$project-$s" }
+    foreach ($s in $Services) { $before[$s] = Get-ImageId (Get-ImageName $s) }
     # No default provenance attestation: it is timestamped on every build, so
     # an otherwise fully cached build would get a new image ID and look
     # changed. The image content and cache are unaffected.
@@ -352,6 +398,7 @@ function Invoke-Build($project, [switch]$NoCache) {
     # List each build step that actually runs; cached steps stay quiet.
     # (--progress plain prints "#N [stage] COPY ..." then either "#N CACHED"
     # or the step's own output / "#N DONE".)
+    $buildArgs = Add-ComposeFile $buildArgs
     & docker @buildArgs 2>&1 | ForEach-Object {
         $line = "$_"
         $log.Add($line)
@@ -369,8 +416,10 @@ function Invoke-Build($project, [switch]$NoCache) {
         Fail 'Image build failed (output above).'
     }
     $secs = [int]((Get-Date) - $started).TotalSeconds
+    $changed = @()
     foreach ($s in $Services) {
-        $after = Get-ImageId "$project-$s"
+        $after = Get-ImageId (Get-ImageName $s)
+        if ($before[$s] -ne $after) { $changed += $s }
         if (-not $before[$s]) { Ok "$s built (new image $(Short $after))" }
         elseif ($NoCache) { Ok "$s rebuilt from scratch (image $(Short $after))" }
         elseif ($before[$s] -ne $after) { Ok "$s rebuilt: its sources changed (image $(Short $after))" }
@@ -378,9 +427,10 @@ function Invoke-Build($project, [switch]$NoCache) {
         else { Ok "$s unchanged: build cache hit, nothing rebuilt" }
     }
     Info "Build step: ${secs}s"
+    return , $changed
 }
 
-function Start-Containers([switch]$ForceRecreate) {
+function Start-Containers([switch]$ForceRecreate, [string[]]$RebuiltImages = @()) {
     $before = @{}
     $wasRunning = @{}
     $recreate = @()
@@ -405,6 +455,9 @@ function Start-Containers([switch]$ForceRecreate) {
     }
     $upArgs = @('compose', 'up', '-d', '--no-build', '--remove-orphans')
     if ($ForceRecreate) { $upArgs += '--force-recreate' }
+    # A rebuilt dev frontend image has new dependencies: take node_modules from
+    # it rather than from the previous container's anonymous volume.
+    if ($Dev -and ($RebuiltImages -contains 'frontend' -or $ForceRecreate)) { $upArgs += '--renew-anon-volumes' }
     $out = Invoke-Docker @upArgs
     if ($LASTEXITCODE -ne 0) {
         Show-Diagnostics
@@ -470,7 +523,16 @@ function Wait-Healthy {
 
 # -- Database -------------------------------------------------------------
 
-function Get-VolumeName($model) { return "$($model.name)_traffic_data" }
+# The named volume mounted at the backend's /app/data, as Compose names it.
+function Get-VolumeName($model) {
+    $m = @($model.services.backend.volumes | Where-Object { $_.target -eq '/app/data' })[0]
+    if ($m -and $m.type -eq 'volume') {
+        $top = $model.volumes.($m.source)
+        if ($top -and $top.PSObject.Properties['name'] -and $top.name) { return $top.name }
+        return "$($model.name)_$($m.source)"
+    }
+    return "$($model.name)_traffic_data"
+}
 
 function Test-VolumeExists([string]$Name) {
     $null = Invoke-Docker volume inspect $Name
@@ -505,8 +567,11 @@ function Test-Database($model, [bool]$WasNew) {
 
 # -- Smoke test -----------------------------------------------------------
 
-function Get-Http([string]$Url) {
-    try { return Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 15 }
+function Get-Http([string]$Url, [switch]$Page) {
+    # Pages are requested as a browser navigates (Accept: text/html): the Vite
+    # dev server serves app.html for dashboard routes only to such requests.
+    $headers = if ($Page) { @{ Accept = 'text/html' } } else { @{} }
+    try { return Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 30 -Headers $headers }
     catch { return $null }
 }
 
@@ -532,21 +597,25 @@ function Invoke-SmokeTest($project, [int]$Port, [string]$ExpectedCommit) {
     $base = "http://localhost:$Port"
     $failures = @()
 
-    $landing = Get-Http "$base/"
+    $landing = Get-Http "$base/" -Page
     if ($landing -and $landing.StatusCode -eq 200) { Ok 'Landing page HTTP 200' } else { $failures += "GET $base/ did not return 200" }
 
-    $app = Get-Http "$base/app/comparative"
+    $app = Get-Http "$base/app/comparative" -Page
     if ($app -and $app.StatusCode -eq 200) {
-        $assets = @([regex]::Matches($app.Content, '(?:src|href)="(/assets/[^"]+)"') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)
+        # Production: the built /assets bundle. Development: the Vite client and
+        # the app's entry module, compiled on request.
+        $assets = @([regex]::Matches($app.Content, '(?:src|href)="(/(?:assets|src|@vite)/[^"]+)"') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)
         $bad = @($assets | Where-Object { $r = Get-Http "$base$_"; -not ($r -and $r.StatusCode -eq 200 -and $r.RawContentLength -gt 0) })
-        if ($assets.Count -gt 0 -and $bad.Count -eq 0) { Ok "Dashboard HTTP 200, $($assets.Count) static assets load" }
+        $kind = if ($Dev) { 'modules compile and load' } else { 'static assets load' }
+        if ($assets.Count -gt 0 -and $bad.Count -eq 0) { Ok "Dashboard HTTP 200, $($assets.Count) $kind" }
         else { $failures += "Dashboard assets failed to load: $($bad -join ', ')" }
     }
     else { $failures += "GET $base/app/comparative did not return 200" }
 
     try {
         $health = Invoke-RestMethod "$base/health" -TimeoutSec 10
-        if ($health.status -eq 'healthy') { Ok 'Backend /health healthy (through nginx)' } else { $failures += "/health returned '$($health.status)'" }
+        $via = if ($Dev) { 'the Vite dev server proxy' } else { 'nginx' }
+        if ($health.status -eq 'healthy') { Ok "Backend /health healthy (through $via)" } else { $failures += "/health returned '$($health.status)'" }
     }
     catch { $failures += "/health unreachable: $($_.Exception.Message)" }
 
@@ -555,6 +624,16 @@ function Invoke-SmokeTest($project, [int]$Port, [string]$ExpectedCommit) {
         Ok "Database reachable through the API (history query returned $(@($runs).Count) row(s))"
     }
     catch { $failures += "Database query through the API failed: $($_.Exception.Message)" }
+
+    if ($Dev) {
+        # The development sign-in: the backend must accept the token the Vite
+        # dev app sends (DEV_AUTH_BYPASS=1).
+        try {
+            $null = Invoke-RestMethod "$base/api/v1/replays?limit=1" -Headers @{ Authorization = 'Bearer urbanflow-local-dev' } -TimeoutSec 10
+            Ok 'Development sign-in accepted (saving runs available)'
+        }
+        catch { $failures += "Development sign-in rejected: $($_.Exception.Message) (is DEV_AUTH_BYPASS set?)" }
+    }
 
     # A one-seed, 2-second Monte Carlo study: exercises the study job API and
     # the worker process pool without writing anything to the database.
@@ -578,7 +657,7 @@ function Invoke-SmokeTest($project, [int]$Port, [string]$ExpectedCommit) {
     try {
         $version = Invoke-RestMethod "$base/api/version" -TimeoutSec 10
         if ($version.gitCommit -eq $ExpectedCommit) {
-            $shown = if ($ExpectedCommit -eq 'unknown') { 'uncommitted backend changes' } else { $ExpectedCommit.Substring(0, 12) }
+            $shown = if ($Dev) { 'live source, reported as unknown' } elseif ($ExpectedCommit -eq 'unknown') { 'uncommitted backend changes' } else { $ExpectedCommit.Substring(0, 12) }
             Ok "Backend reports the expected source version ($shown)"
         }
         else { $failures += "Backend reports commit '$($version.gitCommit)', expected '$ExpectedCommit' (rebuild with .\start.ps1)" }
@@ -588,7 +667,7 @@ function Invoke-SmokeTest($project, [int]$Port, [string]$ExpectedCommit) {
     $containers = Get-Containers
     foreach ($s in $Services) {
         $c = $containers[$s]
-        $built = Get-ImageId "$project-$s"
+        $built = Get-ImageId (Get-ImageName $s)
         $running = Get-RunningImage $c
         if ($running -and $running -eq $built) { Ok "$s runs the current image ($(Short $built))" }
         else { $failures += "$s runs image $(Short $running), but the current build is $(Short $built) (run .\start.ps1)" }
@@ -603,13 +682,19 @@ function Show-Ready($envInfo, $prov) {
     $port = $envInfo.HttpPort
     $url = if ($port -eq 80) { 'http://localhost' } else { "http://localhost:$port" }
     Write-Host ''
-    Write-Host 'UrbanFlow ready' -ForegroundColor Green
+    Write-Host "UrbanFlow ready ($StackName)" -ForegroundColor Green
     Write-Host "Frontend: $url/app/comparative   (landing: $url)"
-    Write-Host "Backend:  $url/api   (health: $url/health, version: $url/api/version)"
+    if ($Dev) {
+        Write-Host 'Backend:  http://localhost:8000   (API docs: http://localhost:8000/docs; also proxied at /api)'
+        Write-Host 'Reload:   edits under frontend/ and backend/src apply live; dependency changes need .\start.ps1 -Dev'
+        Write-Host 'Sign-in:  development bypass (Local developer)'
+    }
+    else { Write-Host "Backend:  $url/api   (health: $url/health, version: $url/api/version)" }
     $commit = if ($prov.HasGit) { "$($prov.Commit.Substring(0, 12)) on $($prov.Branch)$(if ($prov.Dirty.Count) { ' + uncommitted changes' })" } else { 'unknown' }
     Write-Host "Commit:   $commit"
     Write-Host "Database: persistent Docker volume $(Get-VolumeName $envInfo.Model)"
-    Write-Host 'Logs:     .\start.ps1 -Logs [backend|frontend]    Status: .\start.ps1 -Status'
+    $flag = if ($Dev) { ' -Dev' } else { '' }
+    Write-Host "Logs:     .\start.ps1$flag -Logs [backend|frontend]    Status: .\start.ps1$flag -Status"
     if (-not $NoBrowser) { Start-Process "$url/app/comparative" }
 }
 
@@ -622,28 +707,41 @@ function Invoke-Up([switch]$NoCache, [switch]$RecreateOnly) {
     Step 'Environment'
     $envInfo = Test-Environment
     $project = $envInfo.Model.name
-    Test-Ports @($envInfo.HttpPort, $envInfo.AltPort)
+    $other = @((Get-Containers).Values | Where-Object { (Get-StackOf $_) -ne $StackName -and $_.State.Status -eq 'running' })
+    if ($other.Count -gt 0) {
+        Info "The $(Get-StackOf $other[0]) stack is running; it will be replaced by the $StackName stack (each keeps its own database volume)."
+    }
+    Test-Ports $envInfo.Ports
 
     Step 'Change detection'
     $prov = Get-Provenance
     Show-Provenance $prov
     $expected = Get-ExpectedBackendCommit $prov
-    # Build arg for backend/Dockerfile (see Get-ExpectedBackendCommit).
-    $env:GIT_COMMIT = if ($expected -eq 'unknown') { '' } else { $expected }
-    if ($expected -eq 'unknown' -and $prov.HasGit) { Info 'Backend has uncommitted changes: saved runs will record commit "unknown".' }
+    if ($Dev) {
+        # The dev images hold dependencies only; the running code is whatever
+        # is in the working tree, so no commit is claimed for it.
+        $expected = 'unknown'
+        Info 'Development: source is bind-mounted and reloads live; images rebuild only for dependency changes.'
+    }
+    else {
+        # Build arg for backend/Dockerfile (see Get-ExpectedBackendCommit).
+        $env:GIT_COMMIT = if ($expected -eq 'unknown') { '' } else { $expected }
+        if ($expected -eq 'unknown' -and $prov.HasGit) { Info 'Backend has uncommitted changes: saved runs will record commit "unknown".' }
+    }
     $volume = Get-VolumeName $envInfo.Model
     $volumeIsNew = -not (Test-VolumeExists $volume)
 
     Step 'Build'
     if ($RecreateOnly) {
-        $missing = @($Services | Where-Object { -not (Get-ImageId "$project-$_") })
+        $missing = @($Services | Where-Object { -not (Get-ImageId (Get-ImageName $_)) })
         if ($missing.Count -gt 0) { Fail "No image for $($missing -join ', ') yet." @('Run .\start.ps1 first to build it.') }
         Info 'Skipped (-Restart reuses the current images)'
+        $rebuilt = @()
     }
-    else { Invoke-Build $project -NoCache:$NoCache }
+    else { $rebuilt = Invoke-Build $project -NoCache:$NoCache }
 
     Step 'Containers'
-    Start-Containers -ForceRecreate:$RecreateOnly
+    Start-Containers -ForceRecreate:$RecreateOnly -RebuiltImages $rebuilt
 
     Step 'Health'
     Wait-Healthy
@@ -668,23 +766,32 @@ function Invoke-Status {
     Show-Provenance $prov
     Write-Host ''
     $containers = Get-Containers
+    $up = @($containers.Values | Where-Object { $_.State.Status -eq 'running' })
+    $sameStack = $true
+    if ($up.Count -gt 0) {
+        $stack = Get-StackOf $up[0]
+        $hint = if ($Dev) { 'drop -Dev' } else { 'add -Dev' }
+        $sameStack = $stack -eq $StackName
+        $note = if (-not $sameStack) { "  (image and database details below are for the $StackName stack; $hint for the running one)" } else { '' }
+        Info "Running stack: $stack$note"
+    }
     foreach ($s in $Services) {
         $c = $containers[$s]
-        $image = Get-ImageId "$project-$s"
+        $image = Get-ImageId (Get-ImageName $s)
         $state = Get-ContainerState $c
         $line = '  {0,-9} {1,-10}' -f $s, $state
         if ($c) {
             $since = ([datetime]$c.State.StartedAt).ToLocalTime().ToString('yyyy-MM-dd HH:mm')
             $running = Get-RunningImage $c
             $line += " started $since, image $(Short $running)"
-            if ($image -and $running -ne $image) { $line += '  (a newer image exists: run .\start.ps1)' }
+            if ($sameStack -and $image -and $running -ne $image) { $line += '  (a newer image exists: run .\start.ps1)' }
         }
         elseif ($image) { $line += " image $(Short $image) built, no container" }
         else { $line += ' not built' }
         Write-Host $line
     }
-    $labels = Invoke-Docker image inspect --format '{{json .Config.Labels}}' "$project-backend"
-    if ($LASTEXITCODE -eq 0) {
+    $labels = Invoke-Docker image inspect --format '{{json .Config.Labels}}' (Get-ImageName 'backend')
+    if (-not $Dev -and $sameStack -and $LASTEXITCODE -eq 0) {
         $parsed = ($labels | Select-Object -First 1) | ConvertFrom-Json
         $label = if ($parsed -and $parsed.PSObject.Properties['org.opencontainers.image.revision']) { "$($parsed.'org.opencontainers.image.revision')".Trim() } else { '' }
         $expected = Get-ExpectedBackendCommit $prov
@@ -695,16 +802,13 @@ function Invoke-Status {
     }
     $volume = Get-VolumeName $model
     if (Test-VolumeExists $volume) {
-        $info = if ((Get-ContainerState $containers['backend']) -in @('healthy', 'starting')) { Get-DatabaseInfo } else { $null }
+        $info = if ($sameStack -and (Get-ContainerState $containers['backend']) -in @('healthy', 'starting')) { Get-DatabaseInfo } else { $null }
         if ($info) { Info ("Database: volume '{0}', {1} saved runs, {2} sweeps, {3:N1} MB" -f $volume, $info.runs, $info.sweeps, ($info.bytes / 1MB)) }
-        else { Info "Database: volume '$volume' (backend not running)" }
+        else { Info "Database: volume '$volume' (its backend is not running)" }
     }
     else { Info "Database: volume '$volume' does not exist yet" }
-    $fe = $containers['frontend']
-    if ($fe -and $fe.State.Status -eq 'running') {
-        $ports = @($fe.NetworkSettings.Ports.PSObject.Properties | ForEach-Object { @($_.Value) | ForEach-Object { $_.HostPort } } | Select-Object -Unique)
-        Info "Serving: $(($ports | ForEach-Object { "http://localhost:$_" }) -join ', ')"
-    }
+    $ports = @($containers.Values | ForEach-Object { Get-PublishedPorts $_ } | Sort-Object -Unique)
+    if ($ports.Count -gt 0) { Info "Serving: $(($ports | ForEach-Object { "http://localhost:$_" }) -join ', ')" }
 }
 
 function Invoke-Clean {
@@ -714,13 +818,16 @@ function Invoke-Clean {
     $model = Get-ComposeModel
     $volume = Get-VolumeName $model
     Step 'Containers and images'
-    $out = Invoke-Docker compose down --rmi local --remove-orphans
+    # Development images carry explicit names (image: in the dev file), which
+    # `--rmi local` would keep; every image either stack uses is built here.
+    $rmi = if ($Dev) { 'all' } else { 'local' }
+    $out = Invoke-Docker compose down --rmi $rmi --remove-orphans
     if ($LASTEXITCODE -ne 0) { Fail 'docker compose down failed:' ($out | Select-Object -Last 6) }
-    Ok 'Containers, network and locally built images removed'
-    if (-not $DeleteData) {
-        if (Test-VolumeExists $volume) { Ok "Database volume '$volume' kept" }
-        return
-    }
+    # Both stacks share the Compose project, so this clears either one.
+    Ok "Containers, network and built images removed (production and development share project '$($model.name)')"
+    $kept = @(Invoke-Docker volume ls -q --filter "label=com.docker.compose.project=$($model.name)" | Where-Object { $_ -and ($_ -ne $volume -or -not $DeleteData) })
+    foreach ($v in $kept) { Ok "Database volume '$v' kept" }
+    if (-not $DeleteData) { return }
     Step 'Database volume'
     if (-not (Test-VolumeExists $volume)) { Ok "No database volume '$volume' to delete"; return }
     if (-not $Force) {
@@ -733,11 +840,18 @@ function Invoke-Clean {
     Ok "Database volume '$volume' deleted"
 }
 
+# Build settings are set for docker in this process only; put the caller's
+# values back afterwards (the script runs in the caller's session).
+$savedEnv = @{}
+foreach ($name in @('GIT_COMMIT', 'BUILDX_NO_DEFAULT_ATTESTATIONS')) { $savedEnv[$name] = [Environment]::GetEnvironmentVariable($name) }
+try {
 switch ($PSCmdlet.ParameterSetName) {
     'Status' { Invoke-Status }
     'Logs' {
         Assert-Docker
-        if ($Service) { & docker compose logs -f --tail 200 $Service } else { & docker compose logs -f --tail 200 }
+        $logArgs = Add-ComposeFile @('compose', 'logs', '-f', '--tail', '200')
+        if ($Service) { $logArgs += $Service }
+        & docker @logArgs
     }
     'SmokeTest' {
         $script:StepTotal = 2
@@ -750,7 +864,8 @@ switch ($PSCmdlet.ParameterSetName) {
             if ($state -ne 'healthy') { Fail "$s is $state." @('Start the stack with .\start.ps1') }
         }
         Step 'Smoke test'
-        Invoke-SmokeTest $envInfo.Model.name $envInfo.HttpPort (Get-ExpectedBackendCommit (Get-Provenance))
+        $expected = if ($Dev) { 'unknown' } else { Get-ExpectedBackendCommit (Get-Provenance) }
+        Invoke-SmokeTest $envInfo.Model.name $envInfo.HttpPort $expected
         Write-Host ''
         Write-Host 'Smoke test passed' -ForegroundColor Green
     }
@@ -758,4 +873,8 @@ switch ($PSCmdlet.ParameterSetName) {
     'Restart' { Invoke-Up -RecreateOnly }
     'Rebuild' { Invoke-Up -NoCache }
     default { Invoke-Up }
+}
+}
+finally {
+    foreach ($name in $savedEnv.Keys) { [Environment]::SetEnvironmentVariable($name, $savedEnv[$name]) }
 }
