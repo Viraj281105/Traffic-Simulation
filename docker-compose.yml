@@ -31,6 +31,9 @@ services:
       # development frictionless; set API_KEY in your environment/.env to
       # require `Authorization: Bearer <API_KEY>` on those routes.
       - API_KEY=${API_KEY:-}
+      # Study worker processes (backend/src/study/runner.py). Empty = one per
+      # CPU, at most 8; lower it on small hosts (each worker is ~40 MB).
+      - STUDY_WORKERS=${STUDY_WORKERS:-}
     volumes:
       - traffic_data:/app/data
     restart: unless-stopped
@@ -49,9 +52,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    # Host ports are overridable (URBANFLOW_HTTP_PORT / URBANFLOW_ALT_HTTP_PORT)
+    # for machines where 80 or 3000 is already taken; start.ps1 checks them.
     ports:
-      - "80:8080"
-      - "3000:8080"
+      - "${URBANFLOW_HTTP_PORT:-80}:8080"
+      - "${URBANFLOW_ALT_HTTP_PORT:-3000}:8080"
     environment:
       # Same value as the backend's API_KEY. nginx attaches it to proxied
       # /api/ and /ws/ requests on the server side, so the browser app keeps

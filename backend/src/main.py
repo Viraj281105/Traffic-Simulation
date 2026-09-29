@@ -196,6 +196,15 @@ def health_check() -> Dict[str, str]:
     return {"status": "healthy"}
 
 
+@app.get("/api/version")
+def version() -> Dict[str, str]:
+    """Build provenance of the running backend: the commit its code came from
+    (the one recorded with saved runs; "unknown" when the image was built from
+    uncommitted changes or without GIT_COMMIT) and the Python runtime.
+    start.ps1 compares it with the source it just built."""
+    return {"gitCommit": GIT_COMMIT_HASH, "pythonVersion": PYTHON_VERSION}
+
+
 # Load the shared config JSON schema, resolved relative to this package's
 # location on disk (backend/src/main.py -> repo root / shared / schemas),
 # never a machine-specific absolute path or the process's CWD. Validation

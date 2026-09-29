@@ -18,6 +18,15 @@ def test_health_check() -> None:
     assert response.json() == {"status": "healthy"}
 
 
+def test_version_reports_the_running_build() -> None:
+    response = client.get("/api/version")
+    assert response.status_code == 200
+    assert response.json() == {
+        "gitCommit": main_module.GIT_COMMIT_HASH,
+        "pythonVersion": main_module.PYTHON_VERSION,
+    }
+
+
 def test_single_vehicle_full_flow() -> None:
     # 1. Status when stopped
     client.post("/api/simulation/reset")

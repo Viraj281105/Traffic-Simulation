@@ -38,7 +38,7 @@ _JWKS_CACHE = None
 # Cognito is not connected in local development. The Vite dev server sends
 # DEV_AUTH_TOKEN as its bearer token (frontend/src/auth/cognito.ts); it is
 # accepted here only when the backend is started with DEV_AUTH_BYPASS=1
-# (start.ps1 and docker-compose.dev.yml do; docker-compose.yml, the
+# (docker-compose.dev.yml does; docker-compose.yml, the
 # production stack, does not), and then stands for one clearly local
 # identity, DEV_AUTH_CLAIMS. Every other token takes the Cognito path
 # unchanged, and without the flag the marker is refused.
