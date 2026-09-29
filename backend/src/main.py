@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import contextvars
 import copy
 import csv
@@ -14,7 +15,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated, Any, Dict, Literal, Optional
+from typing import Annotated, Any, AsyncIterator, Dict, Literal, Optional
 
 import jsonschema
 from fastapi import (
@@ -61,10 +62,12 @@ from src.metrics.collector import MetricCollector
 from src.snapshot.buffer import SnapshotBuffer
 from src.snapshot.builder import SnapshotBuilder
 from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
+from src.study.jobs import TooManyJobsError, jobs
 from src.study.report_generator import (
     generate_study_report_csv,
     generate_study_report_json,
 )
+from src.study.runner import Progress, shutdown_pool
 from src.study.tolerances import delays_are_tied
 from src.study.validation import (
     SUPPORTED_CONFIDENCE_LEVELS,
@@ -76,7 +79,17 @@ from src.study.volume_sweep import run_volume_sweep_experiment
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Traffic Simulation Framework API", version="1.0.0")
+
+@contextlib.asynccontextmanager
+async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    yield
+    # Stop the study worker processes (study/runner.py) with the server.
+    shutdown_pool()
+
+
+app = FastAPI(
+    title="Traffic Simulation Framework API", version="1.0.0", lifespan=_lifespan
+)
 
 # ── CORS ──────────────────────────────────────────────────────────────────
 # Origins are environment-driven (CORS_ORIGINS, comma-separated), never
@@ -272,10 +285,6 @@ single_veh = SingleVehicleState()
 
 
 # ── Pydantic Request/Response Models ────────────────────────────────────────
-class ScenarioConfigInput(BaseModel):
-    config: Dict[str, Any]
-
-
 class ControlRequest(BaseModel):
     action: str  # start, pause, resume, stop
 
@@ -1447,12 +1456,28 @@ def pause_live_simulation() -> Dict[str, Any]:
     }
 
 
+def _frame_changed(
+    frame: tuple[Any, ...], last_frame: Optional[tuple[Any, ...]]
+) -> bool:
+    """Whether a live stream has something new to show: a different engine
+    (replaced by a config change or reset), a new status, or simulated time
+    that moved on. A paused, finished or idle simulation otherwise had an
+    identical snapshot rebuilt and resent ten times a second per viewer; it
+    now gets the one-per-second heartbeat only. The engine is compared by
+    identity, and held, so a new one can never be mistaken for the old."""
+    return (
+        last_frame is None
+        or frame[0] is not last_frame[0]
+        or frame[1:] != last_frame[1:]
+    )
+
+
 @app.websocket("/ws/simulation/live")
 async def websocket_live_stream(websocket: WebSocket) -> None:
     await websocket.accept()
     session_key = websocket.cookies.get(LIVE_SESSION_COOKIE) or _DEFAULT_SESSION_KEY
     token = _live_session_var.set(_get_or_create_session(session_key))
-    last_status: Optional[str] = None
+    last_frame: Optional[tuple[Any, ...]] = None
     last_sent_time = 0.0
 
     try:
@@ -1467,17 +1492,12 @@ async def websocket_live_stream(websocket: WebSocket) -> None:
             engine = sim.get("engine")
             builder = sim.get("builder")
             if builder is not None and engine is not None:
-                current_status = engine.status.value.lower()
+                frame = (engine, engine.status, engine.clock.get_elapsed_time())
                 now = time.time()
-
-                if (
-                    current_status != "completed"
-                    or current_status != last_status
-                    or (now - last_sent_time >= 1.0)
-                ):
+                if _frame_changed(frame, last_frame) or now - last_sent_time >= 1.0:
                     snapshot = builder.build()
                     await websocket.send_json(snapshot)
-                    last_status = current_status
+                    last_frame = frame
                     last_sent_time = now
 
             # Sleep 100ms for 10Hz frequency
@@ -1571,7 +1591,7 @@ async def websocket_dual_stream(websocket: WebSocket) -> None:
     await websocket.accept()
     session_key = websocket.cookies.get(LIVE_SESSION_COOKIE) or _DEFAULT_SESSION_KEY
     token = _live_session_var.set(_get_or_create_session(session_key))
-    last_status: Optional[str] = None
+    last_frame: Optional[tuple[Any, ...]] = None
     last_sent_time = 0.0
 
     try:
@@ -1581,17 +1601,17 @@ async def websocket_dual_stream(websocket: WebSocket) -> None:
 
             # Re-fetch orchestrator each frame so config changes are reflected
             orch = get_or_create_dual_orchestrator()
-            current_status = orch.get_status()
+            frame = (
+                orch,
+                orch.get_status(),
+                orch.clock_signal.get_elapsed_time(),
+                orch.clock_roundabout.get_elapsed_time(),
+            )
             now = time.time()
-
-            if (
-                current_status != "completed"
-                or current_status != last_status
-                or (now - last_sent_time >= 1.0)
-            ):
+            if _frame_changed(frame, last_frame) or now - last_sent_time >= 1.0:
                 snapshot = orch.get_dual_snapshot()
                 await websocket.send_json(snapshot)
-                last_status = current_status
+                last_frame = frame
                 last_sent_time = now
 
             # Sleep 100ms for 10Hz frequency
@@ -1718,17 +1738,55 @@ class RepeatabilityValidationRequest(BaseModel):
     randomSeed: int = Field(default=12345, ge=0)
 
 
-@app.post("/api/v1/study/sweeps/run", dependencies=[Depends(require_api_key)])
-def run_sweep_endpoint(payload: VolumeSweepRequest | None = None) -> Dict[str, Any]:
-    """Runs an automated traffic volume sweep comparing Signals vs. Roundabouts."""
-    req = payload or VolumeSweepRequest()
+def _run_sweep(
+    req: VolumeSweepRequest, progress: Optional[Progress] = None
+) -> Dict[str, Any]:
     return run_volume_sweep_experiment(
         arrival_rates=req.arrivalRates,
         duration=req.duration,
         random_seed=req.randomSeed,
         custom_config=req.customConfig,
         name=req.name,
+        progress=progress,
     )
+
+
+@app.post("/api/v1/study/sweeps/run", dependencies=[Depends(require_api_key)])
+def run_sweep_endpoint(payload: VolumeSweepRequest | None = None) -> Dict[str, Any]:
+    """Runs an automated traffic volume sweep comparing Signals vs. Roundabouts."""
+    return _run_sweep(payload or VolumeSweepRequest())
+
+
+# ── Study jobs ────────────────────────────────────────────────────────────
+# The same studies as the endpoints above, started in the background: the
+# POST returns at once with a job id, and GET /api/v1/study/jobs/{id} reports
+# live progress and finally the result (study/jobs.py). The dashboards use
+# these; the synchronous endpoints remain for scripts and existing clients.
+
+
+def _start_job(kind: str, work: Any) -> Dict[str, Any]:
+    try:
+        return jobs.submit(kind, work).to_dict()
+    except TooManyJobsError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+
+
+@app.post(
+    "/api/v1/study/sweeps/jobs",
+    status_code=202,
+    dependencies=[Depends(require_api_key)],
+)
+def start_sweep_job(payload: VolumeSweepRequest | None = None) -> Dict[str, Any]:
+    req = payload or VolumeSweepRequest()
+    return _start_job("sweep", lambda progress: _run_sweep(req, progress))
+
+
+@app.get("/api/v1/study/jobs/{job_id}")
+def get_study_job(job_id: str) -> Dict[str, Any]:
+    job = jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Study job not found")
+    return job.to_dict()
 
 
 @app.get("/api/v1/study/sweeps")
@@ -2354,7 +2412,24 @@ def validate_monte_carlo_endpoint(
     payload: MonteCarloValidationRequest | None = None,
 ) -> Dict[str, Any]:
     """Runs multi-seed Monte Carlo statistical validation with confidence intervals."""
+    return _run_monte_carlo(payload or MonteCarloValidationRequest())
+
+
+@app.post(
+    "/api/v1/study/validate/monte-carlo/jobs",
+    status_code=202,
+    dependencies=[Depends(require_api_key)],
+)
+def start_monte_carlo_job(
+    payload: MonteCarloValidationRequest | None = None,
+) -> Dict[str, Any]:
     req = payload or MonteCarloValidationRequest()
+    return _start_job(
+        "monte-carlo", lambda progress: _run_monte_carlo(req, progress=progress)
+    )
+
+
+def _run_monte_carlo(req: MonteCarloValidationRequest, **extra: Any) -> Dict[str, Any]:
     if req.scenario is not None:
         # Compiled as the comparison view compiles it: the signal side's
         # timings in "controller", the roundabout's gap acceptance in
@@ -2368,12 +2443,14 @@ def validate_monte_carlo_endpoint(
             num_seeds=req.numSeeds,
             duration=float(config["simulation"]["duration"]),
             confidence_level=req.confidenceLevel,
+            **extra,
         )
     return run_statistical_validation(
         config=req.customConfig,
         num_seeds=req.numSeeds,
         duration=req.duration,
         confidence_level=req.confidenceLevel,
+        **extra,
     )
 
 

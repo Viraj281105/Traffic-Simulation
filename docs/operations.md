@@ -83,9 +83,9 @@ Run and persist a comparative volume sweep:
 POST /api/v1/study/sweeps/run
 ```
 
-Optional JSON fields are `arrivalRates` (array of vehicles per second), `duration`, `randomSeed`, `name`, and `customConfig`. Without `arrivalRates`, the implementation uses `0.1` through `0.8` vehicles/second. Each rate runs signal and roundabout engines with the same seed and stores both runs plus a sweep session in SQLite.
+Optional JSON fields are `arrivalRates` (array of vehicles per second), `duration`, `randomSeed`, `name`, and `customConfig`. Without `arrivalRates`, the implementation uses eight tiers from 20 % to 160 % of the measured 1-lane capacity (`0.069` through `0.556` vehicles/second; `backend/src/study/calibration.py`). Each rate runs signal and roundabout engines with the same seed and stores both runs plus a sweep session in SQLite.
 
-Retrieve saved sweeps with `GET /api/v1/study/sweeps` and `GET /api/v1/study/sweeps/{sweepId}`. Retrieve historical runs with `GET /api/v1/study/history/runs`; optional query parameters are `limit`, `offset`, `intersection_type`, `seed`, and `batch_id`. A run detail includes `run` metadata and a `metricsTimeline`. Compare two saved runs with:
+Retrieve saved sweeps with `GET /api/v1/study/sweeps` (summaries: `id`, `name`, `created_at`) and `GET /api/v1/study/sweeps/{sweepId}` (the full configuration and results). Retrieve historical runs with `GET /api/v1/study/history/runs`; optional query parameters are `limit`, `offset`, `intersection_type`, `seed`, and `batch_id`. A run detail includes `run` metadata and a `metricsTimeline`. Compare two saved runs with:
 
 ```json
 POST /api/v1/study/history/runs/compare
@@ -123,6 +123,25 @@ python scripts/run_full_study.py
 ```
 
 Use `--output` and the other options shown by `--help` to control output paths and run sizes. The script is separate from the API and writes reports locally.
+
+### Background study jobs and progress
+
+The dashboards start studies as background jobs so the page gets progress while they run:
+
+- `POST /api/v1/study/sweeps/jobs` — same body as `/sweeps/run`.
+- `POST /api/v1/study/validate/monte-carlo/jobs` — same body as `/validate/monte-carlo`.
+
+Both return `202` with `{jobId, kind, status, progress, result, error}`. Poll `GET /api/v1/study/jobs/{jobId}` (about once a second) until `status` is `completed` (then `result` is exactly what the synchronous endpoint returns) or `failed` (`error`). `progress` is the backend's own count: `phase` (`queued`, `simulating`, `saving`, `done`), `total` and `completed` simulations, `fraction` (ticks done / ticks total), the simulations `running` now (e.g. `"Tier 3/8 · Roundabout"`), `elapsedSeconds`, and `etaSeconds` (null until at least 20 % is done). At most 4 studies run at once (`429` beyond that); jobs live in server memory, so a restart drops unfinished ones, and finished jobs are kept for an hour.
+
+Every tier/seed × geometry is an independent simulation (each engine has its own seeded random stream), so studies run them in parallel in worker processes (`backend/src/study/runner.py`) and aggregate in the original order: results are identical to running them one after another. `STUDY_WORKERS` sets the number of worker processes: unset = one per CPU up to 8 (a 2-vCPU t3.micro gets 2; each worker is ~40 MB); `N` = exactly N (1–32); `0` = run inline in the API process (the test suite uses this). Because simulations no longer run inside the API process, the API and live streams stay responsive while a study runs.
+
+### Deterministic caches in the engine
+
+Three caches speed up the per-tick hot path without changing any result (`tests/roads/test_lane_lookup_equivalence.py` compares whole trajectories against the original implementations):
+
+- `Lane` precomputes per-segment vectors, lengths and headings once (lane geometry never changes after construction) and finds a distance's segment by bisection.
+- `Vehicle.coords` / `heading` are memoised on `(lane, position)` — they are pure functions of those two values, and any change to either recomputes.
+- Lane-id parsing in `router.py` (circulating-lane index, lower-cased id) is cached per lane id with `functools.lru_cache`.
 
 ## Replays and Database
 

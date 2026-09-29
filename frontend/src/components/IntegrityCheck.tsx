@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { LoaderMark } from "./ui/Loader";
 import { API_BASE_URL } from "../config";
 
 /** Result of POST /api/v1/study/validate/repeatability
@@ -85,7 +86,13 @@ export function IntegrityCheck() {
           onClick={run}
           disabled={state.kind === "running"}
         >
-          {state.kind === "running" ? "Checking…" : "Run integrity check"}
+          {state.kind === "running" ? (
+            <>
+              <LoaderMark size={14} /> Checking…
+            </>
+          ) : (
+            "Run integrity check"
+          )}
         </button>
       </div>
 

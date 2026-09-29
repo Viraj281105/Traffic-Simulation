@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 from src.core.limits import demand_vehicle_limit
 from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
 from src.study.calibration import calibration_status, demand_vph, study_warmup
+from src.study.runner import GEOMETRY_TITLES, Progress, SimTask, run_simulation_tasks
 
 # Confidence levels the study accepts. The significance threshold is always
 # alpha = 1 - confidence, so a confidence interval and the significance flag
@@ -236,6 +237,7 @@ def run_statistical_validation(
     duration: float = 30.0,
     time_step: float = 0.1,
     confidence_level: float = DEFAULT_CONFIDENCE_LEVEL,
+    progress: Optional[Progress] = None,
 ) -> Dict[str, Any]:
     """
     Executes a multi-seed Monte Carlo experiment across N randomized seeds to compute
@@ -285,6 +287,7 @@ def run_statistical_validation(
 
     seed_runs: List[Dict[str, Any]] = []
 
+    run_configs: List[Dict[str, Any]] = []
     for seed in seeds:
         run_cfg = json.loads(json.dumps(base_config))
         run_cfg.setdefault("simulation", {})
@@ -299,35 +302,28 @@ def run_statistical_validation(
             "totalVehicles",
             demand_vehicle_limit(float(run_traffic.get("arrivalRate", 0.5)), duration),
         )
+        run_configs.append(run_cfg)
 
-        orchestrator = DualSimulationOrchestrator(run_cfg)
-        steps = orchestrator.clock_signal.ticks_for_duration(duration)
+    # Every seed x geometry is an independent simulation (study/runner.py),
+    # run in parallel and returned in this order.
+    results = run_simulation_tasks(
+        [
+            SimTask(
+                config=run_cfg,
+                geometry=geometry,
+                duration=duration,
+                label=f"Seed {i + 1}/{num_seeds} · {GEOMETRY_TITLES[geometry]}",
+                cost=1.5 if geometry == "roundabout" else 1.0,
+            )
+            for i, run_cfg in enumerate(run_configs)
+            for geometry in ("signal", "roundabout")
+        ],
+        progress,
+    )
 
-        for _ in range(steps):
-            orchestrator.engine_signal.step()
-            orchestrator.engine_roundabout.step()
-
-        elapsed_sig = orchestrator.clock_signal.get_elapsed_time()
-        m_sig = orchestrator.collector_signal.get_metrics(
-            elapsed_sig,
-            orchestrator.engine_signal.pool.active_vehicles,
-            orchestrator.engine_signal.pool.exited_vehicles,
-            orchestrator.engine_signal.spawner.spawned_count
-            if orchestrator.engine_signal.spawner
-            else 0,
-            orchestrator.engine_signal.pool.collision_count,
-        )
-
-        elapsed_round = orchestrator.clock_roundabout.get_elapsed_time()
-        m_round = orchestrator.collector_roundabout.get_metrics(
-            elapsed_round,
-            orchestrator.engine_roundabout.pool.active_vehicles,
-            orchestrator.engine_roundabout.pool.exited_vehicles,
-            orchestrator.engine_roundabout.spawner.spawned_count
-            if orchestrator.engine_roundabout.spawner
-            else 0,
-            orchestrator.engine_roundabout.pool.collision_count,
-        )
+    for i, seed in enumerate(seeds):
+        m_sig = results[2 * i]["metrics"]
+        m_round = results[2 * i + 1]["metrics"]
 
         d_sig = m_sig.get("averageDelay", m_sig.get("averageWaitTime", 0.0))
         d_round = m_round.get("averageDelay", m_round.get("averageWaitTime", 0.0))

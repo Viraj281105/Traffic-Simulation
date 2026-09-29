@@ -396,6 +396,61 @@
 }
 
 /* ── Status states: loading, empty, success, warning, error, unavailable ─ */
+/* Live progress of a long-running study (ui/StudyProgress.tsx). */
+.study-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  color: var(--color-text-2);
+  font-size: 12.5px;
+}
+.study-progress__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.study-progress__title {
+  color: var(--color-text);
+  font-weight: 600;
+}
+.study-progress__count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.study-progress__bar {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-3);
+  overflow: hidden;
+}
+.study-progress__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-accent);
+  transition: width var(--dur-slow) var(--ease-out);
+}
+.study-progress__meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+  color: var(--color-text-3);
+}
+.study-progress__times {
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+  .study-progress__bar > span {
+    transition: none;
+  }
+}
+
 .uf-state {
   --state-tone: var(--color-text-3);
   --state-soft: var(--color-surface-2);

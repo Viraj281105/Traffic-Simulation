@@ -88,6 +88,28 @@ def _check_sat_overlap(
     return True
 
 
+def _audit_group(lane_id: str) -> str:
+    """The collision audit's "same street" key: pairs with equal keys are
+    parallel lanes of one street and are not audited against each other.
+
+    Roundabout connection lanes group by (origin, circulating lane index),
+    not origin alone: two conn_ lanes from the same origin but a different
+    lane index (e.g. conn_n_0_straight vs conn_n_1_left) are a real
+    cross-lane-index weave conflict — exactly what router.find_leader's
+    Layer 4 is responsible for catching — and must remain eligible for the
+    audit. Same origin *and* same lane index (regardless of turn intent) are
+    one continuous physical path (see Layer 1's same-lane-index following),
+    so those still group together.
+    """
+    lid = lane_id.lower()
+    if lid.startswith("conn_"):
+        origin = lid.split("_")[1][0] if "_" in lid else lid
+        return f"{origin}{_conn_lane_index(lid)}"
+    if lid and lid[0] in ("n", "s", "e", "w"):
+        return lid[0]
+    return lid
+
+
 class VehiclePool:
     """Manages active and exited vehicles, coordinating their movement and lifecycle."""
 
@@ -315,64 +337,37 @@ class VehiclePool:
         consecutive ticks is one collision event, counted once (on the tick
         the overlap begins), not once per tick the overlap persists.
         """
-        n = len(self.active_vehicles)
+        # What each pair test needs from one vehicle, computed once per audit
+        # rather than once per pair. Positions do not change during the
+        # audit; speeds do (the slower vehicle of a collision is stopped
+        # below), and are read live.
+        entries = [
+            (
+                v,
+                v.lane,
+                _audit_group(v.lane.lane_id),
+                {lane_obj.lane_id for lane_obj in v.route} if v.route else set(),
+                v.coords,
+            )
+            for v in self.active_vehicles
+            if v.lane is not None
+        ]
         still_colliding: Set[FrozenSet[str]] = set()
-        for i in range(n):
-            va = self.active_vehicles[i]
-            if va.lane is None:
-                continue
-
-            for j in range(i + 1, n):
-                vb = self.active_vehicles[j]
-                if vb.lane is None:
-                    continue
-
+        for i, (va, lane_a, group_a, va_lane_ids, (ax, ay)) in enumerate(entries):
+            for vb, lane_b, group_b, vb_lane_ids, (bx, by) in entries[i + 1 :]:
                 # Skip vehicles on the same lane — close following is normal
-                if va.lane is vb.lane:
+                if lane_a is lane_b:
                     continue
 
-                # Skip parallel lanes of the same street (starting with same direction prefix)
-                id_a = va.lane.lane_id.lower()
-                id_b = vb.lane.lane_id.lower()
-
-                def get_dir(lane_id: str) -> str:
-                    lid = lane_id.lower()
-                    if lid.startswith("conn_"):
-                        # Group by (origin, circulating lane index), not
-                        # origin alone: two conn_ lanes from the same
-                        # origin but different lane index (e.g.
-                        # conn_n_0_straight vs conn_n_1_left) are a real
-                        # cross-lane-index roundabout weave conflict —
-                        # exactly what router.find_leader's Layer 4 is
-                        # responsible for catching — and must remain
-                        # eligible for this audit, not be skipped as if
-                        # merely "parallel". Same origin *and* same lane
-                        # index (regardless of turn intent) genuinely are
-                        # one continuous physical path (see Layer 1's
-                        # same-lane-index following), so those still group
-                        # together and stay skipped here.
-                        origin = lid.split("_")[1][0] if "_" in lid else lid
-                        return f"{origin}{_conn_lane_index(lid)}"
-                    if lid and lid[0] in ("n", "s", "e", "w"):
-                        return lid[0]
-                    return lane_id
-
-                if get_dir(id_a) == get_dir(id_b):
+                # Skip parallel lanes of the same street (see _audit_group)
+                if group_a == group_b:
                     continue
 
                 # Skip vehicles that share any lane in their routes (same path)
-                va_lane_ids = (
-                    {lane_obj.lane_id for lane_obj in va.route} if va.route else set()
-                )
-                vb_lane_ids = (
-                    {lane_obj.lane_id for lane_obj in vb.route} if vb.route else set()
-                )
                 if va_lane_ids & vb_lane_ids:
                     continue
 
                 # Quick bounding radius check before running full SAT
-                ax, ay = va.coords
-                bx, by = vb.coords
                 dx = bx - ax
                 dy = by - ay
                 dist_sq = dx * dx + dy * dy
@@ -396,8 +391,8 @@ class VehiclePool:
                             "Collision detected: %s ↔ %s (lanes: %s ↔ %s)",
                             va.vehicle_id,
                             vb.vehicle_id,
-                            va.lane.lane_id,
-                            vb.lane.lane_id,
+                            lane_a.lane_id,
+                            lane_b.lane_id,
                         )
 
                     slower = va if va.speed <= vb.speed else vb

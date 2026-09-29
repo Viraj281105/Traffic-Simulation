@@ -5,9 +5,6 @@
 
 // ── Layout toggle ──────────────────────────────────────────────────────────
 
-/** Which intersection layout to render on the canvas. */
-export type LayoutType = "signal" | "roundabout";
-
 // ── Vehicle state ──────────────────────────────────────────────────────────
 
 /**

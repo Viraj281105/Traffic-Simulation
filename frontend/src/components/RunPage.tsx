@@ -631,9 +631,13 @@ function Reproduction({ record }: { record: RunRecord }) {
           onClick={run}
           disabled={state.kind === "running"}
         >
-          {state.kind === "running"
-            ? "Re-running…"
-            : "Verify reproduction (headless)"}
+          {state.kind === "running" ? (
+            <>
+              <LoaderMark size={14} /> Re-running…
+            </>
+          ) : (
+            "Verify reproduction (headless)"
+          )}
         </button>
         <span className="run-hint">
           Re-runs the stored configuration and seed on the server up to the

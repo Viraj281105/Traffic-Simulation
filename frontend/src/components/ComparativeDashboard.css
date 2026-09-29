@@ -1336,55 +1336,6 @@
   font-size: 10px;
 }
 
-.score-dials-row {
-  display: flex;
-  justify-content: space-around;
-  padding: 8px 0;
-}
-
-.score-dial-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.score-badge {
-  padding: 6px 14px;
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: baseline;
-  gap: 2px;
-}
-
-.score-badge.signal {
-  background: color-mix(in srgb, var(--series-signal) 15%, transparent);
-  border: 1px solid color-mix(in srgb, var(--series-signal) 40%, transparent);
-  color: var(--series-signal);
-}
-
-.score-badge.roundabout {
-  background: color-mix(in srgb, var(--series-roundabout) 15%, transparent);
-  border: 1px solid
-    color-mix(in srgb, var(--series-roundabout) 40%, transparent);
-  color: var(--series-roundabout);
-}
-
-.score-num {
-  font-size: 20px;
-  font-weight: 900;
-}
-
-.score-max {
-  font-size: 10px;
-  opacity: 0.7;
-}
-
-.score-label {
-  font-size: 10px;
-  color: var(--text-secondary);
-}
-
 /* ── Full Comparison Modal Dialog ────────────────────────────────────────── */
 .comparative-dashboard {
   max-width: 1100px;

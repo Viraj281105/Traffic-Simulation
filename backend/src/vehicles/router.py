@@ -14,6 +14,7 @@ Safety layers (checked in order):
 from __future__ import annotations
 
 import math
+from functools import lru_cache
 from typing import Any, Dict, List, Optional, Tuple
 
 from src.controllers.virtual_obstacle import VirtualObstacle
@@ -30,12 +31,14 @@ _SENSOR_RANGE: float = 30.0  # meters — max 360° sensor reach
 _LOOK_AHEAD_LANES: int = 3  # how many route lanes to scan forward
 
 
+@lru_cache(maxsize=4096)
 def _conn_lane_index(lane_id: str) -> Optional[int]:
     """Extract the circulating lane index from a roundabout connection lane id.
 
     Connection lane ids follow ``conn_{origin}_{lane_idx}_{turn}`` (see
     RoadNetwork._get_or_create_connection_lane). Returns ``None`` if the id
-    doesn't match that shape.
+    doesn't match that shape. Cached: it runs for every vehicle pair on the
+    hot path, and a lane id always parses the same way.
     """
     parts = lane_id.split("_")
     if len(parts) >= 3:
@@ -44,6 +47,16 @@ def _conn_lane_index(lane_id: str) -> Optional[int]:
         except ValueError:
             return None
     return None
+
+
+@lru_cache(maxsize=4096)
+def _proximity_lane_key(lane_id: str) -> Tuple[str, bool, Optional[int]]:
+    """(lower-cased id, is a connection lane, circulating lane index) — what
+    the emergency proximity check (Layer 4) tests about a lane, cached per id
+    because that check runs for every pair of vehicles every tick."""
+    lower = lane_id.lower()
+    is_conn = lower.startswith("conn")
+    return lower, is_conn, _conn_lane_index(lower) if is_conn else None
 
 
 # ---------------------------------------------------------------------------
@@ -158,9 +171,8 @@ def find_leader(
             if same_index_radius is None:
                 same_index_radius = avg_radius
 
-            try:
-                my_lane_idx = int(lane.lane_id.split("_")[2])
-            except (ValueError, IndexError):
+            my_lane_idx = _conn_lane_index(lane.lane_id)
+            if my_lane_idx is None:
                 my_lane_idx = 0
 
             if lane is vehicle.lane:
@@ -180,12 +192,9 @@ def find_leader(
                 ):
                     continue
 
-                try:
-                    v_lane_idx = int(v.lane.lane_id.split("_")[2])
-                    if v_lane_idx != my_lane_idx:
-                        continue
-                except (ValueError, IndexError):
-                    pass
+                v_lane_idx = _conn_lane_index(v.lane.lane_id)
+                if v_lane_idx is not None and v_lane_idx != my_lane_idx:
+                    continue
 
                 if v.lane is vehicle.lane:
                     # Exact arc-length distance: vehicle.position/v.position
@@ -254,24 +263,11 @@ def find_leader(
 
     # ── Layer 3: Conflict zone reservation check ───────────────────────
     if conflict_manager is not None:
-        # Build info list for all vehicles currently on connection lanes
-        conn_vehicles_info: List[Dict[str, Any]] = []
-        if active_vehicles:
-            for av in active_vehicles:
-                if av is vehicle:
-                    continue
-                if av.lane is not None and av.lane.lane_id.startswith("conn"):
-                    conn_vehicles_info.append(
-                        {
-                            "vehicle_id": av.vehicle_id,
-                            "turn_intent": getattr(
-                                av, "turn_intent", TurnIntent.STRAIGHT
-                            ),
-                            "connection_lane_id": av.lane.lane_id,
-                            "position_on_lane": av.position,
-                            "speed": av.speed,
-                        }
-                    )
+        # Info on every other vehicle currently on a connection lane. Built
+        # only when a connection lane ahead actually needs it (most calls
+        # never reach one), then shared by every lane checked below; nothing
+        # between here and there moves a vehicle.
+        conn_vehicles_info: Optional[List[Dict[str, Any]]] = None
 
         # Check each connection lane in the vehicle's upcoming route
         acc_dist_for_conflict = -vehicle.position
@@ -294,6 +290,23 @@ def find_leader(
                     getattr(vehicle, "turn_intent", TurnIntent.STRAIGHT)
                     or TurnIntent.STRAIGHT
                 )
+
+                if conn_vehicles_info is None:
+                    conn_vehicles_info = [
+                        {
+                            "vehicle_id": av.vehicle_id,
+                            "turn_intent": getattr(
+                                av, "turn_intent", TurnIntent.STRAIGHT
+                            ),
+                            "connection_lane_id": av.lane.lane_id,
+                            "position_on_lane": av.position,
+                            "speed": av.speed,
+                        }
+                        for av in active_vehicles or []
+                        if av is not vehicle
+                        and av.lane is not None
+                        and av.lane.lane_id.startswith("conn")
+                    ]
 
                 block_dist = conflict_manager.get_conflict_distance(
                     vehicle_id=vehicle.vehicle_id,
@@ -335,15 +348,18 @@ def find_leader(
         heading_rad = math.radians(vehicle.heading)
         fwd_x = math.sin(heading_rad)
         fwd_y = math.cos(heading_rad)
+        # The vehicle's own side of the lane tests below, worked out once
+        # rather than once per other vehicle.
+        is_roundabout = getattr(network, "is_roundabout", False)
+        id_a, a_is_conn, idx_a = _proximity_lane_key(vehicle.lane.lane_id)
 
         for other in active_vehicles:
             if other is vehicle or other.lane is None:
                 continue
 
             # Skip parallel lanes of the same street (non-connection lanes starting with same direction prefix)
-            id_a = vehicle.lane.lane_id.lower()
-            id_b = other.lane.lane_id.lower()
-            if getattr(network, "is_roundabout", False):
+            id_b, b_is_conn, idx_b = _proximity_lane_key(other.lane.lane_id)
+            if is_roundabout:
                 # In a roundabout, vehicles circulating in the SAME lane
                 # index are already tracked by the angular arc-length logic
                 # in Layer 1 above, so skip them here to avoid double
@@ -354,13 +370,11 @@ def find_leader(
                 # (its straight-chord conflict points don't apply to curved
                 # circulating arcs — see vehicles/pool.py) — let this
                 # Euclidean proximity scan catch those cross-lane conflicts.
-                if id_a.startswith("conn") and id_b.startswith("conn"):
-                    idx_a = _conn_lane_index(id_a)
-                    idx_b = _conn_lane_index(id_b)
+                if a_is_conn and b_is_conn:
                     if idx_a is not None and idx_a == idx_b:
                         continue
             else:
-                if not id_a.startswith("conn") and not id_b.startswith("conn"):
+                if not a_is_conn and not b_is_conn:
                     if id_a[0] in ("n", "s", "e", "w") and id_a[:2] == id_b[:2]:
                         continue
 

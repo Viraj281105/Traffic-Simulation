@@ -1,5 +1,12 @@
 import { ChartColumn, Table } from "lucide-react";
-import React, { useEffect, useRef, useState } from "react";
+import React, {
+  Suspense,
+  lazy,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+} from "react";
 import type { DualSnapshot, LiveSnapshot } from "../types/simulation";
 import type { ConnectionStatus } from "../services/websocket";
 import { WeightedScoringPanel } from "./WeightedScoringPanel";
@@ -15,13 +22,53 @@ import { ComparisonSections } from "./MetricSections";
 import { ConnectionBadge } from "./MetricsSidebar";
 import { useLiveComparisonHistory } from "../hooks/useLiveComparisonHistory";
 import { VehiclesFlowVisualizer } from "./analytics/VehiclesFlowVisualizer";
-import { PerformanceCharts } from "./analytics/PerformanceCharts";
 import { TrafficFlowVisualizer } from "./analytics/TrafficFlowVisualizer";
-import { SafetyTimelineVisualizer } from "./analytics/SafetyTimelineVisualizer";
 import { CapacityDemandVisualizer } from "./analytics/CapacityDemandVisualizer";
 import { DistributionDiagnosticsVisualizer } from "./analytics/DistributionDiagnosticsVisualizer";
 import "./ComparativeDashboard.css";
 import { CloseButton } from "./ui/CloseButton";
+import { UrbanFlowLoader } from "./ui/Loader";
+
+// The two Recharts-based panels load on first use: they sit behind the
+// "specialist live charts" toggle and the analytics modal, and Recharts is
+// the largest dependency in the app, so the guided view no longer waits on it.
+const LazyPerformanceCharts = lazy(() =>
+  import("./analytics/PerformanceCharts").then((m) => ({
+    default: m.PerformanceCharts,
+  })),
+);
+const LazySafetyTimeline = lazy(() =>
+  import("./analytics/SafetyTimelineVisualizer").then((m) => ({
+    default: m.SafetyTimelineVisualizer,
+  })),
+);
+const chartsLoading = (
+  <UrbanFlowLoader
+    label="Loading charts…"
+    size={28}
+    className="uf-state--compact"
+  />
+);
+
+function PerformanceCharts(
+  props: ComponentProps<typeof LazyPerformanceCharts>,
+) {
+  return (
+    <Suspense fallback={chartsLoading}>
+      <LazyPerformanceCharts {...props} />
+    </Suspense>
+  );
+}
+
+function SafetyTimelineVisualizer(
+  props: ComponentProps<typeof LazySafetyTimeline>,
+) {
+  return (
+    <Suspense fallback={chartsLoading}>
+      <LazySafetyTimeline {...props} />
+    </Suspense>
+  );
+}
 
 function contexts(snapshot: DualSnapshot | null): {
   signal: MetricContext;

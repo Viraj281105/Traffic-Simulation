@@ -10,7 +10,6 @@ any time.  Priority rules mirror real-world right-hand-traffic conventions:
 
 from __future__ import annotations
 
-import math
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from src.core.enums import TurnIntent
@@ -19,30 +18,6 @@ from src.roads.lane import Lane
 # ---------------------------------------------------------------------------
 # Geometric helper
 # ---------------------------------------------------------------------------
-
-
-def _segment_intersection(
-    p0: Tuple[float, float],
-    p1: Tuple[float, float],
-    p2: Tuple[float, float],
-    p3: Tuple[float, float],
-) -> Optional[Tuple[float, float]]:
-    """Return the intersection point of segments p0→p1 and p2→p3, or *None*."""
-    s1_x = p1[0] - p0[0]
-    s1_y = p1[1] - p0[1]
-    s2_x = p3[0] - p2[0]
-    s2_y = p3[1] - p2[1]
-
-    denom = -s2_x * s1_y + s1_x * s2_y
-    if abs(denom) < 1e-9:
-        return None
-
-    s = (-s1_y * (p0[0] - p2[0]) + s1_x * (p0[1] - p2[1])) / denom
-    t = (s2_x * (p0[1] - p2[1]) - s2_y * (p0[0] - p2[0])) / denom
-
-    if 0.0 <= s <= 1.0 and 0.0 <= t <= 1.0:
-        return (p0[0] + t * s1_x, p0[1] + t * s1_y)
-    return None
 
 
 def _shares_entry_lane(lane_id_a: str, lane_id_b: str) -> bool:
@@ -104,13 +79,6 @@ def _closest_approach(
                 best_sq = gap_sq
                 best = (da, db, (ax + bx) / 2.0, (ay + by) / 2.0)
     return best
-
-
-def _distance_along_lane(lane: Lane, point: Tuple[float, float]) -> float:
-    """Return the distance along *lane* from its start to *point*."""
-    dx = point[0] - lane.start_coords[0]
-    dy = point[1] - lane.start_coords[1]
-    return math.sqrt(dx * dx + dy * dy)
 
 
 # ---------------------------------------------------------------------------

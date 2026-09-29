@@ -11,8 +11,8 @@ from src.database.dao import (
     SweepSessionDAO,
 )
 from src.database.db import DB_PATH, get_db_connection, init_db  # noqa: F401
-from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
 from src.study.calibration import calibration_status, study_warmup, sweep_rates
+from src.study.runner import GEOMETRY_TITLES, Progress, SimTask, run_simulation_tasks
 from src.study.tolerances import delays_are_tied, tie_tolerance
 
 logger = logging.getLogger(__name__)
@@ -55,6 +55,7 @@ def run_volume_sweep_experiment(
     random_seed: int = 42,
     custom_config: Optional[Dict[str, Any]] = None,
     name: str = "Comparative Volume Sweep",
+    progress: Optional[Progress] = None,
 ) -> Dict[str, Any]:
     """
     Executes an automated multi-volume parameter sweep comparing Fixed-Time Signals
@@ -137,49 +138,45 @@ def run_volume_sweep_experiment(
 
     used_rate_labels: set[str] = set()
 
+    step_configs: List[Dict[str, Any]] = []
+    for rate in rates:
+        step_config = json.loads(json.dumps(base_config))
+        step_config["traffic"]["arrivalRate"] = rate
+        # Size the vehicle limit to this tier (unless the caller set one)
+        # so the default cap cannot silently truncate high-demand tiers.
+        step_config["traffic"].setdefault(
+            "totalVehicles", demand_vehicle_limit(rate, duration)
+        )
+        step_config["simulation"]["randomSeed"] = random_seed
+        step_configs.append(step_config)
+
+    # Every tier x geometry is an independent simulation (study/runner.py);
+    # they run in parallel and come back in this order. Busier tiers, and
+    # the roundabout, take longest, so they are started first.
+    tasks = [
+        SimTask(
+            config=step_config,
+            geometry=geometry,
+            duration=duration,
+            label=f"Tier {i + 1}/{len(rates)} · {GEOMETRY_TITLES[geometry]}",
+            cost=rate * (1.5 if geometry == "roundabout" else 1.0),
+        )
+        for i, (rate, step_config) in enumerate(zip(rates, step_configs))
+        for geometry in ("signal", "roundabout")
+    ]
+    results = run_simulation_tasks(tasks, progress)
+    if progress is not None:
+        progress.set_phase("saving")
+
     with get_db_connection() as conn:
         for rate_index, rate in enumerate(rates):
-            step_config = json.loads(json.dumps(base_config))
-            step_config["traffic"]["arrivalRate"] = rate
-            # Size the vehicle limit to this tier (unless the caller set one)
-            # so the default cap cannot silently truncate high-demand tiers.
-            step_config["traffic"].setdefault(
-                "totalVehicles", demand_vehicle_limit(rate, duration)
-            )
-            step_config["simulation"]["randomSeed"] = random_seed
-
-            orchestrator = DualSimulationOrchestrator(step_config)
-            # Counted with the engines' own clock, so a configured timeStep
-            # (see DualSimulationOrchestrator) runs the same simulated time.
-            steps_to_run = orchestrator.clock_signal.ticks_for_duration(duration)
-
-            # Fast headless simulation execution
-            for _ in range(steps_to_run):
-                orchestrator.engine_signal.step()
-                orchestrator.engine_roundabout.step()
-
-            # Collect metrics
-            elapsed_sig = orchestrator.clock_signal.get_elapsed_time()
-            sig_metrics = orchestrator.collector_signal.get_metrics(
-                elapsed_sig,
-                orchestrator.engine_signal.pool.active_vehicles,
-                orchestrator.engine_signal.pool.exited_vehicles,
-                orchestrator.engine_signal.spawner.spawned_count
-                if orchestrator.engine_signal.spawner
-                else 0,
-                orchestrator.engine_signal.pool.collision_count,
-            )
-
-            elapsed_round = orchestrator.clock_roundabout.get_elapsed_time()
-            round_metrics = orchestrator.collector_roundabout.get_metrics(
-                elapsed_round,
-                orchestrator.engine_roundabout.pool.active_vehicles,
-                orchestrator.engine_roundabout.pool.exited_vehicles,
-                orchestrator.engine_roundabout.spawner.spawned_count
-                if orchestrator.engine_roundabout.spawner
-                else 0,
-                orchestrator.engine_roundabout.pool.collision_count,
-            )
+            sig = results[2 * rate_index]
+            rnd = results[2 * rate_index + 1]
+            sig_metrics = sig["metrics"]
+            round_metrics = rnd["metrics"]
+            elapsed_sig = sig["elapsed"]
+            elapsed_round = rnd["elapsed"]
+            steps_to_run = sig["steps"]
 
             sig_delay = round(
                 sig_metrics.get(
@@ -254,21 +251,21 @@ def run_volume_sweep_experiment(
             # controller settings it injects), so the run can be reproduced
             # on its own. Timing is read from the engines, not the request:
             # the orchestrator's clocks step at their own fixed time step.
-            sig_config = json.loads(json.dumps(orchestrator.config_signal))
-            round_config = json.loads(json.dumps(orchestrator.config_roundabout))
+            sig_config = sig["config"]
+            round_config = rnd["config"]
             sig_provenance = build_run_provenance(
                 config_source="engine",
                 run_mode="single",
-                time_step=orchestrator.clock_signal.time_step,
-                duration=orchestrator.engine_signal.duration,
-                warmup_time=orchestrator.collector_signal.warmup_time,
+                time_step=sig["timeStep"],
+                duration=sig["engineDuration"],
+                warmup_time=sig["warmupTime"],
             )
             round_provenance = build_run_provenance(
                 config_source="engine",
                 run_mode="single",
-                time_step=orchestrator.clock_roundabout.time_step,
-                duration=orchestrator.engine_roundabout.duration,
-                warmup_time=orchestrator.collector_roundabout.warmup_time,
+                time_step=rnd["timeStep"],
+                duration=rnd["engineDuration"],
+                warmup_time=rnd["warmupTime"],
             )
 
             SimulationRunDAO.save(
@@ -284,8 +281,11 @@ def run_volume_sweep_experiment(
                 config=sig_config,
                 summary_metrics=sig_metrics,
                 provenance=sig_provenance,
+                commit=False,
             )
-            RunMetricsDAO.save(conn, sig_run_id, steps_to_run, sig_metrics)
+            RunMetricsDAO.save(
+                conn, sig_run_id, steps_to_run, sig_metrics, commit=False
+            )
 
             SimulationRunDAO.save(
                 conn,
@@ -300,8 +300,11 @@ def run_volume_sweep_experiment(
                 config=round_config,
                 summary_metrics=round_metrics,
                 provenance=round_provenance,
+                commit=False,
             )
-            RunMetricsDAO.save(conn, round_run_id, steps_to_run, round_metrics)
+            RunMetricsDAO.save(
+                conn, round_run_id, rnd["steps"], round_metrics, commit=False
+            )
 
             # Symmetric percentage deltas (descriptive; positive = roundabout higher)
             delay_delta_pct = (
@@ -439,8 +442,10 @@ def run_volume_sweep_experiment(
             "runs": runs_data,
         }
 
-        # Persist session in DB
-        SweepSessionDAO.save(conn, session_id, name, base_config, sweep_result)
+        # Persist the session; the whole sweep is one transaction.
+        SweepSessionDAO.save(
+            conn, session_id, name, base_config, sweep_result, commit=False
+        )
         conn.commit()
 
     return sweep_result

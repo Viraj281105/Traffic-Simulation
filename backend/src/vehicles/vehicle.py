@@ -74,19 +74,43 @@ class Vehicle:
         # Used by stop-count hysteresis in metrics/definitions/stop_count.py
         self._hysteresis_stopped: bool = self.speed < self._wait_threshold
 
+    # Position and heading are pure functions of (lane, position) -- a lane's
+    # geometry never changes -- yet every vehicle reads every other vehicle's
+    # pose several times a tick while each pose changes only once. They are
+    # memoised on exactly that key, so a changed lane or position (however it
+    # was set) always recomputes.
+    _pose_lane: Optional[Lane] = None
+    _pose_position: float = math.nan
+    _pose_coords: Tuple[float, float] = (0.0, 0.0)
+    _heading_lane: Optional[Lane] = None
+    _heading_position: float = math.nan
+    _heading_value: float = 0.0
+
     @property
     def coords(self) -> Tuple[float, float]:
-        if self.lane is None:
+        lane = self.lane
+        if lane is None:
             return (0.0, 0.0)
-        return self.lane.get_point_at_distance(self.position)
+        position = self.position
+        if lane is not self._pose_lane or position != self._pose_position:
+            self._pose_coords = lane.get_point_at_distance(position)
+            self._pose_lane = lane
+            self._pose_position = position
+        return self._pose_coords
 
     @property
     def heading(self) -> float:
-        if self.lane is None:
+        lane = self.lane
+        if lane is None:
             return 0.0
-        if hasattr(self.lane, "get_heading_at_distance"):
-            return self.lane.get_heading_at_distance(self.position)
-        return self.lane.heading
+        if not hasattr(lane, "get_heading_at_distance"):
+            return lane.heading
+        position = self.position
+        if lane is not self._heading_lane or position != self._heading_position:
+            self._heading_value = lane.get_heading_at_distance(position)
+            self._heading_lane = lane
+            self._heading_position = position
+        return self._heading_value
 
     @property
     def lane_id(self) -> str:

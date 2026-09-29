@@ -1,4 +1,12 @@
-import { useState, useEffect, useId, useLayoutEffect, useRef } from "react";
+import {
+  Suspense,
+  lazy,
+  useState,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import type { ReactNode } from "react";
 import { useWebSocketSnapshot } from "./hooks/useWebSocketSnapshot";
 import { useSimulationPolling } from "./hooks/useSimulationPolling";
@@ -10,12 +18,8 @@ import {
   ComparisonPanel,
 } from "./components/ComparativeDashboard";
 import { PlaybackControls } from "./components/PlaybackControls";
-import { HistoryDashboard, SavedReplay } from "./components/HistoryDashboard";
-import { VolumeAnalysisDashboard } from "./components/VolumeAnalysisDashboard";
-import { ValidationDashboard } from "./components/ValidationDashboard";
+import type { SavedReplay } from "./components/HistoryDashboard";
 import { ConfigurationSidebar } from "./components/ConfigurationSidebar";
-import { RunPage } from "./components/RunPage";
-import { ComparePage } from "./components/ComparePage";
 import { ResearchHub } from "./components/ResearchHub";
 import { ScenarioSetup } from "./components/guided/ScenarioSetup";
 import { LiveGuide } from "./components/guided/LiveGuide";
@@ -55,6 +59,7 @@ import { UrbanFlowLockup } from "./components/ui/UrbanFlowLogo";
 import { PageTransition } from "./components/ui/PageTransition";
 import { StatusState } from "./components/ui/StatusState";
 import { useNavIndicator } from "./components/ui/useNavIndicator";
+import { UrbanFlowLoader } from "./components/ui/Loader";
 import type { SimulationConfigValues } from "./types/config";
 import { DEFAULT_CONFIG_VALUES, dashboardPayload } from "./types/config";
 import { saveReplay, updateSimulationConfig } from "./services/api";
@@ -73,6 +78,32 @@ import {
   type RoutedView,
 } from "./routing";
 import "./App.css";
+
+// Views outside the guided comparison load when first opened (the route
+// loader already covers the switch), keeping them and Recharts out of the
+// dashboard's first download.
+const HistoryDashboard = lazy(() =>
+  import("./components/HistoryDashboard").then((m) => ({
+    default: m.HistoryDashboard,
+  })),
+);
+const RunPage = lazy(() =>
+  import("./components/RunPage").then((m) => ({ default: m.RunPage })),
+);
+const ComparePage = lazy(() =>
+  import("./components/ComparePage").then((m) => ({ default: m.ComparePage })),
+);
+const VolumeAnalysisDashboard = lazy(() =>
+  import("./components/VolumeAnalysisDashboard").then((m) => ({
+    default: m.VolumeAnalysisDashboard,
+  })),
+);
+const ValidationDashboard = lazy(() =>
+  import("./components/ValidationDashboard").then((m) => ({
+    default: m.ValidationDashboard,
+  })),
+);
+const viewLoading = <UrbanFlowLoader label="Loading…" />;
 
 type ViewMode = RoutedView | "single";
 
@@ -949,17 +980,19 @@ function Dashboard({
           transitionKey={pageKey}
           className="app-main full-screen page-scroll"
         >
-          {page?.kind === "run" ? (
-            <RunPage
-              key={page.runId}
-              runId={page.runId}
-              onOpenInSimulator={handleReplay}
-            />
-          ) : page?.kind === "compare" ? (
-            <ComparePage />
-          ) : (
-            <HistoryDashboard onReplay={handleReplay} />
-          )}
+          <Suspense fallback={viewLoading}>
+            {page?.kind === "run" ? (
+              <RunPage
+                key={page.runId}
+                runId={page.runId}
+                onOpenInSimulator={handleReplay}
+              />
+            ) : page?.kind === "compare" ? (
+              <ComparePage />
+            ) : (
+              <HistoryDashboard onReplay={handleReplay} />
+            )}
+          </Suspense>
         </PageTransition>
       ) : viewMode === "research" ? (
         <PageTransition
@@ -973,14 +1006,18 @@ function Dashboard({
           transitionKey={pageKey}
           className="app-main full-screen page-scroll"
         >
-          <VolumeAnalysisDashboard />
+          <Suspense fallback={viewLoading}>
+            <VolumeAnalysisDashboard />
+          </Suspense>
         </PageTransition>
       ) : viewMode === "validation" ? (
         <PageTransition
           transitionKey={pageKey}
           className="app-main full-screen page-scroll"
         >
-          <ValidationDashboard />
+          <Suspense fallback={viewLoading}>
+            <ValidationDashboard />
+          </Suspense>
         </PageTransition>
       ) : (
         <PageTransition transitionKey={pageKey} className="app-main">

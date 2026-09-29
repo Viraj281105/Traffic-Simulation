@@ -79,16 +79,23 @@ export default defineConfig({
         app: resolve(__dirname, "app.html"),
       },
       output: {
-        manualChunks(id) {
-          if (id.includes("node_modules/recharts")) {
-            return "charts";
-          }
-          if (
-            id.includes("node_modules/react/") ||
-            id.includes("node_modules/react-dom/")
-          ) {
-            return "vendor";
-          }
+        // Rolldown chunk groups. React is claimed first (higher priority):
+        // with the old manualChunks function Recharts' group pulled React in
+        // as a dependency, so the React core lived in the charts chunk and
+        // every page had to download Recharts to start.
+        codeSplitting: {
+          groups: [
+            {
+              name: "vendor",
+              test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/,
+              priority: 2,
+            },
+            {
+              name: "charts",
+              test: /node_modules[\\/]recharts[\\/]/,
+              priority: 1,
+            },
+          ],
         },
       },
     },

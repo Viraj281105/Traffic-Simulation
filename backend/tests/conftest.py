@@ -80,6 +80,17 @@ def stop_engines_left_running() -> Iterator[None]:
             pass
 
 
+@pytest.fixture(autouse=True)
+def inline_study_runs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Run study simulations inline (study/runner.py, STUDY_WORKERS=0).
+
+    Many study tests monkeypatch the engine or orchestrator in this process,
+    which a worker process would never see. tests/study/test_runner.py
+    exercises the real process pool explicitly.
+    """
+    monkeypatch.setenv("STUDY_WORKERS", "0")
+
+
 TEST_USER_ID = "test-user-sub"
 TEST_USER_EMAIL = "test-user@example.com"
 

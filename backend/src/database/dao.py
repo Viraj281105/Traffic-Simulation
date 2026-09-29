@@ -93,6 +93,7 @@ class SimulationRunDAO:
         name: Optional[str] = None,
         user_id: Optional[str] = None,
         email: Optional[str] = None,
+        commit: bool = True,
     ) -> None:
         """Inserts or replaces a run.
 
@@ -100,6 +101,9 @@ class SimulationRunDAO:
         is optional so existing callers keep working; when omitted, the
         ``git_commit``/``provenance_json`` columns stay NULL ("not
         recorded") rather than being filled with a guessed value.
+
+        ``commit=False`` leaves the write in the caller's transaction, so a
+        study saving many runs commits once (see study/volume_sweep.py).
         """
         cursor = conn.cursor()
         git_commit = provenance.get("gitCommitHash") if provenance else None
@@ -138,7 +142,8 @@ class SimulationRunDAO:
                     email,
                 ),
             )
-            conn.commit()
+            if commit:
+                conn.commit()
         except Exception:
             conn.rollback()
             raise
@@ -334,7 +339,11 @@ class RunMetricsDAO:
 
     @staticmethod
     def save(
-        conn: sqlite3.Connection, run_id: str, tick: int, metrics: Dict[str, Any]
+        conn: sqlite3.Connection,
+        run_id: str,
+        tick: int,
+        metrics: Dict[str, Any],
+        commit: bool = True,
     ) -> None:
         cursor = conn.cursor()
         try:
@@ -342,7 +351,8 @@ class RunMetricsDAO:
                 "INSERT OR REPLACE INTO run_metrics (run_id, tick, metrics_json) VALUES (?, ?, ?);",
                 (run_id, tick, json.dumps(metrics)),
             )
-            conn.commit()
+            if commit:
+                conn.commit()
         except Exception:
             conn.rollback()
             raise
@@ -363,23 +373,6 @@ class RunMetricsDAO:
             for r in rows
         ]
 
-    @staticmethod
-    def get_latest_for_run(
-        conn: sqlite3.Connection, run_id: str
-    ) -> Optional[Dict[str, Any]]:
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT tick, metrics_json FROM run_metrics WHERE run_id = ? ORDER BY tick DESC LIMIT 1;",
-            (run_id,),
-        )
-        row = cursor.fetchone()
-        if row:
-            return {
-                "tick": row["tick"],
-                "metrics": cast(Dict[str, Any], json.loads(row["metrics_json"])),
-            }
-        return None
-
 
 class SweepSessionDAO:
     """DAO for managing traffic volume sweep sessions and comparative benchmark experiments."""
@@ -391,6 +384,7 @@ class SweepSessionDAO:
         name: str,
         config: Dict[str, Any],
         results: Dict[str, Any],
+        commit: bool = True,
     ) -> None:
         cursor = conn.cursor()
         try:
@@ -398,7 +392,8 @@ class SweepSessionDAO:
                 "INSERT OR REPLACE INTO sweep_sessions (id, name, config_json, results_json) VALUES (?, ?, ?, ?);",
                 (session_id, name, json.dumps(config), json.dumps(results)),
             )
-            conn.commit()
+            if commit:
+                conn.commit()
         except Exception:
             conn.rollback()
             raise
@@ -425,19 +420,15 @@ class SweepSessionDAO:
     def list_sessions(
         conn: sqlite3.Connection, limit: int = 50, offset: int = 0
     ) -> list[Dict[str, Any]]:
+        """One summary per saved sweep, newest first. The full config and
+        results (tens of kB per sweep) come from :meth:`get`; listing them
+        all made the picker download every sweep to show their names."""
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT id, name, config_json, results_json, created_at FROM sweep_sessions ORDER BY created_at DESC LIMIT ? OFFSET ?;",
+            "SELECT id, name, created_at FROM sweep_sessions ORDER BY created_at DESC LIMIT ? OFFSET ?;",
             (limit, offset),
         )
-        rows = cursor.fetchall()
         return [
-            {
-                "id": r["id"],
-                "name": r["name"],
-                "config": json.loads(r["config_json"]),
-                "results": json.loads(r["results_json"]),
-                "created_at": r["created_at"],
-            }
-            for r in rows
+            {"id": r["id"], "name": r["name"], "created_at": r["created_at"]}
+            for r in cursor.fetchall()
         ]

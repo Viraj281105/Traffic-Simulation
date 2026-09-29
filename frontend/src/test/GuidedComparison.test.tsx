@@ -13,11 +13,21 @@ import type { RunningMetrics } from "../types/simulation";
 const updateSimulationConfig = vi.fn();
 const runReliabilityCheck = vi.fn();
 
+// The reliability check runs as a backend study job; its result is what the
+// job resolves with.
+vi.mock("../services/studyJobs", () => ({
+  STUDY_JOB_ROUTES: { monteCarlo: "/mc/jobs", sweep: "/sweep/jobs" },
+  runStudyJob: (route: string, body: { scenario: unknown; numSeeds: number }) =>
+    runReliabilityCheck(
+      body.scenario,
+      body.numSeeds,
+      route,
+    ) as Promise<unknown>,
+}));
+
 vi.mock("../services/api", () => ({
   updateSimulationConfig: (payload: unknown) =>
     updateSimulationConfig(payload) as Promise<void>,
-  runReliabilityCheck: (scenario: unknown, n: number) =>
-    runReliabilityCheck(scenario, n) as Promise<unknown>,
   saveReplay: vi.fn().mockResolvedValue({ runId: "run_9" }),
   listReplays: vi.fn().mockResolvedValue([]),
   getRunRecord: vi.fn(),
@@ -352,10 +362,12 @@ describe("Guided comparison", () => {
         /drivers lost less time at the roundabout — and the difference held up across 5 traffic patterns/i,
       ),
     ).toBeInTheDocument();
-    const [scenario, patterns] = runReliabilityCheck.mock.calls[0] as [
+    const [scenario, patterns, route] = runReliabilityCheck.mock.calls[0] as [
       { arrivalRate: number; lanesNorth: number; duration: number },
       number,
+      string,
     ];
+    expect(route).toBe("/mc/jobs");
     expect(patterns).toBe(5);
     expect(scenario).toMatchObject({
       arrivalRate: 940 / 3600,

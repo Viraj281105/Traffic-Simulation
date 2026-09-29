@@ -144,17 +144,6 @@
   letter-spacing: 0.4px;
 }
 
-.validation-field input[type="number"] {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  color: var(--text-primary);
-  padding: 7px 10px;
-  font-size: 13px;
-  width: 100%;
-  box-sizing: border-box;
-  transition: all 0.2s;
-}
 .inline-param input {
   background: hsl(var(--background) / 0.9);
   border: 1px solid hsl(var(--border));
@@ -180,19 +169,6 @@
   gap: 3px;
 }
 
-.preset-label {
-  font-size: 11px;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.preset-tag {
-  background: color-mix(in srgb, var(--color-surface) 80%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-text) 8%, transparent);
-  color: var(--text-secondary);
-  border-radius: 6px;
-  padding: 3px 8px;
-}
 .inline-unit-wrap input {
   width: 50px;
 }
@@ -324,11 +300,6 @@
   color: hsl(var(--foreground));
 }
 
-.toggle-methodology-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-}
 .drawer-sub {
   font-size: 11px;
   color: hsl(var(--muted-foreground));
@@ -405,10 +376,6 @@
   border-radius: 4px;
 }
 
-.scale-item.neg {
-  background: color-mix(in srgb, var(--color-text-3) 20%, transparent);
-  color: var(--text-secondary);
-}
 .scale-pill.neg {
   background: hsl(var(--muted));
   color: hsl(var(--muted-foreground));
@@ -521,11 +488,6 @@
   gap: 6px;
 }
 
-.sig-tag.no {
-  background: color-mix(in srgb, var(--color-text-3) 15%, transparent);
-  color: var(--text-secondary);
-  border: 1px solid color-mix(in srgb, var(--color-text-3) 25%, transparent);
-}
 .adv-label-row {
   display: flex;
   align-items: center;
@@ -727,104 +689,6 @@
   box-shadow: 0 4px 12px hsl(var(--primary) / 0.45);
 }
 
-.validation-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: flex-end;
-}
-
-.validation-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 110px;
-  max-width: 140px;
-}
-
-.validation-field label {
-  font-size: 10.5px;
-  color: hsl(var(--muted-foreground));
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.validation-field input[type="number"] {
-  background: hsl(var(--background) / 0.8);
-  border: 1px solid hsl(var(--border));
-  border-radius: 6px;
-  color: hsl(var(--foreground));
-  padding: 6px 10px;
-  font-size: 12.5px;
-  width: 100%;
-  box-sizing: border-box;
-  transition: all 0.2s;
-}
-
-.validation-field input[type="number"]:focus {
-  outline: none;
-  border-color: hsl(var(--primary));
-  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2);
-}
-
-.preset-shortcuts {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.preset-label {
-  font-size: 10.5px;
-  color: hsl(var(--muted-foreground));
-  font-weight: 500;
-}
-
-.preset-tag {
-  background: hsl(var(--muted) / 0.6);
-  border: 1px solid hsl(var(--border) / 0.6);
-  color: hsl(var(--foreground));
-  border-radius: 5px;
-  padding: 4px 9px;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.preset-tag:hover {
-  background: hsl(var(--primary) / 0.2);
-  border-color: hsl(var(--primary) / 0.4);
-  color: hsl(var(--primary));
-}
-
-.validation-run-btn {
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-  border: none;
-  border-radius: 6px;
-  padding: 7px 18px;
-  font-size: 12.5px;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.2s;
-  box-shadow: 0 2px 8px hsl(var(--primary) / 0.35);
-  margin-left: auto;
-}
-
-.validation-run-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px hsl(var(--primary) / 0.45);
-}
-
-.validation-run-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-  transform: none;
-}
-
 .validation-error {
   background: color-mix(in srgb, var(--color-danger) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
@@ -832,19 +696,6 @@
   border-radius: 6px;
   padding: 8px 12px;
   font-size: 12px;
-}
-
-.validation-loading {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: hsl(var(--primary) / 0.1);
-  border: 1px solid hsl(var(--primary) / 0.25);
-  color: hsl(var(--primary));
-  border-radius: 6px;
-  padding: 8px 14px;
-  font-size: 12px;
-  font-weight: 500;
 }
 
 /* ── Empty State: Interactive Pre-Flight Launchpad ───────────────────────── */
@@ -1407,16 +1258,6 @@
   color: var(--text-secondary);
 }
 
-.ci-stat-sub {
-  font-size: 10px;
-  color: var(--text-secondary);
-  font-family: var(--font-mono);
-  font-weight: 700;
-  color: hsl(var(--foreground));
-  border-bottom: 1px solid hsl(var(--border) / 0.5);
-  padding-bottom: 4px;
-}
-
 .tooltip-metric-rows {
   display: flex;
   flex-direction: column;
@@ -1826,54 +1667,6 @@
 .light .table-header-titles h4,
 .light .proof-card h4 {
   color: var(--color-text) !important;
-}
-
-.light .badge-pill {
-  background: color-mix(
-    in srgb,
-    var(--color-accent) 10%,
-    transparent
-  ) !important;
-  color: var(--color-accent) !important;
-  border-color: color-mix(
-    in srgb,
-    var(--color-accent) 28%,
-    transparent
-  ) !important;
-  font-weight: 700 !important;
-}
-
-.light .validation-field label {
-  color: var(--color-text-2);
-}
-
-.light .validation-field input[type="number"] {
-  background: var(--color-surface-2);
-  border-color: var(--color-border-strong);
-  color: var(--color-text);
-}
-
-.light .validation-field input[type="number"]:focus {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 15%, transparent);
-}
-
-.light .preset-label {
-  color: var(--color-text-2);
-}
-
-.light .preset-tag {
-  background: color-mix(in srgb, var(--color-text) 5%, transparent) !important;
-  border-color: var(--color-border-strong) !important;
-  color: var(--color-text) !important;
-  font-weight: 600 !important;
-}
-
-.light .preset-tag:hover {
-  background: var(--color-accent) !important;
-  border-color: var(--color-accent) !important;
-  color: #fff !important;
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--color-accent) 30%, transparent) !important;
 }
 
 .light .preflight-card {
