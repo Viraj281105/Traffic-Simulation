@@ -44,6 +44,14 @@ function dashboardFallback(): Plugin {
   };
 }
 
+// Where the dev server proxies /api, /ws and /health, and whether it polls for
+// file changes. Native `npm run dev` uses the defaults; the containerised dev
+// server (docker-compose.dev.yml) points at the backend service and polls,
+// because file events from a Windows bind mount do not reach the container.
+// Deliberately not VITE_-prefixed, which would expose them to client code.
+const devBackend = process.env.URBANFLOW_DEV_BACKEND ?? "localhost:8000";
+const devPolling = process.env.URBANFLOW_DEV_POLLING === "true";
+
 // https://vitejs.dev/config/
 export default defineConfig({
   // Two HTML entry points with page routing handled by dashboardFallback();
@@ -56,18 +64,27 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    // Polling costs CPU in proportion to files x frequency, so poll once a
+    // second (edits still show within about a second) and skip build output.
+    watch: devPolling
+      ? {
+          usePolling: true,
+          interval: 1000,
+          ignored: ["**/dist/**", "**/coverage/**"],
+        }
+      : undefined,
     proxy: {
       "/api": {
-        target: "http://localhost:8000",
+        target: `http://${devBackend}`,
         changeOrigin: true,
       },
       "/ws": {
-        target: "ws://localhost:8000",
+        target: `ws://${devBackend}`,
         ws: true,
         changeOrigin: true,
       },
       "/health": {
-        target: "http://localhost:8000",
+        target: `http://${devBackend}`,
         changeOrigin: true,
       },
     },
