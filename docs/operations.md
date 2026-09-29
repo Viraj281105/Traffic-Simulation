@@ -169,7 +169,7 @@ The SQLite path is controlled by `DB_PATH`. `backend/src/database/db.py` creates
 
 SQLite uses WAL mode, a five-second busy timeout, and foreign keys. Docker stores the database in the `traffic_data` named volume; deleting that volume deletes persisted studies and replays.
 
-Saved runs record the git commit of the code that produced them. The Docker build context excludes `.git`, so pass the commit at build time or runs built into the image record `"unknown"`: `GIT_COMMIT=$(git rev-parse HEAD) docker compose up -d --build` (`start.ps1 -Docker` sets it automatically). The value is used only when `.git` is not readable, and must be a 7–40 character hex hash.
+Saved runs record the git commit of the code that produced them. The Docker build context excludes `.git`, so pass the commit at build time or runs built into the image record `"unknown"`: `GIT_COMMIT=$(git rev-parse HEAD) docker compose up -d --build` (`start.ps1` sets it automatically, to the last commit that changed the backend's image inputs, and leaves it empty — recording `"unknown"` — when those inputs have uncommitted changes; `GET /api/version` reports the value the running backend uses). The value is used only when `.git` is not readable, and must be a 7–40 character hex hash.
 
 ## Access Control
 

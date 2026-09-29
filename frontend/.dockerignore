@@ -8,3 +8,10 @@ dist
 npm-debug.log*
 .vscode
 .DS_Store
+
+# Tests, docs and lint config never reach the production bundle; keeping them
+# out of the build context means changing them does not rebuild the image.
+src/test
+coverage
+*.md
+eslint.config.js

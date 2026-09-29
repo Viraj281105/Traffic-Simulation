@@ -35,3 +35,14 @@ scripts/
 *~
 .DS_Store
 Thumbs.db
+
+# Not used by backend/Dockerfile (the only build using this context): the
+# frontend image builds from ./frontend with its own .dockerignore, and
+# backend tests never enter the image. Keeping them out means editing them
+# neither slows the build context nor invalidates any cache.
+frontend/
+landingpage/
+backend/tests/
+*.md
+*.ps1
+*.csv

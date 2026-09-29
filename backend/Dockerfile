@@ -31,6 +31,7 @@ COPY backend/docker-entrypoint.py /docker-entrypoint.py
 # COPY so it only invalidates the layers below.
 ARG GIT_COMMIT=""
 ENV GIT_COMMIT=${GIT_COMMIT}
+LABEL org.opencontainers.image.revision=${GIT_COMMIT}
 
 # Create the non-root user the app actually runs as. /app is owned by it so
 # a *fresh* named volume mounted at /app/data (docker-compose.yml) is

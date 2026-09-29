@@ -84,8 +84,25 @@ docker compose up --build -d
 
 - **Frontend landing page**: [http://localhost](http://localhost) (or [http://localhost:3000](http://localhost:3000))
 - **Simulation dashboard**: [http://localhost/app/comparative](http://localhost/app/comparative) — the guided comparison (describe the junction → watch both run → plain-language results with a reliability check). The app has three sections: **Compare** (`/app/comparative`), **Saved** (`/app/history`) and the **Research lab** (`/app/research`, with `/app/volume`, `/app/validation`, `/app/signal`, `/app/roundabout`). Each view has its own URL, so refresh, bookmarks and back/forward work; the old `/app.html` link still redirects. Each saved run has its own page at `/app/runs/<runId>` (configuration, seed, provenance, metrics, notes/tags, exports, re-run), and `/app/compare?runs=<id>,<id>` compares stored runs
-- **Backend API & Swagger Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Backend API**: proxied by nginx at [http://localhost/api](http://localhost/api) (the backend container is not published on its own port); build version at [http://localhost/api/version](http://localhost/api/version)
 - **Health Check**: [http://localhost/health](http://localhost/health)
+
+#### Windows: `start.ps1` (Docker only)
+
+`start.ps1` runs the same stack and needs nothing on the host but Docker Desktop and Git — no Python, Node or npm. It starts Docker Desktop if needed, validates `.env` and the Compose file, checks that the host ports are free, rebuilds only the images whose inputs changed (Docker's build cache decides; docs/test edits rebuild nothing), recreates only containers whose image or configuration changed, waits for health, and smoke-tests the result (pages, static assets, `/health`, database, study workers, live WebSocket, and that the running images are the current build).
+
+```powershell
+.\start.ps1                    # build what changed, start, verify
+.\start.ps1 -Status            # read-only: containers, images, database, source version
+.\start.ps1 -Logs [backend]    # follow logs
+.\start.ps1 -Restart           # recreate containers from current images (data kept)
+.\start.ps1 -Rebuild           # rebuild images without cache
+.\start.ps1 -SmokeTest         # re-check the running stack
+.\start.ps1 -Clean             # remove containers and images; the database volume is kept
+.\start.ps1 -Clean -DeleteData # ...and delete the database volume (asks for confirmation)
+```
+
+The database lives in the named volume `traffic-simulation_traffic_data`; nothing but `-Clean -DeleteData` removes it. If port 80 or 3000 is taken, set `URBANFLOW_HTTP_PORT` / `URBANFLOW_ALT_HTTP_PORT` (shell or `.env`). The production image has no development sign-in, so without Cognito configured the app runs signed out.
 
 To stop the containers:
 ```bash
@@ -94,9 +111,8 @@ docker compose down
 
 ### Running Natively for Local Development
 
-You can run both services natively on your host machine:
+For working on the code with hot reload, run both services natively (or use `docker-compose.dev.yml`):
 
-- **Windows One-Click Launcher**: Double-click [`run.bat`](run.bat) or run `powershell -ExecutionPolicy Bypass -File .\start.ps1`
 - **Manual Backend Setup**:
   ```bash
   cd backend
