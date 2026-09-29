@@ -39,7 +39,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-async function post<T>(path: string, body?: unknown): Promise<T> {
+export async function post<T>(path: string, body?: unknown): Promise<T> {
   return request<T>(path, {
     method: "POST",
     ...(body === undefined
@@ -51,7 +51,7 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
   });
 }
 
-async function get<T>(path: string): Promise<T> {
+export async function get<T>(path: string): Promise<T> {
   return request<T>(path);
 }
 
@@ -80,28 +80,6 @@ export async function pauseDualSimulation(): Promise<void> {
   await post("/api/simulation/dual/pause");
 }
 
-/** Reset the dual simulation engine. */
-export async function resetDualSimulation(): Promise<void> {
-  await post("/api/simulation/dual/reset");
-}
-
-/** Get current dual simulation status. */
-export async function getDualSimulationStatus(): Promise<{
-  status: string;
-  elapsed: number;
-  tick: number;
-}> {
-  return get("/api/simulation/dual/status");
-}
-
-/** Get current simulation lifecycle status. */
-export async function getSimulationStatus(): Promise<{
-  status: string;
-  message?: string;
-}> {
-  return get("/api/simulation/status");
-}
-
 /** Send new configuration to backend. */
 export async function updateSimulationConfig(
   config: DashboardScenarioPayload,
@@ -116,41 +94,14 @@ export async function stopDualSimulation(): Promise<void> {
 
 // ── Study / Analytics API ──────────────────────────────────────────────────
 
-/** Trigger a new volume sweep experiment. */
-export async function runVolumeSweep(params: {
-  duration?: number;
-  random_seed?: number;
-  time_step?: number;
-}): Promise<unknown> {
-  return post("/api/v1/study/sweeps/run", params);
-}
-
 /** List saved sweep sessions. */
-export async function listSweeps(limit = 20): Promise<unknown> {
+export async function listSweeps<T>(limit = 20): Promise<T> {
   return get(`/api/v1/study/sweeps?limit=${limit.toString()}`);
 }
 
 /** Get a specific sweep session by ID. */
 export async function getSweep(id: string): Promise<unknown> {
-  return get(`/api/v1/study/sweeps/${id}`);
-}
-
-/** Run Monte Carlo statistical validation. */
-export async function runMonteCarlo(params: {
-  num_seeds?: number;
-  duration?: number;
-}): Promise<unknown> {
-  return post("/api/v1/study/validate/monte-carlo", params);
-}
-
-/** Repeats the dashboard's own scenario over `numSeeds` fresh traffic
- *  patterns (both controls share each pattern) and returns the backend's
- *  Monte Carlo statistics for it. */
-export async function runReliabilityCheck<T>(
-  scenario: DashboardScenarioPayload,
-  numSeeds: number,
-): Promise<T> {
-  return post("/api/v1/study/validate/monte-carlo", { numSeeds, scenario });
+  return get(`/api/v1/study/sweeps/${encodeURIComponent(id)}`);
 }
 
 /** Compact reproducibility record of a saved run

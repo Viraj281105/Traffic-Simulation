@@ -33,11 +33,14 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
-import { API_BASE_URL } from "../config";
+import { getSweep, listSweeps } from "../services/api";
+import { STUDY_JOB_ROUTES } from "../services/studyJobs";
+import { useStudyJob } from "../hooks/useStudyJob";
 import type { RunningMetrics } from "../types/simulation";
 import "./VolumeAnalysisDashboard.css";
 import { CloseButton } from "./ui/CloseButton";
 import { LoaderMark } from "./ui/Loader";
+import { StudyProgress } from "./ui/StudyProgress";
 import { CHART_GRID, CHART_AXIS } from "../theme/chart";
 import {
   SPEED_LIMITS,
@@ -174,18 +177,51 @@ interface SavedSweep {
   created_at: string;
 }
 
-/** Fields describing how a sweep was run, from either payload shape (flat, or
- *  nested under `results` for older saved sweeps). */
-function sessionExtras(
-  raw: Record<string, unknown>,
-  rawResults: Record<string, unknown>,
-): Pick<SweepSession, "calibration" | "tieTolerance" | "seedsPerTier"> {
+/** A sweep session from either payload shape the backend returns (flat, or
+ *  nested under `results` for older saved sweeps), with `fallback` for any
+ *  identifying field the payload lacks. */
+function parseSweepSession(
+  data: unknown,
+  fallback: Pick<
+    SweepSession,
+    "sessionId" | "name" | "duration" | "randomSeed"
+  >,
+): SweepSession {
+  const raw = data as Record<string, unknown>;
+  const rawResults =
+    raw.results && typeof raw.results === "object"
+      ? (raw.results as Record<string, unknown>)
+      : {};
   const pick = (key: string): unknown => raw[key] ?? rawResults[key];
-  return {
+  const text = (...keys: string[]): string | undefined => {
+    for (const key of keys) {
+      if (typeof raw[key] === "string") return raw[key];
+    }
+    for (const key of keys) {
+      if (typeof rawResults[key] === "string") return rawResults[key];
+    }
+    return undefined;
+  };
+  const runs = Array.isArray(raw.runs) ? raw.runs : rawResults.runs;
+  const curves = (pick("curves") as SweepCurves | undefined) ?? {
+    rates: [],
+    volumesVehPerHour: [],
+    signal: { delays: [], throughputs: [], queues: [] },
+    roundabout: { delays: [], throughputs: [], queues: [] },
+    crossoverArrivalRate: null,
+    crossoverHourlyVolume: null,
+  };
+  return withOfferedVolumes({
+    sessionId: text("sessionId", "id") ?? fallback.sessionId,
+    name: text("name") ?? fallback.name,
+    duration: Number(pick("duration") ?? fallback.duration),
+    randomSeed: Number(pick("randomSeed") ?? fallback.randomSeed),
+    curves,
+    runs: Array.isArray(runs) ? (runs as SweepRun[]) : [],
     calibration: pick("calibration") as Calibration | undefined,
     tieTolerance: pick("tieTolerance") as TieTolerance | undefined,
     seedsPerTier: pick("seedsPerTier") as number | undefined,
-  };
+  });
 }
 
 /**
@@ -552,6 +588,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [sweepError, setSweepError] = useState<string | null>(null);
   const [loadingSession, setLoadingSession] = useState(false);
+  const study = useStudyJob();
 
   // Demand tiers: the three presets, as shares of the capacity measured for
   // the chosen lane count (types/demand.ts), so they span free flow to
@@ -586,55 +623,16 @@ export const VolumeAnalysisDashboard: React.FC = () => {
     setLoadingSession(true);
     setShowHistoryDrawer(false);
     setShowAdvancedDrawer(false);
-    fetch(`${API_BASE_URL}/api/v1/study/sweeps/${id}`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status.toString()}`);
-        return r.json();
-      })
-      .then((data: unknown) => {
-        const raw = data as Record<string, unknown>;
-        const rawResults =
-          raw.results && typeof raw.results === "object"
-            ? (raw.results as Record<string, unknown>)
-            : {};
-        const runs: SweepRun[] = Array.isArray(raw.runs)
-          ? (raw.runs as SweepRun[])
-          : Array.isArray(rawResults.runs)
-            ? (rawResults.runs as SweepRun[])
-            : [];
-        const curves: SweepCurves = (raw.curves as SweepCurves | undefined) ??
-          (rawResults.curves as SweepCurves | undefined) ?? {
-            rates: [],
-            volumesVehPerHour: [],
-            signal: { delays: [], throughputs: [], queues: [] },
-            roundabout: { delays: [], throughputs: [], queues: [] },
-            crossoverArrivalRate: null,
-            crossoverHourlyVolume: null,
-          };
-        const rawSessionId =
-          typeof raw.sessionId === "string"
-            ? raw.sessionId
-            : typeof raw.id === "string"
-              ? raw.id
-              : typeof rawResults.sessionId === "string"
-                ? rawResults.sessionId
-                : id;
-        const rawName =
-          typeof raw.name === "string"
-            ? raw.name
-            : typeof rawResults.name === "string"
-              ? rawResults.name
-              : "Saved Sweep";
-        const session: SweepSession = {
-          sessionId: rawSessionId,
-          name: rawName,
-          duration: Number(raw.duration ?? rawResults.duration ?? 60),
-          randomSeed: Number(raw.randomSeed ?? rawResults.randomSeed ?? 42),
-          curves,
-          runs,
-          ...sessionExtras(raw, rawResults),
-        };
-        setActiveSession(withOfferedVolumes(session));
+    getSweep(id)
+      .then((data) => {
+        setActiveSession(
+          parseSweepSession(data, {
+            sessionId: id,
+            name: "Saved Sweep",
+            duration: 60,
+            randomSeed: 42,
+          }),
+        );
         setScrubberVolumeOverride(null);
         setLoadingSession(false);
       })
@@ -646,9 +644,8 @@ export const VolumeAnalysisDashboard: React.FC = () => {
 
   // Fetch saved sweep list
   const fetchSweeps = useCallback(() => {
-    fetch(`${API_BASE_URL}/api/v1/study/sweeps`)
-      .then((r) => r.json())
-      .then((data: SavedSweep[]) => {
+    listSweeps<SavedSweep[]>()
+      .then((data) => {
         setSavedSweeps(data);
       })
       .catch(() => {
@@ -690,69 +687,22 @@ export const VolumeAnalysisDashboard: React.FC = () => {
       },
     };
 
-    fetch(`${API_BASE_URL}/api/v1/study/sweeps/run`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    study
+      .run(STUDY_JOB_ROUTES.sweep, {
         duration: sweepDuration,
         randomSeed: randomSeed,
         arrivalRates: ratesConfig.rates,
         name: `Sweep (${ratesConfig.rates.length.toString()} tiers, ${sweepDuration.toString()}s)`,
         customConfig,
-      }),
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status.toString()}`);
-        return r.json();
       })
-      .then((data: unknown) => {
-        const raw = data as Record<string, unknown>;
-        const rawResults =
-          raw.results && typeof raw.results === "object"
-            ? (raw.results as Record<string, unknown>)
-            : {};
-        const runs: SweepRun[] = Array.isArray(raw.runs)
-          ? (raw.runs as SweepRun[])
-          : Array.isArray(rawResults.runs)
-            ? (rawResults.runs as SweepRun[])
-            : [];
-        const curves: SweepCurves = (raw.curves as SweepCurves | undefined) ??
-          (rawResults.curves as SweepCurves | undefined) ?? {
-            rates: [],
-            volumesVehPerHour: [],
-            signal: { delays: [], throughputs: [], queues: [] },
-            roundabout: { delays: [], throughputs: [], queues: [] },
-            crossoverArrivalRate: null,
-            crossoverHourlyVolume: null,
-          };
-        const rawSessionId =
-          typeof raw.sessionId === "string"
-            ? raw.sessionId
-            : typeof raw.id === "string"
-              ? raw.id
-              : typeof rawResults.sessionId === "string"
-                ? rawResults.sessionId
-                : "session";
-        const rawName =
-          typeof raw.name === "string"
-            ? raw.name
-            : typeof rawResults.name === "string"
-              ? rawResults.name
-              : "Completed Sweep";
-        const session: SweepSession = {
-          sessionId: rawSessionId,
-          name: rawName,
-          duration: Number(
-            raw.duration ?? rawResults.duration ?? sweepDuration,
-          ),
-          randomSeed: Number(
-            raw.randomSeed ?? rawResults.randomSeed ?? randomSeed,
-          ),
-          curves,
-          runs,
-          ...sessionExtras(raw, rawResults),
-        };
-        setActiveSession(withOfferedVolumes(session));
+      .then((data) => {
+        const session = parseSweepSession(data, {
+          sessionId: "session",
+          name: "Completed Sweep",
+          duration: sweepDuration,
+          randomSeed,
+        });
+        setActiveSession(session);
         setSelectedId(session.sessionId);
         setScrubberVolumeOverride(null);
         setIsRunning(false);
@@ -1449,13 +1399,10 @@ export const VolumeAnalysisDashboard: React.FC = () => {
 
       {/* ── Running / Status Feedback ── */}
       {isRunning && (
-        <div className="sweep-running-banner">
-          <LoaderMark />
-          <span>
-            Simulating {ratesConfig.rates.length} volume tiers across Fixed-Time
-            Signal and Modern Roundabout models ({sweepDuration}s/tier)…
-          </span>
-        </div>
+        <StudyProgress
+          title={`Volume sweep · ${ratesConfig.rates.length.toString()} tiers × ${sweepDuration.toString()}s, signal and roundabout`}
+          progress={study.progress}
+        />
       )}
 
       {sweepError && (

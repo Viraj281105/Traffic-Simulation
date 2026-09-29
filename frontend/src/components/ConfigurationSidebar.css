@@ -169,18 +169,6 @@
   gap: 8px;
 }
 
-.config-active-badge {
-  font-size: 10.5px;
-  text-transform: none;
-  letter-spacing: 0;
-  padding: 2px 9px;
-  background: var(--color-accent-soft);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
-  color: var(--color-accent);
-  border-radius: var(--radius-pill);
-  font-weight: 600;
-}
-
 .config-control-group {
   display: flex;
   flex-direction: column;
@@ -301,14 +289,6 @@
 }
 .config-alert-warning svg {
   color: var(--color-warning);
-}
-
-.config-alert-valid {
-  background: color-mix(in srgb, var(--color-success) 9%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-success) 32%, transparent);
-  color: var(--color-success);
-  display: flex;
-  align-items: center;
 }
 
 /* ── Footer ──────────────────────────────────────────────────────────── */

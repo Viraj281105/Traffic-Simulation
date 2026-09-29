@@ -28,7 +28,6 @@ import {
   Legend,
   ReferenceLine,
 } from "recharts";
-import { API_BASE_URL } from "../config";
 import "./ValidationDashboard.css";
 import { DEFAULT_CONFIG_VALUES } from "../types/config";
 import {
@@ -40,7 +39,9 @@ import {
 import { SIMILARITY, compare } from "../metrics/plainLanguage";
 import { IntegrityCheck } from "./IntegrityCheck";
 import { CloseButton } from "./ui/CloseButton";
-import { LoaderMark } from "./ui/Loader";
+import { StudyProgress } from "./ui/StudyProgress";
+import { useStudyJob } from "../hooks/useStudyJob";
+import { STUDY_JOB_ROUTES } from "../services/studyJobs";
 import { SERIES } from "../theme/chart";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -331,7 +332,9 @@ export const ValidationDashboard: React.FC = () => {
     setConfidenceLevel(0.95);
   };
 
-  const runValidation = () => {
+  const study = useStudyJob();
+
+  const launchValidation = (seeds: number, dur: number) => {
     setIsRunning(true);
     setError(null);
     setShowConfigPanel(false);
@@ -339,7 +342,7 @@ export const ValidationDashboard: React.FC = () => {
     const customConfig = {
       simulation: {
         timeStep,
-        duration,
+        duration: dur,
         warmupTime,
       },
       roads: {
@@ -358,20 +361,12 @@ export const ValidationDashboard: React.FC = () => {
       },
     };
 
-    fetch(`${API_BASE_URL}/api/v1/study/validate/monte-carlo`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        numSeeds,
-        num_seeds: numSeeds,
-        duration,
+    study
+      .run<ValidationResult>(STUDY_JOB_ROUTES.monteCarlo, {
+        numSeeds: seeds,
+        duration: dur,
         confidenceLevel,
         customConfig,
-      }),
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status.toString()}`);
-        return r.json() as Promise<ValidationResult>;
       })
       .then((data) => {
         setResult(data);
@@ -383,58 +378,14 @@ export const ValidationDashboard: React.FC = () => {
       });
   };
 
+  const runValidation = () => {
+    launchValidation(numSeeds, duration);
+  };
+
   const handleLaunchPreset = (seeds: number, dur: number) => {
     setNumSeeds(seeds);
     setDuration(dur);
-    setIsRunning(true);
-    setError(null);
-    setShowConfigPanel(false);
-
-    const customConfig = {
-      simulation: {
-        timeStep,
-        duration: dur,
-        warmupTime,
-      },
-      roads: {
-        approachLength,
-        laneWidth: 3.5,
-        lanesPerApproach: {
-          north: lanesCount,
-          south: lanesCount,
-          east: lanesCount,
-          west: lanesCount,
-        },
-      },
-      traffic: {
-        arrivalRate,
-        arrivalDistribution,
-      },
-    };
-
-    fetch(`${API_BASE_URL}/api/v1/study/validate/monte-carlo`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        numSeeds: seeds,
-        num_seeds: seeds,
-        duration: dur,
-        confidenceLevel,
-        customConfig,
-      }),
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status.toString()}`);
-        return r.json() as Promise<ValidationResult>;
-      })
-      .then((data) => {
-        setResult(data);
-        setIsRunning(false);
-      })
-      .catch((e: unknown) => {
-        setError(e instanceof Error ? e.message : "Validation failed");
-        setIsRunning(false);
-      });
+    launchValidation(seeds, dur);
   };
 
   const exportValidationCSV = () => {
@@ -1077,13 +1028,10 @@ export const ValidationDashboard: React.FC = () => {
       )}
 
       {isRunning && (
-        <div className="validation-loading">
-          <LoaderMark />
-          <span>
-            Simulating {numSeeds} randomized seed pairs × {duration}s —
-            computing two-sample Welch statistics…
-          </span>
-        </div>
+        <StudyProgress
+          title={`Monte Carlo validation · ${numSeeds.toString()} seeds × ${duration.toString()}s`}
+          progress={study.progress}
+        />
       )}
 
       {/* ── Empty State: Interactive Pre-Flight Launchpad ────────── */}

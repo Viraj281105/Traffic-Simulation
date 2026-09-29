@@ -1070,12 +1070,6 @@
   font: inherit;
 }
 
-.reliability-running {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
 .reliability-headline {
   font-size: 16px;
   font-weight: 700;

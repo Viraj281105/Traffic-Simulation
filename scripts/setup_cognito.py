@@ -1,3 +1,9 @@
+"""One-off provisioning of the Cognito user pool, run from a machine with AWS
+credentials. Needs boto3, which the backend itself does not use:
+
+    pip install boto3==1.34.0
+"""
+
 import boto3
 import json
 import os

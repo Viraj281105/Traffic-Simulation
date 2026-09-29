@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { completedJob } from "./studyJob";
 import { ValidationDashboard } from "../components/ValidationDashboard";
 
 // ── Mock config ────────────────────────────────────────────────────────────
@@ -70,7 +71,7 @@ describe("ValidationDashboard", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows loading state after clicking Run Validation", async () => {
+  it("shows live study progress after clicking Run Validation", async () => {
     vi.mocked(fetch).mockImplementationOnce(() => new Promise(() => undefined));
 
     render(<ValidationDashboard />);
@@ -78,15 +79,69 @@ describe("ValidationDashboard", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText(/computing two-sample Welch statistics/i),
+        screen.getByText(/Monte Carlo validation · 5 seeds × 240s/i),
       ).toBeInTheDocument(),
     );
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Running/i })).toBeDisabled();
+  });
+
+  it("reports the backend's own progress while the study runs", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const running = {
+        ...completedJob(null),
+        status: "running",
+        progress: {
+          phase: "simulating",
+          total: 10,
+          completed: 4,
+          fraction: 0.45,
+          running: ["Seed 3/5 · Roundabout", "Seed 4/5 · Signal"],
+          elapsedSeconds: 31,
+          etaSeconds: 38,
+        },
+      };
+      vi.mocked(fetch)
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify(running), { status: 202 }),
+        )
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify(completedJob(MOCK_VALIDATION)), {
+            status: 200,
+          }),
+        );
+
+      render(<ValidationDashboard />);
+      fireEvent.click(screen.getByTitle("Execute Monte Carlo validation"));
+
+      expect(
+        await screen.findByText("4 / 10 simulations complete"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Running: Seed 3\/5 · Roundabout, Seed 4\/5 · Signal/),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/45% · Elapsed 31s · ~38s remaining/),
+      ).toBeInTheDocument();
+
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(vi.mocked(fetch).mock.calls[1][0]).toMatch(
+        /\/api\/v1\/study\/jobs\/job-1$/,
+      );
+      expect(
+        await screen.findByText(/Seed-by-Seed Comparative Distribution/i),
+      ).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("renders verdict and metric stats after successful validation", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
-      new Response(JSON.stringify(MOCK_VALIDATION), { status: 200 }),
+      new Response(JSON.stringify(completedJob(MOCK_VALIDATION)), {
+        status: 200,
+      }),
     );
 
     const { container } = render(<ValidationDashboard />);
@@ -110,7 +165,9 @@ describe("ValidationDashboard", () => {
 
   it("renders per-seed raw results table", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
-      new Response(JSON.stringify(MOCK_VALIDATION), { status: 200 }),
+      new Response(JSON.stringify(completedJob(MOCK_VALIDATION)), {
+        status: 200,
+      }),
     );
 
     render(<ValidationDashboard />);
@@ -147,7 +204,9 @@ describe("ValidationDashboard", () => {
 
   it("shows significance tags per metric", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
-      new Response(JSON.stringify(MOCK_VALIDATION), { status: 200 }),
+      new Response(JSON.stringify(completedJob(MOCK_VALIDATION)), {
+        status: 200,
+      }),
     );
 
     render(<ValidationDashboard />);
@@ -162,7 +221,9 @@ describe("ValidationDashboard", () => {
 
   it("shows Cohen's d values in metric cards", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
-      new Response(JSON.stringify(MOCK_VALIDATION), { status: 200 }),
+      new Response(JSON.stringify(completedJob(MOCK_VALIDATION)), {
+        status: 200,
+      }),
     );
 
     render(<ValidationDashboard />);
@@ -175,7 +236,7 @@ describe("ValidationDashboard", () => {
 
   const runOnce = async (payload: unknown) => {
     vi.mocked(fetch).mockResolvedValueOnce(
-      new Response(JSON.stringify(payload), { status: 200 }),
+      new Response(JSON.stringify(completedJob(payload)), { status: 200 }),
     );
     render(<ValidationDashboard />);
     fireEvent.click(screen.getByTitle("Execute Monte Carlo validation"));

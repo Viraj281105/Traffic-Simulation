@@ -166,7 +166,9 @@ def test_sweep_and_validation_size_the_limit_but_respect_an_explicit_one(
 
     monkeypatch.setattr(DualSimulationOrchestrator, "__init__", spy)  # type: ignore[attr-defined]
     run_statistical_validation(num_seeds=1, duration=3.0)
-    assert seen == [demand_vehicle_limit(0.35, 3.0)]
+    # One orchestrator per geometry (study/runner.py runs each on its own),
+    # both built from the seed's sized config.
+    assert seen == [demand_vehicle_limit(0.35, 3.0)] * 2
 
 
 # ── fairness uses the same warm-up window as averageWaitTime ────────────────

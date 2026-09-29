@@ -437,6 +437,12 @@ describe("VolumeAnalysisDashboard", () => {
       expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
     });
     fireEvent.click(screen.getByRole("button", { name: /Run Sweep/i }));
+    await waitFor(() => {
+      expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2);
+    });
+    expect(vi.mocked(fetch).mock.calls[1][0]).toMatch(
+      /\/api\/v1\/study\/sweeps\/jobs$/,
+    );
     const body = JSON.parse(
       vi.mocked(fetch).mock.calls[1][1]?.body as string,
     ) as {

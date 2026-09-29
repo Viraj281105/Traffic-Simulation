@@ -1,4 +1,5 @@
 import math
+from bisect import bisect_left
 from typing import Any, List, Optional, Tuple
 
 
@@ -55,6 +56,21 @@ class Lane:
         angle = math.degrees(math.atan2(dx, dy))
         self.heading: float = (angle + 360.0) % 360.0
 
+        # Per-segment values the position/heading lookups need, computed once
+        # (a lane's waypoints never change after construction).
+        self._seg_vectors: List[Tuple[float, float]] = []
+        self._seg_lengths: List[float] = []
+        self._seg_headings: List[float] = []
+        for i in range(len(self.waypoints) - 1):
+            p1, p2 = self.waypoints[i], self.waypoints[i + 1]
+            seg_dx, seg_dy = p2[0] - p1[0], p2[1] - p1[1]
+            self._seg_vectors.append((seg_dx, seg_dy))
+            self._seg_lengths.append(
+                max(1e-6, self._cum_lengths[i + 1] - self._cum_lengths[i])
+            )
+            seg_angle = math.degrees(math.atan2(seg_dx, seg_dy))
+            self._seg_headings.append((seg_angle + 360.0) % 360.0)
+
         self._vehicles: List[Any] = []
 
         # Optional virtual obstacle placed on this lane by a controller (e.g. stop-line)
@@ -68,44 +84,49 @@ class Lane:
         # entry/exit transition zones — see router.find_leader.
         self.circulating_radius: Optional[float] = None
 
+    def _segment(self, distance: float) -> Tuple[int, float]:
+        """Index of the waypoint segment holding ``distance`` (clamped to the
+        lane): the first segment whose end is at or beyond it, else the last.
+        Returns the clamped distance too."""
+        length = self.length
+        dist = length if length < distance else distance
+        if not dist > 0.0:
+            dist = 0.0
+        return bisect_left(
+            self._cum_lengths, dist, 1, len(self._cum_lengths) - 1
+        ) - 1, dist
+
     def get_point_at_distance(self, distance: float) -> Tuple[float, float]:
-        dist = max(0.0, min(distance, self.length))
+        # Hot path (called for every vehicle, many times a tick): the clamps
+        # are written out rather than max/min calls, and multi-segment lanes
+        # find their segment by bisection over the precomputed cumulative
+        # lengths instead of a linear scan. Same segment, same arithmetic.
         if len(self.waypoints) == 2:
-            ratio = dist / self.length
-            x = self.start_coords[0] + ratio * self.vector[0]
-            y = self.start_coords[1] + ratio * self.vector[1]
-            return (x, y)
+            length = self.length
+            dist = length if length < distance else distance
+            if not dist > 0.0:
+                dist = 0.0
+            ratio = dist / length
+            return (
+                self.start_coords[0] + ratio * self.vector[0],
+                self.start_coords[1] + ratio * self.vector[1],
+            )
 
-        # Multi-segment curve interpolation
-        for i in range(len(self._cum_lengths) - 1):
-            if dist <= self._cum_lengths[i + 1] or i == len(self._cum_lengths) - 2:
-                seg_start_dist = self._cum_lengths[i]
-                seg_len = self._cum_lengths[i + 1] - seg_start_dist
-                seg_ratio = (dist - seg_start_dist) / max(1e-6, seg_len)
-                seg_ratio = max(0.0, min(1.0, seg_ratio))
-                p1 = self.waypoints[i]
-                p2 = self.waypoints[i + 1]
-                x = p1[0] + seg_ratio * (p2[0] - p1[0])
-                y = p1[1] + seg_ratio * (p2[1] - p1[1])
-                return (x, y)
-
-        return self.end_coords
+        i, dist = self._segment(distance)
+        seg_start_dist = self._cum_lengths[i]
+        seg_ratio = (dist - seg_start_dist) / self._seg_lengths[i]
+        if not seg_ratio < 1.0:
+            seg_ratio = 1.0
+        if not seg_ratio > 0.0:
+            seg_ratio = 0.0
+        p1 = self.waypoints[i]
+        dx, dy = self._seg_vectors[i]
+        return (p1[0] + seg_ratio * dx, p1[1] + seg_ratio * dy)
 
     def get_heading_at_distance(self, distance: float) -> float:
-        dist = max(0.0, min(distance, self.length))
         if len(self.waypoints) == 2:
             return self.heading
-
-        for i in range(len(self._cum_lengths) - 1):
-            if dist <= self._cum_lengths[i + 1] or i == len(self._cum_lengths) - 2:
-                p1 = self.waypoints[i]
-                p2 = self.waypoints[i + 1]
-                dx = p2[0] - p1[0]
-                dy = p2[1] - p1[1]
-                angle = math.degrees(math.atan2(dx, dy))
-                return (angle + 360.0) % 360.0
-
-        return self.heading
+        return self._seg_headings[self._segment(distance)[0]]
 
     def add_vehicle(self, vehicle: Any) -> None:
         if vehicle not in self._vehicles:

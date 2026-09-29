@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { SimulationConfigValues } from "../../types/config";
 import { dashboardPayload } from "../../types/config";
-import { runReliabilityCheck } from "../../services/api";
+import { useStudyJob } from "../../hooks/useStudyJob";
+import { STUDY_JOB_ROUTES } from "../../services/studyJobs";
 import {
   SIDE_TITLE,
   readReliability,
@@ -9,7 +10,7 @@ import {
   type StudyMetric,
 } from "../../metrics/plainLanguage";
 import { VIEW_ROUTES, followLink } from "../../routing";
-import { LoaderMark } from "../ui/Loader";
+import { StudyProgress } from "../ui/StudyProgress";
 
 const METRIC_TITLES: Record<StudyMetric, string> = {
   delay: "Time lost per driver",
@@ -40,13 +41,17 @@ export function ReliabilityCheck({
 }) {
   const [state, setState] = useState<State>({ kind: "idle" });
   const [patterns, setPatterns] = useState(5);
+  const study = useStudyJob();
 
   const run = () => {
     setState({ kind: "running", patterns });
-    runReliabilityCheck<ReliabilityResult>(
-      dashboardPayload(config, "fixed_time_signal"),
-      patterns,
-    )
+    // Repeats the user's own scenario over fresh traffic patterns (both
+    // controls share each one); see backend MonteCarloValidationRequest.
+    study
+      .run<ReliabilityResult>(STUDY_JOB_ROUTES.monteCarlo, {
+        numSeeds: patterns,
+        scenario: dashboardPayload(config, "fixed_time_signal"),
+      })
       .then((result) => {
         setState({ kind: "done", result });
       })
@@ -63,15 +68,11 @@ export function ReliabilityCheck({
 
   if (state.kind === "running") {
     return (
-      <div className="reliability-box" role="status" aria-live="polite">
-        <div className="reliability-running">
-          <LoaderMark />
-          <span>
-            Re-running your junction with {state.patterns} new traffic patterns…
-            This usually takes under a minute; busy or long scenarios can take a
-            few minutes.
-          </span>
-        </div>
+      <div className="reliability-box">
+        <StudyProgress
+          title={`Re-running your junction with ${state.patterns.toString()} new traffic patterns`}
+          progress={study.progress}
+        />
       </div>
     );
   }
