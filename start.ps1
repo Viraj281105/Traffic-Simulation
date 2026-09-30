@@ -683,7 +683,7 @@ function Show-Ready($envInfo, $prov) {
     $url = if ($port -eq 80) { 'http://localhost' } else { "http://localhost:$port" }
     Write-Host ''
     Write-Host "UrbanFlow ready ($StackName)" -ForegroundColor Green
-    Write-Host "Frontend: $url/app/comparative   (landing: $url)"
+    Write-Host "Frontend: $url   (comparative: $url/app/comparative)"
     if ($Dev) {
         Write-Host 'Backend:  http://localhost:8000   (API docs: http://localhost:8000/docs; also proxied at /api)'
         Write-Host 'Reload:   edits under frontend/ and backend/src apply live; dependency changes need .\start.ps1 -Dev'
@@ -695,7 +695,7 @@ function Show-Ready($envInfo, $prov) {
     Write-Host "Database: persistent Docker volume $(Get-VolumeName $envInfo.Model)"
     $flag = if ($Dev) { ' -Dev' } else { '' }
     Write-Host "Logs:     .\start.ps1$flag -Logs [backend|frontend]    Status: .\start.ps1$flag -Status"
-    if (-not $NoBrowser) { Start-Process "$url/app/comparative" }
+    if (-not $NoBrowser) { Start-Process $url }
 }
 
 function Invoke-Up([switch]$NoCache, [switch]$RecreateOnly) {
