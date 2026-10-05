@@ -1,5 +1,7 @@
 # GitHub Projects Kanban Board Workflow
 
+> **Status: Historical.** Board design from the build phase. Milestone names below (e.g. `v0.2.0 — Backend Core`) are the original GitHub milestones, not the product versions in [ROADMAP.md](../ROADMAP.md).
+
 This document details the **GitHub Projects Kanban Workflow** designed for the two-developer team (Developer A: Backend, Developer B: Frontend) building the **Traffic Intersection Control Comparison Framework**.
 
 ---

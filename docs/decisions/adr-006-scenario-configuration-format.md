@@ -91,6 +91,6 @@ If human-authored YAML configurations are highly desired for command-line simula
 
 ## Related ADRs
 
-*   [ADR-003: Shared Contract Layer](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-003-shared-contract-layer.md)
-*   [ADR-005: Metric Contract Design](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-005-metric-contract-design.md)
-*   [ADR-012: Future Controller Extensibility](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-012-future-controller-extensibility.md)
+*   [ADR-003: Shared Contract Layer](adr-003-shared-contract-layer.md)
+*   [ADR-005: Metric Contract Design](adr-005-metric-contract-design.md)
+*   [ADR-012: Future Controller Extensibility](adr-012-future-controller-extensibility.md)

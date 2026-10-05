@@ -1,6 +1,9 @@
 # Operations Guide
 
-This guide describes the behavior implemented by `backend/src/main.py` and the current frontend services. The interactive dashboard uses the legacy live routes; the versioned routes are intended for programmatic runs and study analysis.
+> **Status:** Current · V1.0 · detailed runtime behaviour of `backend/src/main.py` and the frontend services.
+> **Companions:** [API & WebSocket reference](api/README.md) (every route, inputs, outputs, errors) · [Deployment & operations](deployment/README.md) (architecture, verification, known issues) · [Reproducibility](research/reproducibility.md)
+
+This guide describes the behavior implemented by `backend/src/main.py` and the current frontend services. The interactive dashboard (guided comparison and single-strategy views) uses the live-session routes under `/api/simulation/*`; the versioned `/api/v1/*` routes are intended for programmatic runs and study analysis.
 
 ## Start a Versioned Simulation
 
@@ -177,13 +180,14 @@ Two independent controls, answering two different questions.
 
 ### `API_KEY` — what may talk to the backend
 
-When `API_KEY` is set, the backend requires `Authorization: Bearer <API_KEY>` on
-its mutating and compute-heavy routes. When it is unset or empty the check is
+When `API_KEY` is set, the backend requires the key on its mutating and
+compute-heavy routes, sent as `X-API-Key: <API_KEY>` (or, for scripts,
+`Authorization: Bearer <API_KEY>`). When it is unset or empty the check is
 disabled, which is the local-development default.
 
 The browser app never carries this key. Anything shipped in a JavaScript bundle
 is public, so a key embedded there would protect nothing. Instead nginx attaches
-the header to proxied `/api/` and `/ws/` requests on the server side, from its
+`X-API-Key` to proxied `/api/` and `/ws/` requests on the server side, from its
 own `BACKEND_API_KEY` environment variable (see
 `frontend/templates/default.conf.template`). The production Compose file wires
 both from a single `API_KEY` value:
@@ -192,9 +196,17 @@ both from a single `API_KEY` value:
 API_KEY="$(openssl rand -hex 32)" docker compose up -d
 ```
 
-The dashboard keeps working unchanged, and the key never reaches a client.
-Earlier this was not the case: enabling `API_KEY` protected the backend but
-broke the browser demo, so the two were mutually exclusive.
+The key never reaches a client, and the dashboard keeps working with it set.
+
+The key deliberately does **not** use `Authorization`: that header carries the
+signed-in user's Cognito ID token, which nginx passes through untouched so the
+backend can identify the user (saved runs, per-user live sessions). A bearer
+value equal to the API key is treated as "no user" by the live-session
+middleware, so scripts or proxies that still send the key as a bearer token get
+the anonymous cookie session rather than a 401. (Before 2026-10-05 nginx
+overwrote `Authorization` with the key, which broke both the live dashboard and
+sign-in whenever `API_KEY` was set; `tests/api/test_api_key_with_user_tokens.py`
+pins the fix.)
 
 In the production topology the backend publishes no ports, so it is only
 reachable through nginx. `API_KEY` is defence in depth for anything that reaches

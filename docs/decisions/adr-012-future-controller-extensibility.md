@@ -1,5 +1,7 @@
 # ADR-012: Future Controller Extensibility
 
+> **Implementation note (2026-10-05):** the intent of this ADR holds — the engine loop has no strategy-specific branches and every controller implements `BaseController` — but the decorator registry (`controllers/registry.py`, `@register_controller`) was never built. V1.0 selects controllers in `backend/src/controllers/factory.py::create_controller()`. A new controller (e.g. V1.3 adaptive control) is added there. See [implementation decision D8](README.md#implementation-decisions-v10).
+
 ## Status
 
 Accepted
@@ -122,6 +124,6 @@ This extensibility model makes it easy to integrate research-grade simulators or
 
 ## Related ADRs
 
-*   [ADR-002: Backend / Frontend Separation](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-002-backend-frontend-separation.md)
-*   [ADR-003: Shared Contract Layer](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-003-shared-contract-layer.md)
-*   [ADR-006: Scenario Configuration Format](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-006-scenario-configuration-format.md)
+*   [ADR-002: Backend / Frontend Separation](adr-002-backend-frontend-separation.md)
+*   [ADR-003: Shared Contract Layer](adr-003-shared-contract-layer.md)
+*   [ADR-006: Scenario Configuration Format](adr-006-scenario-configuration-format.md)

@@ -118,27 +118,45 @@ app.add_middleware(
 # ── Minimal API-key protection for mutating / compute-heavy endpoints ──────
 # Disabled (no-op) when API_KEY is unset/empty — the intended local-dev
 # default, so nothing needs to change to keep developing without auth. Set
-# the API_KEY environment variable to require
-# `Authorization: Bearer <API_KEY>` on protected routes (see usage below).
+# the API_KEY environment variable to require the key on protected routes
+# (see usage below).
+#
+# The key travels in its own header, `X-API-Key`, which is what nginx injects
+# for browser traffic (frontend/templates/default.conf.template). That leaves
+# `Authorization` free for the signed-in user's Cognito token: the proxy used
+# to overwrite Authorization with the key, so with API_KEY set the user's
+# token never reached the backend and the live-session middleware rejected
+# the key itself as an invalid JWT. `Authorization: Bearer <API_KEY>` is still
+# accepted for scripts and proxies configured the old way.
 API_KEY = os.environ.get("API_KEY", "").strip()
 
 
-def require_api_key(authorization: Optional[str] = Header(default=None)) -> None:
+def _is_api_key(value: Optional[str]) -> bool:
+    """Constant-time check of a presented value against the configured key."""
+    if not API_KEY or not value:
+        return False
+    return secrets.compare_digest(value.encode("utf-8"), API_KEY.encode("utf-8"))
+
+
+def _bearer_value(authorization: Optional[str]) -> Optional[str]:
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    return authorization[len("Bearer ") :].strip() or None
+
+
+def require_api_key(
+    authorization: Optional[str] = Header(default=None),
+    x_api_key: Optional[str] = Header(default=None),
+) -> None:
     if not API_KEY:
         return
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=401,
-            detail="Missing or invalid API key",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    provided = authorization[len("Bearer ") :]
-    if not secrets.compare_digest(provided, API_KEY):
-        raise HTTPException(
-            status_code=401,
-            detail="Missing or invalid API key",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    if _is_api_key(x_api_key) or _is_api_key(_bearer_value(authorization)):
+        return
+    raise HTTPException(
+        status_code=401,
+        detail="Missing or invalid API key",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 # ── Uniform error envelope (docs/architecture/08-communication-contract.md
@@ -1044,14 +1062,15 @@ async def _live_session_middleware(request: Request, call_next: Any) -> Any:
 
     from src.auth import verify_token
 
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        # Fallback to anonymous cookie for now, or you could return 401
+    # A bearer value identifies a user only when it is not the server's own
+    # API key: a proxy (or script) authenticating with the key is not a
+    # user, and must get the anonymous cookie session rather than a 401.
+    token = _bearer_value(request.headers.get("Authorization"))
+    if token is None or _is_api_key(token):
         incoming = request.cookies.get(LIVE_SESSION_COOKIE)
         key = incoming or str(uuid.uuid4())
     else:
         try:
-            token = auth_header.split(" ")[1]
             creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
             claims = verify_token(creds)
             key = str(claims.get("sub", ""))

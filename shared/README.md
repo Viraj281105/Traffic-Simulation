@@ -1,6 +1,6 @@
 # Shared Contracts Layer
 
-This directory contains the JSON Schema files shared conceptually by the backend and frontend. The backend currently loads `config.schema.json` for versioned request validation; the snapshot schemas document payload shapes but are not automatically applied to every WebSocket response.
+This directory contains the JSON Schema files shared by the backend and frontend. The backend loads `config.schema.json` to validate scenario configurations; the snapshot and vehicle schemas document payload shapes but are not applied to every WebSocket frame.
 
 To ensure strict decoupling, it contains **zero executable code**. It defines structural formats in programming language-independent formats (JSON Schema), allowing both Python and TypeScript components to serialize, deserialize, and validate payloads reliably.
 
@@ -23,48 +23,22 @@ shared/
 
 ## Schema Architecture & Data Contracts
 
-### 1. Scenario Configuration Schema (`config.schema.json`)
+| Schema | Describes | Enforced at runtime? |
+| --- | --- | --- |
+| `config.schema.json` | Scenario configuration: `simulation`, `traffic`, `geometry`, `roads`, `vehicleGeneration`, `controller`, `metrics`, `visualization` | **Yes** — `POST /api/v1/configs/validate`, `POST /api/v1/simulations`, and the compiled live-dashboard configuration (`backend/src/main.py`). The backend refuses to start if it is missing. |
+| `snapshot.schema.json` | The streamed snapshot: `schemaVersion`, `simulationId`, `configId`, `timestamp`, `frameNumber`, `tick`, `wallClockTime`, `samplingFrequency`, `deltaTime`, `warmupTime`, `simulationStatus`, `vehicles`, `intersection`, `controller`, `metrics`, `vehicleCounts`, `units` | Documented contract; checked by backend contract tests (`tests/integration/test_snapshot_contract.py`), not on every frame |
+| `vehicle_state.json` | The legacy single-vehicle demo payload (`vehicle_id`, `position`, `x`, `y`, `speed`, `acceleration`, `heading`, `state`, `lane_id`) served by `/api/simulation/single-vehicle` | Documented only |
 
-Defines the parameters needed to initialize, customize, and save a simulation run.
+Key configuration fields (full reference: [docs/simulation/configuration.md](../docs/simulation/configuration.md), field-by-field: [docs/architecture/06-scenario-configuration-contract.md](../docs/architecture/06-scenario-configuration-contract.md)):
 
-- **Intersection Layout Settings**:
-  - `simulation.duration` and `simulation.timeStep` control run length and tick size.
-  - `geometry.intersectionType` is `fixed_time_signal` or `roundabout`.
-  - `roads.laneWidth` and `roads.lanesPerApproach` describe road geometry.
-  - `traffic.arrivalRate` and `traffic.arrivalDistribution` describe demand.
-- **Simulation Controls**:
-  - `simulation.randomSeed` (integer): Random number generator seed.
-- **Physics and Car-Following Parameters (Intelligent Driver Model)**:
-  - `desired_speed` ($v_0$): Ideal target speed on clear lanes.
-  - `safe_time_gap` ($T$): Preferred time headway behind leading cars.
-  - `max_acceleration` ($a$): Maximum vehicle acceleration power.
-  - `comfortable_deceleration` ($b$): Preferred braking rate.
-  - `min_gap` ($s_0$): Minimum static safety margin spacing.
+- `simulation.duration` (required), `timeStep`, `warmupTime`, `randomSeed`, `snapshotFrequency`
+- `geometry.intersectionType` (required): `fixed_time_signal` or `roundabout`
+- `roads.approachLength`, `laneWidth`, `lanesPerApproach` (one integer for all approaches), `speedLimit`
+- `traffic.arrivalRate`, `arrivalDistribution`, `totalVehicles`, `directionalSplit`, `turnProbabilities`
+- IDM parameters under `vehicleGeneration`: `maxAcceleration` (a), `comfortDeceleration` (b), `desiredTimeHeadway` (T), `minimumGap` (s₀), `idmDelta` (δ), plus `desiredSpeed` / `vehicleLength` / `vehicleWidth` ranges
+- `controller`: signal timings (`straightRightDuration`, `nsGreenDuration`, `ewGreenDuration`, `yellowDuration`, `allRedDuration`, `phaseSequence`, `offset`) and roundabout parameters (`innerRadius`, `outerRadius`, `criticalGap`, `followUpTime`, `entrySpeed`, `circulatingSpeed`)
 
-### 2. Real-Time Snapshot Schema (`snapshot.schema.json`)
-
-Defines the state payload broadcasted by the backend at 10Hz over WebSockets to feed the visualization engine:
-
-- **Global Context**:
-  - `simulation_id` (string): UUID of the active run.
-  - `tick` (integer): Monotonically increasing tick counter.
-  - `sim_time` (number): Cumulative simulation elapsed time in seconds.
-  - `status` (string): State of the simulation runtime lifecycle (e.g., `running`, `paused`, `completed`, `error`).
-- **Vehicle Telemetry Collection**:
-  - Contains an array of active vehicle states conforming to the vehicle state sub-schema.
-- **Infrastructure Phase States**:
-  - Traffic light active indexes, time remaining on the active phase, and signal statuses for signalized intersections.
-
-### 3. Vehicle State Schema (`vehicle_state.json`)
-
-Defines properties tracked for each active vehicle:
-
-- `vehicle_id` (string): Unique identifier.
-- `position_x`, `position_y` (numbers): Coordinates in meters relative to the intersection center $(0,0)$.
-- `speed` (number): Instantaneous velocity in m/s.
-- `acceleration` (number): Instantaneous acceleration in $m/s^2$.
-- `lane_id` (string): Identifier of the lane currently occupied.
-- `heading` (number): Orientation angle in radians (0 to $2\pi$).
+The snapshot's camelCase field names are what the backend actually emits; see the [API reference §8](../docs/api/README.md#8-websockets).
 
 ---
 

@@ -6,9 +6,9 @@ This directory contains source assets and historical reference material. The fil
 
 | File | Type | Purpose |
 |------|------|---------|
-| **[Internship Project proposal - 2026.pptx](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/resources/Internship%20Project%20proposal%20-%202026.pptx)** | PPTX Presentation | Primary project proposal outlining the comparative goals, timeline milestones, and deliverables. |
-| **[Internship Project proposal ver1.pptx](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/resources/Internship%20Project%20proposal%20ver1.pptx)** | PPTX Presentation | Legacy/Draft version of the project proposal presentation. |
-| **[Project_Documentation.docx](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/resources/Project_Documentation.docx)** | Word Document | Complete documentation covering the project description, math, and baseline comparisons. |
-| **[Technical Documentation.docx](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/resources/Technical%20Documentation.docx)** | Word Document | Specifications detailing simulation parameters, algorithms, and classes. |
-| **[Simulation_Parameters_Reference.md.pdf](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/resources/Simulation_Parameters_Reference.md.pdf)** | PDF Document | Reference guide covering simulation parameters, lanes constraints, and IDM constants. |
-| **[simulation_pipeline_overview.png](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/resources/simulation_pipeline_overview.png)** | PNG Image | Pipeline flowchart visual outlining how state data flows from the simulator loop to the canvas visualization. |
+| **[Internship Project proposal - 2026.pptx](Internship%20Project%20proposal%20-%202026.pptx)** | PPTX Presentation | Primary project proposal outlining the comparative goals, timeline milestones, and deliverables. |
+| **[Internship Project proposal ver1.pptx](Internship%20Project%20proposal%20ver1.pptx)** | PPTX Presentation | Legacy/Draft version of the project proposal presentation. |
+| **[Project_Documentation.docx](Project_Documentation.docx)** | Word Document | Complete documentation covering the project description, math, and baseline comparisons. |
+| **[Technical Documentation.docx](Technical%20Documentation.docx)** | Word Document | Specifications detailing simulation parameters, algorithms, and classes. |
+| **[Simulation_Parameters_Reference.md.pdf](Simulation_Parameters_Reference.md.pdf)** | PDF Document | Reference guide covering simulation parameters, lanes constraints, and IDM constants. |
+| **[simulation_pipeline_overview.png](Images/simulation_pipeline_overview.png)** | PNG Image | Pipeline flowchart visual outlining how state data flows from the simulator loop to the canvas visualization. |

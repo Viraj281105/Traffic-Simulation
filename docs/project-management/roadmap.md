@@ -1,5 +1,7 @@
 # Milestone Roadmap: Traffic Intersection Control Comparison Framework
 
+> **Status: Historical.** This is the original phase-based build plan (Milestones 1–N, Phase 0 onward) that delivered the V0.x versions. It is kept for context only and is **not** the project roadmap. The authoritative roadmap — V0.1 → V1.0 history and V1.1 → V2.0 plan — is [docs/ROADMAP.md](../ROADMAP.md); post-V2.0 work is in [Future Scope](../future-scope/future_scope.md).
+
 This document outlines the complete milestone roadmap for the **Traffic Intersection Control Comparison Framework**. Each milestone represents a logical development phase containing specific targets, deliverables, exit criteria, and suggested issues to track in GitHub.
 
 ---

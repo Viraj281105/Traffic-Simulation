@@ -1,13 +1,17 @@
 # Traffic Simulation Code Review Prep: Phase 4
 ## Vehicles: Spawning, Dynamics, & Physics
 
+> **Historical — code-review preparation notes (September 2026).** Useful as a walkthrough, but not maintained. Current, verified descriptions: [System overview](../architecture/00-system-overview.md) · [Simulation methodology](../simulation/methodology.md) · [Metrics reference](../research/metrics-reference.md) · [API reference](../api/README.md).
+>
+> **Erratum:** Q2 below describes MOBIL lane-change safety rules. UrbanFlow V1.0 has **no lane changing** — a vehicle's lane is fixed at spawn. Lane changes are scheduled for [V1.2](../ROADMAP.md#v12--advanced-lane-modelling).
+
 This guide details vehicle generation, physical kinematics using the Intelligent Driver Model (IDM), lane transitions, collision detection, and lane-changing behavior.
 
 ---
 
 ## 1. Vehicle Spawning Lifecycle
 
-Vehicles are managed by the [`VehicleSpawner`](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/backend/src/vehicles/spawner.py).
+Vehicles are managed by the [`VehicleSpawner`](../../backend/src/vehicles/spawner.py).
 1. **Spawn Decision**: At each step, a Poisson-like generator checks the arrival probability $P(\text{spawn}) = 1 - e^{-\lambda \cdot dt}$ where $\lambda$ is the configured arrival rate.
 2. **Path Setup**: 
    * A vehicle is assigned a random incoming direction (e.g. `Direction.NORTH`) and a target outgoing direction.
@@ -19,7 +23,7 @@ Vehicles are managed by the [`VehicleSpawner`](file:///c:/VIRAJ/Internship/Traff
 
 ## 2. Longitudinal Driver Physics: The Intelligent Driver Model (IDM)
 
-The [`IntelligentDriverModel`](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/backend/src/vehicles/idm.py) calculates the acceleration $a$ for each vehicle.
+The [`IntelligentDriverModel`](../../backend/src/vehicles/idm.py) calculates the acceleration $a$ for each vehicle.
 
 ### The IDM Equation
 The acceleration formula is split into two components: **Free-road acceleration** and **Interaction deceleration**.

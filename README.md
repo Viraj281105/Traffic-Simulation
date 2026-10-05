@@ -1,155 +1,254 @@
-# Traffic Intersection Control Comparison
+<div align="center">
 
-> A comparative traffic simulation framework for evaluating **Fixed-Time Signal Control** vs. **Modern Roundabout Control** using multiple performance metrics.
+# UrbanFlow
 
-## Overview
+### Signal or roundabout? Try both.
 
-This project simulates and compares two intersection control strategies to determine which performs better under various traffic conditions. The simulation uses the **Intelligent Driver Model (IDM)** for vehicle physics and computes **10 performance metrics** across 5 categories.
+**An evidence-based traffic simulation and decision-support platform for comparing intersection control strategies under controlled, reproducible conditions.**
 
-### Control Strategies
+| Version | Status | Next | Stack |
+| :-: | :-: | :-: | :-: |
+| **V1.0** | ✅ Complete — deployed on AWS, demo recorded | V1.1 Vehicle types · V1.2 Lane modelling | Python · FastAPI · React · TypeScript · Docker · AWS EC2 |
 
-| Strategy                      | Description                                                                         |
-| ----------------------------- | ----------------------------------------------------------------------------------- |
-| **Fixed-Time Traffic Signal** | Traditional signal-controlled intersection with fixed green/yellow/red phase cycles |
-| **Modern Roundabout**         | Yield-at-entry circular intersection with gap acceptance behavior                   |
+</div>
 
-## Architecture
+> [!IMPORTANT]
+> **Evidence, not a verdict.** UrbanFlow does not assume that signals are better, or that roundabouts are better. It runs both on the same virtual junction with exactly the same vehicles, measures what happens, tells you how consistent the difference is, and states what the model does not capture. **The decision stays with you.**
 
-The project is organized as a monorepo with strict separation between Backend (Simulation Engine) and Frontend (Visualization Dashboard). Both communicate through shared data contracts.
+---
 
+## At a glance
+
+| | |
+| --- | --- |
+| **What is it?** | A microscopic traffic simulator with a guided, plain-language interface and a research lab, comparing a **fixed-time traffic signal** with a **roundabout** at one four-leg junction. |
+| **Who is it for?** | **Primary:** municipal planning officers and other non-specialist decision participants. **Secondary:** researchers and traffic engineers who need every metric, repeated experiments and reproducibility. |
+| **What problem does it solve?** | "Signal or roundabout?" decisions are often argued from opinion. UrbanFlow turns the question into a fair, repeatable test that can be read without a manual. |
+| **What does it simulate?** | Individual vehicles (Intelligent Driver Model car-following), seeded random arrivals, a fixed-time signal with paired north–south / east–west phases, and a roundabout with give-way entry, critical gap and follow-up time. |
+| **How is the comparison controlled?** | Both strategies receive the **same seed** — the same arrival times, directions, turns and vehicles — and run in lockstep. Only the control strategy differs. Repeating over fresh seeds shows whether a difference is consistent or luck. |
+| **How is it validated?** | Unit, integration and nightly simulation-regression tests; physical invariants (vehicle conservation, no conflicting greens, no overlaps); cross-process determinism; a calibrated, regression-pinned one-lane capacity curve; Student-t / Welch / Cohen's d statistics. |
+| **How is it deployed?** | Two containers (nginx + FastAPI) under Docker Compose on Amazon EC2, with SQLite on a persistent volume. |
+
+---
+
+## How UrbanFlow works
+
+```mermaid
+flowchart LR
+    Q["Your junction<br/>how busy · lanes · how long"] --> SEED["One traffic pattern<br/>(random seed)"]
+    SEED --> SIG["Fixed-time signal<br/>simulation"]
+    SEED --> RBT["Roundabout<br/>simulation"]
+    SIG --> M["Same metrics,<br/>same definitions"]
+    RBT --> M
+    M --> R["Results in plain language<br/>both values stated · why it happened"]
+    R --> REL["How reliable is this?<br/>repeat over new traffic patterns"]
+    REL --> YOU["Your decision"]
 ```
-├── [backend/](backend/README.md)       → Simulation engine, metrics, API, SQLite (Python + FastAPI)
-├── [frontend/](frontend/README.md)      → Landing page and simulation dashboard (React + TypeScript + Vite)
-├── [shared/](shared/README.md)        → JSON Schema contracts
-├── docs/          → Runtime operations, architecture, decisions, deployment, and planning
-└── [scripts/](scripts/README.md)       → Study, schema, and GitHub automation
-```
 
-See the [Operations and API guide](docs/operations.md) for current behavior. Architecture documents describe the checked-in implementation; ADRs and issue files may preserve historical planning context.
+1. **Describe the junction** in everyday terms: how busy it is, how many lanes, how long to watch.
+2. **Watch both run** side by side — two maps, the same cars.
+3. **Read the results**: time lost per driver, traffic served, queues, fairness between directions — and *why* the two differ.
+4. **Check reliability**: UrbanFlow repeats *your* scenario over 5 or 10 new traffic patterns and reports whether the difference is consistent.
+5. **Go deeper** if you want: every metric, the method, saved runs with full provenance, traffic-level sweeps and statistical studies in the Research Lab.
 
-## Architecture Documents
+---
 
-| #   | Document                                                                          | Description                              |
-| --- | --------------------------------------------------------------------------------- | ---------------------------------------- |
-| 01  | [Repository Architecture](docs/architecture/01-repository-architecture.md)        | Folder structure, ownership boundaries   |
-| 02  | [Backend Architecture](docs/architecture/02-backend-architecture.md)              | Simulation engine module design          |
-| 03  | [Frontend Architecture](docs/architecture/03-frontend-architecture.md)            | React dashboard design                   |
-| 04  | [Shared Contract Layer](docs/architecture/04-shared-contract-layer.md)            | Contract ownership and versioning        |
-| 05  | [Snapshot Contract](docs/architecture/05-snapshot-contract.md)                    | Real-time simulation state schema        |
-| 06  | [Scenario Configuration](docs/architecture/06-scenario-configuration-contract.md) | Simulation configuration schema          |
-| 07  | [Metric Contract](docs/architecture/07-metric-contract.md)                        | Current metric keys and implementation ownership |
-| 08  | [Communication Contract](docs/architecture/08-communication-contract.md)          | REST + WebSocket API design              |
-| 09  | [Engineering Standards](docs/architecture/09-engineering-standards.md)            | Naming, Git workflow, code quality       |
-| 10  | [Repository Bootstrap](docs/architecture/10-repository-bootstrap.md)              | Labels, milestones, initial issues       |
+## What V1.0 supports
 
-## Project Planning & Decisions
+| Area | Capabilities |
+| --- | --- |
+| **Planner experience** | Landing page · three-step guided comparison · plain-language results with HCM-style grades and fairness bands · "Why did this happen?" · one-click reliability check · "Try another scenario" |
+| **Simulation** | Discrete-time engine (Δt = 0.1 s) · IDM car-following · Poisson/uniform seeded arrivals · curve speed limits · safe vehicle insertion · 1–4 lanes per approach (1 = calibrated) |
+| **Control strategies** | Fixed-time signal (paired phases, configurable greens incl. per-corridor, yellow, all-red, offset) · roundabout (critical gap, follow-up time, entry/circulating speed caps) |
+| **Measurement** | Delay family (mean, median, p95, …) · throughput · queues · stops · Jain's fairness · planning-time index · idle-green loss · exploratory TTC/PET · integrity counters — all computed by the backend |
+| **Research Lab** | Traffic-level sweep with delay crossover bracket · Monte Carlo statistical validation (Student-t CI, Welch's t-test, Cohen's d) · single-strategy views · background jobs with live progress |
+| **Reproducibility** | Every saved run records configuration, seed, timing, code version and Python version · server-side re-run with discrepancy and limitation reporting · JSON/CSV export · compare up to six saved runs |
+| **Platform** | FastAPI REST + WebSocket streaming (≈ 10 Hz) · per-visitor live sessions · SQLite (WAL) persistence · optional Cognito sign-in · Docker Compose · CI with nightly regression |
 
-In addition to system specifications, the repository maintains planning, workflow, and decision history:
+What V1.0 does **not** model — other vehicle types, lane changing, adaptive signals, multi-lane roundabout circulation, real junction layouts, crash risk, emissions, field calibration — is listed with its planned version in [Validation & evidence](docs/research/validation.md#5-known-limitations).
 
-| Component                  | Directory                                            | Description                                                                    |
-| -------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------ |
-| **Architecture Decisions** | [docs/decisions/](docs/decisions/)                   | The Architecture Decision Record (ADR) library tracking historic context.      |
-| **Kanban & Roadmap**       | [docs/project-management/](docs/project-management/) | Milestones roadmap, label systems, and board configurations.                   |
-| **GitHub Issues**          | [docs/issues/](docs/issues/)                         | 61 deconstructed atomic engineering tasks partitioned by implementation phase. |
-| **Future Scope & Roadmap** | [docs/future-scope/](docs/future-scope/)             | Finalized roadmap & Google Maps-grade Digital Twin UI/UX innovation blueprints.|
+---
 
-## Performance Metrics
+## Quick start
 
-| Category                      | Metrics                                                                               | Description                                                   |
-| ----------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| **Operational Efficiency**    | Average Wait Time, Throughput, Queue Length Statistics                                | Core delay and volume clearing statistics                     |
-| **Traffic Flow Quality**      | Stop Count, Speed Variance Index, Travel Time Reliability, Average Travel Speed (ATS) | Vehicle comfort and flow stabilization markers                |
-| **System Performance**        | Idle Opportunity Loss, Critical Saturation Volume, Intersection Utilization %         | Capacity and active service metrics                           |
-| **Fairness & Stability**      | Directional Fairness Index (DFI), Queue Stability Index (QSI)                         | Variance across approaches and queues                         |
-| **Physical Constraints**      | Space / Footprint Consumed                                                            | Land usage footprint comparison                               |
-| **Composite (specialist layer)** | **Master Efficiency Score**                                                        | Fixed-weight composite (0–100); shown only in the specialist table, not as a verdict |
+### Docker (recommended)
 
-The guided comparison presents these as answers to everyday questions (how long drivers wait, how much gets through, how long queues get, whether directions are treated alike, why, and how reliable the result is); every metric above stays available in its "All measurements" layer. See the [UrbanFlow user narrative](docs/product/urbanflow-user-narrative.md).
-
-## Quick Start
-
-### Prerequisites
-
-- Python 3.11+
-- Node.js 18+
-- Docker & Docker Compose (optional, for containerized run)
-
-### Running via Docker (Recommended)
-
-Run the entire containerized system (FastAPI Simulation Engine + React Dashboard + Nginx Reverse Proxy + Persistent SQLite Data Volume):
+Requires Docker with Compose v2.
 
 ```bash
 docker compose up --build -d
 ```
 
-- **Frontend landing page**: [http://localhost](http://localhost) (or [http://localhost:3000](http://localhost:3000))
-- **Simulation dashboard**: [http://localhost/app/comparative](http://localhost/app/comparative) — the guided comparison (describe the junction → watch both run → plain-language results with a reliability check). The app has three sections: **Compare** (`/app/comparative`), **Saved** (`/app/history`) and the **Research lab** (`/app/research`, with `/app/volume`, `/app/validation`, `/app/signal`, `/app/roundabout`). Each view has its own URL, so refresh, bookmarks and back/forward work; the old `/app.html` link still redirects. Each saved run has its own page at `/app/runs/<runId>` (configuration, seed, provenance, metrics, notes/tags, exports, re-run), and `/app/compare?runs=<id>,<id>` compares stored runs
-- **Backend API**: proxied by nginx at [http://localhost/api](http://localhost/api) (the backend container is not published on its own port); build version at [http://localhost/api/version](http://localhost/api/version)
-- **Health Check**: [http://localhost/health](http://localhost/health)
+| URL | What |
+| --- | --- |
+| http://localhost | Landing page (also on port 3000) |
+| http://localhost/app/comparative | Guided comparison |
+| http://localhost/app/research | Research Lab |
+| http://localhost/health | Health check (proxied to the backend) |
+| http://localhost/api/version | Running backend's commit and Python version |
 
-#### Windows: `start.ps1` (Docker only)
+Record the code version with saved runs by passing the commit at build time:
 
-`start.ps1` runs the same stack and needs nothing on the host but Docker Desktop and Git — no Python, Node or npm. It starts Docker Desktop if needed, validates `.env` and the Compose file, checks that the host ports are free, rebuilds only the images whose inputs changed (Docker's build cache decides; docs/test edits rebuild nothing), recreates only containers whose image or configuration changed, waits for health, and smoke-tests the result (pages, static assets, `/health`, database, study workers, live WebSocket, and that the running images are the current build).
+```bash
+GIT_COMMIT=$(git rev-parse HEAD) docker compose up -d --build
+```
+
+Stop with `docker compose down`. Saved data lives in the named volume `traffic-simulation_traffic_data` and survives restarts; `docker compose down -v` deletes it.
+
+### Windows: `start.ps1`
+
+Needs only Docker Desktop and Git. It starts Docker if needed, checks ports and configuration, rebuilds only what changed, waits for health and smoke-tests the stack.
 
 ```powershell
 .\start.ps1                    # build what changed, start, verify
-.\start.ps1 -Status            # read-only: containers, images, database, source version
+.\start.ps1 -Status            # read-only status
 .\start.ps1 -Logs [backend]    # follow logs
-.\start.ps1 -Restart           # recreate containers from current images (data kept)
-.\start.ps1 -Rebuild           # rebuild images without cache
+.\start.ps1 -Restart           # recreate containers (data kept)
+.\start.ps1 -Rebuild           # rebuild without cache
 .\start.ps1 -SmokeTest         # re-check the running stack
-.\start.ps1 -Clean             # remove containers and images; database volumes are kept
-.\start.ps1 -Clean -DeleteData # ...and delete the database volume (asks for confirmation)
-.\start.ps1 -Dev               # development stack with hot reload (combines with every switch above)
+.\start.ps1 -Clean             # remove containers and images (data kept)
+.\start.ps1 -Clean -DeleteData # ...and the database volume (asks first)
+.\start.ps1 -Dev               # development stack with hot reload
 ```
 
-**Development mode (`-Dev`)** runs `docker-compose.dev.yml`: the Vite dev server at [http://localhost:5173](http://localhost:5173/app/comparative) and uvicorn `--reload` at [http://localhost:8000](http://localhost:8000/docs), both in containers with the source bind-mounted, so edits under `frontend/` and `backend/src` apply live. Dependencies stay inside the images (their `dev` build targets), which rebuild only when `requirements.txt` or `package*.json` change. The development sign-in is on (you are "Local developer"), so saving runs works without Cognito. Development has its own database volume (`traffic-simulation_traffic_data_dev`); production and development share one Compose project, so starting one replaces the other.
+`-Dev` runs `docker-compose.dev.yml`: the Vite dev server on http://localhost:5173 and Uvicorn `--reload` on http://localhost:8000 (OpenAPI docs at `/docs`), source bind-mounted, signed in as "Local developer". If port 80 or 3000 is taken, set `URBANFLOW_HTTP_PORT` / `URBANFLOW_ALT_HTTP_PORT`.
 
-The database lives in the named volume `traffic-simulation_traffic_data`; nothing but `-Clean -DeleteData` removes it. If port 80 or 3000 is taken, set `URBANFLOW_HTTP_PORT` / `URBANFLOW_ALT_HTTP_PORT` (shell or `.env`). The production image has no development sign-in, so without Cognito configured the app runs signed out; use `-Dev` to work signed in.
+### Native development
 
-To stop the containers:
+Requires Python 3.11+ and Node.js (CI uses Node 20).
+
 ```bash
-docker compose down
+# backend
+cd backend
+python -m venv .venv
+.venv\Scripts\activate          # Windows
+# source .venv/bin/activate     # macOS / Linux
+pip install -r requirements.txt
+uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### Running Natively for Local Development
+```bash
+# frontend (second terminal)
+cd frontend
+npm install
+npm run dev                     # http://localhost:5173 and /app/comparative
+```
 
-For hot reload, use `.\start.ps1 -Dev` (or `docker compose -f docker-compose.dev.yml up -d --build`). To run the services natively instead:
+Set `DEV_AUTH_BYPASS=1` for the backend if you want to save runs while developing without Cognito.
 
-- **Manual Backend Setup**:
-  ```bash
-  cd backend
-  python -m venv .venv
-  .venv\Scripts\activate          # Windows
-  # source .venv/bin/activate     # macOS/Linux
-  pip install -r requirements.txt
-  uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
-  ```
-- **Manual Frontend Setup**:
-  ```bash
-  cd frontend
-  npm install
-  npm run dev
-  ```
-  Visit [http://localhost:5173](http://localhost:5173) for the landing page or [http://localhost:5173/app/comparative](http://localhost:5173/app/comparative) for the dashboard.
+### Run the validated study from the command line
 
-### AWS Free Tier Cloud Deployment
+```bash
+python scripts/run_full_study.py --help
+python scripts/run_full_study.py      # volume sweep + Monte Carlo → study_report.csv
+```
 
-For deploying the containerized application to an **AWS EC2 Free Tier (`t2.micro` / `t3.micro`)** instance with 2 GB Linux Swap, Nginx reverse proxying, and persistent storage, see:
+---
 
-📖 **[AWS Free Tier Deployment Guide](docs/deployment/AWS_FREE_TIER_DEPLOYMENT.md)**
+## Architecture
+
+```mermaid
+flowchart LR
+    B["Browser<br/>React 19 · TypeScript · Vite"] -->|"HTTP · WebSocket"| N["nginx<br/>static files · reverse proxy"]
+    N --> F["FastAPI<br/>REST · WebSocket · study jobs"]
+    F --> E["Simulation engine<br/>IDM · controllers · metrics"]
+    F --> W["Study workers<br/>sweeps · Monte Carlo"]
+    F --> D[("SQLite<br/>runs · sweeps · replays")]
+```
+
+The browser never simulates and never computes a metric; the backend is the single source of every number. Full picture: [System overview](docs/architecture/00-system-overview.md).
+
+```
+├── backend/     Simulation engine, metrics, studies, API, persistence (Python 3.11, FastAPI)
+├── frontend/    Landing page and dashboard (React 19, TypeScript, Vite, Canvas, Recharts)
+├── shared/      JSON Schema contracts (scenario configuration, snapshots, vehicle state)
+├── scripts/     Study runner, schema validation, Cognito and GitHub utilities
+├── docs/        Documentation (start at docs/README.md)
+├── docker-compose.yml / docker-compose.dev.yml / start.ps1
+└── landingpage/ Legacy prototype workspace — not built or deployed
+```
+
+---
+
+## Validation
+
+| Layer | What it shows |
+| --- | --- |
+| **Engine correctness** | IDM, clock, lanes, spawner, controllers and every metric definition are unit-tested |
+| **Physical invariants** | Vehicle conservation, non-negative speeds, no conflicting greens, no lock-ups at tested demands, no collisions in the calibrated one-lane comparison |
+| **Determinism** | Same seed → same result, in-process, across processes, and after save → restore → re-run |
+| **Comparative evidence** | A calibrated one-lane capacity curve pinned by regression tests; multi-seed statistics with stated method and limits |
+
+Measured results are in the [comparative report](docs/reports/comparative_report.md) — each scoped to the conditions it was measured under. UrbanFlow is validated internally; it is **not yet calibrated against observed field traffic** (planned for V1.8/V1.9). Details: [Validation & evidence](docs/research/validation.md) · [Testing](docs/testing/README.md).
+
+---
+
+## Deployment
+
+V1.0 runs on **Amazon EC2** as a Docker Compose stack: an nginx container serving the built frontend and proxying `/api/`, `/ws/` and `/health` to a FastAPI container, which persists to SQLite on a named volume. See [Deployment & operations](docs/deployment/README.md) (architecture, environment, verification, troubleshooting, known issues) and the [EC2 runbook](docs/deployment/AWS_FREE_TIER_DEPLOYMENT.md).
+
+---
+
+## Documentation
+
+| Start here | |
+| --- | --- |
+| [Documentation hub](docs/README.md) | Map of every document, by audience |
+| [Product story](docs/product/README.md) | Personas, principles, the planner journey |
+| [System overview](docs/architecture/00-system-overview.md) | Architecture, data flow, lifecycle, concurrency |
+| [Simulation methodology](docs/simulation/methodology.md) | What is modelled, how, and under which assumptions |
+| [Configuration reference](docs/simulation/configuration.md) | Planner, advanced and research configuration |
+| [Metrics reference](docs/research/metrics-reference.md) | Every metric: definition, unit, calculation, limits |
+| [Reproducibility](docs/research/reproducibility.md) | Seeds, provenance, re-running runs and studies |
+| [Validation & evidence](docs/research/validation.md) | Validated · assumed · known limitations · future work |
+| [API & WebSocket reference](docs/api/README.md) | Every route and stream |
+| [Testing](docs/testing/README.md) · [Deployment](docs/deployment/README.md) · [Operations guide](docs/operations.md) | Quality gates and running the system |
+
+---
+
+## Roadmap
+
+```mermaid
+flowchart LR
+    A["V1.0<br/>Foundation + validated<br/>comparison + cloud<br/>✅"] --> B["V1.1 – V1.9<br/>Capability expansion"] --> C["V2.0<br/>Decision-support<br/>platform"] --> D["Post-V2.0<br/>Research frontiers"]
+```
+
+| Week (2026) | Version | Theme | Status |
+| --- | --- | --- | --- |
+| W11 · Oct 2–5 | **V1.0** | Finalisation & Demo | ✅ Complete |
+| W12 · Oct 6–12 | **V1.1** | Different Vehicle Types | 🔜 Upcoming |
+| W13 · Oct 13–19 | **V1.2** | Advanced Lane Modelling | 🔜 Upcoming |
+| W14 · Oct 20–27 | V1.3 | Adaptive Signal Control | Planned |
+| W15 · Oct 28–Nov 4 | V1.4 | Advanced Roundabout Modelling | Planned |
+| W16 · Nov 5–12 | V1.5 | Real-World Junction Modelling | Planned |
+| W17 · Nov 13–19 | V1.6 | Safety & Environmental Analysis | Planned |
+| W18 · Nov 20–27 | V1.7 | Scenario / What-If Planning | Planned |
+| W19 · Nov 28–Dec 7 | V1.8 / V1.9 | Calibration & Network-Level Foundations | Planned |
+| W20 · Dec 8–17 | **V2.0** | UrbanFlow Decision-Support Platform | Planned |
+
+Authoritative detail: [ROADMAP](docs/ROADMAP.md).
+
+### After V2.0
+
+Ten research frontiers, none of which duplicate the roadmap: emergency vehicle priority · AI-based signal control · connected-vehicle communication · platooning · autonomous intersection management · uncertainty & robust simulation · weather & road conditions · incidents & disruption · large-scale networks · digital-twin integration. See [Future Scope](docs/future-scope/future_scope.md).
+
+---
+
+## Naming
+
+**UrbanFlow** is the product. **Traffic-Simulation** is the repository and Docker Compose project name (hence volume names such as `traffic-simulation_traffic_data`). Some code identifiers and file names predate the product name.
 
 ## Team
 
-| Developer      | Scope                                              |
-| -------------- | -------------------------------------------------- |
-| Viraj Jadhao   | Backend — Simulation Engine, Physics, Metrics, API |
-| Khushi Kashyap | Frontend — Dashboard, Canvas, Charts, Playback     |
+| Contributor | Scope |
+| --- | --- |
+| Viraj Jadhao | Backend — simulation engine, physics, metrics, studies, API |
+| Khushi Kashyap | Frontend — dashboard, canvas, charts, playback |
 
 ## Contributing
 
-See [Engineering Standards](docs/architecture/09-engineering-standards.md) for naming conventions, commit message format, branch strategy, and code quality requirements.
+See [Engineering standards](docs/architecture/09-engineering-standards.md) and [Testing](docs/testing/README.md). Every pull request runs schema validation, backend lint/types/tests (coverage ≥ 85 %), frontend lint/types/format/tests, and Docker image builds.
 
 ## License
 
-MIT License
+No `LICENSE` file is currently included in the repository.

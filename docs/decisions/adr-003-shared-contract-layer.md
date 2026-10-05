@@ -90,8 +90,8 @@ If manual TypeScript type maintenance becomes a source of bugs, we will introduc
 
 ## Related ADRs
 
-*   [ADR-001: Repository Structure](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-001-repository-structure.md)
-*   [ADR-004: Snapshot-Based Communication](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-004-snapshot-based-communication.md)
-*   [ADR-005: Metric Contract Design](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-003-shared-contract-layer.md)
-*   [ADR-006: Scenario Configuration Format](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-006-scenario-configuration-format.md)
-*   [ADR-011: Versioning Strategy](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-011-versioning-strategy.md)
+*   [ADR-001: Repository Structure](adr-001-repository-structure.md)
+*   [ADR-004: Snapshot-Based Communication](adr-004-snapshot-based-communication.md)
+*   [ADR-005: Metric Contract Design](adr-003-shared-contract-layer.md)
+*   [ADR-006: Scenario Configuration Format](adr-006-scenario-configuration-format.md)
+*   [ADR-011: Versioning Strategy](adr-011-versioning-strategy.md)

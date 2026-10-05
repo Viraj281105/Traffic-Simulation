@@ -84,7 +84,7 @@ If we want to export the metrics to external tools (like Jupyter Notebooks, R, o
 
 ## Related ADRs
 
-*   [ADR-002: Backend / Frontend Separation](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-002-backend-frontend-separation.md)
-*   [ADR-003: Shared Contract Layer](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-003-shared-contract-layer.md)
-*   [ADR-004: Snapshot-Based Communication](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-004-snapshot-based-communication.md)
-*   [ADR-006: Scenario Configuration Format](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-006-scenario-configuration-format.md)
+*   [ADR-002: Backend / Frontend Separation](adr-002-backend-frontend-separation.md)
+*   [ADR-003: Shared Contract Layer](adr-003-shared-contract-layer.md)
+*   [ADR-004: Snapshot-Based Communication](adr-004-snapshot-based-communication.md)
+*   [ADR-006: Scenario Configuration Format](adr-006-scenario-configuration-format.md)

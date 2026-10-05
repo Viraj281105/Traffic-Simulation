@@ -1,9 +1,7 @@
 # Deliverable 6 — Scenario Configuration Contract
 
-> **Document Version:** 0.1.0
-> **Last Updated:** 2026-07-23
-> **Status:** Current schema reference (audited 2026-09-07)
-> **Owner:** Both Developers (jointly)
+> **Status:** Reference · V1.0 · field-by-field contract (audited 2026-09-07). The layered overview — planner, advanced, research — is the [Configuration reference](../simulation/configuration.md).
+> **Owner:** Both developers (jointly)
 
 ---
 

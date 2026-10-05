@@ -75,5 +75,5 @@ If the project scope expands to include mobile applications or additional simula
 
 ## Related ADRs
 
-*   [ADR-002: Backend / Frontend Separation](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-002-backend-frontend-separation.md)
-*   [ADR-003: Shared Contract Layer](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-003-shared-contract-layer.md)
+*   [ADR-002: Backend / Frontend Separation](adr-002-backend-frontend-separation.md)
+*   [ADR-003: Shared Contract Layer](adr-003-shared-contract-layer.md)

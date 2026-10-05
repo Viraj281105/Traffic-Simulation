@@ -95,6 +95,6 @@ We will commit a shared `.vscode/` or IDE settings folder to the repository. Thi
 
 ## Related ADRs
 
-*   [ADR-001: Repository Structure](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-001-repository-structure.md)
-*   [ADR-008: Repository Branching Strategy](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-008-repository-branching-strategy.md)
-*   [ADR-010: Documentation Organization](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-010-documentation-organization.md)
+*   [ADR-001: Repository Structure](adr-001-repository-structure.md)
+*   [ADR-008: Repository Branching Strategy](adr-008-repository-branching-strategy.md)
+*   [ADR-010: Documentation Organization](adr-010-documentation-organization.md)
