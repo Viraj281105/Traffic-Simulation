@@ -5,8 +5,9 @@ import { UrbanFlowLogo } from "./UrbanFlowLogo";
 
 /**
  * The page-change loader: the UrbanFlow mark centred on the page for about a
- * second whenever the route changes, and on first load. The flow draws in and
- * travels, the central roundabout breathes, a thin line fills beneath.
+ * second and a half whenever the route changes, and on first load. The flow
+ * draws in and travels, the central roundabout breathes, the whole mark eases
+ * gently in scale and opacity, and a thin line fills beneath.
  *
  * Nothing waits on it: the new page renders and starts underneath (a running
  * simulation keeps running), and the overlay only covers the swap. A route
@@ -16,8 +17,8 @@ import { UrbanFlowLogo } from "./UrbanFlowLogo";
  * prefers-reduced-motion the mark stays still and the fade is instant.
  */
 
-/** How long the overlay holds before fading; with the fade, ~1 s in all. */
-export const ROUTE_LOADER_HOLD_MS = 720;
+/** How long the overlay holds before fading; with the fade, ~1.6 s in all. */
+export const ROUTE_LOADER_HOLD_MS = 1300;
 export const ROUTE_LOADER_FADE_MS = 280;
 
 type Phase = "shown" | "leaving" | "hidden";
@@ -65,7 +66,7 @@ export function RouteLoader({ routeKey }: { routeKey: string }) {
     >
       <div className="uf-route-loader__inner">
         <span className="uf-loader">
-          <UrbanFlowLogo size={76} animated />
+          <UrbanFlowLogo size={112} animated />
         </span>
         <span className="uf-route-loader__progress" />
       </div>

@@ -1,5 +1,5 @@
 /**
- * The page-change loader: ~1 s of the coded UrbanFlow mark on first load and
+ * The page-change loader: ~1.6 s of the coded UrbanFlow mark on first load and
  * on every route change, never two at once, and never restarted as a second
  * flash when a redirect lands while it is showing.
  */
@@ -33,7 +33,7 @@ afterEach(() => {
 });
 
 describe("RouteLoader", () => {
-  it("shows the coded logo, centred, for about a second on first load", () => {
+  it("shows the coded logo, centred, for about 1.5-2 s on first load", () => {
     render(<RouteLoader routeKey="/app/comparative" />);
 
     const loader = screen.getByTestId("route-loader");
@@ -42,8 +42,8 @@ describe("RouteLoader", () => {
     ).not.toBeNull();
     expect(loader.querySelector("img")).toBeNull();
     expect(loader).toHaveAttribute("aria-hidden", "true");
-    expect(TOTAL).toBeGreaterThanOrEqual(900);
-    expect(TOTAL).toBeLessThanOrEqual(1100);
+    expect(TOTAL).toBeGreaterThanOrEqual(1500);
+    expect(TOTAL).toBeLessThanOrEqual(2000);
 
     advance(ROUTE_LOADER_HOLD_MS);
     expect(loader).toHaveClass("is-leaving");

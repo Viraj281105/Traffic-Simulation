@@ -312,7 +312,7 @@
 }
 
 /* ── Page-change loader (RouteLoader.tsx) ──────────────────────────────── */
-/* The mark centred on the page for ~1 s: flow draws in, one path after the
+/* The mark centred on the page for ~1.6 s: flow draws in, one path after the
    next, then travels; the roundabout breathes; a thin line fills beneath. */
 .uf-route-loader {
   position: fixed;
@@ -339,6 +339,10 @@
 .uf-route-loader.is-leaving .uf-route-loader__inner {
   transform: scale(0.98);
   transition: transform var(--loader-fade, 280ms) var(--ease-out);
+}
+.uf-route-loader .uf-loader {
+  /* Gentle scale + opacity loop; keeps going if the loader stays up longer. */
+  animation: uf-route-loader-breathe 2.4s ease-in-out infinite;
 }
 .uf-route-loader .uf-logo__flow {
   animation: uf-flow-draw 560ms var(--ease-out) both;
@@ -367,7 +371,8 @@
   border-radius: inherit;
   background: var(--brand-green);
   transform-origin: left center;
-  animation: uf-route-loader-fill var(--loader-hold, 720ms) var(--ease-out) both;
+  animation: uf-route-loader-fill var(--loader-hold, 1300ms) var(--ease-out)
+    both;
 }
 @keyframes uf-route-loader-in {
   from {
@@ -377,6 +382,17 @@
   to {
     opacity: 1;
     transform: none;
+  }
+}
+@keyframes uf-route-loader-breathe {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.82;
+    transform: scale(1.03);
   }
 }
 @keyframes uf-route-loader-fill {
@@ -389,6 +405,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   /* Still: the whole flow shown at once and no scale; only opacity changes. */
+  .uf-route-loader .uf-loader,
   .uf-route-loader .uf-logo__flow,
   .uf-route-loader__inner {
     animation: none !important;
