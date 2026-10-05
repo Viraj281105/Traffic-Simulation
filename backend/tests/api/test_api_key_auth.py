@@ -5,9 +5,10 @@ bearer token on its mutating routes, and the frontend had no way to send one —
 anything shipped in a JS bundle is public, so embedding the key would protect
 nothing. The two were mutually exclusive.
 
-The fix attaches the header at the nginx proxy instead, server-side. These
-tests pin both halves of that contract: the backend's own enforcement, and the
-template that supplies the header.
+The fix attaches the key at the nginx proxy instead, server-side, in its own
+``X-API-Key`` header so that ``Authorization`` stays free for the signed-in
+user's Cognito token. These tests pin both halves of that contract: the
+backend's own enforcement, and the template that supplies the header.
 """
 
 import re
@@ -81,8 +82,32 @@ def test_mutating_route_rejects_a_malformed_header(
     assert response.status_code == 401
 
 
-def test_mutating_route_accepts_the_correct_key(secured_client: TestClient) -> None:
+def test_mutating_route_accepts_the_key_header(secured_client: TestClient) -> None:
     """This is the request nginx makes on the browser's behalf."""
+    response = secured_client.post(
+        "/api/v1/simulations",
+        json=_valid_config(),
+        headers={"X-API-Key": "test-secret-key"},
+    )
+    assert response.status_code == 201
+
+
+def test_mutating_route_rejects_a_wrong_key_header(
+    secured_client: TestClient,
+) -> None:
+    response = secured_client.post(
+        "/api/v1/simulations",
+        json=_valid_config(),
+        headers={"X-API-Key": "wrong-key"},
+    )
+    assert response.status_code == 401
+
+
+def test_mutating_route_still_accepts_the_key_as_a_bearer_token(
+    secured_client: TestClient,
+) -> None:
+    """Scripts (and proxies configured the old way) send the key as a bearer
+    token; that keeps working."""
     response = secured_client.post(
         "/api/v1/simulations",
         json=_valid_config(),
@@ -110,14 +135,21 @@ def test_auth_is_disabled_when_no_key_is_configured(
 # ── Proxy contract ────────────────────────────────────────────────────────
 
 
-def test_nginx_template_injects_the_bearer_header_on_both_proxies() -> None:
+def test_nginx_template_injects_the_key_header_on_both_proxies() -> None:
     """The browser cannot send the key, so the proxy must."""
     template = NGINX_TEMPLATE.read_text(encoding="utf-8")
-    header = 'proxy_set_header Authorization "Bearer ${BACKEND_API_KEY}";'
+    header = 'proxy_set_header X-API-Key "${BACKEND_API_KEY}";'
 
     assert template.count(header) == 2, (
         "both the /api/ and /ws/ proxy blocks must attach the API key"
     )
+
+
+def test_nginx_template_never_overwrites_the_authorization_header() -> None:
+    """Regression: the proxy used to set ``Authorization: Bearer <key>``,
+    which replaced the signed-in user's Cognito token on every request."""
+    template = NGINX_TEMPLATE.read_text(encoding="utf-8")
+    assert "proxy_set_header Authorization" not in template
 
 
 def test_nginx_template_keeps_runtime_variables_unsubstituted() -> None:

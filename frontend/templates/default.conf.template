@@ -95,7 +95,7 @@ server {
 
         # Attach the backend's API key on the server side.
         #
-        # The backend can require `Authorization: Bearer <API_KEY>` on its
+        # The backend can require its API key (X-API-Key) on its
         # mutating and compute-heavy routes, but the browser app cannot supply
         # it: anything the bundle carries is public, so shipping the key to the
         # client would be no protection at all. Previously that made API_KEY and
@@ -109,10 +109,16 @@ server {
         # all). Restricting *who* may use the demo through this proxy is the
         # separate concern handled by the access gate above.
         #
-        # Substituted from BACKEND_API_KEY at container start; when that is
-        # empty the header is inert, because the backend disables the check
-        # when its own API_KEY is unset.
-        proxy_set_header Authorization "Bearer ${BACKEND_API_KEY}";
+        # Substituted from BACKEND_API_KEY at container start. The key goes in
+        # its own header so that `Authorization` passes through untouched: it
+        # carries the signed-in user's Cognito token, which the backend needs
+        # for saved runs and per-user live sessions. (Overwriting
+        # Authorization with the key used to drop that token, and made the
+        # backend reject the key itself as an invalid JWT.) When
+        # BACKEND_API_KEY is empty nginx sends no X-API-Key at all, and the
+        # backend disables the check because its own API_KEY is unset. Any
+        # X-API-Key a client sends is replaced here, never forwarded.
+        proxy_set_header X-API-Key "${BACKEND_API_KEY}";
 
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -125,7 +131,7 @@ server {
         proxy_pass http://backend:8000/ws/;
         proxy_http_version 1.1;
         # Same server-side key injection as /api/ above.
-        proxy_set_header Authorization "Bearer ${BACKEND_API_KEY}";
+        proxy_set_header X-API-Key "${BACKEND_API_KEY}";
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "Upgrade";
         proxy_set_header Host $host;
