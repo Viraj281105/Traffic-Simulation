@@ -52,6 +52,10 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_COGNITO_REGION: ${VITE_COGNITO_REGION:-}
+        VITE_COGNITO_USER_POOL_ID: ${VITE_COGNITO_USER_POOL_ID:-}
+        VITE_COGNITO_CLIENT_ID: ${VITE_COGNITO_CLIENT_ID:-}
     # Host ports are overridable (URBANFLOW_HTTP_PORT / URBANFLOW_ALT_HTTP_PORT)
     # for machines where 80 or 3000 is already taken; start.ps1 checks them.
     ports:
