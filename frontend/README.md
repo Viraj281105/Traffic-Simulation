@@ -8,16 +8,16 @@ The landing page and dashboard for UrbanFlow: a **React 19 + TypeScript** applic
 
 ## What it contains
 
-| Area | Where | What |
-| --- | --- | --- |
-| Landing page | `index.html`, `src/landing/` | "Signal or roundabout? Try both." — narrative, how it works, method |
-| Guided comparison | `src/components/guided/` | Step 1 Your junction → Step 2 Watch both run → Step 3 Results, with the reliability check |
-| Maps | `IntersectionMap.tsx`, `RoundaboutMap.tsx`, `snapshotInterpolator.ts` | Canvas rendering of both junctions with interpolated motion |
-| Specialist layer | `ComparativeDashboard.tsx`, `MetricSections.tsx`, `analytics/`, `WeightedScoringPanel.tsx` | Every metric, live charts, weighting, CSV |
-| Saved | `HistoryDashboard.tsx`, `RunPage.tsx`, `ComparePage.tsx` | Saved runs, provenance, re-run, exports, compare up to six |
-| Research Lab | `ResearchHub.tsx`, `VolumeAnalysisDashboard.tsx`, `ValidationDashboard.tsx` | Traffic-level sweep, statistical validation, single-strategy views |
-| Metric presentation | `src/metrics/catalog.ts`, `src/metrics/plainLanguage.ts` | One description per metric; plain-language readings |
-| Backend access | `src/services/`, `src/hooks/` | REST, WebSocket (with backoff), live-session handshake, study jobs |
+| Area                | Where                                                                                      | What                                                                                      |
+| ------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Landing page        | `index.html`, `src/landing/`                                                               | "Signal or roundabout? Try both." — narrative, how it works, method                       |
+| Guided comparison   | `src/components/guided/`                                                                   | Step 1 Your junction → Step 2 Watch both run → Step 3 Results, with the reliability check |
+| Maps                | `IntersectionMap.tsx`, `RoundaboutMap.tsx`, `snapshotInterpolator.ts`                      | Canvas rendering of both junctions with interpolated motion                               |
+| Specialist layer    | `ComparativeDashboard.tsx`, `MetricSections.tsx`, `analytics/`, `WeightedScoringPanel.tsx` | Every metric, live charts, weighting, CSV                                                 |
+| Saved               | `HistoryDashboard.tsx`, `RunPage.tsx`, `ComparePage.tsx`                                   | Saved runs, provenance, re-run, exports, compare up to six                                |
+| Research Lab        | `ResearchHub.tsx`, `VolumeAnalysisDashboard.tsx`, `ValidationDashboard.tsx`                | Traffic-level sweep, statistical validation, single-strategy views                        |
+| Metric presentation | `src/metrics/catalog.ts`, `src/metrics/plainLanguage.ts`                                   | One description per metric; plain-language readings                                       |
+| Backend access      | `src/services/`, `src/hooks/`                                                              | REST, WebSocket (with backoff), live-session handshake, study jobs                        |
 
 Routes: `/app/comparative` (default), `/app/history`, `/app/runs/<id>`, `/app/compare?runs=…`, `/app/research`, `/app/volume`, `/app/validation`, `/app/signal`, `/app/roundabout` (`src/routing.ts`).
 
