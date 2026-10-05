@@ -34,6 +34,9 @@ services:
       # Study worker processes (backend/src/study/runner.py). Empty = one per
       # CPU, at most 8; lower it on small hosts (each worker is ~40 MB).
       - STUDY_WORKERS=${STUDY_WORKERS:-}
+      - AWS_REGION=${VITE_COGNITO_REGION:-ap-south-1}
+      - COGNITO_USER_POOL_ID=${VITE_COGNITO_USER_POOL_ID:-}
+      - COGNITO_CLIENT_ID=${VITE_COGNITO_CLIENT_ID:-}
     volumes:
       - traffic_data:/app/data
     restart: unless-stopped
