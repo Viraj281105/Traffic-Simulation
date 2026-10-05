@@ -90,5 +90,5 @@ If multiple users need to view the same running simulation simultaneously, the W
 
 ## Related ADRs
 
-*   [ADR-002: Backend / Frontend Separation](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-002-backend-frontend-separation.md)
-*   [ADR-004: Snapshot-Based Communication](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-004-snapshot-based-communication.md)
+*   [ADR-002: Backend / Frontend Separation](adr-002-backend-frontend-separation.md)
+*   [ADR-004: Snapshot-Based Communication](adr-004-snapshot-based-communication.md)

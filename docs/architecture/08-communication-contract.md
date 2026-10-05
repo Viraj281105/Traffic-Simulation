@@ -1,9 +1,7 @@
 # Deliverable 8 — Communication Contract
 
-> **Document Version:** 0.1.0
-> **Last Updated:** 2026-07-23
-> **Status:** Current implementation reference (audited 2026-09-07)
-> **Owner:** Both Developers (jointly)
+> **Status:** Reference · V1.0 · design notes for REST + WebSocket (audited 2026-09-07). **The authoritative list of routes and streams is the [API & WebSocket reference](../api/README.md)**; sections below marked planned/not implemented describe intent only.
+> **Owner:** Both developers (jointly)
 
 ---
 

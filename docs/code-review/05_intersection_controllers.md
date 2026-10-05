@@ -1,11 +1,15 @@
 # Traffic Simulation Code Review Prep: Phase 5
 ## Intersection & Roundabout Controllers
 
+> **Historical — code-review preparation notes (September 2026).** Useful as a walkthrough, but not maintained. Current, verified descriptions: [System overview](../architecture/00-system-overview.md) · [Simulation methodology](../simulation/methodology.md) · [Metrics reference](../research/metrics-reference.md) · [API reference](../api/README.md).
+>
+> **Erratum:** §1A shows the one-approach-at-a-time cycle with a protected left phase. That is only the controller's fallback when no `phaseSequence` is configured. The dashboard and all studies run the paired plan `ns_green → ns_yellow → all_red → ew_green → ew_yellow → all_red` (30/4/2 s defaults, permissive lefts) — see [methodology §7.1](../simulation/methodology.md#71-fixed-time-signal--controllersfixed_time_signalpy).
+
 This guide explains how intersection traffic controllers coordinate movement, control signals, and calculate yield conditions.
 
 ---
 
-## 1. Fixed-Time Signal Controller ([`FixedTimeSignalController`](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/backend/src/controllers/fixed_time_signal.py))
+## 1. Fixed-Time Signal Controller ([`FixedTimeSignalController`](../../backend/src/controllers/fixed_time_signal.py))
 
 The signal controller runs a cyclic schedule. It alternates green phases for each direction to prevent crossing traffic conflicts.
 
@@ -31,13 +35,13 @@ Depending on the number of lanes on the incoming approach, lanes are mapped as f
 * **3+ Lanes**: Lane 0 is Left turns; Middle lanes are Straight; Outermost (rightmost) lane is Right turns.
 
 ### C. Stopping Mechanism: Virtual Obstacles
-* Instead of overriding vehicle speed directly, when a signal changes to Red or Yellow, the controller registers a [`VirtualObstacle`](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/backend/src/controllers/fixed_time_signal.py) at the end of the incoming lane (position = `lane.length`).
-* The [`VirtualObstacle`](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/backend/src/controllers/fixed_time_signal.py) mimics a stationary vehicle (speed = `0.0 m/s`, length = `0.0 m`).
+* Instead of overriding vehicle speed directly, when a signal changes to Red or Yellow, the controller registers a [`VirtualObstacle`](../../backend/src/controllers/fixed_time_signal.py) at the end of the incoming lane (position = `lane.length`).
+* The [`VirtualObstacle`](../../backend/src/controllers/fixed_time_signal.py) mimics a stationary vehicle (speed = `0.0 m/s`, length = `0.0 m`).
 * The IDM physics model detects this obstacle as the leader vehicle and decelerates the approaching vehicle naturally to a stop at the stop line.
 
 ---
 
-## 2. Roundabout Yield Controller ([`RoundaboutController`](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/backend/src/controllers/roundabout.py))
+## 2. Roundabout Yield Controller ([`RoundaboutController`](../../backend/src/controllers/roundabout.py))
 
 Unsignalized roundabouts rely on **priority-to-circulating-traffic** yield logic.
 

@@ -79,6 +79,6 @@ If network bandwidth becomes an issue, we can apply gzip compression to the WebS
 
 ## Related ADRs
 
-*   [ADR-002: Backend / Frontend Separation](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-002-backend-frontend-separation.md)
-*   [ADR-003: Shared Contract Layer](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-003-shared-contract-layer.md)
-*   [ADR-007: REST + WebSocket Communication Strategy](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-007-rest-websocket-communication-strategy.md)
+*   [ADR-002: Backend / Frontend Separation](adr-002-backend-frontend-separation.md)
+*   [ADR-003: Shared Contract Layer](adr-003-shared-contract-layer.md)
+*   [ADR-007: REST + WebSocket Communication Strategy](adr-007-rest-websocket-communication-strategy.md)

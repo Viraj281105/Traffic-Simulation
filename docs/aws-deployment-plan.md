@@ -1,5 +1,7 @@
 # AWS Free Tier Deployment Plan
 
+> **Status: Historical proposal — not what was deployed.** V1.0 runs both containers with Docker Compose on a single EC2 instance, with SQLite on a Docker volume; S3/CloudFront static hosting, RDS and the CI/CD deployment pipeline described below were not implemented. Current documentation: [Deployment & operations](deployment/README.md).
+
 This document outlines the strategy for deploying the entire Traffic Simulation project (Frontend, Landing Page, Backend, and Database) to AWS using strictly the **12-Month Free Tier**. 
 
 ## Proposed Architecture (Per Account)

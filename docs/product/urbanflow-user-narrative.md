@@ -1,6 +1,6 @@
 # UrbanFlow — User Narrative, Information Architecture and Metric Strategy
 
-Status: implemented on `viraj-dev` (2026-09-25). This document is the product
+Status: implemented on `viraj-dev` (2026-09-25). A dated implementation record; the concise, current overview is the [product story](README.md). This document is the product
 reference for who UrbanFlow is for, the journey it offers, and how research-grade
 measurements are presented to someone who is not a traffic engineer.
 
@@ -304,10 +304,11 @@ lost less time" (now "Drivers lost less time at the traffic signal").
 - **Real-time watching.** The live comparison runs at 1× speed; a 5-minute
   scenario takes 5 minutes. "See results so far" mitigates it; a faster-than-real-
   time or headless "results only" run would help but was out of scope.
-- **Reliability check is synchronous.** One HTTP request runs every repetition
-  (about 40 s for five 2-minute patterns on a quiet 1-lane junction; a heavy
-  2-lane 5-minute scenario was measured at ~28 s per pattern, so ~2.5 min for 5).
-  There is no progress bar or cancel.
+- ~~**Reliability check is synchronous.**~~ *Resolved after this record:* the
+  check now runs as a background study job (`POST
+  /api/v1/study/validate/monte-carlo/jobs`) in worker processes and the page
+  shows live progress (`useStudyJob`). The measured durations above predate
+  the worker pool.
 - **Monte Carlo seeds are drawn at random** by the existing study code, so a
   reliability check is not itself reproducible (its seeds are listed).
 - **Session scenario table is in memory**; it is lost on refresh unless each

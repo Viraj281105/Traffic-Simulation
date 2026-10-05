@@ -1,9 +1,7 @@
 # Deliverable 9 — Engineering Standards
 
-> **Document Version:** 0.1.0
-> **Last Updated:** 2026-07-23
-> **Status:** Phase 0 — Architecture Specification
-> **Owner:** Both Developers
+> **Status:** Reference · originally a Phase-0 specification; tool configuration is authoritative in `backend/pyproject.toml`, `frontend/eslint.config.js` and `.github/workflows/` (see [Testing](../testing/README.md))
+> **Owner:** Both developers
 
 ---
 

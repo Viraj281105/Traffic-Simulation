@@ -1,6 +1,8 @@
-# AWS Free Tier Deployment Guide for Traffic Simulation
+# AWS EC2 Deployment Runbook
 
-This guide provides an end-to-end, production-ready roadmap for deploying the containerized **Traffic Simulation Framework** on the **AWS Free Tier** with zero unexpected cloud costs and high reliability.
+> **Status:** Current · V1.0 · step-by-step runbook for the deployment described in [Deployment & operations](README.md) (architecture, environment variables, verification, known issues — read §8 there before setting `API_KEY`).
+
+This runbook deploys the containerized UrbanFlow stack (repository: Traffic-Simulation) to a single **Amazon EC2** instance with Docker Compose, sized for the AWS Free Tier.
 
 ---
 
@@ -14,7 +16,7 @@ The application runs as a multi-container Docker stack orchestrated via Docker C
                                   ▼
                      AWS EC2 Instance (t2.micro / t3.micro)
                       ┌──────────────────────────────────────────────┐
-                      │  Public IP / Domain (Port 80 / 443)          │
+                      │  Public IP / Domain (Port 80)                │
                       │                       │                      │
                       │                       ▼                      │
                       │  ┌────────────────────────────────────────┐  │
@@ -22,7 +24,7 @@ The application runs as a multi-container Docker stack orchestrated via Docker C
                       │  │   • Serves React Single Page App       │  │
                       │  │   • Proxies /api/ → backend:8000       │  │
                       │  │   • Proxies /ws/  → backend:8000 (WS)  │  │
-                      │  │   • Memory footprint: ~15 MB           │  │
+                      │  │   • Memory limit: 128 MB (compose)     │  │
                       │  └───────────────────┬────────────────────┘  │
                       │                      │ Docker Internal Net   │
                       │                      ▼                       │
@@ -30,7 +32,7 @@ The application runs as a multi-container Docker stack orchestrated via Docker C
                       │  │       backend Container (FastAPI)      │  │
                       │  │   • Python 3.11 + Uvicorn engine       │  │
                       │  │   • IDM physics & real-time simulation │  │
-                      │  │   • Memory footprint: ~75 MB           │  │
+                      │  │   • Memory limit: 512 MB (compose)     │  │
                       │  └───────────────────┬────────────────────┘  │
                       │                      │                       │
                       │                      ▼                       │
@@ -47,7 +49,7 @@ The application runs as a multi-container Docker stack orchestrated via Docker C
 | AWS Component | Free Tier Allowance | Our Stack Usage | Safety Margin |
 | :--- | :--- | :--- | :--- |
 | **Compute** | 750 hours/month of `t2.micro` or `t3.micro` | 1 instance running 24/7 (~730 hrs) | **100% Free** |
-| **Memory** | 1.0 GB RAM total | ~90 MB active RAM + 2 GB Swap file | **900+ MB Free** |
+| **Memory** | 1.0 GB RAM total | Container limits 512 MB (backend) + 128 MB (frontend); 2 GB swap recommended | Check with `docker stats` |
 | **Storage (EBS)**| 30 GB General Purpose SSD (gp3/gp2) | ~15–20 GB allocated for OS + Docker | **10+ GB Free** |
 | **Data Transfer**| 100 GB/month outbound to internet | < 5 GB/month typical traffic | **95 GB Free** |
 
@@ -172,30 +174,26 @@ git clone https://github.com/Viraj281105/Traffic-Simulation.git
 cd Traffic-Simulation
 
 # 2. Build and launch all containers in detached mode
-docker compose up -d --build
+#    (GIT_COMMIT records the code version with every saved run)
+GIT_COMMIT=$(git rev-parse HEAD) docker compose up -d --build
 
 # 3. Check running status and health
 docker compose ps
 ```
 
-The output will show both services running and healthy:
-```
-NAME                          IMAGE                         COMMAND                  SERVICE    STATUS
-traffic-simulation-backend    traffic-simulation-backend    "uvicorn src.main:ap…"   backend    running (healthy)
-traffic-simulation-frontend   traffic-simulation-frontend   "nginx -g 'daemon of…"   frontend   running (healthy)
-```
+Both services (`backend`, `frontend`) should report a **healthy** status; the frontend starts only after the backend is healthy.
 
 Now open your web browser and navigate to:
 ```
-http://<YOUR-EC2-PUBLIC-IP>
+http://<YOUR-EC2-PUBLIC-IP>                 # landing page
+http://<YOUR-EC2-PUBLIC-IP>/app/comparative # guided comparison
 ```
-The full interactive dashboard will load immediately!
 
 ---
 
-### Method B: Pre-built Images via CI/CD (Fastest & Zero CPU Usage on EC2)
+### Method B: Pre-built images (optional, not set up in this repository)
 
-If you don't want to spend CPU cycles building containers on EC2, build them on your local machine or GitHub Actions and push to Docker Hub or GitHub Container Registry (GHCR):
+To avoid building on a small instance, build the images elsewhere and push them to a registry. The repository's CI builds images but does not publish them; this method needs your own registry and a Compose override that references the image tags:
 
 1. On your local machine / CI:
    ```bash
@@ -217,9 +215,9 @@ If you don't want to spend CPU cycles building containers on EC2, build them on 
 ## 7. Step 5: Data Persistence & Backups
 
 The SQLite database (`simulation.db`) stores:
-- Configuration presets
-- Saved replay runs
-- Parameter sweep sessions & history
+- Saved runs and replays (with their reproducibility records)
+- Per-tick metric timelines
+- Volume-sweep sessions and their runs
 
 The database is mapped to a named Docker volume (`traffic_data`) located on the EC2 host at `/var/lib/docker/volumes/traffic-simulation_traffic_data/_data/simulation.db`.
 
@@ -246,15 +244,7 @@ docker cp $(docker compose ps -q backend):/app/data/simulation.db.bak ~/backups/
 5. Your site is now live on `https://yourdomain.com` with free automated SSL and CDN caching!
 
 ### Option 2: Let's Encrypt / Certbot directly on EC2
-If pointing DNS directly to EC2:
-```bash
-sudo apt install -y certbot
-# Stop frontend temporarily to free port 80 for standalone certbot
-docker compose stop frontend
-sudo certbot certonly --standalone -d yourdomain.com -d www.yourdomain.com
-# Re-mount certs into nginx.conf and restart
-docker compose start frontend
-```
+Certbot can obtain certificates on the instance, but **the checked-in nginx template has no TLS server block** (it listens on 8080 only, published on host port 80). Serving HTTPS from the instance therefore needs an additional nginx configuration and a 443 port mapping that are not part of this repository.
 
 ---
 
@@ -277,13 +267,13 @@ docker compose logs -f frontend
 # View live container CPU & RAM consumption
 docker stats --no-stream
 ```
-*Expected: Backend ~70-80MB, Frontend ~15MB. Total memory usage < 100MB!*
+Compare usage with the Compose limits (backend 512 MB, frontend 128 MB). Study workers add roughly 40 MB each; lower `STUDY_WORKERS` on small instances.
 
 ### Updating to the Latest Version
 ```bash
 cd ~/Traffic-Simulation
 git pull origin main
-docker compose up -d --build
+GIT_COMMIT=$(git rev-parse HEAD) docker compose up -d --build
 ```
 
 ### Stopping or Restarting
@@ -304,9 +294,10 @@ docker compose down -v
 
 - [x] AWS Budget alert created at $0.01 threshold.
 - [x] Only one `t2.micro` or `t3.micro` instance active.
-- [x] Security Group open on Ports 22, 80, and 443.
+- [x] Security Group open on port 80 (and 22 restricted to your IP).
 - [x] 2 GB Swap file configured and enabled via `/etc/fstab`.
 - [x] Docker and Docker Compose v2 installed.
 - [x] Frontend reverse-proxying `/api/` and `/ws/` through port 80.
 - [x] Database mounted to persistent volume `traffic_data`.
-- [x] Application verified reachable at `http://<EC2-PUBLIC-IP>`.
+- [x] Application verified reachable at `http://<EC2-PUBLIC-IP>` (see the verification table in [Deployment & operations §6](README.md#6-verify-the-deployment)).
+- [x] `API_KEY` set to a long random value in `.env` (nginx supplies it to the backend; see [Deployment & operations §4](README.md#4-environment-configuration)).

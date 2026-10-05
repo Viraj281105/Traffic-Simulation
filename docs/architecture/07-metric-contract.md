@@ -1,9 +1,7 @@
 # Deliverable 7 — Metric Contract
 
-> **Document Version:** 0.1.0
-> **Last Updated:** 2026-07-23
-> **Status:** Current metric reference (audited 2026-09-07; corrected against the implementation 2026-09-25 — see [urbanflow-evaluation-metrics.md](../product/urbanflow-evaluation-metrics.md) §13/§15)
-> **Owner:** Both Developers (jointly)
+> **Status:** Reference · V1.0 · formulas and edge cases (audited 2026-09-07; corrected against the implementation 2026-09-25 — see [urbanflow-evaluation-metrics.md](../product/urbanflow-evaluation-metrics.md) §13/§15). The concise per-metric reference is the [Metrics reference](../research/metrics-reference.md).
+> **Owner:** Both developers (jointly)
 
 ---
 

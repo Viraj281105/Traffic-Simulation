@@ -1,6 +1,6 @@
 # Automation & Development Scripts
 
-This directory contains schema validation, study execution, and optional GitHub project-management utilities. The scripts are not required to run the API or frontend.
+This directory contains the headless study runner, schema validation, Cognito provisioning and optional GitHub project-management utilities. None are required to run the API or frontend.
 
 ---
 
@@ -10,6 +10,8 @@ This directory contains schema validation, study execution, and optional GitHub 
 scripts/
 ├── assign_issues.py              # Automation to assign GitHub Issues to developers
 ├── push_everything_to_github.py # Git orchestration helper to sync commits/branches
+├── run_full_study.py             # Headless validated study: volume sweep + Monte Carlo → CSV/JSON report
+├── setup_cognito.py              # One-off Cognito user-pool provisioning (needs boto3 + AWS credentials)
 ├── set_milestone_deadlines.py    # GitHub Milestone timeline configuration runner
 ├── setup_github.py               # Creates GitHub labels, milestones, and issues
 ├── validate-schemas.sh           # Bash wrapper for CI/CD schema validation
@@ -20,6 +22,26 @@ scripts/
 ---
 
 ## Detailed Script Specifications
+
+### 0. Validated Study Runner
+
+#### [`run_full_study.py`](./run_full_study.py)
+
+Runs the full comparative study directly against the simulation engine — no API server needed: a volume sweep (signal vs roundabout, same seed per tier) and a Monte Carlo validation (Student-t intervals, Welch's t-test, Cohen's d), then writes a report. Runs are also persisted to the database at `DB_PATH`.
+
+```bash
+python scripts/run_full_study.py --help
+python scripts/run_full_study.py
+python scripts/run_full_study.py --sweep-duration 240 --validation-duration 240 --num-seeds 5 --time-step 0.1 --rates 0.1,0.2,0.3 --output-csv study_report.csv --output-json study_report.json
+```
+
+Defaults: 240 s per run (30 s warm-up excluded), 5 seeds, Δt 0.1 s, rates = 20–160 % of the one-lane reference capacity. See [docs/research/reproducibility.md](../docs/research/reproducibility.md).
+
+#### [`setup_cognito.py`](./setup_cognito.py)
+
+Creates the Cognito user pool used for optional sign-in. Run once from a machine with AWS credentials (`pip install boto3`). It makes remote changes in your AWS account — review it first.
+
+---
 
 ### 1. Schema Validation Suite
 

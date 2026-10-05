@@ -1,11 +1,13 @@
 # Traffic Simulation Code Review Prep: Phase 2
 ## The Core Engine & Simulation Loop
 
-This guide details how the [`SimulationEngine`](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/backend/src/core/engine.py) orchestrates discrete-time execution, controls thread concurrency, and guarantees sequence consistency.
+> **Historical — code-review preparation notes (September 2026).** Useful as a walkthrough, but not maintained. Current, verified descriptions: [System overview](../architecture/00-system-overview.md) · [Simulation methodology](../simulation/methodology.md) · [Metrics reference](../research/metrics-reference.md) · [API reference](../api/README.md).
+
+This guide details how the [`SimulationEngine`](../../backend/src/core/engine.py) orchestrates discrete-time execution, controls thread concurrency, and guarantees sequence consistency.
 
 ---
 
-## 1. The Time Management System ([`Clock`](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/backend/src/core/clock.py))
+## 1. The Time Management System ([`Clock`](../../backend/src/core/clock.py))
 
 Discrete-time simulations must maintain strict control over virtual time progression.
 * **State variables**:
@@ -76,7 +78,7 @@ graph TD
 ```
 
 1. **`clock.tick()`**: Virtual time moves forward.
-2. **Spawner Step**: The [`VehicleSpawner`](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/backend/src/vehicles/spawner.py) evaluates probability rates for each approach and creates new vehicles, adding them directly to the [`VehiclePool`](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/backend/src/vehicles/pool.py).
+2. **Spawner Step**: The [`VehicleSpawner`](../../backend/src/vehicles/spawner.py) evaluates probability rates for each approach and creates new vehicles, adding them directly to the [`VehiclePool`](../../backend/src/vehicles/pool.py).
 3. **Controller Step**: The active traffic light or roundabout controller evaluates current vehicle distributions and updates signal lights or yielding priorities.
 4. **Pool Step**: The `VehiclePool` calculates physics forces for all vehicles using the Intelligent Driver Model (IDM) and conflict point resolving algorithms.
 5. **Callbacks**: Any external callbacks registered to the engine (like `SnapshotBuilder` and `MetricCollector` updating snapshot arrays) execute now.

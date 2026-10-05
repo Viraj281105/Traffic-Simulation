@@ -84,6 +84,6 @@ If simulation scale demands it, the backend can be migrated to a high-performanc
 
 ## Related ADRs
 
-*   [ADR-001: Repository Structure](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-001-repository-structure.md)
-*   [ADR-004: Snapshot-Based Communication](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-004-snapshot-based-communication.md)
-*   [ADR-007: REST + WebSocket Communication Strategy](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-007-rest-websocket-communication-strategy.md)
+*   [ADR-001: Repository Structure](adr-001-repository-structure.md)
+*   [ADR-004: Snapshot-Based Communication](adr-004-snapshot-based-communication.md)
+*   [ADR-007: REST + WebSocket Communication Strategy](adr-007-rest-websocket-communication-strategy.md)

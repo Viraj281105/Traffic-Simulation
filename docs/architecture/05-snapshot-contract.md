@@ -1,9 +1,7 @@
 # Deliverable 5 — Snapshot Contract
 
-> **Document Version:** 0.1.0
-> **Last Updated:** 2026-07-23
-> **Status:** Phase 0 — Architecture Specification
-> **Owner:** Both Developers (jointly)
+> **Status:** Reference · V1.0 · originally a Phase-0 specification; top-level fields re-checked against `backend/src/snapshot/builder.py` on 2026-10-05. The live message shapes are summarised in the [API reference §8](../api/README.md#8-websockets).
+> **Owner:** Both developers (jointly)
 
 ---
 
@@ -31,8 +29,9 @@ A **Snapshot** is a complete, self-contained representation of the simulation st
 | 5 | `frameNumber` | `integer` | ✅ | Sequential frame counter (0-indexed) | — | `453` |
 | 6 | `tick` | `integer` | ✅ | Simulation tick counter (0-indexed) | — | `453` |
 | 7 | `wallClockTime` | `string` | ✅ | ISO 8601 timestamp of when this snapshot was generated | — | `"2026-07-23T14:30:00.123Z"` |
-| 8 | `samplingFrequency` | `number` | ✅ | Rate at which snapshots are emitted | Hz | `10.0` |
+| 8 | `samplingFrequency` | `number` | ✅ | Simulation tick rate, `1 / deltaTime` (not the stream rate) | Hz | `10.0` |
 | 9 | `deltaTime` | `number` | ✅ | Time step between ticks | seconds (s) | `0.1` |
+| 9a | `warmupTime` | `number` | ✅ | Warm-up excluded from most metrics; clients show "—" until it ends | seconds (s) | `30.0` |
 | 10 | `vehicles` | `array<Vehicle>` | ✅ | List of all vehicles currently in the simulation | — | See Section 3 |
 | 11 | `intersection` | `IntersectionState` | ✅ | Current state of the intersection | — | See Section 4 |
 | 12 | `controller` | `ControllerState` | ✅ | Current state of the active controller | — | See Section 5 |

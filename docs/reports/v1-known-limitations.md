@@ -1,5 +1,7 @@
 # V1 Known Limitations — Audit and Classification
 
+> **Roadmap references updated 2026-10-05** to the authoritative [roadmap](../ROADMAP.md) (the earlier "V2.0 deferred" labels predate it). Measurements and classifications are unchanged.
+
 Audit date: 2026-09-18. Branch: `viraj-dev`.
 
 > **Superseded figures (2026-09-24).** The capacity numbers in this audit
@@ -19,7 +21,7 @@ note. Each carries one of four classifications:
 2. **Fix now** — non-blocking defect worth fixing in this release.
 3. **Model limitation** — the model faithfully represents what it claims to;
    the limit is in scope, not in correctness.
-4. **V2 / deferred** — real work, deliberately out of scope.
+4. **Roadmap / deferred** — real work, deliberately out of V1.0 scope and scheduled in the [roadmap](../ROADMAP.md).
 
 All measurements: `duration=240 s`, `warmupTime=30 s`, 210 s measurement
 window, `timeStep=0.1`, seed 1 unless stated. "Offered" is
@@ -154,7 +156,7 @@ tolerance asserted by `test_capacity_does_not_fall_as_demand_rises`.
 
 ## 3. Multi-lane roundabout capacity falls as lanes are added
 
-**Classification: 3 — model limitation, already deferred to V2.0.**
+**Classification: 3 — model limitation, scheduled for V1.4 (Advanced Roundabout Modelling).**
 
 Roundabout peak served flow, seed 1:
 
@@ -170,9 +172,9 @@ approach under 1.0 m), so added lanes add weaving conflicts faster than they
 add capacity. The single-ring geometry cannot express spiral lane assignment,
 which is what makes a real multi-lane roundabout work.
 
-Already recorded in the ROADMAP Deferred log as "Multi-Lane Circulating
-Roundabout → V2.0 — requires full geometric rewrite supporting independent
-ring coordinates".
+Scheduled in the [roadmap](../ROADMAP.md#v14--advanced-roundabout-modelling) as
+V1.4 — Advanced Roundabout Modelling (proper multi-lane circulation, lane
+assignment, spiral behaviour, independent rings, weaving, collision validation).
 
 **Consequence for the report: multi-lane roundabout figures must not be
 presented as a calibrated capacity comparison.** Only the 1-lane pair is.
@@ -210,8 +212,8 @@ conflict-geometry fixes) and ≤2 across 8 seeds at 1-2 lanes
 One contact was observed at 1 lane / 3600 veh/h offered during this audit
 (`conn_south_0_left` ↔ `conn_north_0_straight`) — consistent with the budget,
 and above the calibrated comparison point. Adding a protected left phase would
-remove it, and would change the capacity baseline; that is a V1.1 controller
-feature, not a defect fix.
+remove it, and would change the capacity baseline; that is a controller
+feature (not scheduled in the current roadmap), not a defect fix.
 
 ---
 
@@ -312,4 +314,4 @@ stated where users meet them. Classification for each:
   demand tested, collision-free, and the demand cap that was previously
   needed for demos no longer applies.
 - Multi-lane roundabout behaviour (§3, §4) is a **scope limitation**, already
-  deferred to V2.0, and must be labelled as such wherever it is shown.
+  scheduled for V1.4, and must be labelled as such wherever it is shown.

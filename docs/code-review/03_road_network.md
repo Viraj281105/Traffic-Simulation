@@ -1,13 +1,15 @@
 # Traffic Simulation Code Review Prep: Phase 3
 ## Road Network & Geometry Representation
 
+> **Historical — code-review preparation notes (September 2026).** Useful as a walkthrough, but not maintained. Current, verified descriptions: [System overview](../architecture/00-system-overview.md) · [Simulation methodology](../simulation/methodology.md) · [Metrics reference](../research/metrics-reference.md) · [API reference](../api/README.md).
+
 This guide explains the spatial representation, coordinate mathematics, lane connectivity, and geometry configuration of the road network.
 
 ---
 
 ## 1. Structural Class Architecture
 
-The road network topology is represented by three core classes located under [`backend/src/roads/`](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/backend/src/roads/):
+The road network topology is represented by three core classes located under [`backend/src/roads/`](../../backend/src/roads):
 
 ```mermaid
 classDiagram
@@ -77,7 +79,7 @@ classDiagram
 
 ---
 
-## 3. Waypoint Interpolation Math in [`Lane`](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/backend/src/roads/lane.py)
+## 3. Waypoint Interpolation Math in [`Lane`](../../backend/src/roads/lane.py)
 
 For curved connection lanes (turns) or circular paths, straight lines are insufficient. A lane is defined by a list of 2D points: $[P_0, P_1, P_2, \dots, P_n]$.
 

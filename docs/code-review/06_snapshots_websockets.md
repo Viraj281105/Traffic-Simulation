@@ -1,11 +1,13 @@
 # Traffic Simulation Code Review Prep: Phase 6
 ## Snapshots & WebSocket Streams
 
+> **Historical — code-review preparation notes (September 2026).** Useful as a walkthrough, but not maintained. Current, verified descriptions: [System overview](../architecture/00-system-overview.md) · [Simulation methodology](../simulation/methodology.md) · [Metrics reference](../research/metrics-reference.md) · [API reference](../api/README.md).
+
 This guide explains how simulation frames are constructed, cached for scrubbing, and streamed in real-time.
 
 ---
 
-## 1. State Frame Generation ([`SnapshotBuilder`](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/backend/src/snapshot/builder.py))
+## 1. State Frame Generation ([`SnapshotBuilder`](../../backend/src/snapshot/builder.py))
 
 At each tick, a complete state representation is built by translating active object references (vehicles, routes, controllers) into a standardized dictionary matching `shared/schemas/snapshot.schema.json`.
 
@@ -26,7 +28,7 @@ For every vehicle:
 
 ---
 
-## 2. Scrubbing History Cache ([`SnapshotBuffer`](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/backend/src/snapshot/buffer.py))
+## 2. Scrubbing History Cache ([`SnapshotBuffer`](../../backend/src/snapshot/buffer.py))
 
 * **Ring Buffer Concept**: The `SnapshotBuffer` caches up to `1000` simulation frames. When it hits capacity, it pops the oldest frame (`buffer.pop(0)`) to maintain a strict FIFO queue.
 * **Scrubbing API**: 
@@ -37,7 +39,7 @@ For every vehicle:
 
 ## 3. WebSocket Connection Loop
 
-Inside [`main.py`](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/backend/src/main.py) (around line 396), real-time streaming is managed by:
+Inside [`main.py`](../../backend/src/main.py) (around line 396), real-time streaming is managed by:
 ```python
 @app.websocket("/ws/v1/stream")
 async def websocket_stream(websocket: WebSocket, simulationId: str):

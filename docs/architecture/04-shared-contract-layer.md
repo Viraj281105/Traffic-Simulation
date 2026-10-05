@@ -1,9 +1,7 @@
 # Deliverable 4 — Shared Contract Layer
 
-> **Document Version:** 0.1.0
-> **Last Updated:** 2026-07-23
-> **Status:** Current contract reference (audited 2026-09-07)
-> **Owner:** Both Developers (jointly)
+> **Status:** Reference · V1.0 · contract ownership and versioning rules; schemas live in `shared/schemas/`
+> **Owner:** Both developers (jointly) · **Hub:** [docs/README.md](../README.md)
 
 ---
 

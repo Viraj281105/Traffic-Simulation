@@ -1,6 +1,8 @@
 # Traffic Simulation Code Review Prep: Phase 1
 ## Simulation Request Lifecycle & Session Initialization
 
+> **Historical — code-review preparation notes (September 2026).** Useful as a walkthrough, but not maintained. Current, verified descriptions: [System overview](../architecture/00-system-overview.md) · [Simulation methodology](../simulation/methodology.md) · [Metrics reference](../research/metrics-reference.md) · [API reference](../api/README.md).
+
 This guide explains how the backend starts, validates a simulation configuration, and spawns an isolated simulation session.
 
 ---
@@ -60,7 +62,7 @@ sequenceDiagram
 
 ## 2. Key Components & Code Files
 
-### A. [`backend/src/main.py`](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/backend/src/main.py)
+### A. [`backend/src/main.py`](../../backend/src/main.py)
 * **Role**: The web application entry point (FastAPI). It coordinates HTTP request handling, validation, session storage, lifecycle management, and WebSocket streaming.
 * **Key Global Variables**:
   * `simulations_db`: A dictionary (`Dict[str, Dict[str, Any]]`) that maps `simulation_id` to its respective instances:
@@ -75,7 +77,7 @@ sequenceDiagram
     ```
     *Why?* Since FastAPI is stateless per request, storing this in a global registry allows subsequent calls (like starting, pausing, or polling metrics) to fetch the exact running engine instance using `sim_id`.
 
-### B. [`shared/schemas/config.schema.json`](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/shared/schemas/config.schema.json)
+### B. [`shared/schemas/config.schema.json`](../../shared/schemas/config.schema.json)
 * **Role**: The JSON Schema describing the structure, data types, and requirements of the simulation parameters (e.g., simulation duration, spawner rates, vehicle physics constants, geometry types, and signal phase durations).
 * **Key Validation Aspects**:
   * Ensures coordinates, velocities, and rates are within logical bounds (non-negative).
@@ -90,8 +92,8 @@ During initialization, data flows as follows:
 1. **Input Payload (`dict`)**: A standard python dictionary parsed from the request body.
 2. **Schema Output**: True/False (raises a validation error if invalid).
 3. **Configuration Sub-objects**:
-   * `config["simulation"]["timeStep"]` (float) -> passed to [`Clock`](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/backend/src/core/clock.py)
-   * `config["simulation"]["duration"]` (float/int) -> passed to [`SimulationEngine`](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/backend/src/core/engine.py)
+   * `config["simulation"]["timeStep"]` (float) -> passed to [`Clock`](../../backend/src/core/clock.py)
+   * `config["simulation"]["duration"]` (float/int) -> passed to [`SimulationEngine`](../../backend/src/core/engine.py)
    * `config["geometry"]["intersectionType"]` (string) -> decides whether to instantiate a fixed-time signal controller or a roundabout controller.
    * `config` and `engine.network` -> passed to the Controller constructor.
 

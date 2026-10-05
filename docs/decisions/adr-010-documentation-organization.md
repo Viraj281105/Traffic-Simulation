@@ -86,5 +86,5 @@ If the team or user base grows, we can easily integrate static site generators l
 
 ## Related ADRs
 
-*   [ADR-001: Repository Structure](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-001-repository-structure.md)
-*   [ADR-009: Engineering Standards](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-009-engineering-standards.md)
+*   [ADR-001: Repository Structure](adr-001-repository-structure.md)
+*   [ADR-009: Engineering Standards](adr-009-engineering-standards.md)

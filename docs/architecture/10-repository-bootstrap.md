@@ -1,9 +1,7 @@
 # Deliverable 10 — Repository Bootstrap
 
-> **Document Version:** 0.1.0
-> **Last Updated:** 2026-07-23
-> **Status:** Historical bootstrap specification
-> **Owner:** Both Developers
+> **Status:** Historical · the original bootstrap specification (2026-07-23). The current repository layout is [01 — Repository architecture](01-repository-architecture.md) and the current README is [../../README.md](../../README.md).
+> **Owner:** Both developers
 
 ---
 

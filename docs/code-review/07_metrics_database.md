@@ -1,11 +1,15 @@
 # Traffic Simulation Code Review Prep: Phase 7
 ## Metrics Collector & Persistent Database
 
+> **Historical — code-review preparation notes (September 2026).** Useful as a walkthrough, but not maintained. Current, verified descriptions: [System overview](../architecture/00-system-overview.md) · [Simulation methodology](../simulation/methodology.md) · [Metrics reference](../research/metrics-reference.md) · [API reference](../api/README.md).
+>
+> **Errata:** (1) §1B.2 "Fuel & Carbon Emissions" is **not implemented** — the collector computes no emissions or fuel metric; emissions modelling is scheduled for [V1.6](../ROADMAP.md#v16--safety--environmental-analysis). (2) §1B.4: *queued* means speed below `waitSpeedThreshold` (0.5 m/s) with no hysteresis; the hysteresis applies to *stops* (counted below 0.1 m/s, re-armed above 0.2 m/s). (3) §2: the database has five tables (`configurations`, `simulation_runs`, `run_metrics`, `sweep_sessions`, `saved_replays`).
+
 This guide explains how physical simulation states are aggregated into key performance indicators (KPIs) and persisted inside SQLite.
 
 ---
 
-## 1. Metrics Aggregation Pipeline ([`MetricCollector`](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/backend/src/metrics/collector.py))
+## 1. Metrics Aggregation Pipeline ([`MetricCollector`](../../backend/src/metrics/collector.py))
 
 Operational statistics are computed over discrete steps to gauge intersection efficiency.
 
@@ -33,7 +37,7 @@ Where $x_i$ represents the average wait time for approach direction $i$. A fairn
 
 ---
 
-## 2. Persistent Database Schema ([`db.py`](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/backend/src/database/db.py))
+## 2. Persistent Database Schema ([`db.py`](../../backend/src/database/db.py))
 
 Metrics are persisted inside SQLite (`simulation.db`). The relational design consists of three tables:
 

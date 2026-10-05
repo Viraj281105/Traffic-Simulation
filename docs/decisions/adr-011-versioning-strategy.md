@@ -1,5 +1,7 @@
 # ADR-011: Versioning Strategy
 
+> **Note (2026-10-05):** this ADR governs **API and schema** versions (`/api/v1`, `schemaVersion: "1.0.0"`). UrbanFlow's **product milestones** (V0.1 … V1.0 … V2.0) are a separate sequence defined in the [roadmap](../ROADMAP.md); a product milestone such as V2.0 does not imply an `/api/v2` prefix. Package metadata (`backend/pyproject.toml`, `frontend/package.json`) is still at `0.1.0` and has not tracked the milestones.
+
 ## Status
 
 Accepted
@@ -99,6 +101,6 @@ If release management becomes tedious, we can write a simple shell script (`scri
 
 ## Related ADRs
 
-*   [ADR-003: Shared Contract Layer](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-003-shared-contract-layer.md)
-*   [ADR-004: Snapshot-Based Communication](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-004-snapshot-based-communication.md)
-*   [ADR-007: REST + WebSocket Communication Strategy](file:///c:/VIRAJ/Internship/Traffic_Simulation_Project_1/docs/decisions/adr-007-rest-websocket-communication-strategy.md)
+*   [ADR-003: Shared Contract Layer](adr-003-shared-contract-layer.md)
+*   [ADR-004: Snapshot-Based Communication](adr-004-snapshot-based-communication.md)
+*   [ADR-007: REST + WebSocket Communication Strategy](adr-007-rest-websocket-communication-strategy.md)

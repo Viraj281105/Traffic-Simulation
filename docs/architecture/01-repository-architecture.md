@@ -1,9 +1,8 @@
 # Deliverable 1 — Repository Architecture
 
-> **Document Version:** 0.1.0
-> **Last Updated:** 2026-07-23
-> **Status:** Current implementation reference (audited 2026-09-07)
-> **Owner:** Architecture Team
+> **Status:** Current · V1.0 · repository tree re-verified 2026-10-05
+> **Owner:** Both developers
+> **See also:** [00 — System overview](00-system-overview.md) · [Documentation hub](../README.md)
 
 ---
 
@@ -15,8 +14,8 @@ Two developers work independently:
 
 | Developer | Scope | Primary Directory |
 |-----------|-------|-------------------|
-| Developer A | Simulation Engine, Metrics, API | `backend/` |
-| Developer B | Dashboard, Visualization, Charts | `frontend/` |
+| Viraj Jadhao (Developer A) | Simulation Engine, Metrics, API | `backend/` |
+| Khushi Kashyap (Developer B) | Dashboard, Visualization, Charts | `frontend/` |
 | Both (coordinated) | Contracts, Schemas, Types | `shared/` |
 
 Neither developer should ever need to inspect the other's implementation directory.
@@ -26,92 +25,35 @@ Neither developer should ever need to inspect the other's implementation directo
 ## 2. Repository Tree
 
 ```
-traffic-intersection-control-comparison/
-│
-├── backend/                    # Simulation engine and API server
-│   ├── src/                    # All backend source code
-│   │   ├── controllers/        # Intersection control strategies
-│   │   ├── core/               # Simulation loop and orchestration
-│   │   ├── intersection/       # Intersection geometry and state
-│   │   ├── metrics/            # Metric computation engine
-│   │   ├── roads/              # Road network and lane modeling
-│   │   ├── snapshot/           # Snapshot serialization and emission
-│   │   └── vehicles/           # Vehicle models and physics (IDM)
-│   ├── tests/                  # All backend tests
-│   │   ├── unit/               # Unit tests per module
-│   │   ├── integration/        # Cross-module integration tests
-│   │   └── fixtures/           # Test data and mock objects
-│   ├── requirements.txt        # Python dependencies
-│   ├── pyproject.toml          # Project metadata and tool config
-│   └── README.md               # Backend-specific documentation
-│
-├── frontend/                   # Visualization dashboard
-│   ├── src/                    # All frontend source code
-│   │   ├── assets/             # Static files (images, icons, fonts)
-│   │   ├── charts/             # Chart components and configurations
-│   │   ├── components/         # Reusable UI components
-│   │   ├── contexts/           # React context providers
-│   │   ├── hooks/              # Custom React hooks
-│   │   ├── layouts/            # Page layout templates
-│   │   ├── metrics/            # Metric display and formatting
-│   │   ├── pages/              # Top-level page components
-│   │   ├── services/           # API and WebSocket clients
-│   │   ├── simulation/         # Simulation canvas and playback
-│   │   ├── styles/             # Global styles and design tokens
-│   │   └── types/              # TypeScript type definitions
-│   ├── public/                 # Static public assets
-│   ├── index.html              # HTML entry point
-│   ├── package.json            # Node.js dependencies
-│   ├── tsconfig.json           # TypeScript configuration
-│   ├── vite.config.ts          # Vite build configuration
-│   └── README.md               # Frontend-specific documentation
-│
-├── shared/                     # Shared contracts (THE source of truth)
-│   ├── schemas/                # JSON Schema definitions
-│   │   ├── snapshot.schema.json
-│   │   ├── config.schema.json
-│   │   └── metrics.schema.json
-│   ├── snapshot/               # Snapshot contract documentation
-│   ├── metrics/                # Metric definitions and formulas
-│   ├── config/                 # Configuration contract documentation
-│   ├── types/                  # Canonical type definitions
-│   ├── constants/              # Shared constant values
-│   ├── enums/                  # Enumeration definitions
-│   └── README.md               # Shared layer documentation
-│
-├── docs/                       # Project documentation
-│   ├── architecture/           # Architecture specification (this folder)
-│   │   ├── 01-repository-architecture.md
-│   │   ├── 02-backend-architecture.md
-│   │   ├── 03-frontend-architecture.md
-│   │   ├── 04-shared-contract-layer.md
-│   │   ├── 05-snapshot-contract.md
-│   │   ├── 06-scenario-configuration-contract.md
-│   │   ├── 07-metric-contract.md
-│   │   ├── 08-communication-contract.md
-│   │   ├── 09-engineering-standards.md
-│   │   └── 10-repository-bootstrap.md
-│   ├── Internship Project proposal - 2026.pptx
-│   ├── Internship Project proposal ver1.pptx
-│   ├── Project_Documentation.docx
-│   ├── Technical Documentation.docx
-│   ├── Simulation_Parameters_Reference.md.pdf
-│   └── simulation_pipeline_overview.png
-│
-├── scripts/                    # Development and CI/CD scripts
-│   ├── setup.sh                # One-command project setup
-│   ├── validate-schemas.sh     # JSON Schema validation
-│   └── README.md               # Scripts documentation
-│
-│
-├── .github/                    # GitHub-specific configuration
-│   ├── ISSUE_TEMPLATE/         # Issue templates
-│   ├── PULL_REQUEST_TEMPLATE.md
-│   └── workflows/              # CI/CD workflows (future)
-│
-├── .gitignore                  # Git ignore rules
-├── LICENSE                     # Project license
-└── README.md                   # Project root documentation
+Traffic-Simulation/                 (product name: UrbanFlow)
+├── backend/                        Simulation engine, metrics, studies, API, persistence
+│   ├── src/                        core/ roads/ vehicles/ controllers/ intersection/ metrics/
+│   │                               snapshot/ study/ database/ · main.py · auth.py
+│   ├── tests/                      pytest suite mirroring src/ (+ api/, integration/)
+│   ├── Dockerfile · docker-entrypoint.py · pyproject.toml · requirements.txt · README.md
+├── frontend/                       Landing page + dashboard (React 19, TypeScript, Vite)
+│   ├── src/                        landing/ components/ (guided/, analytics/, ui/) hooks/ services/
+│   │                               metrics/ types/ auth/ runs/ styles/ theme/ utils/ test/
+│   ├── templates/                  nginx site template (production)
+│   ├── index.html · app.html · vite.config.ts · package.json · Dockerfile · README.md
+├── shared/
+│   ├── schemas/                    config.schema.json · snapshot.schema.json · vehicle_state.json
+│   └── README.md
+├── scripts/                        run_full_study.py · validate_schemas.py (+ .sh) · setup_cognito.py ·
+│                                   GitHub automation (setup_github.py, assign_issues.py, …) · README.md
+├── docs/                           Documentation — start at docs/README.md
+│   ├── architecture/ simulation/ research/ api/ product/ deployment/ testing/
+│   ├── decisions/ reports/ future-scope/ resources/
+│   ├── ROADMAP.md · operations.md · bug-fix-report.md
+│   └── project-management/ issues/ code-review/   (historical)
+├── landingpage/                    Legacy prototype workspace (pnpm) — not built, deployed or referenced
+├── .github/                        CI workflows (ci.yml, docker.yml), issue/PR templates, CODEOWNERS, Dependabot
+├── .husky/pre-commit               Runs the frontend linter
+├── docker-compose.yml              Production stack (nginx + FastAPI + volume)
+├── docker-compose.dev.yml          Development stack (Vite + uvicorn --reload)
+├── start.ps1                       Windows helper for both stacks
+├── AWS_DEPLOYMENT_GUIDE.md         Pointer to docs/deployment/
+└── README.md
 ```
 
 ---
@@ -125,9 +67,9 @@ traffic-intersection-control-comparison/
 | `backend/` | All server-side code: simulation engine, physics, metrics computation, API endpoints | Developer A |
 | `frontend/` | All client-side code: React dashboard, canvas visualization, chart rendering, playback | Developer B |
 | `shared/` | Contracts, schemas, and type definitions that both sides depend on | Both (coordinated changes only) |
-| `docs/` | Architecture documents, project proposals, technical references | Both |
-| `scripts/` | Development automation, CI/CD helpers, validation utilities | Both |
-| `examples/` | Sample configurations, snapshot payloads, expected outputs | Both |
+| `docs/` | All project documentation (hub: `docs/README.md`) | Both |
+| `scripts/` | Study runner, schema validation, Cognito provisioning, GitHub automation | Both |
+| `landingpage/` | Legacy prototype workspace; not part of the build or deployment | — |
 | `.github/` | GitHub issue templates, PR templates, CI workflows | Both |
 
 ### Ownership Rules
@@ -150,7 +92,7 @@ traffic-intersection-control-comparison/
 | Business logic in `shared/` | Shared is for contracts only — no algorithms, no computation, no state |
 | Simulation code in `frontend/` | Frontend renders snapshots; it never runs simulations |
 | UI components in `backend/` | Backend is headless; it never renders HTML or React |
-| Hardcoded values that should be in `shared/constants/` | Both sides must use the same constant values |
+| Constants duplicated without a sync test | Values mirrored across the boundary (e.g. reference capacity in `study/calibration.py` and `types/demand.ts`) must be kept equal by a test |
 | Schema definitions outside `shared/schemas/` | One source of truth; never duplicate schemas |
 | Test files mixed with source files | Tests belong in dedicated `tests/` directories |
 | Configuration files committed with secrets | Use `.env` files (gitignored) for sensitive configuration |
@@ -167,8 +109,8 @@ graph TD
         SH[shared/]
     end
 
-    SH -->|"JSON Schemas<br/>Type Definitions<br/>Constants"| BE
-    SH -->|"JSON Schemas<br/>Type Definitions<br/>Constants"| FE
+    SH -->|"JSON Schemas"| BE
+    SH -->|"JSON Schemas (reference)"| FE
     BE -.->|"REST API<br/>WebSocket Stream"| FE
 
     BE x--x FE
@@ -188,11 +130,13 @@ graph TD
 |-------|-----------|-----------|
 | Backend Runtime | Python 3.11+ | Strong scientific computing ecosystem; IDM physics modeling |
 | Backend API | FastAPI | Async support, WebSocket native, auto-generated OpenAPI docs |
-| Frontend Runtime | Node.js 18+ | Standard for React tooling |
+| Frontend Tooling | Node.js (CI uses 20; the image build uses 26) | Standard for React tooling |
 | Frontend Framework | React 19 with TypeScript | Component-based UI and strong typing |
 | Frontend Build | Vite | Fast HMR, native ESM, minimal config |
 | Shared Format | JSON Schema (Draft 2020-12) | Language-agnostic, machine-validatable, self-documenting |
-| Rendering | HTML5 Canvas | Direct pixel control for vehicle animation and interpolation |
+| Rendering | HTML5 Canvas · Recharts | Canvas for vehicle animation and interpolation; Recharts for charts |
+| Persistence | SQLite (WAL) | Zero-ops storage on a Docker volume |
+| Delivery | Docker Compose · nginx · AWS EC2 | See docs/deployment/README.md |
 | Communication | REST + WebSocket | REST for CRUD operations; WebSocket for real-time snapshot streaming |
 
 ---

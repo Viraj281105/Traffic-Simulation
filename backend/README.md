@@ -1,189 +1,88 @@
-# Simulation Backend & Engine
+# UrbanFlow Backend — Simulation Engine & API
 
-The simulation backend is a Python 3.11+ FastAPI application. It features a discrete-time simulation engine using the **Intelligent Driver Model (IDM)**, fixed-time signal and roundabout controllers, live metric collection, SQLite-backed study persistence, REST routes, and WebSocket snapshot streams. The complete current API workflow is in [../docs/operations.md](../docs/operations.md).
+A Python 3.11 **FastAPI** application containing UrbanFlow's discrete-time simulation engine (Intelligent Driver Model car-following, fixed-time signal and roundabout controllers), the metric collector, the study layer (volume sweeps, Monte Carlo validation, invariant checks), SQLite persistence, REST routes and WebSocket streams. It is headless: it produces JSON and is the single source of every number the frontend shows.
 
-**Owner:** Viraj Jadhao (Simulation/Data)
-**Tech Stack:** Python 3.11+, FastAPI, Uvicorn, Pydantic, SQLite, Pytest
+**Owner:** Viraj Jadhao · **Stack:** Python 3.11, FastAPI, Uvicorn, Pydantic, jsonschema, SQLite, pytest
+
+| Read next | |
+| --- | --- |
+| Package structure and dependencies | [docs/architecture/02-backend-architecture.md](../docs/architecture/02-backend-architecture.md) |
+| What the simulation models | [docs/simulation/methodology.md](../docs/simulation/methodology.md) |
+| Every route and stream | [docs/api/README.md](../docs/api/README.md) |
+| Metrics | [docs/research/metrics-reference.md](../docs/research/metrics-reference.md) |
+| Tests and quality gates | [docs/testing/README.md](../docs/testing/README.md) |
 
 ---
 
-## Directory Organization & Module Architecture
+## Layout
 
 ```
-backend/
-├── src/
-│   ├── core/                     # Core orchestrator and simulation engine
-│   │   ├── clock.py              # Discrete time stepper (dt steps)
-│   │   ├── config_models.py      # Scenario validation models (Pydantic schemas)
-│   │   ├── engine.py             # Main execution loop, spawning, and updates
-│   │   └── enums.py              # Status enums (Running, Paused, etc.)
-│   ├── controllers/              # Intersection flow controllers
-│   │   ├── base.py               # Abstract base class for controllers
-│   │   ├── fixed_time_signal.py  # Standard cyclic traffic signal phase generator
-│   │   ├── roundabout.py         # Yield-at-entry circular controller
-│   ├── database/                 # SQLite storage layer
-│   │   ├── db.py                 # SQLite engine & connection context manager
-│   │   └── dao.py                # Database Access Object for runs & configs
-│   ├── intersection/             # Spatial intersection support
-│   │   └── conflict_manager.py   # Conflict-zone reservations
-│   ├── roads/                    # Topological road definitions
-│   │   ├── approach.py           # N/S/E/W entry/exit roads
-│   │   ├── lane.py               # Spatially oriented driving lanes
-│   │   └── network.py            # Complete graph representing the junction
-│   ├── snapshot/                 # Simulation state serialization
-│   │   ├── buffer.py             # Windowed cache storing historical snapshots
-│   │   ├── builder.py            # Assembles snapshot models from live components
-│   │   └── dual_orchestrator.py  # Parallel signal/roundabout comparison runner
-│   ├── vehicles/                 # Vehicle modeling & routing
-│   │   ├── idm.py                # Intelligent Driver Model math equations
-│   │   ├── pool.py               # Active vehicles manager (spawns & exits)
-│   │   ├── router.py             # Maps vehicles to valid origin-destination paths
-│   │   ├── spawner.py            # Poisson/Uniform vehicle generation queues
-│   │   └── vehicle.py            # Instantiated vehicle parameters and telemetry
-│   ├── metrics/                  # Statistical collection and winners evaluation
-│   │   ├── definitions/          # Standardized metric formulas
-│   │   │   ├── fairness.py       # Directional Fairness Index (DFI)
-│   │   │   ├── idle_loss.py      # Idle Opportunity Loss calculation
-│   │   │   ├── derived_metrics.py # Derived speed, stability, and footprint metrics
-│   │   │   ├── queue_length.py   # Mean & Max Queue Sizes
-│   │   │   ├── speed_variance.py # Velocity variability checks
-│   │   │   ├── stop_count.py     # Hysteresis-based vehicle stops count
-│   │   │   ├── throughput.py     # Total vehicles cleared per time window
-│   │   │   ├── travel_time.py    # Mean travel time & travel reliability index
-│   │   │   └── wait_time.py      # Delay time spent below 1.0 m/s threshold
-│   │   ├── collector.py          # Central aggregator computing periodic metrics
-│   │   └── efficiency.py         # Normalized Master Efficiency Score calculator
-│   └── main.py                   # FastAPI routes, application startup, and sockets
-├── tests/                        # Comprehensive unit & system test packages
-├── requirements.txt              # Production pip dependencies
-├── pyproject.toml                # Project configurations and black/ruff configurations
-└── Dockerfile                    # Containerization instructions
+src/
+├── main.py           FastAPI app: routes, WebSockets, live sessions, errors, CORS, API key
+├── auth.py           Cognito token verification and the local-development bypass
+├── core/             engine, clock, configuration models and rules, limits, provenance
+├── roads/            road network, lanes, approaches
+├── vehicles/         vehicle, IDM, spawner, pool, router, speed profile
+├── controllers/      BaseController, fixed-time signal, roundabout, virtual obstacles, factory
+├── intersection/     conflict manager (signal) and predictive conflict resolver
+├── metrics/          MetricCollector, composite score, definitions/
+├── snapshot/         snapshot builder and buffer, dual (lockstep) orchestrator
+├── study/            volume sweep, validation, worker pool, jobs, calibration, tolerances, reports
+└── database/         SQLite schema and migrations, run/sweep/replay DAOs
 ```
 
----
+## Core model in one paragraph
 
-## Core Simulation Submodules
+Each tick (Δt = 0.1 s by default) the engine spawns seeded arrivals, updates the controller, then moves every vehicle with the IDM (`a = 2.0`, `b = 3.0 m/s²`, `T = 1.5 s`, `s₀ = 2 m`, `δ = 4`) under curve speed limits, audits for overlaps, and feeds the metric collector, which ignores the first `warmupTime` seconds (30 s by default). The fixed-time signal runs the paired plan `ns_green → ns_yellow → all_red → ew_green → ew_yellow → all_red` (30/4/2 s by default, permissive lefts). The roundabout gives way to circulating traffic using a critical gap (4.0 s) and follow-up time (2.5 s). The `DualSimulationOrchestrator` steps a signal engine and a roundabout engine **in lockstep with the same seed**, so both see identical traffic. Details: [methodology](../docs/simulation/methodology.md).
 
-### 1. Physics Modeling (IDM)
+## Persistence
 
-The longitudinal vehicle kinematics are governed by the **Intelligent Driver Model (IDM)**, which updates vehicle speed $v$ and position $x$ dynamically at each step:
-$$\frac{dv}{dt} = a \left[ 1 - \left(\frac{v}{v_0}\right)^\delta - \left(\frac{s^*(v, \Delta v)}{s}\right)^2 \right]$$
-Where:
+SQLite at `DB_PATH` (default `backend/simulation.db`; `/app/data/simulation.db` in Docker), WAL mode, 5 s busy timeout, foreign keys. Tables are created and migrated in place on startup by `src/database/db.py`:
 
-- $v_0$ is the desired speed.
-- $s$ is the actual distance to the leading vehicle.
-- $s^*(v, \Delta v) = s_0 + v T + \frac{v \Delta v}{2\sqrt{a b}}$ is the dynamic desired spacing.
-- $a$ is maximum acceleration, and $b$ is comfortable deceleration.
-
-### 2. Intersection Controllers
-
-- **Fixed-Time Signal Control (`fixed_time_signal.py`)**: Rotates through standard phases (`NS_Green` -> `NS_Yellow` -> `AllRed` -> `EW_Green` -> `EW_Yellow` -> `AllRed`) utilizing predefined time offsets.
-- **Roundabout Control (`roundabout.py`)**: Models yield-at-entry circular gap acceptance. Vehicles check circulating traffic spacing and speed before committing to cross the entry line.
-
-### 3. Snapshot Builder & Dual Orchestrator
-
-- **State Snapshots**: Periodically captures the physical coordinates, velocities, and light statuses at 10Hz and validates the output against `shared/schemas/snapshot.schema.json`.
-- **Dual Simulation**: Runs Fixed-Time and Roundabout engines concurrently with the same configured seed for comparative experiments; the engines are stepped independently rather than under a strict lockstep scheduler.
+| Table | Holds |
+| --- | --- |
+| `simulation_runs` | One row per persisted run: status, timing, seed, arrival rate, configuration, summary metrics, provenance, name/notes/tags, owner |
+| `run_metrics` | Per-tick metric dictionaries for a run |
+| `sweep_sessions` | Sweep configuration and complete results |
+| `saved_replays` | Saved dashboard runs (name, configuration, metrics, owner) |
+| `configurations` | Configuration records |
 
 ---
 
-## Database Schema & Volume Sweep Runs
+## Run
 
-The database is built on SQLite (`simulation.db`) using raw SQL scripts managed by `DAO`:
+```bash
+cd backend
+python -m venv .venv
+.venv\Scripts\activate          # Windows
+# source .venv/bin/activate     # macOS / Linux
+pip install -r requirements.txt
+uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+```
 
-- **`configurations` Table**: Stores validated configuration JSON models.
-- **`simulation_runs` Table**: Records metadata (seed, controller type, status, simulation time, duration).
-- **`run_metrics` Table**: Keeps historical logs of the 10 performance metrics.
+API at `http://localhost:8000`, OpenAPI docs at `http://localhost:8000/docs`. Useful environment variables: `DB_PATH`, `CORS_ORIGINS`, `API_KEY`, `STUDY_WORKERS`, `DEV_AUTH_BYPASS=1` (accept the dev-server sign-in), `COGNITO_USER_POOL_ID` / `COGNITO_CLIENT_ID` / `AWS_REGION` — see the [configuration reference](../docs/simulation/configuration.md#33-environment).
 
-### Automated Volume Sweep
-
-To perform a sensitivity analysis across arrival rates, call the study API
-(implemented in `src/study/volume_sweep.py`):
+A quick scripted sweep:
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/study/sweeps/run \
   -H "Content-Type: application/json" \
-  -d '{"arrivalRates": [0.1, 0.3, 0.5, 0.7]}'
+  -d '{"arrivalRates": [0.1, 0.2, 0.3, 0.4], "duration": 120, "randomSeed": 1}'
 ```
 
-This stores all resulting metrics back to SQLite (`sweep_sessions` and
-`simulation_runs`) for comparisons, and the session can be retrieved later
-via `GET /api/v1/study/sweeps/{sessionId}`.
+The full validated study without a server: `python scripts/run_full_study.py` from the repository root.
 
----
-
-## Setup & Execution Guide
-
-### Local Installation
-
-1. Navigate to the backend folder:
-   ```bash
-   cd backend
-   ```
-2. Initialize virtual environment:
-   ```bash
-   python -m venv .venv
-   .venv\Scripts\activate          # Windows
-   # source .venv/bin/activate     # macOS/Linux
-   ```
-3. Install project dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-### Execution
-
-Run the FastAPI Web API:
+## Test
 
 ```bash
-.venv\Scripts\python.exe -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+pytest -m "not slow"     # the CI gate (coverage floor 85 %)
+pytest -m slow --no-cov  # full-strength simulation regression sweeps (nightly in CI)
+pytest                   # everything
+ruff check src/ tests/ && ruff format --check src/ tests/ && mypy src/
 ```
 
-The API becomes available at `http://localhost:8000`. Interactive API Docs are served at `http://localhost:8000/docs`.
+The `slow` marker selects; it never hides — a bare `pytest` runs every test.
 
-### Testing
+## Docker
 
-Execute the whole suite — nothing is excluded by default:
-
-```bash
-python -m pytest
-```
-
-Tests carrying the `slow` marker are the full-strength simulation sweeps in
-`tests/integration/test_signal_capacity.py` and
-`tests/integration/test_roundabout_conflicts.py`: multi-seed, multi-lane and
-multi-demand regressions where every case is a complete 120-240 s simulation.
-They dominate wall time, so CI splits them off rather than running them on
-every push:
-
-```bash
-# What the "Backend CI" job runs on every PR/push. Includes the conflict
-# geometry pins and a single-seed representative of each sweep.
-python -m pytest -m "not slow"
-
-# What the "Backend Slow Simulation Regression" job runs nightly, and what
-# you can trigger by hand from the Actions tab. Run this before a release.
-python -m pytest -m slow
-```
-
-The sweeps are selected away in the fast job, never weakened or skipped, and
-`python -m pytest` with no marker filter remains the complete run.
-
----
-
-## API Documentation
-
-### REST Control Endpoints
-
-- `POST /api/simulation/new`: Creates a versioned in-memory simulation from a full scenario configuration.
-- `POST /api/simulation/start`: Activates the polling engine clock.
-- `POST /api/simulation/stop`: Pauses the running simulation engine.
-- `POST /api/simulation/reset`: Reinitializes the simulation state.
-- `POST /api/simulation/dual/play`: Starts or resumes the dual simulation.
-- `POST /api/simulation/dual/pause`: Pauses the dual simulation.
-- `POST /api/simulation/dual/reset`: Recreates both roundabout and signal configurations.
-
-### WebSockets Stream Endpoints
-
-- `WS /ws/simulation/live`: Standard single-vehicle snapshot stream.
-- `WS /ws/simulation/dual`: Side-by-side comparative snapshots stream broadcasted at 10Hz.
+`Dockerfile` has a `dev` target (Uvicorn `--reload` on bind-mounted source, used by `docker-compose.dev.yml`) and a `production` target (source copied in, non-root `appuser`, `GIT_COMMIT` build argument recorded with saved runs). The image's health check calls `/health`.
