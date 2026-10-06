@@ -3,8 +3,10 @@ import type { DualSnapshot } from "../../types/simulation";
 import type { SimulationConfigValues } from "../../types/config";
 import {
   DEMAND_LEVELS,
+  adaptiveSettings,
   demandLevelFor,
   demandRate,
+  isAdaptive,
   signalCycleSeconds,
 } from "../../types/config";
 import {
@@ -44,6 +46,7 @@ import {
 import type { MetricDef } from "../../metrics/catalog";
 import { VehicleClassResults } from "./VehicleClassResults";
 import { describeMix, hasMixedTraffic } from "../../vehicles/vehicleClasses";
+import { signalControlLabel } from "../../signals/signalControl";
 
 const LOW_SAMPLE_NOTE =
   "Fewer than 20 vehicles got through on at least one side, so read the “1 in 20” and per-direction figures as rough.";
@@ -246,6 +249,7 @@ export function ResultsReport({
               ? `Mixed traffic: ${describeMix(config.vehicleMix)}`
               : "Cars only"}
           </li>
+          <li>{signalControlLabel(config)}</li>
           <li>{duration(config.duration)} of traffic</li>
           <li>Traffic pattern #{config.randomSeed}</li>
         </ul>
@@ -521,6 +525,7 @@ export function ResultsReport({
                 greenEw: config.ewGreenDuration ?? config.greenDuration,
                 cycleSeconds: signalCycleSeconds(config),
                 criticalGap: config.criticalGap,
+                adaptive: isAdaptive(config) ? adaptiveSettings(config) : null,
               }).map((e) => (
                 <div className="why-item" key={e.title}>
                   <h3>{e.title}</h3>
@@ -737,9 +742,24 @@ export function ResultsReport({
             <div>
               <dt>Signal plan</dt>
               <dd>
-                NS / EW green {config.nsGreenDuration ?? config.greenDuration} /{" "}
-                {config.ewGreenDuration ?? config.greenDuration} s, yellow{" "}
-                {config.yellowDuration} s, all-red {config.allRedDuration} s
+                {isAdaptive(config) ? (
+                  <>
+                    Adaptive (vehicle-actuated): min green{" "}
+                    {adaptiveSettings(config).minGreen} s, max green{" "}
+                    {adaptiveSettings(config).maxGreen} s, passage time{" "}
+                    {adaptiveSettings(config).extensionStep} s over a{" "}
+                    {adaptiveSettings(config).detectionDistance} m stop-line
+                    zone
+                  </>
+                ) : (
+                  <>
+                    Fixed time: NS / EW green{" "}
+                    {config.nsGreenDuration ?? config.greenDuration} /{" "}
+                    {config.ewGreenDuration ?? config.greenDuration} s
+                  </>
+                )}
+                ; yellow {config.yellowDuration} s, all-red{" "}
+                {config.allRedDuration} s
               </dd>
             </div>
             <div>

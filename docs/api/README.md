@@ -61,6 +61,7 @@ flowchart LR
     subgraph Study["Studies · /api/v1/study"]
         SW["sweeps/run · sweeps/jobs · sweeps · sweeps/{id}"]
         VALD["validate/repeatability · validate/monte-carlo(/jobs)"]
+        CC["control-comparison/run · control-comparison/jobs (V1.3)"]
         JOB["jobs/{jobId}"]
         HIST["history/runs …"]
         EXP["export"]
@@ -153,6 +154,7 @@ sequenceDiagram
 | --- | --- | --- | --- | --- | --- |
 | POST 🔑 | `/api/v1/study/sweeps/jobs` | Volume sweep in the background | Sweep body (below) | **202** job | 422, 429 |
 | POST 🔑 | `/api/v1/study/validate/monte-carlo/jobs` | Monte Carlo in the background | Monte Carlo body | **202** job | 400, 422, 429 |
+| POST 🔑 | `/api/v1/study/control-comparison/jobs` | V1.3 fixed-time vs adaptive vs roundabout in the background | Control-comparison body (below) | **202** job | 422, 429 |
 | GET | `/api/v1/study/jobs/{jobId}` | Poll | — | `{jobId, kind, status: queued\|running\|completed\|failed, progress, result, error}` | 404 |
 
 Jobs live in server memory: a restart drops unfinished jobs; finished jobs are kept for one hour.
@@ -163,6 +165,7 @@ Jobs live in server memory: a restart drops unfinished jobs; finished jobs are k
 | --- | --- | --- | --- |
 | POST 🔑 | `/api/v1/study/sweeps/run` | `{arrivalRates?: number[] (≤ 20, each 0–10), duration?: 60 (1–3600), randomSeed?: 42, name?, customConfig?}` | Sweep result: `sessionId, name, duration, randomSeed, seedsPerTier, tieTolerance, calibration, curves{rates, volumesVehPerHour, signal{…}, roundabout{…}, crossoverArrivalRate, crossoverHourlyVolume, crossoverBracketArrivalRates}, runs[]` — persisted |
 | POST 🔑 | `/api/v1/study/validate/monte-carlo` | `{numSeeds?: 5 (1–30), confidenceLevel?: 0.95 (0.90/0.95/0.99), duration?: 30, customConfig? \| scenario?}` | `numSeeds, seeds, duration, confidenceLevel, alpha, method, calibration, vehicleLimitReachedSeeds, signal{delay,throughput,queue}, roundabout{…}, comparison{…}, seedRuns` |
+| POST 🔑 | `/api/v1/study/control-comparison/run` | `{lanes?: 1 (1–3), levels?: ["light","moderate","busy","near","capacity","over"] (no repeats), numSeeds?: 5 (2–10), baseSeed?: 1, duration?: 300 (60–900), adaptive?: controller.adaptive, vehicleMix?, confidenceLevel?: 0.95}` | `controls, lanesPerApproach, levels, seeds, duration, warmupTime, confidenceLevel, adaptiveSettings, vehicleMix, calibration, tieTolerance, collisionCount{per control}, method, results[]{level, arrivalRate, demandVph, degreeOfSaturation, vehicleLimitReached, controls{fixed_time,adaptive,roundabout: per-measure mean/CI}, delayComparisons{pair: meanDifference, ciLow, ciHigh, reading lower\|higher\|tie\|inconclusive}}, perSeed[]` — same seeds, arrivals and geometry for all three controls; not persisted |
 | POST 🔑 | `/api/v1/study/validate/repeatability` | `{duration?: 20, randomSeed?: 12345}` | Per-geometry invariant results (`geometries`), what was `checked`, `valid`, `isDeterministic` |
 | GET 🔑 | `/api/v1/study/export?format=json\|csv` | — | Runs a fresh default sweep **and** a Monte Carlo study, returns the combined report (CSV: `traffic_simulation_study_v1.csv`). Expensive. |
 

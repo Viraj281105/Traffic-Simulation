@@ -614,7 +614,7 @@ Both reproduce deterministically:
 earlier release-gate entry kept it reserved because applying it would move
 every calibrated result. The calibration pass applied it deliberately and
 re-measured every result (`comparative_report.md`, revision 2026-09-25b).
-`roads.approaches[]` is still reserved (not read by the engine).
+`roads.approaches[]` is still reserved (not read by the engine). *(Update: `approaches[].lanes` is live since V1.2; only `approaches[].speedLimit` remains reserved.)*
 
 **Multi-lane roundabout contacts, re-measured after the calibration pass.**
 Across the 54 multi-lane roundabout runs of the 2026-09-25 matrix (2 and 3

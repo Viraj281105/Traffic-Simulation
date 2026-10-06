@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -140,6 +140,18 @@ DEFAULT_PHASE_SEQUENCE: List[str] = [
 ]
 
 
+class AdaptiveSignalSection(BaseModel):
+    """Adaptive (vehicle-actuated) signal settings (V1.3), see
+    controllers/adaptive_signal.py. Cross-field rules live in
+    config_validation (maxGreen > minGreen and the rest)."""
+
+    minGreen: float = Field(10.0, ge=5, le=60)
+    maxGreen: float = Field(50.0, ge=10, le=180)
+    extensionStep: float = Field(2.5, ge=0.5, le=10)
+    detectionDistance: float = Field(30.0, ge=5, le=200)
+    demandThreshold: int = Field(1, ge=1, le=20)
+
+
 class ControllerSection(BaseModel):
     greenTime: float = Field(30.0, gt=5, le=120)
     leftDuration: float = Field(5.0, gt=0, le=60)
@@ -178,6 +190,10 @@ class ControllerSection(BaseModel):
     followUpTime: float = Field(2.5, gt=0)
     entrySpeed: float = Field(5.0, gt=0)
     circulatingSpeed: float = Field(8.0, gt=0, le=15.0)
+    # V1.3: how a signal times its greens. Unset means fixed-time, so a
+    # config that never mentions it dumps (and runs) exactly as before.
+    signalControl: Optional[Literal["fixed_time", "adaptive"]] = None
+    adaptive: Optional[AdaptiveSignalSection] = None
 
 
 class MetricsSection(BaseModel):

@@ -99,9 +99,30 @@ flowchart LR
 | Welch's unequal-variance test | Implemented |
 | Effect size reported with direction | Implemented (`cohensD`, positive = signal higher) |
 | Seeds recorded | Implemented |
-| Paired test exploiting shared seeds | **Not implemented** — the test is unpaired, which is conservative |
+| Paired test exploiting shared seeds | Monte Carlo validation: **not implemented** — unpaired, which is conservative. The V1.3 three-way study (§4.1) compares delays **paired** per seed |
 | Multiple-comparison correction across delay / throughput / queue | **Not implemented** — stated in every result's `method.note` |
 | Multi-seed sweeps (confidence bands per tier) | **Not implemented** — sweeps run one seed per tier (`seedsPerTier: 1`) |
+
+### 4.1 Fixed-time vs adaptive vs roundabout (V1.3, 2026-10-06)
+
+Run with the three-way study (`POST /api/v1/study/control-comparison/run`, `study/control_comparison.py`; the same in the Research Lab). Each seed runs once under every control: same geometry, lanes, vehicles, arrival sequence, 300 s with 30 s warm-up excluded; both signals on the paired plan with 4 s yellow and 2 s all-red; adaptive at its defaults (10 / 50 s, 2.5 s passage, 30 m zone). Mean delay per vehicle, paired per-seed difference adaptive − fixed-time with its 95 % Student-t interval; *lower* / *higher* need the interval to exclude zero **and** a gap beyond the 1 s / 5 % tie tolerance.
+
+**One lane, cars only (calibrated), 10 seeds (101–110):**
+
+| Demand | Fixed-time | Adaptive | Roundabout | Adaptive − fixed | Reading | Adaptive vs roundabout |
+| --- | --- | --- | --- | --- | --- | --- |
+| Light (310 veh/h) | 12.3 ± 2.7 s | 8.5 ± 1.9 s | 9.4 ± 0.6 s | −3.8 [−6.6, −1.0] | adaptive lower | tie |
+| Moderate (620) | 18.0 ± 3.5 | 12.7 ± 1.6 | 11.5 ± 0.9 | −5.2 [−9.1, −1.4] | adaptive lower | inconclusive |
+| Busy (940) | 24.2 ± 4.5 | 18.6 ± 3.4 | 16.3 ± 2.7 | −5.5 [−8.3, −2.7] | adaptive lower | roundabout lower |
+| Near capacity (1,120) | 30.6 ± 6.2 | 25.8 ± 2.2 | 20.6 ± 3.6 | −4.9 [−10.3, +0.6] | inconclusive | roundabout lower |
+| At capacity (1,250) | 31.5 ± 7.4 | 34.1 ± 7.1 | 24.5 ± 5.0 | +2.6 [−2.7, +7.9] | inconclusive | roundabout lower |
+| Over capacity (1,620) | 43.9 ± 7.6 | 43.0 ± 4.7 | 37.9 ± 5.0 | −0.9 [−6.2, +4.3] | tie | roundabout lower |
+
+**Two lanes, cars only (exploratory), 5 seeds:** adaptive lower than fixed-time at light (−3.3 s), moderate (−4.8 s) and near capacity (−8.0 s); tie at busy and at capacity; over capacity adaptive's mean is 3.0 s *higher* (inconclusive). Adaptive is lower than the roundabout near and over capacity, where the two-ring roundabout's weave (K1) costs it. **Two lanes, city mix, 3 seeds:** adaptive's mean is 3.7–5.8 s below fixed-time at every level, every reading inconclusive.
+
+**Reading.** Adaptive control helps most where a fixed timetable wastes green: below saturation it ends greens that have run dry (green used rose from about 60 % to 80–88 % of green time on one lane at light and moderate demand) and the mean green shortens to 16–22 s. At and above capacity greens are almost fully used under both, and adaptive gains nothing measurable — at capacity on one lane its mean delay is slightly higher (inconclusive). Its greens there average 24.7 s against the fixed 30 s, so more of each hour goes to yellow and all-red; that lost time matters only when demand reaches capacity, and is the likely, not demonstrated, explanation. On one lane the roundabout still has the lowest delay from busy demand upwards. None of this was tuned: one set of defaults throughout.
+
+**Safety and determinism.** 0 collisions on either signal in 336 signal runs across these studies (the roundabout's 4 contacts, all in two-lane runs, are the K1 weave). A repeated 90-run study returned identical results and per-seed rows. Tick-level checks in `tests/integration/test_adaptive_signal_runs.py` confirm that crossing roads are never released together and every release follows an all-red, on 1–3 lanes, mixed traffic and lane changing, plus a 27-run slow sweep with gridlock detection.
 
 ---
 
@@ -113,7 +134,7 @@ flowchart LR
 | K2 | **One-lane signal is conservative**: one shared lane, permissive lefts, no turn bay | A waiting left-turner holds the only lane; maximum served flow sits below HCM shared-lane practice | Model scope; lane modelling in [V1.2](../ROADMAP.md#v12--advanced-lane-modelling) |
 | K3 | ~~No lane changing~~ — **resolved in V1.2**: gradual MOBIL lane changing on approaches. Remaining: no lane drops/merges inside the junction (opposite approaches must have equal lane counts); motorcycles do not filter between lanes | Through traffic rebalances across permitted lanes; uneven opposite approaches are rejected rather than simulated | Lane drops: [V1.5](../ROADMAP.md#v15--real-world-junction-modelling) |
 | K4 | ~~Homogeneous passenger-car fleet~~ — **resolved in V1.1**: car, SUV, bus, truck, motorcycle. Remaining: class parameters are literature-ordered model inputs, not calibrated; no articulated vehicles; at most 12 m | Mixed-traffic results are **exploratory** and labelled so (`calibration.mixedTraffic`) | Calibration: [V1.8/V1.9](../ROADMAP.md#v18--v19--calibration--network-level-foundations) |
-| K5 | **Fixed-time signals only** | No actuated/adaptive comparison | [V1.3](../ROADMAP.md#v13--adaptive-signal-control) |
+| K5 | ~~Fixed-time signals only~~ — **resolved in V1.3**: an adaptive (vehicle-actuated) signal on the same phase plan, and a three-way study. Remaining: see K17–K18 | Fixed-time vs adaptive vs roundabout is measured with identical traffic | — |
 | K6 | **Abstract four-leg geometry** | Not a specific real junction | [V1.5](../ROADMAP.md#v15--real-world-junction-modelling) |
 | K7 | **Safety measures are exploratory**; no crash-risk model; no emissions | Safety is shown only as model-integrity cautions | [V1.6](../ROADMAP.md#v16--safety--environmental-analysis) |
 | K8 | **No field calibration** | Absolute numbers are model outputs, not predictions for a site | [V1.8/V1.9](../ROADMAP.md#v18--v19--calibration--network-level-foundations) |
@@ -125,6 +146,8 @@ flowchart LR
 | K14 | **Design-vehicle geometry** (V1.1): with buses or trucks in the mix, signal stop lines move back by the longest class's extra length | A mixed scenario's signal is a larger junction than its cars-only counterpart, as on real bus/freight routes; compare mixes, not geometries | By design |
 | K15 | **Lane changing costs time compared with V1.0** (V1.2): on multi-lane signals at moderate demand, mean delay is 3–5 s higher than V1.0, whose lane change was an instantaneous 3.5 m jump. Against no lane changing at all, MOBIL serves more vehicles at the same delay | Multi-lane absolute numbers differ from V1.0 (multi-lane was already exploratory); no collision or gridlock regression (48 paired runs, 2026-10-05) | By design |
 | K16 | **Merge order is physical only on design-vehicle junctions** (V1.1): two committed vehicles converging on one exit lane merge nearest-first when the junction is laid out for long vehicles; cars-only junctions keep V1.0's reservation order | A V1.0 merge deadlock (two vehicles in the box each waiting for the other) is removed for mixed traffic but kept, rarely triggered, for cars only to preserve V1.0 results | Cars: [V1.5](../ROADMAP.md#v15--real-world-junction-modelling) |
+| K17 | **Adaptive control is isolated, rule-based actuation** (V1.3): perfect stop-line detectors (no missed or false detections), no pedestrian calls, no coordination between junctions, no optimising or predictive control (SCOOT/SCATS-style), no learning. Default settings (10 / 50 s, 2.5 s passage, 30 m zone) are common practice values, not tuned per scenario or calibrated | Results compare a well-behaved actuated signal with a fixed timetable; a real installation's detection and tuning would differ | Optimising/learning control: [Future Scope](../future-scope/future_scope.md); calibration: [V1.8/V1.9](../ROADMAP.md#v18--v19--calibration--network-level-foundations) |
+| K18 | **Direct green-to-green within one approach's stage** (inherited): in the one-direction-at-a-time fallback cycle, through lanes go from green to red without a yellow when the protected-left phase starts — the fixed-time cycle does the same. Adaptive control never adds such a step between different approaches (it rejects plans that would need one) | Affects only the fallback cycle; the dashboard and every study use the paired plan, which has a yellow and all-red after every green | [V1.5](../ROADMAP.md#v15--real-world-junction-modelling) (phase design) |
 
 The per-item audit with mechanisms and re-measurements is [V1 known limitations](../reports/v1-known-limitations.md).
 
@@ -138,7 +161,7 @@ Items below strengthen *evidence*; each belongs to a roadmap milestone rather th
 | --- | --- |
 | Validation of heterogeneous vehicle behaviour and its effect on capacity | V1.1 — **done for safety and determinism** (zero collisions / no gridlock across 28 heavy-mix runs at 30 % buses and trucks; exact replay); capacity effects remain exploratory until calibrated (K4) |
 | Physics and regression tests for lane changes | V1.2 — **done** (`tests/vehicles/test_lane_change.py`, `tests/integration/test_vehicle_types_and_lanes.py`) |
-| Adaptive-control experiments with validation against fixed-time | V1.3 |
+| Adaptive-control experiments with validation against fixed-time | V1.3 — **done** (§4.1: three-way study over six demand levels, 1 and 2 lanes, cars and mixed traffic; exact replay; no signal collisions) |
 | Collision validation of multi-lane circulation (removes K1) | V1.4 |
 | Validated safety proxies; emissions where scientifically supportable | V1.6 |
 | Batch experiments with reproducibility at scenario level | V1.7 |

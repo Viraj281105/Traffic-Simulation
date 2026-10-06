@@ -15,6 +15,12 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, List, TypeGuard, Union
 
+from src.controllers.adaptive_signal import (
+    ADAPTIVE_BOUNDS,
+    SIGNAL_CONTROL_MODES,
+    adaptive_plan_errors,
+    resolve_adaptive_settings,
+)
 from src.roads.network import lane_counts, resolve_lanes_per_approach
 from src.vehicles.vehicle_types import vehicle_mix_errors
 
@@ -116,6 +122,7 @@ def semantic_config_errors(config: Dict[str, Any]) -> List[str]:
 
     errors.extend(vehicle_mix_errors(config))
     errors.extend(_lane_count_errors(config))
+    errors.extend(_signal_control_errors(config))
 
     # NaN compares false against every bound, so it slips through each of the
     # schema's minimum/maximum checks; infinity passes any one-sided bound.
@@ -153,6 +160,86 @@ def _lane_count_errors(config: Dict[str, Any]) -> List[str]:
                 f"(got {counts[a]} and {counts[b]}): through traffic cannot "
                 "merge inside the junction in this model"
             )
+    return errors
+
+
+def _signal_control_errors(config: Dict[str, Any]) -> List[str]:
+    """Adaptive signal control (V1.3): a known mode, a signalised junction,
+    timings that can be met, and a phase plan it can end greens in safely.
+
+    Shape and per-field bounds are the schema's job; they are re-checked here
+    only where a value feeds a cross-field rule, so a hand-built config (the
+    dashboard path) gets the same answer as the versioned API.
+    """
+    ctrl = _section(config, "controller")
+    mode = ctrl.get("signalControl")
+    adaptive_cfg = ctrl.get("adaptive")
+    if mode is None and adaptive_cfg is None:
+        return []
+    errors: List[str] = []
+    if mode is not None and mode not in SIGNAL_CONTROL_MODES:
+        errors.append(
+            f"controller.signalControl must be one of {list(SIGNAL_CONTROL_MODES)}; "
+            f"got {mode!r}"
+        )
+        return errors
+    if mode != "adaptive":
+        return errors
+    geom = _section(config, "geometry").get("intersectionType", "fixed_time_signal")
+    if geom == "roundabout":
+        errors.append(
+            "controller.signalControl 'adaptive' applies to a signalised junction, "
+            "not a roundabout"
+        )
+        return errors
+    if adaptive_cfg is not None and not isinstance(adaptive_cfg, dict):
+        errors.append("controller.adaptive must be an object")
+        return errors
+    raw = adaptive_cfg or {}
+    unknown = sorted(set(raw) - set(ADAPTIVE_BOUNDS))
+    if unknown:
+        errors.append(f"controller.adaptive has unknown fields: {', '.join(unknown)}")
+    settings = resolve_adaptive_settings(ctrl)
+    for key, (low, high) in ADAPTIVE_BOUNDS.items():
+        value = settings[key]
+        if not _number(value):
+            errors.append(f"controller.adaptive.{key} must be a number")
+            return errors
+        if key == "demandThreshold" and value != int(value):
+            errors.append("controller.adaptive.demandThreshold must be a whole number")
+        if not low <= value <= high:
+            errors.append(
+                f"controller.adaptive.{key} ({value:g}) must be between "
+                f"{low:g} and {high:g}"
+            )
+    if errors:
+        return errors
+    if not settings["maxGreen"] > settings["minGreen"]:
+        errors.append(
+            f"controller.adaptive.maxGreen ({settings['maxGreen']:g}) must be "
+            f"greater than minGreen ({settings['minGreen']:g})"
+        )
+    if not settings["extensionStep"] < settings["maxGreen"]:
+        errors.append(
+            f"controller.adaptive.extensionStep ({settings['extensionStep']:g}) "
+            f"must be less than maxGreen ({settings['maxGreen']:g})"
+        )
+    approach = _section(config, "roads").get("approachLength", 200.0)
+    if _number(approach) and not settings["detectionDistance"] < approach:
+        errors.append(
+            f"controller.adaptive.detectionDistance "
+            f"({settings['detectionDistance']:g}) must be shorter than "
+            f"roads.approachLength ({approach:g})"
+        )
+    offset = ctrl.get("offset")
+    if _number(offset) and offset != 0:
+        errors.append(
+            "controller.offset (a fixed-time coordination offset) has no meaning "
+            "for an adaptive signal; omit it or set it to 0"
+        )
+    sequence = ctrl.get("phaseSequence")
+    if isinstance(sequence, list) and all(isinstance(x, str) for x in sequence):
+        errors.extend(adaptive_plan_errors(sequence))
     return errors
 
 

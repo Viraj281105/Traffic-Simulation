@@ -85,13 +85,58 @@ export interface SignalHead {
   color: SignalColor;
 }
 
+/** V1.3: one green the adaptive signal ended, and why. */
+export interface AdaptiveDecision {
+  time: number;
+  phase: SignalPhase;
+  /** gapOut: traffic stopped arriving; maxOut: the maximum green was reached
+   *  while others waited. */
+  decision: "gapOut" | "maxOut";
+  greenSeconds: number;
+  next: SignalPhase;
+  /** Vehicles waiting for the next phase when it was called. */
+  waiting: number;
+}
+
+/** V1.3: the adaptive signal's settings and what it is doing now. */
+export interface AdaptiveSignalState {
+  status: "min_green" | "extending" | "resting" | "clearance";
+  minGreen: number;
+  maxGreen: number;
+  extensionStep: number;
+  detectionDistance: number;
+  demandThreshold: number;
+  greenElapsed: number;
+  gapTimer: number;
+  /** Vehicles detected on the lanes the current green releases. */
+  servedDemand: number;
+  /** Other phases with vehicles waiting (a call). */
+  phasesWaiting: number;
+  /** Vehicles detected near the stop line, per approach. */
+  detected: Partial<Record<SignalDirection, number>>;
+  nextPhase: SignalPhase | null;
+  decisions: {
+    greens: number;
+    gapOuts: number;
+    maxOuts: number;
+    greensExtended: number;
+    phasesSkipped: number;
+    restSeconds: number;
+  };
+  recentDecisions: AdaptiveDecision[];
+}
+
 export interface FixedTimeControllerState {
   type: "fixed_time_signal";
   timeInCurrentState: number;
   currentPhase: SignalPhase;
+  /** Fixed-time: exact. Adaptive: an upper bound (see the snapshot schema). */
   phaseTimeRemaining: number;
   cycleNumber: number;
   signals: SignalHead[];
+  /** V1.3; absent in snapshots saved before it (fixed-time). */
+  signalControl?: "fixed_time" | "adaptive";
+  adaptive?: AdaptiveSignalState;
 }
 
 export interface RoundaboutControllerState {
@@ -126,6 +171,18 @@ export interface IntersectionState {
   /** V1.1: conflict area to stop line (m); grows with the longest vehicle
    *  class in the mix (design-vehicle geometry). 3.5 when absent. */
   stopLineSetback?: number;
+}
+
+/** V1.3 green-time measures, the same for fixed-time and adaptive signals. */
+export interface SignalTiming {
+  signalControl: "fixed_time" | "adaptive";
+  phaseChanges: number;
+  greenSeconds: number;
+  averageGreenDuration: number | null;
+  /** Green with nobody near the stop line while others waited on red. */
+  unusedGreenSeconds: number;
+  greenUtilisation: number | null;
+  detectionDistance: number;
 }
 
 /** V1.1 per-class results (same delays as averageDelay). */
@@ -231,6 +288,9 @@ export interface RunningMetrics {
   petApplicable?: boolean;
   /** V1.1: served vehicles, share and mean delay per vehicle class. */
   vehicleTypeBreakdown?: Partial<Record<VehicleClass, VehicleTypeResult>>;
+  /** V1.3: how a signal used its green time after warm-up; null for a
+   *  roundabout and during warm-up. */
+  signalTiming?: SignalTiming | null;
 }
 
 // ── Vehicle counts ─────────────────────────────────────────────────────────

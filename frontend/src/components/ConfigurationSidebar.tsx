@@ -1,10 +1,21 @@
-import React, { useEffect, useId, useMemo, useRef, useState } from "react";
+import React, {
+  Fragment,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { SimulationConfigValues } from "../types/config";
 import {
+  ADAPTIVE_DEFAULTS,
   DEFAULT_CONFIG_VALUES,
   SCENARIO_PRESETS,
+  adaptiveSettings,
   sameConfigValues,
+  type AdaptiveSettings,
 } from "../types/config";
+import { SIGNAL_CONTROL_CHOICES } from "../signals/signalControl";
 import "./ConfigurationSidebar.css";
 import { CircleAlert, Dices, TriangleAlert } from "lucide-react";
 import { CloseButton } from "./ui/CloseButton";
@@ -119,6 +130,7 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
   const seedId = useId();
   const splitId = useId();
   const laneChangeId = useId();
+  const controlName = useId();
   // Mix sliders edit relative weights (%); the form holds the normalised mix.
   const [weights, setWeights] = useState<VehicleMix>(() =>
     weightsFrom(config.vehicleMix),
@@ -141,6 +153,14 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
 
   const showSignal = mode !== "roundabout";
   const showRoundabout = mode !== "signal";
+  const adaptive = form.signalControl === "adaptive";
+  const adaptiveForm = adaptiveSettings(form);
+  const setAdaptive = (key: keyof AdaptiveSettings, value: number) => {
+    setForm((prev) => ({
+      ...prev,
+      adaptive: { ...(prev.adaptive ?? {}), [key]: value },
+    }));
+  };
   const splitGreens =
     form.nsGreenDuration !== null &&
     form.nsGreenDuration !== undefined &&
@@ -209,6 +229,21 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
         message: "Give at least one kind of vehicle a share of the traffic.",
       });
     }
+    if (showSignal && form.signalControl === "adaptive") {
+      const a = adaptiveSettings(form);
+      if (a.maxGreen <= a.minGreen) {
+        alerts.push({
+          type: "error",
+          message: "The maximum green must be longer than the minimum green.",
+        });
+      }
+      if (a.extensionStep >= a.maxGreen) {
+        alerts.push({
+          type: "error",
+          message: "The passage time must be shorter than the maximum green.",
+        });
+      }
+    }
     if (showRoundabout && form.criticalGap < 2.0) {
       alerts.push({
         type: "error",
@@ -216,7 +251,7 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
       });
     }
     return alerts;
-  }, [form, showRoundabout, weights]);
+  }, [form, showRoundabout, showSignal, weights]);
 
   const hasErrors = validationAlerts.some((a) => a.type === "error");
 
@@ -469,20 +504,25 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
             >
               {MIX_PRESETS.map((preset) => {
                 const active = mixPresetFor(form.vehicleMix)?.id === preset.id;
+                const descId = `${titleId}-mix-${preset.id}`;
                 return (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    className={`config-preset-pill${active ? " is-active" : ""}`}
-                    title={preset.description}
-                    aria-label={preset.label}
-                    aria-pressed={active}
-                    onClick={() => {
-                      applyWeights(weightsFrom(preset.mix));
-                    }}
-                  >
-                    {preset.label}
-                  </button>
+                  <Fragment key={preset.id}>
+                    <button
+                      type="button"
+                      className={`config-preset-pill${active ? " is-active" : ""}`}
+                      title={preset.description}
+                      aria-describedby={descId}
+                      aria-pressed={active}
+                      onClick={() => {
+                        applyWeights(weightsFrom(preset.mix));
+                      }}
+                    >
+                      {preset.label}
+                    </button>
+                    <span id={descId} className="sr-only">
+                      {preset.description}
+                    </span>
+                  </Fragment>
                 );
               })}
             </div>
@@ -521,35 +561,151 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
 
           {showSignal && (
             <fieldset className="config-section">
+              <legend className="config-section-title">Signal control</legend>
+              <div className="config-radio-group">
+                {SIGNAL_CONTROL_CHOICES.map((choice) => (
+                  <label key={choice.id} className="config-radio-row">
+                    <input
+                      type="radio"
+                      name={controlName}
+                      checked={
+                        (form.signalControl ?? "fixed_time") === choice.id
+                      }
+                      onChange={() => {
+                        handleChange(
+                          "signalControl",
+                          choice.id === "adaptive" ? "adaptive" : undefined,
+                        );
+                      }}
+                    />
+                    <span>
+                      <strong>{choice.label}</strong>
+                      <span className="config-hint">{choice.description}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {adaptive && (
+                <>
+                  <SliderField
+                    label="Minimum green"
+                    unit="s"
+                    hint="Every green lasts at least this long, so a standing queue gets moving."
+                    display={String(adaptiveForm.minGreen)}
+                    value={adaptiveForm.minGreen}
+                    min={5}
+                    max={60}
+                    step={1}
+                    onChange={(v) => {
+                      setAdaptive("minGreen", v);
+                    }}
+                  />
+                  <SliderField
+                    label="Maximum green"
+                    unit="s"
+                    hint="Once someone waits on red, the green ends within this long, however busy it is."
+                    display={String(adaptiveForm.maxGreen)}
+                    value={adaptiveForm.maxGreen}
+                    min={10}
+                    max={120}
+                    step={1}
+                    onChange={(v) => {
+                      setAdaptive("maxGreen", v);
+                    }}
+                  />
+                  <SliderField
+                    label="Passage time (gap that ends a green)"
+                    unit="s"
+                    hint="The green ends after this long with no vehicle moving through the detection zone, if someone waits on red."
+                    display={adaptiveForm.extensionStep.toFixed(1)}
+                    value={adaptiveForm.extensionStep}
+                    min={0.5}
+                    max={6}
+                    step={0.5}
+                    onChange={(v) => {
+                      setAdaptive("extensionStep", v);
+                    }}
+                  />
+                  <SliderField
+                    label="Detection zone"
+                    unit="m"
+                    hint="Length of road before each stop line that the detectors watch."
+                    display={String(adaptiveForm.detectionDistance)}
+                    value={adaptiveForm.detectionDistance}
+                    min={10}
+                    max={80}
+                    step={5}
+                    onChange={(v) => {
+                      setAdaptive("detectionDistance", v);
+                    }}
+                  />
+                  <SliderField
+                    label="Vehicles needed to call a green"
+                    unit=""
+                    hint="How many vehicles must wait on red before they can end another direction's green."
+                    display={String(adaptiveForm.demandThreshold)}
+                    value={adaptiveForm.demandThreshold}
+                    min={1}
+                    max={5}
+                    step={1}
+                    onChange={(v) => {
+                      setAdaptive("demandThreshold", v);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="config-link-btn"
+                    onClick={() => {
+                      handleChange("adaptive", { ...ADAPTIVE_DEFAULTS });
+                    }}
+                  >
+                    Restore adaptive defaults
+                  </button>
+                </>
+              )}
+            </fieldset>
+          )}
+
+          {showSignal && (
+            <fieldset className="config-section">
               <legend className="config-section-title">
                 Fixed-time signal timing
               </legend>
-              <div className="config-checkbox-row">
-                <input
-                  id={splitId}
-                  type="checkbox"
-                  checked={splitGreens}
-                  onChange={(e) => {
-                    setForm((prev) =>
-                      e.target.checked
-                        ? {
-                            ...prev,
-                            nsGreenDuration: prev.greenDuration,
-                            ewGreenDuration: prev.greenDuration,
-                          }
-                        : {
-                            ...prev,
-                            nsGreenDuration: null,
-                            ewGreenDuration: null,
-                          },
-                    );
-                  }}
-                />
-                <label htmlFor={splitId}>
-                  Separate north–south and east–west greens
-                </label>
-              </div>
-              {splitGreens ? (
+              {adaptive && (
+                <p className="config-hint">
+                  The signal responds to traffic, so green lengths come from the
+                  settings above. Yellow and all-red below apply to both kinds
+                  of signal.
+                </p>
+              )}
+              {!adaptive && (
+                <div className="config-checkbox-row">
+                  <input
+                    id={splitId}
+                    type="checkbox"
+                    checked={splitGreens}
+                    onChange={(e) => {
+                      setForm((prev) =>
+                        e.target.checked
+                          ? {
+                              ...prev,
+                              nsGreenDuration: prev.greenDuration,
+                              ewGreenDuration: prev.greenDuration,
+                            }
+                          : {
+                              ...prev,
+                              nsGreenDuration: null,
+                              ewGreenDuration: null,
+                            },
+                      );
+                    }}
+                  />
+                  <label htmlFor={splitId}>
+                    Separate north–south and east–west greens
+                  </label>
+                </div>
+              )}
+              {adaptive ? null : splitGreens ? (
                 <>
                   <SliderField
                     label="North–south green"

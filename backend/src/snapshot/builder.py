@@ -240,6 +240,10 @@ class SnapshotBuilder:
             )
 
         controller_state = self.controller.get_state()
+        if controller_state.get("type") == "fixed_time_signal":
+            # Which way the signal times its greens (V1.3); the adaptive
+            # controller reports its own, with its live decision state.
+            controller_state.setdefault("signalControl", "fixed_time")
 
         return {
             "schemaVersion": "1.0.0",

@@ -326,6 +326,12 @@ export interface ScenarioFacts {
   greenEw: number;
   cycleSeconds: number;
   criticalGap: number;
+  /** V1.3: the signal responds to traffic (null/absent: fixed timetable). */
+  adaptive?: {
+    minGreen: number;
+    maxGreen: number;
+    extensionStep: number;
+  } | null;
 }
 
 export interface Explanation {
@@ -367,20 +373,34 @@ export function explanations(
     });
   }
 
-  out.push({
-    title: "How the signal decides who goes",
-    body: `The signal works on a fixed timetable: each direction gets ${greens}, then waits while the other direction goes — one full cycle takes ${seconds(facts.cycleSeconds)}. A driver who arrives on red waits for the next green even if no one else is using the junction.`,
-  });
+  out.push(
+    facts.adaptive
+      ? {
+          title: "How the signal decides who goes",
+          body: `The signal responds to traffic. Detectors at each stop line see who is coming: a green lasts at least ${seconds(facts.adaptive.minGreen)}, carries on while vehicles keep arriving, and ends once ${seconds(facts.adaptive.extensionStep, 1)} pass with nobody arriving and someone waiting on red — never more than ${seconds(facts.adaptive.maxGreen)} once someone waits. If nobody is waiting elsewhere, the green simply stays. Yellow and all-red are the same as on a fixed timetable.`,
+        }
+      : {
+          title: "How the signal decides who goes",
+          body: `The signal works on a fixed timetable: each direction gets ${greens}, then waits while the other direction goes — one full cycle takes ${seconds(facts.cycleSeconds)}. A driver who arrives on red waits for the next green even if no one else is using the junction.`,
+        },
+  );
   out.push({
     title: "How the roundabout decides who goes",
     body: `Nobody gets a red light at the roundabout. Drivers give way to traffic already circling and go when they see a gap of at least ${seconds(facts.criticalGap, 1)}. When traffic is light, most drivers barely stop; as it gets busier, gaps become rarer and queues build at the entries.`,
   });
 
   if (s.idleGreenPct !== null && s.idleGreenPct >= 5) {
-    out.push({
-      title: "The signal's fixed timing cost time",
-      body: `For ${String(Math.round(s.idleGreenPct))}% of the measured time the signal showed green to an empty road while vehicles queued on red. That waiting came from the timetable, not from other traffic.`,
-    });
+    out.push(
+      facts.adaptive
+        ? {
+            title: "Some green still went unused",
+            body: `For ${String(Math.round(s.idleGreenPct))}% of the measured time the signal showed green to an empty road while vehicles queued on red. A responsive signal shortens such greens but cannot remove them: each green runs its minimum, and the yellow and all-red that follow always run in full.`,
+          }
+        : {
+            title: "The signal's fixed timing cost time",
+            body: `For ${String(Math.round(s.idleGreenPct))}% of the measured time the signal showed green to an empty road while vehicles queued on red. That waiting came from the timetable, not from other traffic.`,
+          },
+    );
   }
 
   const stops = compare(s.stops, r.stops, SIMILARITY.stops);

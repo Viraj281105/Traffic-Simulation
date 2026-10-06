@@ -1,0 +1,83 @@
+/* Adaptive signal overlay (V1.3): same glass panel as the vehicle legend
+   (bottom-left), placed at the top, under the map's title chip. */
+
+.adaptive-status {
+  position: absolute;
+  /* Below the map's title chip, which sits in the top-left corner. */
+  top: 52px;
+  right: 14px;
+  z-index: 2;
+  max-width: min(300px, calc(100% - 28px));
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(12px) saturate(var(--glass-saturate));
+  backdrop-filter: blur(12px) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight);
+  color: var(--color-text-2);
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+.adaptive-status p {
+  margin: 0;
+}
+
+.adaptive-status__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.adaptive-status__pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  animation: adaptive-pulse 1.6s ease-in-out infinite;
+}
+
+.adaptive-status__text {
+  margin-top: 4px !important;
+}
+
+.adaptive-status__detected {
+  margin-top: 4px !important;
+  color: var(--color-text-3);
+}
+
+.adaptive-status__count {
+  display: inline-block;
+  margin-right: 8px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes adaptive-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .adaptive-status__pulse {
+    animation: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .adaptive-status {
+    top: 46px;
+    right: 10px;
+    max-width: calc(100% - 20px);
+    font-size: 11px;
+  }
+}

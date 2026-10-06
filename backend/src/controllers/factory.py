@@ -2,6 +2,7 @@
 
 from typing import Any, Dict, Optional
 
+from src.controllers.adaptive_signal import AdaptiveSignalController, is_adaptive
 from src.controllers.base import BaseController
 from src.controllers.fixed_time_signal import FixedTimeSignalController
 from src.controllers.roundabout import RoundaboutController
@@ -13,12 +14,18 @@ from src.roads.network import RoadNetwork
 
 
 def create_controller(config: Dict[str, Any], network: RoadNetwork) -> BaseController:
-    """Creates a controller based on configuration geometry type."""
+    """Creates a controller based on configuration geometry type.
+
+    A signalised junction runs the fixed-time plan unless
+    ``controller.signalControl`` is ``"adaptive"`` (V1.3), which times the
+    same plan's greens from detected demand.
+    """
     geom_type = config.get("geometry", {}).get("intersectionType", "fixed_time_signal")
     if geom_type == "roundabout":
         return RoundaboutController(config, network)
-    else:
-        return FixedTimeSignalController(config, network)
+    if is_adaptive(config):
+        return AdaptiveSignalController(config, network)
+    return FixedTimeSignalController(config, network)
 
 
 def derive_signals_state(controller: BaseController) -> Dict[Direction, str]:
@@ -75,6 +82,11 @@ def build_tick_callback(
             engine.pool.exited_vehicles,
             derive_signals_state(controller),
             conflict_manager=signal_conflict_manager,
+            signal_controller=(
+                controller
+                if isinstance(controller, FixedTimeSignalController)
+                else None
+            ),
         )
 
         if buffer is not None and builder is not None:

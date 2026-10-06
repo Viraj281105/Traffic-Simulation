@@ -616,6 +616,12 @@ body {
   color: var(--color-text);
   font-weight: 600;
 }
+.controller-state p {
+  margin: 0;
+}
+.controller-state p + p {
+  margin-top: 4px;
+}
 .sidebar-actions {
   padding: 12px 16px 16px;
 }

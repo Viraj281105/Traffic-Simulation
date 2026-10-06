@@ -41,6 +41,7 @@ The guided comparison asks four everyday questions. Every other value comes from
 | **How busy is the junction?** | Light · Moderate · Busy · Near capacity · At capacity · Over capacity — shown in vehicles per hour | `arrivalRate` = share of the reference capacity for the chosen lane count | Busy (940 veh/h at 1 lane) |
 | **How many lanes per approach?** | 1 (recommended — the calibrated comparison) · 2 · 3 (flagged as indicative) | `lanesNorth/South/East/West` | 1 |
 | **What traffic uses the junction?** (V1.1) | Cars only (the calibrated comparison) · Typical city mix · Bus & freight route · Many two-wheelers | `vehicleMix` (omitted for cars only) | Cars only |
+| **How should the signal respond to traffic?** (V1.3) | On a fixed timetable · Responds to traffic | `signalControl` (omitted for the fixed timetable; `"adaptive"` otherwise) | Fixed timetable |
 | **How long to watch?** | Quick look 2 min · Standard 5 min · Thorough 10 min | `duration` (120 / 300 / 600 s) | Standard |
 
 Traffic-mix presets (`MIX_PRESETS` in `frontend/src/vehicles/vehicleClasses.ts`):
@@ -111,7 +112,7 @@ Opened from Step 1 ("Advanced settings — signal timing, driver behaviour, lane
 }
 ```
 
-Optional V1.1/V1.2 fields, sent only when they differ from the defaults (so a cars-only body is byte-for-byte the V1.0 one): `"vehicleMix": {"car": 0.6, "suv": 0.2, "bus": 0.05, "truck": 0.05, "motorcycle": 0.1}` and `"laneChanging": false`. North/south and east/west lane counts must match each other.
+Optional V1.1/V1.2 fields, sent only when they differ from the defaults (so a cars-only body is byte-for-byte the V1.0 one): `"vehicleMix": {"car": 0.6, "suv": 0.2, "bus": 0.05, "truck": 0.05, "motorcycle": 0.1}` and `"laneChanging": false`; V1.3 adds `"signalControl": "adaptive"` with an optional `"adaptive": {...}` holding only the settings changed from the defaults. North/south and east/west lane counts must match each other.
 
 The backend compiles it into a full engine configuration (`_compile_dashboard_config()` in `backend/src/main.py`) and validates the result against the same schema bounds and cross-field rules as the versioned API. The same compiler serves the reliability check, so "How reliable is this?" repeats *exactly* the scenario the user watched.
 
@@ -172,7 +173,7 @@ A calibrated, fully explicit comparison scenario:
 | `roads` | `approachLength` (200 · 50–1000 m) · `laneWidth` (3.5 · 2.5–5.0 m) · `lanesPerApproach` (2 · 1–4) · `approaches[].lanes` (per-approach override, V1.2) · `speedLimit` (13.89 · ≤ 30 m/s) · `laneChange` (V1.2: `enabled` true · `accelerationThreshold` 0.2 · 0–2 m/s² · `safeDeceleration` 4.0 · ≤ 9 m/s² · `politeness` per class · 0–1) |
 | `traffic` | `arrivalRate` (0.5 · 0–10 veh/s) · `arrivalDistribution` (`poisson` \| `uniform`) · `totalVehicles` (200 · ≤ 5000) · `directionalSplit` and `turnProbabilities` (each must sum to 1; seeded random when omitted) |
 | `vehicleGeneration` | `maxAcceleration` 2.0 · `comfortDeceleration` 3.0 · `desiredTimeHeadway` 1.5 · `minimumGap` 2.0 · `idmDelta` 4 · `vehicleLength`/`vehicleWidth`/`desiredSpeed` ranges · `maxLateralAcceleration` (≤ 8) — these define the car · `vehicleMix` (V1.1: share per `car`/`suv`/`bus`/`truck`/`motorcycle`, sums to 1; omitted = V1.0 cars only) · `vehicleTypes.<class>` (V1.1 overrides: `length`, `width`, `desiredSpeedFactor` ranges; `maxAcceleration`, `comfortDeceleration`, `desiredTimeHeadway`, `minimumGap`, `idmDelta`, `maxLateralAcceleration`, `laneChangeDuration`, `laneChangeMinDistance`, `politeness`) — class defaults in [methodology §5.4](methodology.md#54-vehicle-classes-v11) |
-| `controller` (signal) | `straightRightDuration` (aliases `greenDuration`, `greenTime`; 30) · `nsGreenDuration`/`ewGreenDuration` · `yellowDuration` (4) · `allRedDuration` (2) · `leftDuration` (5, fallback cycle only) · `phaseSequence` · `offset` |
+| `controller` (signal) | `straightRightDuration` (aliases `greenDuration`, `greenTime`; 30) · `nsGreenDuration`/`ewGreenDuration` · `yellowDuration` (4) · `allRedDuration` (2) · `leftDuration` (5, fallback cycle only) · `phaseSequence` · `offset` · `signalControl` (V1.3: `fixed_time` default · `adaptive`) · `adaptive` (V1.3: `minGreen` 10 · 5–60 s · `maxGreen` 50 · 10–180 s · `extensionStep` 2.5 · 0.5–10 s · `detectionDistance` 30 · 5–200 m · `demandThreshold` 1 · 1–20; see [contract §2.6.1a](../architecture/06-scenario-configuration-contract.md#261a-signal-control-fixed-time-or-adaptive-v13)) |
 | `controller` (roundabout) | `innerRadius` (10) · `outerRadius` (20, > inner) · `criticalGap` (4.0) · `followUpTime` (2.5) · `entrySpeed` (5.0) · `circulatingSpeed` (8.0 · ≤ 15) |
 | `metrics` | `waitSpeedThreshold` 0.5 · `stopSpeedThreshold` 0.1 · `ttcThresholdSeconds` 1.5 · `petThresholdSeconds` 5.0 · `ttcSearchRadius` 50 |
 | `visualization` | display preferences only; no effect on results |

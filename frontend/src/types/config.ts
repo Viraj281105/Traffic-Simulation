@@ -1,6 +1,46 @@
 import type { VehicleMix } from "../vehicles/vehicleClasses";
 import { sameMix } from "../vehicles/vehicleClasses";
 
+/** V1.3: how a signal times its greens. */
+export type SignalControl = "fixed_time" | "adaptive";
+
+/** V1.3 adaptive signal settings (backend controller.adaptive). Each one is
+ *  optional; the backend default applies when absent. */
+export interface AdaptiveSettings {
+  /** Seconds a green always lasts. */
+  minGreen?: number;
+  /** Most seconds a green may continue once someone waits on red. */
+  maxGreen?: number;
+  /** Passage time: the green ends after this long with no vehicle moving
+   *  through the detection zone. */
+  extensionStep?: number;
+  /** Stop-line detection zone length (m). */
+  detectionDistance?: number;
+  /** Vehicles waiting on red needed to call for a green. */
+  demandThreshold?: number;
+}
+
+/** The backend's defaults (controllers/adaptive_signal.py DEFAULT_ADAPTIVE). */
+export const ADAPTIVE_DEFAULTS: Required<AdaptiveSettings> = {
+  minGreen: 10,
+  maxGreen: 50,
+  extensionStep: 2.5,
+  detectionDistance: 30,
+  demandThreshold: 1,
+};
+
+export function adaptiveSettings(
+  config: Pick<SimulationConfigValues, "adaptive">,
+): Required<AdaptiveSettings> {
+  return { ...ADAPTIVE_DEFAULTS, ...(config.adaptive ?? {}) };
+}
+
+export function isAdaptive(
+  config: Pick<SimulationConfigValues, "signalControl">,
+): boolean {
+  return config.signalControl === "adaptive";
+}
+
 export interface SimulationConfigValues {
   lanes: number;
   laneWidth: number;
@@ -26,6 +66,11 @@ export interface SimulationConfigValues {
    *  north–south road). Signal-only: a roundabout needs the same count on
    *  every approach. null/absent = same as `lanes`. */
   lanesEastWest?: number | null;
+  /** V1.3: fixed timetable (absent/"fixed_time") or a signal that responds
+   *  to traffic ("adaptive"). */
+  signalControl?: SignalControl;
+  /** V1.3 adaptive settings; null/absent = the defaults. */
+  adaptive?: AdaptiveSettings | null;
 }
 
 /** Field-by-field equality, comparing the vehicle mix by value. */
@@ -40,6 +85,15 @@ export function sameConfigValues(
     if (k === "vehicleMix") return sameMix(a.vehicleMix, b.vehicleMix);
     if (k === "laneChanging")
       return (a.laneChanging ?? true) === (b.laneChanging ?? true);
+    if (k === "signalControl")
+      return (
+        (a.signalControl ?? "fixed_time") === (b.signalControl ?? "fixed_time")
+      );
+    if (k === "adaptive")
+      return (
+        JSON.stringify(adaptiveSettings(a)) ===
+        JSON.stringify(adaptiveSettings(b))
+      );
     return (a[k] ?? null) === (b[k] ?? null);
   });
 }
@@ -164,6 +218,10 @@ export interface DashboardScenarioPayload {
   vehicleMix?: VehicleMix;
   /** Omitted while on (the default). */
   laneChanging?: false;
+  /** Omitted for the fixed timetable (the default). */
+  signalControl?: "adaptive";
+  /** Only the settings that differ from the defaults. */
+  adaptive?: AdaptiveSettings;
 }
 
 export function dashboardPayload(
@@ -205,6 +263,23 @@ export function dashboardPayload(
     // posts exactly the body it always has.
     ...(config.vehicleMix ? { vehicleMix: config.vehicleMix } : {}),
     ...(config.laneChanging === false ? { laneChanging: false as const } : {}),
+    ...(isAdaptive(config) ? adaptivePayload(config.adaptive) : {}),
+  };
+}
+
+function adaptivePayload(
+  settings: AdaptiveSettings | null | undefined,
+): Pick<DashboardScenarioPayload, "signalControl" | "adaptive"> {
+  const changed = Object.fromEntries(
+    Object.entries(settings ?? {}).filter(
+      ([key, value]) =>
+        value !== undefined &&
+        value !== ADAPTIVE_DEFAULTS[key as keyof AdaptiveSettings],
+    ),
+  ) as AdaptiveSettings;
+  return {
+    signalControl: "adaptive",
+    ...(Object.keys(changed).length ? { adaptive: changed } : {}),
   };
 }
 

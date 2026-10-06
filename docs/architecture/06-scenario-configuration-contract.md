@@ -170,6 +170,27 @@ If none of a duration's names are present, the hardcoded fallback (30 / 5 / 4 / 
 
 **`phaseSequence` vocabulary:** each entry is either the literal string `"all_red"`, or `"<group>_<green|yellow>"` where `<group>` is one of `n`, `s`, `e`, `w` (a single approach) or `ns`/`sn`, `ew`/`we` (a paired, order-invariant approach group sharing one green — e.g. `ns_green` runs NORTH and SOUTH together). Green-phase duration uses `straightRightDuration` (after alias resolution above); yellow-phase duration uses `yellowDuration`; `all_red` uses `allRedDuration`. During a paired-group green phase, all three turn intents (including permissive left) are allowed for both directions in the group — left-turners crossing opposing straight traffic are arbitrated by `ConflictManager` (see [08-communication-contract.md](08-communication-contract.md)), not by a separate protected-left sub-phase. An entry that doesn't match this vocabulary raises a configuration error surfaced as `400 VALIDATION_ERROR` by `POST /api/v1/simulations` and `POST /api/simulation/new`. When `phaseSequence` is omitted entirely, the controller instead builds its original one-direction-at-a-time cycle (straight+right green → protected left green → yellow → all-red, repeated for N→S→E→W) — see the note on default-consistency below.
 
+#### 2.6.1a Signal control: fixed-time or adaptive (V1.3)
+
+A signalised junction (`intersectionType: "fixed_time_signal"` — the geometry name is unchanged) times its greens one of two ways, chosen by `controller.signalControl`:
+
+| # | Field | Type | Required | Default | Description | Validation |
+|---|-------|------|----------|---------|-------------|------------|
+| 1 | `signalControl` | `string` | ❌ | `"fixed_time"` (when omitted) | `"fixed_time"`: every green runs its configured duration (§2.6.1). `"adaptive"`: the same phase plan, yellow and all-red, with each green ended by stop-line detection | enum `fixed_time`, `adaptive`; `adaptive` is rejected for a roundabout |
+| 2 | `adaptive` | `AdaptiveSignalConfig` | ❌ | defaults below | Adaptive settings; read only when `signalControl` is `"adaptive"` | See below |
+
+**AdaptiveSignalConfig** (`controllers/adaptive_signal.py`; methodology [§7.3](../simulation/methodology.md#73-adaptive-signal--controllersadaptive_signalpy-v13)):
+
+| # | Field | Type | Default | Description | Validation |
+|---|-------|------|---------|-------------|------------|
+| 1 | `minGreen` | `number` | `10` | Seconds every green lasts | 5–60 |
+| 2 | `maxGreen` | `number` | `50` | Most seconds a green may continue once another phase calls | 10–180, > `minGreen` |
+| 3 | `extensionStep` | `number` | `2.5` | Passage time: the green ends (gap-out) after this long with no vehicle moving through the detection zone, if another phase calls | 0.5–10, < `maxGreen` |
+| 4 | `detectionDistance` | `number` | `30` | Stop-line detection zone length per incoming lane (m) | 5–200, < `roads.approachLength` |
+| 5 | `demandThreshold` | `integer` | `1` | Vehicles detected on another phase's lanes needed to place a call | 1–20 |
+
+Unknown fields are rejected. Adaptive control also requires a phase plan it can end greens in safely: every stage (consecutive greens of the same approaches) must be followed by a yellow covering those approaches and an `all_red`; the default paired plan and the one-direction-at-a-time default cycle qualify. `controller.offset` must be 0 or omitted (a fixed-time coordination concept). Yellow and all-red durations are the §2.6.1 fields, unchanged. Omitting `signalControl` keeps every V1.2 configuration — and its results — exactly as before.
+
 #### 2.6.2 Roundabout Controller
 
 | # | Field | Type | Required | Default | Description | Validation |
@@ -395,6 +416,7 @@ If none of a duration's names are present, the hardcoded fallback (30 / 5 / 4 / 
 | Cross-field | `vehicleGeneration` ranges | `max ≥ min` for `vehicleLength`, `vehicleWidth`, `desiredSpeed` and every `vehicleTypes` range |
 | Sum-to-one | `vehicleMix` values | Known classes only, each ≥ 0, at least one > 0, sum 1.0 (±0.01) |
 | Cross-field | lane counts | North = south and east = west, after `approaches[].lanes` overrides |
+| Cross-field | adaptive signal (V1.3) | `signalControl: "adaptive"` only with a signal; `maxGreen > minGreen`, `extensionStep < maxGreen`, `detectionDistance < approachLength`, no `offset`, a phase plan with a yellow and all-red after every stage, no unknown `adaptive` fields |
 | Not implemented | `arrivalDistribution: "burst"` | In the enum, but rejected with 400 until the spawner implements it |
 | Finite numbers | All numeric fields | NaN / ±Infinity are rejected (they pass JSON-schema bounds) |
 | Controller match | `controller` fields | **Not enforced, by design of the current model.** `ControllerSection` is a single merged model that carries defaults for both controllers (e.g. `innerRadius` and `greenTime` are always present after validation on the typed route), and the dashboard and study presets send one mixed block. Each controller reads only its own keys and ignores the rest, so a mismatched key has no effect. Enforcing this would reject every typed-route config; it needs a split controller model first. |

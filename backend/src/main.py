@@ -62,6 +62,7 @@ from src.metrics.collector import MetricCollector
 from src.snapshot.buffer import SnapshotBuffer
 from src.snapshot.builder import SnapshotBuilder
 from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
+from src.study.control_comparison import run_control_comparison
 from src.study.jobs import TooManyJobsError, jobs
 from src.study.report_generator import (
     generate_study_report_csv,
@@ -1369,6 +1370,32 @@ def _compile_dashboard_config(payload: Dict[str, Any], seed_val: int) -> Dict[st
                 detail="Invalid configuration: laneChanging must be true or false",
             )
         config["roads"]["laneChange"] = {"enabled": lane_changing}
+    # V1.3: how the signal times its greens. Omitted (or "fixed_time") keeps
+    # the fixed timetable and the exact V1.2 config; "adaptive" runs the same
+    # phase plan with greens ended by detected demand, tuned by the optional
+    # "adaptive" object. Bounds and cross-field rules are checked below by
+    # semantic_config_errors, like every other field.
+    signal_control = payload.get("signalControl")
+    adaptive_settings = payload.get("adaptive")
+    if signal_control not in (None, "fixed_time", "adaptive"):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid configuration: signalControl must be 'fixed_time' "
+            "or 'adaptive'",
+        )
+    if adaptive_settings is not None and not isinstance(adaptive_settings, dict):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid configuration: adaptive must be an object of "
+            "adaptive signal settings",
+        )
+    if (
+        signal_control == "adaptive"
+        and config["geometry"]["intersectionType"] == "fixed_time_signal"
+    ):
+        config["controller"]["signalControl"] = "adaptive"
+        if adaptive_settings:
+            config["controller"]["adaptive"] = dict(adaptive_settings)
 
     # The coercions above only reject values that are not numbers at all.
     # Range checks were missing entirely, so lanesNorth=0 or -1, a negative or
@@ -2239,6 +2266,11 @@ def _reproduce_single(
                 if isinstance(controller, FixedTimeSignalController)
                 else None
             ),
+            signal_controller=(
+                controller
+                if isinstance(controller, FixedTimeSignalController)
+                else None
+            ),
         )
 
     engine.register_tick_callback(tick_callback)
@@ -2509,6 +2541,93 @@ def _run_monte_carlo(req: MonteCarloValidationRequest, **extra: Any) -> Dict[str
 # 16-simulation volume sweep plus a Monte-Carlo validation and persists the
 # sweep to run history. As an open GET it let any caller do both on a deployment
 # whose POST study endpoints require the API key.
+# ── Signal control comparison (V1.3) ─────────────────────────────────────
+# Fixed-time signal vs adaptive signal vs roundabout over demand levels and
+# seeds (study/control_comparison.py). Bounded like the other studies: at most
+# 6 levels x 10 seeds x 3 controls of at most 15 simulated minutes each.
+MAX_CONTROL_COMPARISON_SEEDS = 10
+MAX_CONTROL_COMPARISON_DURATION_SECONDS = 900.0
+DemandLevelName = Literal["light", "moderate", "busy", "near", "capacity", "over"]
+
+
+class ControlComparisonRequest(BaseModel):
+    lanes: int = Field(default=1, ge=1, le=3)
+    levels: list[DemandLevelName] | None = Field(
+        default=None, min_length=1, max_length=6
+    )
+    numSeeds: int = Field(default=5, ge=2, le=MAX_CONTROL_COMPARISON_SEEDS)
+    baseSeed: int = Field(default=1, ge=0, le=1_000_000)
+    duration: float = Field(
+        default=300.0, ge=60.0, le=MAX_CONTROL_COMPARISON_DURATION_SECONDS
+    )
+    # controller.adaptive settings for the adaptive side; defaults if omitted.
+    adaptive: Dict[str, Any] | None = None
+    vehicleMix: Dict[str, float] | None = None
+    confidenceLevel: float = Field(default=0.95)
+
+    @model_validator(mode="after")
+    def _check(self) -> "ControlComparisonRequest":
+        if self.confidenceLevel not in SUPPORTED_CONFIDENCE_LEVELS:
+            raise ValueError(
+                f"confidenceLevel must be one of {list(SUPPORTED_CONFIDENCE_LEVELS)}"
+            )
+        if self.levels is not None and len(set(self.levels)) != len(self.levels):
+            raise ValueError("levels must not repeat")
+        probe: Dict[str, Any] = {
+            "geometry": {"intersectionType": "fixed_time_signal"},
+            "controller": {
+                "signalControl": "adaptive",
+                "adaptive": self.adaptive or {},
+            },
+        }
+        if self.vehicleMix is not None:
+            probe["vehicleGeneration"] = {"vehicleMix": self.vehicleMix}
+        errors = semantic_config_errors(probe)
+        if errors:
+            raise ValueError("; ".join(errors))
+        return self
+
+
+def _run_control_comparison(
+    req: ControlComparisonRequest, progress: Optional[Progress] = None
+) -> Dict[str, Any]:
+    return run_control_comparison(
+        lanes=req.lanes,
+        levels=list(req.levels) if req.levels else None,
+        num_seeds=req.numSeeds,
+        base_seed=req.baseSeed,
+        duration=req.duration,
+        adaptive=req.adaptive,
+        vehicle_mix=req.vehicleMix,
+        confidence_level=req.confidenceLevel,
+        progress=progress,
+    )
+
+
+@app.post(
+    "/api/v1/study/control-comparison/run", dependencies=[Depends(require_api_key)]
+)
+def run_control_comparison_endpoint(
+    payload: ControlComparisonRequest | None = None,
+) -> Dict[str, Any]:
+    """Fixed-time vs adaptive signal vs roundabout, run synchronously."""
+    return _run_control_comparison(payload or ControlComparisonRequest())
+
+
+@app.post(
+    "/api/v1/study/control-comparison/jobs",
+    status_code=202,
+    dependencies=[Depends(require_api_key)],
+)
+def start_control_comparison_job(
+    payload: ControlComparisonRequest | None = None,
+) -> Dict[str, Any]:
+    req = payload or ControlComparisonRequest()
+    return _start_job(
+        "control-comparison", lambda progress: _run_control_comparison(req, progress)
+    )
+
+
 @app.get("/api/v1/study/export", dependencies=[Depends(require_api_key)])
 def export_study_report_endpoint(format: str = "json") -> Any:  # noqa: A002
     """Exports full comprehensive validated study dataset in JSON or CSV format."""

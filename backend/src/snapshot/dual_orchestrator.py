@@ -48,7 +48,16 @@ class DualSimulationOrchestrator:
             key in signal_ctrl
             for key in ("straightRightDuration", "greenDuration", "greenTime")
         ):
-            signal_ctrl = {"phaseSequence": list(DEFAULT_PHASE_SEQUENCE)}
+            # How the signal times its greens (V1.3) is not a timing value;
+            # it is kept so an adaptive comparison stays adaptive.
+            signal_ctrl = {
+                "phaseSequence": list(DEFAULT_PHASE_SEQUENCE),
+                **{
+                    key: signal_ctrl[key]
+                    for key in ("signalControl", "adaptive")
+                    if key in signal_ctrl
+                },
+            }
         self.config_signal["controller"] = signal_ctrl
 
         # Roundabout controller needs gap-acceptance / geometry parameters

@@ -12,6 +12,7 @@ import { useWebSocketSnapshot } from "./hooks/useWebSocketSnapshot";
 import { useSimulationPolling } from "./hooks/useSimulationPolling";
 import { IntersectionMap } from "./components/IntersectionMap";
 import { RoundaboutMap } from "./components/RoundaboutMap";
+import { AdaptiveSignalStatus } from "./components/AdaptiveSignalStatus";
 import { VehicleLegend } from "./components/VehicleLegend";
 import { MetricsSidebar } from "./components/MetricsSidebar";
 import {
@@ -206,6 +207,10 @@ function configFromReplay(
     arrivalRate: replay.config.traffic?.arrivalRate ?? current.arrivalRate,
     duration: replay.config.simulation?.duration ?? current.duration,
     randomSeed: replay.config.simulation?.randomSeed ?? current.randomSeed,
+    // Saves without the dashboard configuration predate V1.3, whose signals
+    // all ran the fixed timetable.
+    signalControl: undefined,
+    adaptive: null,
   };
 }
 
@@ -379,9 +384,12 @@ function Dashboard({
     vehicleMix,
     laneChanging,
     lanesEastWest,
+    signalControl,
+    adaptive,
   } = configValues;
   // Object-valued: compared by content in the sync effect below.
   const vehicleMixKey = JSON.stringify(vehicleMix ?? null);
+  const adaptiveKey = JSON.stringify(adaptive ?? null);
 
   const randomizeSeed = () => {
     setActiveReplay(null);
@@ -426,6 +434,8 @@ function Dashboard({
             vehicleMix: JSON.parse(vehicleMixKey) as typeof vehicleMix,
             laneChanging,
             lanesEastWest,
+            signalControl,
+            adaptive: JSON.parse(adaptiveKey) as typeof adaptive,
           },
           intersectionType,
           viewMode === "signal",
@@ -464,6 +474,8 @@ function Dashboard({
     vehicleMixKey,
     laneChanging,
     lanesEastWest,
+    signalControl,
+    adaptiveKey,
   ]);
 
   const handleApplyConfig = (newConfig: SimulationConfigValues) => {
@@ -689,7 +701,9 @@ function Dashboard({
         <div className="column-header">
           <h2 className="column-title" id="col-signal-title">
             <span className="series-dot is-signal" aria-hidden="true" />
-            Traffic signal
+            {signalControl === "adaptive"
+              ? "Traffic signal · responds to traffic"
+              : "Traffic signal"}
           </h2>
         </div>
         <div className="canvas-wrapper">
@@ -705,6 +719,7 @@ function Dashboard({
             debug={debug}
           />
           <VehicleLegend snapshot={dualSnapshot?.signal} />
+          <AdaptiveSignalStatus snapshot={dualSnapshot?.signal} />
         </div>
       </section>
       <section
@@ -1061,6 +1076,9 @@ function Dashboard({
               />
             )}
             <VehicleLegend snapshot={singleSnapshot} />
+            {viewMode !== "roundabout" && (
+              <AdaptiveSignalStatus snapshot={singleSnapshot} />
+            )}
           </div>
           <div className="single-side-column">
             <MetricsSidebar

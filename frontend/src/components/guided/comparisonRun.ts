@@ -14,6 +14,7 @@ import {
 } from "../../metrics/catalog";
 import { sideSummary } from "../../metrics/plainLanguage";
 import { describeMix } from "../../vehicles/vehicleClasses";
+import { signalControlLabel } from "../../signals/signalControl";
 
 /** One comparison the user ran this session, kept so alternatives can be
  *  read side by side without saving each one. */
@@ -91,6 +92,7 @@ export function downloadComparisonCsv(
     `Signal vs roundabout — ${source}`,
     `Scenario: ${scenarioLabel(config)}, ${String(config.lanes)} lane(s) per approach, seed ${String(config.randomSeed)}`,
     `Traffic: ${describeMix(config.vehicleMix)}`,
+    `Signal: ${signalControlLabel(config)}`,
     elapsedSeconds !== null
       ? `Simulated time: ${elapsedSeconds.toFixed(1)} s`
       : "",

@@ -10,6 +10,7 @@ import {
   sideSummary,
   type Side,
 } from "../../metrics/plainLanguage";
+import { adaptiveStateOf } from "../../signals/signalControl";
 
 function contextOf(s: LiveSnapshot | undefined, side: Side) {
   return {
@@ -52,6 +53,7 @@ export function LiveGuide({
   const r = sideSummary(contextOf(rnd, "roundabout"));
   const ready = hasResults(s, r);
   const progress = Math.min(100, (elapsed / durationSeconds) * 100);
+  const adaptive = adaptiveStateOf(sig?.controller) !== null;
 
   const toggle = (
     <button
@@ -195,10 +197,19 @@ export function LiveGuide({
         <div className="live-tips">
           <h3>What to look for</h3>
           <ul>
-            <li>
-              <strong>Signal:</strong> queues grow on the red approaches and
-              clear in bursts when the light turns green.
-            </li>
+            {adaptive ? (
+              <li>
+                <strong>Signal:</strong> it responds to traffic. A green
+                stretches while vehicles keep arriving and ends early once the
+                road empties and someone waits on red; the panel on the signal
+                map says what it is doing and why.
+              </li>
+            ) : (
+              <li>
+                <strong>Signal:</strong> queues grow on the red approaches and
+                clear in bursts when the light turns green.
+              </li>
+            )}
             <li>
               <strong>Roundabout:</strong> drivers slow at each entry and wait
               for a gap in the circling traffic; nobody waits for a light.

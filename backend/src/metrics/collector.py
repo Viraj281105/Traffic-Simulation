@@ -16,6 +16,7 @@ from src.metrics.definitions.safety_conflicts import (
     ConflictZoneOccupancyTracker,
     find_ttc_events,
 )
+from src.metrics.definitions.signal_timing import SignalTimingTracker
 from src.metrics.definitions.speed_variance import calculate_speed_variance_index
 from src.metrics.definitions.stop_count import update_vehicle_stops
 from src.metrics.definitions.throughput import (
@@ -32,6 +33,7 @@ from src.metrics.efficiency import calculate_master_efficiency_score
 from src.vehicles.vehicle import Vehicle
 
 if TYPE_CHECKING:
+    from src.controllers.fixed_time_signal import FixedTimeSignalController
     from src.intersection.conflict_manager import ConflictManager
 
 _DIRECTIONS = ("north", "south", "east", "west")
@@ -157,6 +159,10 @@ class MetricCollector:
             ConflictZoneOccupancyTracker()
         )
 
+        # Signal green-time use (V1.3), created on the first post-warmup tick
+        # of a signalised run; None for a roundabout.
+        self._signal_timing: Optional[SignalTimingTracker] = None
+
     def update(
         self,
         current_time: float,
@@ -164,6 +170,7 @@ class MetricCollector:
         exited_vehicles: List[Vehicle],
         signals_state: Dict[Direction, str],
         conflict_manager: Optional["ConflictManager"] = None,
+        signal_controller: Optional["FixedTimeSignalController"] = None,
     ) -> None:
         """Ticks the metrics state checks (e.g. updating vehicle stop count hysteresis).
 
@@ -174,6 +181,9 @@ class MetricCollector:
         simply means PET stays unmeasured for this run, exactly as it was
         before this parameter existed; TTC is unaffected either way, since
         it needs no conflict-manager geometry.
+
+        ``signal_controller`` (fixed-time or adaptive signal, else None) is
+        observed for the green-time measures in ``signalTiming``; read only.
         """
         # Always update stop count states regardless of warmup to keep vehicle state correct
         for v in active_vehicles:
@@ -195,6 +205,14 @@ class MetricCollector:
 
         # Increment post-warmup simulation ticks count
         self.total_ticks_post_warmup += 1
+
+        if signal_controller is not None:
+            if (
+                self._signal_timing is None
+                or self._signal_timing.controller is not signal_controller
+            ):
+                self._signal_timing = SignalTimingTracker(signal_controller)
+            self._signal_timing.update(self.time_step)
 
         if active_vehicles:
             self.demand_ticks += 1
@@ -547,5 +565,10 @@ class MetricCollector:
         }
         base_metrics["masterEfficiencyScore"] = calculate_master_efficiency_score(
             base_metrics
+        )
+        # How the signal used its green time (V1.3); None for a roundabout
+        # and until the first post-warmup tick of a signal.
+        base_metrics["signalTiming"] = (
+            self._signal_timing.summary() if self._signal_timing is not None else None
         )
         return base_metrics

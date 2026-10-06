@@ -238,7 +238,7 @@ V1.0 had an undocumented lane change that moved a through vehicle 3.5 m sideways
 
 ## 7. Traffic-control strategies
 
-Both controllers implement `BaseController` (`controllers/base.py`) and are built by `controllers/factory.py`. They act on vehicles only through **virtual obstacles** at stop/give-way lines, so vehicle physics is identical across strategies.
+Every controller implements `BaseController` (`controllers/base.py`) and is built by `controllers/factory.py`: the fixed-time signal (§7.1), the adaptive signal (§7.3, V1.3) and the roundabout (§7.4). They act on vehicles only through **virtual obstacles** at stop/give-way lines, so vehicle physics is identical across strategies.
 
 ### 7.1 Fixed-time signal — `controllers/fixed_time_signal.py`
 
@@ -266,7 +266,33 @@ stateDiagram-v2
 
 If a config supplies no `phaseSequence`, the controller falls back to a one-approach-at-a-time cycle with a protected left phase (`leftDuration`, default 5 s). The dashboard and studies always send the paired plan.
 
-### 7.2 Roundabout — `controllers/roundabout.py`
+### 7.3 Adaptive signal — `controllers/adaptive_signal.py` (V1.3)
+
+Vehicle-actuated control: the **same** phase plan, signal heads, yellow and all-red as §7.1 (it subclasses `FixedTimeSignalController` and reuses its `_apply_signals`); only *when a green ends* differs. Selected with `controller.signalControl: "adaptive"`.
+
+**Detection** (`controllers/signal_detection.py`): each incoming lane has a zone covering the last `detectionDistance` (30 m) before its stop line. A phase *releases* the lanes whose head it shows green. *Presence* (any vehicle in a zone) is demand; *passage* (a vehicle in the zone moving at ≥ 1 m/s) extends a green. A vehicle midway through a lane change is counted once, on the lane it is entering. Only the incoming lanes' own vehicle lists are read.
+
+| Rule | Behaviour (defaults) |
+| --- | --- |
+| Minimum green | A green never ends before `minGreen` (10 s), so a standing queue gets moving |
+| Call | Another green phase calls when ≥ `demandThreshold` (1) vehicles are detected on lanes only it releases |
+| Rest in green | With no call anywhere, the green continues (no maximum applies) |
+| Extension / gap-out | Each passing vehicle restarts a gap timer; with a call waiting, the green ends when `extensionStep` (2.5 s) passes with no passing vehicle |
+| Maximum green / max-out | Once a call exists, the green ends at most `maxGreen` (50 s) after it, however busy |
+| Next phase | The first calling green in the plan's cyclic order; greens and whole stages without a call are skipped (a skipped stage's yellow is never shown) |
+| Clearance | A change between approaches always runs the stage's configured yellow and all-red in full; the only direct green-to-green step is within one approach's stage (straight+right → protected left in the default cycle), which the fixed-time cycle also takes |
+
+Why passage, not presence, extends a green: a vehicle standing in the zone during green — a permissive left-turner yielding to oncoming traffic, or one held by a blocked exit — would otherwise hold every green to its maximum. Measured before this rule (2 lanes, 0.6 veh/s, seed 7): adaptive 37.4 s mean delay vs fixed-time 29.5 s, 3 max-outs; after it, 28.9 s vs 29.5 s.
+
+**Safety:** the controller only decides when a phase changes. Which lanes are released follows the phase exactly as for the fixed-time signal, and whether a released vehicle may enter is still decided by `ConflictManager` and the pool's collision checks. Tests check on every tick of whole multi-lane, mixed-traffic runs that crossing roads are never released together and that a road is only released after an all-red (`tests/integration/test_adaptive_signal_runs.py`).
+
+**Live state:** `controller.adaptive` in the snapshot — status (`min_green`, `extending`, `resting`, `clearance`), detections per approach, the next phase, counts of greens, gap-outs, max-outs, extended greens and skipped phases, and the last 12 decisions. `phaseTimeRemaining` is an upper bound for an adaptive green.
+
+**Green-time measures** (`metrics.signalTiming`, both signals, post-warm-up, measured with the same 30 m detection for fixed-time and adaptive): phase changes, green seconds, mean completed green, and *unused green* — green with nobody detected on the released lanes while someone was detected waiting on another phase.
+
+**Cost:** one pass over the vehicles on the incoming lanes per tick (green phases only), plus the same pass for the green-time measure. On the 300 s smoke runs below the adaptive run's wall time was within the run-to-run noise of the fixed-time run with the same seed (0.7–0.8 s at light demand, 19.9 vs 23.0 s at 2 lanes, 0.6 veh/s, where the adaptive run also served 9 more vehicles).
+
+### 7.4 Roundabout — `controllers/roundabout.py`
 
 | Parameter | Default | Meaning |
 | --- | --- | --- |

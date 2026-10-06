@@ -1,14 +1,14 @@
 # UrbanFlow Roadmap
 
 > **This is the single authoritative roadmap.** It supersedes every earlier roadmap, deferred-features log and V1.1/V2/V3 plan in this repository (preserved in git history).
-> **Current version:** V1.2 — V1.1 (vehicle types) and V1.2 (lane modelling) **COMPLETE**, delivered together · **Next:** V1.3 · **Last updated:** 2026-10-06
+> **Current version:** V1.3 — V1.1 (vehicle types), V1.2 (lane modelling) and V1.3 (adaptive signal control) **COMPLETE** · **Next:** V1.4 · **Last updated:** 2026-10-06
 > **Beyond V2.0:** [Future Scope](future-scope/future_scope.md) — post-V2.0 research frontiers only.
 
 | Status | Meaning |
 | --- | --- |
 | ✅ **COMPLETE** | Shipped, documented, tested |
-| 🟢 **CURRENT** | The version in use today (V1.2) |
-| 🔜 **PLANNED / UPCOMING** | Next in line; work starts imminently (V1.3) |
+| 🟢 **CURRENT** | The version in use today (V1.3) |
+| 🔜 **PLANNED / UPCOMING** | Next in line; work starts imminently (V1.4) |
 | 🗓️ **PLANNED** | Scheduled in the V1.x → V2.0 roadmap |
 | 🔭 **FUTURE SCOPE** | After V2.0 — not part of this roadmap |
 
@@ -96,9 +96,9 @@ gantt
     V1.0 Finalisation & Demo                 :done,    v10, 2026-10-02, 4d
     V1.1 Different Vehicle Types             :done,    v11, 2026-10-05, 2d
     V1.2 Advanced Lane Modelling             :done,    v12, 2026-10-05, 2d
+    V1.3 Adaptive Signal Control             :done,    v13, 2026-10-06, 1d
     section Upcoming
     section Planned
-    V1.3 Adaptive Signal Control             :         v13, 2026-10-20, 8d
     V1.4 Advanced Roundabout Modelling       :         v14, 2026-10-28, 8d
     V1.5 Real-World Junction Modelling       :         v15, 2026-11-05, 8d
     V1.6 Safety & Environmental Analysis     :         v16, 2026-11-13, 7d
@@ -112,7 +112,7 @@ gantt
 | W11 | Oct 2 – Oct 5 | V1.0 | Finalisation & Demo | ✅ COMPLETE |
 | W12 | Oct 5 – Oct 6 | V1.1 | Different Vehicle Types | ✅ COMPLETE (with V1.2) |
 | W12 | Oct 5 – Oct 6 | V1.2 | Advanced Lane Modelling | ✅ COMPLETE (with V1.1) |
-| W14 | Oct 20 – Oct 27 | V1.3 | Adaptive Signal Control | 🗓️ PLANNED |
+| W12 | Oct 6 | V1.3 | Adaptive Signal Control | ✅ COMPLETE (ahead of the W14 slot) |
 | W15 | Oct 28 – Nov 4 | V1.4 | Advanced Roundabout Modelling | 🗓️ PLANNED |
 | W16 | Nov 5 – Nov 12 | V1.5 | Real-World Junction Modelling | 🗓️ PLANNED |
 | W17 | Nov 13 – Nov 19 | V1.6 | Safety & Environmental Analysis | 🗓️ PLANNED |
@@ -164,7 +164,7 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 
 ### V1.3 — Adaptive Signal Control
 
-**W14 · Oct 20 – Oct 27 · 🗓️ PLANNED**
+**✅ COMPLETE · delivered on 2026-10-06 (planned for W14)**
 
 **Goal:** compare fixed-time signals with responsive/adaptive control.
 
@@ -174,7 +174,9 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 | Evidence | Experiments · validation |
 | Presentation | Controller selection UI · visual comparison · result presentation |
 
-**V1.0 starting point:** fixed-time control only. Controllers share the `BaseController` interface and are built by `controllers/factory.py`, so a new controller plugs in without changing the engine loop.
+**Delivered:** a vehicle-actuated adaptive signal (`backend/src/controllers/adaptive_signal.py`) on the fixed-time signal's own phase plan, heads, yellow and all-red — minimum green, passage-based extension and gap-out, maximum green once another phase calls, rest in green, cyclic order with phases skipped when nobody waits — selected by `controller.signalControl: "adaptive"` with `controller.adaptive` settings (fixed-time stays the default and is unchanged); stop-line detection shared with a new green-time measure for both signals (`metrics.signalTiming`); a reproducible three-way study, fixed-time vs adaptive vs roundabout (`/api/v1/study/control-comparison`, Research Lab); a "How should the signal respond to traffic?" question, adaptive advanced settings, a live map panel explaining each decision, and results that name the controller. Results: adaptive lowers delay against the fixed timetable below saturation and gains nothing measurable at and above capacity; on one lane the roundabout keeps the lowest delay from busy demand upwards ([validation §4.1](research/validation.md#41-fixed-time-vs-adaptive-vs-roundabout-v13-2026-10-06)). See [methodology §7.3](simulation/methodology.md#73-adaptive-signal--controllersadaptive_signalpy-v13).
+
+**V1.0 starting point (for reference):** fixed-time control only. Controllers share the `BaseController` interface and are built by `controllers/factory.py`, so a new controller plugs in without changing the engine loop.
 
 ---
 
@@ -280,7 +282,7 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 | Reproducible saved runs | ✅ | ● | ● | ● | ● | ● | ● | ● | ● | ◆ |
 | Heterogeneous vehicles | — | ✅ | ● | ● | ● | ● | ● | ● | ● | ◆ |
 | Multi-lane traffic & lane changes | partial | | ✅ | ● | ● | ● | ● | ● | ● | ◆ |
-| Adaptive signal control | — | | | ▲ | ● | ● | ● | ● | ● | ◆ |
+| Adaptive signal control | — | | | ✅ | ● | ● | ● | ● | ● | ◆ |
 | Multi-lane roundabout circulation | exploratory | | | | ▲ | ● | ● | ● | ● | ◆ |
 | Real-world junction layouts | — | | | | | ▲ | ● | ● | ● | ◆ |
 | Safety proxies & emissions | exploratory | | | | | | ▲ | ● | ● | ◆ |

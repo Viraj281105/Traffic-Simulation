@@ -18,6 +18,10 @@ import {
   mixPresetFor,
 } from "../../vehicles/vehicleClasses";
 import { VehicleMixBar } from "../VehicleLegend";
+import {
+  SIGNAL_CONTROL_CHOICES,
+  scenarioAdaptiveSentence,
+} from "../../signals/signalControl";
 
 const LANE_CHOICES = [1, 2, 3];
 
@@ -40,6 +44,7 @@ export function ScenarioSetup({
   const demandName = useId();
   const lanesName = useId();
   const mixName = useId();
+  const controlName = useId();
   const lengthName = useId();
 
   if (config !== prevConfig) {
@@ -60,6 +65,7 @@ export function ScenarioSetup({
   const ew = draft.ewGreenDuration ?? draft.greenDuration;
   const unchanged = JSON.stringify(draft) === JSON.stringify(config);
   const mixPreset = mixPresetFor(draft.vehicleMix);
+  const adaptive = draft.signalControl === "adaptive";
 
   return (
     <div className="guided-page">
@@ -217,7 +223,45 @@ export function ScenarioSetup({
 
       <fieldset className="guided-question">
         <legend>
-          <span className="q-number">4</span> How long should we watch?
+          <span className="q-number">4</span> How should the signal respond to
+          traffic?
+        </legend>
+        <div className="choice-grid">
+          {SIGNAL_CONTROL_CHOICES.map((choice) => {
+            const selected =
+              (draft.signalControl ?? "fixed_time") === choice.id;
+            return (
+              <label
+                key={choice.id}
+                className={`choice-card${selected ? " is-selected" : ""}`}
+              >
+                <input
+                  type="radio"
+                  name={controlName}
+                  checked={selected}
+                  onChange={() => {
+                    set(
+                      "signalControl",
+                      choice.id === "adaptive" ? "adaptive" : undefined,
+                    );
+                  }}
+                />
+                <span className="choice-title">{choice.label}</span>
+                <span className="choice-desc">{choice.description}</span>
+              </label>
+            );
+          })}
+        </div>
+        <p className="q-help">
+          {adaptive
+            ? `${scenarioAdaptiveSentence(draft)} Yellow and all-red clearances are never shortened. The roundabout is unchanged.`
+            : "Most signals in towns run a fixed timetable. A signal that responds to traffic uses detectors to give green where vehicles are actually waiting."}
+        </p>
+      </fieldset>
+
+      <fieldset className="guided-question">
+        <legend>
+          <span className="q-number">5</span> How long should we watch?
         </legend>
         <div className="choice-grid three">
           {RUN_LENGTHS.map((l) => (
@@ -257,15 +301,25 @@ export function ScenarioSetup({
         </h2>
         <div className="option-pair">
           <div className="option-card is-signal">
-            <h3>Traffic signal</h3>
-            <p>
-              Fixed timetable:{" "}
-              {ns === ew
-                ? `${String(ns)} s`
-                : `${String(ns)} s / ${String(ew)} s`}{" "}
-              of green for each direction in turn, a{" "}
-              {String(signalCycleSeconds(draft))} s cycle.
-            </p>
+            <h3>
+              {adaptive ? "Traffic signal that responds" : "Traffic signal"}
+            </h3>
+            {adaptive ? (
+              <p>
+                Detectors at each stop line decide how long each green lasts;
+                north–south and east–west take turns, with the usual yellow and
+                all-red in between.
+              </p>
+            ) : (
+              <p>
+                Fixed timetable:{" "}
+                {ns === ew
+                  ? `${String(ns)} s`
+                  : `${String(ns)} s / ${String(ew)} s`}{" "}
+                of green for each direction in turn, a{" "}
+                {String(signalCycleSeconds(draft))} s cycle.
+              </p>
+            )}
           </div>
           <div className="option-card is-roundabout">
             <h3>Roundabout</h3>
@@ -293,7 +347,11 @@ export function ScenarioSetup({
 
       <div className="guided-cta">
         <p>
-          Comparing a traffic signal with a roundabout at{" "}
+          Comparing a{" "}
+          {adaptive
+            ? "traffic signal that responds to traffic"
+            : "traffic signal"}{" "}
+          with a roundabout at{" "}
           <strong>
             ≈ {vehiclesPerHour(draft.arrivalRate).toLocaleString()} vehicles per
             hour

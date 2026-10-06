@@ -163,7 +163,59 @@
         "outerRadius": { "type": "number", "exclusiveMinimum": 0 },
         "circulatingCount": { "type": "integer", "minimum": 0 },
         "yieldingCount": { "type": "integer", "minimum": 0 },
-        "gapAcceptance": { "type": "number", "exclusiveMinimum": 0 }
+        "gapAcceptance": { "type": "number", "exclusiveMinimum": 0 },
+        "signalControl": {
+          "type": "string",
+          "enum": ["fixed_time", "adaptive"],
+          "description": "V1.3, signal only: whether greens follow the fixed timetable or are ended by detected demand. For an adaptive green, phaseTimeRemaining is an upper bound (time to the minimum green, then to the maximum once a conflicting call exists; 0 while resting with nobody waiting)."
+        },
+        "adaptive": {
+          "type": "object",
+          "description": "V1.3, adaptive signal only: its settings, live decision state and decision counts since the run started.",
+          "properties": {
+            "status": { "type": "string", "enum": ["min_green", "extending", "resting", "clearance"] },
+            "minGreen": { "type": "number" },
+            "maxGreen": { "type": "number" },
+            "extensionStep": { "type": "number" },
+            "detectionDistance": { "type": "number" },
+            "demandThreshold": { "type": "integer" },
+            "greenElapsed": { "type": "number", "minimum": 0 },
+            "gapTimer": { "type": "number", "minimum": 0 },
+            "servedDemand": { "type": "integer", "minimum": 0 },
+            "phasesWaiting": { "type": "integer", "minimum": 0 },
+            "detected": {
+              "type": "object",
+              "additionalProperties": { "type": "integer", "minimum": 0 }
+            },
+            "nextPhase": { "type": ["string", "null"] },
+            "decisions": {
+              "type": "object",
+              "properties": {
+                "greens": { "type": "integer", "minimum": 0 },
+                "gapOuts": { "type": "integer", "minimum": 0 },
+                "maxOuts": { "type": "integer", "minimum": 0 },
+                "greensExtended": { "type": "integer", "minimum": 0 },
+                "phasesSkipped": { "type": "integer", "minimum": 0 },
+                "restSeconds": { "type": "number", "minimum": 0 }
+              }
+            },
+            "recentDecisions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "time": { "type": "number" },
+                  "phase": { "type": "string" },
+                  "decision": { "type": "string", "enum": ["gapOut", "maxOut"] },
+                  "greenSeconds": { "type": "number" },
+                  "next": { "type": "string" },
+                  "waiting": { "type": "integer" }
+                }
+              }
+            }
+          },
+          "required": ["status", "decisions"]
+        }
       },
       "required": ["type", "timeInCurrentState"]
     },
@@ -234,6 +286,20 @@
             },
             "required": ["exited", "share", "averageDelay", "active"]
           }
+        },
+        "signalTiming": {
+          "type": ["object", "null"],
+          "description": "V1.3: how a signal used its green time after warm-up, measured the same way for fixed-time and adaptive signals (stop-line detection over detectionDistance metres). null for a roundabout and during warm-up.",
+          "properties": {
+            "signalControl": { "type": "string", "enum": ["fixed_time", "adaptive"] },
+            "phaseChanges": { "type": "integer", "minimum": 0 },
+            "greenSeconds": { "type": "number", "minimum": 0 },
+            "averageGreenDuration": { "type": ["number", "null"], "minimum": 0 },
+            "unusedGreenSeconds": { "type": "number", "minimum": 0 },
+            "greenUtilisation": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+            "detectionDistance": { "type": "number", "exclusiveMinimum": 0 }
+          },
+          "required": ["signalControl", "phaseChanges", "greenSeconds", "unusedGreenSeconds"]
         }
       },
       "required": [
