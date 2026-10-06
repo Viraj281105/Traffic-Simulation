@@ -53,12 +53,13 @@ flowchart LR
 
 ## 2. What is modelled — and what is not
 
-| Modelled (IMPLEMENTATION) | Not modelled in V1.0 |
+| Modelled (IMPLEMENTATION) | Not modelled |
 | --- | --- |
 | One four-leg junction (north, south, east, west), right-hand traffic | Networks, corridors, upstream/downstream junctions |
-| 1–4 lanes per approach (calibrated comparison: **1**) | Lane changing on approaches (lane is chosen at spawn) |
-| Passenger-car population with randomised length, width and desired speed | Distinct vehicle classes (buses, trucks, bikes) — planned for V1.1 |
-| Longitudinal car-following (IDM) along fixed lane paths | Lateral dynamics; overtaking |
+| 1–4 lanes per approach, set per road (calibrated comparison: **1**) — V1.2 | Lane drops and merges inside the junction (opposite approaches must match) |
+| Gradual, safety-checked lane changing on approaches (MOBIL) — V1.2 | Lane filtering by motorcycles; overtaking inside the junction |
+| Five vehicle classes — car, SUV, bus, truck, motorcycle — each with its own size, IDM, cornering and lane-change parameters — V1.1 | Articulated vehicles and trailers; vehicles longer than 12 m |
+| Longitudinal car-following (IDM) along lane paths; lateral motion only during a lane change | Free lateral dynamics; overtaking |
 | Fixed-time signal with paired north–south / east–west phases | Actuated or adaptive signals — planned for V1.3 |
 | Single-geometry roundabout with give-way entry, critical gap and follow-up time | Spiral multi-lane circulation, lane markings in the ring — planned for V1.4 |
 | Poisson or uniform arrivals per approach | Platooned / bunched arrivals; time-varying demand profiles |
@@ -93,17 +94,30 @@ Updating the controller **before** physics means a phase change or a refused gap
 | --- | --- | --- |
 | Approach length | 200 m | `roads.approachLength`, `50 < L ≤ 1000` |
 | Lane width | 3.5 m | `roads.laneWidth`, `2.5 < w ≤ 5.0` |
-| Lanes per approach | 2 (engine default) · **1 in the guided comparison** | Versioned API: one integer for all approaches (1–4). The dashboard sends per-direction counts internally. |
+| Lanes per approach | 2 (engine default) · **1 in the guided comparison** | `roads.lanesPerApproach` (1–4) for all approaches; `roads.approaches[].lanes` overrides one approach. North/south and east/west must match (§4.2). |
 | Roundabout radii | inner 10 m, outer 20 m | `controller.innerRadius` / `outerRadius` |
 | Speed limit | 13.89 m/s (50 km/h) | `roads.speedLimit` |
 
-**Lane assignment at spawn** (turn-intent aware, `vehicles/spawner.py`):
+### 4.1 Lanes and lane use (V1.2)
 
-| Lanes | Left | Straight | Right |
+Every lane carries its identity — approach, index across the approach (0 next to the centreline) and role (incoming, connection, outgoing) — and one lane-use rule says which movements each incoming lane permits (`RoadNetwork.permitted_turns`):
+
+| Lanes | Lane 0 | Middle lanes | Last lane |
 | --- | --- | --- | --- |
-| 1 | lane 0 | lane 0 | lane 0 |
-| 2 | lane 0 | lane 1 (or any free lane) | lane 1 |
-| 3+ | lane 0 | middle lane (or any free lane) | last lane |
+| 1 | left · straight · right | — | — |
+| 2+ | left · straight | straight | straight · right |
+
+A controller can narrow it: under the one-direction-at-a-time signal plan, lane 0's head shows a left arrow only, so it becomes a left-turn pocket. Grouped plans (`phaseSequence`, the dashboard default) leave the rule as above. The snapshot reports it per lane (`lanePermittedTurns`) and the maps paint it as lane arrows.
+
+Vehicles enter in the preferred lane for their turn (left → lane 0, right → last lane, straight → middle) and, if that entry is blocked, in another lane the turn is permitted from.
+
+### 4.2 Per-road lane counts
+
+Each road carries the same number of lanes in both directions, so north/south and east/west must have equal counts: through traffic from a wider approach would otherwise have to merge inside the junction, which the model cannot do (in V1.0, north 1 / south 2 locked the junction). Two crossing roads may differ — a two-lane main road with a one-lane side street. The signal's junction box is square and sized to the widest road. A roundabout should keep one count for all approaches (ring re-indexing is V1.4).
+
+### 4.3 Design vehicle (V1.1)
+
+When the vehicle mix includes vehicles longer than the 5 m reference car, the signalised junction is laid out for the longest of them, as real junctions on bus and freight routes are: every stop line moves back by the extra length (12 m vehicles → 7 m), and because turning paths run from stop line to stop line their corner radii grow with it. The snapshot reports the setback (`intersection.stopLineSetback`). Cars-only scenarios keep the V1.0 geometry exactly. The roundabout's geometry is set by its radii and does not change.
 
 On a roundabout the number of circulating rings follows the approach lane count. The `controller.circulatingLanes` field is accepted by the schema but **does not change the geometry** in V1.0 (see [configuration](configuration.md#reserved-and-inert-fields)).
 
@@ -136,17 +150,35 @@ Because these come from the seed, two runs with the same seed see the **same** s
 
 ### 5.3 Vehicle properties
 
+Without `vehicleGeneration.vehicleMix` every vehicle is the V1.0 passenger car, drawn exactly as before:
+
 | Property | Distribution (default) | Source |
 | --- | --- | --- |
 | Length | `U(4.0, 5.0)` m | `vehicleGeneration.vehicleLength` |
 | Width | `U(1.8, 2.2)` m | `vehicleGeneration.vehicleWidth` |
 | Desired speed v₀ | `U(0.85, 1.05) × speedLimit` → 11.8–14.6 m/s at 50 km/h | `vehicles/speed_profile.py` |
 
-### 5.4 Safe insertion
+### 5.4 Vehicle classes (V1.1)
 
-A vehicle is placed only if the entry of its lane has room (`gap ≥ minimumGap + max length`); otherwise the arrival waits, keeping its turn intent, and is retried next tick. Its initial speed is capped so that, braking at the comfortable deceleration, it can stop behind the vehicle ahead (`_safe_insertion_speed`). This removed a class of insertion collisions found during the bug-fix pass ([bug-fix report](../bug-fix-report.md)).
+**ASSUMPTION** — `vehicles/vehicle_types.py`
 
-### 5.5 Vehicle cap
+With a mix, each arrival's class is drawn once from the configured shares (and kept while the arrival waits for space, like its turn), then its dimensions and desired speed from the class's ranges. Defaults:
+
+| Class | Length (m) | Width (m) | v₀ / speed limit | a (m/s²) | b (m/s²) | T (s) | s₀ (m) | a_lat (m/s²) | Lane change: time · min distance · politeness |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Car | 4.0–5.0 | 1.8–2.2 | 0.85–1.05 | 2.0 | 3.0 | 1.5 | 2.0 | 3.0 | 3.0 s · 12 m · 0.3 |
+| SUV | 4.6–5.2 | 1.9–2.1 | 0.85–1.05 | 1.8 | 2.8 | 1.6 | 2.0 | 2.7 | 3.2 s · 14 m · 0.3 |
+| Bus | 10.5–12.0 | 2.50–2.55 | 0.75–0.90 | 1.0 | 2.0 | 1.8 | 2.5 | 1.8 | 4.5 s · 22 m · 0.5 |
+| Truck | 8.0–12.0 | 2.40–2.55 | 0.70–0.90 | 0.8 | 2.0 | 2.0 | 3.0 | 1.6 | 5.0 s · 24 m · 0.5 |
+| Motorcycle | 1.9–2.3 | 0.7–0.9 | 0.90–1.10 | 3.0 | 3.5 | 1.1 | 1.5 | 4.0 | 2.0 s · 8 m · 0.1 |
+
+The car row is whatever `vehicleGeneration` configures; every other class can be overridden through `vehicleGeneration.vehicleTypes`. The values follow the relative ordering in the IDM literature (Treiber & Kesting, *Traffic Flow Dynamics*, 2013, ch. 11: heavy vehicles accelerate and brake more gently and keep longer headways) scaled to this model's urban car. They are model inputs, not findings, and a mixed comparison is **not calibrated** (§11).
+
+### 5.5 Safe insertion
+
+A vehicle is placed only if the entry of its lane has room (`gap ≥ minimumGap + max length`, both of its own class); otherwise the arrival waits, keeping its turn intent, and is retried next tick. Its initial speed is capped so that, braking at the comfortable deceleration, it can stop behind the vehicle ahead (`_safe_insertion_speed`). This removed a class of insertion collisions found during the bug-fix pass ([bug-fix report](../bug-fix-report.md)).
+
+### 5.6 Vehicle cap
 
 `traffic.totalVehicles` caps vehicles generated per run (default 200, max 5000). The dashboard compiler and the study runners size it from the scenario — `ceil(1.5 · λ · duration) + 50`, clamped to [200, 5000] — so normal Poisson variation never truncates demand. If the cap is ever reached, metrics report `vehicleLimitReached = true` rather than silently reading truncated demand as full demand.
 
@@ -177,12 +209,30 @@ with `Δv = v − v_lead` (closing speed) and `s` the bumper-to-bumper gap. With
 
 **Curves (ASSUMPTION).** On any curved connection lane speed is limited to `√(a_lat · R)` with `a_lat = 3.0 m/s²` (configurable as `vehicleGeneration.maxLateralAcceleration`), and vehicles brake for the curve beforehand. The same rule applies to signal turns and roundabout arcs, which is what makes their travel times comparable. The value is derived from the FHWA/NCHRP 672 fastest-path speed–radius relationship; it is a model input, not a finding.
 
+**Per class (V1.1).** A vehicle with a class uses its class's IDM (a, b, T, s₀, δ), its class's `a_lat` on curves and its class's `b` for the yellow-light decision; a vehicle without one uses the table above.
+
+**Long vehicles (V1.1).** A rectangle laid tangent to a tight bend at its centre puts an 11 m body's ends metres outside the path. A vehicle longer than 5 m is therefore posed on the chord between its axles, both on the route (`vehicles/body.py`), so its body cuts the inside of a bend as real long vehicles do. The same body is what the collision audit, the predictive layer and the emergency check test, and the conflict manager treats a crossing as occupied within half the vehicle's length (plus 0.5 m) of its centre. Conflict points between paths count within 3 m plus half the longest vehicle's extra length, a long vehicle committed inside the junction keeps precedence over one still at its stop line, two vehicles committed inside the junction and converging on the same exit lane merge in physical order (the one nearer the merge goes first, whoever claimed it first), a long vehicle needs `(length − 5 m) / entrySpeed` more gap to enter a roundabout and completes an entry once its front has crossed the give-way line. At a multi-lane roundabout entry a long vehicle takes the whole mouth while it swings in (the other entry lanes of its approach hold at the line until its body is 14 m along its path), and when a long vehicle is among the vehicles at the line of one approach they enter one at a time, first come first served, so a turning bus's tail swing never sweeps a neighbour waiting at the line. Every one of these applies only to pairs involving a vehicle longer than 5 m, which is why cars-only runs reproduce V1.0 exactly.
+
 **Leaders and conflicts.** A vehicle's leader is found along its own route (`vehicles/router.py`). Crossing and merging conflicts are handled by two layers:
 
 | Layer | Applies to | Mechanism |
 | --- | --- | --- |
 | `ConflictManager` | Signal geometry | Pre-computed crossing points between connection lanes, a reservation table, and right-of-way rules (right-turners yield to straight; left-turners yield to everyone; ties by vehicle id) |
 | Predictive conflict resolver | All geometries (entry arbitration on multi-ring roundabouts) | Samples each vehicle's path ahead and constrains the later arrival at a close approach |
+
+### 6.1 Lane changing (V1.2)
+
+**IMPLEMENTATION** — `vehicles/lane_change.py` · settings `roads.laneChange`
+
+On incoming approaches with more than one lane, each vehicle considers a change to an adjacent lane its movement is permitted from (at most once every 3 s). The decision is **MOBIL** (Kesting, Treiber & Helbing, 2007), evaluated with each vehicle's own IDM:
+
+- **Safety** — after the change the new follower must not brake harder than `b_safe` (`safeDeceleration`, 4.0 m/s²), nor the changing vehicle; both bumper gaps must be at least 1 m.
+- **Incentive** — `ã_c − a_c + p·[(ã_n − a_n) + (ã_o − a_o)] > Δa_th`: the vehicle's own gain plus politeness `p` (per class, or `roads.laneChange.politeness`) times the gain of its new and old followers must exceed `accelerationThreshold` (0.2 m/s²). A stop line counts as a stationary leader.
+- **Mandatory** — a vehicle in a lane its turn is not permitted from must change towards one (incentive waived, safety never). If it reaches the point where a change can no longer be completed, it takes a movement its lane permits (a *missed turn*, counted in `laneModel.missedTurns`); it never cuts in and never stops dead to wait.
+
+**Execution — never instantaneous.** The vehicle's logical lane switches at once (it follows, and is followed in, the lane it is entering), while it stays registered on the lane it is leaving until the manoeuvre ends, so followers in both lanes see it and it keeps its distance to vehicles ahead in both. Its lateral position moves along a smooth cosine profile over `max(min distance, speed × duration)` metres **of travel** — a stopped vehicle does not move sideways — and its heading yaws accordingly. A change is only started with that distance plus 10 m of lane left, so it always completes before the stop line. Vehicles changing lanes are audited for collisions against everything near them, including the vehicles they merge between.
+
+V1.0 had an undocumented lane change that moved a through vehicle 3.5 m sideways in a single tick and was exempt from the collision audit; it has been replaced.
 
 ---
 
@@ -253,6 +303,7 @@ Vehicles already on the network when warm-up ends have their accumulated wait an
 - Each engine owns a **private** `random.Random(seed)`; nothing reads the process-global `random` module during a run.
 - If no seed is supplied, one is generated, logged, and **written back into the config**, so it is persisted with the run.
 - The comparison orchestrator gives the signal engine and the roundabout engine the **same seed**, so both receive the same arrival times, approaches, turn intents and vehicle properties (subject to each junction's ability to admit them).
+- Vehicle classes are drawn from the same private generator, and lane-change decisions use no randomness, so mixed and multi-lane runs replay exactly too. With no `vehicleMix` the draw sequence is exactly V1.0's: single-lane cars-only runs reproduce V1.0 bit for bit (pinned in `tests/integration/test_vehicle_types_and_lanes.py`).
 - Same seed + same configuration + same code → same results. See [Reproducibility](../research/reproducibility.md) for how this is recorded and verified.
 
 ---
@@ -306,7 +357,7 @@ flowchart TB
 
 **MEASURED** — [comparative report §2](../reports/comparative_report.md#2-measured-capacity-v1-single-lane-per-approach)
 
-The signal-vs-roundabout comparison is **calibrated for one lane per approach**. With more lanes both geometries change (turn lanes at the signal, one ring per entry lane at the roundabout), and multi-lane roundabout runs are not collision-free across the whole demand range because the single geometry cannot express spiral lane assignment. Every study result carries a `calibration` object (`study/calibration.py`) so an exploratory multi-lane result can never be mistaken for the calibrated baseline.
+The signal-vs-roundabout comparison is **calibrated for one lane per approach**. With more lanes both geometries change (turn lanes at the signal, one ring per entry lane at the roundabout), and multi-lane roundabout runs are not collision-free across the whole demand range because the single geometry cannot express spiral lane assignment. Mixed vehicle classes are likewise exploratory: the class parameters (§5.4) are literature-ordered model inputs, not calibrated against observed traffic. Every study result carries a `calibration` object (`study/calibration.py`) so an exploratory multi-lane result can never be mistaken for the calibrated baseline.
 
 Guided demand levels are defined as a share of a **reference capacity** that is the *mean* of the two strategies' measured maximum served flow — the same number for both, so no level favours either:
 
@@ -332,5 +383,8 @@ Values are the ones the guided UI offers: `Math.round(ratio × capacity / 10) ×
 | A6 | Arrivals are Poisson and stationary over the run | — | All demand |
 | A7 | Split and turning mix vary by seed when unspecified | see §5.2 | Seed-to-seed variance |
 | A8 | Queued = speed below 0.5 m/s; stop = below 0.1 m/s (hysteresis to 0.2 m/s) | — | Queue, wait, stop metrics |
+| A9 | Vehicle-class parameters (V1.1) | §5.4 table | Mixed-traffic delay, capacity, per-class results |
+| A10 | Design-vehicle geometry when long vehicles are present | stop lines back by (L_max − 5 m) | Signal box size, turn radii |
+| A11 | MOBIL lane changing (V1.2) | b_safe 4.0 m/s², Δa_th 0.2 m/s², politeness per class | Multi-lane lane use and delay |
 
 These are inputs, not findings. Changing any of them changes results; the [configuration reference](configuration.md) shows which are user-adjustable.

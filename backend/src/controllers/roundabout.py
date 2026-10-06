@@ -4,8 +4,14 @@ from typing import Any, Dict, List, Set, Tuple
 from src.controllers.base import BaseController
 from src.controllers.virtual_obstacle import VirtualObstacle
 from src.core.enums import Direction, TurnIntent
-from src.roads.network import ROUNDABOUT_ENTRY_SETBACK, RoadNetwork
+from src.roads.network import (
+    ROUNDABOUT_ENTRY_SETBACK,
+    ROUNDABOUT_TRANSITION_ARC,
+    RoadNetwork,
+)
+from src.vehicles.body import LONG_VEHICLE_THRESHOLD
 from src.vehicles.vehicle import Vehicle
+from src.vehicles.vehicle_types import long_vehicle_allowance
 
 # Distance from the entry point (lane end) within which a vehicle is
 # considered "at the roundabout entry" for follow-up-time bookkeeping below.
@@ -61,6 +67,18 @@ _STALL_ON_TIME: float = 6.0
 _STALL_OFF_TIME: float = 1.5
 # Minimum time the congested state is held once entered.
 _CONGESTION_MIN_HOLD: float = 3.0
+
+# Length of a multi-lane entry's shared mouth, along a connection lane: the
+# straight stub to the ring plus the radial transition onto the vehicle's own
+# ring (see RoadNetwork._get_or_create_connection_lane). Beyond it the paths
+# from adjacent entry lanes have separated.
+_MOUTH_LENGTH: float = ROUNDABOUT_ENTRY_SETBACK + ROUNDABOUT_TRANSITION_ARC
+
+# A vehicle whose front is within this distance of its give-way line is "at
+# the line" for the first-come-first-served rule between adjacent entry lanes
+# (see RoundaboutController._yields_to_earlier_neighbour): close enough for a
+# long vehicle's tail swinging out of the next lane to reach it.
+_AT_LINE_DISTANCE: float = 6.0
 
 # Connection-lane ids are built as "conn_{direction.value}_{index}_{turn.value}"
 # (see RoadNetwork._get_or_create_connection_lane), so the tokens are the full
@@ -122,6 +140,12 @@ class RoundaboutController(BaseController):
         # lane_id -> (approach congested, distance from give-way line to the
         # queue tail), rebuilt every tick for the approach speed limit.
         self._approach_ctx: Dict[str, Tuple[bool, float]] = {}
+        # lane_id -> id of a long vehicle that has begun entering the ring
+        # from that lane (see _committed_long_entry).
+        self._committed_entry: Dict[str, str] = {}
+        # vehicle_id -> time it reached the front of its entry lane at the
+        # give-way line (see _yields_to_earlier_neighbour).
+        self._at_line_since: Dict[str, float] = {}
         self.reset()
 
     def reset(self) -> None:
@@ -133,6 +157,8 @@ class RoundaboutController(BaseController):
         self._congested_since = {}
         self._queue_since = {}
         self._approach_ctx = {}
+        self._committed_entry = {}
+        self._at_line_since = {}
         # Clear all entry obstacles initially
         for d in Direction:
             try:
@@ -327,11 +353,17 @@ class RoundaboutController(BaseController):
                 if original_speed is not None:
                     v.desired_speed = original_speed
 
+        self._note_heads_at_line()
+
         for d in Direction:
             try:
                 approach = self.network.get_incoming_approach(d)
                 total_in_lanes = len(approach.get_lanes())
                 for lane in approach.get_lanes():
+                    # Uses last tick's decision (still on the lane): a long
+                    # vehicle that crossed an open line is committed.
+                    self._note_long_entries(lane)
+
                     # Calculate if there is an oncoming circulating vehicle that blocks entry.
                     # We check circulating vehicles approaching this direction's entry node.
                     # The entry point of this lane is lane.end_coords.
@@ -346,14 +378,27 @@ class RoundaboutController(BaseController):
 
                     should_yield = False
 
+                    # Gap the vehicle at the head of this entry needs. The
+                    # critical gap is a passenger-car value; a longer vehicle
+                    # (V1.1: bus, truck) occupies the conflict point for as
+                    # much longer as its extra length takes to pass it at
+                    # entry speed, so it needs that much more gap. Zero for
+                    # every vehicle up to the 5 m reference car.
+                    head = max(
+                        lane.get_vehicles(), key=lambda hv: hv.position, default=None
+                    )
+                    required_gap = self.critical_gap
+                    if head is not None:
+                        required_gap += long_vehicle_allowance(head.length) / max(
+                            self.entry_speed, 1.0
+                        )
+
                     # Widest distance any circulating vehicle could cover in
                     # one critical gap, used only to prune obviously-distant
                     # traffic before the exact per-vehicle test below. The
                     # real decision is made on each vehicle's own speed, so
                     # this is deliberately generous rather than exact.
-                    scan_radius = max(
-                        15.0, self.critical_gap * self.circulating_speed * 2.0
-                    )
+                    scan_radius = max(15.0, required_gap * self.circulating_speed * 2.0)
 
                     for cv in circulating_vehicles:
                         # Ring the circulating vehicle is on; defaults to the
@@ -471,7 +516,7 @@ class RoundaboutController(BaseController):
                                 # inconsistency rather than papering over it.
                                 eff_speed = max(cv.speed, self.circulating_speed)
                                 time_gap = dist_along_circle / eff_speed
-                                if time_gap < self.critical_gap:
+                                if time_gap < required_gap:
                                     should_yield = True
                                     break
 
@@ -486,6 +531,15 @@ class RoundaboutController(BaseController):
                         self.time_in_current_state - last_entry < self.follow_up_time
                     ):
                         should_yield = True
+
+                    if not should_yield and (
+                        self._mouth_shared_with_long_vehicle(d, lane, active_vehicles)
+                        or self._yields_to_earlier_neighbour(approach, lane)
+                    ):
+                        should_yield = True
+
+                    if should_yield and self._committed_long_entry(lane):
+                        should_yield = False
 
                     if should_yield:
                         lane.virtual_obstacle = VirtualObstacle(position=lane.length)
@@ -514,6 +568,159 @@ class RoundaboutController(BaseController):
                     }
             except KeyError:
                 pass
+
+    def _committed_long_entry(self, lane: Any) -> bool:
+        """True while a long vehicle is part-way across this give-way line.
+
+        A vehicle moves onto its ring path when its *centre* reaches the
+        give-way line, but its front crosses half a length earlier. For a car
+        that window is short and ROUNDABOUT_ENTRY_SETBACK absorbs it: a car
+        stopped there protrudes at most 2.5 m, inside the 4 m setback. A
+        12 m bus protrudes up to 6 m — into the circulating lane. Re-judging
+        the gap every tick while its front was already in the ring made the
+        bus emergency-stop across the circulating lane whenever traffic came
+        into view, and the ring locked solid (30% heavy vehicles, 1.0 veh/s,
+        seed 13: one vehicle served in 240 s).
+
+        So, like a real driver, a long vehicle that has started to enter on
+        an accepted gap completes its entry: once its front is across the
+        line while the entry is open, the decision holds until it has left
+        the approach lane. Vehicles up to LONG_VEHICLE_THRESHOLD keep the
+        V1.0 behaviour exactly.
+        """
+        committed_id = self._committed_entry.get(lane.lane_id)
+        vehicles = lane.get_vehicles()
+        if committed_id is not None:
+            if any(v.vehicle_id == committed_id for v in vehicles):
+                return True
+            del self._committed_entry[lane.lane_id]
+        return False
+
+    @staticmethod
+    def _mouth_shared_with_long_vehicle(
+        direction: Direction, lane: Any, active_vehicles: List[Vehicle]
+    ) -> bool:
+        """True while this entry must wait for a long vehicle in its mouth.
+
+        A multi-lane entry's lanes share one mouth: the paths fan out to their
+        rings over the first ROUNDABOUT_ENTRY_SETBACK + ROUNDABOUT_TRANSITION_ARC
+        metres. Two cars fit through it side by side. A bus or truck does not:
+        a car turning onto the outer ring swung its tail across the nose of a
+        truck entering beside it for the inner ring, after which each was
+        blocking the other and the approach locked (30% heavy vehicles, two
+        lanes). Real long vehicles take the whole mouth while they swing in.
+
+        So while a vehicle from another lane of this approach is still in the
+        mouth, this lane waits if either that vehicle or the one at the head
+        of this lane is longer than the reference car. A vehicle already in
+        the mouth is never held by this, so it cannot form a cycle; pairs of
+        cars enter side by side exactly as in V1.0.
+        """
+        vehicles = lane.get_vehicles()
+        head = max(vehicles, key=lambda hv: hv.position, default=None)
+        if head is None:
+            return False
+        head_long = head.length > LONG_VEHICLE_THRESHOLD
+        lane_index = getattr(lane, "index", None)
+        for v in active_vehicles:
+            other = v.lane
+            if other is None or getattr(other, "approach", None) != direction:
+                continue
+            if getattr(other, "index", None) == lane_index:
+                continue
+            if not (head_long or v.length > LONG_VEHICLE_THRESHOLD):
+                continue
+            role = getattr(other, "role", "")
+            if role == "connection":
+                rear = v.position - v.length / 2.0
+                if rear < _MOUTH_LENGTH:
+                    return True
+            elif role == "incoming" and v.length > LONG_VEHICLE_THRESHOLD:
+                # A long vehicle already part-way across its give-way line.
+                if v.position + v.length / 2.0 >= other.length:
+                    return True
+        return False
+
+    @staticmethod
+    def _head_at_line(lane: Any) -> Any:
+        """The vehicle at the front of an entry lane if it is at the line."""
+        head = max(lane.get_vehicles(), key=lambda hv: hv.position, default=None)
+        if head is None:
+            return None
+        if lane.length - (head.position + head.length / 2.0) > _AT_LINE_DISTANCE:
+            return None
+        return head
+
+    def _note_heads_at_line(self) -> None:
+        """Record when each entry lane's front vehicle reached the line."""
+        now = self.time_in_current_state
+        present: Set[str] = set()
+        for d in Direction:
+            try:
+                lanes = self.network.get_incoming_approach(d).get_lanes()
+            except KeyError:
+                continue
+            for ln in lanes:
+                head = self._head_at_line(ln)
+                if head is not None:
+                    present.add(head.vehicle_id)
+                    self._at_line_since.setdefault(head.vehicle_id, now)
+        self._at_line_since = {
+            vid: t for vid, t in self._at_line_since.items() if vid in present
+        }
+
+    def _yields_to_earlier_neighbour(self, approach: Any, lane: Any) -> bool:
+        """True when a long vehicle is involved and another lane of this
+        approach has a vehicle that reached the line first.
+
+        A long vehicle swings its tail as it turns out of its lane: a bus
+        pulling out for the outer ring swept its rear across the next lane's
+        stop position and struck the bus waiting there. Holding the bus back
+        until the neighbour has gone would deadlock against
+        _mouth_shared_with_long_vehicle, which holds the neighbour while the
+        bus is in the mouth. Taking turns in the order the vehicles reached
+        the line resolves both: when a long vehicle is among the front
+        vehicles of an approach, they enter one at a time, first come first
+        served — no cycle can form and nobody is passed over indefinitely.
+        Pairs of cars are unaffected and enter side by side as in V1.0.
+        """
+        head = self._head_at_line(lane)
+        if head is None:
+            return False
+        mine = self._at_line_since.get(head.vehicle_id)
+        if mine is None:
+            return False
+        my_index = getattr(lane, "index", 0) or 0
+        for other_lane in approach.get_lanes():
+            if other_lane is lane:
+                continue
+            other = self._head_at_line(other_lane)
+            if other is None:
+                continue
+            if not (
+                head.length > LONG_VEHICLE_THRESHOLD
+                or other.length > LONG_VEHICLE_THRESHOLD
+            ):
+                continue
+            theirs = self._at_line_since.get(other.vehicle_id)
+            if theirs is None:
+                continue
+            other_index = getattr(other_lane, "index", 0) or 0
+            if theirs < mine or (theirs == mine and other_index < my_index):
+                return True
+        return False
+
+    def _note_long_entries(self, lane: Any) -> None:
+        """Latch a long vehicle whose front has crossed an open give-way line."""
+        if lane.virtual_obstacle is not None or lane.lane_id in self._committed_entry:
+            return
+        for v in lane.get_vehicles():
+            if (
+                v.length > LONG_VEHICLE_THRESHOLD
+                and v.position + v.length / 2.0 >= lane.length
+            ):
+                self._committed_entry[lane.lane_id] = v.vehicle_id
+                return
 
     def get_state(self) -> Dict[str, Any]:
         # Count circulating vehicles

@@ -42,6 +42,8 @@ import {
   type SessionRun,
 } from "./comparisonRun";
 import type { MetricDef } from "../../metrics/catalog";
+import { VehicleClassResults } from "./VehicleClassResults";
+import { describeMix, hasMixedTraffic } from "../../vehicles/vehicleClasses";
 
 const LOW_SAMPLE_NOTE =
   "Fewer than 20 vehicles got through on at least one side, so read the “1 in 20” and per-direction figures as rough.";
@@ -238,6 +240,11 @@ export function ResultsReport({
           <li>
             {config.lanes === 1 ? "1 lane" : `${String(config.lanes)} lanes`}{" "}
             per approach
+          </li>
+          <li>
+            {config.vehicleMix
+              ? `Mixed traffic: ${describeMix(config.vehicleMix)}`
+              : "Cars only"}
           </li>
           <li>{duration(config.duration)} of traffic</li>
           <li>Traffic pattern #{config.randomSeed}</li>
@@ -499,6 +506,11 @@ export function ResultsReport({
             </div>
           </section>
 
+          <VehicleClassResults
+            signal={ctx.signal.metrics?.vehicleTypeBreakdown}
+            roundabout={ctx.roundabout.metrics?.vehicleTypeBreakdown}
+          />
+
           <section className="results-section" aria-labelledby="r-why">
             <h2 id="r-why">Why did this happen?</h2>
             <div className="why-grid">
@@ -534,6 +546,7 @@ export function ResultsReport({
                   ctx.roundabout.metrics?.vehicleLimitReached,
                 ),
                 vehicleLimit: ctx.signal.metrics?.vehicleLimit ?? null,
+                mixedTraffic: hasMixedTraffic(config.vehicleMix),
               }).map((note) => (
                 <li key={note.text} className={`trust-${note.tone}`}>
                   {note.text}

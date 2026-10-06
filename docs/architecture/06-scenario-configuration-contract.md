@@ -82,11 +82,21 @@ The versioned API accepts this configuration over REST and validates it against 
 |---|-------|------|----------|---------|-------------|------------|
 | 1 | `approachLength` | `number` | ❌ | `200` | Length of each approach arm | > 50, ≤ 1000 meters |
 | 2 | `laneWidth` | `number` | ❌ | `3.5` | Width of each lane | > 2.5, ≤ 5.0 meters |
-| 3 | `lanesPerApproach` | `integer` | ❌ | `2` | Lane count applied to all four approaches | 1–4 (see `shared/schemas/config.schema.json`) |
+| 3 | `lanesPerApproach` | `integer` | ❌ | `2` | Lane count applied to every approach without its own `approaches[].lanes` | 1–4 (see `shared/schemas/config.schema.json`) |
 | 4 | `speedLimit` | `number` | ❌ | `13.89` | Speed limit on approach roads (50 km/h). Unless `vehicleGeneration.desiredSpeed` is set, each driver's desired speed is drawn from 85–105% of it (see §2.5). | > 0, ≤ 30 m/s (≈108 km/h) |
-| 5 | `approaches` | `array<ApproachConfig>` | ❌ | All 4 directions | Per-approach overrides. **Reserved — accepted and schema-validated, but not read by the engine**: every approach uses `lanesPerApproach` and no speed limit is applied. See below. | See below |
+| 5 | `approaches` | `array<ApproachConfig>` | ❌ | All 4 directions | Per-approach overrides. `lanes` is applied (V1.2); `speedLimit` is reserved. See below. | See below |
+| 6 | `laneChange` | `LaneChangeConfig` | ❌ | enabled | Lane changing on multi-lane approaches (V1.2). See below. | See below |
 
-> **Asymmetric lane counts — not yet part of this contract.** The versioned config schema (`shared/schemas/config.schema.json`, enforced on `POST /api/v1/configs/validate` and `POST /api/v1/simulations`) only accepts `lanesPerApproach` as a single integer shared by all four approaches. Internally, the legacy live dashboard routes (`backend/src/main.py`) and the simulation engine (`backend/src/roads/network.py`) already accept a per-direction object (`{"north": 2, "south": 3, ...}`), but that shape is an implementation detail of the live/interactive path, not a validated or documented versioned-API feature. Officially supporting asymmetric per-direction lane counts in the versioned contract — including the schema, Pydantic models, and any dependent metric formulas such as [Space/Footprint Consumed](07-metric-contract.md#61-space--footprint-consumed) — is planned future work, not current behavior.
+> **Per-approach lane counts (V1.2).** `approaches[].lanes` overrides `lanesPerApproach` for the approach it names (`roads.network.resolve_lanes_per_approach`); the dashboard sends the same thing as `lanesNorth`…`lanesWest`. **North and south must match, and east and west must match** (`config_validation._lane_count_errors`): each road carries the same lane count both ways, so through traffic from a wider approach would have to merge inside the junction, which the model does not represent (V1.0 locked up on north 1 / south 2). A two-lane main road crossing a one-lane side street is supported; the signal's junction box is square and sized to the widest road. A roundabout should keep one count on every approach: ring indexing for unequal counts is [V1.4](../ROADMAP.md#v14--advanced-roundabout-modelling) work. [Space/Footprint Consumed](07-metric-contract.md#61-space--footprint-consumed) uses the widest approach.
+
+#### LaneChangeConfig Object (V1.2)
+
+| # | Field | Type | Required | Default | Description | Validation |
+|---|-------|------|----------|---------|-------------|------------|
+| 1 | `enabled` | `boolean` | ❌ | `true` | Allow lane changes on multi-lane approaches | — |
+| 2 | `accelerationThreshold` | `number` | ❌ | `0.2` | MOBIL switching threshold Δa_th | ≥ 0, ≤ 2 m/s² |
+| 3 | `safeDeceleration` | `number` | ❌ | `4.0` | MOBIL safety limit b_safe: hardest braking a change may impose on the new follower | > 0, ≤ 9 m/s² |
+| 4 | `politeness` | `number` | ❌ | per class | Overrides every class's MOBIL politeness factor | 0–1 |
 
 > **`speedLimit` is applied (since 2026-09-25).** It sets the default
 > desired-speed range for both geometries (`src/vehicles/speed_profile.py`).
@@ -98,7 +108,7 @@ The versioned API accepts this configuration over REST and validates it against 
 | # | Field | Type | Required | Default | Description | Validation |
 |---|-------|------|----------|---------|-------------|------------|
 | 1 | `direction` | `string` | ✅ | — | Approach direction | enum: `north`, `south`, `east`, `west` |
-| 2 | `lanes` | `integer` | ❌ | Inherits from `lanesPerApproach` | Lane count for this approach. **Not applied** — asymmetric lane counts are not part of this contract (see the note above); the approach uses `lanesPerApproach`. | ≥ 1, ≤ 4 |
+| 2 | `lanes` | `integer` | ❌ | Inherits from `lanesPerApproach` | Lane count for this approach (V1.2; must equal the opposite approach's). | ≥ 1, ≤ 4 |
 | 3 | `speedLimit` | `number` | ❌ | Inherits from `roads.speedLimit` | Speed limit for this approach. Not applied (see `roads.speedLimit`). | > 0 m/s |
 
 ### 2.5 `vehicleGeneration` — Vehicle Properties
@@ -114,6 +124,10 @@ The versioned API accepts this configuration over REST and validates it against 
 | 7 | `desiredTimeHeadway` | `number` | ❌ | `1.5` | Desired following time headway | > 0 seconds |
 | 8 | `idmDelta` | `number` | ❌ | `4` | IDM acceleration exponent | > 0 |
 | 9 | `maxLateralAcceleration` | `number` | ❌ | `3.0` | Lateral-acceleration limit on every curved path (signal turns, roundabout entry, ring and exit): a vehicle's speed on a curve of radius R is at most √(a·R), and it brakes for the curve at `comfortDeceleration` | > 0, ≤ 8 m/s² |
+| 10 | `vehicleMix` | `object` | ❌ | absent | V1.1 share of arrivals per class: `car`, `suv`, `bus`, `truck`, `motorcycle`. **Absent: every vehicle is the V1.0 car, drawn exactly as before.** | each 0–1, sum 1 (±0.01), at least one > 0, no other keys |
+| 11 | `vehicleTypes` | `object` | ❌ | class defaults | V1.1 per-class overrides, keyed by class: `length`, `width`, `desiredSpeedFactor` (`{min,max}`, the last as a fraction of `roads.speedLimit`); `maxAcceleration`, `comfortDeceleration`, `desiredTimeHeadway`, `minimumGap`, `idmDelta`, `maxLateralAcceleration` (≤ 8), `laneChangeDuration` (≤ 15 s), `laneChangeMinDistance` (≤ 100 m), `politeness` (0–1) | ranges `max ≥ min`; no other keys |
+
+> **Fields 1–9 describe the car.** In a mixed population the `car` class is exactly the vehicle fields 1–9 define; the other classes use the defaults in [methodology §5.4](../simulation/methodology.md#54-vehicle-classes-v11), overridable through `vehicleTypes`. With an explicit `desiredSpeed`, each class keeps its speed ratio to the car.
 
 ### 2.6 `controller` — Controller-Specific Configuration
 
@@ -378,7 +392,9 @@ If none of a duration's names are present, the hardcoded fallback (30 / 5 / 4 / 
 | Sum-to-one | `turnProbabilities` values | Must sum to 1.0 (±0.01 tolerance) |
 | Cross-field | `warmupTime < duration` | Warmup cannot exceed total duration. Applied to an explicitly supplied `warmupTime`; a run relying on the 30 s default is not rejected (its metrics simply stay in warm-up). |
 | Cross-field | `outerRadius > innerRadius` | Roundabout outer must exceed inner (an explicit radius is also checked against the other's default) |
-| Cross-field | `vehicleGeneration` ranges | `max ≥ min` for `vehicleLength`, `vehicleWidth`, `desiredSpeed` |
+| Cross-field | `vehicleGeneration` ranges | `max ≥ min` for `vehicleLength`, `vehicleWidth`, `desiredSpeed` and every `vehicleTypes` range |
+| Sum-to-one | `vehicleMix` values | Known classes only, each ≥ 0, at least one > 0, sum 1.0 (±0.01) |
+| Cross-field | lane counts | North = south and east = west, after `approaches[].lanes` overrides |
 | Not implemented | `arrivalDistribution: "burst"` | In the enum, but rejected with 400 until the spawner implements it |
 | Finite numbers | All numeric fields | NaN / ±Infinity are rejected (they pass JSON-schema bounds) |
 | Controller match | `controller` fields | **Not enforced, by design of the current model.** `ControllerSection` is a single merged model that carries defaults for both controllers (e.g. `innerRadius` and `greenTime` are always present after validation on the typed route), and the dashboard and study presets send one mixed block. Each controller reads only its own keys and ignores the rest, so a mismatched key has no effect. Enforcing this would reject every typed-route config; it needs a split controller model first. |

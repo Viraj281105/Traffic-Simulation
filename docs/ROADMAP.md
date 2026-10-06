@@ -1,14 +1,14 @@
 # UrbanFlow Roadmap
 
 > **This is the single authoritative roadmap.** It supersedes every earlier roadmap, deferred-features log and V1.1/V2/V3 plan in this repository (preserved in git history).
-> **Current version:** V1.0 — **COMPLETE** (demo and recording finished) · **Next:** V1.1 and V1.2 · **Last updated:** 2026-10-05
+> **Current version:** V1.2 — V1.1 (vehicle types) and V1.2 (lane modelling) **COMPLETE**, delivered together · **Next:** V1.3 · **Last updated:** 2026-10-06
 > **Beyond V2.0:** [Future Scope](future-scope/future_scope.md) — post-V2.0 research frontiers only.
 
 | Status | Meaning |
 | --- | --- |
 | ✅ **COMPLETE** | Shipped, documented, tested |
-| 🟢 **CURRENT** | The version in use today (V1.0) |
-| 🔜 **PLANNED / UPCOMING** | Next in line; work starts imminently (V1.1, V1.2) |
+| 🟢 **CURRENT** | The version in use today (V1.2) |
+| 🔜 **PLANNED / UPCOMING** | Next in line; work starts imminently (V1.3) |
 | 🗓️ **PLANNED** | Scheduled in the V1.x → V2.0 roadmap |
 | 🔭 **FUTURE SCOPE** | After V2.0 — not part of this roadmap |
 
@@ -94,9 +94,9 @@ gantt
     axisFormat %b %d
     section Complete
     V1.0 Finalisation & Demo                 :done,    v10, 2026-10-02, 4d
+    V1.1 Different Vehicle Types             :done,    v11, 2026-10-05, 2d
+    V1.2 Advanced Lane Modelling             :done,    v12, 2026-10-05, 2d
     section Upcoming
-    V1.1 Different Vehicle Types             :active,  v11, 2026-10-06, 7d
-    V1.2 Advanced Lane Modelling             :         v12, 2026-10-13, 7d
     section Planned
     V1.3 Adaptive Signal Control             :         v13, 2026-10-20, 8d
     V1.4 Advanced Roundabout Modelling       :         v14, 2026-10-28, 8d
@@ -110,8 +110,8 @@ gantt
 | Week | Dates | Version | Theme | Status |
 | --- | --- | --- | --- | --- |
 | W11 | Oct 2 – Oct 5 | V1.0 | Finalisation & Demo | ✅ COMPLETE |
-| W12 | Oct 6 – Oct 12 | V1.1 | Different Vehicle Types | 🔜 PLANNED / UPCOMING |
-| W13 | Oct 13 – Oct 19 | V1.2 | Advanced Lane Modelling | 🔜 PLANNED / UPCOMING |
+| W12 | Oct 5 – Oct 6 | V1.1 | Different Vehicle Types | ✅ COMPLETE (with V1.2) |
+| W12 | Oct 5 – Oct 6 | V1.2 | Advanced Lane Modelling | ✅ COMPLETE (with V1.1) |
 | W14 | Oct 20 – Oct 27 | V1.3 | Adaptive Signal Control | 🗓️ PLANNED |
 | W15 | Oct 28 – Nov 4 | V1.4 | Advanced Roundabout Modelling | 🗓️ PLANNED |
 | W16 | Nov 5 – Nov 12 | V1.5 | Real-World Junction Modelling | 🗓️ PLANNED |
@@ -126,7 +126,7 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 
 ### V1.1 — Different Vehicle Types
 
-**W12 · Oct 6 – Oct 12 · 🔜 PLANNED / UPCOMING**
+**✅ COMPLETE · delivered with V1.2 on 2026-10-06**
 
 **Goal:** introduce heterogeneous traffic.
 
@@ -137,13 +137,15 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 | Engine | Spawning · simulation logic · validation |
 | Presentation | Vehicle representation · configuration UI · legends / visual differentiation |
 
-**V1.0 starting point:** one passenger-car population; length `U(4.0, 5.0)` m, width `U(1.8, 2.2)` m and desired speed are randomised per vehicle, but IDM parameters (`a`, `b`, `T`, `s₀`, `δ`) are shared by all vehicles (`vehicleGeneration.*`).
+**Delivered:** five vehicle classes — car, SUV, bus, truck, motorcycle — each with its own dimensions, IDM parameters (a, b, T, s₀), desired-speed range, cornering limit and lane-change behaviour (`backend/src/vehicles/vehicle_types.py`); `vehicleGeneration.vehicleMix` and `vehicleTypes` in the schema; type-aware seeded spawning; long-vehicle handling (axle-chord body pose, length-aware conflict zones, design-vehicle signal geometry, roundabout gap allowance and entry commitment); a per-class metric breakdown; a "What traffic uses the junction?" question, an advanced mix editor, class-specific map sprites, legends and a per-class results table. Without a mix, single-lane runs reproduce V1.0 bit for bit. Mixed results are exploratory (not calibrated). See [methodology §5.4](simulation/methodology.md#54-vehicle-classes-v11).
+
+**V1.0 starting point (for reference):** one passenger-car population; length `U(4.0, 5.0)` m, width `U(1.8, 2.2)` m and desired speed are randomised per vehicle, but IDM parameters (`a`, `b`, `T`, `s₀`, `δ`) are shared by all vehicles (`vehicleGeneration.*`).
 
 ---
 
 ### V1.2 — Advanced Lane Modelling
 
-**W13 · Oct 13 – Oct 19 · 🔜 PLANNED / UPCOMING**
+**✅ COMPLETE · delivered with V1.1 on 2026-10-06**
 
 **Goal:** move beyond single-lane assumptions.
 
@@ -154,7 +156,9 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 | Quality | Physics and regression tests |
 | Presentation | Lane configuration UI · visualisation · user controls |
 
-**V1.0 starting point:** 1–4 lanes per approach exist, but the calibrated comparison is one lane; a vehicle's lane is fixed at spawn by turn intent (left / straight / right policy); there is no lane changing; the versioned schema accepts only one lane count for all approaches.
+**Delivered:** explicit lane identity and one lane-use policy (`RoadNetwork.permitted_turns`, narrowed by the signal plan where its heads demand it); per-approach lane counts via `roads.approaches[].lanes` (opposite approaches must match); MOBIL lane changing carried out as gradual, distance-based manoeuvres with shadow occupancy of both lanes, safety checks against each vehicle's own IDM, mandatory changes and missed-turn fallback (`backend/src/vehicles/lane_change.py`); `roads.laneChange` settings; lane arrows, lane-change indicators, a lane-changing switch and side-street lanes in the signal research view. V1.0's undocumented single-tick lane jump is gone. See [methodology §4 and §6.1](simulation/methodology.md#61-lane-changing-v12).
+
+**V1.0 starting point (for reference):** 1–4 lanes per approach exist, but the calibrated comparison is one lane; a vehicle's lane is fixed at spawn by turn intent (left / straight / right policy); there is no lane changing; the versioned schema accepts only one lane count for all approaches.
 
 ---
 
@@ -274,8 +278,8 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 | Same-seed signal vs roundabout comparison | ✅ | ● | ● | ● | ● | ● | ● | ● | ● | ◆ |
 | Plain-language results & reliability check | ✅ | ● | ● | ● | ● | ● | ● | ● | ● | ◆ |
 | Reproducible saved runs | ✅ | ● | ● | ● | ● | ● | ● | ● | ● | ◆ |
-| Heterogeneous vehicles | — | ▲ | ● | ● | ● | ● | ● | ● | ● | ◆ |
-| Multi-lane traffic & lane changes | partial | | ▲ | ● | ● | ● | ● | ● | ● | ◆ |
+| Heterogeneous vehicles | — | ✅ | ● | ● | ● | ● | ● | ● | ● | ◆ |
+| Multi-lane traffic & lane changes | partial | | ✅ | ● | ● | ● | ● | ● | ● | ◆ |
 | Adaptive signal control | — | | | ▲ | ● | ● | ● | ● | ● | ◆ |
 | Multi-lane roundabout circulation | exploratory | | | | ▲ | ● | ● | ● | ● | ◆ |
 | Real-world junction layouts | — | | | | | ▲ | ● | ● | ● | ◆ |

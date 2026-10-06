@@ -1,0 +1,104 @@
+/* Vehicle-class legend (V1.1) and traffic-mix bar. */
+
+.vehicle-mix-bar {
+  display: flex;
+  width: 100%;
+  height: 8px;
+  margin: 6px 0 4px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-3);
+}
+
+.vehicle-mix-bar__part {
+  flex-basis: 0;
+  min-width: 3px;
+}
+
+.vehicle-mix-bar__part + .vehicle-mix-bar__part {
+  box-shadow: inset 1px 0 0 var(--color-bg);
+}
+
+.vehicle-legend {
+  position: absolute;
+  left: 22px;
+  bottom: 22px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  max-width: calc(100% - 44px);
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(12px) saturate(var(--glass-saturate));
+  backdrop-filter: blur(12px) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight);
+  color: var(--color-text-2);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.vehicle-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.vehicle-legend__count {
+  color: var(--color-text-3);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Swatch shapes echo the map sprites: long for buses and trucks, narrow
+   for motorcycles. */
+.vehicle-legend__swatch {
+  display: inline-block;
+  width: 7px;
+  height: 12px;
+  border-radius: 2px;
+  border: 1px solid rgba(23, 32, 39, 0.8);
+}
+
+.vehicle-legend__swatch.is-bus,
+.vehicle-legend__swatch.is-truck {
+  height: 16px;
+}
+
+.vehicle-legend__swatch.is-motorcycle {
+  width: 4px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.vehicle-legend__blink {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ffb703;
+  animation: vehicle-legend-blink 0.66s steps(1, end) infinite;
+}
+
+@keyframes vehicle-legend-blink {
+  50% {
+    opacity: 0.15;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vehicle-legend__blink {
+    animation: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .vehicle-legend {
+    left: 12px;
+    bottom: 12px;
+    max-width: calc(100% - 24px);
+    font-size: 11px;
+  }
+}

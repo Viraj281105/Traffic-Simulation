@@ -45,10 +45,12 @@ function ctx(
 }
 
 // Keys the collector emits that are context for other metrics rather than
-// metrics themselves (thresholds, applicability, sample-size flag, and the
-// per-approach queue shown as bars).
+// metrics themselves (thresholds, applicability, sample-size flag, the
+// per-approach queue shown as bars, and the per-vehicle-class breakdown of
+// the headline metrics shown as its own table — VehicleClassResults).
 const CONTEXT_KEYS = new Set([
   "currentQueueLengths",
+  "vehicleTypeBreakdown",
   "travelTimeReliabilityLowSampleSize",
   "ttcThresholdSeconds",
   "petThresholdSeconds",

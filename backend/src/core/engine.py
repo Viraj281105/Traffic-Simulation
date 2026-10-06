@@ -13,11 +13,15 @@ from typing import Any, Callable, Dict, List, Optional
 
 from src.core.clock import Clock
 from src.core.enums import SimulationStatus
-from src.intersection.conflict_manager import ConflictManager
-from src.roads.network import RoadNetwork
+from src.intersection.conflict_manager import (
+    ConflictManager,
+    conflict_clearance_for,
+)
+from src.roads.network import RoadNetwork, resolve_lanes_per_approach
 from src.vehicles.idm import IntelligentDriverModel
 from src.vehicles.pool import VehiclePool
 from src.vehicles.spawner import VehicleSpawner
+from src.vehicles.vehicle_types import design_vehicle_allowance
 
 logger = logging.getLogger(__name__)
 
@@ -61,20 +65,28 @@ class SimulationEngine:
             inner_radius = ctrl_cfg.get("innerRadius", 10.0)
             outer_radius = ctrl_cfg.get("outerRadius", 20.0)
 
+            allowance = design_vehicle_allowance(self.config)
             self.network.setup_default_intersection(
                 approach_length=road_cfg.get("approachLength", 200.0),
                 lane_width=road_cfg.get("laneWidth", 3.5),
-                lanes_per_approach=road_cfg.get("lanesPerApproach", 2),
+                lanes_per_approach=resolve_lanes_per_approach(road_cfg),
                 is_roundabout=is_roundabout,
                 inner_radius=inner_radius,
                 outer_radius=outer_radius,
+                design_vehicle_allowance=allowance,
             )
 
             # Register all connection lanes with the conflict manager and
             # pre-compute crossing points
             for conn_lane in self.network.get_all_connection_lanes():
                 self.conflict_manager.register_connection_lane(conn_lane)
-            self.conflict_manager.compute_conflict_points()
+            self.conflict_manager.compute_conflict_points(
+                conflict_clearance_for(allowance)
+            )
+            # Committed vehicles merge onto a shared exit lane in physical
+            # order on junctions laid out for long vehicles (see
+            # ConflictManager._holder_behind_on_merge).
+            self.conflict_manager.merge_in_position_order = allowance > 0
 
             logger.info(
                 "ConflictManager initialized: %d connection lanes, %d conflict points",

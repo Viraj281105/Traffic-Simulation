@@ -35,7 +35,17 @@ export interface SnapshotVehicle {
   spawnTime: number;
   exitTime: number | null;
   distanceTraveled: number;
+  /** V1.1 vehicle class ("car" when the scenario has no mix). Optional
+   *  because snapshots from older backends and saved replays omit it. */
+  vehicleType?: VehicleClass;
+  /** V1.2 lane index across the approach (0 next to the centreline). */
+  laneIndex?: number | null;
+  /** V1.2 side of a lane change in progress (driver's view), else null. */
+  laneChange?: "left" | "right" | null;
 }
+
+/** Vehicle classes the backend simulates (V1.1). */
+export type VehicleClass = "car" | "suv" | "bus" | "truck" | "motorcycle";
 
 // ── Signal / Controller state ──────────────────────────────────────────────
 
@@ -103,6 +113,8 @@ export interface Approach {
   direction: SignalDirection;
   queueLength: number;
   laneCount: number;
+  /** V1.2: movements permitted from each incoming lane, lane 0 first. */
+  lanePermittedTurns?: ("left" | "straight" | "right")[][];
 }
 
 export interface IntersectionState {
@@ -111,6 +123,24 @@ export interface IntersectionState {
   centerY: number;
   boundingRadius: number;
   approaches: Approach[];
+  /** V1.1: conflict area to stop line (m); grows with the longest vehicle
+   *  class in the mix (design-vehicle geometry). 3.5 when absent. */
+  stopLineSetback?: number;
+}
+
+/** V1.1 per-class results (same delays as averageDelay). */
+export interface VehicleTypeResult {
+  exited: number;
+  share: number;
+  averageDelay: number;
+  active: number;
+}
+
+/** V1.2 lane-model counters for the run so far. */
+export interface LaneModelState {
+  laneChanges: number;
+  laneChangesInProgress: number;
+  missedTurns: number;
 }
 
 // ── Running metrics ────────────────────────────────────────────────────────
@@ -199,6 +229,8 @@ export interface RunningMetrics {
   petThresholdSeconds?: number;
   /** False where PET is not measured at all (roundabout geometry). */
   petApplicable?: boolean;
+  /** V1.1: served vehicles, share and mean delay per vehicle class. */
+  vehicleTypeBreakdown?: Partial<Record<VehicleClass, VehicleTypeResult>>;
 }
 
 // ── Vehicle counts ─────────────────────────────────────────────────────────
@@ -242,6 +274,8 @@ export interface LiveSnapshot {
   metrics: RunningMetrics;
   vehicleCounts: VehicleCounts;
   simulationStatus: SimulationStatus;
+  /** V1.2 lane-model counters; absent from older snapshots. */
+  laneModel?: LaneModelState;
 }
 
 export interface DualSnapshot {

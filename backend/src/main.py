@@ -1347,6 +1347,29 @@ def _compile_dashboard_config(payload: Dict[str, Any], seed_val: int) -> Dict[st
             status_code=400, detail=f"Invalid configuration: {exc}"
         ) from exc
 
+    # V1.1: an optional vehicle-class mix ({class: share}). Omitted or null
+    # keeps the calibrated single-car population exactly as before. Shares
+    # are passed through as given; the schema bounds them and
+    # semantic_config_errors checks they sum to 1, below.
+    vehicle_mix = payload.get("vehicleMix")
+    if vehicle_mix is not None:
+        if not isinstance(vehicle_mix, dict):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid configuration: vehicleMix must be an object of "
+                "vehicle class shares",
+            )
+        config["vehicleGeneration"]["vehicleMix"] = dict(vehicle_mix)
+    # V1.2: lane changing on multi-lane approaches (default on).
+    lane_changing = payload.get("laneChanging")
+    if lane_changing is not None:
+        if not isinstance(lane_changing, bool):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid configuration: laneChanging must be true or false",
+            )
+        config["roads"]["laneChange"] = {"enabled": lane_changing}
+
     # The coercions above only reject values that are not numbers at all.
     # Range checks were missing entirely, so lanesNorth=0 or -1, a negative or
     # NaN arrivalRate, a negative yellow/all-red or a negative critical gap

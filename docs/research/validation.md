@@ -109,10 +109,10 @@ flowchart LR
 
 | # | Limitation | Consequence | Status |
 | --- | --- | --- | --- |
-| K1 | **Multi-lane roundabout** uses concentric rings without spiral lane assignment; inner-ring exits cross outer rings | Multi-lane runs are not collision-free across the whole demand range (5 low-speed contacts in 54 runs, 2026-09-25 matrix). Results with > 1 lane are **exploratory** and labelled so. | Scheduled: [V1.4](../ROADMAP.md#v14--advanced-roundabout-modelling) |
+| K1 | **Multi-lane roundabout** uses concentric rings without spiral lane assignment; inner-ring exits cross outer rings | Multi-lane runs are not collision-free across the whole demand range (5 low-speed contacts in 54 runs, 2026-09-25 matrix; with V1.1 mixed traffic, 2 in 32 multi-lane roundabout runs, both 3 lanes at 1.0 veh/s and both this weave — 2026-10-06 sweep). At 3,600 veh/h with 30 % buses and trucks a three-ring roundabout can also lock in a cross-ring wait (inner-ring exits held by stopped outer-ring traffic); the same seed with cars only flows. Both are the missing spiral lane assignment. Results with > 1 lane are **exploratory** and labelled so. | Scheduled: [V1.4](../ROADMAP.md#v14--advanced-roundabout-modelling) |
 | K2 | **One-lane signal is conservative**: one shared lane, permissive lefts, no turn bay | A waiting left-turner holds the only lane; maximum served flow sits below HCM shared-lane practice | Model scope; lane modelling in [V1.2](../ROADMAP.md#v12--advanced-lane-modelling) |
-| K3 | **No lane changing** — lane chosen at spawn by turn intent | Approaches cannot rebalance | [V1.2](../ROADMAP.md#v12--advanced-lane-modelling) |
-| K4 | **Homogeneous passenger-car fleet** | No buses, trucks or bikes | [V1.1](../ROADMAP.md#v11--different-vehicle-types) |
+| K3 | ~~No lane changing~~ — **resolved in V1.2**: gradual MOBIL lane changing on approaches. Remaining: no lane drops/merges inside the junction (opposite approaches must have equal lane counts); motorcycles do not filter between lanes | Through traffic rebalances across permitted lanes; uneven opposite approaches are rejected rather than simulated | Lane drops: [V1.5](../ROADMAP.md#v15--real-world-junction-modelling) |
+| K4 | ~~Homogeneous passenger-car fleet~~ — **resolved in V1.1**: car, SUV, bus, truck, motorcycle. Remaining: class parameters are literature-ordered model inputs, not calibrated; no articulated vehicles; at most 12 m | Mixed-traffic results are **exploratory** and labelled so (`calibration.mixedTraffic`) | Calibration: [V1.8/V1.9](../ROADMAP.md#v18--v19--calibration--network-level-foundations) |
 | K5 | **Fixed-time signals only** | No actuated/adaptive comparison | [V1.3](../ROADMAP.md#v13--adaptive-signal-control) |
 | K6 | **Abstract four-leg geometry** | Not a specific real junction | [V1.5](../ROADMAP.md#v15--real-world-junction-modelling) |
 | K7 | **Safety measures are exploratory**; no crash-risk model; no emissions | Safety is shown only as model-integrity cautions | [V1.6](../ROADMAP.md#v16--safety--environmental-analysis) |
@@ -121,6 +121,10 @@ flowchart LR
 | K10 | **Live comparison runs at 1× real time** | A 10-minute scenario takes 10 minutes to watch ("See results so far" mitigates) | Not scheduled |
 | K11 | **Delay includes geometric slowing** (curve and entry speed limits) | Delay ≠ time spent stopped; `averageWaitTime` reports the latter in the specialist layer | By design |
 | K12 | **`ConflictManager` stores one conflict point per lane pair; precomputation is O(n²)** | Adequate for one junction; not a network-scale design | See [V1 known limitations §6–7](../reports/v1-known-limitations.md) |
+| K13 | **Long-vehicle rules are gated at 5 m** (V1.1): the axle-chord body pose, the length-aware conflict and emergency checks, roundabout entry commitment, shared-mouth and first-come-first-served entry at multi-lane roundabouts, and the ring exit test apply only to pairs involving a vehicle longer than the reference car | Cars-only runs reproduce V1.0 exactly (pinned by test), at the price of keeping two V1.0 approximations for cars: the ring leader search can brake an exiting car for a vehicle beyond its exit, and the car emergency check uses centre points | Cars: [V1.4](../ROADMAP.md#v14--advanced-roundabout-modelling) |
+| K14 | **Design-vehicle geometry** (V1.1): with buses or trucks in the mix, signal stop lines move back by the longest class's extra length | A mixed scenario's signal is a larger junction than its cars-only counterpart, as on real bus/freight routes; compare mixes, not geometries | By design |
+| K15 | **Lane changing costs time compared with V1.0** (V1.2): on multi-lane signals at moderate demand, mean delay is 3–5 s higher than V1.0, whose lane change was an instantaneous 3.5 m jump. Against no lane changing at all, MOBIL serves more vehicles at the same delay | Multi-lane absolute numbers differ from V1.0 (multi-lane was already exploratory); no collision or gridlock regression (48 paired runs, 2026-10-05) | By design |
+| K16 | **Merge order is physical only on design-vehicle junctions** (V1.1): two committed vehicles converging on one exit lane merge nearest-first when the junction is laid out for long vehicles; cars-only junctions keep V1.0's reservation order | A V1.0 merge deadlock (two vehicles in the box each waiting for the other) is removed for mixed traffic but kept, rarely triggered, for cars only to preserve V1.0 results | Cars: [V1.5](../ROADMAP.md#v15--real-world-junction-modelling) |
 
 The per-item audit with mechanisms and re-measurements is [V1 known limitations](../reports/v1-known-limitations.md).
 
@@ -132,8 +136,8 @@ Items below strengthen *evidence*; each belongs to a roadmap milestone rather th
 
 | Work | Milestone |
 | --- | --- |
-| Validation of heterogeneous vehicle behaviour and its effect on capacity | V1.1 |
-| Physics and regression tests for lane changes | V1.2 |
+| Validation of heterogeneous vehicle behaviour and its effect on capacity | V1.1 — **done for safety and determinism** (zero collisions / no gridlock across 28 heavy-mix runs at 30 % buses and trucks; exact replay); capacity effects remain exploratory until calibrated (K4) |
+| Physics and regression tests for lane changes | V1.2 — **done** (`tests/vehicles/test_lane_change.py`, `tests/integration/test_vehicle_types_and_lanes.py`) |
 | Adaptive-control experiments with validation against fixed-time | V1.3 |
 | Collision validation of multi-lane circulation (removes K1) | V1.4 |
 | Validated safety proxies; emissions where scientifically supportable | V1.6 |

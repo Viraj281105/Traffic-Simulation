@@ -11,12 +11,19 @@ are not collision-free across the whole demand range (about one contact per
 ten multi-lane runs, 2026-09-25 matrix). Results for more lanes are therefore
 exploratory.
 
+The calibration was also measured with passenger cars only. A mixed vehicle
+population (V1.1 ``vehicleGeneration.vehicleMix``) uses class parameters that
+are model inputs, not calibrated ones, so a mixed run is exploratory too.
+
 Every study output (sweep, Monte Carlo validation, report) carries this
-status so a consumer can never mistake an exploratory multi-lane result for
-the calibrated baseline.
+status so a consumer can never mistake an exploratory result for the
+calibrated baseline.
 """
 
 from typing import Any, Dict, List
+
+from src.roads.network import lane_counts, resolve_lanes_per_approach
+from src.vehicles.vehicle_types import configured_mix
 
 CALIBRATED_LANES_PER_APPROACH = 1
 
@@ -34,6 +41,12 @@ EXPLORATORY_NOTE = (
     "inner ring cross the outer ring without lane markings, and multi-lane "
     "runs are not collision-free across the whole demand range. Read the "
     "results as indicative; do not treat them as the calibrated baseline."
+)
+MIXED_TRAFFIC_NOTE = (
+    "Exploratory, not calibrated: mixed vehicle classes. The bus, truck, SUV "
+    "and motorcycle parameters are literature-ordered model inputs, not "
+    "values calibrated against observed traffic; the calibrated comparison "
+    "is cars only. Read the results as indicative."
 )
 
 # Reference capacity (veh/h, whole junction) per lane count: the mean of the
@@ -62,24 +75,35 @@ def demand_vph(level: str, lanes: int) -> int:
 
 
 def _lane_counts(config: Dict[str, Any]) -> Dict[str, int]:
-    roads = config.get("roads") or {}
-    lanes = roads.get("lanesPerApproach", ENGINE_DEFAULT_LANES_PER_APPROACH)
-    if isinstance(lanes, dict):
-        return {
-            d: int(lanes.get(d, ENGINE_DEFAULT_LANES_PER_APPROACH))
-            for d in ("north", "south", "east", "west")
-        }
-    return {d: int(lanes) for d in ("north", "south", "east", "west")}
+    roads = dict(config.get("roads") or {})
+    roads.setdefault("lanesPerApproach", ENGINE_DEFAULT_LANES_PER_APPROACH)
+    return lane_counts(resolve_lanes_per_approach(roads))
+
+
+def _mixed_traffic(config: Dict[str, Any]) -> bool:
+    """True when the run has vehicles other than the reference car."""
+    mix = configured_mix(config)
+    return mix is not None and any(
+        share > 0 for cls, share in mix.items() if cls != "car"
+    )
 
 
 def calibration_status(config: Dict[str, Any]) -> Dict[str, Any]:
-    """{calibrated, lanesPerApproach, note} for a study configuration."""
+    """{calibrated, lanesPerApproach, mixedTraffic, note} for a study config."""
     lanes = _lane_counts(config)
-    calibrated = all(n == CALIBRATED_LANES_PER_APPROACH for n in lanes.values())
+    single_lane = all(n == CALIBRATED_LANES_PER_APPROACH for n in lanes.values())
+    mixed = _mixed_traffic(config)
+    if not single_lane:
+        note = EXPLORATORY_NOTE
+    elif mixed:
+        note = MIXED_TRAFFIC_NOTE
+    else:
+        note = CALIBRATED_NOTE
     return {
-        "calibrated": calibrated,
+        "calibrated": single_lane and not mixed,
         "lanesPerApproach": lanes,
-        "note": CALIBRATED_NOTE if calibrated else EXPLORATORY_NOTE,
+        "mixedTraffic": mixed,
+        "note": note,
     }
 
 

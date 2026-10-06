@@ -15,6 +15,9 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, List, TypeGuard, Union
 
+from src.roads.network import lane_counts, resolve_lanes_per_approach
+from src.vehicles.vehicle_types import vehicle_mix_errors
+
 # §5: "Must sum to 1.0 (±0.01 tolerance)".
 SUM_TO_ONE_TOLERANCE: float = 0.01
 
@@ -111,12 +114,45 @@ def semantic_config_errors(config: Dict[str, Any]) -> List[str]:
                     f"min ({rng['min']:g})"
                 )
 
+    errors.extend(vehicle_mix_errors(config))
+    errors.extend(_lane_count_errors(config))
+
     # NaN compares false against every bound, so it slips through each of the
     # schema's minimum/maximum checks; infinity passes any one-sided bound.
     errors.extend(
         f"{path} must be a finite number" for path in _non_finite_paths(config, "")
     )
 
+    return errors
+
+
+def _lane_count_errors(config: Dict[str, Any]) -> List[str]:
+    """Opposite approaches must have the same number of lanes.
+
+    Each road carries the same number of lanes in both directions, so through
+    traffic from an approach with more lanes than the road opposite would
+    have to merge inside the junction (a lane drop). The model has no merge
+    behaviour there: the two through paths converge on one exit lane and the
+    vehicles meeting at the merge wait on each other indefinitely (V1.0,
+    north 1 / south 2 / east 1 / west 2: 14 of 171 vehicles got through in
+    240 s). Different counts on the two crossing roads — a two-lane main road
+    meeting a one-lane side street — are fully supported.
+    """
+    roads = _section(config, "roads")
+    if not roads:
+        return []
+    try:
+        counts = lane_counts(resolve_lanes_per_approach(roads))
+    except (TypeError, ValueError):
+        return []  # shape errors are the schema's job
+    errors: List[str] = []
+    for a, b in (("north", "south"), ("east", "west")):
+        if counts[a] != counts[b]:
+            errors.append(
+                f"{a} and {b} approaches must have the same number of lanes "
+                f"(got {counts[a]} and {counts[b]}): through traffic cannot "
+                "merge inside the junction in this model"
+            )
     return errors
 
 

@@ -5,6 +5,7 @@ import {
   ROUNDABOUT_SPLITTER_HALF_WIDTH,
   roundaboutCarriagewayEdge,
   roundaboutGiveWayRadius,
+  roundaboutLaneCentres,
   roundaboutLaneDividers,
   roundaboutRingDividers,
   mapScale,
@@ -15,7 +16,9 @@ import {
   paintIslandPlanting,
   roundaboutEnvironment,
 } from "./mapEnvironment";
-import { SnapshotInterpolator, type VehiclePose } from "./snapshotInterpolator";
+import { SnapshotInterpolator } from "./snapshotInterpolator";
+import { drawLaneArrows } from "./laneMarkings";
+import { drawVehicleSprite } from "../vehicles/vehicleSprites";
 
 interface RoundaboutMapProps {
   snapshot: LiveSnapshot | null;
@@ -216,9 +219,19 @@ export const RoundaboutMap: React.FC<RoundaboutMapProps> = ({
         environment,
       );
       drawEntryYieldSigns(ctx, toCanvas, giveWay, edge);
+      drawLaneArrows(
+        ctx,
+        current.intersection.approaches,
+        (_direction, count) => roundaboutLaneCentres(count, laneWidth),
+        giveWay + 5.5,
+        scale,
+        toCanvas,
+      );
 
+      const now = performance.now();
       for (const pose of frame.vehicles) {
-        drawRoundaboutVehicle(ctx, pose, toCanvas, scale);
+        const [vx, vy] = toCanvas(pose.x, pose.y);
+        drawVehicleSprite(ctx, pose.vehicle, vx, vy, pose.heading, scale, now);
       }
 
       if (debug) drawDebugLabel(ctx, current, width);
@@ -401,61 +414,6 @@ function drawWorldLine(
   ctx.moveTo(a, b);
   ctx.lineTo(c, d);
   ctx.stroke();
-}
-
-function carColor(id: string): string {
-  const palette = [
-    "#4d96ff",
-    "#f8961e",
-    "#43aa8b",
-    "#e76f51",
-    "#c77dff",
-    "#f9c74f",
-  ];
-  let hash = 0;
-  for (const character of id)
-    hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
-  return palette[hash % palette.length];
-}
-
-function drawRoundaboutVehicle(
-  ctx: CanvasRenderingContext2D,
-  pose: VehiclePose,
-  toCanvas: (x: number, y: number) => [number, number],
-  scale: number,
-) {
-  const { vehicle } = pose;
-  const [cx, cy] = toCanvas(pose.x, pose.y);
-  const length = Math.max(4.5, vehicle.length) * scale;
-  const width = Math.max(2, vehicle.width) * scale;
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate((pose.heading * Math.PI) / 180);
-
-  ctx.fillStyle = carColor(vehicle.id);
-  ctx.strokeStyle = "#172027";
-  ctx.lineWidth = 2;
-
-  ctx.beginPath();
-  ctx.roundRect(-width / 2, -length / 2, width, length, 4);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.fillStyle = "rgba(224,243,255,.8)";
-  ctx.beginPath();
-  ctx.roundRect(-width * 0.34, -length * 0.28, width * 0.68, length * 0.24, 2);
-  ctx.fill();
-
-  // Draw brake lights if waiting
-  if (vehicle.state === "waiting") {
-    ctx.fillStyle = "#ff1744";
-    ctx.beginPath();
-    ctx.arc(-width * 0.3, length / 2, 2.5, 0, Math.PI * 2);
-    ctx.arc(width * 0.3, length / 2, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  ctx.restore();
 }
 
 function drawDebugLabel(

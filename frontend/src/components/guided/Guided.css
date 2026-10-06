@@ -1335,3 +1335,18 @@
   color: var(--color-warning);
   list-style: none;
 }
+
+/* Per-vehicle-class results (V1.1). */
+.table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.class-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  vertical-align: -1px;
+  border: 1px solid rgba(23, 32, 39, 0.6);
+}

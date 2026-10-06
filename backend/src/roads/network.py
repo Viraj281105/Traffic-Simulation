@@ -1,5 +1,5 @@
 import math
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Tuple
 
 from src.core.enums import Direction, TurnIntent
 from src.roads.approach import Approach
@@ -53,6 +53,67 @@ ROUNDABOUT_SPLITTER_HALF_WIDTH: float = 1.5
 # ROUNDABOUT_ENTRY_SETBACK above.
 SIGNAL_STOP_LINE_SETBACK: float = 3.5
 
+_ALL_TURNS: FrozenSet[TurnIntent] = frozenset(TurnIntent)
+
+
+def lane_permitted_turns(lane_index: int, lane_count: int) -> FrozenSet[TurnIntent]:
+    """Movements a vehicle may make from incoming lane ``lane_index``.
+
+    The single lane-use policy of the model (right-hand traffic, lane 0 next
+    to the centreline):
+
+    * a single lane carries every movement;
+    * straight-ahead traffic may use any lane;
+    * left turns only from the left-most lane (0), right turns only from the
+      right-most lane (``lane_count - 1``).
+
+    It is the rule V1.0 already applied implicitly (VehicleSpawner placed
+    turning vehicles only in their own lane and through traffic anywhere);
+    stating it once lets spawning and lane changing share it.
+    """
+    if lane_count <= 1:
+        return _ALL_TURNS
+    turns = {TurnIntent.STRAIGHT}
+    if lane_index == 0:
+        turns.add(TurnIntent.LEFT)
+    if lane_index == lane_count - 1:
+        turns.add(TurnIntent.RIGHT)
+    return frozenset(turns)
+
+
+def resolve_lanes_per_approach(roads_cfg: Optional[Mapping[str, Any]]) -> Any:
+    """Lane count per approach from a ``roads`` config section.
+
+    ``lanesPerApproach`` is either one count for every approach or a
+    per-direction object; ``approaches[].lanes`` (versioned schema) overrides
+    the count of the approach it names. Returns an int when every approach
+    has the same count and none was overridden (exactly what V1.0 passed to
+    the network), otherwise a {direction: count} dict.
+    """
+    roads_cfg = roads_cfg or {}
+    base = roads_cfg.get("lanesPerApproach", 2)
+    overrides: Dict[str, int] = {}
+    for item in roads_cfg.get("approaches") or []:
+        if isinstance(item, Mapping) and item.get("lanes") is not None:
+            overrides[str(item.get("direction", "")).lower()] = int(item["lanes"])
+    if not overrides:
+        return base
+    per_direction: Dict[str, int] = {}
+    for d in Direction:
+        if isinstance(base, Mapping):
+            per_direction[d.value] = int(base.get(d.value, 2))
+        else:
+            per_direction[d.value] = int(base)
+    per_direction.update({k: v for k, v in overrides.items() if k in per_direction})
+    return per_direction
+
+
+def lane_counts(lanes_per_approach: Any) -> Dict[str, int]:
+    """{direction: lane count} for an int or per-direction lane setting."""
+    if isinstance(lanes_per_approach, Mapping):
+        return {d.value: int(lanes_per_approach.get(d.value, 2)) for d in Direction}
+    return {d.value: int(lanes_per_approach) for d in Direction}
+
 
 class RoadNetwork:
     """Manages the network topology of the intersection, containing approaches and lanes.
@@ -70,6 +131,9 @@ class RoadNetwork:
         # Cache of connection lanes: (origin_dir, lane_idx, turn_intent) → Lane
         self._connection_lane_cache: Dict[Tuple[Direction, int, TurnIntent], Lane] = {}
 
+        # Lane-use overrides set by a controller (see set_lane_use).
+        self._lane_use: Dict[Tuple[Direction, int], FrozenSet[TurnIntent]] = {}
+
     def add_incoming_approach(self, approach: Approach) -> None:
         self._incoming[approach.direction] = approach
 
@@ -85,6 +149,35 @@ class RoadNetwork:
         if direction not in self._outgoing:
             raise KeyError(f"No outgoing approach for direction {direction}")
         return self._outgoing[direction]
+
+    def lane_count(self, direction: Direction) -> int:
+        """Number of incoming lanes on ``direction``'s approach (0 if none)."""
+        approach = self._incoming.get(direction)
+        return len(approach.get_lanes()) if approach is not None else 0
+
+    def permitted_turns(
+        self, direction: Direction, lane_index: int
+    ) -> FrozenSet[TurnIntent]:
+        """Movements allowed from incoming lane ``lane_index`` of ``direction``:
+        the controller's lane use if it set one, else the default policy
+        (:func:`lane_permitted_turns`)."""
+        override = self._lane_use.get((direction, lane_index))
+        if override is not None:
+            return override
+        return lane_permitted_turns(lane_index, self.lane_count(direction))
+
+    def set_lane_use(
+        self, direction: Direction, lane_index: int, turns: FrozenSet[TurnIntent]
+    ) -> None:
+        """Restrict an incoming lane to ``turns`` (a controller's lane markings).
+
+        A controller that releases a lane only for some movements (a signal
+        head showing a left arrow alone) makes that lane a lane for those
+        movements; spawning and lane changing then respect it.
+        """
+        if not turns:
+            raise ValueError("A lane must permit at least one movement")
+        self._lane_use[(direction, lane_index)] = frozenset(turns)
 
     def get_all_connection_lanes(self) -> List[Lane]:
         """Return every cached connection lane (useful for conflict pre-computation)."""
@@ -111,15 +204,46 @@ class RoadNetwork:
         is_roundabout: bool = False,
         inner_radius: float = 10.0,
         outer_radius: float = 20.0,
+        design_vehicle_allowance: float = 0.0,
     ) -> None:
+        """Build the four-arm junction.
+
+        ``design_vehicle_allowance`` (V1.1) is how much longer than the 5 m
+        reference car the longest vehicle using the junction is. A junction
+        that serves buses and trucks is laid out for them (the design-vehicle
+        principle): every signal stop line is set back by the allowance, and
+        since the turning paths run from stop line to stop line, their corner
+        radii grow with it. Without it a 12 m truck turning right in a
+        one-lane junction (corner radius about 5 m) was still half on its
+        approach while its nose was across the crossing paths, and the box
+        locked. Zero — the V1.0 geometry — whenever no vehicle is longer
+        than 5 m. The roundabout's geometry is set by its radii and is not
+        changed.
+        """
         self.is_roundabout = is_roundabout
         self.inner_radius = inner_radius
         self.outer_radius = outer_radius
+        # Distance from the conflict area to each signal stop line.
+        self.stop_line_setback = SIGNAL_STOP_LINE_SETBACK + max(
+            0.0, design_vehicle_allowance
+        )
 
         # Clear existing
         self._incoming.clear()
         self._outgoing.clear()
         self._connection_lane_cache.clear()
+        self._lane_use.clear()
+
+        counts = lane_counts(lanes_per_approach)
+        # The signalised junction box is square and sized to the widest road
+        # crossing it. Each stop line used to be set from its OWN approach's
+        # lane count, which only coincides with that when every approach has
+        # the same number of lanes. With unequal counts a narrow approach's
+        # stop line sat inside the wider crossing road, so its waiting
+        # vehicles were parked on that road's travel lanes and the junction
+        # locked solid (N1/S2/E1/W2 at 0.8 veh/s, seed 5: 14 of 171 vehicles
+        # got through in 240 s). Equal counts give exactly the old boundary.
+        widest_road = max(counts.values()) if counts else 1
 
         for d in Direction:
             in_approach = Approach(d)
@@ -134,7 +258,7 @@ class RoadNetwork:
             boundary = (
                 (outer_radius + ROUNDABOUT_ENTRY_SETBACK)
                 if is_roundabout
-                else (lane_count * lane_width + SIGNAL_STOP_LINE_SETBACK)
+                else (widest_road * lane_width + self.stop_line_setback)
             )
 
             # Roundabout approaches carry a splitter island between the entry
@@ -223,6 +347,8 @@ class RoadNetwork:
                         end_y=out_y,
                     )
 
+                in_lane.approach, in_lane.index, in_lane.role = d, i, "incoming"
+                out_lane.approach, out_lane.index, out_lane.role = d, i, "outgoing"
                 in_approach.add_lane(in_lane)
                 out_approach.add_lane(out_lane)
 
@@ -443,6 +569,9 @@ class RoadNetwork:
         )
         if target_r is not None:
             connection_lane.circulating_radius = target_r
+        connection_lane.approach = origin_direction
+        connection_lane.index = lane_index
+        connection_lane.role = "connection"
 
         self._connection_lane_cache[key] = connection_lane
         return connection_lane

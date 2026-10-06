@@ -26,6 +26,7 @@ from src.metrics.definitions.travel_time import (
     MIN_RELIABLE_SAMPLE_SIZE,
     calculate_travel_time_reliability,
 )
+from src.metrics.definitions.vehicle_mix import calculate_vehicle_type_breakdown
 from src.metrics.definitions.wait_time import calculate_average_wait_time
 from src.metrics.efficiency import calculate_master_efficiency_score
 from src.vehicles.vehicle import Vehicle
@@ -538,6 +539,11 @@ class MetricCollector:
             # fields above are "not measured" on those runs, not "no
             # conflicts found".
             "petApplicable": self._pet_applicable,
+            # Per vehicle class (V1.1): served count, share and mean delay,
+            # from the same per-vehicle delays as averageDelay above.
+            "vehicleTypeBreakdown": calculate_vehicle_type_breakdown(
+                post_warmup_exited, delays, active_vehicles
+            ),
         }
         base_metrics["masterEfficiencyScore"] = calculate_master_efficiency_score(
             base_metrics

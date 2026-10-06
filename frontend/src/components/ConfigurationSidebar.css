@@ -143,6 +143,12 @@
   transform: scale(0.98);
 }
 
+/* The traffic-mix preset that matches the current shares. */
+.config-preset-pill.is-active {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
 .preset-emoji {
   font-size: 14px;
 }

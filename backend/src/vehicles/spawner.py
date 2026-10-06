@@ -10,6 +10,11 @@ from src.roads.lane import Lane
 from src.roads.network import RoadNetwork
 from src.vehicles.speed_profile import resolve_desired_speed_range
 from src.vehicles.vehicle import Vehicle
+from src.vehicles.vehicle_types import (
+    VehicleParams,
+    VehiclePopulation,
+    resolve_vehicle_population,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +120,13 @@ class VehicleSpawner:
         # IDM's own comfortable deceleration (SimulationEngine.__init__).
         self.comfort_deceleration: float = veh_gen_cfg.get("comfortDeceleration", 3.0)
 
+        # Mixed vehicle classes (V1.1), or None for the legacy single-car
+        # population, which is then drawn exactly as in V1.0 (same random
+        # stream), so existing scenarios reproduce unchanged.
+        self.population: Optional[VehiclePopulation] = resolve_vehicle_population(
+            config
+        )
+
         # Speed below which a vehicle is considered "waiting" — must match
         # MetricCollector's wait_speed_threshold so wait-time accounting is
         # consistent between the vehicle and the metrics layer.
@@ -134,6 +146,9 @@ class VehicleSpawner:
         # (its entry lane was blocked). It keeps that intent until it is
         # actually placed — see _attempt_spawn.
         self._pending_turn: Dict[Direction, TurnIntent] = {}
+        # Vehicle class of that same pending arrival (mixed populations only):
+        # like its turn, a property of the arriving vehicle, drawn once.
+        self._pending_type: Dict[Direction, str] = {}
         self.reset()
 
     def reset(self, new_seed: Optional[int] = None) -> None:
@@ -144,6 +159,7 @@ class VehicleSpawner:
         self._elapsed_time = 0.0
         self.timers.clear()
         self._pending_turn.clear()
+        self._pending_type.clear()
 
         traffic_cfg = self.config.get("traffic", {})
         if (
@@ -273,16 +289,37 @@ class VehicleSpawner:
             turn = self.rng.choices(turns, weights=weights)[0]
             self._pending_turn[direction] = turn
 
+        # Vehicle class, drawn once per arrival and kept while it waits for
+        # space, for the same reason as the turn above: a blocked bus must
+        # not be re-rolled into a car until it fits. A longer class needs a
+        # longer free entry, so the clearance test below uses its own length.
+        params: Optional[VehicleParams] = None
+        if self.population is not None:
+            type_id = self._pending_type.get(direction)
+            if type_id is None:
+                type_id = self.rng.choices(
+                    self.population.type_ids, weights=self.population.weights
+                )[0]
+                self._pending_type[direction] = type_id
+            params = self.population.params_by_type[type_id]
+            required_length = params.profile.max_length
+            minimum_gap = params.minimum_gap
+        else:
+            required_length = self.len_max
+            minimum_gap = self.minimum_gap
+
         # Select the preferred lane for this turn intent
         preferred_idx = self._select_lane_for_turn(lanes, turn)
 
-        # Try preferred lane first. Turning vehicles must spawn in their designated lane.
-        if turn in (TurnIntent.LEFT, TurnIntent.RIGHT):
-            ordered_indices = [preferred_idx]
-        else:
-            ordered_indices = [preferred_idx] + [
-                i for i in range(len(lanes)) if i != preferred_idx
-            ]
+        # Try the preferred lane first, then any other lane the movement is
+        # permitted from (RoadNetwork's lane-use policy): turning vehicles
+        # therefore only ever enter their own turn lane, through traffic any.
+        n_lanes = len(lanes)
+        ordered_indices = [preferred_idx] + [
+            i
+            for i in range(n_lanes)
+            if i != preferred_idx and turn in self.network.permitted_turns(direction, i)
+        ]
 
         target_lane: Optional[Lane] = None
         target_idx: int = preferred_idx
@@ -301,7 +338,7 @@ class VehicleSpawner:
             # We need it to be >= minimum_gap + new_vehicle_length
             if (
                 preceding.position - preceding.length / 2.0
-                >= self.minimum_gap + self.len_max
+                >= minimum_gap + required_length
             ):
                 target_lane = lane
                 target_idx = idx
@@ -311,17 +348,28 @@ class VehicleSpawner:
         if target_lane is None:
             return None
         del self._pending_turn[direction]
+        self._pending_type.pop(direction, None)
 
         # Generate vehicle parameters
-        v_len = self.rng.uniform(self.len_min, self.len_max)
-        v_width = self.rng.uniform(self.width_min, self.width_max)
-        v_desired_speed = self.rng.uniform(self.speed_min, self.speed_max)
+        if params is None:
+            v_len = self.rng.uniform(self.len_min, self.len_max)
+            v_width = self.rng.uniform(self.width_min, self.width_max)
+            v_desired_speed = self.rng.uniform(self.speed_min, self.speed_max)
+            insertion_decel = self.comfort_deceleration
+        else:
+            profile = params.profile
+            v_len = self.rng.uniform(*profile.length)
+            v_width = self.rng.uniform(*profile.width)
+            v_desired_speed = self.rng.uniform(*params.desired_speed_range)
+            insertion_decel = profile.comfort_deceleration
 
         initial_speed = v_desired_speed
         if target_preceding is not None:
             initial_speed = min(
                 initial_speed,
-                self._safe_insertion_speed(target_preceding, v_len),
+                self._safe_insertion_speed(
+                    target_preceding, v_len, insertion_decel, minimum_gap
+                ),
             )
 
         # Generate Route using the selected lane index and turn intent
@@ -344,11 +392,18 @@ class VehicleSpawner:
             turn_intent=turn,
             spawn_time=self._elapsed_time,
             wait_speed_threshold=self.wait_speed_threshold,
+            params=params,
         )
 
         return vehicle
 
-    def _safe_insertion_speed(self, preceding: Vehicle, new_length: float) -> float:
+    def _safe_insertion_speed(
+        self,
+        preceding: Vehicle,
+        new_length: float,
+        comfort_deceleration: Optional[float] = None,
+        minimum_gap: Optional[float] = None,
+    ) -> float:
         """Highest speed at which a vehicle inserted behind *preceding* can stop.
 
         A vehicle used to be inserted at its full desired speed (up to
@@ -365,11 +420,18 @@ class VehicleSpawner:
         (the usual safe-speed condition, v^2/2b <= s + v_l^2/2b). On an empty
         entry or behind a free-flowing leader the cap is above the desired
         speed and has no effect.
+
+        ``comfort_deceleration`` and ``minimum_gap`` are the new vehicle's own
+        (its class's) values; they default to the scenario-wide ones.
         """
+        decel = (
+            self.comfort_deceleration
+            if comfort_deceleration is None
+            else comfort_deceleration
+        )
+        s0 = self.minimum_gap if minimum_gap is None else minimum_gap
         # The new vehicle's front bumper will be at new_length (it is placed
         # with its rear bumper on the lane start — see _attempt_spawn).
         gap = preceding.position - preceding.length / 2.0 - new_length
-        usable = max(0.0, gap - self.minimum_gap)
-        return math.sqrt(
-            preceding.speed * preceding.speed + 2.0 * self.comfort_deceleration * usable
-        )
+        usable = max(0.0, gap - s0)
+        return math.sqrt(preceding.speed * preceding.speed + 2.0 * decel * usable)

@@ -435,6 +435,8 @@ export interface TrustFacts {
   vehicleLimitReached?: boolean;
   /** The limit, when known. */
   vehicleLimit?: number | null;
+  /** Vehicles other than cars were in the traffic (V1.1). */
+  mixedTraffic?: boolean;
 }
 
 /** What a reader needs to weigh one run's numbers. Always includes what makes
@@ -471,6 +473,12 @@ export function trustNotes(f: TrustFacts): TrustNote[] {
     notes.push({
       tone: "caution",
       text: `With ${String(f.lanes)} lanes per approach both junctions model every lane, but drivers leaving the roundabout from an inner ring cross the outer ring without lane markings, and the model is not collision-free across all demand at this setting. Read these results as indicative. One lane per approach is the calibrated comparison.`,
+    });
+  }
+  if (f.mixedTraffic) {
+    notes.push({
+      tone: "caution",
+      text: "This traffic includes buses, trucks, SUVs or motorcycles. How each kind drives follows published research on how they differ from cars, but it has not been calibrated against observed traffic. Read these results as indicative. Cars only is the calibrated comparison.",
     });
   }
   if (f.collisions > 0) {

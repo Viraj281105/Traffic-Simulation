@@ -74,7 +74,7 @@
         },
         "approaches": {
           "type": "array",
-          "description": "RESERVED — per-approach overrides are accepted and validated, but not read by the engine: every approach uses lanesPerApproach and no speed limit is applied. See docs/architecture/06-scenario-configuration-contract.md section 2.4.",
+          "description": "Per-approach overrides. lanes (V1.2) overrides lanesPerApproach for that approach; opposite approaches (north/south, east/west) must have equal lane counts. speedLimit is RESERVED: accepted and validated but not read. See docs/architecture/06-scenario-configuration-contract.md section 2.4.",
           "items": {
             "type": "object",
             "properties": {
@@ -84,6 +84,34 @@
             },
             "required": ["direction"]
           }
+        },
+        "laneChange": {
+          "type": "object",
+          "description": "Lane changing on multi-lane approaches (V1.2): MOBIL decisions carried out as gradual manoeuvres. See docs/simulation/methodology.md.",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "accelerationThreshold": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2.0,
+              "default": 0.2,
+              "description": "MOBIL switching threshold (m/s^2): the net acceleration advantage a discretionary change must bring."
+            },
+            "safeDeceleration": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 9.0,
+              "default": 4.0,
+              "description": "MOBIL safety limit b_safe (m/s^2): the hardest braking a change may impose on the new follower."
+            },
+            "politeness": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Overrides every vehicle class's own MOBIL politeness factor when set."
+            }
+          },
+          "additionalProperties": false
         }
       }
     },
@@ -125,6 +153,30 @@
           "maximum": 8.0,
           "default": 3.0,
           "description": "Lateral-acceleration limit (m/s^2) on every curved path, signal and roundabout alike."
+        },
+        "vehicleMix": {
+          "type": "object",
+          "description": "Share of arrivals per vehicle class (V1.1); must sum to 1. Omitted: every vehicle is the V1.0 passenger car, exactly as before. In a mix, 'car' is the vehicle the fields above describe and every other class uses its own defaults (see vehicleTypes).",
+          "properties": {
+            "car": { "type": "number", "minimum": 0, "maximum": 1 },
+            "suv": { "type": "number", "minimum": 0, "maximum": 1 },
+            "bus": { "type": "number", "minimum": 0, "maximum": 1 },
+            "truck": { "type": "number", "minimum": 0, "maximum": 1 },
+            "motorcycle": { "type": "number", "minimum": 0, "maximum": 1 }
+          },
+          "additionalProperties": false
+        },
+        "vehicleTypes": {
+          "type": "object",
+          "description": "Per-class parameter overrides (research use). Unset fields keep the class defaults documented in docs/simulation/configuration.md.",
+          "properties": {
+            "car": { "$ref": "#/$defs/vehicleTypeOverrides" },
+            "suv": { "$ref": "#/$defs/vehicleTypeOverrides" },
+            "bus": { "$ref": "#/$defs/vehicleTypeOverrides" },
+            "truck": { "$ref": "#/$defs/vehicleTypeOverrides" },
+            "motorcycle": { "$ref": "#/$defs/vehicleTypeOverrides" }
+          },
+          "additionalProperties": false
         }
       }
     },
@@ -230,5 +282,33 @@
       }
     }
   },
-  "required": ["simulation", "geometry"]
+  "required": ["simulation", "geometry"],
+  "$defs": {
+    "range": {
+      "type": "object",
+      "properties": {
+        "min": { "type": "number", "exclusiveMinimum": 0 },
+        "max": { "type": "number", "exclusiveMinimum": 0 }
+      },
+      "required": ["min", "max"]
+    },
+    "vehicleTypeOverrides": {
+      "type": "object",
+      "properties": {
+        "length": { "$ref": "#/$defs/range", "description": "Length range (m)." },
+        "width": { "$ref": "#/$defs/range", "description": "Width range (m)." },
+        "desiredSpeedFactor": { "$ref": "#/$defs/range", "description": "Desired speed as a fraction of roads.speedLimit." },
+        "maxAcceleration": { "type": "number", "exclusiveMinimum": 0 },
+        "comfortDeceleration": { "type": "number", "exclusiveMinimum": 0 },
+        "desiredTimeHeadway": { "type": "number", "exclusiveMinimum": 0 },
+        "minimumGap": { "type": "number", "exclusiveMinimum": 0 },
+        "idmDelta": { "type": "number", "exclusiveMinimum": 0 },
+        "maxLateralAcceleration": { "type": "number", "exclusiveMinimum": 0, "maximum": 8.0 },
+        "laneChangeDuration": { "type": "number", "exclusiveMinimum": 0, "maximum": 15.0 },
+        "laneChangeMinDistance": { "type": "number", "exclusiveMinimum": 0, "maximum": 100.0 },
+        "politeness": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": false
+    }
+  }
 }

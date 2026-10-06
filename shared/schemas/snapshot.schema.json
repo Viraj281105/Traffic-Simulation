@@ -77,7 +77,22 @@
           "stopCount": { "type": "integer", "minimum": 0 },
           "spawnTime": { "type": "number", "minimum": 0 },
           "exitTime": { "type": ["number", "null"], "minimum": 0 },
-          "distanceTraveled": { "type": "number", "minimum": 0 }
+          "distanceTraveled": { "type": "number", "minimum": 0 },
+          "vehicleType": {
+            "type": "string",
+            "enum": ["car", "suv", "bus", "truck", "motorcycle"],
+            "description": "V1.1 vehicle class. Always 'car' when no vehicleMix is configured."
+          },
+          "laneIndex": {
+            "type": ["integer", "null"],
+            "minimum": 0,
+            "description": "V1.2: index of the vehicle's lane across its approach (0 next to the centreline); null for exited vehicles."
+          },
+          "laneChange": {
+            "type": ["string", "null"],
+            "enum": ["left", "right", null],
+            "description": "V1.2: side of a lane change in progress (driver's view), null when not changing lanes."
+          }
         },
         "required": [
           "id", "x", "y", "speed", "acceleration", "heading", "length", "width",
@@ -100,10 +115,23 @@
             "properties": {
               "direction": { "type": "string", "enum": ["north", "south", "east", "west"] },
               "queueLength": { "type": "integer", "minimum": 0 },
-              "laneCount": { "type": "integer", "minimum": 1 }
+              "laneCount": { "type": "integer", "minimum": 1 },
+              "lanePermittedTurns": {
+                "type": "array",
+                "description": "V1.2: movements permitted from each incoming lane, lane 0 (next to the centreline) first.",
+                "items": {
+                  "type": "array",
+                  "items": { "type": "string", "enum": ["left", "straight", "right"] }
+                }
+              }
             },
             "required": ["direction", "queueLength", "laneCount"]
           }
+        },
+        "stopLineSetback": {
+          "type": "number",
+          "minimum": 0,
+          "description": "V1.1: distance (m) from the conflict area to each signal stop line; 3.5 unless the vehicle mix contains vehicles longer than 5 m (design-vehicle geometry)."
         }
       },
       "required": ["type", "centerX", "centerY", "boundingRadius", "approaches"]
@@ -192,7 +220,21 @@
         "petEventCount": { "type": "integer", "minimum": 0 },
         "petSampleCount": { "type": "integer", "minimum": 0 },
         "petThresholdSeconds": { "type": "number", "minimum": 0 },
-        "petApplicable": { "type": "boolean", "description": "False where PET is not measured (roundabout geometry)" }
+        "petApplicable": { "type": "boolean", "description": "False where PET is not measured (roundabout geometry)" },
+        "vehicleTypeBreakdown": {
+          "type": "object",
+          "description": "V1.1: per vehicle class, post-warm-up vehicles served, their share, mean delay, and vehicles currently active.",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "exited": { "type": "integer", "minimum": 0 },
+              "share": { "type": "number", "minimum": 0, "maximum": 1 },
+              "averageDelay": { "type": "number", "minimum": 0 },
+              "active": { "type": "integer", "minimum": 0 }
+            },
+            "required": ["exited", "share", "averageDelay", "active"]
+          }
+        }
       },
       "required": [
         "averageWaitTime", "throughput", "throughputRate", "currentQueueLengths",
@@ -212,6 +254,16 @@
         "exited": { "type": "integer", "minimum": 0 }
       },
       "required": ["active", "approaching", "waiting", "crossing", "inRoundabout", "exited"]
+    },
+    "laneModel": {
+      "type": "object",
+      "description": "V1.2 lane model counters for the run so far.",
+      "properties": {
+        "laneChanges": { "type": "integer", "minimum": 0 },
+        "laneChangesInProgress": { "type": "integer", "minimum": 0 },
+        "missedTurns": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["laneChanges", "laneChangesInProgress", "missedTurns"]
     },
     "units": {
       "type": "object",

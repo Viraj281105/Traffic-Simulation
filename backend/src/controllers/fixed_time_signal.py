@@ -334,12 +334,43 @@ class FixedTimeSignalController(BaseController):
         self.cycle_number = 0
         self.current_phase_idx = 0
 
+        self._mark_lane_use()
+
         if self.offset:
             total = sum(p.duration for p in self.phases)
             if total > 0:
                 self._advance_by(self.offset % total)
 
         self._apply_signals()
+
+    def _mark_lane_use(self) -> None:
+        """Make each lane carry exactly the movements its signal head releases.
+
+        Under the default one-direction-at-a-time plan a lane's head shows only
+        some movements (``_lane_turn_intent``): with two lanes, lane 0 shows a
+        left arrow and is green only in the protected-left phase. Through
+        traffic was nonetheless allowed into that lane, where it waited for
+        the left arrow; once vehicles could change lanes (V1.2) they moved
+        into it whenever its queue looked shorter, cutting the approach's
+        through capacity. The lane is now marked as what its head makes it, a
+        left-turn lane, so spawning and lane changing respect it.
+
+        Grouped phase plans (``phaseSequence``, the dashboard default) release
+        every movement of an approach together, so they mark nothing and the
+        network's default lane use applies.
+        """
+        if self.phase_sequence_cfg:
+            return
+        for d in Direction:
+            try:
+                lanes = self.network.get_incoming_approach(d).get_lanes()
+            except KeyError:
+                continue
+            n = len(lanes)
+            for idx in range(n):
+                shown = frozenset(self._lane_turn_intent(idx, n))
+                allowed = self.network.permitted_turns(d, idx) & shown
+                self.network.set_lane_use(d, idx, allowed or shown)
 
     def _advance_by(self, seconds: float) -> None:
         """Advance the phase cursor by ``seconds`` (used to seed the initial

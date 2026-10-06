@@ -1,8 +1,14 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useContainerSize } from "../hooks/useContainerSize";
 import type { LiveSnapshot, SignalDirection } from "../types/simulation";
-import { SnapshotInterpolator, type VehiclePose } from "./snapshotInterpolator";
-import { mapScale, signalStopLineDistance } from "./mapGeometry";
+import { SnapshotInterpolator } from "./snapshotInterpolator";
+import {
+  SIGNAL_STOP_LINE_SETBACK,
+  mapScale,
+  signalStopLineDistance,
+} from "./mapGeometry";
+import { drawLaneArrows } from "./laneMarkings";
+import { drawVehicleSprite } from "../vehicles/vehicleSprites";
 import {
   EnvironmentLayer,
   GROUND_BASE,
@@ -29,21 +35,6 @@ export interface IntersectionMapProps {
 type Direction = "north" | "south" | "east" | "west";
 type Widths = Record<Direction, number>;
 type Point = (x: number, y: number) => [number, number];
-
-function carColor(id: string): string {
-  const palette = [
-    "#4d96ff",
-    "#f8961e",
-    "#43aa8b",
-    "#e76f51",
-    "#c77dff",
-    "#f9c74f",
-  ];
-  let hash = 0;
-  for (const character of id)
-    hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
-  return palette[hash % palette.length];
-}
 
 function signalColor(color: string): string {
   return color === "green"
@@ -107,11 +98,11 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
     let drewFrame = false;
 
     // The junction box ends at the stop line, where the backend ends each
-    // incoming lane and holds traffic on red (see mapGeometry.ts).
-    const half = signalStopLineDistance(
-      Math.max(lanesNorth, lanesSouth, lanesEast, lanesWest),
-      laneWidth,
-    );
+    // incoming lane and holds traffic on red (see mapGeometry.ts). Its
+    // setback comes from the snapshot: a junction serving buses and trucks
+    // has its stop lines further back (V1.1 design-vehicle geometry).
+    const widestRoad = Math.max(lanesNorth, lanesSouth, lanesEast, lanesWest);
+    let half = signalStopLineDistance(widestRoad, laneWidth);
     const widths: Widths = {
       north: lanesNorth * laneWidth * 2,
       south: lanesSouth * laneWidth * 2,
@@ -119,7 +110,7 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
       west: lanesWest * laneWidth * 2,
     };
     const roadLength = Math.max(46, Math.ceil(Math.max(width, height) / ppm));
-    const road = signalEnvironment(widths, half, roadLength);
+    let road = signalEnvironment(widths, half, roadLength);
 
     const render = () => {
       if (!active) return;
@@ -142,6 +133,18 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
       drewFrame = true;
       drewEmpty = false;
       const current = frame.snapshot;
+
+      const setback =
+        current.intersection.stopLineSetback ?? SIGNAL_STOP_LINE_SETBACK;
+      const snapshotHalf = signalStopLineDistance(
+        widestRoad,
+        laneWidth,
+        setback,
+      );
+      if (snapshotHalf !== half) {
+        half = snapshotHalf;
+        road = signalEnvironment(widths, half, roadLength);
+      }
 
       const point: Point = (x, y) => [
         x * ppm + width / 2,
@@ -214,6 +217,16 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
         line(-half, -widths.west / 2, -half, 0);
       }
       if (showCrosswalks) drawCrosswalks(ctx, half, widths, ppm, point);
+      if (showStopLines)
+        drawLaneArrows(
+          ctx,
+          current.intersection.approaches,
+          (_direction, count) =>
+            Array.from({ length: count }, (_, i) => (i + 0.5) * laneWidth),
+          half + 5.5,
+          ppm,
+          point,
+        );
 
       const controller = current.controller;
       if (controller.type === "roundabout") {
@@ -233,8 +246,10 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
       if (controller.type === "fixed_time_signal")
         drawSignals(ctx, controller.signals, half, widths, ppm, point);
 
+      const now = performance.now();
       for (const pose of frame.vehicles) {
-        drawVehicle(ctx, pose, ppm, point);
+        const [vx, vy] = point(pose.x, pose.y);
+        drawVehicleSprite(ctx, pose.vehicle, vx, vy, pose.heading, ppm, now);
       }
 
       if (debug)
@@ -342,46 +357,6 @@ function drawSignals(
     ctx.fill();
     ctx.shadowBlur = 0;
   }
-}
-
-function drawVehicle(
-  ctx: CanvasRenderingContext2D,
-  pose: VehiclePose,
-  ppm: number,
-  point: Point,
-) {
-  const { vehicle } = pose;
-  const [x, y] = point(pose.x, pose.y);
-  const length = Math.max(vehicle.length, 4.5) * ppm;
-  const width = Math.max(vehicle.width, 2) * ppm;
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate((pose.heading * Math.PI) / 180);
-
-  ctx.fillStyle = carColor(vehicle.id);
-  ctx.strokeStyle = "#172027";
-  ctx.lineWidth = 2;
-
-  ctx.beginPath();
-  ctx.roundRect(-width / 2, -length / 2, width, length, 4);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.fillStyle = "rgba(224,243,255,.8)";
-  ctx.beginPath();
-  ctx.roundRect(-width * 0.34, -length * 0.28, width * 0.68, length * 0.24, 2);
-  ctx.fill();
-
-  // Draw brake lights if waiting
-  if (vehicle.state === "waiting") {
-    ctx.fillStyle = "#ff1744";
-    ctx.beginPath();
-    ctx.arc(-width * 0.3, length / 2, 2.5, 0, Math.PI * 2);
-    ctx.arc(width * 0.3, length / 2, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  ctx.restore();
 }
 
 function drawQueues(

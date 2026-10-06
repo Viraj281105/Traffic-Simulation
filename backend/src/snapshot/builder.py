@@ -1,9 +1,32 @@
+import math
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from src.core.engine import SimulationEngine
-from src.core.enums import Direction
+from src.core.enums import Direction, TurnIntent
 from src.metrics.collector import MetricCollector
+from src.vehicles.vehicle import Vehicle
+
+# Order in which a lane's permitted movements are listed (left to right as a
+# driver sees the lane arrows).
+_TURN_ORDER = (TurnIntent.LEFT, TurnIntent.STRAIGHT, TurnIntent.RIGHT)
+
+
+def _lane_change_side(vehicle: Vehicle) -> Optional[str]:
+    """ "left"/"right" while a lane change is in progress, else None.
+
+    The side is relative to the driver: the direction of the remaining
+    lateral move (towards the target lane) against the vehicle's heading.
+    """
+    maneuver = vehicle.lane_change
+    if maneuver is None:
+        return None
+    heading = math.radians(vehicle.heading)
+    hx, hy = math.sin(heading), math.cos(heading)
+    # Remaining move is towards the target lane: minus the offset.
+    mx, my = -maneuver.offset_x, -maneuver.offset_y
+    cross = hx * my - hy * mx
+    return "left" if cross > 0 else "right"
 
 
 class SnapshotBuilder:
@@ -117,6 +140,13 @@ class SnapshotBuilder:
                     "distanceTraveled": round(
                         v.position, 2
                     ),  # approximation along route
+                    # V1.1 / V1.2 (additive): vehicle class, lane index
+                    # across its approach (None on connection lanes of
+                    # hand-built networks), and the side of a lane change in
+                    # progress (None when not changing lanes).
+                    "vehicleType": v.vehicle_type,
+                    "laneIndex": getattr(v.lane, "index", None) if v.lane else None,
+                    "laneChange": _lane_change_side(v),
                 }
             )
 
@@ -155,6 +185,9 @@ class SnapshotBuilder:
                     "spawnTime": round(getattr(v, "spawn_time", 0.0), 2),
                     "exitTime": round(getattr(v, "exit_time", elapsed), 2),
                     "distanceTraveled": round(v.position, 2),
+                    "vehicleType": v.vehicle_type,
+                    "laneIndex": None,
+                    "laneChange": None,
                 }
             )
 
@@ -193,6 +226,16 @@ class SnapshotBuilder:
                     "direction": dir_str,
                     "queueLength": current_queues.get(dir_str, 0),
                     "laneCount": lane_count,
+                    # Movements permitted from each incoming lane, lane 0
+                    # (next to the centreline) first: the lane arrows.
+                    "lanePermittedTurns": [
+                        [
+                            t.value
+                            for t in _TURN_ORDER
+                            if t in self.engine.network.permitted_turns(d, i)
+                        ]
+                        for i in range(lane_count)
+                    ],
                 }
             )
 
@@ -223,10 +266,27 @@ class SnapshotBuilder:
                 "centerY": geom_center.get("y", 0.0),
                 "boundingRadius": bounding_radius,
                 "approaches": approaches_list,
+                # Distance from the conflict area to each signal stop line
+                # (V1.1: grows with the longest vehicle class in the mix).
+                "stopLineSetback": round(
+                    getattr(self.engine.network, "stop_line_setback", 3.5), 3
+                ),
             },
             "controller": controller_state,
             "metrics": metrics_obj,
             "vehicleCounts": counts,
+            # Lane model (V1.2): lane changes started this run (each one runs
+            # to completion), those still in progress, and vehicles that
+            # could not reach a lane permitting their turn in time.
+            "laneModel": {
+                "laneChanges": self.engine.pool.lane_change_count,
+                "laneChangesInProgress": sum(
+                    1
+                    for v in self.engine.pool.active_vehicles
+                    if v.lane_change is not None
+                ),
+                "missedTurns": self.engine.pool.missed_turn_count,
+            },
             "units": {
                 "distance": "meters",
                 "speed": "meters_per_second",

@@ -10,10 +10,12 @@ any time.  Priority rules mirror real-world right-hand-traffic conventions:
 
 from __future__ import annotations
 
+import math
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from src.core.enums import TurnIntent
 from src.roads.lane import Lane
+from src.vehicles.body import LONG_VEHICLE_THRESHOLD
 
 # ---------------------------------------------------------------------------
 # Geometric helper
@@ -47,6 +49,21 @@ _PATH_CONFLICT_CLEARANCE: float = 3.0
 _PATH_SAMPLE_STEP: float = 0.75
 
 
+def conflict_clearance_for(design_vehicle_allowance: float) -> float:
+    """Path clearance for a junction whose longest vehicle is
+    ``design_vehicle_allowance`` metres longer than the reference car.
+
+    Two 12 m vehicles turning in the same corner of a signalised junction —
+    a right-turner whose rear was still in the box and a left-turner sweeping
+    past it — collided on paths whose centre lines never came within 3 m, so
+    no conflict point existed between them to arbitrate. Half the extra
+    length is added: the order of a long body's off-tracking and overhang
+    swing on a junction turn. Exactly the car value when no vehicle is longer
+    than 5 m.
+    """
+    return _PATH_CONFLICT_CLEARANCE + max(0.0, design_vehicle_allowance) / 2.0
+
+
 def _sample_lane(lane: Lane) -> List[Tuple[float, float, float]]:
     """Sample a lane's path as ``(arc_distance, x, y)`` points."""
     out: List[Tuple[float, float, float]] = []
@@ -61,13 +78,14 @@ def _sample_lane(lane: Lane) -> List[Tuple[float, float, float]]:
 def _closest_approach(
     samples_a: List[Tuple[float, float, float]],
     samples_b: List[Tuple[float, float, float]],
+    clearance: float = _PATH_CONFLICT_CLEARANCE,
 ) -> Optional[Tuple[float, float, float, float]]:
     """Closest point between two sampled paths, if within the clearance.
 
     Returns ``(dist_along_a, dist_along_b, x, y)`` at the closest approach, or
     ``None`` when the paths never come near enough to conflict.
     """
-    best_sq = _PATH_CONFLICT_CLEARANCE * _PATH_CONFLICT_CLEARANCE
+    best_sq = clearance * clearance
     best: Optional[Tuple[float, float, float, float]] = None
 
     for da, ax, ay in samples_a:
@@ -147,6 +165,17 @@ _STOPPED_SPEED: float = 0.1
 # moving or not, and nothing may be driven through it.
 _ZONE_BODY_RADIUS: float = 3.0
 
+# Margin added to a vehicle's half-length when it is longer than the car the
+# radius above was sized for (V1.1): a 12 m bus covers a crossing from 6.5 m
+# either side of its centre. For any vehicle up to 5 m long the radius stays
+# exactly _ZONE_BODY_RADIUS.
+_ZONE_BODY_MARGIN: float = 0.5
+
+
+def _body_radius(length: float) -> float:
+    """Arc distance from a crossing within which a vehicle's body covers it."""
+    return max(_ZONE_BODY_RADIUS, length / 2.0 + _ZONE_BODY_MARGIN)
+
 
 _TURN_PRIORITY: Dict[TurnIntent, int] = {
     TurnIntent.STRAIGHT: 3,
@@ -194,6 +223,12 @@ class ConflictManager:
         # Mapping: connection_lane_id → set of conflict-pair keys it participates in
         self._lane_conflicts: Dict[str, Set[Tuple[str, str]]] = {}
 
+        # Conflict pairs whose two paths end on the same exit lane (a merge,
+        # not a crossing), and whether committed vehicles merge there in the
+        # order they physically arrive (see _holder_behind_on_merge).
+        self._merge_keys: Set[Tuple[str, str]] = set()
+        self.merge_in_position_order: bool = False
+
     # ------------------------------------------------------------------
     # Setup
     # ------------------------------------------------------------------
@@ -202,8 +237,16 @@ class ConflictManager:
         """Register a connection lane for conflict analysis."""
         self._connection_lanes[lane.lane_id] = lane
 
-    def compute_conflict_points(self) -> None:
+    def compute_conflict_points(
+        self, clearance: float = _PATH_CONFLICT_CLEARANCE
+    ) -> None:
         """Pre-compute where each pair of connection lanes shares road.
+
+        ``clearance`` is the centre-line separation below which two paths
+        count as sharing road. The default suits cars; a junction used by
+        long vehicles passes a wider one (V1.1, see
+        :func:`conflict_clearance_for`), because a long body off-tracks and
+        sweeps well beyond its path's centre line on a turn.
 
         Works on the lanes' actual paths, sampled by arc length, rather than
         on the straight chord between their endpoints.
@@ -224,6 +267,7 @@ class ConflictManager:
         lane_ids = list(self._connection_lanes.keys())
         self._conflict_points.clear()
         self._lane_conflicts.clear()
+        self._merge_keys.clear()
 
         samples = {
             lane_id: _sample_lane(self._connection_lanes[lane_id])
@@ -235,7 +279,7 @@ class ConflictManager:
                 id_a = lane_ids[i]
                 id_b = lane_ids[j]
 
-                hit = _closest_approach(samples[id_a], samples[id_b])
+                hit = _closest_approach(samples[id_a], samples[id_b], clearance)
                 if hit is None:
                     continue
                 dist_a, dist_b, x, y = hit
@@ -256,6 +300,10 @@ class ConflictManager:
                 )
                 self._lane_conflicts.setdefault(key[0], set()).add(key)
                 self._lane_conflicts.setdefault(key[1], set()).add(key)
+                end_a = self._connection_lanes[id_a].end_coords
+                end_b = self._connection_lanes[id_b].end_coords
+                if math.hypot(end_a[0] - end_b[0], end_a[1] - end_b[1]) < 1e-6:
+                    self._merge_keys.add(key)
 
     # ------------------------------------------------------------------
     # Per-tick maintenance
@@ -306,6 +354,7 @@ class ConflictManager:
         all_vehicles_info: Optional[List[Dict[str, Any]]] = None,
         vehicle_speed: float = 0.0,
         on_connection_lane: bool = True,
+        vehicle_length: float = 0.0,
     ) -> float:
         """Return the distance to the nearest *blocked* conflict zone, or inf.
 
@@ -371,6 +420,8 @@ class ConflictManager:
                 vehicle_turn_intent=vehicle_turn_intent,
                 remaining=remaining,
                 all_vehicles_info=all_vehicles_info,
+                admitting=not on_connection_lane,
+                vehicle_length=vehicle_length,
             )
 
             # A conflict point BEHIND the vehicle cannot obstruct it going
@@ -484,6 +535,8 @@ class ConflictManager:
         vehicle_turn_intent: TurnIntent,
         remaining: float,
         all_vehicles_info: Optional[List[Dict[str, Any]]],
+        admitting: bool = False,
+        vehicle_length: float = 0.0,
     ) -> str:
         """Classify one conflict zone for this vehicle.
 
@@ -511,6 +564,11 @@ class ConflictManager:
         ):
             return "blocked"
 
+        if admitting and self._committed_long_crossing(
+            cp, connection_lane_id, vehicle_id, vehicle_length, all_vehicles_info
+        ):
+            return "blocked"
+
         reservation = self._reservations.get(key)
         if reservation is not None:
             if reservation.vehicle_id == vehicle_id:
@@ -533,6 +591,15 @@ class ConflictManager:
                 # it, after which a crossing movement is admitted straight on
                 # top of the leader. That is how the box deadlocked even with
                 # admission control in force.
+                return "shared"
+            if (
+                not admitting
+                and self.merge_in_position_order
+                and key in self._merge_keys
+                and self._holder_behind_on_merge(
+                    cp, reservation.vehicle_id, remaining, all_vehicles_info
+                )
+            ):
                 return "shared"
             return "blocked"
 
@@ -634,9 +701,104 @@ class ConflictManager:
 
             offset = abs(other_dist_to_cp - info.get("position_on_lane", 0.0))
 
-            if offset <= _ZONE_BODY_RADIUS:
+            body_radius = _body_radius(float(info.get("length", 0.0)))
+            if offset <= body_radius:
                 return True
-            if info.get("speed", 0.0) <= _STOPPED_SPEED and offset <= self.ZONE_RADIUS:
+            if info.get("speed", 0.0) <= _STOPPED_SPEED and offset <= max(
+                self.ZONE_RADIUS, body_radius
+            ):
+                return True
+        return False
+
+    def _holder_behind_on_merge(
+        self,
+        cp: "ConflictPoint",
+        holder_id: str,
+        remaining: float,
+        all_vehicles_info: Optional[List[Dict[str, Any]]],
+    ) -> bool:
+        """True when the holder of a merge zone is further from it than we are.
+
+        Two vehicles already inside the junction, heading for the same exit
+        lane, deadlocked: the one that had claimed the merge first was stopped
+        behind the other's body on the converging path, while the other — the
+        one actually in front — waited for the claim the first one held. At a
+        merge (unlike a crossing) both end up on the same lane, one behind the
+        other, so the only workable order is the physical one: the vehicle
+        nearer the merge goes first and the other follows it by ordinary
+        car-following.
+
+        Enabled only on junctions laid out for long vehicles (design-vehicle
+        geometry, see engine.py), where the larger box made this pattern
+        occur; a cars-only junction keeps the V1.0 arbitration exactly.
+        """
+        if not all_vehicles_info:
+            return False
+        for info in all_vehicles_info:
+            if info["vehicle_id"] != holder_id:
+                continue
+            lane = info.get("connection_lane_id", "")
+            if lane == cp.lane_id_a:
+                holder_dist = cp.dist_on_a
+            elif lane == cp.lane_id_b:
+                holder_dist = cp.dist_on_b
+            else:
+                return False
+            holder_remaining = holder_dist - info.get("position_on_lane", 0.0)
+            return bool(holder_remaining > remaining)
+        return False
+
+    def _committed_long_crossing(
+        self,
+        cp: "ConflictPoint",
+        connection_lane_id: str,
+        vehicle_id: str,
+        vehicle_length: float,
+        all_vehicles_info: Optional[List[Dict[str, Any]]],
+    ) -> bool:
+        """True when a vehicle already inside the junction still has to pass
+        this conflict point, and the pair involves a long vehicle (V1.1).
+
+        A vehicle on its connection lane is committed: it cannot back out, so
+        a vehicle still at its stop line must not be admitted onto a crossing
+        the committed one has yet to reach. Reservations alone do not say
+        this, because a committed vehicle only claims a zone once it is
+        within reach of it. That gap was harmless with cars; with long
+        vehicles it froze the box: a committed left-turner heading for the
+        west exit had not yet claimed the merge, a 10 m truck turning right
+        into the same exit was admitted and took it, and each then waited for
+        the other — the car for the truck's claim, the truck for the car's
+        body in its turning path (30% heavy vehicles, seed 13).
+
+        Applied only when the waiting vehicle or the committed one is longer
+        than the 5 m reference car, so car-only junctions behave exactly as
+        in V1.0. Vehicles fed by the same entry lane are one behind the
+        other, not crossing, and are left to car-following.
+        """
+        if not all_vehicles_info:
+            return False
+        for info in all_vehicles_info:
+            if info["vehicle_id"] == vehicle_id:
+                continue
+            other_lane = info.get("connection_lane_id", "")
+            if other_lane == connection_lane_id or _shares_entry_lane(
+                other_lane, connection_lane_id
+            ):
+                continue
+            if other_lane == cp.lane_id_a:
+                other_dist_to_cp = cp.dist_on_a
+            elif other_lane == cp.lane_id_b:
+                other_dist_to_cp = cp.dist_on_b
+            else:
+                continue
+            other_length = float(info.get("length", 0.0))
+            if not (
+                vehicle_length > LONG_VEHICLE_THRESHOLD
+                or other_length > LONG_VEHICLE_THRESHOLD
+            ):
+                continue
+            other_remaining = other_dist_to_cp - info.get("position_on_lane", 0.0)
+            if other_remaining > -_body_radius(other_length):
                 return True
         return False
 

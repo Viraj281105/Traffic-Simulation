@@ -1,3 +1,6 @@
+import type { VehicleMix } from "../vehicles/vehicleClasses";
+import { sameMix } from "../vehicles/vehicleClasses";
+
 export interface SimulationConfigValues {
   lanes: number;
   laneWidth: number;
@@ -14,6 +17,31 @@ export interface SimulationConfigValues {
    *  null/absent means both corridors use greenDuration. */
   nsGreenDuration?: number | null;
   ewGreenDuration?: number | null;
+  /** V1.1 share of arrivals per vehicle class. null/absent = cars only, the
+   *  calibrated population exactly as in V1.0. */
+  vehicleMix?: VehicleMix | null;
+  /** V1.2 lane changing on multi-lane approaches. Absent = on. */
+  laneChanging?: boolean;
+  /** V1.2 lanes on the east–west road when it differs from `lanes` (the
+   *  north–south road). Signal-only: a roundabout needs the same count on
+   *  every approach. null/absent = same as `lanes`. */
+  lanesEastWest?: number | null;
+}
+
+/** Field-by-field equality, comparing the vehicle mix by value. */
+export function sameConfigValues(
+  a: SimulationConfigValues,
+  b: SimulationConfigValues,
+): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<
+    keyof SimulationConfigValues
+  >;
+  return [...keys].every((k) => {
+    if (k === "vehicleMix") return sameMix(a.vehicleMix, b.vehicleMix);
+    if (k === "laneChanging")
+      return (a.laneChanging ?? true) === (b.laneChanging ?? true);
+    return (a[k] ?? null) === (b[k] ?? null);
+  });
 }
 
 /** The scenario the dashboard starts with and "Reset defaults" restores.
@@ -132,21 +160,33 @@ export interface DashboardScenarioPayload {
   followUpTime: number;
   nsGreenDuration?: number;
   ewGreenDuration?: number;
+  /** Omitted for cars only (the calibrated population). */
+  vehicleMix?: VehicleMix;
+  /** Omitted while on (the default). */
+  laneChanging?: false;
 }
 
 export function dashboardPayload(
   config: SimulationConfigValues,
   intersectionType: DashboardScenarioPayload["intersectionType"],
+  /** Use `lanesEastWest` (the signal-only research view). Off everywhere
+   *  else: a signal-vs-roundabout comparison needs one junction shape for
+   *  both, and a roundabout needs equal lane counts on every approach. */
+  perRoadLanes = false,
 ): DashboardScenarioPayload {
   const { lanes, laneWidth, nsGreenDuration, ewGreenDuration } = config;
+  const lanesEW =
+    perRoadLanes && intersectionType === "fixed_time_signal"
+      ? (config.lanesEastWest ?? lanes)
+      : lanes;
   return {
     intersectionType,
     intersectionSize: lanes * laneWidth * 2 + 4.0,
     laneWidth,
     lanesNorth: lanes,
     lanesSouth: lanes,
-    lanesEast: lanes,
-    lanesWest: lanes,
+    lanesEast: lanesEW,
+    lanesWest: lanesEW,
     arrivalRate: config.arrivalRate,
     duration: config.duration,
     randomSeed: config.randomSeed,
@@ -161,6 +201,10 @@ export function dashboardPayload(
     ...(ewGreenDuration !== null && ewGreenDuration !== undefined
       ? { ewGreenDuration }
       : {}),
+    // Sent only when they differ from the defaults, so a cars-only scenario
+    // posts exactly the body it always has.
+    ...(config.vehicleMix ? { vehicleMix: config.vehicleMix } : {}),
+    ...(config.laneChanging === false ? { laneChanging: false as const } : {}),
   };
 }
 

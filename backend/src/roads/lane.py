@@ -73,6 +73,16 @@ class Lane:
 
         self._vehicles: List[Any] = []
 
+        # Explicit lane identity (V1.2), set by RoadNetwork for the lanes it
+        # builds: which approach the lane belongs to, its index across that
+        # approach (0 = next to the centreline, i.e. the left-most lane of an
+        # incoming carriageway in right-hand traffic), and its role
+        # ("incoming", "outgoing" or "connection"). None/"" for hand-built
+        # lanes, which every consumer must tolerate.
+        self.approach: Optional[Any] = None
+        self.index: Optional[int] = None
+        self.role: str = ""
+
         # Optional virtual obstacle placed on this lane by a controller (e.g. stop-line)
         self.virtual_obstacle: Optional[Any] = None
 

@@ -39,6 +39,7 @@ A **Snapshot** is a complete, self-contained representation of the simulation st
 | 14 | `vehicleCounts` | `VehicleCounts` | ✅ | Summary counts of vehicles by state | — | See Section 7 |
 | 15 | `simulationStatus` | `string` | ✅ | Current simulation status | — | `"running"` |
 | 16 | `units` | `UnitSystem` | ✅ | Unit system used in this snapshot | — | See Section 8 |
+| 17 | `laneModel` | `object` | ❌ | V1.2 lane counters for the run so far: `laneChanges` (started; each runs to completion), `laneChangesInProgress`, `missedTurns` (vehicles that could not reach a lane permitting their turn in time) | — | `{"laneChanges": 13, "laneChangesInProgress": 2, "missedTurns": 0}` |
 
 ---
 
@@ -65,6 +66,11 @@ Each entry in the `vehicles` array describes one vehicle at this instant.
 | 15 | `spawnTime` | `number` | ✅ | Simulation time when this vehicle was spawned | seconds (s) | `10.0` |
 | 16 | `exitTime` | `number` | ❌ | Simulation time when this vehicle exited (null if still active) | seconds (s) | `55.3` |
 | 17 | `distanceTraveled` | `number` | ✅ | Total distance traveled since spawn | meters (m) | `85.7` |
+| 18 | `vehicleType` | `string` | ❌ | V1.1 class (enum: `car`, `suv`, `bus`, `truck`, `motorcycle`); always `car` without a configured mix | — | `"bus"` |
+| 19 | `laneIndex` | `integer \| null` | ❌ | V1.2 index of the vehicle's lane across its approach (0 next to the centreline); `null` for exited vehicles | — | `1` |
+| 20 | `laneChange` | `string \| null` | ❌ | V1.2 side of a lane change in progress, from the driver's view (`left`, `right`), else `null`. During a change `x`/`y`/`heading` move gradually between the lanes; `laneId` is already the target lane. | — | `"left"` |
+
+Fields 18–20 are additive and optional: snapshots and saved replays from before V1.1 omit them, and clients treat a missing `vehicleType` as `car`. `length`/`width` are the vehicle's true dimensions (a 2 m motorcycle, a 12 m bus); a long vehicle's `x`/`y`/`heading` describe its body on the chord between its axles (see [methodology §6](../simulation/methodology.md#6-vehicle-dynamics--the-intelligent-driver-model)).
 
 ---
 
@@ -77,6 +83,7 @@ Each entry in the `vehicles` array describes one vehicle at this instant.
 | 3 | `centerY` | `number` | ✅ | Y-coordinate of intersection center | meters (m) | `0.0` |
 | 4 | `boundingRadius` | `number` | ✅ | Radius of the intersection's bounding circle | meters (m) | `25.0` |
 | 5 | `approaches` | `array<Approach>` | ✅ | List of approach arms | — | See below |
+| 6 | `stopLineSetback` | `number` | ❌ | V1.1: distance from the conflict area to each signal stop line — 3.5 m, plus the longest vehicle class's length beyond 5 m when the mix has buses or trucks (design vehicle). Renderers draw the junction box from it. | meters (m) | `10.5` |
 
 ### Approach Object
 
@@ -85,6 +92,7 @@ Each entry in the `vehicles` array describes one vehicle at this instant.
 | 1 | `direction` | `string` | ✅ | Approach direction (enum: `north`, `south`, `east`, `west`) | — | `"north"` |
 | 2 | `queueLength` | `integer` | ✅ | Number of vehicles currently queued on this approach | — | `5` |
 | 3 | `laneCount` | `integer` | ✅ | Number of lanes on this approach | — | `2` |
+| 4 | `lanePermittedTurns` | `array<array<string>>` | ❌ | V1.2: movements permitted from each incoming lane, lane 0 first (the lane arrows) | — | `[["left","straight"],["straight","right"]]` |
 
 ---
 
@@ -155,6 +163,7 @@ Real-time metric values computed up to the current tick. All values are cumulati
 | 12 | `directionalFairnessIndex` | `number` | ✅ | Jain's Fairness Index across approach directions | dimensionless (0-1) | `0.85` |
 | 13 | `activeVehicleCount` | `integer` | ✅ | Number of vehicles currently in the simulation | — | `18` |
 | 14 | `totalVehiclesSpawned` | `integer` | ✅ | Total vehicles generated since simulation start | — | `60` |
+| 15 | `vehicleTypeBreakdown` | `object` | ❌ | V1.1: per class present, `{exited, share, averageDelay, active}` — post-warm-up vehicles served, their share, their mean delay (same per-vehicle delays as `averageDelay`, so the classes reconcile with it) and vehicles active now | mixed | `{"bus": {"exited": 4, "share": 0.36, "averageDelay": 5.45, "active": 8}}` |
 
 ---
 

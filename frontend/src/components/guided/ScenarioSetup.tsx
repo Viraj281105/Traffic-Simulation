@@ -11,6 +11,13 @@ import {
 } from "../../types/config";
 import { ConfigurationSidebar } from "../ConfigurationSidebar";
 import { duration } from "../../metrics/plainLanguage";
+import {
+  MIX_PRESETS,
+  describeMix,
+  hasLongVehicles,
+  mixPresetFor,
+} from "../../vehicles/vehicleClasses";
+import { VehicleMixBar } from "../VehicleLegend";
 
 const LANE_CHOICES = [1, 2, 3];
 
@@ -32,6 +39,7 @@ export function ScenarioSetup({
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const demandName = useId();
   const lanesName = useId();
+  const mixName = useId();
   const lengthName = useId();
 
   if (config !== prevConfig) {
@@ -51,6 +59,7 @@ export function ScenarioSetup({
   const ns = draft.nsGreenDuration ?? draft.greenDuration;
   const ew = draft.ewGreenDuration ?? draft.greenDuration;
   const unchanged = JSON.stringify(draft) === JSON.stringify(config);
+  const mixPreset = mixPresetFor(draft.vehicleMix);
 
   return (
     <div className="guided-page">
@@ -143,18 +152,72 @@ export function ScenarioSetup({
           roundabout one circulating ring per lane.
         </p>
         {draft.lanes > 1 && (
-          <p className="q-note is-caution" role="note">
-            With more than one lane, results are indicative: drivers leaving the
-            roundabout from an inner ring cross the outer one, and the model has
-            no lane markings to separate that weave. One lane per approach is
-            the calibrated comparison.
+          <>
+            <p className="q-help">
+              Turning traffic keeps to its turn lane; drivers going straight
+              change lanes when it saves them time, moving across gradually and
+              only into a safe gap.
+            </p>
+            <p className="q-note is-caution" role="note">
+              With more than one lane, results are indicative: drivers leaving
+              the roundabout from an inner ring cross the outer one, and the
+              model has no lane markings to separate that weave. One lane per
+              approach is the calibrated comparison.
+            </p>
+          </>
+        )}
+      </fieldset>
+
+      <fieldset className="guided-question">
+        <legend>
+          <span className="q-number">3</span> What traffic uses the junction?
+        </legend>
+        <div className="choice-grid choice-grid--levels">
+          {MIX_PRESETS.map((preset) => (
+            <label
+              key={preset.id}
+              className={`choice-card${mixPreset?.id === preset.id ? " is-selected" : ""}`}
+            >
+              <input
+                type="radio"
+                name={mixName}
+                checked={mixPreset?.id === preset.id}
+                onChange={() => {
+                  set("vehicleMix", preset.mix);
+                }}
+              />
+              <span className="choice-title">{preset.label}</span>
+              <VehicleMixBar mix={preset.mix} />
+              <span className="choice-desc">{preset.description}</span>
+            </label>
+          ))}
+        </div>
+        {!mixPreset && (
+          <p className="q-note">
+            Custom mix: {describeMix(draft.vehicleMix)} (set in advanced
+            settings).
+          </p>
+        )}
+        {draft.vehicleMix ? (
+          <p className="q-help">
+            Each kind of vehicle drives as it does in reality: buses and trucks
+            accelerate and brake gently, keep longer gaps and take curves
+            slowly; motorcycles are nimble.{" "}
+            {hasLongVehicles(draft.vehicleMix) &&
+              "Because buses and trucks use it, the junction is laid out for them, as real bus and freight routes are: stop lines sit further back, giving long vehicles room to turn. "}
+            Results are indicative: the calibrated comparison is cars only.
+          </p>
+        ) : (
+          <p className="q-help">
+            SUVs, buses, trucks and motorcycles can be mixed in; each drives the
+            way that kind of vehicle does.
           </p>
         )}
       </fieldset>
 
       <fieldset className="guided-question">
         <legend>
-          <span className="q-number">3</span> How long should we watch?
+          <span className="q-number">4</span> How long should we watch?
         </legend>
         <div className="choice-grid three">
           {RUN_LENGTHS.map((l) => (
@@ -239,8 +302,8 @@ export function ScenarioSetup({
           <strong>
             {draft.lanes === 1 ? "one lane" : `${String(draft.lanes)} lanes`}
           </strong>{" "}
-          per approach, for <strong>{duration(draft.duration)}</strong> of
-          traffic.
+          per approach, <strong>{describeMix(draft.vehicleMix)}</strong>, for{" "}
+          <strong>{duration(draft.duration)}</strong> of traffic.
         </p>
         <button
           type="button"

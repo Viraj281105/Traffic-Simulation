@@ -12,6 +12,7 @@ import { useWebSocketSnapshot } from "./hooks/useWebSocketSnapshot";
 import { useSimulationPolling } from "./hooks/useSimulationPolling";
 import { IntersectionMap } from "./components/IntersectionMap";
 import { RoundaboutMap } from "./components/RoundaboutMap";
+import { VehicleLegend } from "./components/VehicleLegend";
 import { MetricsSidebar } from "./components/MetricsSidebar";
 import {
   ComparativeDashboard,
@@ -61,7 +62,11 @@ import { StatusState } from "./components/ui/StatusState";
 import { useNavIndicator } from "./components/ui/useNavIndicator";
 import { UrbanFlowLoader } from "./components/ui/Loader";
 import type { SimulationConfigValues } from "./types/config";
-import { DEFAULT_CONFIG_VALUES, dashboardPayload } from "./types/config";
+import {
+  DEFAULT_CONFIG_VALUES,
+  dashboardPayload,
+  sameConfigValues,
+} from "./types/config";
 import { saveReplay, updateSimulationConfig } from "./services/api";
 import { hasResults, sideSummary } from "./metrics/plainLanguage";
 import type {
@@ -202,13 +207,6 @@ function configFromReplay(
     duration: replay.config.simulation?.duration ?? current.duration,
     randomSeed: replay.config.simulation?.randomSeed ?? current.randomSeed,
   };
-}
-
-function sameConfig(a: SimulationConfigValues, b: SimulationConfigValues) {
-  const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<
-    keyof SimulationConfigValues
-  >;
-  return [...keys].every((k) => (a[k] ?? null) === (b[k] ?? null));
 }
 
 type HistoryPage = { kind: "run"; runId: string } | { kind: "compare" };
@@ -378,7 +376,12 @@ function Dashboard({
     followUpTime,
     nsGreenDuration,
     ewGreenDuration,
+    vehicleMix,
+    laneChanging,
+    lanesEastWest,
   } = configValues;
+  // Object-valued: compared by content in the sync effect below.
+  const vehicleMixKey = JSON.stringify(vehicleMix ?? null);
 
   const randomizeSeed = () => {
     setActiveReplay(null);
@@ -420,8 +423,12 @@ function Dashboard({
             followUpTime,
             nsGreenDuration,
             ewGreenDuration,
+            vehicleMix: JSON.parse(vehicleMixKey) as typeof vehicleMix,
+            laneChanging,
+            lanesEastWest,
           },
           intersectionType,
+          viewMode === "signal",
         ),
       )
         .then(() => {
@@ -454,6 +461,9 @@ function Dashboard({
     followUpTime,
     nsGreenDuration,
     ewGreenDuration,
+    vehicleMixKey,
+    laneChanging,
+    lanesEastWest,
   ]);
 
   const handleApplyConfig = (newConfig: SimulationConfigValues) => {
@@ -493,7 +503,7 @@ function Dashboard({
     recordCurrentRun();
     setActiveReplay(null);
     setStage("watch");
-    if (sameConfig(next, configValues)) {
+    if (sameConfigValues(next, configValues)) {
       if (!isPlaying) play().catch(() => {});
       return;
     }
@@ -694,6 +704,7 @@ function Dashboard({
             showStopLines={showStopLines}
             debug={debug}
           />
+          <VehicleLegend snapshot={dualSnapshot?.signal} />
         </div>
       </section>
       <section
@@ -714,6 +725,7 @@ function Dashboard({
             showCrosswalks={false}
             debug={debug}
           />
+          <VehicleLegend snapshot={dualSnapshot?.roundabout} />
         </div>
       </section>
     </div>
@@ -1040,14 +1052,15 @@ function Dashboard({
                 snapshot={singleSnapshot}
                 lanesNorth={lanes}
                 lanesSouth={lanes}
-                lanesEast={lanes}
-                lanesWest={lanes}
+                lanesEast={lanesEastWest ?? lanes}
+                lanesWest={lanesEastWest ?? lanes}
                 laneWidth={laneWidth}
                 showCrosswalks={true}
                 showStopLines={showStopLines}
                 debug={debug}
               />
             )}
+            <VehicleLegend snapshot={singleSnapshot} />
           </div>
           <div className="single-side-column">
             <MetricsSidebar
