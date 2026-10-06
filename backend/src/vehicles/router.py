@@ -39,6 +39,12 @@ _LATERAL_MARGIN: float = 0.3  # meters — added to the two half-widths
 _PROBE_STEPS: Tuple[float, ...] = (0.5, 1.0, 1.5, 2.0, 2.5)
 _SENSOR_RANGE: float = 30.0  # meters — max 360° sensor reach
 _LOOK_AHEAD_LANES: int = 3  # how many route lanes to scan forward
+# A leader's tail within this radial distance (m) of a ring lane's centre is
+# on that lane (half the narrowest supported ring lane, 3.0 m, plus margin).
+_RING_BAND: float = 2.0
+# Distance (m) from a roundabout path's end back to its exit throat, where it
+# has left the ring (RoadNetwork's ROUNDABOUT_ENTRY_SETBACK).
+_THROAT_SETBACK: float = 4.0
 
 
 @lru_cache(maxsize=4096)
@@ -57,6 +63,19 @@ def _conn_lane_index(lane_id: str) -> Optional[int]:
         except ValueError:
             return None
     return None
+
+
+def ring_index(lane: Any) -> Optional[int]:
+    """Circulating lane a roundabout connection lane runs on.
+
+    V1.4 records it on the lane (``Lane.ring_lane``), because it is no longer
+    always the entry lane. Hand-built lanes without it fall back to the index
+    in the id, which is what it always was before.
+    """
+    ring = getattr(lane, "ring_lane", None)
+    if ring is not None:
+        return int(ring)
+    return _conn_lane_index(lane.lane_id)
 
 
 @lru_cache(maxsize=4096)
@@ -130,6 +149,31 @@ def _long_vehicle_probe_gap(
             return clear
         clear = step
     return None
+
+
+def _tail_on_ring_before_exit(
+    leader: Vehicle, lane: Any, theta_from: float, ring_radius: float
+) -> Optional[float]:
+    """Arc distance (m, along the ring) from ``theta_from`` to *leader*'s rear,
+    if that rear lies on the ring lane of radius *ring_radius* before *lane*'s
+    path has left it (its exit throat); None otherwise."""
+    leader_lane = leader.lane
+    if leader_lane is None:
+        return None
+    rx, ry = leader_lane.get_point_at_distance(
+        max(0.0, leader.position - leader.length / 2.0)
+    )
+    if abs(math.hypot(rx, ry) - ring_radius) > _RING_BAND:
+        return None
+    throat = getattr(lane, "_v14_throat_angle", None)
+    if throat is None:
+        tx, ty = lane.get_point_at_distance(lane.length - _THROAT_SETBACK)
+        throat = math.atan2(ty, tx)
+        lane._v14_throat_angle = throat
+    rear_diff = (math.atan2(ry, rx) - theta_from) % (2 * math.pi)
+    if rear_diff > math.pi or rear_diff >= (throat - theta_from) % (2 * math.pi):
+        return None
+    return ring_radius * rear_diff
 
 
 def _remaining_ring_angle(lane: Any, theta_from: float) -> float:
@@ -251,7 +295,7 @@ def find_leader(
             if same_index_radius is None:
                 same_index_radius = avg_radius
 
-            my_lane_idx = _conn_lane_index(lane.lane_id)
+            my_lane_idx = ring_index(lane)
             if my_lane_idx is None:
                 my_lane_idx = 0
 
@@ -272,7 +316,7 @@ def find_leader(
                 ):
                     continue
 
-                v_lane_idx = _conn_lane_index(v.lane.lane_id)
+                v_lane_idx = ring_index(v.lane)
                 if v_lane_idx is not None and v_lane_idx != my_lane_idx:
                     continue
 
@@ -307,6 +351,29 @@ def find_leader(
                         vehicle.length > LONG_VEHICLE_THRESHOLD
                         or v.length > LONG_VEHICLE_THRESHOLD
                     ) and diff > _remaining_ring_angle(lane, theta_self):
+                        # V1.4: unless its tail still lies on this ring lane
+                        # where we have not yet left it. A 10.6 m bus queued
+                        # just past an inner-lane exit covers ~24 degrees of
+                        # that lane behind it, over the start of the exit
+                        # curve; a truck leaving by that exit ignored it and
+                        # drove into its tail (2-lane ring, 50 % motorcycles,
+                        # seed 2). The tail is read from the leader's own
+                        # path, so a vehicle that has just entered — its tail
+                        # still out on the entry, at a larger radius — stays
+                        # ignored exactly as V1.1 intended.
+                        tail = _tail_on_ring_before_exit(
+                            v, lane, theta_self, same_index_radius
+                        )
+                        if tail is None:
+                            continue
+                        v_dist = dist_to_lane_start + tail + v.length / 2.0
+                        if v_dist > 0:
+                            gap = max(
+                                0.0, v_dist - (vehicle.length / 2.0 + v.length / 2.0)
+                            )
+                            if gap < best_gap:
+                                best_gap = gap
+                                best_leader = v
                         continue
 
                     arc_dist = same_index_radius * diff
@@ -450,6 +517,8 @@ def find_leader(
         # rather than once per other vehicle.
         is_roundabout = getattr(network, "is_roundabout", False)
         id_a, a_is_conn, idx_a = _proximity_lane_key(vehicle.lane.lane_id)
+        if a_is_conn:
+            idx_a = ring_index(vehicle.lane)
 
         for other in active_vehicles:
             if other is vehicle or other.lane is None:
@@ -457,6 +526,8 @@ def find_leader(
 
             # Skip parallel lanes of the same street (non-connection lanes starting with same direction prefix)
             id_b, b_is_conn, idx_b = _proximity_lane_key(other.lane.lane_id)
+            if b_is_conn and is_roundabout:
+                idx_b = ring_index(other.lane)
             if is_roundabout:
                 # In a roundabout, vehicles circulating in the SAME lane
                 # index are already tracked by the angular arc-length logic

@@ -302,10 +302,7 @@ def _reference_car(veh_gen: Mapping[str, Any], config: Mapping[str, Any]) -> Any
     return replace(base, **changes)
 
 
-def configured_mix(config: Mapping[str, Any]) -> Optional[Dict[str, float]]:
-    """``vehicleGeneration.vehicleMix`` as {class: share}, or None if unset."""
-    veh_gen = config.get("vehicleGeneration") or {}
-    mix = veh_gen.get("vehicleMix") if isinstance(veh_gen, Mapping) else None
+def _mix_shares(mix: Any) -> Optional[Dict[str, float]]:
     if not isinstance(mix, Mapping):
         return None
     return {
@@ -315,15 +312,39 @@ def configured_mix(config: Mapping[str, Any]) -> Optional[Dict[str, float]]:
     }
 
 
+def configured_mix(config: Mapping[str, Any]) -> Optional[Dict[str, float]]:
+    """``vehicleGeneration.vehicleMix`` as {class: share}, or None if unset."""
+    veh_gen = config.get("vehicleGeneration") or {}
+    mix = veh_gen.get("vehicleMix") if isinstance(veh_gen, Mapping) else None
+    return _mix_shares(mix)
+
+
+def approach_vehicle_mixes(config: Mapping[str, Any]) -> Dict[str, Dict[str, float]]:
+    """``traffic.approaches[].vehicleMix`` (V1.4): an approach's own traffic
+    composition, overriding vehicleGeneration.vehicleMix for that approach."""
+    traffic = config.get("traffic") or {}
+    found: Dict[str, Dict[str, float]] = {}
+    items = traffic.get("approaches") if isinstance(traffic, Mapping) else None
+    for item in items or []:
+        if not isinstance(item, Mapping):
+            continue
+        shares = _mix_shares(item.get("vehicleMix"))
+        if shares is not None:
+            found[str(item.get("direction", "")).lower()] = shares
+    return found
+
+
 def resolve_vehicle_population(
     config: Mapping[str, Any],
+    mix_override: Optional[Mapping[str, float]] = None,
 ) -> Optional[VehiclePopulation]:
     """The scenario's mixed vehicle population, or None for the legacy one.
 
     Classes with a zero share are left out entirely, so they consume no
-    random draws.
+    random draws. ``mix_override`` builds the population of one approach
+    with its own composition (V1.4) from the same class parameters.
     """
-    mix = configured_mix(config)
+    mix = dict(mix_override) if mix_override is not None else configured_mix(config)
     if mix is None:
         return None
     veh_gen = config.get("vehicleGeneration") or {}
@@ -359,34 +380,48 @@ def resolve_vehicle_population(
     return VehiclePopulation(entries)
 
 
+def _mix_errors(raw_mix: Mapping[str, Any], label: str) -> List[str]:
+    """Shape rules of one {class: share} mix. Shares are never normalised:
+    a mix that does not total 100 % is reported, not rescaled."""
+    errors: List[str] = []
+    unknown = sorted(set(raw_mix) - set(VEHICLE_CLASSES))
+    if unknown:
+        errors.append(
+            f"{label} has unknown vehicle classes {unknown}; expected some of "
+            f"{list(VEHICLE_CLASSES)}"
+        )
+    mix = _mix_shares(raw_mix) or {}
+    if any(share < 0 for share in mix.values()):
+        errors.append(f"{label} shares must be >= 0")
+    total = sum(mix.values())
+    if not total > 0:
+        errors.append(f"{label} must give at least one class a positive share")
+    elif abs(total - 1.0) > MIX_SUM_TOLERANCE:
+        errors.append(
+            f"{label} values must sum to 1.0 (±{MIX_SUM_TOLERANCE}); got {total:g}"
+        )
+    return errors
+
+
 def vehicle_mix_errors(config: Mapping[str, Any]) -> List[str]:
     """Cross-field rules for vehicleMix / vehicleTypes (see config_validation)."""
     errors: List[str] = []
+    traffic = config.get("traffic") or {}
+    items = traffic.get("approaches") if isinstance(traffic, Mapping) else None
+    for item in items or []:
+        if isinstance(item, Mapping) and isinstance(item.get("vehicleMix"), Mapping):
+            direction = str(item.get("direction", "?")).lower()
+            errors.extend(
+                _mix_errors(
+                    item["vehicleMix"], f"traffic.approaches[{direction}].vehicleMix"
+                )
+            )
     veh_gen = config.get("vehicleGeneration") or {}
     if not isinstance(veh_gen, Mapping):
         return errors
     raw_mix = veh_gen.get("vehicleMix")
     if isinstance(raw_mix, Mapping):
-        unknown = sorted(set(raw_mix) - set(VEHICLE_CLASSES))
-        if unknown:
-            errors.append(
-                f"vehicleGeneration.vehicleMix has unknown vehicle classes "
-                f"{unknown}; expected some of {list(VEHICLE_CLASSES)}"
-            )
-        mix = configured_mix(config) or {}
-        if any(share < 0 for share in mix.values()):
-            errors.append("vehicleGeneration.vehicleMix shares must be >= 0")
-        total = sum(mix.values())
-        if not total > 0:
-            errors.append(
-                "vehicleGeneration.vehicleMix must give at least one class "
-                "a positive share"
-            )
-        elif abs(total - 1.0) > MIX_SUM_TOLERANCE:
-            errors.append(
-                f"vehicleGeneration.vehicleMix values must sum to 1.0 "
-                f"(±{MIX_SUM_TOLERANCE}); got {total:g}"
-            )
+        errors.extend(_mix_errors(raw_mix, "vehicleGeneration.vehicleMix"))
     types = veh_gen.get("vehicleTypes")
     if isinstance(types, Mapping):
         unknown = sorted(set(types) - set(VEHICLE_CLASSES))
@@ -422,12 +457,31 @@ def longest_vehicle_length(config: Mapping[str, Any]) -> float:
     The legacy population's longest car is vehicleLength.max (5.0 m by
     default); a mixed population's is the longest class in the mix.
     """
+    lengths = [p.max_length for p in _all_populations(config)]
+    population = resolve_vehicle_population(config)
+    if population is None:
+        veh_gen = config.get("vehicleGeneration") or {}
+        length = _range(veh_gen.get("vehicleLength"))
+        lengths.append(length[1] if length is not None else REFERENCE_VEHICLE_LENGTH)
+    return max(lengths)
+
+
+def _all_populations(config: Mapping[str, Any]) -> List[VehiclePopulation]:
+    """The scenario-wide mixed population and every approach's own."""
+    found = []
     population = resolve_vehicle_population(config)
     if population is not None:
-        return population.max_length
-    veh_gen = config.get("vehicleGeneration") or {}
-    length = _range(veh_gen.get("vehicleLength"))
-    return length[1] if length is not None else REFERENCE_VEHICLE_LENGTH
+        found.append(population)
+    for mix in approach_vehicle_mixes(config).values():
+        own = resolve_vehicle_population(config, mix)
+        if own is not None:
+            found.append(own)
+    return found
+
+
+def has_vehicle_mix(config: Mapping[str, Any]) -> bool:
+    """True unless every approach uses the legacy (V1.0) car population."""
+    return bool(_all_populations(config))
 
 
 def long_vehicle_allowance(length: float) -> float:
@@ -440,8 +494,10 @@ def long_vehicle_allowance(length: float) -> float:
 def design_vehicle_allowance(config: Mapping[str, Any]) -> float:
     """How much longer than the 5 m reference car the longest vehicle of a
     *mixed* population is (0 for the legacy population, whose geometry is
-    left exactly as in V1.0). See RoadNetwork.setup_default_intersection."""
-    population = resolve_vehicle_population(config)
-    if population is None:
+    left exactly as in V1.0). See RoadNetwork.setup_default_intersection.
+    Approaches with their own composition (V1.4) count too: the junction is
+    laid out for the longest vehicle that uses any of its arms."""
+    populations = _all_populations(config)
+    if not populations:
         return 0.0
-    return long_vehicle_allowance(population.max_length)
+    return long_vehicle_allowance(max(p.max_length for p in populations))

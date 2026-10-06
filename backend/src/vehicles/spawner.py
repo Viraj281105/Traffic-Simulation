@@ -13,6 +13,7 @@ from src.vehicles.vehicle import Vehicle
 from src.vehicles.vehicle_types import (
     VehicleParams,
     VehiclePopulation,
+    approach_vehicle_mixes,
     resolve_vehicle_population,
 )
 
@@ -126,6 +127,20 @@ class VehicleSpawner:
         self.population: Optional[VehiclePopulation] = resolve_vehicle_population(
             config
         )
+        # V1.4: approaches with their own composition and turning.
+        self.approach_populations: Dict[str, VehiclePopulation] = {}
+        for direction, mix in approach_vehicle_mixes(config).items():
+            own = resolve_vehicle_population(config, mix)
+            if own is not None:
+                self.approach_populations[direction] = own
+        self.approach_turn_probabilities: Dict[str, Dict[str, float]] = {}
+        for item in traffic_cfg.get("approaches") or []:
+            if isinstance(item, dict) and isinstance(
+                item.get("turnProbabilities"), dict
+            ):
+                self.approach_turn_probabilities[
+                    str(item.get("direction", "")).lower()
+                ] = item["turnProbabilities"]
 
         # Speed below which a vehicle is considered "waiting" — must match
         # MetricCollector's wait_speed_threshold so wait-time accounting is
@@ -281,10 +296,13 @@ class VehicleSpawner:
         turn = self._pending_turn.get(direction)
         if turn is None:
             turns = [TurnIntent.LEFT, TurnIntent.STRAIGHT, TurnIntent.RIGHT]
+            probabilities = self.approach_turn_probabilities.get(
+                direction.value, self.turn_probabilities
+            )
             weights = [
-                self.turn_probabilities.get("left", 0.2),
-                self.turn_probabilities.get("straight", 0.6),
-                self.turn_probabilities.get("right", 0.2),
+                probabilities.get("left", 0.2),
+                probabilities.get("straight", 0.6),
+                probabilities.get("right", 0.2),
             ]
             turn = self.rng.choices(turns, weights=weights)[0]
             self._pending_turn[direction] = turn
@@ -294,14 +312,15 @@ class VehicleSpawner:
         # not be re-rolled into a car until it fits. A longer class needs a
         # longer free entry, so the clearance test below uses its own length.
         params: Optional[VehicleParams] = None
-        if self.population is not None:
+        population = self.approach_populations.get(direction.value, self.population)
+        if population is not None:
             type_id = self._pending_type.get(direction)
             if type_id is None:
                 type_id = self.rng.choices(
-                    self.population.type_ids, weights=self.population.weights
+                    population.type_ids, weights=population.weights
                 )[0]
                 self._pending_type[direction] = type_id
-            params = self.population.params_by_type[type_id]
+            params = population.params_by_type[type_id]
             required_length = params.profile.max_length
             minimum_gap = params.minimum_gap
         else:
@@ -314,12 +333,20 @@ class VehicleSpawner:
         # Try the preferred lane first, then any other lane the movement is
         # permitted from (RoadNetwork's lane-use policy): turning vehicles
         # therefore only ever enter their own turn lane, through traffic any.
+        #
+        # V1.4: with a configured lane use the policy's preferred lane may not
+        # permit the movement at all (a scenario that makes lane 0 a
+        # straight-only lane), so it is only tried first when it does. Under
+        # the default policy it always does, and the order is unchanged.
         n_lanes = len(lanes)
-        ordered_indices = [preferred_idx] + [
+        permitted = [
             i
             for i in range(n_lanes)
-            if i != preferred_idx and turn in self.network.permitted_turns(direction, i)
+            if turn in self.network.permitted_turns(direction, i)
         ]
+        if permitted and preferred_idx not in permitted:
+            preferred_idx = min(permitted, key=lambda i: (abs(i - preferred_idx), i))
+        ordered_indices = [preferred_idx] + [i for i in permitted if i != preferred_idx]
 
         target_lane: Optional[Lane] = None
         target_idx: int = preferred_idx

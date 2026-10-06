@@ -95,7 +95,7 @@ def _check_sat_overlap(
     return True
 
 
-def _audit_group(lane_id: str) -> str:
+def _audit_group(lane_id: str, ring: Optional[int] = None) -> str:
     """The collision audit's "same street" key: pairs with equal keys are
     parallel lanes of one street and are not audited against each other.
 
@@ -107,11 +107,14 @@ def _audit_group(lane_id: str) -> str:
     audit. Same origin *and* same lane index (regardless of turn intent) are
     one continuous physical path (see Layer 1's same-lane-index following),
     so those still group together.
+
+    V1.4: the circulating lane is the lane's own ``ring_lane`` when it has
+    one (passed as *ring*), since it is no longer always the entry lane.
     """
     lid = lane_id.lower()
     if lid.startswith("conn_"):
         origin = lid.split("_")[1][0] if "_" in lid else lid
-        return f"{origin}{_conn_lane_index(lid)}"
+        return f"{origin}{_conn_lane_index(lid) if ring is None else ring}"
     if lid and lid[0] in ("n", "s", "e", "w"):
         return lid[0]
     return lid
@@ -263,12 +266,19 @@ class VehiclePool:
         # keeps arbitrating entry. A signalised junction has no gap logic at
         # all, so it always arbitrates in full.
         net = getattr(engine, "network", None)
+        # V1.4: the ring has its own lane count; a one-lane ring fed by a
+        # two-lane (merging) entry is still a single ring for this purpose.
+        ring_count = int(getattr(net, "circulating_lanes", 0) or 0)
         single_ring_roundabout = (
             geom_type == "roundabout"
             and net is not None
-            and all(
-                len(approach.get_lanes()) <= 1
-                for approach in getattr(net, "_incoming", {}).values()
+            and (
+                ring_count == 1
+                if ring_count
+                else all(
+                    len(approach.get_lanes()) <= 1
+                    for approach in getattr(net, "_incoming", {}).values()
+                )
             )
         )
         predictive_limits = self._predictive.compute_braking_distances(
@@ -276,6 +286,18 @@ class VehiclePool:
             entry_gated_by_controller=single_ring_roundabout,
             junction_arbitrated_elsewhere=conflict_manager is not None,
         )
+        # V1.4: per-vehicle stopping limits set by the controller this tick
+        # (the roundabout's exit zones, see RoundaboutController), expressed
+        # exactly like the predictive layer's and folded in the same way.
+        controller_limits = getattr(
+            getattr(engine, "controller", None), "vehicle_stop_limits", None
+        )
+        if controller_limits:
+            predictive_limits = dict(predictive_limits)
+            for vid, allowed in controller_limits.items():
+                existing = predictive_limits.get(vid)
+                if existing is None or allowed < existing:
+                    predictive_limits[vid] = allowed
 
         stop_line_setback = float(
             getattr(net, "stop_line_setback", SIGNAL_STOP_LINE_SETBACK)
@@ -407,7 +429,7 @@ class VehiclePool:
             (
                 v,
                 v.lane,
-                _audit_group(v.lane.lane_id),
+                _audit_group(v.lane.lane_id, getattr(v.lane, "ring_lane", None)),
                 {lane_obj.lane_id for lane_obj in v.route} if v.route else set(),
                 v.coords,
                 v.lane_change is not None,

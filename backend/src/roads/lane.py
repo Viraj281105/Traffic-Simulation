@@ -94,6 +94,19 @@ class Lane:
         # entry/exit transition zones — see router.find_leader.
         self.circulating_radius: Optional[float] = None
 
+        # Roundabout connection lanes only (V1.4, set by RoadNetwork): the
+        # circulating lane the path runs on (0 innermost), the distance along
+        # the path at which it starts spiralling out towards its exit, and
+        # the arm it exits to. None everywhere else.
+        self.ring_lane: Optional[int] = None
+        self.exit_transition_start: Optional[float] = None
+        self.exit_direction: Optional[Any] = None
+
+    def distance_to_waypoint(self, index: int) -> float:
+        """Distance along the lane to waypoint ``index`` (clamped)."""
+        index = max(0, min(index, len(self._cum_lengths) - 1))
+        return self._cum_lengths[index]
+
     def _segment(self, distance: float) -> Tuple[int, float]:
         """Index of the waypoint segment holding ``distance`` (clamped to the
         lane): the first segment whose end is at or beyond it, else the last.
