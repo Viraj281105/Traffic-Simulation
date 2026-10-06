@@ -41,6 +41,39 @@
           },
           "required": ["left", "straight", "right"],
           "default": { "left": 0.2, "straight": 0.6, "right": 0.2 }
+        },
+        "approaches": {
+          "type": "array",
+          "description": "Per-approach traffic (V1.4). turnProbabilities overrides traffic.turnProbabilities for that approach (must sum to 1); vehicleMix overrides vehicleGeneration.vehicleMix for that approach (must sum to 1). How busy each approach is stays in arrivalRate x directionalSplit. Each approach may appear once. See docs/architecture/06-scenario-configuration-contract.md.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "direction": { "type": "string", "enum": ["north", "south", "east", "west"] },
+              "turnProbabilities": {
+                "type": "object",
+                "properties": {
+                  "left": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "straight": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "right": { "type": "number", "minimum": 0, "maximum": 1 }
+                },
+                "required": ["left", "straight", "right"],
+                "additionalProperties": false
+              },
+              "vehicleMix": {
+                "type": "object",
+                "properties": {
+                  "car": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "suv": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "bus": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "truck": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "motorcycle": { "type": "number", "minimum": 0, "maximum": 1 }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": ["direction"],
+            "additionalProperties": false
+          }
         }
       }
     },
@@ -48,6 +81,12 @@
       "type": "object",
       "properties": {
         "intersectionType": { "type": "string", "enum": ["fixed_time_signal", "roundabout"] },
+        "circulatingLanes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3,
+          "description": "Circulating lanes of a roundabout (V1.4), independent of the approach lane counts. Omitted: as many as the widest approach (the V1.0-V1.3 relationship). Ignored by a signal. Entry and exit lanes are mapped onto the ring by the V1.4 lane assignment; see docs/simulation/methodology.md. Supersedes the reserved controller.circulatingLanes."
+        },
         "intersectionCenter": {
           "type": "object",
           "properties": {
@@ -74,12 +113,24 @@
         },
         "approaches": {
           "type": "array",
-          "description": "Per-approach overrides. lanes (V1.2) overrides lanesPerApproach for that approach; opposite approaches (north/south, east/west) must have equal lane counts. speedLimit is RESERVED: accepted and validated but not read. See docs/architecture/06-scenario-configuration-contract.md section 2.4.",
+          "description": "Per-approach overrides. lanes (V1.2) overrides lanesPerApproach for that approach; at a signal, opposite approaches (north/south, east/west) must have equal lane counts (a roundabout has no such rule, V1.4). length (V1.4) overrides approachLength. laneUse (V1.4) lists the movements each lane allows, lane 1 (next to the centre line) first. speedLimit is RESERVED: accepted and validated but not read. See docs/architecture/06-scenario-configuration-contract.md section 2.4.",
           "items": {
             "type": "object",
             "properties": {
               "direction": { "type": "string", "enum": ["north", "south", "east", "west"] },
               "lanes": { "type": "integer", "minimum": 1, "maximum": 4 },
+              "length": { "type": "number", "exclusiveMinimum": 50, "maximum": 1000 },
+              "laneUse": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 4,
+                "items": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": { "type": "string", "enum": ["left", "straight", "right"] }
+                }
+              },
               "speedLimit": { "type": "number", "exclusiveMinimum": 0 }
             },
             "required": ["direction"]

@@ -24,12 +24,29 @@ class TurnProbabilities(BaseModel):
     right: float = Field(..., ge=0, le=1)
 
 
+class ApproachMix(BaseModel):
+    car: Optional[float] = Field(None, ge=0, le=1)
+    suv: Optional[float] = Field(None, ge=0, le=1)
+    bus: Optional[float] = Field(None, ge=0, le=1)
+    truck: Optional[float] = Field(None, ge=0, le=1)
+    motorcycle: Optional[float] = Field(None, ge=0, le=1)
+
+
+class TrafficApproachItem(BaseModel):
+    """One approach's own traffic (V1.4); see config_validation."""
+
+    direction: str
+    turnProbabilities: Optional[TurnProbabilities] = None
+    vehicleMix: Optional[ApproachMix] = None
+
+
 class TrafficSection(BaseModel):
     totalVehicles: int = Field(200, gt=0, le=5000)
     arrivalRate: float = Field(0.5, gt=0, le=10.0)
     arrivalDistribution: str = Field("poisson")
     directionalSplit: Optional[DirectionalSplit] = None
     turnProbabilities: Optional[TurnProbabilities] = None
+    approaches: Optional[List[TrafficApproachItem]] = None
 
 
 class IntersectionCenter(BaseModel):
@@ -40,11 +57,16 @@ class IntersectionCenter(BaseModel):
 class GeometrySection(BaseModel):
     intersectionType: str
     intersectionCenter: Optional[IntersectionCenter] = None
+    # V1.4: a roundabout's ring lane count. Unset: the widest approach's.
+    circulatingLanes: Optional[int] = Field(None, ge=1, le=3)
 
 
 class ApproachItem(BaseModel):
     direction: str
     lanes: Optional[int] = Field(None, ge=1, le=4)
+    # V1.4: this approach's own length, and the movements each lane allows.
+    length: Optional[float] = Field(None, gt=50, le=1000)
+    laneUse: Optional[List[List[Literal["left", "straight", "right"]]]] = None
     speedLimit: Optional[float] = Field(None, gt=0)
 
 

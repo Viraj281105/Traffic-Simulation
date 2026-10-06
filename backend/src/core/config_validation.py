@@ -21,6 +21,8 @@ from src.controllers.adaptive_signal import (
     adaptive_plan_errors,
     resolve_adaptive_settings,
 )
+from src.core.lane_validation import lane_configuration_errors
+from src.roads.lane_config import shortest_approach_length
 from src.roads.network import lane_counts, resolve_lanes_per_approach
 from src.vehicles.vehicle_types import vehicle_mix_errors
 
@@ -122,6 +124,7 @@ def semantic_config_errors(config: Dict[str, Any]) -> List[str]:
 
     errors.extend(vehicle_mix_errors(config))
     errors.extend(_lane_count_errors(config))
+    errors.extend(lane_configuration_errors(config))
     errors.extend(_signal_control_errors(config))
 
     # NaN compares false against every bound, so it slips through each of the
@@ -147,6 +150,12 @@ def _lane_count_errors(config: Dict[str, Any]) -> List[str]:
     """
     roads = _section(config, "roads")
     if not roads:
+        return []
+    if _section(config, "geometry").get("intersectionType") == "roundabout":
+        # V1.4: a roundabout's traffic leaves from the ring, whose lanes are
+        # mapped onto each exit (roads/lane_config.py); nothing goes straight
+        # across from one approach into the opposite one, so unequal
+        # opposite approaches are not a lane drop there.
         return []
     try:
         counts = lane_counts(resolve_lanes_per_approach(roads))
@@ -231,6 +240,18 @@ def _signal_control_errors(config: Dict[str, Any]) -> List[str]:
             f"({settings['detectionDistance']:g}) must be shorter than "
             f"roads.approachLength ({approach:g})"
         )
+    else:
+        # V1.4: an approach may be shorter than roads.approachLength.
+        try:
+            shortest = shortest_approach_length(_section(config, "roads"))
+        except (TypeError, ValueError):
+            shortest = None
+        if shortest is not None and not settings["detectionDistance"] < shortest:
+            errors.append(
+                f"controller.adaptive.detectionDistance "
+                f"({settings['detectionDistance']:g}) must be shorter than the "
+                f"shortest approach ({shortest:g} m)"
+            )
     offset = ctrl.get("offset")
     if _number(offset) and offset != 0:
         errors.append(

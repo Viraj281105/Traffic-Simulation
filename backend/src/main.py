@@ -50,6 +50,14 @@ from src.core.provenance import (
     PYTHON_VERSION,
     build_run_provenance,
 )
+from src.core.scenario import (
+    JUNCTION_STRATEGY,
+    STRATEGIES,
+    compile_live_comparison,
+    compile_scenario,
+    parse_scenario,
+    validate_scenario,
+)
 from src.database.dao import (
     RunMetricsDAO,
     SimulationRunDAO,
@@ -62,7 +70,10 @@ from src.metrics.collector import MetricCollector
 from src.snapshot.buffer import SnapshotBuffer
 from src.snapshot.builder import SnapshotBuilder
 from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
-from src.study.control_comparison import run_control_comparison
+from src.study.control_comparison import (
+    run_control_comparison,
+    run_scenario_comparison,
+)
 from src.study.jobs import TooManyJobsError, jobs
 from src.study.report_generator import (
     generate_study_report_csv,
@@ -406,6 +417,60 @@ def validate_config(payload: Dict[str, Any]) -> Dict[str, Any]:
     return {"valid": not errors, "errors": errors}
 
 
+# ── Scenario documents (V1.4) ───────────────────────────────────────────────
+# A portable, strategy-neutral description of a junction and its traffic
+# (core/scenario.py), compiled into the configuration above once per control
+# strategy. These endpoints only read the document; nothing is stored.
+class ScenarioRequest(BaseModel):
+    scenario: Dict[str, Any]
+    # Strategies the scenario will be run with; each must accept it.
+    # Omitted: the junction type the scenario names.
+    strategies: list[Literal["fixed_time", "adaptive", "roundabout"]] | None = Field(
+        default=None, min_length=1, max_length=3
+    )
+
+
+class ScenarioCompileRequest(BaseModel):
+    scenario: Dict[str, Any]
+    strategy: Literal["fixed_time", "adaptive", "roundabout"]
+
+
+@app.post("/api/v1/scenarios/validate")
+def validate_scenario_endpoint(payload: ScenarioRequest) -> Dict[str, Any]:
+    """Whether a scenario can be simulated under each requested strategy.
+
+    Always 200: ``valid`` is false and ``errors`` says why (and, for an error
+    specific to one strategy, which) when it cannot. ``warnings`` lists what
+    the results of a valid scenario should be read in the light of.
+    """
+    result = validate_scenario(
+        payload.scenario, list(payload.strategies) if payload.strategies else None
+    )
+    result.pop("byStrategy", None)
+    return result
+
+
+@app.post("/api/v1/scenarios/compile")
+def compile_scenario_endpoint(payload: ScenarioCompileRequest) -> Dict[str, Any]:
+    """The exact engine configuration a scenario runs under one strategy."""
+    document = _valid_scenario_or_400(payload.scenario, [payload.strategy])
+    return {
+        "strategy": payload.strategy,
+        "config": compile_scenario(document, payload.strategy),
+    }
+
+
+def _valid_scenario_or_400(raw: Dict[str, Any], strategies: list[str]) -> Any:
+    result = validate_scenario(raw, strategies)
+    if not result["valid"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid scenario: {'; '.join(result['errors'])}",
+        )
+    document, _ = parse_scenario(raw)
+    return document
+
+
 # ── Full Simulation Lifecycle REST Routes ───────────────────────────────────
 @app.post("/api/simulation/new", dependencies=[Depends(require_api_key)])
 def create_simulation_v2(payload: ScenarioConfiguration) -> Dict[str, Any]:
@@ -515,6 +580,20 @@ def _evict_completed_simulations() -> None:
     dependencies=[Depends(require_api_key)],
 )
 def create_simulation(config: Dict[str, Any]) -> Dict[str, Any]:
+    # V1.4: {"scenario": <scenario document>, "strategy": ...} runs a scenario
+    # document under one strategy; anything else is an engine configuration,
+    # exactly as before. An engine configuration never has a top-level
+    # "strategy", so the two cannot be confused.
+    if "strategy" in config and isinstance(config.get("scenario"), dict):
+        strategy = config["strategy"]
+        if strategy not in STRATEGIES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid strategy {strategy!r}: must be one of "
+                f"{', '.join(STRATEGIES)}",
+            )
+        document = _valid_scenario_or_400(config["scenario"], [strategy])
+        config = compile_scenario(document, strategy)
     return _create_simulation(config, semantic_source=config)
 
 
@@ -1189,6 +1268,37 @@ def _live_config_errors(config: Dict[str, Any]) -> list[str]:
     return semantic_config_errors(user_supplied)
 
 
+def _compile_dashboard_scenario(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Live config for a scenario document (V1.4).
+
+    The live comparison runs the scenario's signal (fixed-time or adaptive,
+    as its junction type or ``signalControl`` says) beside its roundabout,
+    so the document must be valid for both. Its own seed is used, so the
+    live run reproduces exactly what the document describes.
+    """
+    raw = payload["scenario"]
+    document, errors = parse_scenario(raw)
+    if document is None:
+        raise HTTPException(
+            status_code=400, detail=f"Invalid scenario: {'; '.join(errors)}"
+        )
+    requested = payload.get("signalControl")
+    if requested is not None and requested not in ("fixed_time", "adaptive"):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid configuration: signalControl must be 'fixed_time' "
+            "or 'adaptive'",
+        )
+    signal_strategy = requested or (
+        "adaptive"
+        if JUNCTION_STRATEGY[document.junction.type] == "adaptive"
+        else "fixed_time"
+    )
+    intersection_type = payload.get("intersectionType", "fixed_time_signal")
+    _valid_scenario_or_400(raw, [signal_strategy, "roundabout"])
+    return compile_live_comparison(document, signal_strategy, intersection_type)
+
+
 def _compile_dashboard_config(payload: Dict[str, Any], seed_val: int) -> Dict[str, Any]:
     """Compiles the dashboard's flat scenario payload into an engine config.
 
@@ -1197,7 +1307,12 @@ def _compile_dashboard_config(payload: Dict[str, Any], seed_val: int) -> Dict[st
     (/api/v1/study/validate/monte-carlo with ``scenario``) repeats exactly
     the same scenario over other seeds. Raises HTTPException(400) for a
     payload the simulator would reject.
+
+    V1.4: a payload carrying ``scenario`` (a scenario document) is compiled
+    from that document instead (see _compile_dashboard_scenario).
     """
+    if isinstance(payload.get("scenario"), dict):
+        return _compile_dashboard_scenario(payload)
     # Duration must fall within the same bounds the versioned API enforces
     # via SimulationSection.duration (ge=1, le=3600 — see config_models.py
     # and config.schema.json). This endpoint builds its config by hand
@@ -1440,8 +1555,12 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     session = _current_session()
 
-    # Determine randomSeed (preserve user-provided seed explicitly)
+    # Determine randomSeed (preserve user-provided seed explicitly). A
+    # scenario document (V1.4) always carries its own seed.
     raw_seed = payload.get("randomSeed")
+    scenario_doc = payload.get("scenario")
+    if isinstance(scenario_doc, dict):
+        raw_seed = (scenario_doc.get("simulation") or {}).get("seed", 42)
     if raw_seed is not None and str(raw_seed).strip() != "":
         try:
             seed_val = int(raw_seed)
@@ -2564,6 +2683,16 @@ class ControlComparisonRequest(BaseModel):
     adaptive: Dict[str, Any] | None = None
     vehicleMix: Dict[str, float] | None = None
     confidenceLevel: float = Field(default=0.95)
+    # V1.4: study a scenario document instead of the built-in junction. Its
+    # own approaches, lanes, traffic, vehicles, duration and seed are used;
+    # lanes / levels / duration / adaptive / vehicleMix above must then be
+    # left unset (they describe the built-in junction). ``demandScales``
+    # optionally repeats the study with all demand scaled.
+    scenario: Dict[str, Any] | None = None
+    strategies: list[Literal["fixed_time", "adaptive", "roundabout"]] | None = Field(
+        default=None, min_length=2, max_length=3
+    )
+    demandScales: list[float] | None = Field(default=None, min_length=1, max_length=6)
 
     @model_validator(mode="after")
     def _check(self) -> "ControlComparisonRequest":
@@ -2571,6 +2700,37 @@ class ControlComparisonRequest(BaseModel):
             raise ValueError(
                 f"confidenceLevel must be one of {list(SUPPORTED_CONFIDENCE_LEVELS)}"
             )
+        if self.scenario is not None:
+            built_in = sorted(
+                key
+                for key in ("lanes", "levels", "duration", "adaptive", "vehicleMix")
+                if key in self.model_fields_set
+            )
+            if built_in:
+                raise ValueError(
+                    f"{', '.join(built_in)} describe the built-in junction; with a "
+                    "scenario, set them in the scenario instead"
+                )
+            strategies = list(self.strategies or STRATEGIES)
+            if len(set(strategies)) != len(strategies):
+                raise ValueError("strategies must not repeat")
+            for scale in self.demandScales or []:
+                if not 0.1 <= scale <= 3.0:
+                    raise ValueError("demandScales must each be between 0.1 and 3")
+            result = validate_scenario(self.scenario, strategies)
+            if not result["valid"]:
+                raise ValueError("; ".join(result["errors"]))
+            duration = (
+                (result.get("scenario") or {}).get("simulation", {}).get("duration", 0)
+            )
+            if duration > MAX_CONTROL_COMPARISON_DURATION_SECONDS:
+                raise ValueError(
+                    f"scenario simulation.duration must be at most "
+                    f"{MAX_CONTROL_COMPARISON_DURATION_SECONDS:g} s for a study"
+                )
+            return self
+        if self.strategies is not None or self.demandScales is not None:
+            raise ValueError("strategies and demandScales apply only with a scenario")
         if self.levels is not None and len(set(self.levels)) != len(self.levels):
             raise ValueError("levels must not repeat")
         probe: Dict[str, Any] = {
@@ -2591,6 +2751,18 @@ class ControlComparisonRequest(BaseModel):
 def _run_control_comparison(
     req: ControlComparisonRequest, progress: Optional[Progress] = None
 ) -> Dict[str, Any]:
+    if req.scenario is not None:
+        document, _ = parse_scenario(req.scenario)
+        return run_scenario_comparison(
+            document,
+            list(req.strategies or STRATEGIES),
+            num_seeds=req.numSeeds,
+            # Seeds start from the scenario's own unless baseSeed is given.
+            base_seed=req.baseSeed if "baseSeed" in req.model_fields_set else None,
+            demand_scales=req.demandScales,
+            confidence_level=req.confidenceLevel,
+            progress=progress,
+        )
     return run_control_comparison(
         lanes=req.lanes,
         levels=list(req.levels) if req.levels else None,

@@ -17,11 +17,16 @@ from src.intersection.conflict_manager import (
     ConflictManager,
     conflict_clearance_for,
 )
-from src.roads.network import RoadNetwork, resolve_lanes_per_approach
+from src.roads.lane_config import configured_approach_lengths, configured_lane_use
+from src.roads.network import (
+    RoadNetwork,
+    resolve_circulating_lanes,
+    resolve_lanes_per_approach,
+)
 from src.vehicles.idm import IntelligentDriverModel
 from src.vehicles.pool import VehiclePool
 from src.vehicles.spawner import VehicleSpawner
-from src.vehicles.vehicle_types import design_vehicle_allowance
+from src.vehicles.vehicle_types import design_vehicle_allowance, has_vehicle_mix
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +79,11 @@ class SimulationEngine:
                 inner_radius=inner_radius,
                 outer_radius=outer_radius,
                 design_vehicle_allowance=allowance,
+                # V1.4: per-approach lengths and lane use, and the ring's own
+                # lane count (unset: as wide as the widest approach).
+                approach_lengths=configured_approach_lengths(road_cfg) or None,
+                lane_use=configured_lane_use(road_cfg) or None,
+                circulating_lanes=resolve_circulating_lanes(self.config),
             )
 
             # Register all connection lanes with the conflict manager and
@@ -87,6 +97,12 @@ class SimulationEngine:
             # order on junctions laid out for long vehicles (see
             # ConflictManager._holder_behind_on_merge).
             self.conflict_manager.merge_in_position_order = allowance > 0
+            # V1.4: hold crossing traffic for committed vehicles that can no
+            # longer stop short of a crossing, with any vehicle mix. The
+            # legacy cars-only population keeps V1.0 exactly (pinned by test).
+            self.conflict_manager.protect_unstoppable_committed = has_vehicle_mix(
+                self.config
+            )
 
             logger.info(
                 "ConflictManager initialized: %d connection lanes, %d conflict points",
