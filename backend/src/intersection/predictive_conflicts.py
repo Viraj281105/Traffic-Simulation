@@ -846,6 +846,12 @@ class PredictiveConflictResolver:
 
         id_a = va.lane.lane_id.lower()
         id_b = vb.lane.lane_id.lower()
+        ring_a = getattr(va.lane, "ring_lane", None)
+        ring_b = getattr(vb.lane, "ring_lane", None)
+        if ring_a is not None and ring_b is not None:
+            # V1.4: the ring lane is recorded on the path (it is no longer
+            # always the entry lane in the id). Same rule as below.
+            return bool(ring_a == ring_b)
         if id_a.startswith("conn_") and id_b.startswith("conn_"):
             parts_a = id_a.split("_")
             parts_b = id_b.split("_")

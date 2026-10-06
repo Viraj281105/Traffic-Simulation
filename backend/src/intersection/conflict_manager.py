@@ -177,6 +177,12 @@ def _body_radius(length: float) -> float:
     return max(_ZONE_BODY_RADIUS, length / 2.0 + _ZONE_BODY_MARGIN)
 
 
+# Hardest braking the car-following model applies (IDM max_deceleration,
+# m/s^2): a committed vehicle that cannot stop short of a crossing's
+# reservation buffer even at this rate will end up stopped inside it (V1.4).
+_COMMITTED_DECELERATION: float = 9.0
+
+
 _TURN_PRIORITY: Dict[TurnIntent, int] = {
     TurnIntent.STRAIGHT: 3,
     TurnIntent.RIGHT: 2,
@@ -228,6 +234,9 @@ class ConflictManager:
         # order they physically arrive (see _holder_behind_on_merge).
         self._merge_keys: Set[Tuple[str, str]] = set()
         self.merge_in_position_order: bool = False
+        # V1.4: see _committed_long_crossing. Off for the legacy cars-only
+        # population, which keeps V1.0's admission exactly.
+        self.protect_unstoppable_committed: bool = False
 
     # ------------------------------------------------------------------
     # Setup
@@ -774,6 +783,22 @@ class ConflictManager:
         than the 5 m reference car, so car-only junctions behave exactly as
         in V1.0. Vehicles fed by the same entry lane are one behind the
         other, not crossing, and are left to car-following.
+
+        V1.4: also applied, whatever the lengths, when the committed vehicle
+        can no longer stop short of the zone's buffer even braking as hard as
+        the model ever brakes. The case is a platoon follower: it holds nothing on
+        zones its same-lane leader holds ("shared"), so the instant the
+        leader released one a left-turner at its stop line was admitted onto
+        it, with the follower 8 m away at 8.8 m/s. The follower braked to a
+        stop 4.1 m from the crossing, inside the turner's stalled-vehicle
+        buffer, and each then waited for the other for 105 s (3-lane adaptive
+        signal, mixed traffic, seed 2). Wherever the follower can still stop
+        outside the buffer the V1.0 behaviour is unchanged, and so is any
+        committed car already inside it (proximity arbitration and the body
+        check cover those, as before). Like the merge order (K16), it applies
+        only with a vehicle mix (``protect_unstoppable_committed``): the
+        legacy cars-only population reproduces V1.0 exactly, rare wait
+        included.
         """
         if not all_vehicles_info:
             return False
@@ -792,12 +817,18 @@ class ConflictManager:
             else:
                 continue
             other_length = float(info.get("length", 0.0))
+            other_remaining = other_dist_to_cp - info.get("position_on_lane", 0.0)
             if not (
                 vehicle_length > LONG_VEHICLE_THRESHOLD
                 or other_length > LONG_VEHICLE_THRESHOLD
             ):
+                if not self.protect_unstoppable_committed:
+                    continue
+                speed = float(info.get("speed", 0.0))
+                room = other_remaining - self.ZONE_RADIUS
+                if 0.0 < room < speed * speed / (2.0 * _COMMITTED_DECELERATION):
+                    return True
                 continue
-            other_remaining = other_dist_to_cp - info.get("position_on_lane", 0.0)
             if other_remaining > -_body_radius(other_length):
                 return True
         return False

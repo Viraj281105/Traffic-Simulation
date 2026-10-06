@@ -325,6 +325,21 @@ class FixedTimeSignalController(BaseController):
                 return (TurnIntent.RIGHT,)
             return (TurnIntent.STRAIGHT,)
 
+    def _lane_turns(
+        self, direction: Direction, lane_index: int, total_lanes: int
+    ) -> Tuple[TurnIntent, ...]:
+        """Movements a lane's signal head serves: the scenario's own lane
+        arrows when it configures them (V1.4), else the index policy."""
+        configured_turns = getattr(self.network, "configured_turns", None)
+        configured = (
+            configured_turns(direction, lane_index)
+            if configured_turns is not None
+            else None
+        )
+        if configured:
+            return tuple(t for t in TurnIntent if t in configured)
+        return self._lane_turn_intent(lane_index, total_lanes)
+
     # ------------------------------------------------------------------
     # BaseController interface
     # ------------------------------------------------------------------
@@ -368,7 +383,7 @@ class FixedTimeSignalController(BaseController):
                 continue
             n = len(lanes)
             for idx in range(n):
-                shown = frozenset(self._lane_turn_intent(idx, n))
+                shown = frozenset(self._lane_turns(d, idx, n))
                 allowed = self.network.permitted_turns(d, idx) & shown
                 self.network.set_lane_use(d, idx, allowed or shown)
 
@@ -426,7 +441,7 @@ class FixedTimeSignalController(BaseController):
             total_lanes = len(lane_list)
 
             for lane_idx, lane in enumerate(lane_list):
-                lane_turns = self._lane_turn_intent(lane_idx, total_lanes)
+                lane_turns = self._lane_turns(d, lane_idx, total_lanes)
 
                 # Determine if this lane should be green or yellow clearance
                 should_be_green = False

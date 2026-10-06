@@ -74,7 +74,7 @@ class StopLineDetection:
                     continue
                 n = len(lane_list)
                 for idx, lane in enumerate(lane_list):
-                    heads = ctl._lane_turn_intent(idx, n)
+                    heads = ctl._lane_turns(d, idx, n)
                     if any(t in phase.allowed_turns for t in heads):
                         lanes.append(lane)
             released[i] = tuple(lanes)
