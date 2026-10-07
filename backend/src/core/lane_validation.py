@@ -9,16 +9,40 @@ them with the rest of the contract's cross-field rules).
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Set, TypeGuard, Union
+from typing import (
+    Any,
+    Dict,
+    FrozenSet,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Set,
+    TypeGuard,
+    Union,
+)
 
 from src.core.enums import Direction, TurnIntent
+from src.roads.junction_geometry import (
+    DESIGN_TURNING_RADIUS,
+    DESIGN_VEHICLE_NAMES,
+    configured_arms,
+    geometry_errors,
+    present_arms,
+    resolve_junction_geometry,
+    roundabout_geometry_errors,
+    uturn_lanes_needed,
+    uturn_radius,
+)
 from src.roads.lane_config import (
     CIRCULATING_LANE_SIDE_CLEARANCE,
+    CORE_TURNS,
     MAX_CIRCULATING_LANES,
     MIN_CIRCULATING_LANE_WIDTH,
     TURN_ORDER,
     default_policy_turns,
     default_roundabout_lane_use,
+    default_signal_lane_use,
     designated_ring_lanes,
     parse_turns,
     ring_lane_for,
@@ -114,6 +138,10 @@ def resolved_lane_use(
         }
     except (TypeError, ValueError):
         return None
+    present = present_arms(config)
+    for d in Direction:
+        if d not in present:
+            counts[d] = 0
     is_roundabout = _section(config, "geometry").get("intersectionType") == "roundabout"
     rings = circulating_lanes_of(config, counts)
     result: Dict[Direction, List[FrozenSet[TurnIntent]]] = {}
@@ -125,11 +153,13 @@ def resolved_lane_use(
         lanes = [parse_turns(x) for x in item["laneUse"]]
         if direction is not None and all(lane is not None for lane in lanes):
             configured[direction] = [lane for lane in lanes if lane is not None]
-    for d in Direction:
+    for d in present:
         if d in configured:
             result[d] = configured[d]
         elif is_roundabout:
             result[d] = default_roundabout_lane_use(d, counts, rings)
+        elif len(present) < len(Direction):
+            result[d] = default_signal_lane_use(d, counts)
         else:
             result[d] = [default_policy_turns(i, counts[d]) for i in range(counts[d])]
     return result
@@ -164,11 +194,25 @@ def lane_configuration_errors(config: Mapping[str, Any]) -> List[str]:
     except (TypeError, ValueError):
         return errors
 
+    # -- arms that exist (V1.5) ----------------------------------------------
+    present = present_arms(config)
+    errors.extend(_arm_errors(config, present, road_items, traffic_items))
+    if len(present) < 3:
+        return errors
+    for d in Direction:
+        if d not in present:
+            counts[d] = 0
+    road_items = {k: v for k, v in road_items.items() if _NAMES[k] in present}
+    traffic_items = {k: v for k, v in traffic_items.items() if _NAMES[k] in present}
+
     # -- per-approach turning ------------------------------------------------
     for direction, item in traffic_items.items():
         probabilities = item.get("turnProbabilities")
         if isinstance(probabilities, Mapping):
-            parts = [probabilities.get(t.value) for t in TurnIntent]
+            # A U-turn share (V1.5) is optional and counts as 0 when unset.
+            parts = [probabilities.get(t.value) for t in CORE_TURNS] + [
+                probabilities.get(TurnIntent.UTURN.value, 0)
+            ]
             if all(_number(p) for p in parts):
                 total = sum(float(p) for p in parts if p is not None)
                 if abs(total - 1.0) > _SUM_TOLERANCE:
@@ -210,13 +254,13 @@ def lane_configuration_errors(config: Mapping[str, Any]) -> List[str]:
             if turns is None:
                 errors.append(
                     f"{label} lane {i + 1}: movements must be some of "
-                    "'left', 'straight', 'right'"
+                    "'uturn', 'left', 'straight', 'right'"
                 )
                 break
             if not turns:
                 errors.append(
                     f"{label} lane {i + 1} allows no movement; every lane must "
-                    "allow at least one of left, straight, right"
+                    "allow at least one of U-turn, left, straight, right"
                 )
                 break
             lanes.append(turns)
@@ -254,11 +298,17 @@ def lane_configuration_errors(config: Mapping[str, Any]) -> List[str]:
     if is_roundabout:
         errors.extend(_ring_errors(config, counts, rings))
 
+    # -- geometry (V1.5) ------------------------------------------------------
+    geometry_problems = _junction_geometry_errors(config, is_roundabout)
+    if geometry_problems:
+        errors.extend(geometry_problems)
+        return errors
+
     # -- movements every lane can serve, and every demand served ------------
     use = resolved_lane_use(config)
     if use is None:
         return errors
-    for d in Direction:
+    for d in present:
         lanes = configured.get(d, use[d])
         road_item = road_items.get(d.value)
         if (
@@ -268,7 +318,20 @@ def lane_configuration_errors(config: Mapping[str, Any]) -> List[str]:
         ):
             continue  # its lane use is malformed, already reported above
         demanded = _demanded_turns(traffic, d.value)
-        needed = demanded if demanded is not None else frozenset(TurnIntent)
+        needed = demanded if demanded is not None else frozenset(CORE_TURNS)
+        if demanded is None and len(present) < len(Direction):
+            # Random turning (no shares set) at a three-arm junction would
+            # send traffic into the missing arm.
+            errors.append(
+                f"The {d.value} approach has no turning shares, so drivers would "
+                "be sent every way, including into the missing arm; set its "
+                "turning shares"
+            )
+            continue
+        movement_problems = _movement_errors(d, lanes, needed, counts, present)
+        if movement_problems:
+            errors.extend(movement_problems)
+            continue
         offered = frozenset().union(*lanes) if lanes else frozenset()
         missing = needed - offered
         if missing:
@@ -282,6 +345,188 @@ def lane_configuration_errors(config: Mapping[str, Any]) -> List[str]:
         else:
             if d in configured:
                 errors.extend(_signal_lane_errors(d, lanes, counts, configured))
+            if any(TurnIntent.UTURN in lane for lane in lanes):
+                errors.extend(_signal_uturn_errors(config, d, lanes))
+    return errors
+
+
+def _arm_errors(
+    config: Mapping[str, Any],
+    present: Sequence[Direction],
+    road_items: Mapping[str, Mapping[str, Any]],
+    traffic_items: Mapping[str, Mapping[str, Any]],
+) -> List[str]:
+    """V1.5: which arms exist, and that nothing describes one that does not."""
+    from src.roads.junction_geometry import arm_count_errors
+
+    if configured_arms(config) is None:
+        return []
+    errors = arm_count_errors(present)
+    if errors:
+        return errors
+    missing = [d for d in Direction if d not in present]
+    names = ", ".join(d.value for d in missing)
+    for direction in road_items:
+        if _NAMES[direction] in missing:
+            errors.append(
+                f"roads.approaches describes the {direction} approach, but "
+                f"geometry.arms has no {direction} arm; remove that entry or add "
+                f"{direction} to geometry.arms"
+            )
+    for direction in traffic_items:
+        if _NAMES[direction] in missing:
+            errors.append(
+                f"traffic.approaches describes the {direction} approach, but "
+                f"geometry.arms has no {direction} arm; remove that entry or add "
+                f"{direction} to geometry.arms"
+            )
+    traffic = _section(config, "traffic")
+    split = traffic.get("directionalSplit")
+    if not isinstance(split, Mapping):
+        errors.append(
+            f"A junction without a {names} arm needs traffic.directionalSplit with "
+            f"a share of 0 for {names}: without one the spawner would invent "
+            "random shares for all four slots"
+        )
+    else:
+        for d in missing:
+            share = split.get(d.value)
+            if _number(share) and float(share) > 0:
+                errors.append(
+                    f"traffic.directionalSplit gives the {d.value} slot "
+                    f"{float(share):g} of the traffic, but there is no {d.value} "
+                    "arm; set it to 0"
+                )
+    return errors
+
+
+def _junction_geometry_errors(
+    config: Mapping[str, Any], is_roundabout: bool
+) -> List[str]:
+    """V1.5: bearings, arm separation, storage and roundabout mouths."""
+    from src.roads.network import SIGNAL_STOP_LINE_SETBACK
+    from src.vehicles.vehicle_types import design_vehicle_allowance
+
+    try:
+        geometry = resolve_junction_geometry(config)
+    except (TypeError, ValueError):
+        return []
+    errors = geometry_errors(
+        geometry,
+        is_roundabout,
+        SIGNAL_STOP_LINE_SETBACK + max(0.0, design_vehicle_allowance(config)),
+    )
+    if not errors and is_roundabout:
+        outer = _section(config, "controller").get("outerRadius", 20.0)
+        if _number(outer):
+            errors.extend(roundabout_geometry_errors(geometry, float(outer)))
+    return errors
+
+
+def _movement_errors(
+    d: Direction,
+    lanes: List[FrozenSet[TurnIntent]],
+    needed: FrozenSet[TurnIntent],
+    counts: Mapping[Direction, int],
+    present: Sequence[Direction],
+) -> List[str]:
+    """V1.5: no lane may carry, and no traffic may make, a movement into a slot
+    without an arm; every lane needs a movement it can make."""
+    errors: List[str] = []
+    if len(present) == len(Direction):
+        return errors
+    possible = frozenset(t for t in TurnIntent if counts[target_direction(d, t)] > 0)
+    possible_names = _turn_list(frozenset(possible & frozenset(CORE_TURNS)))
+    for i, turns in enumerate(lanes):
+        impossible = turns - possible
+        if impossible:
+            exits = ", ".join(
+                target_direction(d, t).value
+                for t in sorted(impossible, key=TURN_ORDER.__getitem__)
+            )
+            errors.append(
+                f"The {d.value} approach's lane {i + 1} allows "
+                f"{_turn_list(frozenset(impossible))}, which would leave by the "
+                f"{exits} slot, where this junction has no arm. From {d.value} a "
+                f"vehicle can go {possible_names} (or U-turn where allowed)"
+            )
+        elif not turns:
+            errors.append(
+                f"The {d.value} approach's lane {i + 1} has no movement under the "
+                "default lane use once movements into the missing arm are removed; "
+                f"give the {d.value} approach explicit lane arrows (it can go "
+                f"{possible_names})"
+            )
+    wanted = needed - possible
+    if wanted:
+        errors.append(
+            f"The {d.value} approach has traffic turning "
+            f"{_turn_list(frozenset(wanted))}, into a slot this junction has no "
+            f"arm in; set that turning share to 0 (from {d.value} a vehicle can "
+            f"go {possible_names})"
+        )
+    if not (possible & frozenset(CORE_TURNS)):
+        errors.append(
+            f"The {d.value} approach has no legal movement: no other arm can be "
+            "reached from it"
+        )
+    return errors
+
+
+def _approach_classes(config: Mapping[str, Any], d: Direction) -> List[str]:
+    """Vehicle classes that arrive on an approach."""
+    from src.vehicles.vehicle_types import approach_vehicle_mixes, configured_mix
+
+    mix = approach_vehicle_mixes(config).get(d.value) or configured_mix(config)
+    if not mix:
+        return ["car"]
+    return [k for k, v in mix.items() if v > 0]
+
+
+def _signal_uturn_errors(
+    config: Mapping[str, Any], d: Direction, lanes: List[FrozenSet[TurnIntent]]
+) -> List[str]:
+    """V1.5: a signalised U-turn starts from lane 1 only, and the half circle
+    it drives must be one every vehicle class on the approach can turn."""
+    errors: List[str] = []
+    uturn_lanes = [i for i, lane in enumerate(lanes) if TurnIntent.UTURN in lane]
+    if uturn_lanes != [0]:
+        errors.append(
+            f"The {d.value} approach allows a U-turn from lane(s) "
+            f"{', '.join(str(i + 1) for i in uturn_lanes)}: a U-turn crosses every "
+            "lane to its left, so at a signal it may only start from lane 1 (next "
+            "to the centre line). Allow it in lane 1 only"
+        )
+        return errors
+    try:
+        arm = resolve_junction_geometry(config).arms[d]
+    except (KeyError, TypeError, ValueError):
+        return errors
+    radius = uturn_radius(arm, 0)
+    classes = _approach_classes(config, d)
+    need_cls = max(classes, key=lambda c: DESIGN_TURNING_RADIUS.get(c, 6.4))
+    need = DESIGN_TURNING_RADIUS.get(need_cls, 6.4)
+    if radius + 1e-9 < need:
+        lanes_needed = uturn_lanes_needed(need, arm.lane_width)
+        width_needed = 2.0 * need / arm.lanes
+        options = [f"at least {lanes_needed} lanes each way at {arm.lane_width:g} m"]
+        if width_needed <= 5.0:
+            options.append(f"lanes at least {width_needed:.2f} m wide")
+        errors.append(
+            f"A U-turn from the {d.value} approach is not physically possible here: "
+            f"turning from lane 1 into the kerb-side exit lane gives a "
+            f"{radius:.2f} m radius ({arm.lanes} lane(s) of {arm.lane_width:g} m "
+            f"each way), but a {DESIGN_VEHICLE_NAMES.get(need_cls, need_cls)} "
+            f"needs at least {need:g} m (design turning radius). Valid options: "
+            + ", or ".join(options)
+            + (
+                f"; a vehicle mix without {need_cls}s"
+                if need > min(DESIGN_TURNING_RADIUS.values())
+                else ""
+            )
+            + "; or no U-turn at this signal (a roundabout serves U-turns on its "
+            "ring)"
+        )
     return errors
 
 
@@ -365,8 +610,9 @@ def _roundabout_lane_errors(
                     "a right turn uses the outer circulating lane, which only the "
                     "right-hand entry lane feeds"
                     if outer
-                    else "a left turn uses the inner circulating lane, which the "
-                    "right-hand entry lane does not feed"
+                    else f"a {'U-turn' if turn == TurnIntent.UTURN else 'left turn'} "
+                    "uses the inner circulating lane, which the right-hand entry "
+                    "lane does not feed"
                 )
                 errors.append(
                     f"At the roundabout, {d.value} lane {i + 1} cannot turn "
@@ -389,6 +635,8 @@ def _signal_lane_errors(
     for turn in (TurnIntent.LEFT, TurnIntent.RIGHT):
         turning = sum(1 for lane in lanes if turn in lane)
         exit_arm = target_direction(d, turn)
+        if counts[exit_arm] <= 0:
+            continue  # no arm there: reported as an impossible movement
         if turning > counts[exit_arm]:
             errors.append(
                 f"The {d.value} approach has {turning} lanes turning {turn.value} "

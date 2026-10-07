@@ -22,6 +22,7 @@ from src.controllers.adaptive_signal import (
     resolve_adaptive_settings,
 )
 from src.core.lane_validation import lane_configuration_errors
+from src.roads.junction_geometry import present_arms
 from src.roads.lane_config import shortest_approach_length
 from src.roads.network import lane_counts, resolve_lanes_per_approach
 from src.vehicles.vehicle_types import vehicle_mix_errors
@@ -162,7 +163,11 @@ def _lane_count_errors(config: Dict[str, Any]) -> List[str]:
     except (TypeError, ValueError):
         return []  # shape errors are the schema's job
     errors: List[str] = []
+    # V1.5: a slot with no arm has no through traffic to merge.
+    present = {d.value for d in present_arms(config)}
     for a, b in (("north", "south"), ("east", "west")):
+        if a not in present or b not in present:
+            continue
         if counts[a] != counts[b]:
             errors.append(
                 f"{a} and {b} approaches must have the same number of lanes "

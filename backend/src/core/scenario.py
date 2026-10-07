@@ -21,6 +21,13 @@ values whatever the scenario said).
 The document is JSON, versioned (``format`` / ``version``), validated
 strictly (unknown fields are rejected, not ignored), and never normalised: a
 vehicle mix that totals 95 % is reported, not rescaled.
+
+V1.5 (real-world junctions) adds optional fields only: an approach may be
+``null`` (a three-arm junction), and may give its ``bearing``, its own
+``laneWidth``, U-turn lane arrows and a ``uturn`` turning share. A document
+that sets none of them is unchanged — it compiles to the same configuration
+and keeps the same fingerprint — so the format stays version 1. A server
+older than V1.5 rejects the new fields by name rather than ignoring them.
 """
 
 from __future__ import annotations
@@ -53,7 +60,11 @@ JUNCTION_STRATEGY = {
     "roundabout": "roundabout",
 }
 
-Movement = Literal["left", "straight", "right"]
+Movement = Literal["uturn", "left", "straight", "right"]
+
+# V1.5 fields left out of a document's fingerprint while unset, so every
+# earlier document keeps the fingerprint it always had.
+_V15_OPTIONAL_APPROACH_FIELDS = ("bearing", "laneWidth")
 
 
 class _Strict(BaseModel):
@@ -64,6 +75,8 @@ class Turning(_Strict):
     left: float = Field(..., ge=0, le=1)
     straight: float = Field(..., ge=0, le=1)
     right: float = Field(..., ge=0, le=1)
+    # V1.5: the share making a U-turn (omitted: none).
+    uturn: Optional[float] = Field(None, ge=0, le=1)
 
 
 class Mix(_Strict):
@@ -91,17 +104,32 @@ class ApproachSpec(_Strict):
     roundaboutLaneUse: Optional[List[List[Movement]]] = None
     vehiclesPerHour: float = Field(..., ge=0, le=7200)
     turning: Turning = Field(
-        default_factory=lambda: Turning(left=0.2, straight=0.6, right=0.2)
+        default_factory=lambda: Turning(left=0.2, straight=0.6, right=0.2, uturn=None)
     )
     # This approach's own vehicle mix; omitted: the scenario's.
     vehicleMix: Optional[Mix] = None
+    # V1.5: compass bearing (degrees clockwise from north) of the arm from
+    # the junction outwards, and the arm's own lane width. Omitted: the
+    # slot's own bearing and roads.laneWidth (roads/junction_geometry.py).
+    bearing: Optional[float] = Field(None, ge=0, lt=360)
+    laneWidth: Optional[float] = Field(None, gt=2.5, le=5.0)
 
 
 class Approaches(_Strict):
-    north: ApproachSpec
-    south: ApproachSpec
-    east: ApproachSpec
-    west: ApproachSpec
+    # V1.5: null for a slot with no arm (a three-arm junction).
+    north: Optional[ApproachSpec]
+    south: Optional[ApproachSpec]
+    east: Optional[ApproachSpec]
+    west: Optional[ApproachSpec]
+
+    def present(self) -> Dict[Direction, ApproachSpec]:
+        """The arms that exist, in compass-enum order."""
+        found: Dict[Direction, ApproachSpec] = {}
+        for d in Direction:
+            arm = getattr(self, d.value)
+            if arm is not None:
+                found[d] = arm
+        return found
 
 
 class RoadSpec(_Strict):
@@ -195,14 +223,29 @@ def scenario_fingerprint(document: ScenarioDocument) -> str:
     """Short, stable hash of what a document simulates (name and description
     excluded), so two runs can be shown to share a scenario."""
     body = document.model_dump(exclude={"name", "description", "preset"})
+    for arm in body["approaches"].values():
+        if arm is None:
+            continue
+        for key in _V15_OPTIONAL_APPROACH_FIELDS:
+            if arm.get(key) is None:
+                arm.pop(key, None)
+        if arm["turning"].get("uturn") is None:
+            arm["turning"].pop("uturn", None)
     canonical = json.dumps(body, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode()).hexdigest()[:16]
 
 
 def total_vehicles_per_hour(document: ScenarioDocument) -> float:
     return float(
-        sum(getattr(document.approaches, d.value).vehiclesPerHour for d in Direction)
+        sum(arm.vehiclesPerHour for arm in document.approaches.present().values())
     )
+
+
+def _turning_dict(turning: Turning) -> Dict[str, float]:
+    found = turning.model_dump()
+    if found.get("uturn") is None:
+        found.pop("uturn", None)
+    return found
 
 
 def _deep_merge(base: Dict[str, Any], extra: Dict[str, Any]) -> Dict[str, Any]:
@@ -231,7 +274,9 @@ def compile_scenario(document: ScenarioDocument, strategy: str) -> Dict[str, Any
             "No traffic: every approach has 0 vehicles per hour. Give at least "
             "one approach some demand"
         )
-    arms = {d: getattr(document.approaches, d.value) for d in Direction}
+    arms = document.approaches.present()
+    if len(arms) < 3:
+        raise ValueError(_arm_count_message(arms))
     sim = document.simulation
     rate = total_vph / 3600.0
 
@@ -246,10 +291,14 @@ def compile_scenario(document: ScenarioDocument, strategy: str) -> Dict[str, Any
         lane_use = arm.roundaboutLaneUse if strategy == "roundabout" else arm.laneUse
         if lane_use is not None:
             item["laneUse"] = [list(lane) for lane in lane_use]
+        if arm.bearing is not None:
+            item["bearing"] = arm.bearing
+        if arm.laneWidth is not None:
+            item["laneWidth"] = arm.laneWidth
         road_items.append(item)
         t_item: Dict[str, Any] = {
             "direction": d.value,
-            "turnProbabilities": arm.turning.model_dump(),
+            "turnProbabilities": _turning_dict(arm.turning),
         }
         if arm.vehicleMix is not None:
             t_item["vehicleMix"] = _mix_dict(arm.vehicleMix)
@@ -281,7 +330,8 @@ def compile_scenario(document: ScenarioDocument, strategy: str) -> Dict[str, Any
             "arrivalDistribution": sim.arrivalPattern,
             "totalVehicles": demand_vehicle_limit(rate, sim.duration),
             "directionalSplit": {
-                d.value: arm.vehiclesPerHour / total_vph for d, arm in arms.items()
+                d.value: (arms[d].vehiclesPerHour / total_vph if d in arms else 0.0)
+                for d in Direction
             },
             # The scenario-wide share is unused (every approach sets its own)
             # but kept valid for readers that expect it.
@@ -290,6 +340,9 @@ def compile_scenario(document: ScenarioDocument, strategy: str) -> Dict[str, Any
         },
         "vehicleGeneration": {},
     }
+    if len(arms) < len(Direction):
+        # V1.5: only the slots that have an arm.
+        config["geometry"]["arms"] = [d.value for d in arms]
     mix = _mix_dict(document.vehicles.mix)
     if mix is not None:
         config["vehicleGeneration"]["vehicleMix"] = mix
@@ -407,8 +460,19 @@ def _pydantic_message(error: Dict[str, Any]) -> str:
     return f"{where}: {msg}" if where else msg
 
 
+def _arm_count_message(arms: Dict[Direction, ApproachSpec]) -> str:
+    names = ", ".join(d.value for d in arms) or "none"
+    return (
+        f"approaches: {len(arms)} arm(s) given ({names}); a junction needs 3 or 4 "
+        "arms. Two arms are a bend in one road, not a junction: give a three-arm "
+        "(T or Y) or a four-arm junction"
+    )
+
+
 def _scenario_level_checks(document: ScenarioDocument) -> List[str]:
     errors: List[str] = []
+    if len(document.approaches.present()) < 3:
+        return [_arm_count_message(document.approaches.present())]
     if document.simulation.warmup >= document.simulation.duration:
         errors.append(
             f"simulation.warmup ({document.simulation.warmup:g} s) must be shorter "
@@ -431,15 +495,14 @@ def _scenario_level_checks(document: ScenarioDocument) -> List[str]:
 def scenario_warnings(document: ScenarioDocument, strategies: List[str]) -> List[str]:
     """Things a valid scenario's results should be read in the light of."""
     warnings: List[str] = []
-    lanes = {getattr(document.approaches, d.value).lanes for d in Direction}
+    arms = document.approaches.present()
+    lanes = {arm.lanes for arm in arms.values()}
     if lanes != {1}:
         warnings.append(
             "More than one lane on some approach: results are exploratory; the "
             "calibrated comparison is one lane per approach."
         )
-    mixes = [document.vehicles.mix] + [
-        getattr(document.approaches, d.value).vehicleMix for d in Direction
-    ]
+    mixes = [document.vehicles.mix] + [arm.vehicleMix for arm in arms.values()]
     if any(
         m is not None and (m.suv + m.bus + m.truck + m.motorcycle) > 0 for m in mixes
     ):
@@ -447,8 +510,21 @@ def scenario_warnings(document: ScenarioDocument, strategies: List[str]) -> List
             "Mixed vehicle classes: class parameters are model inputs, not "
             "calibrated values; results are exploratory."
         )
-    for d in Direction:
-        arm = getattr(document.approaches, d.value)
+    if len(arms) < len(Direction) or any(
+        arm.bearing is not None or arm.laneWidth is not None for arm in arms.values()
+    ):
+        warnings.append(
+            "Real-world geometry (a three-arm junction, skewed arms or "
+            "per-approach lane widths): the geometry is modelled, but the "
+            "calibrated comparison is the four-arm right-angled junction, so "
+            "results are exploratory."
+        )
+    if any((arm.turning.uturn or 0) > 0 for arm in arms.values()):
+        warnings.append(
+            "U-turns: their paths and yielding are modelled but not calibrated "
+            "against observed U-turn behaviour; results are exploratory."
+        )
+    for d, arm in arms.items():
         per_lane = arm.vehiclesPerHour / arm.lanes
         if per_lane > 1800:
             warnings.append(
@@ -542,29 +618,65 @@ def resolved_design(config: Dict[str, Any]) -> Dict[str, Any]:
     use (lane 1 first) and, for a roundabout, its ring lane count and the
     ring lane and exit lane every permitted movement uses."""
     from src.core.lane_validation import circulating_lanes_of, resolved_lane_use
+    from src.roads.junction_geometry import (
+        present_arms,
+        resolve_junction_geometry,
+        signal_stop_distances,
+    )
     from src.roads.lane_config import (
         TURN_ORDER,
         ring_exit_lane,
         ring_lane_for,
         target_direction,
     )
-    from src.roads.network import lane_counts, resolve_lanes_per_approach
+    from src.roads.network import (
+        ROUNDABOUT_ENTRY_SETBACK,
+        SIGNAL_STOP_LINE_SETBACK,
+        lane_counts,
+        resolve_lanes_per_approach,
+    )
+    from src.vehicles.vehicle_types import design_vehicle_allowance
 
     use = resolved_lane_use(config) or {}
+    present = present_arms(config)
     counts = {
-        Direction(k): v
+        Direction(k): (v if Direction(k) in present else 0)
         for k, v in lane_counts(
             resolve_lanes_per_approach(config.get("roads") or {})
         ).items()
     }
+    # V1.5: the geometry the network lays out — each arm's bearing, lane
+    # width and the distance from the centre to its stop / give-way line.
+    geometry = resolve_junction_geometry(config)
+    is_roundabout = (config.get("geometry") or {}).get(
+        "intersectionType"
+    ) == "roundabout"
+    if is_roundabout:
+        outer = float((config.get("controller") or {}).get("outerRadius", 20.0))
+        stops = {d: outer + ROUNDABOUT_ENTRY_SETBACK for d in geometry.arms}
+    else:
+        stops = signal_stop_distances(
+            geometry,
+            SIGNAL_STOP_LINE_SETBACK + max(0.0, design_vehicle_allowance(config)),
+        )
     design: Dict[str, Any] = {
+        "geometry": {
+            d.value: {
+                "bearing": arm.bearing,
+                "lanes": arm.lanes,
+                "laneWidth": arm.lane_width,
+                "length": arm.length,
+                "stopLineDistance": round(stops[d], 3),
+            }
+            for d, arm in geometry.arms.items()
+        },
         "laneUse": {
             d.value: [
                 sorted((t.value for t in lane), key=lambda n: TURN_ORDER[TurnIntent(n)])
                 for lane in lanes
             ]
             for d, lanes in use.items()
-        }
+        },
     }
     if (config.get("geometry") or {}).get("intersectionType") == "roundabout":
         rings = circulating_lanes_of(config, counts)
