@@ -275,6 +275,12 @@ class SnapshotBuilder:
                 "stopLineSetback": round(
                     getattr(self.engine.network, "stop_line_setback", 3.5), 3
                 ),
+                # V1.4: a roundabout's circulating lanes (None for a signal),
+                # which no longer always equal its approaches' lane counts.
+                "circulatingLanes": (
+                    int(getattr(self.engine.network, "circulating_lanes", 0) or 0)
+                    or None
+                ),
             },
             "controller": controller_state,
             "metrics": metrics_obj,

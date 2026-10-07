@@ -128,6 +128,11 @@
             "required": ["direction", "queueLength", "laneCount"]
           }
         },
+        "circulatingLanes": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "description": "V1.4: a roundabout's circulating lanes, independent of the approach lane counts; null for a signal."
+        },
         "stopLineSetback": {
           "type": "number",
           "minimum": 0,
@@ -164,6 +169,10 @@
         "circulatingCount": { "type": "integer", "minimum": 0 },
         "yieldingCount": { "type": "integer", "minimum": 0 },
         "gapAcceptance": { "type": "number", "exclusiveMinimum": 0 },
+        "circulatingLanes": { "type": "integer", "minimum": 1, "description": "V1.4, roundabout only: circulating lanes." },
+        "exitYieldingCount": { "type": "integer", "minimum": 0, "description": "V1.4, roundabout only: vehicles currently giving way at an exit spiral-out." },
+        "exitYieldEvents": { "type": "integer", "minimum": 0, "description": "V1.4, roundabout only: exit give-ways since the run started." },
+        "forcedExitCommitments": { "type": "integer", "minimum": 0, "description": "V1.4, roundabout only: vehicles that continued out because a conflict appeared inside their comfortable stopping distance." },
         "signalControl": {
           "type": "string",
           "enum": ["fixed_time", "adaptive"],
@@ -285,6 +294,21 @@
               "active": { "type": "integer", "minimum": 0 }
             },
             "required": ["exited", "share", "averageDelay", "active"]
+          }
+        },
+        "approachBreakdown": {
+          "type": "object",
+          "description": "V1.4: per approach vehicles came from, post-warm-up vehicles served and their mean delay (the same delays as averageDelay), vehicles currently active, and the approach's time-averaged and maximum queue (vehicles).",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "exited": { "type": "integer", "minimum": 0 },
+              "averageDelay": { "type": "number", "minimum": 0 },
+              "active": { "type": "integer", "minimum": 0 },
+              "averageQueueLength": { "type": "number", "minimum": 0 },
+              "maxQueueLength": { "type": "integer", "minimum": 0 }
+            },
+            "required": ["exited", "averageDelay", "active", "averageQueueLength", "maxQueueLength"]
           }
         },
         "signalTiming": {

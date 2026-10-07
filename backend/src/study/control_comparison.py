@@ -116,6 +116,165 @@ def _control_config(base: Dict[str, Any], control: str) -> Dict[str, Any]:
     return cfg
 
 
+def run_scenario_comparison(
+    document: Any,
+    strategies: Sequence[str],
+    num_seeds: int = DEFAULT_SEEDS,
+    base_seed: Optional[int] = None,
+    demand_scales: Optional[Sequence[float]] = None,
+    confidence_level: float = DEFAULT_CONFIDENCE_LEVEL,
+    progress: Optional[Progress] = None,
+) -> Dict[str, Any]:
+    """A user's own scenario (V1.4), run under each strategy over seeds.
+
+    Every strategy is compiled from the same scenario document
+    (core/scenario.py), so geometry, lanes, lane use, traffic, vehicle mix,
+    duration, warm-up and seed are identical by construction; only the
+    control section differs. ``demand_scales`` optionally repeats the study
+    with every approach's demand scaled (1.0 = as configured). Seeds run
+    ``base_seed`` (default: the scenario's own seed) onwards.
+    """
+    from src.core.scenario import (
+        STRATEGY_TITLES,
+        compile_scenario,
+        scenario_fingerprint,
+        total_vehicles_per_hour,
+    )
+
+    strategies = [s for s in strategies]
+    scales = [float(s) for s in (demand_scales or [1.0])]
+    first_seed = document.simulation.seed if base_seed is None else base_seed
+    seeds = [first_seed + i for i in range(num_seeds)]
+    duration = document.simulation.duration
+
+    tasks: List[SimTask] = []
+    keys: List[tuple[float, int, str]] = []
+    compiled: Dict[str, Dict[str, Any]] = {}
+    for scale in scales:
+        scaled = document.model_copy(deep=True)
+        for d in ("north", "south", "east", "west"):
+            arm = getattr(scaled.approaches, d)
+            arm.vehiclesPerHour = arm.vehiclesPerHour * scale
+        for seed in seeds:
+            scaled.simulation.seed = seed
+            for strategy in strategies:
+                cfg = compile_scenario(scaled, strategy)
+                if scale == scales[0] and seed == seeds[0]:
+                    compiled[strategy] = cfg
+                tasks.append(
+                    SimTask(
+                        config=cfg,
+                        geometry="roundabout" if strategy == "roundabout" else "signal",
+                        duration=duration,
+                        label=f"x{scale:g} · seed {seed} · {STRATEGY_TITLES[strategy]}",
+                        cost=(1.5 if strategy == "roundabout" else 1.0) * (1.0 + scale),
+                    )
+                )
+                keys.append((scale, seed, strategy))
+    results = run_simulation_tasks(tasks, progress)
+    by_key = {key: res for key, res in zip(keys, results)}
+
+    pairs = [(a, b) for i, a in enumerate(strategies) for b in strategies[i + 1 :]]
+    collisions = {s: 0 for s in strategies}
+    per_seed: List[Dict[str, Any]] = []
+    rows: List[Dict[str, Any]] = []
+    base_vph = total_vehicles_per_hour(document)
+    for scale in scales:
+        values: Dict[str, Dict[str, List[float]]] = {
+            s: {m: [] for m in _MEASURES + _SIGNAL_MEASURES} for s in strategies
+        }
+        limit_hit = False
+        for seed in seeds:
+            row: Dict[str, Any] = {"demandScale": scale, "seed": seed}
+            for strategy in strategies:
+                res = by_key[(scale, seed, strategy)]
+                m = res["metrics"]
+                collisions[strategy] += int(m.get("collisionCount") or 0)
+                limit_hit = limit_hit or bool(m.get("vehicleLimitReached"))
+                for key in _MEASURES:
+                    v = m.get(key)
+                    if isinstance(v, (int, float)):
+                        values[strategy][key].append(float(v))
+                timing = m.get("signalTiming") or {}
+                for key in _SIGNAL_MEASURES:
+                    v = timing.get(key)
+                    if isinstance(v, (int, float)):
+                        values[strategy][key].append(float(v))
+                row[strategy] = {
+                    "averageDelay": m.get("averageDelay"),
+                    "throughput": m.get("throughput"),
+                    "averageQueueLength": m.get("averageQueueLength"),
+                    "collisionCount": m.get("collisionCount"),
+                    "activeVehicleCount": m.get("activeVehicleCount"),
+                    "vehicleTypeBreakdown": m.get("vehicleTypeBreakdown"),
+                    "approachBreakdown": m.get("approachBreakdown"),
+                    "signalTiming": m.get("signalTiming"),
+                }
+            per_seed.append(row)
+        stats = {
+            s: {
+                key: _calculate_stats(vals, confidence_level)
+                for key, vals in values[s].items()
+                if vals
+            }
+            for s in strategies
+        }
+        delays = {s: values[s]["averageDelay"] for s in strategies}
+        comparisons = {}
+        if all(len(delays[s]) == len(seeds) for s in strategies):
+            comparisons = {
+                f"{a}_vs_{b}": _paired_delay(delays[a], delays[b], confidence_level)
+                for a, b in pairs
+            }
+        rows.append(
+            {
+                "demandScale": scale,
+                "demandVph": round(base_vph * scale),
+                "vehicleLimitReached": limit_hit,
+                "controls": stats,
+                "delayComparisons": comparisons,
+            }
+        )
+
+    any_config = next(iter(compiled.values()))
+    return {
+        "study": "scenario-comparison",
+        "scenario": document.model_dump(),
+        "fingerprint": scenario_fingerprint(document),
+        "controls": list(strategies),
+        "demandScales": scales,
+        "seeds": seeds,
+        "duration": duration,
+        "warmupTime": document.simulation.warmup,
+        "confidenceLevel": confidence_level,
+        "calibration": calibration_status(any_config),
+        "tieTolerance": tie_tolerance(),
+        "collisionCount": collisions,
+        # The exact engine configuration each strategy ran (first seed, first
+        # demand scale), so a reader can see that only the control differs.
+        "compiledConfigs": compiled,
+        "method": {
+            "design": (
+                "Every seed is run once under each strategy, each compiled from "
+                "the same scenario document: same approaches, lanes, lane use, "
+                "demand, turning, vehicles, arrival sequence, duration and "
+                "warm-up. Only the control section differs."
+            ),
+            "interval": "mean +/- t(n-1) * s / sqrt(n), two-sided Student-t",
+            "delayComparison": (
+                "Paired per-seed differences in mean delay (first strategy minus "
+                "second), Student-t interval on the mean difference. 'lower'/"
+                "'higher' needs the interval to exclude zero and the means to "
+                "differ by more than the tie tolerance; 'tie' means within the "
+                "tolerance; otherwise 'inconclusive'. No multiple-comparison "
+                "correction."
+            ),
+        },
+        "results": rows,
+        "perSeed": per_seed,
+    }
+
+
 def run_control_comparison(
     lanes: int = 1,
     levels: Optional[List[str]] = None,

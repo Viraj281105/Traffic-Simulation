@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from src.core.enums import Direction
 from src.core.limits import DEFAULT_TOTAL_VEHICLES
+from src.metrics.definitions.approach_breakdown import calculate_approach_breakdown
 from src.metrics.definitions.derived_metrics import (
     calculate_average_travel_speed,
     calculate_critical_saturation_volume,
@@ -561,6 +562,15 @@ class MetricCollector:
             # from the same per-vehicle delays as averageDelay above.
             "vehicleTypeBreakdown": calculate_vehicle_type_breakdown(
                 post_warmup_exited, delays, active_vehicles
+            ),
+            # Per approach (V1.4): the same delays and per-direction queues
+            # the aggregates above are built from.
+            "approachBreakdown": calculate_approach_breakdown(
+                post_warmup_exited,
+                delays,
+                active_vehicles,
+                {d: self._q_dir_sum[d] / n_q for d in _DIRECTIONS} if n_q else {},
+                self._q_dir_max,
             ),
         }
         base_metrics["masterEfficiencyScore"] = calculate_master_efficiency_score(

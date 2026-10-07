@@ -61,16 +61,36 @@ class DualSimulationOrchestrator:
         self.config_signal["controller"] = signal_ctrl
 
         # Roundabout controller needs gap-acceptance / geometry parameters
+        #
+        # V1.4: the ring's design (radii, entry and circulating speed) is
+        # carried over from the source config when it sets it. These used to
+        # be replaced by fixed values whatever the scenario said, so a study
+        # of a larger or faster roundabout silently ran the default one. A
+        # config that does not set them gets exactly the old values.
         round_ctrl = config.get("roundaboutController", config.get("controller", {}))
+        source_ctrl = config.get("controller") or {}
+
+        def _ring_value(key: str, default: float) -> float:
+            for section in (round_ctrl, source_ctrl):
+                if isinstance(section, dict) and section.get(key) is not None:
+                    return float(section[key])
+            return default
+
         self.config_roundabout["controller"] = {
-            "innerRadius": 10.0,
-            "outerRadius": 20.0,
+            "innerRadius": _ring_value("innerRadius", 10.0),
+            "outerRadius": _ring_value("outerRadius", 20.0),
             "circulatingLanes": 1,
             "criticalGap": float(round_ctrl.get("criticalGap", 4.0)),
             "followUpTime": float(round_ctrl.get("followUpTime", 2.5)),
-            "entrySpeed": 5.0,
-            "circulatingSpeed": 8.0,
+            "entrySpeed": _ring_value("entrySpeed", 5.0),
+            "circulatingSpeed": _ring_value("circulatingSpeed", 8.0),
         }
+        if (self.config_roundabout.get("geometry") or {}).get(
+            "circulatingLanes"
+        ) is not None:
+            # The ring lane count is set where V1.4 reads it; the reserved,
+            # inert V1.0 field would only contradict it.
+            del self.config_roundabout["controller"]["circulatingLanes"]
 
         # Propagate random seed to align spawn sequences for fair comparison
         seed = config.get("simulation", {}).get("randomSeed")
