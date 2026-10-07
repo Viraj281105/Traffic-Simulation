@@ -2,8 +2,10 @@ import { useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   APPROACHES,
+  MAX_SLOT_DEVIATION,
   MOVEMENTS,
   OPPOSITE,
+  SLOT_BEARING,
   STRATEGY_TITLE,
   type ApproachName,
   type ApproachSpec,
@@ -22,10 +24,13 @@ import {
   matchesPreset,
   parseScenarioJson,
   presetById,
+  presentApproaches,
+  possibleMovements,
   ringLanes,
   signalLaneUse,
   sortMovements,
   totalVph,
+  turningShare,
   turningTotal,
   withLaneCount,
   type LocalIssue,
@@ -69,11 +74,13 @@ const DURATIONS = [
 ];
 
 const GLYPH: Record<Movement, string> = {
+  uturn: "↶",
   left: "↰",
   straight: "↑",
   right: "↱",
 };
 const MOVE_LABEL: Record<Movement, string> = {
+  uturn: "U-turn",
   left: "Left",
   straight: "Straight",
   right: "Right",
@@ -117,18 +124,28 @@ export function ScenarioBuilder({
   /** Explains how the junction type is used in this context. */
   junctionNote?: ReactNode;
 }) {
-  const [selected, setSelected] = useState<ApproachName>("north");
+  const present = presentApproaches(value);
+  const [selectedSlot, setSelected] = useState<ApproachName>("north");
+  const selected = present.includes(selectedSlot)
+    ? selectedSlot
+    : (present[0] ?? "north");
+  // Arms switched off in this session, so switching one back on restores
+  // what the user had set rather than a blank road.
+  const [removedArms, setRemovedArms] = useState<
+    Partial<Record<ApproachName, ApproachSpec>>
+  >({});
   const [previewView, setPreviewView] = useState<"signal" | "roundabout">(
     value.junction.type === "roundabout" ? "roundabout" : "signal",
   );
   const [importError, setImportError] = useState<string | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const ids = useId();
   const issues = localIssues(value, strategies);
-  const design =
-    validation.status === "done"
-      ? validation.result.design?.roundabout
-      : undefined;
+  const designs =
+    validation.status === "done" ? validation.result.design : undefined;
+  const design = designs?.roundabout;
+  const signalDesign = designs?.fixed_time ?? designs?.adaptive;
   const fromPreset = value.preset ? presetById(value.preset) : undefined;
   const unchangedPreset = matchesPreset(value);
 
@@ -139,7 +156,27 @@ export function ScenarioBuilder({
   };
   const updateArm = (a: ApproachName, change: Partial<ApproachSpec>) => {
     update((d) => {
-      d.approaches[a] = { ...d.approaches[a], ...change };
+      const arm = d.approaches[a];
+      if (arm) d.approaches[a] = { ...arm, ...change };
+    });
+  };
+  const toggleArm = (a: ApproachName) => {
+    const arm = value.approaches[a];
+    if (arm) {
+      setRemovedArms({ ...removedArms, [a]: arm });
+      update((d) => {
+        d.approaches[a] = null;
+      });
+      return;
+    }
+    const restored = removedArms[a] ?? {
+      lanes: 1,
+      length: 200,
+      vehiclesPerHour: 250,
+      turning: { left: 0.2, straight: 0.6, right: 0.2 },
+    };
+    update((d) => {
+      d.approaches[a] = restored;
     });
   };
 
@@ -246,6 +283,39 @@ export function ScenarioBuilder({
             ))}
           </div>
           {junctionNote && <p className="q-help">{junctionNote}</p>}
+          <div className="sb-field">
+            <span className="sb-field-label">Which roads meet here?</span>
+            <div
+              className="chip-row"
+              role="group"
+              aria-label="Arms of the junction"
+            >
+              {APPROACHES.map((a) => {
+                const on = value.approaches[a] != null;
+                return (
+                  <button
+                    key={a}
+                    type="button"
+                    className={`chip${on ? " is-active" : ""}`}
+                    aria-pressed={on}
+                    onClick={() => {
+                      toggleArm(a);
+                    }}
+                  >
+                    {cap(a)}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="q-help">
+              {present.length === 4
+                ? "A crossroads. Switch one road off for a T-junction."
+                : present.length === 3
+                  ? `A three-arm junction: no ${APPROACHES.filter((a) => !present.includes(a)).join(", ")} road. Nobody can turn towards the missing road; set those turning shares to 0.`
+                  : "A junction needs at least three roads."}{" "}
+              Real road angles and lane widths are under Advanced.
+            </p>
+          </div>
         </section>
 
         {/* 2 · Roads & lanes ────────────────────────────────────────── */}
@@ -257,14 +327,16 @@ export function ScenarioBuilder({
             Each approach is one direction of traffic arriving at the junction.
             Set its lanes and the arrows painted on them; lane 1 is next to the
             centre line. A signal needs the same number of lanes on opposite
-            approaches; a roundabout does not.
+            approaches; a roundabout does not. A U-turn arrow (↶) is only ever
+            where you put it.
           </p>
           <div className="sb-approach-grid">
-            {APPROACHES.map((a) => (
+            {present.map((a) => (
               <ApproachLanesCard
                 key={a}
                 approach={a}
-                arm={value.approaches[a]}
+                arm={value.approaches[a] as ApproachSpec}
+                hasOpposite={value.approaches[OPPOSITE[a]] != null}
                 selected={selected === a}
                 onSelect={() => {
                   setSelected(a);
@@ -274,6 +346,7 @@ export function ScenarioBuilder({
                 }}
                 onCopyOpposite={() => {
                   const other = value.approaches[OPPOSITE[a]];
+                  if (!other) return;
                   updateArm(a, {
                     lanes: other.lanes,
                     length: other.length,
@@ -307,11 +380,12 @@ export function ScenarioBuilder({
             .
           </p>
           <div className="sb-approach-grid">
-            {APPROACHES.map((a) => (
+            {present.map((a) => (
               <ApproachTrafficCard
                 key={a}
                 approach={a}
-                arm={value.approaches[a]}
+                arm={value.approaches[a] as ApproachSpec}
+                possible={possibleMovements(value, a)}
                 selected={selected === a}
                 onSelect={() => {
                   setSelected(a);
@@ -456,12 +530,23 @@ export function ScenarioBuilder({
 
         {/* 6 · Advanced ─────────────────────────────────────────────── */}
         <section className="sb-section" id={`${ids}-advanced`}>
-          <details className="sb-advanced">
+          <details
+            className="sb-advanced"
+            onToggle={(e) => {
+              setAdvancedOpen(e.currentTarget.open);
+            }}
+          >
             <summary>
-              <span className="q-number">6</span> Advanced — signal timing,
-              adaptive settings, roundabout design, roads
+              <span className="q-number">6</span> Advanced — junction geometry,
+              signal timing, adaptive settings, roundabout design, roads
             </summary>
-            <AdvancedSettings value={value} update={update} />
+            {/* Rendered only while open: the guided steps stay quick. */}
+            {advancedOpen && (
+              <>
+                <GeometrySettings value={value} update={update} />
+                <AdvancedSettings value={value} update={update} />
+              </>
+            )}
           </details>
         </section>
       </div>
@@ -546,7 +631,7 @@ export function ScenarioBuilder({
             view={previewView}
             selected={selected}
             onSelect={setSelected}
-            design={design}
+            design={previewView === "roundabout" ? design : signalDesign}
           />
           <p className="sb-summary">{describeScenario(value)}</p>
           {previewView === "roundabout" && (
@@ -788,6 +873,7 @@ function LaneArrowEditor({
 function ApproachLanesCard({
   approach,
   arm,
+  hasOpposite,
   selected,
   onSelect,
   onChange,
@@ -797,6 +883,7 @@ function ApproachLanesCard({
 }: {
   approach: ApproachName;
   arm: ApproachSpec;
+  hasOpposite: boolean;
   selected: boolean;
   onSelect: () => void;
   onChange: (change: Partial<ApproachSpec>) => void;
@@ -841,9 +928,11 @@ function ApproachLanesCard({
           />{" "}
           m
         </label>
-        <button type="button" className="link-btn" onClick={onCopyOpposite}>
-          Same as {OPPOSITE[approach]}
-        </button>
+        {hasOpposite && (
+          <button type="button" className="link-btn" onClick={onCopyOpposite}>
+            Same as {OPPOSITE[approach]}
+          </button>
+        )}
       </div>
       <div className="sb-subhead">
         <span>Signal lane arrows</span>
@@ -918,6 +1007,7 @@ function ApproachLanesCard({
 function ApproachTrafficCard({
   approach,
   arm,
+  possible,
   selected,
   onSelect,
   onChange,
@@ -925,6 +1015,8 @@ function ApproachTrafficCard({
 }: {
   approach: ApproachName;
   arm: ApproachSpec;
+  /** Movements that lead to a road that exists (V1.5). */
+  possible: Movement[];
   selected: boolean;
   onSelect: () => void;
   onChange: (change: Partial<ApproachSpec>) => void;
@@ -990,7 +1082,16 @@ function ApproachTrafficCard({
         </span>
       </div>
       <div className="turning-row">
-        {MOVEMENTS.map((m) => (
+        {MOVEMENTS.filter(
+          // A U-turn share is offered once a lane allows U-turns (or the
+          // road already has one), so the guided view stays simple.
+          (m) =>
+            (m !== "uturn" ||
+              turningShare(arm.turning, m) > 0 ||
+              signalLaneUse(arm).some((l) => l.includes("uturn")) ||
+              (arm.roundaboutLaneUse ?? []).some((l) => l.includes("uturn"))) &&
+            (possible.includes(m) || turningShare(arm.turning, m) > 0),
+        ).map((m) => (
           <label key={m} className="turning-field">
             <span>
               {GLYPH[m]} {MOVE_LABEL[m]}
@@ -1000,7 +1101,7 @@ function ApproachTrafficCard({
               min={0}
               max={100}
               step={5}
-              value={Math.round(arm.turning[m] * 1000) / 10}
+              value={Math.round(turningShare(arm.turning, m) * 1000) / 10}
               aria-label={`${approach}: share turning ${m} (%)`}
               onChange={(e) => {
                 if (e.target.value === "") return;
@@ -1064,6 +1165,81 @@ function ApproachTrafficCard({
         </p>
       ))}
     </div>
+  );
+}
+
+function GeometrySettings({
+  value,
+  update,
+}: {
+  value: ScenarioDocument;
+  update: (mutate: (d: ScenarioDocument) => void) => void;
+}) {
+  return (
+    <fieldset className="sb-geometry">
+      <legend>Junction geometry (real-world layout)</legend>
+      <p className="q-help">
+        The compass bearing each road leaves the junction on, and its own lane
+        width. Each road may lie up to {MAX_SLOT_DEVIATION}° from its compass
+        direction, so left, straight and right keep their meaning; a layout that
+        cannot be represented is rejected with the reason, never bent to fit.
+      </p>
+      <div className="sb-geometry-rows">
+        {presentApproaches(value).map((a) => {
+          const arm = value.approaches[a] as ApproachSpec;
+          return (
+            <div key={a} className="sb-geometry-row">
+              <span className="sb-field-label">{cap(a)}</span>
+              <NumberField
+                label="Bearing"
+                unit="°"
+                value={arm.bearing ?? SLOT_BEARING[a]}
+                min={0}
+                max={359.9}
+                step={1}
+                onChange={(v) => {
+                  update((d) => {
+                    const own = d.approaches[a];
+                    if (own) own.bearing = ((v % 360) + 360) % 360;
+                  });
+                }}
+              />
+              <NumberField
+                label="Lane width"
+                unit="m"
+                value={arm.laneWidth ?? value.roads.laneWidth}
+                min={2.6}
+                max={5}
+                step={0.1}
+                onChange={(v) => {
+                  update((d) => {
+                    const own = d.approaches[a];
+                    if (own) own.laneWidth = v;
+                  });
+                }}
+              />
+              {(arm.bearing != null || arm.laneWidth != null) && (
+                <button
+                  type="button"
+                  className="link-btn"
+                  onClick={() => {
+                    update((d) => {
+                      const own = d.approaches[a];
+                      if (own) {
+                        own.bearing = null;
+                        own.laneWidth = null;
+                      }
+                    });
+                  }}
+                >
+                  Compass axis, junction lane width
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </fieldset>
   );
 }
 

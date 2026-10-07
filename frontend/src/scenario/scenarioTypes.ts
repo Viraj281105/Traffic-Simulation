@@ -10,11 +10,24 @@ import type { VehicleMix } from "../vehicles/vehicleClasses";
 export const SCENARIO_FORMAT = "urbanflow-scenario";
 export const SCENARIO_VERSION = 1;
 
-export type Movement = "left" | "straight" | "right";
-export const MOVEMENTS: Movement[] = ["left", "straight", "right"];
+export type Movement = "uturn" | "left" | "straight" | "right";
+/** The V1.0-V1.4 movements, from which every default lane use is built. */
+export const CORE_MOVEMENTS: Movement[] = ["left", "straight", "right"];
+/** Every movement a lane can be marked with, left to right as a driver
+ *  reads the arrows (V1.5 adds the U-turn, never part of a default). */
+export const MOVEMENTS: Movement[] = ["uturn", "left", "straight", "right"];
 
 export type ApproachName = "north" | "south" | "east" | "west";
 export const APPROACHES: ApproachName[] = ["north", "east", "south", "west"];
+/** Compass bearing (degrees clockwise from north) of each slot's own axis. */
+export const SLOT_BEARING: Record<ApproachName, number> = {
+  north: 0,
+  east: 90,
+  south: 180,
+  west: 270,
+};
+/** How far an arm may lie from its slot (backend junction_geometry). */
+export const MAX_SLOT_DEVIATION = 30;
 /** The road each approach belongs to (opposite approaches share it). */
 export const OPPOSITE: Record<ApproachName, ApproachName> = {
   north: "south",
@@ -42,6 +55,8 @@ export interface Turning {
   left: number;
   straight: number;
   right: number;
+  /** V1.5: share making a U-turn; omitted = none. */
+  uturn?: number | null;
 }
 
 export interface ApproachSpec {
@@ -57,6 +72,11 @@ export interface ApproachSpec {
   turning: Turning;
   /** This approach's own vehicle mix; omitted = the scenario's. */
   vehicleMix?: VehicleMix | null;
+  /** V1.5: compass bearing of the arm from the junction outwards (degrees
+   *  clockwise from north); omitted = the slot's own bearing. */
+  bearing?: number | null;
+  /** V1.5: this arm's own lane width (m); omitted = roads.laneWidth. */
+  laneWidth?: number | null;
 }
 
 export interface AdaptiveSpec {
@@ -74,7 +94,8 @@ export interface ScenarioDocument {
   description: string;
   preset?: string | null;
   junction: { type: JunctionType };
-  approaches: Record<ApproachName, ApproachSpec>;
+  /** null: the junction has no arm in that slot (V1.5, three-arm junction). */
+  approaches: Record<ApproachName, ApproachSpec | null>;
   roads: { laneWidth: number; speedLimit: number; laneChanging: boolean };
   /** mix omitted = the calibrated cars-only population. */
   vehicles: { mix?: VehicleMix | null };
@@ -106,8 +127,19 @@ export interface ScenarioDocument {
 }
 
 /** What the backend says it will build (POST /api/v1/scenarios/validate). */
+/** One arm as the backend lays it out (V1.5). */
+export interface ArmDesign {
+  bearing: number;
+  lanes: number;
+  laneWidth: number;
+  length: number;
+  /** Centre to the stop / give-way line (m). */
+  stopLineDistance: number;
+}
+
 export interface StrategyDesign {
   laneUse: Partial<Record<ApproachName, Movement[][]>>;
+  geometry?: Partial<Record<ApproachName, ArmDesign>>;
   circulatingLanes?: number;
   ringAssignment?: Partial<
     Record<

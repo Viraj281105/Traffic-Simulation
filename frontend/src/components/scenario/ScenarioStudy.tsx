@@ -516,12 +516,15 @@ function ScenarioStudyResultView({
             </tr>
           </thead>
           <tbody>
-            {APPROACHES.map((a) => (
+            {APPROACHES.filter(
+              (a) => result.scenario.approaches[a] != null,
+            ).map((a) => (
               <tr key={a}>
                 <th scope="row">{a}</th>
                 <td>
                   {Math.round(
-                    result.scenario.approaches[a].vehiclesPerHour * firstScale,
+                    (result.scenario.approaches[a]?.vehiclesPerHour ?? 0) *
+                      firstScale,
                   )}
                 </td>
                 {controls.map((s) => (

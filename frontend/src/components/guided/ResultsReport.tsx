@@ -791,10 +791,14 @@ export function ResultsReport({
                 <dd>
                   “{config.scenario.name}”:{" "}
                   {(["north", "east", "south", "west"] as const)
-                    .map(
-                      (a) =>
-                        `${a} ${String(config.scenario?.approaches[a].lanes)} lane(s), ${String(Math.round(config.scenario?.approaches[a].vehiclesPerHour ?? 0))} veh/h`,
-                    )
+                    .flatMap((a) => {
+                      const arm = config.scenario?.approaches[a];
+                      return arm
+                        ? [
+                            `${a} ${String(arm.lanes)} lane(s), ${String(Math.round(arm.vehiclesPerHour))} veh/h`,
+                          ]
+                        : [];
+                    })
                     .join("; ")}
                   . Exported scenario files reproduce this run exactly.
                 </dd>

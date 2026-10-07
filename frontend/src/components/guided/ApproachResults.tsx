@@ -70,20 +70,22 @@ export function ApproachResults({
             </tr>
           </thead>
           <tbody>
-            {APPROACHES.map((a) => (
-              <tr key={a}>
-                <th scope="row">{cap(a)}</th>
-                <td>
-                  {scenario.approaches[a].lanes} ·{" "}
-                  {Math.round(
-                    scenario.approaches[a].vehiclesPerHour,
-                  ).toLocaleString()}{" "}
-                  veh/h
-                </td>
-                {cell(signal, a)}
-                {cell(roundabout, a)}
-              </tr>
-            ))}
+            {APPROACHES.map((a) => {
+              // V1.5: a slot with no road has no row.
+              const arm = scenario.approaches[a];
+              if (!arm) return null;
+              return (
+                <tr key={a}>
+                  <th scope="row">{cap(a)}</th>
+                  <td>
+                    {arm.lanes} ·{" "}
+                    {Math.round(arm.vehiclesPerHour).toLocaleString()} veh/h
+                  </td>
+                  {cell(signal, a)}
+                  {cell(roundabout, a)}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

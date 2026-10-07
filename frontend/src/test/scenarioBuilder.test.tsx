@@ -12,6 +12,7 @@ import {
   sameConfigValues,
 } from "../types/config";
 import {
+  armOf,
   SCENARIO_PRESETS,
   approachLanes,
   configValuesFromScenario,
@@ -54,7 +55,7 @@ describe("scenario model", () => {
   it("presets are editable copies, and edits are recognised as custom", () => {
     const doc = scenarioFromPreset("typical-urban");
     expect(matchesPreset(doc)).toBe(true);
-    doc.approaches.north.vehiclesPerHour += 100;
+    armOf(doc, "north").vehiclesPerHour += 100;
     expect(matchesPreset(doc)).toBe(false);
     // The preset itself is untouched.
     expect(matchesPreset(scenarioFromPreset("typical-urban"))).toBe(true);
@@ -71,13 +72,13 @@ describe("scenario model", () => {
 
   it("flags crossing arrows and unserved turns for a signal only", () => {
     const doc = scenarioFromPreset("typical-urban");
-    doc.approaches.north.laneUse = [["straight"], ["left"]];
+    armOf(doc, "north").laneUse = [["straight"], ["left"]];
     const signal = localIssues(doc, ["fixed_time"]);
     expect(signal.some((i) => /cross/.test(i.message))).toBe(true);
     expect(
       localIssues(doc, ["roundabout"]).some((i) => /cross/.test(i.message)),
     ).toBe(false);
-    doc.approaches.north.laneUse = [["straight"], ["straight"]];
+    armOf(doc, "north").laneUse = [["straight"], ["straight"]];
     expect(
       localIssues(doc, ["fixed_time"]).some((i) =>
         /no lane allows it/.test(i.message),
@@ -87,7 +88,7 @@ describe("scenario model", () => {
 
   it("requires equal opposite approaches at a signal but not at a roundabout", () => {
     const doc = scenarioFromPreset("typical-urban");
-    doc.approaches.south = withLaneCount(doc.approaches.south, 3);
+    doc.approaches.south = withLaneCount(armOf(doc, "south"), 3);
     expect(
       localIssues(doc, ["fixed_time"]).some((i) =>
         /same number of lanes/.test(i.message),
@@ -97,7 +98,7 @@ describe("scenario model", () => {
   });
 
   it("drops lane arrows that no longer fit a new lane count", () => {
-    const arm = scenarioFromPreset("heavy-commuter").approaches.north;
+    const arm = armOf(scenarioFromPreset("heavy-commuter"), "north");
     expect(arm.laneUse).toHaveLength(3);
     expect(withLaneCount(arm, 2).laneUse).toBeNull();
     expect(defaultLaneUse(3)).toEqual([
@@ -163,8 +164,8 @@ describe("scenario model", () => {
       lanes: 2,
       arrivalRate: 0.4,
     });
-    expect(doc.approaches.north.lanes).toBe(2);
-    expect(doc.approaches.east.vehiclesPerHour).toBe(360);
+    expect(armOf(doc, "north").lanes).toBe(2);
+    expect(armOf(doc, "east").vehiclesPerHour).toBe(360);
   });
 
   it("leaves the dashboard payload exactly as before without a scenario", () => {
@@ -248,7 +249,7 @@ describe("scenario builder", () => {
     const lanes = screen.getAllByRole("group", { name: "Lanes" })[0];
     fireEvent.click(within(lanes).getByRole("button", { name: /More lanes/ }));
     const last = spy.mock.calls[spy.mock.calls.length - 1][0];
-    expect(last.approaches.north.lanes).toBe(3);
+    expect(armOf(last, "north").lanes).toBe(3);
 
     // North's card comes first.
     const toggle = screen.getAllByRole("button", {
@@ -256,7 +257,7 @@ describe("scenario builder", () => {
     })[0];
     fireEvent.click(toggle);
     const after = spy.mock.calls[spy.mock.calls.length - 1][0];
-    expect(after.approaches.north.laneUse?.[0]).toEqual(["left"]);
+    expect(armOf(after, "north").laneUse?.[0]).toEqual(["left"]);
   });
 
   it("sets how busy a road is with a level or an exact figure", () => {
@@ -269,7 +270,7 @@ describe("scenario builder", () => {
     );
     fireEvent.click(screen.getAllByRole("button", { name: "Very busy" })[0]);
     const doc = spy.mock.calls[spy.mock.calls.length - 1][0];
-    expect(doc.approaches.north.vehiclesPerHour).toBe(1100);
+    expect(armOf(doc, "north").vehiclesPerHour).toBe(1100);
   });
 
   it("loads a preset and offers to reset to it after edits", () => {
