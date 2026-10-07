@@ -11,6 +11,7 @@ import { VIEW_ROUTES, followLink } from "../routing";
 import { PLAIN_METRIC_MAP, metricDef } from "../metrics/plainLanguage";
 import { ADAPTIVE_DEFAULTS } from "../types/config";
 import { ControlComparisonStudy } from "./ControlComparisonStudy";
+import { ScenarioStudy } from "./scenario/ScenarioStudy";
 
 const TOOLS: {
   href: string;
@@ -216,6 +217,24 @@ export function ResearchHub() {
           excludes zero and it exceeds the tie tolerance.
         </p>
         <ControlComparisonStudy />
+      </section>
+
+      <section
+        className="results-section"
+        aria-labelledby="scenario-study-title"
+      >
+        <h2 id="scenario-study-title">Your own junction: a controlled study</h2>
+        <p>
+          Build any junction the model supports — lanes and lane arrows per
+          approach, demand and turning per road, the vehicle mix, timing and
+          roundabout design — or import one, then run it under the controls you
+          choose. Every control is compiled from the same scenario document, so
+          geometry, lanes, traffic, vehicles, duration and seeds are identical;
+          only the control differs. The exact engine configuration of each
+          control can be inspected before running and is exported with the
+          result.
+        </p>
+        <ScenarioStudy />
       </section>
 
       <section className="results-section" aria-labelledby="map-title">

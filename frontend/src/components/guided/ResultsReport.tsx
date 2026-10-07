@@ -45,6 +45,8 @@ import {
 } from "./comparisonRun";
 import type { MetricDef } from "../../metrics/catalog";
 import { VehicleClassResults } from "./VehicleClassResults";
+import { ApproachResults } from "./ApproachResults";
+import { describeRoads, ringLanes } from "../../scenario/scenarioModel";
 import { describeMix, hasMixedTraffic } from "../../vehicles/vehicleClasses";
 import { signalControlLabel } from "../../signals/signalControl";
 
@@ -241,8 +243,9 @@ export function ResultsReport({
         <ul className="scenario-chips" aria-label="Scenario">
           <li>{scenarioLabel(config)}</li>
           <li>
-            {config.lanes === 1 ? "1 lane" : `${String(config.lanes)} lanes`}{" "}
-            per approach
+            {config.scenario
+              ? describeRoads(config.scenario)
+              : `${config.lanes === 1 ? "1 lane" : `${String(config.lanes)} lanes`} per approach`}
           </li>
           <li>
             {config.vehicleMix
@@ -515,6 +518,14 @@ export function ResultsReport({
             roundabout={ctx.roundabout.metrics?.vehicleTypeBreakdown}
           />
 
+          {config.scenario && (
+            <ApproachResults
+              scenario={config.scenario}
+              signal={ctx.signal.metrics?.approachBreakdown}
+              roundabout={ctx.roundabout.metrics?.approachBreakdown}
+            />
+          )}
+
           <section className="results-section" aria-labelledby="r-why">
             <h2 id="r-why">Why did this happen?</h2>
             <div className="why-grid">
@@ -765,11 +776,30 @@ export function ResultsReport({
             <div>
               <dt>Roundabout</dt>
               <dd>
-                Single circulating lane, critical gap t_c ={" "}
-                {config.criticalGap.toFixed(1)} s, follow-up t_f ={" "}
-                {config.followUpTime.toFixed(1)} s
+                {(config.scenario
+                  ? ringLanes(config.scenario)
+                  : Math.min(config.lanes, 2)) === 1
+                  ? "Single circulating lane"
+                  : "Two circulating lanes (left turns inner, right turns outer; exits taken in turn)"}
+                , critical gap t_c = {config.criticalGap.toFixed(1)} s,
+                follow-up t_f = {config.followUpTime.toFixed(1)} s
               </dd>
             </div>
+            {config.scenario && (
+              <div>
+                <dt>Scenario</dt>
+                <dd>
+                  “{config.scenario.name}”:{" "}
+                  {(["north", "east", "south", "west"] as const)
+                    .map(
+                      (a) =>
+                        `${a} ${String(config.scenario?.approaches[a].lanes)} lane(s), ${String(Math.round(config.scenario?.approaches[a].vehiclesPerHour ?? 0))} veh/h`,
+                    )
+                    .join("; ")}
+                  . Exported scenario files reproduce this run exactly.
+                </dd>
+              </div>
+            )}
           </dl>
           <div className="next-actions">
             <button

@@ -147,6 +147,14 @@ export interface RoundaboutControllerState {
   circulatingCount: number;
   yieldingCount: number;
   gapAcceptance: number;
+  /** V1.4: circulating lanes (independent of the approach lane counts). */
+  circulatingLanes?: number;
+  /** V1.4: vehicles giving way at an exit spiral-out right now. */
+  exitYieldingCount?: number;
+  /** V1.4: exit give-ways since the run started. */
+  exitYieldEvents?: number;
+  /** V1.4: vehicles that had to continue out through a late conflict. */
+  forcedExitCommitments?: number;
 }
 
 export type ControllerState =
@@ -171,6 +179,17 @@ export interface IntersectionState {
   /** V1.1: conflict area to stop line (m); grows with the longest vehicle
    *  class in the mix (design-vehicle geometry). 3.5 when absent. */
   stopLineSetback?: number;
+  /** V1.4: a roundabout's circulating lanes; null for a signal. */
+  circulatingLanes?: number | null;
+}
+
+/** V1.4 results for the vehicles that came from one approach. */
+export interface ApproachResult {
+  exited: number;
+  averageDelay: number;
+  active: number;
+  averageQueueLength: number;
+  maxQueueLength: number;
 }
 
 /** V1.3 green-time measures, the same for fixed-time and adaptive signals. */
@@ -288,6 +307,10 @@ export interface RunningMetrics {
   petApplicable?: boolean;
   /** V1.1: served vehicles, share and mean delay per vehicle class. */
   vehicleTypeBreakdown?: Partial<Record<VehicleClass, VehicleTypeResult>>;
+  /** V1.4: served vehicles, mean delay and queues per approach. */
+  approachBreakdown?: Partial<
+    Record<"north" | "south" | "east" | "west", ApproachResult>
+  >;
   /** V1.3: how a signal used its green time after warm-up; null for a
    *  roundabout and during warm-up. */
   signalTiming?: SignalTiming | null;

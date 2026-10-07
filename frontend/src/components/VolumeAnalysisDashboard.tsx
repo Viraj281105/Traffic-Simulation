@@ -1211,9 +1211,9 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                 </div>
                 <span className="field-hint">
                   One lane per approach is the calibrated comparison. With more
-                  lanes both junctions model every lane, but drivers leaving the
-                  roundabout from an inner ring cross the outer one without lane
-                  markings, so multi-lane results are exploratory.
+                  lanes both junctions model every lane, but multi-lane capacity
+                  has not been checked against real junctions, so multi-lane
+                  results are exploratory.
                 </span>
               </div>
 

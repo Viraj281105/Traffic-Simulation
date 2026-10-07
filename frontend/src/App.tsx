@@ -69,6 +69,7 @@ import {
   sameConfigValues,
 } from "./types/config";
 import { saveReplay, updateSimulationConfig } from "./services/api";
+import { approachLanes } from "./scenario/scenarioModel";
 import { hasResults, sideSummary } from "./metrics/plainLanguage";
 import type {
   LiveSnapshot,
@@ -386,10 +387,13 @@ function Dashboard({
     lanesEastWest,
     signalControl,
     adaptive,
+    scenario,
   } = configValues;
   // Object-valued: compared by content in the sync effect below.
   const vehicleMixKey = JSON.stringify(vehicleMix ?? null);
   const adaptiveKey = JSON.stringify(adaptive ?? null);
+  const scenarioKey = JSON.stringify(scenario ?? null);
+  const armLanes = approachLanes(configValues);
 
   const randomizeSeed = () => {
     setActiveReplay(null);
@@ -436,6 +440,7 @@ function Dashboard({
             lanesEastWest,
             signalControl,
             adaptive: JSON.parse(adaptiveKey) as typeof adaptive,
+            scenario: JSON.parse(scenarioKey) as typeof scenario,
           },
           intersectionType,
           viewMode === "signal",
@@ -476,6 +481,7 @@ function Dashboard({
     lanesEastWest,
     signalControl,
     adaptiveKey,
+    scenarioKey,
   ]);
 
   const handleApplyConfig = (newConfig: SimulationConfigValues) => {
@@ -709,10 +715,10 @@ function Dashboard({
         <div className="canvas-wrapper">
           <IntersectionMap
             snapshot={dualSnapshot?.signal ?? null}
-            lanesNorth={lanes}
-            lanesSouth={lanes}
-            lanesEast={lanes}
-            lanesWest={lanes}
+            lanesNorth={armLanes.north}
+            lanesSouth={armLanes.south}
+            lanesEast={armLanes.east}
+            lanesWest={armLanes.west}
             laneWidth={laneWidth}
             showCrosswalks={true}
             showStopLines={showStopLines}
@@ -1065,10 +1071,10 @@ function Dashboard({
             ) : (
               <IntersectionMap
                 snapshot={singleSnapshot}
-                lanesNorth={lanes}
-                lanesSouth={lanes}
-                lanesEast={lanesEastWest ?? lanes}
-                lanesWest={lanesEastWest ?? lanes}
+                lanesNorth={armLanes.north}
+                lanesSouth={armLanes.south}
+                lanesEast={scenario ? armLanes.east : (lanesEastWest ?? lanes)}
+                lanesWest={scenario ? armLanes.west : (lanesEastWest ?? lanes)}
                 laneWidth={laneWidth}
                 showCrosswalks={true}
                 showStopLines={showStopLines}

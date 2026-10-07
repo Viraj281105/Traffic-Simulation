@@ -75,6 +75,9 @@ export function sessionRunFrom(
 }
 
 export function scenarioLabel(config: SimulationConfigValues): string {
+  if (config.scenario) {
+    return `“${config.scenario.name}” (≈ ${vehiclesPerHour(config.arrivalRate).toLocaleString()} veh/h)`;
+  }
   const level = demandLevelFor(config.arrivalRate, config.lanes);
   return `${level ? level.label : "Custom"} traffic (≈ ${vehiclesPerHour(config.arrivalRate).toLocaleString()} veh/h)`;
 }
