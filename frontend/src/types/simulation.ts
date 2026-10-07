@@ -166,8 +166,16 @@ export interface Approach {
   direction: SignalDirection;
   queueLength: number;
   laneCount: number;
-  /** V1.2: movements permitted from each incoming lane, lane 0 first. */
-  lanePermittedTurns?: ("left" | "straight" | "right")[][];
+  /** V1.2: movements permitted from each incoming lane, lane 0 first
+   *  (V1.5 adds "uturn"). */
+  lanePermittedTurns?: ("uturn" | "left" | "straight" | "right")[][];
+  /** V1.5, real-world geometry only: the arm's compass bearing (degrees
+   *  clockwise from north, outwards from the centre). */
+  bearing?: number;
+  /** V1.5, real-world geometry only: the arm's lane width (m). */
+  laneWidth?: number;
+  /** V1.5, real-world geometry only: centre to stop / give-way line (m). */
+  stopLineDistance?: number;
 }
 
 export interface IntersectionState {

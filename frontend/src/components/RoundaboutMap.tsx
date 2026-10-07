@@ -18,6 +18,7 @@ import {
 } from "./mapEnvironment";
 import { SnapshotInterpolator } from "./snapshotInterpolator";
 import { drawLaneArrows } from "./laneMarkings";
+import { drawRealWorldFrame } from "./realWorldFrame";
 import { drawVehicleSprite } from "../vehicles/vehicleSprites";
 
 interface RoundaboutMapProps {
@@ -117,6 +118,16 @@ export const RoundaboutMap: React.FC<RoundaboutMapProps> = ({
         width / 2 + x * scale,
         height / 2 - y * scale,
       ];
+
+      // V1.5: a real-world junction is drawn from its snapshot geometry.
+      if (
+        drawRealWorldFrame(ctx, current, frame.vehicles, toCanvas, scale, {
+          width,
+          height,
+          reach: armReach,
+        })
+      )
+        return;
 
       // Roads are laid out exactly as the backend lays out vehicle lanes
       // (see mapGeometry.ts): each carriageway sits outside the splitter

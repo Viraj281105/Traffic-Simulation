@@ -8,6 +8,7 @@ import {
   signalStopLineDistance,
 } from "./mapGeometry";
 import { drawLaneArrows } from "./laneMarkings";
+import { drawRealWorldFrame } from "./realWorldFrame";
 import { drawVehicleSprite } from "../vehicles/vehicleSprites";
 import {
   EnvironmentLayer,
@@ -163,6 +164,16 @@ export const IntersectionMap: React.FC<IntersectionMapProps> = ({
         const [right, bottom] = point(x2, y1);
         ctx.fillRect(left, top, right - left, bottom - top);
       };
+
+      // V1.5: a real-world junction is drawn from its snapshot geometry.
+      if (
+        drawRealWorldFrame(ctx, current, frame.vehicles, point, ppm, {
+          width,
+          height,
+          reach: roadLength,
+        })
+      )
+        return;
 
       // Grass, sidewalk and roadside planting, all beneath the roads.
       environment.paint(ctx, road, { width, height, ppm, dpr });
