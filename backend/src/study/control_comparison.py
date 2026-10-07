@@ -152,8 +152,8 @@ def run_scenario_comparison(
     compiled: Dict[str, Dict[str, Any]] = {}
     for scale in scales:
         scaled = document.model_copy(deep=True)
-        for d in ("north", "south", "east", "west"):
-            arm = getattr(scaled.approaches, d)
+        # Every arm that exists (V1.5: a three-arm junction has three).
+        for arm in scaled.approaches.present().values():
             arm.vehiclesPerHour = arm.vehiclesPerHour * scale
         for seed in seeds:
             scaled.simulation.seed = seed

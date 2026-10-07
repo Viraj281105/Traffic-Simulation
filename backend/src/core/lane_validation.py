@@ -56,6 +56,14 @@ from src.roads.network import lane_counts, resolve_lanes_per_approach
 # does not have.
 MAX_MERGING_ENTRY_LANES: int = 1
 
+_PLURAL = {
+    "car": "cars",
+    "suv": "SUVs",
+    "bus": "buses",
+    "truck": "trucks",
+    "motorcycle": "motorcycles",
+}
+
 # Same tolerance as the contract's other sum-to-one rules.
 _SUM_TOLERANCE: float = 0.01
 
@@ -520,7 +528,7 @@ def _signal_uturn_errors(
             f"needs at least {need:g} m (design turning radius). Valid options: "
             + ", or ".join(options)
             + (
-                f"; a vehicle mix without {need_cls}s"
+                f"; a vehicle mix without {_PLURAL.get(need_cls, need_cls)}"
                 if need > min(DESIGN_TURNING_RADIUS.values())
                 else ""
             )
