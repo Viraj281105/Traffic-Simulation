@@ -98,9 +98,9 @@ gantt
     V1.2 Advanced Lane Modelling             :done,    v12, 2026-10-05, 2d
     V1.3 Adaptive Signal Control             :done,    v13, 2026-10-06, 1d
     V1.4 Roundabouts + Scenario Config       :active,  v14, 2026-10-07, 1d
+    V1.5 Real-World Junction Modelling       :active,  v15, 2026-10-07, 1d
     section Upcoming
     section Planned
-    V1.5 Real-World Junction Modelling       :         v15, 2026-11-05, 8d
     V1.6 Safety & Environmental Analysis     :         v16, 2026-11-13, 7d
     V1.7 Scenario / What-If Planning         :         v17, 2026-11-20, 8d
     V1.8–V1.9 Calibration & Network Foundations :      v18, 2026-11-28, 10d
@@ -114,7 +114,7 @@ gantt
 | W12 | Oct 5 – Oct 6 | V1.2 | Advanced Lane Modelling | ✅ COMPLETE (with V1.1) |
 | W12 | Oct 6 | V1.3 | Adaptive Signal Control | ✅ COMPLETE (ahead of the W14 slot) |
 | W12 | Oct 7 | V1.4 | Advanced Roundabout Modelling + Full Scenario Configuration | 🟢 IMPLEMENTED, under review (ahead of the W15 slot) |
-| W16 | Nov 5 – Nov 12 | V1.5 | Real-World Junction Modelling | 🗓️ PLANNED |
+| W12 | Oct 7 | V1.5 | Real-World Junction Modelling | 🟢 IMPLEMENTED, under review (ahead of the W16 slot) |
 | W17 | Nov 13 – Nov 19 | V1.6 | Safety & Environmental Analysis | 🗓️ PLANNED |
 | W18 | Nov 20 – Nov 27 | V1.7 | Scenario / What-If Planning | 🗓️ PLANNED |
 | W19 | Nov 28 – Dec 7 | V1.8 / V1.9 | Calibration & Network-Level Foundations | 🗓️ PLANNED |
@@ -204,7 +204,7 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 
 ### V1.5 — Real-World Junction Modelling
 
-**W16 · Nov 5 – Nov 12 · 🗓️ PLANNED**
+**🟢 IMPLEMENTED · 2026-10-07 (ahead of the W16 slot) · under review**
 
 **Goal:** allow simulations to represent configurable real-world junction layouts.
 
@@ -213,6 +213,18 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 | Model | Junction geometry / configuration model · traffic inputs |
 | Engine | Backend support |
 | Presentation | Junction builder · configuration workflow · visual editor |
+
+**Delivered (implemented on `viraj-dev`, awaiting review):**
+
+*Geometry.* A geometry layer (`roads/junction_geometry.py`) between the validated scenario and the lanes the engine runs on: three- or four-arm junctions, each arm on its own compass bearing (within 30° of its compass slot, neighbours at least 45° apart) with its own lane count, length and lane width; skew-aware stop lines; turning paths bent at the true crossing of entry and exit lanes; roundabout entries checked for overlap. Built once at set-up, never per tick; arms on their slots' axes use the exact V1.0 arithmetic, so every earlier scenario is reproduced bit for bit. See [methodology §4.4](simulation/methodology.md#44-real-world-junction-geometry-v15).
+
+*Movements.* An explicit **U-turn** movement, only where a scenario's lane use puts it: a half circle into the kerb lane at a signal (released with the lefts, yielding to all, rejected unless its radius meets the AASHTO design turning radius of every class using it), the inner ring lane at a roundabout. Movements, lanes and demand that would lead into a missing arm are rejected, never re-routed.
+
+*Scenario, validation, comparison.* Optional document fields (`approaches.<dir>: null`, `bearing`, `laneWidth`, `"uturn"`, `turning.uturn`) — V1.4 documents compile and fingerprint unchanged (pinned against values recorded with the V1.4 code). Every rejection says what, where, why and what is valid ([contract §9](architecture/06-scenario-configuration-contract.md#9-real-world-junctions-v15)). The comparison pipeline is unchanged in kind — same scenario, different control — and reports approach-level results for the arms that exist. Frontend: the V1.4 builder gains "Which roads meet here?", U-turn arrows and shares, and per-arm bearing and lane width under Advanced; the plan preview and both live maps draw arms on their real bearings.
+
+*Import foundation.* `assign_slots()` places measured arm bearings on compass slots or explains why it cannot — the step a future OpenStreetMap/GIS importer needs. No importer is part of V1.5.
+
+*Deferred.* Five-or-more-arm and staggered junctions (need movement rules and signal stages beyond the slot model); lane drops inside a signalised junction (K3); U-turns via medians or jughandles; per-arm speed limits; a map-based importer.
 
 **V1.0 starting point:** one abstract four-leg junction with symmetric approaches (`roads.approachLength`, `laneWidth`); `roads.approaches[]` is accepted by the schema but not read.
 

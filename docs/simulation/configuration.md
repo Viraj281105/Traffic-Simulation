@@ -74,12 +74,12 @@ Step 1 also offers **"Build your own junction"** — the scenario builder — in
 
 | Section | What the user sets |
 | --- | --- |
-| 1 · Junction | Fixed-time signal · adaptive signal · roundabout (the comparison always runs the signal beside the roundabout; three-way studies are in the Research Lab) |
-| 2 · Roads & lanes | Per approach: lanes (1–4), length, the signal lane arrows of each lane (toggle left / straight / right), and optionally the roundabout's own lane markings (automatic by default, shown) |
-| 3 · Traffic | Per approach: "How busy is this road?" (Quiet 120 · Moderate 250 · Busy 400 · Very busy 550 veh/h per lane) or an exact veh/h; where its drivers go (left / straight / right %, live total); optionally its own vehicle mix |
+| 1 · Junction | Fixed-time signal · adaptive signal · roundabout (the comparison always runs the signal beside the roundabout; three-way studies are in the Research Lab). **V1.5:** which roads meet — switch one off for a three-arm (T or Y) junction; switching it back restores its settings |
+| 2 · Roads & lanes | Per approach: lanes (1–4), length, the signal lane arrows of each lane (toggle U-turn / left / straight / right — a U-turn arrow only where the user puts it), and optionally the roundabout's own lane markings (automatic by default, shown). Default arrows at a three-arm junction leave out movements into the missing road |
+| 3 · Traffic | Per approach: "How busy is this road?" (Quiet 120 · Moderate 250 · Busy 400 · Very busy 550 veh/h per lane) or an exact veh/h; where its drivers go (left / straight / right %, plus U-turn once a lane allows it; live total); optionally its own vehicle mix |
 | 4 · Vehicles | Share of cars, SUVs, buses, trucks, motorcycles as plain percentages with a live total — **never rescaled**; presets; "Cars only" is the calibrated population |
 | 5 · Simulation | Duration, warm-up, seed (with "new seed"), arrival pattern (Poisson / evenly spaced) |
-| 6 · Advanced | Signal timing (shared or per-road greens, yellow, all-red), adaptive settings, roundabout design (circulating lanes automatic / 1 / 2, radii, critical gap, follow-up, entry and circulating speed), lane width, speed limit, lane changing |
+| 6 · Advanced | **V1.5 junction geometry:** each road's compass bearing (within 30° of its direction) and its own lane width. Signal timing (shared or per-road greens, yellow, all-red), adaptive settings, roundabout design (circulating lanes automatic / 1 / 2, radii, critical gap, follow-up, entry and circulating speed), lane width, speed limit, lane changing |
 
 Presets — *Calibrated baseline*, *Typical urban junction*, *Heavy commuter traffic*, *Bus-heavy corridor*, *Mixed urban traffic*, *Motorcycle-heavy traffic* (`frontend/src/scenario/presets.json`) — fill every field and stay editable; an edited preset is shown as "Custom — started from …" with a reset. Scenarios export to and import from `*.urbanflow.json` files. "Run the comparison" stays disabled until the backend confirms the scenario can be simulated as both strategies; when it cannot, the panel lists why ("This configuration cannot currently be simulated: …").
 

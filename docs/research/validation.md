@@ -146,6 +146,25 @@ Exit-zone give-ways run from ~20 per two-lane run at low demand to ~400 at stres
 
 **Runtime.** Roundabout exit-zone and keep-clear logic is about 3 % of run time; a two-lane heavy-traffic stress run takes about 10 % longer than in V1.3 (192 s vs 172–176 s sequential), one-lane runs are unchanged.
 
+### 4.3 V1.5 real-world junction validation (2026-10-07)
+
+Four shapes, each one scenario document compiled for fixed-time, adaptive and roundabout control (`tests/integration/test_real_world_junctions_v15.py`): a **T-junction** (no north arm, 1-lane arms, 1,250 veh/h); a **Y-junction** (three skewed arms at 20°, 115°, 250°); a **skewed asymmetric** four-arm junction (2-lane main road at 15°/195°, narrow side roads at 80° with 3.0 m lanes and 265° with 3.2 m lanes, lengths 120–320 m, mixed vehicles 75 % car / 10 % SUV / 5 % bus / 5 % truck / 5 % motorcycle, unequal turning); a **U-turn** junction (north arm of three 4.5 m lanes with a U-turn lane and 10 % U-turns; two-lane ring for the roundabout).
+
+| Check | Runs | Result |
+| --- | --- | --- |
+| Every shape × strategy, 120 s, seed 3 | 12 | 0 contacts; every vehicle left by an arm that exists; approach breakdown lists only existing arms |
+| U-turns completed, 300 s, seed 4 | 3 (one per strategy) | U-turns completed under all three; every U-turner left by its own arm; 0 contacts |
+| Reproducibility (skewed asymmetric, fixed-time) | 3 | same seed → identical exits; different seed → different |
+| Same arrivals for every strategy (T-junction) | 3 | spawned counts within 3 (arrivals blocked at a full entry) |
+| API: validate, compile, run, live comparison, 3-way comparison study (T-junction, 2 seeds) | — | study rows list only the three arms; 0 contacts |
+| Earlier smoke runs during development (T, skewed four-arm, wide-signal U-turn), 240 s, 3 strategies | 9 | 0 contacts |
+
+**Compatibility.** Every V1.4 preset's fingerprint and its compiled configuration for all three strategies are byte-identical to those produced by the V1.4 code (recorded from commit `dcf7461`, pinned in `tests/core/test_scenario_v15.py`); lane, path and conflict-point geometry and 60 s trajectories of 24 legacy configurations (presets × strategies, 1–3 lanes signal and roundabout) are bit-identical to V1.4.
+
+**Found and fixed by these tests.** The comparison study scaled demand on all four approaches and failed on a three-arm junction; the builder showed default arrows into a missing road (the engine already left them out); a U-turn rejection read "a vehicle mix without buss".
+
+**Not yet run.** The slow 60-run matrix (`test_real_world_safety_matrix`: 4 shapes × 3 strategies × seeds 1–5 × 300 s) is in the suite but has not been run for this report; until it is, V1.5 safety evidence is the fast tier above. Capacity on real-world geometry is uncalibrated and exploratory.
+
 ---
 
 ## 5. Known limitations
@@ -154,10 +173,10 @@ Exit-zone give-ways run from ~20 per two-lane run at low demand to ~400 at stres
 | --- | --- | --- | --- |
 | K1 | ~~Multi-lane roundabout without lane assignment~~ — **resolved in V1.4**: up to two designated circulating lanes, keep-clear entry and exit convergence zones; 0 contacts and no standstill in 250 runs (§4.2). Remaining: three circulating lanes are rejected, not modelled; a third approach lane merges onto the two-lane ring and adds no capacity; multi-lane capacity is uncalibrated. *Was:* concentric rings without spiral lane assignment; inner-ring exits crossed outer rings (5 low-speed contacts in 54 runs, 2026-09-25; 2 in 32 mixed-traffic runs and a heavy-traffic lock-up, 2026-10-06) | Multi-lane results remain **exploratory** (uncalibrated capacity) and are labelled so; they are no longer flagged as unsafe. Scenarios asking for three ring lanes, or an approach two or more lanes wider than the ring, are rejected with an explanation | Resolved in [V1.4](../ROADMAP.md#v14--advanced-roundabout-modelling); three-lane rings not scheduled |
 | K2 | **One-lane signal is conservative**: one shared lane, permissive lefts, no turn bay | A waiting left-turner holds the only lane; maximum served flow sits below HCM shared-lane practice | Model scope; lane modelling in [V1.2](../ROADMAP.md#v12--advanced-lane-modelling) |
-| K3 | ~~No lane changing~~ — **resolved in V1.2**: gradual MOBIL lane changing on approaches. Remaining: no lane drops/merges inside the junction (opposite approaches must have equal lane counts); motorcycles do not filter between lanes | Through traffic rebalances across permitted lanes; uneven opposite approaches are rejected rather than simulated | Lane drops: [V1.5](../ROADMAP.md#v15--real-world-junction-modelling) |
+| K3 | ~~No lane changing~~ — **resolved in V1.2**: gradual MOBIL lane changing on approaches. Remaining: no lane drops/merges inside the junction (opposite approaches must have equal lane counts); motorcycles do not filter between lanes | Through traffic rebalances across permitted lanes; uneven opposite approaches are rejected rather than simulated | Lane drops: deferred from V1.5 (not scheduled) |
 | K4 | ~~Homogeneous passenger-car fleet~~ — **resolved in V1.1**: car, SUV, bus, truck, motorcycle. Remaining: class parameters are literature-ordered model inputs, not calibrated; no articulated vehicles; at most 12 m | Mixed-traffic results are **exploratory** and labelled so (`calibration.mixedTraffic`) | Calibration: [V1.8/V1.9](../ROADMAP.md#v18--v19--calibration--network-level-foundations) |
 | K5 | ~~Fixed-time signals only~~ — **resolved in V1.3**: an adaptive (vehicle-actuated) signal on the same phase plan, and a three-way study. Remaining: see K17–K18 | Fixed-time vs adaptive vs roundabout is measured with identical traffic | — |
-| K6 | **Abstract four-leg geometry** | Not a specific real junction | [V1.5](../ROADMAP.md#v15--real-world-junction-modelling) |
+| K6 | ~~Abstract four-leg geometry~~ — **largely resolved in V1.5**: three- or four-arm junctions, arms on their own bearings (within 30° of a compass slot) with their own lane widths and lengths, explicit U-turns (§4.3). Remaining: five-or-more-arm and staggered junctions are rejected, not modelled; no importer from map data (the slot-assignment foundation exists); real-world geometry is uncalibrated | A junction can be described as built, within those bounds; anything outside them is rejected with the reason. Results on such junctions are **exploratory** and labelled so | Multi-arm junctions and import: not scheduled (see [roadmap V1.5 deferred](../ROADMAP.md#v15--real-world-junction-modelling)) |
 | K7 | **Safety measures are exploratory**; no crash-risk model; no emissions | Safety is shown only as model-integrity cautions | [V1.6](../ROADMAP.md#v16--safety--environmental-analysis) |
 | K8 | **No field calibration** | Absolute numbers are model outputs, not predictions for a site | [V1.8/V1.9](../ROADMAP.md#v18--v19--calibration--network-level-foundations) |
 | K9 | **Stationary demand** within a run; one seed per sweep tier | No peak-hour profiles; sweep curves have no seed bands | Scenario planning in [V1.7](../ROADMAP.md#v17--scenario--what-if-planning) |
@@ -185,6 +204,7 @@ Items below strengthen *evidence*; each belongs to a roadmap milestone rather th
 | Physics and regression tests for lane changes | V1.2 — **done** (`tests/vehicles/test_lane_change.py`, `tests/integration/test_vehicle_types_and_lanes.py`) |
 | Adaptive-control experiments with validation against fixed-time | V1.3 — **done** (§4.1: three-way study over six demand levels, 1 and 2 lanes, cars and mixed traffic; exact replay; no signal collisions) |
 | Collision validation of multi-lane circulation (removes K1) | V1.4 — **done** (§4.2: 250 runs, one and two ring lanes, unequal, merging and asymmetric approaches, four mixes, 0 contacts) |
+| Safety validation of real-world geometry (three-arm, skewed, asymmetric, U-turns) | V1.5 — **done for safety and determinism** (§4.3); capacity on such junctions remains exploratory |
 | Validated safety proxies; emissions where scientifically supportable | V1.6 |
 | Batch experiments with reproducibility at scenario level | V1.7 |
 | Calibration framework against observed traffic | V1.8 / V1.9 |

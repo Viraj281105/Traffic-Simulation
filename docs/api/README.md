@@ -137,6 +137,8 @@ A scenario document (`format: "urbanflow-scenario"`, `version: 1`) describes a j
 
 `fingerprint` is a hash of everything simulated (not the name or description); compiled configurations carry it in `scenario.fingerprint`, so runs of the same scenario can be matched.
 
+**Real-world junctions (V1.5).** A document may set an approach to `null` (three-arm junction) and give approaches a `bearing`, their own `laneWidth`, `"uturn"` lane arrows and a `turning.uturn` share — all optional, so V1.4 documents validate, compile and fingerprint exactly as before. `design.<strategy>.geometry` in the validate response gives each arm's laid-out `bearing`, `lanes`, `laneWidth`, `length` and `stopLineDistance`. Snapshots of such junctions list only the arms that exist and carry the same three geometry fields per approach (`intersection.approaches[].bearing`, `laneWidth`, `stopLineDistance`); a signal reports heads only for existing arms; `metrics.approachBreakdown` covers only existing arms. Field list and every rejection rule: [scenario contract §9](../architecture/06-scenario-configuration-contract.md#9-real-world-junctions-v15).
+
 ---
 
 ## 6. Studies — `/api/v1/study`

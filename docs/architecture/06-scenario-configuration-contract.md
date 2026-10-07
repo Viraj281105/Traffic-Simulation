@@ -521,3 +521,63 @@ The configuration above is what the engine runs, and it mixes the junction with 
 Every compiled configuration also carries `scenario: {format, version, name, fingerprint, strategy}`, which the engine ignores and run history keeps, so a stored run names the scenario it came from. **Signal lane arrows and roundabout lane markings are separate** because they are part of each junction's design, not of the road: where a two-lane ring meets a one-lane road, a left turn into it may need to come from a different entry lane than signal arrows would allow.
 
 **Validation** (`validate_scenario`): the document is parsed strictly (unknown fields are errors, so a typo is never silently ignored), then compiled for each requested strategy and checked against the full engine contract (§5). Errors common to all strategies are reported once; an error specific to one strategy carries its name ("Roundabout: …"). Nothing is normalised — a vehicle mix totalling 95 % is an error, not 100 % after rescaling. `warnings` say how the results should be read (more than one lane, or mixed vehicles: exploratory; a lane offered more than about 1,800 veh/h).
+
+## 9. Real-world junctions (V1.5)
+
+V1.5 lets a scenario describe the junction it actually has, not only the abstract four-arm crossroads. Every addition is **optional**: a document that uses none of them compiles to exactly the configuration it did in V1.4 and keeps the same fingerprint (pinned by `tests/core/test_scenario_v15.py` against values recorded with the V1.4 code), so the format stays `version: 1`. A server older than V1.5 rejects the new fields by name instead of ignoring them.
+
+### 9.1 Scenario document fields
+
+| Field | Meaning | Compiles to |
+| --- | --- | --- |
+| `approaches.<dir>: null` | That compass slot has no arm (a T or Y junction). A junction needs 3 or 4 arms | `geometry.arms` (the slots that exist); `directionalSplit.<dir> = 0`; no `roads.approaches` / `traffic.approaches` entry |
+| `approaches.<dir>.bearing` | Compass bearing of the arm from the junction centre outwards, degrees clockwise from north (0 ≤ b < 360). Omitted: the slot's own (N 0, E 90, S 180, W 270) | `roads.approaches[].bearing` |
+| `approaches.<dir>.laneWidth` | The arm's own lane width (2.5 < w ≤ 5 m). Omitted: `roads.laneWidth` | `roads.approaches[].laneWidth` |
+| `laneUse` / `roundaboutLaneUse` entries | May include `"uturn"` (V1.5). Never part of a default lane use | `roads.approaches[].laneUse` |
+| `turning.uturn` | Share of the approach's traffic making a U-turn (omitted: 0); counts towards the sum of 1 | `traffic.approaches[].turnProbabilities.uturn` |
+
+```json
+"approaches": {
+  "north": null,
+  "south": { "lanes": 1, "vehiclesPerHour": 300, "turning": { "left": 0.5, "straight": 0, "right": 0.5 } },
+  "east":  { "lanes": 2, "vehiclesPerHour": 700, "bearing": 75, "laneWidth": 3.25,
+             "turning": { "left": 0.3, "straight": 0.7, "right": 0 } },
+  "west":  { "lanes": 2, "vehiclesPerHour": 650, "bearing": 262,
+             "turning": { "left": 0, "straight": 0.7, "right": 0.3 } }
+}
+```
+
+### 9.2 Engine configuration fields
+
+| Field | Rule |
+| --- | --- |
+| `geometry.arms` | Unique slot names; omitted means all four. With fewer than four: `traffic.directionalSplit` is required and must give every missing slot 0; no `roads.approaches` / `traffic.approaches` entry may name a missing slot |
+| `roads.approaches[].bearing` | Within 30° of the slot; neighbouring arms at least 45° apart |
+| `roads.approaches[].laneWidth` | Same bounds as `roads.laneWidth` |
+| `roads.approaches[].laneUse[][]` | Adds `"uturn"` to the movement names |
+| `traffic.approaches[].turnProbabilities.uturn` | Optional; the scenario-wide `traffic.turnProbabilities` has no U-turn share (U-turns are always an approach's explicit choice) |
+
+### 9.3 Validation rules (V1.5)
+
+Each message says **what** is invalid, **where**, **why**, and **what would be valid**. Nothing is adjusted.
+
+| Rule | Example message (abridged) |
+| --- | --- |
+| 3 or 4 arms | "approaches: 2 arm(s) given (east, west); a junction needs 3 or 4 arms. Two arms are a bend in one road …" |
+| Arm within 30° of its slot | "roads.approaches[east].bearing (140°) is 50° from the east slot (90°) … give the east arm a bearing from 60° to 120°, or describe this road as the arm of the slot it is nearest to" |
+| Neighbouring arms ≥ 45° apart | "The north and east arms are only 40° apart … Spread the arms further apart" |
+| Skewed signal leaves ≥ 20 m of approach | "The north approach is too short for this junction's angles: its stop line has to sit 37.3 m from the centre … Make it at least 57 m long, or bring the arms closer to right angles" |
+| Roundabout mouths must not overlap | "At the roundabout the north and east arms overlap where they meet the ring … Increase roundabout.outerRadius, spread the arms further apart, or use fewer or narrower lanes" |
+| No demand into a missing arm | "The south approach has traffic turning straight, into a slot this junction has no arm in; set that turning share to 0 (from south a vehicle can go left/right)" |
+| No lane marked for a missing arm | "The south approach's lane 1 allows straight, which would leave by the north slot, where this junction has no arm …" |
+| Every lane keeps a movement | "The south approach's lane 2 has no movement under the default lane use once movements into the missing arm are removed; give the south approach explicit lane arrows …" |
+| Turning shares set at a three-arm junction | Random turning would send traffic into the missing arm |
+| Signal U-turn from lane 1 only | "… a U-turn crosses every lane to its left, so at a signal it may only start from lane 1 …" |
+| Signal U-turn radius ≥ design turning radius | "A U-turn from the north approach is not physically possible here: … gives a 1.75 m radius …, but a car needs at least 6.4 m (design turning radius). Valid options: at least 4 lanes each way at 3.5 m …; or no U-turn at this signal (a roundabout serves U-turns on its ring)" |
+| Roundabout U-turn uses the inner lane | As a left turn: from an entry lane that feeds the inner circulating lane |
+
+The validate response's `design.<strategy>.geometry` reports, per arm, the bearing, lanes, lane width, length and the distance from the centre to the stop / give-way line that the engine will lay out.
+
+### 9.4 Import foundation
+
+The canonical representation of a real junction is this scenario document. `roads/junction_geometry.assign_slots(bearings)` is the step a future importer (OpenStreetMap, a GIS layer, a site survey) needs between "roads leave this node at these bearings" and a document: it places 3–4 measured bearings on compass slots, keeping their order, with the smallest largest deviation, and explains when it cannot (five or more arms, two arms, bunched arms, an arm more than 30° from any slot). No importer is part of V1.5.
