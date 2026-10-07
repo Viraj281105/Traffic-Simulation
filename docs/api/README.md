@@ -56,6 +56,7 @@ flowchart LR
     end
     subgraph V1["Versioned simulations · /api/v1"]
         VAL["POST configs/validate"]
+        SCN["POST scenarios/validate · scenarios/compile (V1.4)"]
         SIM["POST simulations · GET/DELETE simulations/{id}<br/>POST …/control · GET …/metrics · …/history · …/report"]
     end
     subgraph Study["Studies · /api/v1/study"]
@@ -93,7 +94,7 @@ Used by the guided comparison and the single-strategy views. State lives in the 
 
 | Method | Route | Purpose | Input | Output / notes |
 | --- | --- | --- | --- | --- |
-| POST 🔑 | `/api/simulation/config` | Set the session's scenario | Dashboard body (see [configuration](../simulation/configuration.md#layer-2--advanced-settings)) | `{status, message, randomSeed}`. 400 on invalid `intersectionType` or any bound. A rejected config leaves the running scenario untouched. Unchanged config is a no-op. |
+| POST 🔑 | `/api/simulation/config` | Set the session's scenario | Dashboard body (see [configuration](../simulation/configuration.md#layer-2--advanced-settings)); **V1.4:** may carry `scenario` (a [scenario document](#51-scenario-documents-v14)), which then defines the whole junction — the comparison runs its signal (fixed-time, or adaptive when `signalControl: "adaptive"` or the junction type says so) beside its roundabout, with the document's own seed | `{status, message, randomSeed}`. 400 on invalid `intersectionType` or any bound, or a scenario invalid for either side of the comparison. A rejected config leaves the running scenario untouched. Unchanged config is a no-op. |
 | POST 🔑 | `/api/simulation/play` | Start / resume the single-strategy engine | — | `{status, message, randomSeed}`. A completed run restarts (fresh seed unless pinned). |
 | POST 🔑 | `/api/simulation/pause` | Pause it | — | `{status, message}` |
 | POST 🔑 | `/api/simulation/dual/play` | Start / resume the lockstep comparison | — | `{status, message, randomSeed}` |
@@ -113,7 +114,7 @@ For programmatic runs. Simulations live in memory (≤ 50; completed ones evicte
 | Method | Route | Purpose | Input | Output | Errors |
 | --- | --- | --- | --- | --- | --- |
 | POST | `/api/v1/configs/validate` | Validate without creating | Scenario JSON | `{valid, errors[]}` (always 200) | — |
-| POST 🔑 | `/api/v1/simulations` | Create (status `initialized`) | Scenario JSON (`config.schema.json`) | **201** `{simulationId, configId, status, createdAt, config}` | 400, 429 |
+| POST 🔑 | `/api/v1/simulations` | Create (status `initialized`) | Scenario JSON (`config.schema.json`), or **V1.4** `{"scenario": <scenario document>, "strategy": "fixed_time" \| "adaptive" \| "roundabout"}` (compiled first; `config` in the response is the compiled configuration) | **201** `{simulationId, configId, status, createdAt, config}` | 400, 429 |
 | POST 🔑 | `/api/simulation/new` | Same, but parsed through the Pydantic model first (defaults filled) | Scenario JSON | as above | 400, 422 |
 | GET | `/api/v1/simulations/{id}` | Status | — | `{simulationId, status, elapsed, tick}` | 404 |
 | POST 🔑 | `/api/v1/simulations/{id}/control` | Lifecycle | `{"action": "start" \| "pause" \| "resume" \| "stop"}` | `{status, simulationId, previousStatus, currentStatus, timestamp}` | 400, 404, 409 |
@@ -124,6 +125,17 @@ For programmatic runs. Simulations live in memory (≤ 50; completed ones evicte
 | DELETE 🔑 | `/api/v1/simulations/{id}` | Remove from memory | — | `{status: "deleted", simulationId}` | 400 if running/paused, 404 |
 
 There is **no** list route (`GET /api/v1/simulations`); use `/api/v1/study/history/runs` for persisted runs.
+
+### 5.1 Scenario documents (V1.4)
+
+A scenario document (`format: "urbanflow-scenario"`, `version: 1`) describes a junction and its traffic independently of how it is controlled: approaches with their own lanes, length, signal lane arrows (`laneUse`), roundabout lane markings (`roundaboutLaneUse`, optional), vehicles per hour, turning shares and optional vehicle mix; the scenario vehicle mix; signal timing and adaptive settings; roundabout design (circulating lanes, radii, gap acceptance, speeds); duration, warm-up, seed, arrival pattern. The backend compiles it into the configuration above **once per strategy**, so every strategy gets identical geometry, lanes, traffic, vehicles, duration and seed. Unknown fields are rejected; nothing is normalised. Full field list: [scenario contract §8](../architecture/06-scenario-configuration-contract.md#8-scenario-documents-v14).
+
+| Method | Route | Purpose | Input | Output | Errors |
+| --- | --- | --- | --- | --- | --- |
+| POST | `/api/v1/scenarios/validate` | Can this scenario be simulated under these strategies? | `{scenario, strategies?: ["fixed_time","adaptive","roundabout"] (1–3; default: the junction type)}` | `{valid, errors[], warnings[], strategies, design{strategy: {laneUse, circulatingLanes?, ringAssignment?}}, fingerprint, scenario}` — always 200. An error that holds for only one strategy is prefixed with its name ("Roundabout: …"). | 422 (body shape) |
+| POST | `/api/v1/scenarios/compile` | The exact engine configuration one strategy runs | `{scenario, strategy}` | `{strategy, config}` | 400 (invalid scenario), 422 |
+
+`fingerprint` is a hash of everything simulated (not the name or description); compiled configurations carry it in `scenario.fingerprint`, so runs of the same scenario can be matched.
 
 ---
 
@@ -169,7 +181,9 @@ Jobs live in server memory: a restart drops unfinished jobs; finished jobs are k
 | POST 🔑 | `/api/v1/study/validate/repeatability` | `{duration?: 20, randomSeed?: 12345}` | Per-geometry invariant results (`geometries`), what was `checked`, `valid`, `isDeterministic` |
 | GET 🔑 | `/api/v1/study/export?format=json\|csv` | — | Runs a fresh default sweep **and** a Monte Carlo study, returns the combined report (CSV: `traffic_simulation_study_v1.csv`). Expensive. |
 
-`scenario` and `customConfig` are mutually exclusive (422). `scenario` takes the dashboard body and repeats exactly that scenario; a scenario the live dashboard would reject is rejected here too (400).
+**V1.4 — a custom scenario in the control comparison.** `control-comparison/run` and `/jobs` also accept `{scenario: <scenario document>, strategies?: (2–3 of fixed_time, adaptive, roundabout; default all), numSeeds?, baseSeed? (default: the scenario's seed), demandScales?: number[] (≤ 6, each 0.1–3; default [1]), confidenceLevel?}`. `lanes`, `levels`, `duration`, `adaptive` and `vehicleMix` describe the built-in junction and are rejected alongside a scenario (422), as is a scenario invalid for any requested strategy or longer than 900 s. Result (`study: "scenario-comparison"`): `scenario, fingerprint, controls, demandScales, seeds, duration, warmupTime, confidenceLevel, calibration, tieTolerance, collisionCount, compiledConfigs{strategy: engine config}, method, results[]{demandScale, demandVph, vehicleLimitReached, controls{…}, delayComparisons{a_vs_b}}, perSeed[]{demandScale, seed, <strategy>{averageDelay, throughput, averageQueueLength, collisionCount, vehicleTypeBreakdown, approachBreakdown, signalTiming}}`.
+
+In the Monte Carlo body, `scenario` and `customConfig` are mutually exclusive (422). `scenario` takes the dashboard body and repeats exactly that scenario; a scenario the live dashboard would reject is rejected here too (400).
 
 ### 6.3 Sweep sessions
 

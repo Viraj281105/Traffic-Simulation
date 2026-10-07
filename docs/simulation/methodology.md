@@ -1,6 +1,6 @@
 # Simulation Methodology
 
-> **Status:** Current · V1.0 · every parameter on this page is read from the source and cited
+> **Status:** Current · V1.4 · every parameter on this page is read from the source and cited
 > **Audience:** researchers, traffic engineers, reviewers, contributors
 > **Companions:** [Configuration reference](configuration.md) · [Metrics reference](../research/metrics-reference.md) · [Reproducibility](../research/reproducibility.md) · [Validation & evidence](../research/validation.md)
 
@@ -56,12 +56,12 @@ flowchart LR
 | Modelled (IMPLEMENTATION) | Not modelled |
 | --- | --- |
 | One four-leg junction (north, south, east, west), right-hand traffic | Networks, corridors, upstream/downstream junctions |
-| 1–4 lanes per approach, set per road (calibrated comparison: **1**) — V1.2 | Lane drops and merges inside the junction (opposite approaches must match) |
+| 1–4 lanes per approach, set per approach, with per-lane movements and per-approach length, demand, turning and vehicle mix (calibrated comparison: **1**) — V1.2, V1.4 | Lane drops and merges inside a signalised junction (opposite approaches must match there) |
 | Gradual, safety-checked lane changing on approaches (MOBIL) — V1.2 | Lane filtering by motorcycles; overtaking inside the junction |
 | Five vehicle classes — car, SUV, bus, truck, motorcycle — each with its own size, IDM, cornering and lane-change parameters — V1.1 | Articulated vehicles and trailers; vehicles longer than 12 m |
 | Longitudinal car-following (IDM) along lane paths; lateral motion only during a lane change | Free lateral dynamics; overtaking |
-| Fixed-time signal with paired north–south / east–west phases | Actuated or adaptive signals — planned for V1.3 |
-| Single-geometry roundabout with give-way entry, critical gap and follow-up time | Spiral multi-lane circulation, lane markings in the ring — planned for V1.4 |
+| Fixed-time and adaptive (vehicle-actuated) signals with paired north–south / east–west phases — V1.3 | Coordinated or network-optimised signal control |
+| Roundabout with give-way entry, critical gap and follow-up time; 1–2 circulating lanes with lane designation, keep-clear entry and exit convergence zones — V1.4 | Three or more circulating lanes; free lane changing on the ring; right-turn bypass lanes |
 | Poisson or uniform arrivals per approach | Platooned / bunched arrivals; time-varying demand profiles |
 | Surrogate safety proximity measures (TTC; PET on signal geometry) and an overlap audit | Crash-risk prediction; pedestrians; cyclists; emissions |
 
@@ -109,17 +109,19 @@ Every lane carries its identity — approach, index across the approach (0 next 
 
 A controller can narrow it: under the one-direction-at-a-time signal plan, lane 0's head shows a left arrow only, so it becomes a left-turn pocket. Grouped plans (`phaseSequence`, the dashboard default) leave the rule as above. The snapshot reports it per lane (`lanePermittedTurns`) and the maps paint it as lane arrows.
 
-Vehicles enter in the preferred lane for their turn (left → lane 0, right → last lane, straight → middle) and, if that entry is blocked, in another lane the turn is permitted from.
+**V1.4 — configured lane use.** A scenario may set each lane's movements itself (`roads.approaches[].laneUse`, e.g. left / straight / straight+right), which replaces the default rule for that approach; the signal heads then show those arrows. Validation rejects arrows that cross, turning lanes without a receiving lane, and turning traffic that no lane allows (see the [configuration contract](../architecture/06-scenario-configuration-contract.md#24-roads--road-configuration)). Multiple turning lanes are paired with receiving lanes in order (the k-th left lane from the left turns into exit lane k; right turns mirror it). A roundabout's lane markings follow its lane designation (§7.4.1).
+
+Vehicles enter in the preferred lane for their turn (left → lane 0, right → last lane, straight → middle) when that lane permits it, otherwise the nearest lane that does, and, if that entry is blocked, another lane the turn is permitted from. Under the default rule this is exactly the V1.2 behaviour.
 
 ### 4.2 Per-road lane counts
 
-Each road carries the same number of lanes in both directions, so north/south and east/west must have equal counts: through traffic from a wider approach would otherwise have to merge inside the junction, which the model cannot do (in V1.0, north 1 / south 2 locked the junction). Two crossing roads may differ — a two-lane main road with a one-lane side street. The signal's junction box is square and sized to the widest road. A roundabout should keep one count for all approaches (ring re-indexing is V1.4).
+At a **signal**, each road carries the same number of lanes in both directions, so north/south and east/west must have equal counts: through traffic from a wider approach would otherwise have to merge inside the junction, which the model cannot do (in V1.0, north 1 / south 2 locked the junction). Two crossing roads may differ — a two-lane main road with a one-lane side street. The signal's junction box is square and sized to the widest road. A **roundabout** (V1.4) has its own ring lane count and maps every entry and exit lane onto it, so its approaches may all differ (§7.4.1). Each approach may also have its own length (`roads.approaches[].length`, V1.4).
 
 ### 4.3 Design vehicle (V1.1)
 
 When the vehicle mix includes vehicles longer than the 5 m reference car, the signalised junction is laid out for the longest of them, as real junctions on bus and freight routes are: every stop line moves back by the extra length (12 m vehicles → 7 m), and because turning paths run from stop line to stop line their corner radii grow with it. The snapshot reports the setback (`intersection.stopLineSetback`). Cars-only scenarios keep the V1.0 geometry exactly. The roundabout's geometry is set by its radii and does not change.
 
-On a roundabout the number of circulating rings follows the approach lane count. The `controller.circulatingLanes` field is accepted by the schema but **does not change the geometry** in V1.0 (see [configuration](configuration.md#reserved-and-inert-fields)).
+On a roundabout the number of circulating lanes is `geometry.circulatingLanes` (V1.4; 1 or 2, default the widest approach up to 2). The older `controller.circulatingLanes` field is still accepted but **has no effect** (see [configuration](configuration.md#reserved-and-inert-fields)). The design-vehicle rule also counts vehicle mixes given to individual approaches (V1.4).
 
 ---
 
@@ -147,6 +149,8 @@ If `traffic.directionalSplit` or `traffic.turnProbabilities` are **omitted**, th
 | P(right) | remainder |
 
 Because these come from the seed, two runs with the same seed see the **same** split and turning mix; different seeds see different mixes. The guided comparison and the reliability check rely on exactly this property.
+
+**V1.4 — per approach.** `traffic.approaches[]` may give an approach its own turning shares and its own vehicle mix; scenario documents always set every approach's demand (veh/h, compiled to `arrivalRate` × `directionalSplit`) and turning explicitly, so nothing about their traffic is drawn at random except the arrivals themselves and the vehicle classes.
 
 ### 5.3 Vehicle properties
 
@@ -303,6 +307,35 @@ Why passage, not presence, extends a green: a vehicle standing in the zone durin
 
 Entry logic (IMPLEMENTATION): circulating traffic has priority. For each approach, the controller projects circulating vehicles towards the entry at `max(current speed, circulatingSpeed)`, blocks the entry (virtual obstacle) while any would arrive within the critical gap, and spaces consecutive entries by the follow-up time. A spillback state (with hysteresis) shapes approach speeds when a queue is stalled and propagating.
 
+#### 7.4.1 Multi-lane rings (V1.4)
+
+**IMPLEMENTATION** — `roads/lane_config.py`, `roads/network.py`, `controllers/roundabout.py`
+
+V1.0–V1.3 had one ring per approach lane, kept every vehicle on its entry lane's ring, and let a vehicle leaving an inner ring drive across the outer ring with nothing deciding who went first (known limitation K1: low-speed contacts, and lock-ups with heavy vehicles). V1.4 replaces that with an explicit model:
+
+| Element | Rule |
+| --- | --- |
+| Ring lanes | `geometry.circulatingLanes`, **1 or 2**, independent of the approaches (default: the widest approach, at most 2). Each ring lane gets an equal share of `outerRadius − innerRadius`, at least 3.0 m and the widest vehicle + 1.0 m. Three ring lanes are rejected: a middle lane would weave across both others at every exit, which is not modelled. |
+| Lane designation | Left turn → inner lane; right turn → outer lane; straight → the entry lane's own ring lane. Entry lanes are right-aligned onto the ring (the right-hand entry lane feeds the outer lane); a one-lane approach feeds both ring lanes; an approach one lane wider than the ring merges its two left-hand lanes onto the inner lane, taking turns at the give-way line. Ring lanes are right-aligned onto each exit; a one-lane exit receives both. With as many ring lanes as entry lanes, every path is exactly the V1.0–V1.3 path. |
+| Lane markings | Derived from the designation (shown as lane arrows); a scenario may set them explicitly (`laneUse` / `roundaboutLaneUse`), and validation names any lane that cannot reach the movement it is given. |
+| Entry | Gap acceptance against every ring lane the entry joins or crosses (as before), plus **keep-clear**: a vehicle only starts across the outer lane when nothing is standing within its own length + 2 m beyond where it reaches each ring lane, so it never stops across a lane it is crossing. |
+| Inner-lane exit curve | Spirals out over a 5 m arc (`ROUNDABOUT_INNER_EXIT_TRANSITION_ARC`) instead of the shared 10 m, keeping it ≥ 2.9 m (centre to centre) from the outer-lane path to the same exit; longer arcs cut across the outer lane while it still carries traffic. |
+| **Exit convergence zones** | Around each exit the two ring lanes meet: the inner-lane exit curve crosses outer-lane traffic that continues past the exit and runs alongside outer-lane traffic leaving by it. That stretch is a zone that vehicles from the two ring lanes take in **strict arrival order** (earlier arrival first, ties to the inner lane; a vehicle already inside counts as arrived): a vehicle enters only if no vehicle from the other lane that is inside, or arrives first, would still be there (plus a 1 s headway) when it arrives. An earlier version held every vehicle within 40 m whenever the zone was occupied at all, however soon it would clear; that cost a two-lane ring about a third of its capacity gain over one lane (2,880 veh/h, 150 s: ×1.15 instead of ×1.31). A waiting vehicle is held with its front at the zone start, where its body is still clear of the other lane's path; the hold is per vehicle (`vehicle_stop_limits`), applied like the predictive layer's limits. A vehicle already inside its comfortable stopping distance when a conflict appears continues and is counted (`forcedExitCommitments`). |
+
+**Why this is deadlock-free.** Arrival order is total, so two vehicles never wait for each other; every wait is for a vehicle inside a zone or ahead in that order, and a vehicle inside a zone is never held by the zone rule — beyond it lies a free exit lane, or its own lane on to the next zone. Keep-clear entry means no entering vehicle stops across a lane, which is what closed the wait cycles in rejected designs.
+
+**Development record (MEASURED; 2 and 3 lanes per approach, 0.3–1.2 veh/s, seeds 1–3, 300 s, 30 s warm-up).** Three designs were measured and rejected before this one; they are recorded because the reasons constrain the model:
+
+| Design | Contacts (24 runs) | Longest junction standstill | Served at 1.2 veh/s, 2 lanes |
+| --- | --- | --- | --- |
+| V1.3 (rings = entry lanes, no exit rule) | 2 | 0 s | 151 |
+| Explicit inner-lane exit give-way | 17 | 156 s | 62 |
+| Turbo designation (outer lane right turns only) + outer lane gives way at exits | 0 | 197 s | 28 |
+| Turbo designation + exit convergence zones | 0 | 0 s | 100 |
+| **V1.4: two-lane designation + exit zones + keep-clear entry** | see [validation §4.2](../research/validation.md#42-v14-roundabout-validation-matrix) | | |
+
+The turbo designation is safe but adds almost nothing over one lane: inner-lane entries then face the same conflicting flow as on a one-lane ring, so only right turns gain.
+
 ---
 
 ## 8. Warm-up
@@ -383,7 +416,7 @@ flowchart TB
 
 **MEASURED** — [comparative report §2](../reports/comparative_report.md#2-measured-capacity-v1-single-lane-per-approach)
 
-The signal-vs-roundabout comparison is **calibrated for one lane per approach**. With more lanes both geometries change (turn lanes at the signal, one ring per entry lane at the roundabout), and multi-lane roundabout runs are not collision-free across the whole demand range because the single geometry cannot express spiral lane assignment. Mixed vehicle classes are likewise exploratory: the class parameters (§5.4) are literature-ordered model inputs, not calibrated against observed traffic. Every study result carries a `calibration` object (`study/calibration.py`) so an exploratory multi-lane result can never be mistaken for the calibrated baseline.
+The signal-vs-roundabout comparison is **calibrated for one lane per approach**. With more lanes both geometries change (turn lanes at the signal; at the roundabout, since V1.4, up to two designated circulating lanes with exit convergence zones, §7.4.1). Multi-lane roundabouts are collision-free across the V1.4 validation matrix ([validation §4.2](../research/validation.md#42-v14-roundabout-validation-matrix)), but neither junction's multi-lane capacity has been calibrated, so those results remain exploratory. Mixed vehicle classes are likewise exploratory: the class parameters (§5.4) are literature-ordered model inputs, not calibrated against observed traffic. Every study result carries a `calibration` object (`study/calibration.py`) so an exploratory multi-lane result can never be mistaken for the calibrated baseline.
 
 Guided demand levels are defined as a share of a **reference capacity** that is the *mean* of the two strategies' measured maximum served flow — the same number for both, so no level favours either:
 
@@ -412,5 +445,9 @@ Values are the ones the guided UI offers: `Math.round(ratio × capacity / 10) ×
 | A9 | Vehicle-class parameters (V1.1) | §5.4 table | Mixed-traffic delay, capacity, per-class results |
 | A10 | Design-vehicle geometry when long vehicles are present | stop lines back by (L_max − 5 m) | Signal box size, turn radii |
 | A11 | MOBIL lane changing (V1.2) | b_safe 4.0 m/s², Δa_th 0.2 m/s², politeness per class | Multi-lane lane use and delay |
+| A12 | Two-lane roundabout lane designation (V1.4) | left inner, right outer, straight on the entry lane's own | Multi-lane roundabout capacity and lane use |
+| A13 | Exit convergence zones (V1.4) | strict arrival order; zone held 1.0 s after it is cleared; outer-lane zone margin 2 m | Multi-lane roundabout capacity and safety |
+| A14 | Keep-clear entry (V1.4) | entrant's length + 2 m free, ring vehicles below 2 m/s count as standing | Multi-lane roundabout entry capacity |
+| A15 | Inner-lane exit curve (V1.4) | 5 m arc | Multi-lane roundabout exit speed |
 
 These are inputs, not findings. Changing any of them changes results; the [configuration reference](configuration.md) shows which are user-adjustable.

@@ -1,7 +1,7 @@
 # UrbanFlow Roadmap
 
 > **This is the single authoritative roadmap.** It supersedes every earlier roadmap, deferred-features log and V1.1/V2/V3 plan in this repository (preserved in git history).
-> **Current version:** V1.3 — V1.1 (vehicle types), V1.2 (lane modelling) and V1.3 (adaptive signal control) **COMPLETE** · **Next:** V1.4 · **Last updated:** 2026-10-06
+> **Current version:** V1.3 — V1.1 (vehicle types), V1.2 (lane modelling) and V1.3 (adaptive signal control) **COMPLETE** · **V1.4** (advanced roundabouts + full scenario configuration) **implemented on `viraj-dev`, under review** · **Last updated:** 2026-10-07
 > **Beyond V2.0:** [Future Scope](future-scope/future_scope.md) — post-V2.0 research frontiers only.
 
 | Status | Meaning |
@@ -97,9 +97,9 @@ gantt
     V1.1 Different Vehicle Types             :done,    v11, 2026-10-05, 2d
     V1.2 Advanced Lane Modelling             :done,    v12, 2026-10-05, 2d
     V1.3 Adaptive Signal Control             :done,    v13, 2026-10-06, 1d
+    V1.4 Roundabouts + Scenario Config       :active,  v14, 2026-10-07, 1d
     section Upcoming
     section Planned
-    V1.4 Advanced Roundabout Modelling       :         v14, 2026-10-28, 8d
     V1.5 Real-World Junction Modelling       :         v15, 2026-11-05, 8d
     V1.6 Safety & Environmental Analysis     :         v16, 2026-11-13, 7d
     V1.7 Scenario / What-If Planning         :         v17, 2026-11-20, 8d
@@ -113,7 +113,7 @@ gantt
 | W12 | Oct 5 – Oct 6 | V1.1 | Different Vehicle Types | ✅ COMPLETE (with V1.2) |
 | W12 | Oct 5 – Oct 6 | V1.2 | Advanced Lane Modelling | ✅ COMPLETE (with V1.1) |
 | W12 | Oct 6 | V1.3 | Adaptive Signal Control | ✅ COMPLETE (ahead of the W14 slot) |
-| W15 | Oct 28 – Nov 4 | V1.4 | Advanced Roundabout Modelling | 🗓️ PLANNED |
+| W12 | Oct 7 | V1.4 | Advanced Roundabout Modelling + Full Scenario Configuration | 🟢 IMPLEMENTED, under review (ahead of the W15 slot) |
 | W16 | Nov 5 – Nov 12 | V1.5 | Real-World Junction Modelling | 🗓️ PLANNED |
 | W17 | Nov 13 – Nov 19 | V1.6 | Safety & Environmental Analysis | 🗓️ PLANNED |
 | W18 | Nov 20 – Nov 27 | V1.7 | Scenario / What-If Planning | 🗓️ PLANNED |
@@ -182,9 +182,9 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 
 ### V1.4 — Advanced Roundabout Modelling
 
-**W15 · Oct 28 – Nov 4 · 🗓️ PLANNED**
+**🟢 IMPLEMENTED · 2026-10-07 (ahead of the W15 slot) · under review — extended to full user configuration**
 
-**Goal:** advance roundabout modelling beyond the current implementation.
+**Goal:** advance roundabout modelling beyond the current implementation, and let users build the junction they want to investigate.
 
 | Scope | |
 | --- | --- |
@@ -192,7 +192,13 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 | Evidence | Collision validation |
 | Presentation | Roundabout configuration · visualisation improvements |
 
-**V1.0 starting point:** concentric rings, one per approach lane, without spiral lane assignment; multi-lane runs are exploratory (low-speed inner-ring-exit contacts under saturation); `controller.circulatingLanes` is accepted but inert.
+**Delivered (implemented on `viraj-dev`, awaiting review):**
+
+*Roundabout.* The ring has its own lane count (`geometry.circulatingLanes`, 1–2; three-lane rings are rejected as not yet validated) and an explicit two-lane designation — left turns inner, right turns outer, straight on the entry lane's own — with right-aligned entry and exit mapping, merging entries for approaches one lane wider than the ring, keep-clear entry and **exit convergence zones** taken in strict arrival order (`roads/lane_config.py`, `controllers/roundabout.py`). Roundabout approaches may now all differ. One-lane rings are unchanged to the last bit. Three rejected designs and the measurements behind each decision are in [methodology §7.4.1](simulation/methodology.md#741-multi-lane-rings-v14); safety results in [validation §4.2](research/validation.md#42-v14-roundabout-validation-matrix). This resolves **K1** for supported configurations.
+
+*Full scenario configuration.* A strategy-neutral, versioned **scenario document** (`core/scenario.py`) — per-approach lanes, length, lane arrows, roundabout lane markings, demand, turning and vehicle mix; scenario mix; signal, adaptive and roundabout design; duration, warm-up, seed, arrival pattern — compiled once per strategy so comparisons differ only in control; strict validation that explains every rejection (`core/lane_validation.py`); `POST /api/v1/scenarios/validate` and `/compile`, scenario input to `/api/v1/simulations`, the live comparison and the control-comparison study; a per-approach results breakdown (`metrics.approachBreakdown`). Frontend: a **scenario builder** (guided "Build your own junction" and the Research Lab) with lane cards and movement toggles, "How busy is each road?", a live plan, completeness and validation panel, an explicit-percentage vehicle mix editor, presets as editable shortcuts, import/export; maps draw each arm and the ring from the snapshot; results name the scenario and split by approach.
+
+**Starting point (V1.0–V1.3):** concentric rings, one per approach lane, without lane designation; multi-lane runs were exploratory (low-speed inner-ring-exit contacts under saturation); `controller.circulatingLanes` was accepted but inert (it still is — superseded by `geometry.circulatingLanes`).
 
 ---
 

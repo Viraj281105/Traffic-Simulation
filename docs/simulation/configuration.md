@@ -1,6 +1,6 @@
 # Configuration Reference
 
-> **Status:** Current · V1.0 · verified against `frontend/src/types/config.ts`, `frontend/src/types/demand.ts`, `backend/src/core/config_models.py`, `shared/schemas/config.schema.json` and `backend/src/main.py`
+> **Status:** Current · V1.4 · verified against `frontend/src/scenario/`, `backend/src/core/scenario.py`, `frontend/src/types/config.ts`, `frontend/src/types/demand.ts`, `backend/src/core/config_models.py`, `shared/schemas/config.schema.json` and `backend/src/main.py`
 > **Product principle:** **SIMPLE BY DEFAULT, DEEP BY CHOICE.**
 
 UrbanFlow has three configuration layers. Most people only ever see the first one.
@@ -68,6 +68,21 @@ Demand levels as a share of the reference capacity, and the resulting vehicles p
 
 The reference capacity is the mean of both strategies' measured maximum served flow, so no level favours either ([methodology §11](methodology.md#11-calibration-status)).
 
+### Build your own junction (V1.4)
+
+Step 1 also offers **"Build your own junction"** — the scenario builder — instead of the four questions. It edits a [scenario document](../architecture/06-scenario-configuration-contract.md#8-scenario-documents-v14) in six sections, with a live plan of the junction, a plain-language summary and the backend's own verdict beside it:
+
+| Section | What the user sets |
+| --- | --- |
+| 1 · Junction | Fixed-time signal · adaptive signal · roundabout (the comparison always runs the signal beside the roundabout; three-way studies are in the Research Lab) |
+| 2 · Roads & lanes | Per approach: lanes (1–4), length, the signal lane arrows of each lane (toggle left / straight / right), and optionally the roundabout's own lane markings (automatic by default, shown) |
+| 3 · Traffic | Per approach: "How busy is this road?" (Quiet 120 · Moderate 250 · Busy 400 · Very busy 550 veh/h per lane) or an exact veh/h; where its drivers go (left / straight / right %, live total); optionally its own vehicle mix |
+| 4 · Vehicles | Share of cars, SUVs, buses, trucks, motorcycles as plain percentages with a live total — **never rescaled**; presets; "Cars only" is the calibrated population |
+| 5 · Simulation | Duration, warm-up, seed (with "new seed"), arrival pattern (Poisson / evenly spaced) |
+| 6 · Advanced | Signal timing (shared or per-road greens, yellow, all-red), adaptive settings, roundabout design (circulating lanes automatic / 1 / 2, radii, critical gap, follow-up, entry and circulating speed), lane width, speed limit, lane changing |
+
+Presets — *Calibrated baseline*, *Typical urban junction*, *Heavy commuter traffic*, *Bus-heavy corridor*, *Mixed urban traffic*, *Motorcycle-heavy traffic* (`frontend/src/scenario/presets.json`) — fill every field and stay editable; an edited preset is shown as "Custom — started from …" with a reset. Scenarios export to and import from `*.urbanflow.json` files. "Run the comparison" stays disabled until the backend confirms the scenario can be simulated as both strategies; when it cannot, the panel lists why ("This configuration cannot currently be simulated: …").
+
 **Fixed for every guided run (not user inputs):** warm-up 30 s · Δt 0.1 s · approach length 200 m · Poisson arrivals · paired NS/EW signal plan · roundabout radii 10/20 m, entry 5 m/s, circulating ≤ 8 m/s · vehicle cap sized from demand.
 
 ---
@@ -112,7 +127,7 @@ Opened from Step 1 ("Advanced settings — signal timing, driver behaviour, lane
 }
 ```
 
-Optional V1.1/V1.2 fields, sent only when they differ from the defaults (so a cars-only body is byte-for-byte the V1.0 one): `"vehicleMix": {"car": 0.6, "suv": 0.2, "bus": 0.05, "truck": 0.05, "motorcycle": 0.1}` and `"laneChanging": false`; V1.3 adds `"signalControl": "adaptive"` with an optional `"adaptive": {...}` holding only the settings changed from the defaults. North/south and east/west lane counts must match each other.
+Optional V1.1/V1.2 fields, sent only when they differ from the defaults (so a cars-only body is byte-for-byte the V1.0 one): `"vehicleMix": {"car": 0.6, "suv": 0.2, "bus": 0.05, "truck": 0.05, "motorcycle": 0.1}` and `"laneChanging": false`; V1.3 adds `"signalControl": "adaptive"` with an optional `"adaptive": {...}` holding only the settings changed from the defaults. North/south and east/west lane counts must match each other. V1.4 adds `"scenario": {…}` — a scenario document from the builder — which, when present, defines the junction on its own (the flat fields are still sent so older readers can describe the run).
 
 The backend compiles it into a full engine configuration (`_compile_dashboard_config()` in `backend/src/main.py`) and validates the result against the same schema bounds and cross-field rules as the versioned API. The same compiler serves the reliability check, so "How reliable is this?" repeats *exactly* the scenario the user watched.
 
@@ -169,22 +184,22 @@ A calibrated, fully explicit comparison scenario:
 | Section | Key fields (default · bounds) |
 | --- | --- |
 | `simulation` | `duration` (required · 1–3600 s) · `timeStep` (0.1 · 0–1) · `warmupTime` (30 · ≥ 0, < duration when explicit) · `randomSeed` (optional · ≥ 0) · `snapshotFrequency` (10 Hz · 1–60) |
-| `geometry` | `intersectionType` (required · `fixed_time_signal` \| `roundabout`) · `intersectionCenter` |
-| `roads` | `approachLength` (200 · 50–1000 m) · `laneWidth` (3.5 · 2.5–5.0 m) · `lanesPerApproach` (2 · 1–4) · `approaches[].lanes` (per-approach override, V1.2) · `speedLimit` (13.89 · ≤ 30 m/s) · `laneChange` (V1.2: `enabled` true · `accelerationThreshold` 0.2 · 0–2 m/s² · `safeDeceleration` 4.0 · ≤ 9 m/s² · `politeness` per class · 0–1) |
-| `traffic` | `arrivalRate` (0.5 · 0–10 veh/s) · `arrivalDistribution` (`poisson` \| `uniform`) · `totalVehicles` (200 · ≤ 5000) · `directionalSplit` and `turnProbabilities` (each must sum to 1; seeded random when omitted) |
+| `geometry` | `intersectionType` (required · `fixed_time_signal` \| `roundabout`) · `intersectionCenter` · `circulatingLanes` (V1.4 · roundabout · 1–2, default the widest approach up to 2) |
+| `roads` | `approachLength` (200 · 50–1000 m) · `laneWidth` (3.5 · 2.5–5.0 m) · `lanesPerApproach` (2 · 1–4) · `approaches[]`: `lanes` (per-approach override, V1.2), `length` (V1.4), `laneUse` (V1.4: movements per lane, lane 1 first) · `speedLimit` (13.89 · ≤ 30 m/s) · `laneChange` (V1.2: `enabled` true · `accelerationThreshold` 0.2 · 0–2 m/s² · `safeDeceleration` 4.0 · ≤ 9 m/s² · `politeness` per class · 0–1) |
+| `traffic` | `arrivalRate` (0.5 · 0–10 veh/s) · `arrivalDistribution` (`poisson` \| `uniform`) · `totalVehicles` (200 · ≤ 5000) · `directionalSplit` and `turnProbabilities` (each must sum to 1; seeded random when omitted) · `approaches[]` (V1.4: per-approach `turnProbabilities` and `vehicleMix`) |
 | `vehicleGeneration` | `maxAcceleration` 2.0 · `comfortDeceleration` 3.0 · `desiredTimeHeadway` 1.5 · `minimumGap` 2.0 · `idmDelta` 4 · `vehicleLength`/`vehicleWidth`/`desiredSpeed` ranges · `maxLateralAcceleration` (≤ 8) — these define the car · `vehicleMix` (V1.1: share per `car`/`suv`/`bus`/`truck`/`motorcycle`, sums to 1; omitted = V1.0 cars only) · `vehicleTypes.<class>` (V1.1 overrides: `length`, `width`, `desiredSpeedFactor` ranges; `maxAcceleration`, `comfortDeceleration`, `desiredTimeHeadway`, `minimumGap`, `idmDelta`, `maxLateralAcceleration`, `laneChangeDuration`, `laneChangeMinDistance`, `politeness`) — class defaults in [methodology §5.4](methodology.md#54-vehicle-classes-v11) |
 | `controller` (signal) | `straightRightDuration` (aliases `greenDuration`, `greenTime`; 30) · `nsGreenDuration`/`ewGreenDuration` · `yellowDuration` (4) · `allRedDuration` (2) · `leftDuration` (5, fallback cycle only) · `phaseSequence` · `offset` · `signalControl` (V1.3: `fixed_time` default · `adaptive`) · `adaptive` (V1.3: `minGreen` 10 · 5–60 s · `maxGreen` 50 · 10–180 s · `extensionStep` 2.5 · 0.5–10 s · `detectionDistance` 30 · 5–200 m · `demandThreshold` 1 · 1–20; see [contract §2.6.1a](../architecture/06-scenario-configuration-contract.md#261a-signal-control-fixed-time-or-adaptive-v13)) |
 | `controller` (roundabout) | `innerRadius` (10) · `outerRadius` (20, > inner) · `criticalGap` (4.0) · `followUpTime` (2.5) · `entrySpeed` (5.0) · `circulatingSpeed` (8.0 · ≤ 15) |
 | `metrics` | `waitSpeedThreshold` 0.5 · `stopSpeedThreshold` 0.1 · `ttcThresholdSeconds` 1.5 · `petThresholdSeconds` 5.0 · `ttcSearchRadius` 50 |
 | `visualization` | display preferences only; no effect on results |
 
-**Cross-field rules** (`backend/src/core/config_validation.py`): explicit `warmupTime < duration`; `directionalSplit` and `turnProbabilities` sum to 1; `outerRadius > innerRadius`; range `max ≥ min` (including `vehicleTypes` ranges); every number finite; `arrivalDistribution: "burst"` rejected as not implemented; `vehicleMix` sums to 1 with known classes and at least one positive share; north/south and east/west lane counts equal (a wider approach would have to merge inside the junction).
+**Cross-field rules** (`backend/src/core/config_validation.py`): explicit `warmupTime < duration`; `directionalSplit` and `turnProbabilities` sum to 1; `outerRadius > innerRadius`; range `max ≥ min` (including `vehicleTypes` ranges); every number finite; `arrivalDistribution: "burst"` rejected as not implemented; `vehicleMix` sums to 1 with known classes and at least one positive share; at a signal, north/south and east/west lane counts equal (a wider approach would have to merge inside the junction). V1.4 (`backend/src/core/lane_validation.py`): lane use shape, crossing arrows, receiving lanes for multiple turning lanes, unserved turning demand, roundabout routability, ring lanes 1–2, ring width per lane, approach at most one lane wider than the ring, per-approach turning and mixes summing to 1, each approach listed once — every message says why and what would be valid.
 
 ### Reserved and inert fields
 
-| Field | Accepted by | Effect in V1.0 |
+| Field | Accepted by | Effect |
 | --- | --- | --- |
-| `controller.circulatingLanes` | schema, Pydantic | **None.** Ring count follows `roads.lanesPerApproach`. Activation belongs to [V1.4](../ROADMAP.md#v14--advanced-roundabout-modelling). |
+| `controller.circulatingLanes` | schema, Pydantic | **None.** Superseded in V1.4 by `geometry.circulatingLanes`; kept inert so V1.0–V1.3 configs (which carry `1` beside two-lane approaches) simulate what they always did. If both are set they must agree. |
 | `traffic.arrivalDistribution: "burst"` | schema enum | Rejected by validation (not implemented). |
 | `roads.approaches[].speedLimit` | schema, Pydantic | Not read; every approach uses `roads.speedLimit`. (`approaches[].lanes` is live since V1.2.) |
 | `metrics.enabled`, `updateFrequency`, `rollingWindowSize` | schema | Not read by the collector (it always computes every metric; the throughput window is 60 s). |
