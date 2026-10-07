@@ -1,5 +1,6 @@
 import type { VehicleMix } from "../vehicles/vehicleClasses";
 import { sameMix } from "../vehicles/vehicleClasses";
+import type { ScenarioDocument } from "../scenario/scenarioTypes";
 
 /** V1.3: how a signal times its greens. */
 export type SignalControl = "fixed_time" | "adaptive";
@@ -71,6 +72,10 @@ export interface SimulationConfigValues {
   signalControl?: SignalControl;
   /** V1.3 adaptive settings; null/absent = the defaults. */
   adaptive?: AdaptiveSettings | null;
+  /** V1.4: a custom scenario built in the scenario builder. When set, the
+   *  backend runs this document and the flat fields above only mirror it
+   *  for display (see scenario/scenarioModel.configValuesFromScenario). */
+  scenario?: ScenarioDocument | null;
 }
 
 /** Field-by-field equality, comparing the vehicle mix by value. */
@@ -83,6 +88,11 @@ export function sameConfigValues(
   >;
   return [...keys].every((k) => {
     if (k === "vehicleMix") return sameMix(a.vehicleMix, b.vehicleMix);
+    if (k === "scenario")
+      return (
+        JSON.stringify(a.scenario ?? null) ===
+        JSON.stringify(b.scenario ?? null)
+      );
     if (k === "laneChanging")
       return (a.laneChanging ?? true) === (b.laneChanging ?? true);
     if (k === "signalControl")
@@ -222,6 +232,9 @@ export interface DashboardScenarioPayload {
   signalControl?: "adaptive";
   /** Only the settings that differ from the defaults. */
   adaptive?: AdaptiveSettings;
+  /** V1.4: a scenario document; the backend then runs it and ignores the
+   *  flat fields above (they still describe it, for older readers). */
+  scenario?: ScenarioDocument;
 }
 
 export function dashboardPayload(
@@ -264,6 +277,7 @@ export function dashboardPayload(
     ...(config.vehicleMix ? { vehicleMix: config.vehicleMix } : {}),
     ...(config.laneChanging === false ? { laneChanging: false as const } : {}),
     ...(isAdaptive(config) ? adaptivePayload(config.adaptive) : {}),
+    ...(config.scenario ? { scenario: config.scenario } : {}),
   };
 }
 

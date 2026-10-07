@@ -1,0 +1,491 @@
+{
+  "$comment": "Scenario presets: shortcuts into the scenario builder, not limits on it. Each is a complete urbanflow-scenario document; backend tests (tests/core/test_scenario.py) validate every one under all three strategies.",
+  "presets": [
+    {
+      "id": "calibrated-baseline",
+      "label": "Calibrated baseline",
+      "description": "One lane on every approach, cars only, busy traffic: the configuration UrbanFlow's comparison is calibrated for.",
+      "scenario": {
+        "format": "urbanflow-scenario",
+        "version": 1,
+        "name": "Calibrated baseline",
+        "description": "One lane per approach, cars only, 940 veh/h in total.",
+        "preset": "calibrated-baseline",
+        "junction": { "type": "fixed_time_signal" },
+        "approaches": {
+          "north": {
+            "lanes": 1,
+            "length": 200,
+            "vehiclesPerHour": 235,
+            "turning": { "left": 0.2, "straight": 0.6, "right": 0.2 }
+          },
+          "south": {
+            "lanes": 1,
+            "length": 200,
+            "vehiclesPerHour": 235,
+            "turning": { "left": 0.2, "straight": 0.6, "right": 0.2 }
+          },
+          "east": {
+            "lanes": 1,
+            "length": 200,
+            "vehiclesPerHour": 235,
+            "turning": { "left": 0.2, "straight": 0.6, "right": 0.2 }
+          },
+          "west": {
+            "lanes": 1,
+            "length": 200,
+            "vehiclesPerHour": 235,
+            "turning": { "left": 0.2, "straight": 0.6, "right": 0.2 }
+          }
+        },
+        "roads": {
+          "laneWidth": 3.5,
+          "speedLimit": 13.89,
+          "laneChanging": true
+        },
+        "vehicles": { "mix": null },
+        "signal": {
+          "greenTime": 30,
+          "yellowTime": 4,
+          "allRedTime": 2,
+          "adaptive": {
+            "minGreen": 10,
+            "maxGreen": 50,
+            "extensionStep": 2.5,
+            "detectionDistance": 30,
+            "demandThreshold": 1
+          }
+        },
+        "roundabout": {
+          "innerRadius": 10,
+          "outerRadius": 20,
+          "criticalGap": 4,
+          "followUpTime": 2.5,
+          "entrySpeed": 5,
+          "circulatingSpeed": 8
+        },
+        "simulation": {
+          "duration": 300,
+          "warmup": 30,
+          "seed": 42,
+          "arrivalPattern": "poisson",
+          "timeStep": 0.1
+        }
+      }
+    },
+    {
+      "id": "typical-urban",
+      "label": "Typical urban junction",
+      "description": "A two-lane main road crossing a one-lane side street, everyday city traffic.",
+      "scenario": {
+        "format": "urbanflow-scenario",
+        "version": 1,
+        "name": "Typical urban junction",
+        "description": "Two-lane main road (north–south) meets a one-lane side street.",
+        "preset": "typical-urban",
+        "junction": { "type": "fixed_time_signal" },
+        "approaches": {
+          "north": {
+            "lanes": 2,
+            "length": 200,
+            "vehiclesPerHour": 450,
+            "turning": { "left": 0.15, "straight": 0.7, "right": 0.15 }
+          },
+          "south": {
+            "lanes": 2,
+            "length": 200,
+            "vehiclesPerHour": 450,
+            "turning": { "left": 0.15, "straight": 0.7, "right": 0.15 }
+          },
+          "east": {
+            "lanes": 1,
+            "length": 200,
+            "vehiclesPerHour": 200,
+            "turning": { "left": 0.3, "straight": 0.4, "right": 0.3 }
+          },
+          "west": {
+            "lanes": 1,
+            "length": 200,
+            "vehiclesPerHour": 200,
+            "turning": { "left": 0.3, "straight": 0.4, "right": 0.3 }
+          }
+        },
+        "roads": {
+          "laneWidth": 3.5,
+          "speedLimit": 13.89,
+          "laneChanging": true
+        },
+        "vehicles": {
+          "mix": {
+            "car": 0.6,
+            "suv": 0.2,
+            "bus": 0.05,
+            "truck": 0.05,
+            "motorcycle": 0.1
+          }
+        },
+        "signal": {
+          "greenTime": 30,
+          "nsGreenTime": 35,
+          "ewGreenTime": 20,
+          "yellowTime": 4,
+          "allRedTime": 2,
+          "adaptive": {
+            "minGreen": 10,
+            "maxGreen": 50,
+            "extensionStep": 2.5,
+            "detectionDistance": 30,
+            "demandThreshold": 1
+          }
+        },
+        "roundabout": {
+          "innerRadius": 10,
+          "outerRadius": 20,
+          "criticalGap": 4,
+          "followUpTime": 2.5,
+          "entrySpeed": 5,
+          "circulatingSpeed": 8
+        },
+        "simulation": {
+          "duration": 300,
+          "warmup": 30,
+          "seed": 101,
+          "arrivalPattern": "poisson",
+          "timeStep": 0.1
+        }
+      }
+    },
+    {
+      "id": "heavy-commuter",
+      "label": "Heavy commuter traffic",
+      "description": "Morning peak: a three-lane arterial with heavy inbound traffic from the north.",
+      "scenario": {
+        "format": "urbanflow-scenario",
+        "version": 1,
+        "name": "Heavy commuter traffic",
+        "description": "Three-lane arterial with a heavy northern approach, two-lane cross road.",
+        "preset": "heavy-commuter",
+        "junction": { "type": "adaptive_signal" },
+        "approaches": {
+          "north": {
+            "lanes": 3,
+            "length": 250,
+            "laneUse": [["left"], ["straight"], ["straight", "right"]],
+            "vehiclesPerHour": 1100,
+            "turning": { "left": 0.15, "straight": 0.7, "right": 0.15 }
+          },
+          "south": {
+            "lanes": 3,
+            "length": 250,
+            "laneUse": [["left"], ["straight"], ["straight", "right"]],
+            "vehiclesPerHour": 450,
+            "turning": { "left": 0.15, "straight": 0.7, "right": 0.15 }
+          },
+          "east": {
+            "lanes": 2,
+            "length": 200,
+            "vehiclesPerHour": 300,
+            "turning": { "left": 0.25, "straight": 0.5, "right": 0.25 }
+          },
+          "west": {
+            "lanes": 2,
+            "length": 200,
+            "vehiclesPerHour": 300,
+            "turning": { "left": 0.25, "straight": 0.5, "right": 0.25 }
+          }
+        },
+        "roads": {
+          "laneWidth": 3.5,
+          "speedLimit": 13.89,
+          "laneChanging": true
+        },
+        "vehicles": {
+          "mix": {
+            "car": 0.8,
+            "suv": 0.15,
+            "bus": 0.02,
+            "truck": 0.0,
+            "motorcycle": 0.03
+          }
+        },
+        "signal": {
+          "greenTime": 30,
+          "nsGreenTime": 40,
+          "ewGreenTime": 20,
+          "yellowTime": 4,
+          "allRedTime": 2,
+          "adaptive": {
+            "minGreen": 10,
+            "maxGreen": 60,
+            "extensionStep": 2.5,
+            "detectionDistance": 30,
+            "demandThreshold": 1
+          }
+        },
+        "roundabout": {
+          "circulatingLanes": 2,
+          "innerRadius": 12,
+          "outerRadius": 22,
+          "criticalGap": 4,
+          "followUpTime": 2.5,
+          "entrySpeed": 5,
+          "circulatingSpeed": 8
+        },
+        "simulation": {
+          "duration": 300,
+          "warmup": 30,
+          "seed": 202,
+          "arrivalPattern": "poisson",
+          "timeStep": 0.1
+        }
+      }
+    },
+    {
+      "id": "bus-corridor",
+      "label": "Bus-heavy corridor",
+      "description": "A bus and freight route: one vehicle in four is a bus or a truck.",
+      "scenario": {
+        "format": "urbanflow-scenario",
+        "version": 1,
+        "name": "Bus-heavy corridor",
+        "description": "Two-lane corridor carrying buses and freight, one-lane side road.",
+        "preset": "bus-corridor",
+        "junction": { "type": "fixed_time_signal" },
+        "approaches": {
+          "north": {
+            "lanes": 2,
+            "length": 200,
+            "vehiclesPerHour": 500,
+            "turning": { "left": 0.1, "straight": 0.8, "right": 0.1 }
+          },
+          "south": {
+            "lanes": 2,
+            "length": 200,
+            "vehiclesPerHour": 500,
+            "turning": { "left": 0.1, "straight": 0.8, "right": 0.1 }
+          },
+          "east": {
+            "lanes": 1,
+            "length": 200,
+            "vehiclesPerHour": 180,
+            "turning": { "left": 0.3, "straight": 0.4, "right": 0.3 }
+          },
+          "west": {
+            "lanes": 1,
+            "length": 200,
+            "vehiclesPerHour": 180,
+            "turning": { "left": 0.3, "straight": 0.4, "right": 0.3 }
+          }
+        },
+        "roads": {
+          "laneWidth": 3.5,
+          "speedLimit": 13.89,
+          "laneChanging": true
+        },
+        "vehicles": {
+          "mix": {
+            "car": 0.55,
+            "suv": 0.1,
+            "bus": 0.15,
+            "truck": 0.1,
+            "motorcycle": 0.1
+          }
+        },
+        "signal": {
+          "greenTime": 30,
+          "nsGreenTime": 35,
+          "ewGreenTime": 20,
+          "yellowTime": 4,
+          "allRedTime": 2,
+          "adaptive": {
+            "minGreen": 10,
+            "maxGreen": 50,
+            "extensionStep": 2.5,
+            "detectionDistance": 30,
+            "demandThreshold": 1
+          }
+        },
+        "roundabout": {
+          "circulatingLanes": 2,
+          "innerRadius": 12,
+          "outerRadius": 22,
+          "criticalGap": 4,
+          "followUpTime": 2.5,
+          "entrySpeed": 5,
+          "circulatingSpeed": 8
+        },
+        "simulation": {
+          "duration": 300,
+          "warmup": 30,
+          "seed": 303,
+          "arrivalPattern": "poisson",
+          "timeStep": 0.1
+        }
+      }
+    },
+    {
+      "id": "mixed-urban",
+      "label": "Mixed urban traffic",
+      "description": "Two lanes everywhere, balanced demand and a full mix of vehicle types.",
+      "scenario": {
+        "format": "urbanflow-scenario",
+        "version": 1,
+        "name": "Mixed urban traffic",
+        "description": "Two lanes on every approach, balanced demand, full vehicle mix.",
+        "preset": "mixed-urban",
+        "junction": { "type": "roundabout" },
+        "approaches": {
+          "north": {
+            "lanes": 2,
+            "length": 200,
+            "vehiclesPerHour": 380,
+            "turning": { "left": 0.2, "straight": 0.6, "right": 0.2 }
+          },
+          "south": {
+            "lanes": 2,
+            "length": 200,
+            "vehiclesPerHour": 380,
+            "turning": { "left": 0.2, "straight": 0.6, "right": 0.2 }
+          },
+          "east": {
+            "lanes": 2,
+            "length": 200,
+            "vehiclesPerHour": 380,
+            "turning": { "left": 0.2, "straight": 0.6, "right": 0.2 }
+          },
+          "west": {
+            "lanes": 2,
+            "length": 200,
+            "vehiclesPerHour": 380,
+            "turning": { "left": 0.2, "straight": 0.6, "right": 0.2 }
+          }
+        },
+        "roads": {
+          "laneWidth": 3.5,
+          "speedLimit": 13.89,
+          "laneChanging": true
+        },
+        "vehicles": {
+          "mix": {
+            "car": 0.45,
+            "suv": 0.2,
+            "bus": 0.1,
+            "truck": 0.15,
+            "motorcycle": 0.1
+          }
+        },
+        "signal": {
+          "greenTime": 30,
+          "yellowTime": 4,
+          "allRedTime": 2,
+          "adaptive": {
+            "minGreen": 10,
+            "maxGreen": 50,
+            "extensionStep": 2.5,
+            "detectionDistance": 30,
+            "demandThreshold": 1
+          }
+        },
+        "roundabout": {
+          "circulatingLanes": 2,
+          "innerRadius": 10,
+          "outerRadius": 20,
+          "criticalGap": 4,
+          "followUpTime": 2.5,
+          "entrySpeed": 5,
+          "circulatingSpeed": 8
+        },
+        "simulation": {
+          "duration": 300,
+          "warmup": 30,
+          "seed": 404,
+          "arrivalPattern": "poisson",
+          "timeStep": 0.1
+        }
+      }
+    },
+    {
+      "id": "motorcycle-heavy",
+      "label": "Motorcycle-heavy traffic",
+      "description": "Half of all vehicles are motorcycles or scooters, as in many South and South-East Asian cities.",
+      "scenario": {
+        "format": "urbanflow-scenario",
+        "version": 1,
+        "name": "Motorcycle-heavy traffic",
+        "description": "Two-lane main road, one-lane side road, half the traffic two-wheelers.",
+        "preset": "motorcycle-heavy",
+        "junction": { "type": "fixed_time_signal" },
+        "approaches": {
+          "north": {
+            "lanes": 2,
+            "length": 200,
+            "vehiclesPerHour": 550,
+            "turning": { "left": 0.2, "straight": 0.6, "right": 0.2 }
+          },
+          "south": {
+            "lanes": 2,
+            "length": 200,
+            "vehiclesPerHour": 550,
+            "turning": { "left": 0.2, "straight": 0.6, "right": 0.2 }
+          },
+          "east": {
+            "lanes": 1,
+            "length": 200,
+            "vehiclesPerHour": 260,
+            "turning": { "left": 0.25, "straight": 0.5, "right": 0.25 }
+          },
+          "west": {
+            "lanes": 1,
+            "length": 200,
+            "vehiclesPerHour": 260,
+            "turning": { "left": 0.25, "straight": 0.5, "right": 0.25 }
+          }
+        },
+        "roads": {
+          "laneWidth": 3.5,
+          "speedLimit": 13.89,
+          "laneChanging": true
+        },
+        "vehicles": {
+          "mix": {
+            "car": 0.3,
+            "suv": 0.1,
+            "bus": 0.05,
+            "truck": 0.05,
+            "motorcycle": 0.5
+          }
+        },
+        "signal": {
+          "greenTime": 30,
+          "nsGreenTime": 35,
+          "ewGreenTime": 20,
+          "yellowTime": 4,
+          "allRedTime": 2,
+          "adaptive": {
+            "minGreen": 10,
+            "maxGreen": 50,
+            "extensionStep": 2.5,
+            "detectionDistance": 30,
+            "demandThreshold": 1
+          }
+        },
+        "roundabout": {
+          "circulatingLanes": 2,
+          "innerRadius": 10,
+          "outerRadius": 20,
+          "criticalGap": 4,
+          "followUpTime": 2.5,
+          "entrySpeed": 5,
+          "circulatingSpeed": 8
+        },
+        "simulation": {
+          "duration": 300,
+          "warmup": 30,
+          "seed": 505,
+          "arrivalPattern": "poisson",
+          "timeStep": 0.1
+        }
+      }
+    }
+  ]
+}
