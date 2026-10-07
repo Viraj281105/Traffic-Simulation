@@ -39,10 +39,13 @@ def calculate_approach_breakdown(
     active_vehicles: Sequence[Vehicle],
     average_queue: Mapping[str, float],
     max_queue: Mapping[str, int],
+    directions: Optional[Sequence[str]] = None,
 ) -> Dict[str, Dict[str, float]]:
     """{approach: {exited, averageDelay, active, averageQueueLength,
-    maxQueueLength}} for all four approaches. ``delays`` is aligned with
+    maxQueueLength}} for every approach that exists (``directions``; all four
+    unless a V1.5 junction has fewer). ``delays`` is aligned with
     ``post_warmup_exited``, exactly the list ``averageDelay`` averages."""
+    names = [d.value for d in Direction if directions is None or d.value in directions]
     per_origin: Dict[str, List[float]] = {d.value: [] for d in Direction}
     for vehicle, delay in zip(post_warmup_exited, delays):
         origin = origin_of(vehicle)
@@ -66,4 +69,5 @@ def calculate_approach_breakdown(
             "maxQueueLength": int(max_queue.get(d.value, 0)),
         }
         for d in Direction
+        if d.value in names
     }

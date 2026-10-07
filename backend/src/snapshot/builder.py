@@ -7,9 +7,27 @@ from src.core.enums import Direction, TurnIntent
 from src.metrics.collector import MetricCollector
 from src.vehicles.vehicle import Vehicle
 
+
 # Order in which a lane's permitted movements are listed (left to right as a
 # driver sees the lane arrows).
-_TURN_ORDER = (TurnIntent.LEFT, TurnIntent.STRAIGHT, TurnIntent.RIGHT)
+def _uses_real_world_geometry(config: Dict[str, Any]) -> bool:
+    """True when a config uses V1.5 geometry (missing arms, bearings or
+    per-arm lane widths)."""
+    if (config.get("geometry") or {}).get("arms") is not None:
+        return True
+    return any(
+        isinstance(item, dict)
+        and (item.get("bearing") is not None or item.get("laneWidth") is not None)
+        for item in (config.get("roads") or {}).get("approaches") or []
+    )
+
+
+_TURN_ORDER = (
+    TurnIntent.UTURN,
+    TurnIntent.LEFT,
+    TurnIntent.STRAIGHT,
+    TurnIntent.RIGHT,
+)
 
 
 def _lane_change_side(vehicle: Vehicle) -> Optional[str]:
@@ -213,7 +231,15 @@ class SnapshotBuilder:
         # Map current queues for intersection object
         current_queues = metrics_obj["currentQueueLengths"]
         approaches_list = []
+        network = self.engine.network
+        # V1.5: a junction described with real-world geometry (missing arms,
+        # bearings, per-arm lane widths) reports each arm's layout, so the
+        # live map can draw it; the standard junction's snapshot is unchanged.
+        real_world = _uses_real_world_geometry(self.engine.config)
+        arms = network.geometry.arms if real_world else {}
         for d in Direction:
+            if real_world and d not in arms:
+                continue
             dir_str = d.value.lower()
             try:
                 lane_count = len(
@@ -221,8 +247,16 @@ class SnapshotBuilder:
                 )
             except KeyError:
                 lane_count = 1
+            entry: Dict[str, Any] = {}
+            if real_world:
+                entry = {
+                    "bearing": round(arms[d].bearing, 3),
+                    "laneWidth": round(arms[d].lane_width, 3),
+                    "stopLineDistance": round(network.stop_distances[d], 3),
+                }
             approaches_list.append(
                 {
+                    **entry,
                     "direction": dir_str,
                     "queueLength": current_queues.get(dir_str, 0),
                     "laneCount": lane_count,

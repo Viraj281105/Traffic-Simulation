@@ -121,8 +121,22 @@
                 "description": "V1.2: movements permitted from each incoming lane, lane 0 (next to the centreline) first.",
                 "items": {
                   "type": "array",
-                  "items": { "type": "string", "enum": ["left", "straight", "right"] }
+                  "items": { "type": "string", "enum": ["uturn", "left", "straight", "right"] }
                 }
+              },
+              "bearing": {
+                "type": "number",
+                "description": "V1.5, real-world geometry only: compass bearing (degrees clockwise from north) of the arm from the centre outwards."
+              },
+              "laneWidth": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "V1.5, real-world geometry only: this arm's lane width (m)."
+              },
+              "stopLineDistance": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "V1.5, real-world geometry only: distance (m) from the centre to this arm's stop / give-way line, where its incoming lanes end."
               }
             },
             "required": ["direction", "queueLength", "laneCount"]

@@ -1,6 +1,6 @@
 import itertools
 import math
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from src.core.enums import Direction
 from src.core.limits import DEFAULT_TOTAL_VEHICLES
@@ -31,6 +31,7 @@ from src.metrics.definitions.travel_time import (
 from src.metrics.definitions.vehicle_mix import calculate_vehicle_type_breakdown
 from src.metrics.definitions.wait_time import calculate_average_wait_time
 from src.metrics.efficiency import calculate_master_efficiency_score
+from src.roads.junction_geometry import present_arms
 from src.vehicles.vehicle import Vehicle
 
 if TYPE_CHECKING:
@@ -102,6 +103,13 @@ class MetricCollector:
         # The spawner's per-run vehicle cap (same key, same default), so a
         # run whose demand was truncated by it can be flagged (see
         # core/limits.py).
+        # V1.5: the approaches that exist. A three-arm junction's junction-wide
+        # queue average is over its three approaches, not four.
+        present = {d.value for d in present_arms(config)}
+        self._directions: Tuple[str, ...] = tuple(
+            d for d in _DIRECTIONS if d in present
+        )
+
         traffic_cfg = config.get("traffic") or {}
         self.vehicle_limit: int = int(
             traffic_cfg.get("totalVehicles", DEFAULT_TOTAL_VEHICLES)
@@ -242,7 +250,7 @@ class MetricCollector:
         )
         self.queue_history.append(current_queues)
         total_q = 0
-        for d in _DIRECTIONS:
+        for d in self._directions:
             q = current_queues.get(d, 0)
             total_q += q
             self._q_dir_sum[d] += q
@@ -343,8 +351,8 @@ class MetricCollector:
         n_q = len(self.queue_history)
         qsi = 0.0
         if n_q:
-            per_direction_avg = {d: self._q_dir_sum[d] / n_q for d in _DIRECTIONS}
-            avg_q = round(sum(per_direction_avg.values()) / len(_DIRECTIONS), 2)
+            per_direction_avg = {d: self._q_dir_sum[d] / n_q for d in self._directions}
+            avg_q = round(sum(per_direction_avg.values()) / len(self._directions), 2)
             max_q = max(self._q_dir_max.values())
 
             active_avg_q = (
@@ -569,8 +577,9 @@ class MetricCollector:
                 post_warmup_exited,
                 delays,
                 active_vehicles,
-                {d: self._q_dir_sum[d] / n_q for d in _DIRECTIONS} if n_q else {},
+                {d: self._q_dir_sum[d] / n_q for d in self._directions} if n_q else {},
                 self._q_dir_max,
+                directions=self._directions,
             ),
         }
         base_metrics["masterEfficiencyScore"] = calculate_master_efficiency_score(
