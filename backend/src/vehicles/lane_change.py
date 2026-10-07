@@ -62,6 +62,7 @@ _TURN_PREFERENCE: Tuple[TurnIntent, ...] = (
     TurnIntent.STRAIGHT,
     TurnIntent.RIGHT,
     TurnIntent.LEFT,
+    TurnIntent.UTURN,
 )
 
 # Incoming-lane id prefix -> approach Direction, for lanes that carry no

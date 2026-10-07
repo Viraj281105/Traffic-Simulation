@@ -144,6 +144,10 @@ class FixedTimeSignalController(BaseController):
         # Direction processing order (used only for the default, no-
         # phaseSequence cycle)
         self.direction_order: Tuple[Direction, ...] = self._DEFAULT_DIRECTION_ORDER
+        # V1.5: no green for a slot that has no arm.
+        arms = getattr(getattr(network, "geometry", None), "arms", None)
+        if arms:
+            self.direction_order = tuple(d for d in self.direction_order if d in arms)
 
         # Configured phase sequence (e.g. ["ns_green", "ns_yellow",
         # "all_red", "ew_green", "ew_yellow", "all_red"], see
@@ -153,6 +157,13 @@ class FixedTimeSignalController(BaseController):
         self.phase_sequence_cfg: List[str] = list(ctrl_cfg.get("phaseSequence") or [])
         self.offset: float = float(ctrl_cfg.get("offset", 0.0))
 
+        # V1.5: U-turns are released with the left turns. Only a junction
+        # whose lane use carries them names them in its phases, so every
+        # earlier junction reports exactly the phases it always did.
+        self._uturn: Tuple[TurnIntent, ...] = (
+            (TurnIntent.UTURN,) if self._has_uturn_lane() else ()
+        )
+
         # Build phase sequence
         self.phases: List[Phase] = self._build_phase_sequence()
 
@@ -161,6 +172,17 @@ class FixedTimeSignalController(BaseController):
         self.current_phase_idx: int = 0
 
         self.reset()
+
+    def _has_uturn_lane(self) -> bool:
+        configured_turns = getattr(self.network, "configured_turns", None)
+        if configured_turns is None:
+            return False
+        for d in Direction:
+            for i in range(self.network.lane_count(d)):
+                turns = configured_turns(d, i)
+                if turns and TurnIntent.UTURN in turns:
+                    return True
+        return False
 
     def _green_duration_for(self, directions: Tuple[Direction, ...]) -> float:
         """Resolves the green duration for a phase covering ``directions``.
@@ -210,7 +232,7 @@ class FixedTimeSignalController(BaseController):
                 Phase(
                     name=f"{direction.value}_left",
                     directions=(direction,),
-                    allowed_turns=(TurnIntent.LEFT,),
+                    allowed_turns=(TurnIntent.LEFT,) + self._uturn,
                     duration=self.left_duration,
                     color="green",
                 )
@@ -224,7 +246,8 @@ class FixedTimeSignalController(BaseController):
                         TurnIntent.LEFT,
                         TurnIntent.STRAIGHT,
                         TurnIntent.RIGHT,
-                    ),
+                    )
+                    + self._uturn,
                     duration=self.yellow_duration,
                     color="yellow",
                 )
@@ -257,7 +280,11 @@ class FixedTimeSignalController(BaseController):
         across opposing traffic are arbitrated by ConflictManager).
         """
         phases: List[Phase] = []
-        all_turns = (TurnIntent.LEFT, TurnIntent.STRAIGHT, TurnIntent.RIGHT)
+        all_turns = (
+            TurnIntent.LEFT,
+            TurnIntent.STRAIGHT,
+            TurnIntent.RIGHT,
+        ) + self._uturn
 
         for raw_name in names:
             name = raw_name.strip().lower()
@@ -476,7 +503,11 @@ class FixedTimeSignalController(BaseController):
         phase = self.current_phase
 
         signals: List[Dict[str, Any]] = []
+        # V1.5: a slot with no arm has no signal head at all.
+        arms = getattr(getattr(self.network, "geometry", None), "arms", None)
         for d in Direction:
+            if arms and d not in arms:
+                continue
             try:
                 self.network.get_incoming_approach(d)
             except KeyError:

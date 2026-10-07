@@ -263,13 +263,14 @@ class VehicleSpawner:
         if n <= 1:
             return 0
 
+        # A U-turn (V1.5) starts, like a left turn, from the left-most lane.
         if n == 2:
-            if turn == TurnIntent.LEFT:
+            if turn in (TurnIntent.LEFT, TurnIntent.UTURN):
                 return 0
             return 1  # straight or right
 
         # 3+ lanes
-        if turn == TurnIntent.LEFT:
+        if turn in (TurnIntent.LEFT, TurnIntent.UTURN):
             return 0
         elif turn == TurnIntent.RIGHT:
             return n - 1
@@ -304,6 +305,12 @@ class VehicleSpawner:
                 probabilities.get("straight", 0.6),
                 probabilities.get("right", 0.2),
             ]
+            # V1.5: a U-turn share joins the draw only where an approach has
+            # one, so every earlier scenario draws exactly as before.
+            uturn = probabilities.get("uturn") or 0.0
+            if uturn > 0:
+                turns.append(TurnIntent.UTURN)
+                weights.append(uturn)
             turn = self.rng.choices(turns, weights=weights)[0]
             self._pending_turn[direction] = turn
 

@@ -187,6 +187,8 @@ _TURN_PRIORITY: Dict[TurnIntent, int] = {
     TurnIntent.STRAIGHT: 3,
     TurnIntent.RIGHT: 2,
     TurnIntent.LEFT: 1,
+    # V1.5: a U-turn crosses every opposing movement and yields to all.
+    TurnIntent.UTURN: 0,
 }
 
 

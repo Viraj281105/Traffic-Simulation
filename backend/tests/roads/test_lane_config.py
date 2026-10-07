@@ -100,7 +100,9 @@ def test_default_roundabout_lane_use_moves_movements_to_lanes_that_reach_them() 
 
 
 def test_default_lane_use_matches_v12_policy() -> None:
-    assert default_policy_turns(0, 1) == frozenset(TurnIntent)
+    # The three V1.0 movements (spelled out: since V1.5 TurnIntent also has
+    # UTURN, which a default lane use never carries).
+    assert default_policy_turns(0, 1) == frozenset({L, S, R})
     assert default_policy_turns(0, 3) == frozenset({L, S})
     assert default_policy_turns(1, 3) == frozenset({S})
     assert default_policy_turns(2, 3) == frozenset({S, R})

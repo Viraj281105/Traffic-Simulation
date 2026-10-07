@@ -174,6 +174,7 @@ def adaptive_plan_errors(phase_sequence: Optional[List[str]]) -> List[str]:
         probe.all_red_duration = 2.0
         probe.ns_green_duration = None
         probe.ew_green_duration = None
+        probe._uturn = ()
         phases = probe._build_phase_sequence_from_names(list(phase_sequence))
         _split_stages(phases)
     except ValueError as exc:
