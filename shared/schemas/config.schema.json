@@ -54,7 +54,13 @@
                 "properties": {
                   "left": { "type": "number", "minimum": 0, "maximum": 1 },
                   "straight": { "type": "number", "minimum": 0, "maximum": 1 },
-                  "right": { "type": "number", "minimum": 0, "maximum": 1 }
+                  "right": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "uturn": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "Share making a U-turn (V1.5). Omitted: 0. Counts towards the sum of 1; needs a lane whose laneUse allows 'uturn'."
+                  }
                 },
                 "required": ["left", "straight", "right"],
                 "additionalProperties": false
@@ -86,6 +92,14 @@
           "minimum": 1,
           "maximum": 3,
           "description": "Circulating lanes of a roundabout (V1.4), independent of the approach lane counts. Omitted: as many as the widest approach (the V1.0-V1.3 relationship). Ignored by a signal. Entry and exit lanes are mapped onto the ring by the V1.4 lane assignment; see docs/simulation/methodology.md. Supersedes the reserved controller.circulatingLanes."
+        },
+        "arms": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": { "type": "string", "enum": ["north", "south", "east", "west"] },
+          "description": "Compass slots that have an arm (V1.5). Omitted: all four. A junction needs 3 or 4 arms; an absent arm has no lanes, no demand (its directionalSplit share must be 0) and no movement may lead into it. See docs/simulation/methodology.md (real-world junction geometry)."
         },
         "intersectionCenter": {
           "type": "object",
@@ -120,6 +134,18 @@
               "direction": { "type": "string", "enum": ["north", "south", "east", "west"] },
               "lanes": { "type": "integer", "minimum": 1, "maximum": 4 },
               "length": { "type": "number", "exclusiveMinimum": 50, "maximum": 1000 },
+              "bearing": {
+                "type": "number",
+                "minimum": 0,
+                "exclusiveMaximum": 360,
+                "description": "Compass bearing of the arm from the junction centre outwards (V1.5): degrees clockwise from north. Omitted: the slot's own bearing (north 0, east 90, south 180, west 270). Must be within 30 degrees of the slot."
+              },
+              "laneWidth": {
+                "type": "number",
+                "exclusiveMinimum": 2.5,
+                "maximum": 5.0,
+                "description": "This arm's own lane width in metres (V1.5). Omitted: roads.laneWidth."
+              },
               "laneUse": {
                 "type": "array",
                 "minItems": 1,
@@ -128,7 +154,7 @@
                   "type": "array",
                   "minItems": 1,
                   "uniqueItems": true,
-                  "items": { "type": "string", "enum": ["left", "straight", "right"] }
+                  "items": { "type": "string", "enum": ["uturn", "left", "straight", "right"] }
                 }
               },
               "speedLimit": { "type": "number", "exclusiveMinimum": 0 }

@@ -3,10 +3,19 @@ from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Sequence, Tupl
 
 from src.core.enums import Direction, TurnIntent
 from src.roads.approach import Approach
+from src.roads.junction_geometry import (
+    STRAIGHT_PATH_TOLERANCE,
+    JunctionGeometry,
+    build_junction_geometry,
+    line_intersection,
+    signal_stop_distances,
+)
 from src.roads.lane import Lane
 from src.roads.lane_config import (
+    CORE_TURNS,
     MAX_CIRCULATING_LANES,
     default_roundabout_lane_use,
+    default_signal_lane_use,
     entry_home_ring_lane,
     ring_exit_lane,
     ring_lane_for,
@@ -78,7 +87,7 @@ ROUNDABOUT_SPLITTER_HALF_WIDTH: float = 1.5
 # ROUNDABOUT_ENTRY_SETBACK above.
 SIGNAL_STOP_LINE_SETBACK: float = 3.5
 
-_ALL_TURNS: FrozenSet[TurnIntent] = frozenset(TurnIntent)
+_ALL_TURNS: FrozenSet[TurnIntent] = frozenset(CORE_TURNS)
 
 
 def lane_permitted_turns(lane_index: int, lane_count: int) -> FrozenSet[TurnIntent]:
@@ -182,6 +191,10 @@ class RoadNetwork:
 
         # Circulating lanes of a roundabout (V1.4); 0 for a signal.
         self.circulating_lanes: int = 0
+        # The junction's arms as laid out (V1.5), and each arm's distance
+        # from the centre to its stop / give-way line.
+        self.geometry: JunctionGeometry = JunctionGeometry(arms={})
+        self.stop_distances: Dict[Direction, float] = {}
         # Arc length over which an inner-lane path spirals out to its exit.
         self.inner_exit_transition_arc: float = ROUNDABOUT_INNER_EXIT_TRANSITION_ARC
 
@@ -279,8 +292,11 @@ class RoadNetwork:
         approach_lengths: Optional[Mapping[Direction, float]] = None,
         lane_use: Optional[Mapping[Direction, Sequence[FrozenSet[TurnIntent]]]] = None,
         circulating_lanes: Optional[int] = None,
+        arms: Optional[Sequence[Direction]] = None,
+        bearings: Optional[Mapping[Direction, float]] = None,
+        lane_widths: Optional[Mapping[Direction, float]] = None,
     ) -> None:
-        """Build the four-arm junction.
+        """Build the junction.
 
         ``design_vehicle_allowance`` (V1.1) is how much longer than the 5 m
         reference car the longest vehicle using the junction is. A junction
@@ -300,6 +316,12 @@ class RoadNetwork:
         ``circulating_lanes`` is the roundabout's ring lane count, which
         defaults to the widest approach — the V1.0-V1.3 relationship, under
         which every path is laid out exactly as before.
+
+        V1.5: ``arms`` lists the compass slots that have an arm (default: all
+        four), ``bearings`` gives arms their real compass bearing and
+        ``lane_widths`` their own lane width (roads/junction_geometry.py).
+        Unset, every arm is laid out on its slot's axis by the V1.0
+        arithmetic, so earlier junctions are reproduced to the last bit.
         """
         self.is_roundabout = is_roundabout
         self.inner_radius = inner_radius
@@ -316,7 +338,11 @@ class RoadNetwork:
         self._lane_use.clear()
         self._configured_lane_use.clear()
 
+        present = tuple(Direction) if arms is None else tuple(arms)
         counts = lane_counts(lanes_per_approach)
+        for d in Direction:
+            if d not in present:
+                counts[d.value] = 0
         # Unset: as wide as the widest approach, up to the lanes the V1.4
         # designation supports (a 3-lane approach then merges onto 2).
         self.circulating_lanes = (
@@ -332,6 +358,14 @@ class RoadNetwork:
             for d in Direction
         }
         self.approach_lengths = lengths
+        self.geometry = build_junction_geometry(
+            {d: counts[d.value] for d in Direction},
+            lengths,
+            lane_width,
+            arms=present,
+            bearings=bearings,
+            lane_widths=lane_widths,
+        )
         # The signalised junction box is square and sized to the widest road
         # crossing it. Each stop line used to be set from its OWN approach's
         # lane count, which only coincides with that when every approach has
@@ -340,111 +374,51 @@ class RoadNetwork:
         # vehicles were parked on that road's travel lanes and the junction
         # locked solid (N1/S2/E1/W2 at 0.8 veh/s, seed 5: 14 of 171 vehicles
         # got through in 240 s). Equal counts give exactly the old boundary.
-        widest_road = max(counts.values()) if counts else 1
-
-        for d in Direction:
-            in_approach = Approach(d)
-            out_approach = Approach(d)
-            # This arm's own length (the lane coordinates below read it).
-            approach_length = lengths[d]
-
-            # Support both int and dict configurations
-            if isinstance(lanes_per_approach, dict):
-                lane_count = lanes_per_approach.get(d.value, 2)
-            else:
-                lane_count = int(lanes_per_approach)
-
-            boundary = (
-                (outer_radius + ROUNDABOUT_ENTRY_SETBACK)
-                if is_roundabout
-                else (widest_road * lane_width + self.stop_line_setback)
+        # V1.5: a skewed junction sets each stop line back until its arm is
+        # clear of every road crossing it (junction_geometry).
+        if is_roundabout:
+            self.stop_distances = {
+                d: outer_radius + ROUNDABOUT_ENTRY_SETBACK for d in self.geometry.arms
+            }
+        else:
+            self.stop_distances = signal_stop_distances(
+                self.geometry, self.stop_line_setback
             )
 
-            # Roundabout approaches carry a splitter island between the entry
-            # and exit carriageways; signalised approaches do not, so their
-            # geometry is left exactly as it was.
-            splitter = ROUNDABOUT_SPLITTER_HALF_WIDTH if is_roundabout else 0.0
+        # Roundabout approaches carry a splitter island between the entry
+        # and exit carriageways; signalised approaches do not, so their
+        # geometry is left exactly as it was.
+        splitter = ROUNDABOUT_SPLITTER_HALF_WIDTH if is_roundabout else 0.0
 
-            for i in range(lane_count):
-                if d == Direction.NORTH:
-                    # Incoming: North to South (moves down, x < 0)
-                    in_x = -((i + 0.5) * lane_width + splitter)
-                    in_lane = Lane(
-                        f"n_in_{i}",
-                        start_x=in_x,
-                        start_y=approach_length,
-                        end_x=in_x,
-                        end_y=boundary,
-                    )
-                    # Outgoing: South to North (moves up, x > 0)
-                    out_x = (i + 0.5) * lane_width + splitter
-                    out_lane = Lane(
-                        f"n_out_{i}",
-                        start_x=out_x,
-                        start_y=boundary,
-                        end_x=out_x,
-                        end_y=approach_length,
-                    )
+        for d, arm in self.geometry.arms.items():
+            in_approach = Approach(d)
+            out_approach = Approach(d)
+            boundary = self.stop_distances[d]
+            prefix = d.value[0]
 
-                elif d == Direction.SOUTH:
-                    # Incoming: South to North (moves up, x > 0)
-                    in_x = (i + 0.5) * lane_width + splitter
-                    in_lane = Lane(
-                        f"s_in_{i}",
-                        start_x=in_x,
-                        start_y=-approach_length,
-                        end_x=in_x,
-                        end_y=-boundary,
-                    )
-                    # Outgoing: North to South (moves down, x < 0)
-                    out_x = -((i + 0.5) * lane_width + splitter)
-                    out_lane = Lane(
-                        f"s_out_{i}",
-                        start_x=out_x,
-                        start_y=-boundary,
-                        end_x=out_x,
-                        end_y=-approach_length,
-                    )
-
-                elif d == Direction.EAST:
-                    # Incoming: East to West (moves left, y > 0)
-                    in_y = (i + 0.5) * lane_width + splitter
-                    in_lane = Lane(
-                        f"e_in_{i}",
-                        start_x=approach_length,
-                        start_y=in_y,
-                        end_x=boundary,
-                        end_y=in_y,
-                    )
-                    # Outgoing: West to East (moves right, y < 0)
-                    out_y = -((i + 0.5) * lane_width + splitter)
-                    out_lane = Lane(
-                        f"e_out_{i}",
-                        start_x=boundary,
-                        start_y=out_y,
-                        end_x=approach_length,
-                        end_y=out_y,
-                    )
-
-                elif d == Direction.WEST:
-                    # Incoming: West to East (moves right, y < 0)
-                    in_y = -((i + 0.5) * lane_width + splitter)
-                    in_lane = Lane(
-                        f"w_in_{i}",
-                        start_x=-approach_length,
-                        start_y=in_y,
-                        end_x=-boundary,
-                        end_y=in_y,
-                    )
-                    # Outgoing: East to West (moves left, y > 0)
-                    out_y = (i + 0.5) * lane_width + splitter
-                    out_lane = Lane(
-                        f"w_out_{i}",
-                        start_x=-boundary,
-                        start_y=out_y,
-                        end_x=-approach_length,
-                        end_y=out_y,
-                    )
+            for i in range(arm.lanes):
+                # Incoming lanes run inwards on the arm's entry side, outgoing
+                # lanes outwards on its exit side (ArmGeometry.point; on the
+                # slot's own axis that is exactly the V1.0 layout).
+                offset = (i + 0.5) * arm.lane_width + splitter
+                in_start = arm.point(arm.length, -offset)
+                in_end = arm.point(boundary, -offset)
+                in_lane = Lane(
+                    f"{prefix}_in_{i}",
+                    start_x=in_start[0],
+                    start_y=in_start[1],
+                    end_x=in_end[0],
+                    end_y=in_end[1],
+                )
+                out_start = arm.point(boundary, offset)
+                out_end = arm.point(arm.length, offset)
+                out_lane = Lane(
+                    f"{prefix}_out_{i}",
+                    start_x=out_start[0],
+                    start_y=out_start[1],
+                    end_x=out_end[0],
+                    end_y=out_end[1],
+                )
 
                 in_lane.approach, in_lane.index, in_lane.role = d, i, "incoming"
                 out_lane.approach, out_lane.index, out_lane.role = d, i, "outgoing"
@@ -460,7 +434,7 @@ class RoadNetwork:
         # Neither is recorded when it equals the default policy, so the
         # V1.0-V1.3 junctions carry no configured lane use at all.
         dir_counts = {d: counts[d.value] for d in Direction}
-        for d in Direction:
+        for d in self.geometry.arms:
             turns_by_lane: Optional[Sequence[FrozenSet[TurnIntent]]] = None
             if lane_use is not None and d in lane_use:
                 turns_by_lane = lane_use[d]
@@ -468,6 +442,10 @@ class RoadNetwork:
                 turns_by_lane = default_roundabout_lane_use(
                     d, dir_counts, self.circulating_lanes
                 )
+            elif len(self.geometry.arms) < len(Direction):
+                # V1.5: a three-arm junction's default lane use, without the
+                # movements into the missing arm.
+                turns_by_lane = default_signal_lane_use(d, dir_counts)
             if turns_by_lane is None:
                 continue
             n = dir_counts[d]
@@ -496,7 +474,12 @@ class RoadNetwork:
                 continue
 
             for lane_idx in range(len(incoming.get_lanes())):
-                for turn in TurnIntent:
+                # U-turn paths (V1.5) only where a lane carries U-turns: the
+                # V1.0-V1.4 junction has exactly the paths it always had.
+                turns = list(CORE_TURNS)
+                if TurnIntent.UTURN in self._base_turns(direction, lane_idx):
+                    turns.append(TurnIntent.UTURN)
+                for turn in turns:
                     try:
                         self._get_or_create_connection_lane(direction, lane_idx, turn)
                     except (KeyError, IndexError, ValueError):
@@ -616,7 +599,7 @@ class RoadNetwork:
         start_x, start_y = incoming_lane.end_coords
         end_x, end_y = exit_lane.start_coords
 
-        waypoints = None
+        waypoints: Optional[List[Tuple[float, float]]] = None
         target_r: Optional[float] = None
         ring_lane: Optional[int] = None
         last_steady = 0
@@ -748,6 +731,13 @@ class RoadNetwork:
             entry_point = incoming_lane.end_coords
             exit_point = exit_lane.start_coords
             waypoints = [entry_point] + waypoints + [exit_point]
+        elif turn_intent == TurnIntent.UTURN:
+            waypoints = self._uturn_waypoints(incoming_lane, exit_lane)
+        elif not self._arms_on_slot(origin_direction, exit_target):
+            # V1.5: a skewed arm. The path bends at the point where the
+            # incoming lane's line meets the outgoing lane's — for arms on
+            # their slots' axes that is exactly the V1.0 control point below.
+            waypoints = self._skewed_waypoints(incoming_lane, exit_lane)
         elif turn_intent in (TurnIntent.LEFT, TurnIntent.RIGHT):
             if origin_direction in (Direction.NORTH, Direction.SOUTH):
                 cx, cy = start_x, end_y
@@ -789,6 +779,72 @@ class RoadNetwork:
         self._connection_lane_cache[key] = connection_lane
         return connection_lane
 
+    def _arms_on_slot(self, origin: Direction, target: Direction) -> bool:
+        arms = self.geometry.arms
+        return all(d not in arms or arms[d].on_slot for d in (origin, target))
+
+    @staticmethod
+    def _skewed_waypoints(
+        incoming_lane: Lane, exit_lane: Lane
+    ) -> Optional[List[Tuple[float, float]]]:
+        """Path from a stop line to an exit lane between arms not on their
+        slots' axes: a quadratic curve whose control point is where the two
+        lanes' lines meet, or a straight segment when the two lanes are
+        within STRAIGHT_PATH_TOLERANCE of one line."""
+        start = incoming_lane.end_coords
+        end = exit_lane.start_coords
+        u = incoming_lane.vector
+        v = exit_lane.vector
+        cross = u[0] * v[1] - u[1] * v[0]
+        dot = u[0] * v[0] + u[1] * v[1]
+        if abs(math.degrees(math.atan2(cross, dot))) < STRAIGHT_PATH_TOLERANCE:
+            return None
+        control = line_intersection(start, u, end, v)
+        if control is None:
+            return None
+        waypoints = []
+        num_pts = 12
+        for i in range(num_pts + 1):
+            t = i / float(num_pts)
+            omt = 1.0 - t
+            waypoints.append(
+                (
+                    omt * omt * start[0] + 2.0 * omt * t * control[0] + t * t * end[0],
+                    omt * omt * start[1] + 2.0 * omt * t * control[1] + t * t * end[1],
+                )
+            )
+        return waypoints
+
+    @staticmethod
+    def _uturn_waypoints(
+        incoming_lane: Lane, exit_lane: Lane
+    ) -> List[Tuple[float, float]]:
+        """A signalised U-turn (V1.5): a half circle from the stop line into
+        the outgoing lane of the same arm, bulging into the junction by its
+        radius (junction_geometry.uturn_radius). Validation only allows it
+        where that radius is one the vehicles using it can drive."""
+        sx, sy = incoming_lane.end_coords
+        ex, ey = exit_lane.start_coords
+        fx, fy = incoming_lane.vector
+        f_len = math.hypot(fx, fy) or 1.0
+        fx, fy = fx / f_len, fy / f_len
+        cx, cy = (sx + ex) / 2.0, (sy + ey) / 2.0
+        radius = math.hypot(ex - sx, ey - sy) / 2.0
+        lx, ly = (ex - sx) / (2.0 * radius), (ey - sy) / (2.0 * radius)
+        waypoints = []
+        num_pts = 24
+        for i in range(num_pts + 1):
+            phi = math.pi * i / num_pts
+            waypoints.append(
+                (
+                    cx - radius * math.cos(phi) * lx + radius * math.sin(phi) * fx,
+                    cy - radius * math.cos(phi) * ly + radius * math.sin(phi) * fy,
+                )
+            )
+        waypoints[0] = (sx, sy)
+        waypoints[-1] = (ex, ey)
+        return waypoints
+
     @staticmethod
     def _resolve_target_direction(origin: Direction, turn: TurnIntent) -> Direction:
         """Determine the exit direction given origin and turn intent.
@@ -797,28 +853,9 @@ class RoadNetwork:
             LEFT:     N→E, E→S, S→W, W→N
             STRAIGHT: N→S, E→W, S→N, W→E
             RIGHT:    N→W, E→N, S→E, W→S
+            UTURN:    back along the same arm (V1.5)
         """
-        mapping = {
-            TurnIntent.LEFT: {
-                Direction.NORTH: Direction.EAST,
-                Direction.EAST: Direction.SOUTH,
-                Direction.SOUTH: Direction.WEST,
-                Direction.WEST: Direction.NORTH,
-            },
-            TurnIntent.STRAIGHT: {
-                Direction.NORTH: Direction.SOUTH,
-                Direction.EAST: Direction.WEST,
-                Direction.SOUTH: Direction.NORTH,
-                Direction.WEST: Direction.EAST,
-            },
-            TurnIntent.RIGHT: {
-                Direction.NORTH: Direction.WEST,
-                Direction.EAST: Direction.NORTH,
-                Direction.SOUTH: Direction.EAST,
-                Direction.WEST: Direction.SOUTH,
-            },
-        }
-        return mapping[turn][origin]
+        return target_direction(origin, turn)
 
     def generate_route(
         self, origin_direction: Direction, lane_index: int, turn_intent: TurnIntent
@@ -843,4 +880,3 @@ class RoadNetwork:
         exit_lane = outgoing_approach.get_lanes()[exit_lane_index]
 
         return [incoming_lane, connection_lane, exit_lane]
-

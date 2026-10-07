@@ -47,19 +47,31 @@ rejects them rather than running it.
 
 from __future__ import annotations
 
-from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Sequence
+from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Sequence, Tuple
 
 from src.core.enums import Direction, TurnIntent
 
-# How many exits along the ring each movement leaves at (four-arm junction).
+# The movements of V1.0-V1.4, which every default lane use is built from.
+# A U-turn (V1.5) is only ever where a scenario's lane use puts it.
+CORE_TURNS: Tuple[TurnIntent, ...] = (
+    TurnIntent.LEFT,
+    TurnIntent.STRAIGHT,
+    TurnIntent.RIGHT,
+)
+
+# How many exits along the ring each movement leaves at, counted in compass
+# slots (a three-arm junction keeps the slot of its missing arm).
 EXIT_DISTANCE: Dict[TurnIntent, int] = {
     TurnIntent.RIGHT: 1,
     TurnIntent.STRAIGHT: 2,
     TurnIntent.LEFT: 3,
+    TurnIntent.UTURN: 4,
 }
 
-# Left-to-right order of movements as a driver reads the lane arrows.
+# Left-to-right order of movements as a driver reads the lane arrows. A
+# U-turn is left of a left turn: it starts from the lane nearest the centre.
 TURN_ORDER: Dict[TurnIntent, int] = {
+    TurnIntent.UTURN: -1,
     TurnIntent.LEFT: 0,
     TurnIntent.STRAIGHT: 1,
     TurnIntent.RIGHT: 2,
@@ -84,6 +96,7 @@ _TARGET: Dict[TurnIntent, Dict[Direction, Direction]] = {
         Direction.SOUTH: Direction.EAST,
         Direction.WEST: Direction.SOUTH,
     },
+    TurnIntent.UTURN: {d: d for d in Direction},
 }
 
 # Narrowest circulating lane (m) the model accepts. Signalised approach lanes
@@ -250,6 +263,8 @@ def roundabout_movement_routable(
     ring_lanes: int,
 ) -> bool:
     exit_lanes = counts[target_direction(origin, turn)]
+    if exit_lanes <= 0:
+        return False  # V1.5: no arm in that slot
     return (
         ring_lane_for(lane_index, counts[origin], ring_lanes, exit_lanes, turn)
         is not None
@@ -276,9 +291,10 @@ def merging_entry_groups(entry_lanes: int, ring_lanes: int) -> List[List[int]]:
 
 def default_policy_turns(lane_index: int, lane_count: int) -> FrozenSet[TurnIntent]:
     """The V1.2 default: one lane carries everything; otherwise straight from
-    any lane, left from the left-most, right from the right-most."""
+    any lane, left from the left-most, right from the right-most. Never a
+    U-turn (V1.5): that is only where a scenario's lane use puts it."""
     if lane_count <= 1:
-        return frozenset(TurnIntent)
+        return frozenset(CORE_TURNS)
     turns = {TurnIntent.STRAIGHT}
     if lane_index == 0:
         turns.add(TurnIntent.LEFT)
@@ -307,13 +323,32 @@ def default_roundabout_lane_use(
                 if roundabout_movement_routable(origin, i, t, counts, ring_lanes)
             }
         )
-    for turn in TurnIntent:
+    for turn in CORE_TURNS:
         if any(turn in lane for lane in lanes):
             continue
         for i in range(n):
             if roundabout_movement_routable(origin, i, turn, counts, ring_lanes):
                 lanes[i].add(turn)
     return [frozenset(lane) for lane in lanes]
+
+
+def default_signal_lane_use(
+    origin: Direction, counts: Mapping[Direction, int]
+) -> List[FrozenSet[TurnIntent]]:
+    """The default policy at a signal, without movements into a slot that has
+    no arm (V1.5). With all four arms it is exactly the default policy. A
+    lane it leaves with no movement (the middle lane of a three-lane stem of
+    a T) is returned empty: validation then asks for explicit lane use rather
+    than guessing which movement that lane should carry."""
+    n = counts[origin]
+    return [
+        frozenset(
+            t
+            for t in default_policy_turns(i, n)
+            if counts[target_direction(origin, t)] > 0
+        )
+        for i in range(n)
+    ]
 
 
 def signal_exit_lane(
@@ -335,6 +370,10 @@ def signal_exit_lane(
     if exit_lanes <= 1:
         return 0
     n = len(lane_use)
+    if turn == TurnIntent.UTURN:
+        # V1.5: into the kerb-side lane of the road it came along, which
+        # gives the turn its widest possible radius (junction_geometry).
+        return exit_lanes - 1
     if turn == TurnIntent.LEFT:
         order = [i for i in range(n) if TurnIntent.LEFT in lane_use[i]]
         k = order.index(lane_index) if lane_index in order else 0
@@ -379,6 +418,7 @@ def _names(turns: FrozenSet[TurnIntent]) -> str:
 
 __all__ = [
     "CIRCULATING_LANE_SIDE_CLEARANCE",
+    "CORE_TURNS",
     "EXIT_DISTANCE",
     "MAX_CIRCULATING_LANES",
     "MIN_CIRCULATING_LANE_WIDTH",
@@ -388,6 +428,7 @@ __all__ = [
     "configured_lane_use",
     "default_policy_turns",
     "default_roundabout_lane_use",
+    "default_signal_lane_use",
     "entry_home_ring_lane",
     "lane_use_order_errors",
     "merging_entry_groups",

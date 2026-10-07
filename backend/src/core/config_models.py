@@ -32,11 +32,16 @@ class ApproachMix(BaseModel):
     motorcycle: Optional[float] = Field(None, ge=0, le=1)
 
 
+class ApproachTurnProbabilities(TurnProbabilities):
+    # V1.5: an approach's U-turn share (unset: none).
+    uturn: Optional[float] = Field(None, ge=0, le=1)
+
+
 class TrafficApproachItem(BaseModel):
     """One approach's own traffic (V1.4); see config_validation."""
 
     direction: str
-    turnProbabilities: Optional[TurnProbabilities] = None
+    turnProbabilities: Optional[ApproachTurnProbabilities] = None
     vehicleMix: Optional[ApproachMix] = None
 
 
@@ -59,6 +64,8 @@ class GeometrySection(BaseModel):
     intersectionCenter: Optional[IntersectionCenter] = None
     # V1.4: a roundabout's ring lane count. Unset: the widest approach's.
     circulatingLanes: Optional[int] = Field(None, ge=1, le=3)
+    # V1.5: the compass slots that have an arm (unset: all four).
+    arms: Optional[List[Literal["north", "south", "east", "west"]]] = None
 
 
 class ApproachItem(BaseModel):
@@ -66,7 +73,10 @@ class ApproachItem(BaseModel):
     lanes: Optional[int] = Field(None, ge=1, le=4)
     # V1.4: this approach's own length, and the movements each lane allows.
     length: Optional[float] = Field(None, gt=50, le=1000)
-    laneUse: Optional[List[List[Literal["left", "straight", "right"]]]] = None
+    laneUse: Optional[List[List[Literal["uturn", "left", "straight", "right"]]]] = None
+    # V1.5: the arm's compass bearing and its own lane width.
+    bearing: Optional[float] = Field(None, ge=0, lt=360)
+    laneWidth: Optional[float] = Field(None, gt=2.5, le=5.0)
     speedLimit: Optional[float] = Field(None, gt=0)
 
 

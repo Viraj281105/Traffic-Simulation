@@ -17,6 +17,11 @@ from src.intersection.conflict_manager import (
     ConflictManager,
     conflict_clearance_for,
 )
+from src.roads.junction_geometry import (
+    configured_arms,
+    configured_bearings,
+    configured_lane_widths,
+)
 from src.roads.lane_config import configured_approach_lengths, configured_lane_use
 from src.roads.network import (
     RoadNetwork,
@@ -84,6 +89,11 @@ class SimulationEngine:
                 approach_lengths=configured_approach_lengths(road_cfg) or None,
                 lane_use=configured_lane_use(road_cfg) or None,
                 circulating_lanes=resolve_circulating_lanes(self.config),
+                # V1.5: which arms exist, their bearings and lane widths
+                # (all unset: the four-arm junction on the compass axes).
+                arms=configured_arms(self.config),
+                bearings=configured_bearings(self.config) or None,
+                lane_widths=configured_lane_widths(self.config) or None,
             )
 
             # Register all connection lanes with the conflict manager and
