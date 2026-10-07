@@ -8,6 +8,7 @@ import {
 import {
   armBearing,
   armLaneWidth,
+  possibleMovements,
   presentArms,
   ringLanes,
   signalLaneUse,
@@ -100,7 +101,7 @@ export function JunctionPreview({
     const resolved = design?.laneUse[a];
     if (!roundabout && resolved && resolved.length === arm.lanes)
       return resolved;
-    return signalLaneUse(arm);
+    return signalLaneUse(arm, possibleMovements(scenario, a));
   };
 
   // The signal's conflict area: the V1.0 square box for the standard

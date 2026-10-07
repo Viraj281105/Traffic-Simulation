@@ -337,6 +337,7 @@ export function ScenarioBuilder({
                 approach={a}
                 arm={value.approaches[a] as ApproachSpec}
                 hasOpposite={value.approaches[OPPOSITE[a]] != null}
+                possible={possibleMovements(value, a)}
                 selected={selected === a}
                 onSelect={() => {
                   setSelected(a);
@@ -874,6 +875,7 @@ function ApproachLanesCard({
   approach,
   arm,
   hasOpposite,
+  possible,
   selected,
   onSelect,
   onChange,
@@ -884,6 +886,8 @@ function ApproachLanesCard({
   approach: ApproachName;
   arm: ApproachSpec;
   hasOpposite: boolean;
+  /** Movements that lead to a road that exists (V1.5). */
+  possible: Movement[];
   selected: boolean;
   onSelect: () => void;
   onChange: (change: Partial<ApproachSpec>) => void;
@@ -892,7 +896,7 @@ function ApproachLanesCard({
   issues: LocalIssue[];
 }) {
   const [editRoundabout, setEditRoundabout] = useState(!!arm.roundaboutLaneUse);
-  const signalUse = signalLaneUse(arm);
+  const signalUse = signalLaneUse(arm, possible);
   return (
     <div
       className={`approach-card${selected ? " is-selected" : ""}${issues.length ? " has-issues" : ""}`}

@@ -369,6 +369,34 @@
   padding: 0 4px;
 }
 
+/* V1.5: per-arm bearing and lane width, one row per arm. */
+.sb-geometry {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px 12px;
+  margin-top: 14px;
+}
+.sb-geometry legend {
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 0 4px;
+}
+.sb-geometry-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sb-geometry-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  align-items: flex-end;
+}
+.sb-geometry-row > .sb-field-label {
+  min-width: 48px;
+  padding-bottom: 6px;
+}
+
 /* Live side panel. */
 .sb-side {
   position: sticky;

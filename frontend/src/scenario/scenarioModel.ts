@@ -142,11 +142,19 @@ export function defaultLaneUse(lanes: number): Movement[][] {
   });
 }
 
-/** Signal lane arrows of an approach: configured, else the default policy. */
-export function signalLaneUse(arm: ApproachSpec): Movement[][] {
-  return arm.laneUse && arm.laneUse.length === arm.lanes
-    ? arm.laneUse
-    : defaultLaneUse(arm.lanes);
+/** Signal lane arrows of an approach: configured, else the default policy
+ *  — without movements outside ``possible`` (V1.5: towards a slot with no
+ *  road), exactly as backend lane_config.default_signal_lane_use. A lane
+ *  left empty is shown empty, and flagged, never filled with a guess. */
+export function signalLaneUse(
+  arm: ApproachSpec,
+  possible?: Movement[],
+): Movement[][] {
+  if (arm.laneUse && arm.laneUse.length === arm.lanes) return arm.laneUse;
+  const use = defaultLaneUse(arm.lanes);
+  return possible
+    ? use.map((lane) => lane.filter((m) => possible.includes(m)))
+    : use;
 }
 
 const ORDER: Record<Movement, number> = {
@@ -276,7 +284,7 @@ export function localIssues(
         message: `A signal needs the same number of lanes on ${name} and ${OPPOSITE[name]} (through traffic cannot merge inside the junction); they have ${String(arm.lanes)} and ${String(opposite.lanes)}.`,
       });
     }
-    const use = signalLaneUse(arm);
+    const use = signalLaneUse(arm, possibleMovements(doc, name));
     use.forEach((lane, i) => {
       if (lane.length === 0)
         issues.push({
