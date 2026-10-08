@@ -32,7 +32,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, model_validator
 
-from src.auth import get_current_user_email, get_current_user_id
+from src.auth import get_current_user_email, get_current_user_id, get_verified_claims
 from src.controllers.factory import (
     build_tick_callback,
     create_controller,
@@ -233,6 +233,66 @@ def version() -> Dict[str, str]:
     uncommitted changes or without GIT_COMMIT) and the Python runtime.
     start.ps1 compares it with the source it just built."""
     return {"gitCommit": GIT_COMMIT_HASH, "pythonVersion": PYTHON_VERSION}
+
+
+# ── User registry / admin panel ──────────────────────────────────────────────
+
+@app.get("/api/me")
+def get_me(
+    claims: Dict[str, Any] = Depends(get_verified_claims),
+) -> Dict[str, Any]:
+    """Return the current user's profile and admin status.
+
+    The frontend calls this on login to know whether to show the Admin panel.
+    """
+    return {
+        "sub": claims.get("sub", ""),
+        "email": claims.get("email", ""),
+        "username": (
+            claims.get("cognito:username")
+            or claims.get("preferred_username")
+            or claims.get("sub", "")
+        ),
+        "isAdmin": bool(claims.get("_is_admin")),
+    }
+
+
+@app.get("/api/users")
+def list_users(
+    claims: Dict[str, Any] = Depends(get_verified_claims),
+) -> Dict[str, Any]:
+    """Return the list of users who have ever logged in via Cognito.
+
+    Admin-only — returns 403 for non-admin callers.
+    Each row also includes the number of simulation runs the user has saved.
+    """
+    if not claims.get("_is_admin"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    with get_db_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT u.sub, u.email, u.username, u.first_seen, u.last_seen,
+                   COUNT(DISTINCT r.id) AS run_count
+            FROM users u
+            LEFT JOIN simulation_runs r ON r.user_id = u.sub
+            GROUP BY u.sub
+            ORDER BY u.last_seen DESC
+            """
+        ).fetchall()
+
+    users = [
+        {
+            "sub": row["sub"],
+            "email": row["email"],
+            "username": row["username"],
+            "firstSeen": row["first_seen"],
+            "lastSeen": row["last_seen"],
+            "runCount": row["run_count"],
+        }
+        for row in rows
+    ]
+    return {"users": users, "count": len(users)}
 
 
 # Load the shared config JSON schema, resolved relative to this package's

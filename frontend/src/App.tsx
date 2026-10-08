@@ -55,6 +55,7 @@ import {
   LogOut,
   CircleAlert,
   CircleCheck,
+  ShieldCheck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { UrbanFlowLockup } from "./components/ui/UrbanFlowLogo";
@@ -109,6 +110,9 @@ const ValidationDashboard = lazy(() =>
   import("./components/ValidationDashboard").then((m) => ({
     default: m.ValidationDashboard,
   })),
+);
+const AdminPanel = lazy(() =>
+  import("./components/AdminPanel").then((m) => ({ default: m.AdminPanel })),
 );
 const viewLoading = <UrbanFlowLoader label="Loading…" />;
 
@@ -165,7 +169,7 @@ const SINGLE_VIEWS: ReadonlySet<ViewMode> = new Set([
 /** The three places in the product. Compare is the guided path everyone
  *  starts on; Saved holds kept comparisons; the Research lab gathers every
  *  specialist tool. */
-type Section = "compare" | "saved" | "research";
+type Section = "compare" | "saved" | "research" | "admin";
 
 const RESEARCH_VIEWS: ReadonlySet<ViewMode> = new Set([
   "research",
@@ -178,6 +182,7 @@ const RESEARCH_VIEWS: ReadonlySet<ViewMode> = new Set([
 
 function sectionOf(view: ViewMode): Section {
   if (view === "history") return "saved";
+  if (view === "admin") return "admin";
   if (RESEARCH_VIEWS.has(view)) return "research";
   return "compare";
 }
@@ -239,6 +244,7 @@ function Dashboard({
     name?: string;
     email?: string;
   } | null>(DEV_AUTH_BYPASS ? DEV_AUTH_PROFILE : null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     if (DEV_AUTH_BYPASS) return;
@@ -269,6 +275,16 @@ function Dashboard({
                   }
                 },
               );
+              // Check admin status from backend
+              import("./services/api").then(({ get }) => {
+                get<{ isAdmin: boolean }>("/api/me")
+                  .then((me) => {
+                    if (active) setIsAdmin(me.isAdmin);
+                  })
+                  .catch(() => {
+                    /* non-fatal */
+                  });
+              }).catch(() => {});
             }
           },
         );
@@ -276,7 +292,10 @@ function Dashboard({
     } else {
       // Defer state update to avoid synchronous state update inside effect
       requestAnimationFrame(() => {
-        if (active) setUserProfile(null);
+        if (active) {
+          setUserProfile(null);
+          setIsAdmin(false);
+        }
       });
     }
     return () => {
@@ -763,7 +782,7 @@ function Dashboard({
           </a>
         </div>
 
-        <MainNav section={section} requireAuth={requireAuth} />
+        <MainNav section={section} requireAuth={requireAuth} isAdmin={isAdmin} />
 
         <div className="header-right">
           {isSingle && (
@@ -1052,6 +1071,15 @@ function Dashboard({
             <ValidationDashboard />
           </Suspense>
         </PageTransition>
+      ) : viewMode === "admin" ? (
+        <PageTransition
+          transitionKey={pageKey}
+          className="app-main full-screen page-scroll"
+        >
+          <Suspense fallback={viewLoading}>
+            <AdminPanel />
+          </Suspense>
+        </PageTransition>
       ) : (
         <PageTransition transitionKey={pageKey} className="app-main">
           <h1 className="sr-only">
@@ -1189,14 +1217,17 @@ const MAIN_TABS: {
   },
 ];
 
-/** The three sections, with a sliding indicator under the current one. The
- *  Research lab asks a signed-out visitor to sign in first. */
+/** The sections, with a sliding indicator under the current one. The
+ *  Research lab asks a signed-out visitor to sign in first. The Admin
+ *  tab is only rendered for admin users. */
 function MainNav({
   section,
   requireAuth,
+  isAdmin,
 }: {
   section: Section;
   requireAuth: (action: () => void) => void;
+  isAdmin: boolean;
 }) {
   const ref = useNavIndicator<HTMLElement>(section);
   return (
@@ -1221,6 +1252,15 @@ function MainNav({
           {tab.label}
         </ViewTab>
       ))}
+      {isAdmin && (
+        <ViewTab
+          view="admin"
+          current={section === "admin"}
+          icon={ShieldCheck}
+        >
+          Admin
+        </ViewTab>
+      )}
     </nav>
   );
 }

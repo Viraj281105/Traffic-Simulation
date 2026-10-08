@@ -1,3 +1,4 @@
+import logging
 import os
 import time
 from typing import Any, Dict, List, cast
@@ -7,6 +8,8 @@ from fastapi import HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import jwk, jwt
 from jose.utils import base64url_decode
+
+from src.database.db import get_db_connection
 
 security = HTTPBearer()
 
@@ -30,6 +33,14 @@ except Exception:
 REGION = os.getenv("AWS_REGION", "us-east-1")
 USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID", "")
 CLIENT_ID = os.getenv("COGNITO_CLIENT_ID", "")
+
+# Comma-separated list of emails that are treated as admins, e.g.
+# ADMIN_EMAILS=alice@example.com,bob@example.com
+# All comparisons are lower-cased so casing doesn't matter.
+_ADMIN_EMAILS_RAW = os.getenv("ADMIN_EMAILS", "")
+ADMIN_EMAILS: frozenset[str] = frozenset(
+    e.strip().lower() for e in _ADMIN_EMAILS_RAW.split(",") if e.strip()
+)
 
 # Cache the keys so we don't fetch them on every request
 _JWKS_CACHE = None
@@ -143,3 +154,61 @@ def get_current_user_id(claims: Dict[str, Any] = Security(verify_token)) -> str:
 def get_current_user_email(claims: Dict[str, Any] = Security(verify_token)) -> str:
     """Returns the user's email from the token."""
     return str(claims.get("email", ""))
+
+
+def upsert_user(claims: Dict[str, Any]) -> None:
+    """Upsert the authenticated user into the local ``users`` table.
+
+    Called after every successful token verification so the DB always
+    reflects who has logged in.  The ``sub`` claim is the immutable
+    Cognito identifier and acts as the primary key.
+
+    This is a no-op for the local dev bypass (sub == 'local-dev').
+    """
+    sub = str(claims.get("sub", ""))
+    if not sub or sub == "local-dev":
+        return
+
+    email = str(claims.get("email", ""))
+    # Cognito stores the human login name in ``cognito:username``; fall back to
+    # ``preferred_username`` then the sub itself.
+    username = str(
+        claims.get("cognito:username")
+        or claims.get("preferred_username")
+        or sub
+    )
+
+    try:
+        with get_db_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO users (sub, email, username, first_seen, last_seen)
+                VALUES (:sub, :email, :username, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON CONFLICT(sub) DO UPDATE SET
+                    email    = excluded.email,
+                    username = excluded.username,
+                    last_seen = CURRENT_TIMESTAMP
+                """,
+                {"sub": sub, "email": email, "username": username},
+            )
+            conn.commit()
+    except Exception:
+        logging.getLogger(__name__).warning("upsert_user failed", exc_info=True)
+
+
+def is_admin(claims: Dict[str, Any]) -> bool:
+    """Return True when the authenticated user's email is in ADMIN_EMAILS."""
+    email = str(claims.get("email", "")).strip().lower()
+    return bool(email and email in ADMIN_EMAILS)
+
+
+def get_verified_claims(
+    claims: Dict[str, Any] = Security(verify_token),
+) -> Dict[str, Any]:
+    """Return verified token claims, register the user in the DB, and stamp
+    ``_is_admin`` so endpoints don't have to re-check."""
+    upsert_user(claims)
+    # Stamp admin flag on a copy so the original JWT claims are not mutated.
+    result = dict(claims)
+    result["_is_admin"] = is_admin(claims)
+    return result
