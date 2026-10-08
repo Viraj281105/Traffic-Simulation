@@ -1,0 +1,403 @@
+{
+  "$defs": {
+    "ApproachFlow": {
+      "additionalProperties": false,
+      "properties": {
+        "approach": {
+          "enum": [
+            "north",
+            "south",
+            "east",
+            "west"
+          ],
+          "title": "Approach",
+          "type": "string"
+        },
+        "vehiclesPerHour": {
+          "anyOf": [
+            {
+              "maximum": 20000,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vehiclesperhour"
+        },
+        "count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Count"
+        },
+        "durationSeconds": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 86400,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Durationseconds"
+        }
+      },
+      "required": [
+        "approach"
+      ],
+      "title": "ApproachFlow",
+      "type": "object"
+    },
+    "Mix": {
+      "additionalProperties": false,
+      "properties": {
+        "car": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Car",
+          "type": "number"
+        },
+        "suv": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Suv",
+          "type": "number"
+        },
+        "bus": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Bus",
+          "type": "number"
+        },
+        "truck": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Truck",
+          "type": "number"
+        },
+        "motorcycle": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Motorcycle",
+          "type": "number"
+        }
+      },
+      "title": "Mix",
+      "type": "object"
+    },
+    "Period": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "default": "",
+          "maxLength": 120,
+          "title": "Label",
+          "type": "string"
+        },
+        "durationSeconds": {
+          "default": 3600.0,
+          "exclusiveMinimum": 0,
+          "maximum": 86400,
+          "title": "Durationseconds",
+          "type": "number"
+        },
+        "source": {
+          "default": "",
+          "maxLength": 300,
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "title": "Period",
+      "type": "object"
+    },
+    "QueueObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "approach": {
+          "enum": [
+            "north",
+            "south",
+            "east",
+            "west"
+          ],
+          "title": "Approach",
+          "type": "string"
+        },
+        "meanVehicles": {
+          "anyOf": [
+            {
+              "maximum": 500,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Meanvehicles"
+        },
+        "maxVehicles": {
+          "anyOf": [
+            {
+              "maximum": 500,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maxvehicles"
+        }
+      },
+      "required": [
+        "approach"
+      ],
+      "title": "QueueObservation",
+      "type": "object"
+    },
+    "SignalObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "averageGreenSeconds": {
+          "exclusiveMinimum": 0,
+          "maximum": 300,
+          "title": "Averagegreenseconds",
+          "type": "number"
+        }
+      },
+      "required": [
+        "averageGreenSeconds"
+      ],
+      "title": "SignalObservation",
+      "type": "object"
+    },
+    "TravelTimeObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "approach": {
+          "enum": [
+            "north",
+            "south",
+            "east",
+            "west"
+          ],
+          "title": "Approach",
+          "type": "string"
+        },
+        "movement": {
+          "anyOf": [
+            {
+              "enum": [
+                "left",
+                "straight",
+                "right",
+                "uturn"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Movement"
+        },
+        "meanSeconds": {
+          "exclusiveMinimum": 0,
+          "maximum": 3600,
+          "title": "Meanseconds",
+          "type": "number"
+        },
+        "samples": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Samples"
+        }
+      },
+      "required": [
+        "approach",
+        "meanSeconds"
+      ],
+      "title": "TravelTimeObservation",
+      "type": "object"
+    },
+    "TurningObservation": {
+      "additionalProperties": false,
+      "description": "One movement's share of its approach, as a share (0-1) or a count.",
+      "properties": {
+        "approach": {
+          "enum": [
+            "north",
+            "south",
+            "east",
+            "west"
+          ],
+          "title": "Approach",
+          "type": "string"
+        },
+        "movement": {
+          "enum": [
+            "left",
+            "straight",
+            "right",
+            "uturn"
+          ],
+          "title": "Movement",
+          "type": "string"
+        },
+        "share": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Share"
+        },
+        "count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Count"
+        }
+      },
+      "required": [
+        "approach",
+        "movement"
+      ],
+      "title": "TurningObservation",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "urbanflow-observations",
+      "default": "urbanflow-observations",
+      "title": "Format",
+      "type": "string"
+    },
+    "version": {
+      "const": 1,
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "name": {
+      "default": "Observations",
+      "maxLength": 120,
+      "title": "Name",
+      "type": "string"
+    },
+    "period": {
+      "$ref": "#/$defs/Period"
+    },
+    "scenarioFingerprint": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scenariofingerprint"
+    },
+    "approachFlows": {
+      "items": {
+        "$ref": "#/$defs/ApproachFlow"
+      },
+      "title": "Approachflows",
+      "type": "array"
+    },
+    "turningMovements": {
+      "items": {
+        "$ref": "#/$defs/TurningObservation"
+      },
+      "title": "Turningmovements",
+      "type": "array"
+    },
+    "vehicleMix": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Mix"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "signal": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SignalObservation"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "queues": {
+      "items": {
+        "$ref": "#/$defs/QueueObservation"
+      },
+      "title": "Queues",
+      "type": "array"
+    },
+    "travelTimes": {
+      "items": {
+        "$ref": "#/$defs/TravelTimeObservation"
+      },
+      "title": "Traveltimes",
+      "type": "array"
+    }
+  },
+  "title": "ObservationSet",
+  "type": "object"
+}

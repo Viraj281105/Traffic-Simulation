@@ -33,6 +33,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, model_validator
 
 from src.auth import get_current_user_email, get_current_user_id
+from src.calibration.api import build_router as build_calibration_router
 from src.controllers.factory import (
     build_tick_callback,
     create_controller,
@@ -67,6 +68,8 @@ from src.database.dao import (
 from src.database.db import DB_PATH, get_db_connection, init_db  # noqa: F401
 from src.database.replay_dao import ReplayDAO
 from src.metrics.collector import MetricCollector
+from src.networks.api import router as networks_router
+from src.planning.router import create_router as build_planning_router
 from src.snapshot.buffer import SnapshotBuffer
 from src.snapshot.builder import SnapshotBuilder
 from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
@@ -102,6 +105,7 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="Traffic Simulation Framework API", version="1.0.0", lifespan=_lifespan
 )
+app.include_router(networks_router)  # V1.9 /api/v2/networks
 
 # ── CORS ──────────────────────────────────────────────────────────────────
 # Origins are environment-driven (CORS_ORIGINS, comma-separated), never
@@ -169,6 +173,17 @@ def require_api_key(
         detail="Missing or invalid API key",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+
+# V1.8 /api/v2/calibration (src/calibration/api.py).
+app.include_router(build_calibration_router(require_api_key))
+
+# V2.0 /api/v2/planning (src/planning/router.py).
+app.include_router(
+    build_planning_router(
+        user_dependency=get_current_user_id, dependencies=[Depends(require_api_key)]
+    )
+)
 
 
 # ── Uniform error envelope (docs/architecture/08-communication-contract.md

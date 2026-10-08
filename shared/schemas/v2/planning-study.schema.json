@@ -1,0 +1,228 @@
+{
+  "$defs": {
+    "AlternativeSpec": {
+      "additionalProperties": false,
+      "description": "One option under study: a control strategy plus an optional change.\n\n``patch`` is a JSON merge-patch (RFC 7386) over a copy of the study's\nscenario document; the patched copy is re-validated by ``ScenarioDocument``\n(unknown fields are rejected) and by ``validate_scenario``.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "maxLength": 120,
+          "title": "Label",
+          "type": "string"
+        },
+        "strategy": {
+          "title": "Strategy",
+          "type": "string"
+        },
+        "patch": {
+          "additionalProperties": true,
+          "title": "Patch",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "strategy"
+      ],
+      "title": "AlternativeSpec",
+      "type": "object"
+    },
+    "CalibrationRef": {
+      "additionalProperties": false,
+      "description": "A stored V1.8 run (``POST /api/v2/calibration/runs``) to attach.\n\n``useFittedScenario`` takes the scenario that run simulated (observed\ninputs written in) as the subject, so ``subject`` may then be omitted.",
+      "properties": {
+        "runId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Runid",
+          "type": "string"
+        },
+        "useFittedScenario": {
+          "default": false,
+          "title": "Usefittedscenario",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "runId"
+      ],
+      "title": "CalibrationRef",
+      "type": "object"
+    },
+    "DemandSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "scales": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Scales",
+          "type": "array"
+        },
+        "growthLabel": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Growthlabel"
+        }
+      },
+      "title": "DemandSpec",
+      "type": "object"
+    },
+    "Repetitions": {
+      "additionalProperties": false,
+      "properties": {
+        "seeds": {
+          "default": 5,
+          "maximum": 30,
+          "minimum": 1,
+          "title": "Seeds",
+          "type": "integer"
+        },
+        "baseSeed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baseseed"
+        },
+        "confidenceLevel": {
+          "default": 0.95,
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.5,
+          "title": "Confidencelevel",
+          "type": "number"
+        }
+      },
+      "title": "Repetitions",
+      "type": "object"
+    },
+    "Subject": {
+      "additionalProperties": false,
+      "properties": {
+        "scenario": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scenario"
+        },
+        "network": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Network"
+        }
+      },
+      "title": "Subject",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "urbanflow-planning-study",
+      "default": "urbanflow-planning-study",
+      "title": "Format",
+      "type": "string"
+    },
+    "version": {
+      "const": 1,
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "name": {
+      "default": "Planning study",
+      "maxLength": 120,
+      "title": "Name",
+      "type": "string"
+    },
+    "objective": {
+      "default": "",
+      "maxLength": 500,
+      "title": "Objective",
+      "type": "string"
+    },
+    "subject": {
+      "$ref": "#/$defs/Subject"
+    },
+    "calibration": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CalibrationRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "alternatives": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/AlternativeSpec"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Alternatives"
+    },
+    "demand": {
+      "$ref": "#/$defs/DemandSpec"
+    },
+    "repetitions": {
+      "$ref": "#/$defs/Repetitions"
+    },
+    "indicators": {
+      "items": {
+        "enum": [
+          "performance",
+          "safety",
+          "environmental",
+          "reliability"
+        ],
+        "type": "string"
+      },
+      "title": "Indicators",
+      "type": "array"
+    }
+  },
+  "title": "PlanningStudy",
+  "type": "object"
+}
