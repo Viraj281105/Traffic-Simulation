@@ -1,5 +1,5 @@
 # ── Build stage ──────────────────────────────────────────────────────────────
-FROM python:3.11.16-slim-bookworm AS builder
+FROM python:3.14.8-slim-bookworm AS builder
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # ── Runtime base: interpreter, dependencies, user, entrypoint ───────────────
 # Shared by the production image (default, last stage) and the development
 # image (target "dev"), which runs the same runtime on bind-mounted source.
-FROM python:3.11.16-slim-bookworm AS base
+FROM python:3.14.8-slim-bookworm AS base
 
 WORKDIR /app
 
