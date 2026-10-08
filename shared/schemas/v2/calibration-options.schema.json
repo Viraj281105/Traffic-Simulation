@@ -1,0 +1,56 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "strategy": {
+      "anyOf": [
+        {
+          "enum": [
+            "fixed_time",
+            "adaptive",
+            "roundabout"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Strategy"
+    },
+    "seeds": {
+      "default": 3,
+      "maximum": 10,
+      "minimum": 1,
+      "title": "Seeds",
+      "type": "integer"
+    },
+    "baseSeed": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Baseseed"
+    },
+    "fit": {
+      "items": {
+        "enum": [
+          "demand",
+          "turning",
+          "mix"
+        ],
+        "type": "string"
+      },
+      "title": "Fit",
+      "type": "array"
+    }
+  },
+  "title": "CalibrationOptions",
+  "type": "object"
+}

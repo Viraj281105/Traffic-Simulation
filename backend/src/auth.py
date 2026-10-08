@@ -173,9 +173,7 @@ def upsert_user(claims: Dict[str, Any]) -> None:
     # Cognito stores the human login name in ``cognito:username``; fall back to
     # ``preferred_username`` then the sub itself.
     username = str(
-        claims.get("cognito:username")
-        or claims.get("preferred_username")
-        or sub
+        claims.get("cognito:username") or claims.get("preferred_username") or sub
     )
 
     try:

@@ -101,7 +101,11 @@ export function AdminPanel() {
       {/* ── Toolbar ────────────────────────────────────────────────── */}
       <div className="admin-panel__toolbar">
         <div className="admin-panel__search-wrap">
-          <Search size={15} className="admin-panel__search-icon" aria-hidden="true" />
+          <Search
+            size={15}
+            className="admin-panel__search-icon"
+            aria-hidden="true"
+          />
           <input
             id="admin-user-search"
             type="search"
@@ -145,8 +149,16 @@ export function AdminPanel() {
             </div>
           ) : filtered.length === 0 ? (
             <div className="admin-panel__empty">
-              <Users size={40} className="admin-panel__empty-icon" aria-hidden="true" />
-              <p>{query ? "No users match your search." : "No users have logged in yet."}</p>
+              <Users
+                size={40}
+                className="admin-panel__empty-icon"
+                aria-hidden="true"
+              />
+              <p>
+                {query
+                  ? "No users match your search."
+                  : "No users have logged in yet."}
+              </p>
             </div>
           ) : (
             <table className="admin-panel__table" aria-label="User registry">
@@ -165,13 +177,19 @@ export function AdminPanel() {
                   <tr key={user.sub}>
                     <td className="admin-panel__td-index">{idx + 1}</td>
                     <td>
-                      <span className="admin-panel__email">{user.email || "—"}</span>
+                      <span className="admin-panel__email">
+                        {user.email || "—"}
+                      </span>
                     </td>
                     <td>
-                      <span className="admin-panel__username">{user.username}</span>
+                      <span className="admin-panel__username">
+                        {user.username}
+                      </span>
                     </td>
                     <td>
-                      <span className={`admin-panel__run-badge ${user.runCount > 0 ? "has-runs" : ""}`}>
+                      <span
+                        className={`admin-panel__run-badge ${user.runCount > 0 ? "has-runs" : ""}`}
+                      >
                         {user.runCount}
                       </span>
                     </td>
@@ -191,8 +209,8 @@ export function AdminPanel() {
 
       {/* ── Footer ─────────────────────────────────────────────────── */}
       <p className="admin-panel__footer-note">
-        Users are automatically recorded on first login. Passwords are never stored here
-        — they stay in Cognito.
+        Users are automatically recorded on first login. Passwords are never
+        stored here — they stay in Cognito.
       </p>
     </div>
   );

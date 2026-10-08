@@ -276,15 +276,17 @@ function Dashboard({
                 },
               );
               // Check admin status from backend
-              import("./services/api").then(({ get }) => {
-                get<{ isAdmin: boolean }>("/api/me")
-                  .then((me) => {
-                    if (active) setIsAdmin(me.isAdmin);
-                  })
-                  .catch(() => {
-                    /* non-fatal */
-                  });
-              }).catch(() => {});
+              import("./services/api")
+                .then(({ get }) => {
+                  get<{ isAdmin: boolean }>("/api/me")
+                    .then((me) => {
+                      if (active) setIsAdmin(me.isAdmin);
+                    })
+                    .catch(() => {
+                      /* non-fatal */
+                    });
+                })
+                .catch(() => {});
             }
           },
         );
@@ -782,7 +784,11 @@ function Dashboard({
           </a>
         </div>
 
-        <MainNav section={section} requireAuth={requireAuth} isAdmin={isAdmin} />
+        <MainNav
+          section={section}
+          requireAuth={requireAuth}
+          isAdmin={isAdmin}
+        />
 
         <div className="header-right">
           {isSingle && (
@@ -1253,11 +1259,7 @@ function MainNav({
         </ViewTab>
       ))}
       {isAdmin && (
-        <ViewTab
-          view="admin"
-          current={section === "admin"}
-          icon={ShieldCheck}
-        >
+        <ViewTab view="admin" current={section === "admin"} icon={ShieldCheck}>
           Admin
         </ViewTab>
       )}

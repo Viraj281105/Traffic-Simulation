@@ -1,0 +1,1048 @@
+{
+  "$defs": {
+    "AdaptiveSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "minGreen": {
+          "default": 10.0,
+          "maximum": 60,
+          "minimum": 5,
+          "title": "Mingreen",
+          "type": "number"
+        },
+        "maxGreen": {
+          "default": 50.0,
+          "maximum": 180,
+          "minimum": 10,
+          "title": "Maxgreen",
+          "type": "number"
+        },
+        "extensionStep": {
+          "default": 2.5,
+          "maximum": 10,
+          "minimum": 0.5,
+          "title": "Extensionstep",
+          "type": "number"
+        },
+        "detectionDistance": {
+          "default": 30.0,
+          "maximum": 200,
+          "minimum": 5,
+          "title": "Detectiondistance",
+          "type": "number"
+        },
+        "demandThreshold": {
+          "default": 1,
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Demandthreshold",
+          "type": "integer"
+        }
+      },
+      "title": "AdaptiveSpec",
+      "type": "object"
+    },
+    "ApproachSpec": {
+      "additionalProperties": false,
+      "description": "One arm: its incoming lanes and the traffic arriving on it.",
+      "properties": {
+        "lanes": {
+          "maximum": 4,
+          "minimum": 1,
+          "title": "Lanes",
+          "type": "integer"
+        },
+        "length": {
+          "default": 200.0,
+          "exclusiveMinimum": 50,
+          "maximum": 1000,
+          "title": "Length",
+          "type": "number"
+        },
+        "laneUse": {
+          "anyOf": [
+            {
+              "items": {
+                "items": {
+                  "enum": [
+                    "uturn",
+                    "left",
+                    "straight",
+                    "right"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Laneuse"
+        },
+        "roundaboutLaneUse": {
+          "anyOf": [
+            {
+              "items": {
+                "items": {
+                  "enum": [
+                    "uturn",
+                    "left",
+                    "straight",
+                    "right"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Roundaboutlaneuse"
+        },
+        "vehiclesPerHour": {
+          "maximum": 7200,
+          "minimum": 0,
+          "title": "Vehiclesperhour",
+          "type": "number"
+        },
+        "turning": {
+          "$ref": "#/$defs/Turning"
+        },
+        "vehicleMix": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Mix"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "bearing": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bearing"
+        },
+        "laneWidth": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 2.5,
+              "maximum": 5.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lanewidth"
+        }
+      },
+      "required": [
+        "lanes",
+        "vehiclesPerHour"
+      ],
+      "title": "ApproachSpec",
+      "type": "object"
+    },
+    "Approaches": {
+      "additionalProperties": false,
+      "properties": {
+        "north": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ApproachSpec"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "south": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ApproachSpec"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "east": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ApproachSpec"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "west": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ApproachSpec"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "north",
+        "south",
+        "east",
+        "west"
+      ],
+      "title": "Approaches",
+      "type": "object"
+    },
+    "DemandSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "routeId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Routeid",
+          "type": "string"
+        },
+        "vehiclesPerHour": {
+          "maximum": 7200,
+          "minimum": 0,
+          "title": "Vehiclesperhour",
+          "type": "number"
+        },
+        "vehicleMix": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vehiclemix"
+        }
+      },
+      "required": [
+        "routeId",
+        "vehiclesPerHour"
+      ],
+      "title": "DemandSpec",
+      "type": "object"
+    },
+    "Direction": {
+      "enum": [
+        "north",
+        "south",
+        "east",
+        "west"
+      ],
+      "title": "Direction",
+      "type": "string"
+    },
+    "EdgePort": {
+      "additionalProperties": false,
+      "properties": {
+        "node": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Node",
+          "type": "string"
+        },
+        "arm": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Direction"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "node"
+      ],
+      "title": "EdgePort",
+      "type": "object"
+    },
+    "EdgeSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "from": {
+          "$ref": "#/$defs/EdgePort"
+        },
+        "to": {
+          "$ref": "#/$defs/EdgePort"
+        },
+        "lengthMeters": {
+          "exclusiveMinimum": 0,
+          "maximum": 20000,
+          "title": "Lengthmeters",
+          "type": "number"
+        },
+        "lanes": {
+          "maximum": 8,
+          "minimum": 1,
+          "title": "Lanes",
+          "type": "integer"
+        },
+        "speedLimit": {
+          "default": 13.89,
+          "exclusiveMinimum": 0,
+          "maximum": 45,
+          "title": "Speedlimit",
+          "type": "number"
+        },
+        "laneWidth": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 2.5,
+              "maximum": 5.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lanewidth"
+        },
+        "direction": {
+          "const": "oneway",
+          "default": "oneway",
+          "title": "Direction",
+          "type": "string"
+        },
+        "laneMetadata": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/LaneSpec"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lanemetadata"
+        }
+      },
+      "required": [
+        "id",
+        "from",
+        "to",
+        "lengthMeters",
+        "lanes"
+      ],
+      "title": "EdgeSpec",
+      "type": "object"
+    },
+    "JunctionSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "fixed_time_signal",
+            "adaptive_signal",
+            "roundabout"
+          ],
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "JunctionSpec",
+      "type": "object"
+    },
+    "LaneSpec": {
+      "additionalProperties": false,
+      "description": "Optional per-lane metadata, lane 1 next to the centre line first.",
+      "properties": {
+        "index": {
+          "maximum": 8,
+          "minimum": 1,
+          "title": "Index",
+          "type": "integer"
+        },
+        "movements": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "uturn",
+                  "left",
+                  "straight",
+                  "right"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Movements"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 2.0,
+              "maximum": 5.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Width"
+        }
+      },
+      "required": [
+        "index"
+      ],
+      "title": "LaneSpec",
+      "type": "object"
+    },
+    "Mix": {
+      "additionalProperties": false,
+      "properties": {
+        "car": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Car",
+          "type": "number"
+        },
+        "suv": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Suv",
+          "type": "number"
+        },
+        "bus": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Bus",
+          "type": "number"
+        },
+        "truck": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Truck",
+          "type": "number"
+        },
+        "motorcycle": {
+          "default": 0.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Motorcycle",
+          "type": "number"
+        }
+      },
+      "title": "Mix",
+      "type": "object"
+    },
+    "NetworkSimulationSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "duration": {
+          "default": 300.0,
+          "exclusiveMinimum": 0,
+          "maximum": 3600,
+          "title": "Duration",
+          "type": "number"
+        },
+        "warmup": {
+          "default": 30.0,
+          "minimum": 0,
+          "title": "Warmup",
+          "type": "number"
+        },
+        "seed": {
+          "default": 1,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "seeds": {
+          "default": 1,
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Seeds",
+          "type": "integer"
+        }
+      },
+      "title": "NetworkSimulationSpec",
+      "type": "object"
+    },
+    "NodeSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "junction",
+            "origin",
+            "destination"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "scenario": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ScenarioDocument"
+            },
+            {
+              "$ref": "#/$defs/ScenarioRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scenario"
+        },
+        "junctionType": {
+          "anyOf": [
+            {
+              "enum": [
+                "fixed_time_signal",
+                "adaptive_signal",
+                "roundabout"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Junctiontype"
+        }
+      },
+      "required": [
+        "id",
+        "kind"
+      ],
+      "title": "NodeSpec",
+      "type": "object"
+    },
+    "RoadSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "laneWidth": {
+          "default": 3.5,
+          "exclusiveMinimum": 2.5,
+          "maximum": 5.0,
+          "title": "Lanewidth",
+          "type": "number"
+        },
+        "speedLimit": {
+          "default": 13.89,
+          "exclusiveMinimum": 0,
+          "maximum": 30.0,
+          "title": "Speedlimit",
+          "type": "number"
+        },
+        "laneChanging": {
+          "default": true,
+          "title": "Lanechanging",
+          "type": "boolean"
+        }
+      },
+      "title": "RoadSpec",
+      "type": "object"
+    },
+    "RoundaboutSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "circulatingLanes": {
+          "anyOf": [
+            {
+              "maximum": 3,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Circulatinglanes"
+        },
+        "innerRadius": {
+          "default": 10.0,
+          "exclusiveMinimum": 5,
+          "maximum": 50,
+          "title": "Innerradius",
+          "type": "number"
+        },
+        "outerRadius": {
+          "default": 20.0,
+          "exclusiveMinimum": 5,
+          "maximum": 80,
+          "title": "Outerradius",
+          "type": "number"
+        },
+        "criticalGap": {
+          "default": 4.0,
+          "exclusiveMinimum": 0,
+          "maximum": 10,
+          "title": "Criticalgap",
+          "type": "number"
+        },
+        "followUpTime": {
+          "default": 2.5,
+          "exclusiveMinimum": 0,
+          "maximum": 10,
+          "title": "Followuptime",
+          "type": "number"
+        },
+        "entrySpeed": {
+          "default": 5.0,
+          "exclusiveMinimum": 0,
+          "maximum": 15,
+          "title": "Entryspeed",
+          "type": "number"
+        },
+        "circulatingSpeed": {
+          "default": 8.0,
+          "exclusiveMinimum": 0,
+          "maximum": 15,
+          "title": "Circulatingspeed",
+          "type": "number"
+        }
+      },
+      "title": "RoundaboutSpec",
+      "type": "object"
+    },
+    "RouteSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "origin": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Origin",
+          "type": "string"
+        },
+        "destination": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Destination",
+          "type": "string"
+        },
+        "path": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Path",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "origin",
+        "destination",
+        "path"
+      ],
+      "title": "RouteSpec",
+      "type": "object"
+    },
+    "ScenarioDocument": {
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "const": "urbanflow-scenario",
+          "default": "urbanflow-scenario",
+          "title": "Format",
+          "type": "string"
+        },
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "name": {
+          "default": "Custom scenario",
+          "maxLength": 120,
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 2000,
+          "title": "Description",
+          "type": "string"
+        },
+        "preset": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Preset"
+        },
+        "junction": {
+          "$ref": "#/$defs/JunctionSpec"
+        },
+        "approaches": {
+          "$ref": "#/$defs/Approaches"
+        },
+        "roads": {
+          "$ref": "#/$defs/RoadSpec"
+        },
+        "vehicles": {
+          "$ref": "#/$defs/VehicleSpec"
+        },
+        "signal": {
+          "$ref": "#/$defs/SignalSpec"
+        },
+        "roundabout": {
+          "$ref": "#/$defs/RoundaboutSpec"
+        },
+        "simulation": {
+          "$ref": "#/$defs/SimulationSpec"
+        },
+        "advanced": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Advanced"
+        }
+      },
+      "required": [
+        "junction",
+        "approaches"
+      ],
+      "title": "ScenarioDocument",
+      "type": "object"
+    },
+    "ScenarioRef": {
+      "additionalProperties": false,
+      "description": "A junction defined elsewhere (a saved scenario id).",
+      "properties": {
+        "ref": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "title": "ScenarioRef",
+      "type": "object"
+    },
+    "SignalSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "greenTime": {
+          "default": 30.0,
+          "exclusiveMinimum": 5,
+          "maximum": 120,
+          "title": "Greentime",
+          "type": "number"
+        },
+        "nsGreenTime": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 5,
+              "maximum": 120,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nsgreentime"
+        },
+        "ewGreenTime": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 5,
+              "maximum": 120,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ewgreentime"
+        },
+        "yellowTime": {
+          "default": 4.0,
+          "exclusiveMinimum": 2,
+          "maximum": 8,
+          "title": "Yellowtime",
+          "type": "number"
+        },
+        "allRedTime": {
+          "default": 2.0,
+          "maximum": 5,
+          "minimum": 0,
+          "title": "Allredtime",
+          "type": "number"
+        },
+        "adaptive": {
+          "$ref": "#/$defs/AdaptiveSpec"
+        }
+      },
+      "title": "SignalSpec",
+      "type": "object"
+    },
+    "SimulationSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "duration": {
+          "default": 300.0,
+          "maximum": 3600,
+          "minimum": 1,
+          "title": "Duration",
+          "type": "number"
+        },
+        "warmup": {
+          "default": 30.0,
+          "minimum": 0,
+          "title": "Warmup",
+          "type": "number"
+        },
+        "seed": {
+          "default": 42,
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "arrivalPattern": {
+          "default": "poisson",
+          "enum": [
+            "poisson",
+            "uniform"
+          ],
+          "title": "Arrivalpattern",
+          "type": "string"
+        },
+        "timeStep": {
+          "default": 0.1,
+          "exclusiveMinimum": 0,
+          "maximum": 1.0,
+          "title": "Timestep",
+          "type": "number"
+        }
+      },
+      "title": "SimulationSpec",
+      "type": "object"
+    },
+    "Turning": {
+      "additionalProperties": false,
+      "properties": {
+        "left": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Left",
+          "type": "number"
+        },
+        "straight": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Straight",
+          "type": "number"
+        },
+        "right": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Right",
+          "type": "number"
+        },
+        "uturn": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uturn"
+        }
+      },
+      "required": [
+        "left",
+        "straight",
+        "right"
+      ],
+      "title": "Turning",
+      "type": "object"
+    },
+    "VehicleSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "mix": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Mix"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "types": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Types"
+        }
+      },
+      "title": "VehicleSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "urbanflow-network",
+      "default": "urbanflow-network",
+      "title": "Format",
+      "type": "string"
+    },
+    "version": {
+      "const": 1,
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "name": {
+      "default": "Custom network",
+      "maxLength": 120,
+      "title": "Name",
+      "type": "string"
+    },
+    "description": {
+      "default": "",
+      "maxLength": 2000,
+      "title": "Description",
+      "type": "string"
+    },
+    "nodes": {
+      "items": {
+        "$ref": "#/$defs/NodeSpec"
+      },
+      "minItems": 1,
+      "title": "Nodes",
+      "type": "array"
+    },
+    "edges": {
+      "items": {
+        "$ref": "#/$defs/EdgeSpec"
+      },
+      "title": "Edges",
+      "type": "array"
+    },
+    "routes": {
+      "items": {
+        "$ref": "#/$defs/RouteSpec"
+      },
+      "title": "Routes",
+      "type": "array"
+    },
+    "demand": {
+      "items": {
+        "$ref": "#/$defs/DemandSpec"
+      },
+      "title": "Demand",
+      "type": "array"
+    },
+    "simulation": {
+      "$ref": "#/$defs/NetworkSimulationSpec"
+    }
+  },
+  "required": [
+    "nodes"
+  ],
+  "title": "NetworkDocument",
+  "type": "object"
+}

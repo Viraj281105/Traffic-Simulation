@@ -1,0 +1,167 @@
+{
+  "$defs": {
+    "ListBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "list",
+          "default": "list",
+          "title": "Type",
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "title": "ListBlock",
+      "type": "object"
+    },
+    "Section": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "blocks": {
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/TextBlock"
+              },
+              {
+                "$ref": "#/$defs/ListBlock"
+              },
+              {
+                "$ref": "#/$defs/TableBlock"
+              }
+            ]
+          },
+          "title": "Blocks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ],
+      "title": "Section",
+      "type": "object"
+    },
+    "TableBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "table",
+          "default": "table",
+          "title": "Type",
+          "type": "string"
+        },
+        "caption": {
+          "default": "",
+          "title": "Caption",
+          "type": "string"
+        },
+        "columns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Columns",
+          "type": "array"
+        },
+        "rows": {
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array"
+          },
+          "title": "Rows",
+          "type": "array"
+        }
+      },
+      "required": [
+        "columns",
+        "rows"
+      ],
+      "title": "TableBlock",
+      "type": "object"
+    },
+    "TextBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "text",
+          "default": "text",
+          "title": "Type",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "TextBlock",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "scenarioFingerprint": {
+      "title": "Scenariofingerprint",
+      "type": "string"
+    },
+    "sections": {
+      "items": {
+        "$ref": "#/$defs/Section"
+      },
+      "title": "Sections",
+      "type": "array"
+    },
+    "exports": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Exports",
+      "type": "array"
+    }
+  },
+  "required": [
+    "title",
+    "scenarioFingerprint",
+    "sections"
+  ],
+  "title": "Report",
+  "type": "object"
+}

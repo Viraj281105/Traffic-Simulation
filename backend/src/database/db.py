@@ -175,12 +175,12 @@ def init_db() -> None:
     if "username" not in u_cols:
         cursor.execute("ALTER TABLE users ADD COLUMN username TEXT;")
     if "last_seen" not in u_cols:
-        cursor.execute("ALTER TABLE users ADD COLUMN last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP;")
+        cursor.execute(
+            "ALTER TABLE users ADD COLUMN last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP;"
+        )
 
     # Index for fast lookup by email
-    cursor.execute(
-        "CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);"
-    )
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);")
 
     conn.commit()
     conn.close()
