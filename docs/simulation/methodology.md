@@ -55,7 +55,7 @@ flowchart LR
 
 | Modelled (IMPLEMENTATION) | Not modelled |
 | --- | --- |
-| One four-leg junction (north, south, east, west), right-hand traffic | Networks, corridors, upstream/downstream junctions |
+| Three- or four-arm single junctions (T, Y, crossroads) on configurable compass bearings with per-arm lane widths, lengths, and explicit U-turns (calibrated comparison: 4-leg perpendicular) — V1.5 | Networks, corridors, upstream/downstream junctions; junctions with 5+ arms |
 | 1–4 lanes per approach, set per approach, with per-lane movements and per-approach length, demand, turning and vehicle mix (calibrated comparison: **1**) — V1.2, V1.4 | Lane drops and merges inside a signalised junction (opposite approaches must match there) |
 | Gradual, safety-checked lane changing on approaches (MOBIL) — V1.2 | Lane filtering by motorcycles; overtaking inside the junction |
 | Five vehicle classes — car, SUV, bus, truck, motorcycle — each with its own size, IDM, cornering and lane-change parameters — V1.1 | Articulated vehicles and trailers; vehicles longer than 12 m |
@@ -143,7 +143,7 @@ which is *W_b* for perpendicular arms. The opposite slot is the same road contin
 
 **U-turns.** A U-turn is an explicit movement, never part of a default lane use, so a junction without one has exactly the paths it always had. At a **signal** it starts from lane 1 (next to the centre line) only, and runs as a half circle from the stop line into the kerb-side outgoing lane of the same arm, bulging into the junction by its radius *r* = (lanes·*w*)/2 for lane 1. It is released with the left turns (in the protected-left phase of the one-direction-at-a-time cycle; permissively in a paired stage) and has the lowest priority in the conflict manager — it yields to every other movement. The scenario is rejected unless *r* is at least the **design minimum centreline turning radius** of every vehicle class arriving on that approach: car / SUV 6.4 m (AASHTO P), bus 11.5 m (CITY-BUS), truck 11.6 m (SU-9), after AASHTO, *A Policy on Geometric Design of Highways and Streets* (2018), Table 2-2. AASHTO has no motorcycle design vehicle, so motorcycles are held to the car's value (conservative). These are design-guide inputs used to reject turns a vehicle cannot make, not values calibrated by UrbanFlow; in practice a signalised U-turn needs four 3.5 m lanes each way, or three of 4.3 m. At a **roundabout** a U-turn circulates on the inner lane like a left turn and leaves by its own arm's exit, which comes just before its entry around the ring.
 
-**Limitations.** Junctions of five or more arms, offset (staggered) junctions and arms more than 30° from a compass slot are rejected, not approximated. U-turns at a signal are half circles (no three-point turns, no use of a median or a jughandle). Per-arm lane widths change lane offsets and stop-line positions only; vehicle behaviour does not depend on lane width. Opposite approaches at a signal still need equal lane counts (§4.2). Skewed geometry, three-arm junctions and U-turns are **exploratory**: modelled and validated for safety (validation §4.3), not calibrated.
+**Limitations.** Junctions of five or more arms, offset (staggered) junctions and arms more than 30° from a compass slot are rejected, not approximated. U-turns at a signal are half circles (no three-point turns, no use of a median or a jughandle). Per-arm lane widths change lane offsets and stop-line positions only; vehicle behaviour does not depend on lane width. Opposite approaches at a signal still need equal lane counts (§4.2). Skewed geometry, three-arm junctions and U-turns are **exploratory**: modelled and checked for safety in the fast validation tier (validation §4.3; the long safety matrix is still to be run), not calibrated.
 
 ---
 
@@ -471,5 +471,11 @@ Values are the ones the guided UI offers: `Math.round(ratio × capacity / 10) ×
 | A13 | Exit convergence zones (V1.4) | strict arrival order; zone held 1.0 s after it is cleared; outer-lane zone margin 2 m | Multi-lane roundabout capacity and safety |
 | A14 | Keep-clear entry (V1.4) | entrant's length + 2 m free, ring vehicles below 2 m/s count as standing | Multi-lane roundabout entry capacity |
 | A15 | Inner-lane exit curve (V1.4) | 5 m arc | Multi-lane roundabout exit speed |
+| A16 | Compass slot bearing tolerance (V1.5) | within 30° of compass slot | Keeps arms in compass order; preserves turn definitions |
+| A17 | Neighbouring arms angular separation (V1.5) | ≥ 45° apart | Prevents arm bunching into one slot |
+| A18 | Skewed signal stop-line setback (V1.5) | s > (W_b + W_a \|cos θ\|) / \|sin θ\|, with ≥ 20 m remaining approach | Clearance of crossing carriageways on skewed junctions |
+| A19 | Roundabout mouth overlap geometry check (V1.5) | half-angle arcsin((W + s) / R) at R = outer radius + 4 m | Prevents overlapping entry carriageways and splitter islands |
+| A20 | AASHTO design minimum turning radii for U-turns (V1.5) | car/SUV/motorcycle 6.4 m, bus 11.5 m, truck 11.6 m | Rejects signal U-turns vehicles cannot physically make |
+| A21 | Signal U-turn geometry and yielding (V1.5) | half circle from lane 1 into kerb-side outgoing lane, lowest-priority yielding | Signal U-turn path and conflict resolution |
 
 These are inputs, not findings. Changing any of them changes results; the [configuration reference](configuration.md) shows which are user-adjustable.

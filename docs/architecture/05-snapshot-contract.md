@@ -60,7 +60,7 @@ Each entry in the `vehicles` array describes one vehicle at this instant.
 | 9 | `state` | `string` | ✅ | Current vehicle state (enum: `approaching`, `waiting`, `crossing`, `in_roundabout`, `exited`) | — | `"waiting"` |
 | 10 | `laneId` | `string` | ✅ | Current lane identifier | — | `"north_approach_lane_1"` |
 | 11 | `direction` | `string` | ✅ | Origin approach direction (enum: `north`, `south`, `east`, `west`) | — | `"north"` |
-| 12 | `turnIntent` | `string` | ✅ | Intended turn (enum: `left`, `straight`, `right`) | — | `"straight"` |
+| 12 | `turnIntent` | `string` | ✅ | Intended turn (enum: `left`, `straight`, `right`, `uturn` — V1.5 adds `uturn`) | — | `"straight"` |
 | 13 | `waitTime` | `number` | ✅ | Cumulative time this vehicle has spent waiting (speed < threshold) | seconds (s) | `12.3` |
 | 14 | `stopCount` | `integer` | ✅ | Number of times this vehicle has come to a complete stop | — | `2` |
 | 15 | `spawnTime` | `number` | ✅ | Simulation time when this vehicle was spawned | seconds (s) | `10.0` |
@@ -82,7 +82,7 @@ Fields 18–20 are additive and optional: snapshots and saved replays from befor
 | 2 | `centerX` | `number` | ✅ | X-coordinate of intersection center | meters (m) | `0.0` |
 | 3 | `centerY` | `number` | ✅ | Y-coordinate of intersection center | meters (m) | `0.0` |
 | 4 | `boundingRadius` | `number` | ✅ | Radius of the intersection's bounding circle | meters (m) | `25.0` |
-| 5 | `approaches` | `array<Approach>` | ✅ | List of approach arms | — | See below |
+| 5 | `approaches` | `array<Approach>` | ✅ | List of approach arms. In a 3-arm junction (V1.5), lists only the three existing arms (missing slot omitted). | — | See below |
 | 6 | `stopLineSetback` | `number` | ❌ | V1.1: distance from the conflict area to each signal stop line — 3.5 m, plus the longest vehicle class's length beyond 5 m when the mix has buses or trucks (design vehicle). Renderers draw the junction box from it. | meters (m) | `10.5` |
 
 ### Approach Object
@@ -93,6 +93,9 @@ Fields 18–20 are additive and optional: snapshots and saved replays from befor
 | 2 | `queueLength` | `integer` | ✅ | Number of vehicles currently queued on this approach | — | `5` |
 | 3 | `laneCount` | `integer` | ✅ | Number of lanes on this approach | — | `2` |
 | 4 | `lanePermittedTurns` | `array<array<string>>` | ❌ | V1.2: movements permitted from each incoming lane, lane 0 first (the lane arrows) | — | `[["left","straight"],["straight","right"]]` |
+| 5 | `bearing` | `number` | ❌ | V1.5: compass bearing of the approach arm (degrees clockwise from North, 0–360). Emitted when junction uses real-world geometry. | degrees (°) | `15.0` |
+| 6 | `laneWidth` | `number` | ❌ | V1.5: width of each lane on this approach. Emitted when junction uses real-world geometry. | meters (m) | `3.5` |
+| 7 | `stopLineDistance` | `number` | ❌ | V1.5: distance from junction center to this approach's stop line along its axis. Emitted when junction uses real-world geometry. | meters (m) | `18.4` |
 
 ---
 

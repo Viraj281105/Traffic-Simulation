@@ -1,6 +1,6 @@
 # Operations Guide
 
-> **Status:** Current · V1.0 · detailed runtime behaviour of `backend/src/main.py` and the frontend services.
+> **Status:** Current · V1.5 · detailed runtime behaviour of `backend/src/main.py` and the frontend services.
 > **Companions:** [API & WebSocket reference](api/README.md) (every route, inputs, outputs, errors) · [Deployment & operations](deployment/README.md) (architecture, verification, known issues) · [Reproducibility](research/reproducibility.md)
 
 This guide describes the behavior implemented by `backend/src/main.py` and the current frontend services. The interactive dashboard (guided comparison and single-strategy views) uses the live-session routes under `/api/simulation/*`; the versioned `/api/v1/*` routes are intended for programmatic runs and study analysis.
@@ -22,9 +22,9 @@ The request body is a scenario object. A minimal valid example is:
 }
 ```
 
-`roads.lanesPerApproach` on the versioned routes is a single integer applied to all four approaches (see `shared/schemas/config.schema.json`). Per-direction lane counts (`{"north": 2, "south": 2, ...}`) are not yet accepted by `POST /api/v1/configs/validate` or `POST /api/v1/simulations` — that object form is currently only produced internally by the legacy live dashboard routes (see [06-scenario-configuration-contract.md](architecture/06-scenario-configuration-contract.md#24-roads--road-configuration)).
+`roads.lanesPerApproach` specifies the baseline lane count across approaches. Individual approaches can override lanes (`lanes`, V1.2), approach length (`length`, V1.4), lane movements (`laneUse`, V1.4), compass bearing (`bearing`, V1.5), and lane width (`laneWidth`, V1.5) via `roads.approaches[]` (see [06-scenario-configuration-contract.md](architecture/06-scenario-configuration-contract.md#24-roads--road-configuration)). Scenario documents (`format: "urbanflow-scenario"`) can also be validated across strategies using `POST /api/v1/scenarios/validate` or compiled to strategy-specific engine configurations via `POST /api/v1/scenarios/compile`.
 
-Validate it with `POST /api/v1/configs/validate`, then create it with `POST /api/v1/simulations`. The response contains `simulationId`, `configId`, and `status`. Use the returned ID with:
+Validate engine configurations with `POST /api/v1/configs/validate`, then create the simulation with `POST /api/v1/simulations`. The response contains `simulationId`, `configId`, and `status`. Use the returned ID with:
 
 ```text
 POST /api/v1/simulations/{id}/control       {"action":"start|pause|resume|stop"}
