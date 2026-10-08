@@ -32,6 +32,8 @@ from src.vehicles.idm import IntelligentDriverModel
 from src.vehicles.pool import VehiclePool
 from src.vehicles.spawner import VehicleSpawner
 from src.vehicles.vehicle_types import design_vehicle_allowance, has_vehicle_mix
+from src.vehicles.stochastic_idm import StochasticIDM
+from src.metrics.deadlock_detector import DeadlockDetector
 
 logger = logging.getLogger(__name__)
 
@@ -123,13 +125,23 @@ class SimulationEngine:
             self.spawner = VehicleSpawner(self.config, self.network)
 
             veh_gen = self.config.get("vehicleGeneration", {})
-            self.idm = IntelligentDriverModel(
+            traffic_cfg = self.config.get("traffic", {})
+            is_unstructured = traffic_cfg.get("unstructuredTraffic", False)
+
+            idm_cls = StochasticIDM if is_unstructured else IntelligentDriverModel
+            self.idm = idm_cls(
                 max_acceleration=veh_gen.get("maxAcceleration", 2.0),
                 comfort_deceleration=veh_gen.get("comfortDeceleration", 3.0),
                 desired_time_headway=veh_gen.get("desiredTimeHeadway", 1.5),
                 minimum_gap=veh_gen.get("minimumGap", 2.0),
                 idm_delta=veh_gen.get("idmDelta", 4.0),
             )
+
+            if is_unstructured:
+                self.deadlock_detector = DeadlockDetector(self.clock, self.pool)
+                self.register_tick_callback(lambda: self.deadlock_detector.tick(self.config.get("simulation", {}).get("timeStep", 0.1)))
+            else:
+                self.deadlock_detector = None
 
         self._thread: Optional[threading.Thread] = None
         self._stop_event: threading.Event = threading.Event()

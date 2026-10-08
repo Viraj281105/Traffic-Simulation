@@ -322,6 +322,7 @@ export interface RunningMetrics {
   /** V1.3: how a signal used its green time after warm-up; null for a
    *  roundabout and during warm-up. */
   signalTiming?: SignalTiming | null;
+  deadlockInsight?: string | null;
 }
 
 // ── Vehicle counts ─────────────────────────────────────────────────────────

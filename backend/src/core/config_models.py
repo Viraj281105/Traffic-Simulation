@@ -52,6 +52,7 @@ class TrafficSection(BaseModel):
     directionalSplit: Optional[DirectionalSplit] = None
     turnProbabilities: Optional[TurnProbabilities] = None
     approaches: Optional[List[TrafficApproachItem]] = None
+    unstructuredTraffic: bool = Field(False)
 
 
 class IntersectionCenter(BaseModel):

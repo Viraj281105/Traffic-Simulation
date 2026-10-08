@@ -76,6 +76,7 @@ export interface SimulationConfigValues {
    *  backend runs this document and the flat fields above only mirror it
    *  for display (see scenario/scenarioModel.configValuesFromScenario). */
   scenario?: ScenarioDocument | null;
+  unstructuredTraffic: boolean;
 }
 
 /** Field-by-field equality, comparing the vehicle mix by value. */
@@ -126,6 +127,7 @@ export const DEFAULT_CONFIG_VALUES: SimulationConfigValues = {
   followUpTime: 2.5,
   nsGreenDuration: null,
   ewGreenDuration: null,
+  unstructuredTraffic: false,
 };
 
 export interface ScenarioPreset {
@@ -162,6 +164,7 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
       allRedDuration: 2,
       criticalGap: 3.8,
       followUpTime: 2.2,
+      unstructuredTraffic: false,
     },
   },
   {
@@ -180,6 +183,7 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
       allRedDuration: 2,
       criticalGap: 4.8,
       followUpTime: 3.0,
+      unstructuredTraffic: false,
     },
   },
   {
@@ -199,6 +203,7 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
       allRedDuration: 2,
       criticalGap: 4.2,
       followUpTime: 2.6,
+      unstructuredTraffic: false,
     },
   },
 ];
@@ -235,6 +240,7 @@ export interface DashboardScenarioPayload {
   /** V1.4: a scenario document; the backend then runs it and ignores the
    *  flat fields above (they still describe it, for older readers). */
   scenario?: ScenarioDocument;
+  unstructuredTraffic: boolean;
 }
 
 export function dashboardPayload(
@@ -278,6 +284,7 @@ export function dashboardPayload(
     ...(config.laneChanging === false ? { laneChanging: false as const } : {}),
     ...(isAdaptive(config) ? adaptivePayload(config.adaptive) : {}),
     ...(config.scenario ? { scenario: config.scenario } : {}),
+    unstructuredTraffic: config.unstructuredTraffic,
   };
 }
 

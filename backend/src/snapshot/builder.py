@@ -228,6 +228,9 @@ class SnapshotBuilder:
             self.engine.pool.collision_count,
         )
 
+        if getattr(self.engine, "deadlock_detector", None):
+            metrics_obj["deadlockInsight"] = self.engine.deadlock_detector.get_insight()
+
         # Map current queues for intersection object
         current_queues = metrics_obj["currentQueueLengths"]
         approaches_list = []

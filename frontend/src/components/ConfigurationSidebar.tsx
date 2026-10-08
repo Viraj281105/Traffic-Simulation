@@ -806,6 +806,24 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
               />
             </fieldset>
           )}
+
+          <fieldset className="config-section">
+            <legend className="config-section-title">Behavioral Models</legend>
+            <div className="config-checkbox-row" style={{ marginTop: '0.5rem' }}>
+              <input
+                id="toggle-unstructured"
+                type="checkbox"
+                checked={form.unstructuredTraffic}
+                onChange={(e) => { handleChange("unstructuredTraffic", e.target.checked); }}
+              />
+              <label htmlFor="toggle-unstructured">
+                Enable Real-World / Unstructured Traffic
+              </label>
+            </div>
+            <p className="config-hint" style={{ marginTop: '0.25rem' }}>
+              Introduces stochastic driver imperfections (variable reaction times, hesitation, aggression). Deadlocks may naturally emerge.
+            </p>
+          </fieldset>
         </form>
 
         <div className="config-sidebar-footer">

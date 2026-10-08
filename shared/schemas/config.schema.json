@@ -42,6 +42,7 @@
           "required": ["left", "straight", "right"],
           "default": { "left": 0.2, "straight": 0.6, "right": 0.2 }
         },
+
         "approaches": {
           "type": "array",
           "description": "Per-approach traffic (V1.4). turnProbabilities overrides traffic.turnProbabilities for that approach (must sum to 1); vehicleMix overrides vehicleGeneration.vehicleMix for that approach (must sum to 1). How busy each approach is stays in arrivalRate x directionalSplit. Each approach may appear once. See docs/architecture/06-scenario-configuration-contract.md.",
@@ -80,6 +81,10 @@
             "required": ["direction"],
             "additionalProperties": false
           }
+        },
+        "unstructuredTraffic": {
+          "type": "boolean",
+          "default": false
         }
       }
     },

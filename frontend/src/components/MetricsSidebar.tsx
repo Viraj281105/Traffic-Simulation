@@ -199,6 +199,13 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
       {replayName && <p className="replay-note">{replayName}</p>}
       <WarmupNotice snapshot={snapshot} />
 
+      {m?.deadlockInsight && (
+        <div className="config-alert config-alert-warning" style={{ margin: "1rem 0" }}>
+          <span aria-hidden="true">⚠️</span>
+          <span><strong>Deadlock Status:</strong> {m.deadlockInsight}</span>
+        </div>
+      )}
+
       {partial?.vehicleCounts !== undefined && snapshot && (
         <section className="sidebar-section" aria-label="Vehicles now">
           <h3 className="section-title">Vehicles now</h3>
