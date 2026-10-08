@@ -224,7 +224,7 @@ class SimulationEngine:
                     break
 
             elapsed = time.time() - start_time
-            target_sleep = self.clock.time_step / (getattr(self.config.simulation, 'timeScale', 1.0) * self.speed_multiplier)
+            target_sleep = self.clock.time_step / (self.config.get("simulation", {}).get("timeScale", 1.0) * self.speed_multiplier)
             sleep_time = max(0.0, target_sleep - elapsed)
             time.sleep(sleep_time)
 

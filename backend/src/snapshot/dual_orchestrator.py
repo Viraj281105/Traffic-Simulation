@@ -237,7 +237,7 @@ class DualSimulationOrchestrator:
                     break
 
             elapsed = time.time() - start_time
-            target_sleep = self.clock_signal.time_step / (getattr(self.engine_signal.config.simulation, 'timeScale', 1.0) * self.speed_multiplier)
+            target_sleep = self.clock_signal.time_step / (self.engine_signal.config.get("simulation", {}).get("timeScale", 1.0) * self.speed_multiplier)
             sleep_time = max(0.0, target_sleep - elapsed)
             time.sleep(sleep_time)
 
