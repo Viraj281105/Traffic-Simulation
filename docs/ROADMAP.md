@@ -1,15 +1,15 @@
 # UrbanFlow Roadmap
 
 > **This is the single authoritative roadmap.** It supersedes every earlier roadmap, deferred-features log and V1.1/V2/V3 plan in this repository (preserved in git history).
-> **Current version:** V1.3 — V1.1 (vehicle types), V1.2 (lane modelling) and V1.3 (adaptive signal control) **COMPLETE** · **V1.4** (advanced roundabouts + full scenario configuration) **implemented on `viraj-dev`, under review** · **Last updated:** 2026-10-07
+> **Current version:** V1.3 (shipped baseline) · **V1.4** (advanced roundabouts + full scenario configuration) and **V1.5** (real-world junction modelling) **IMPLEMENTED on `viraj-dev`, under review** · **Next upcoming:** V1.6 (safety & environmental analysis) · **Last updated:** 2026-10-08
 > **Beyond V2.0:** [Future Scope](future-scope/future_scope.md) — post-V2.0 research frontiers only.
 
 | Status | Meaning |
 | --- | --- |
 | ✅ **COMPLETE** | Shipped, documented, tested |
-| 🟢 **CURRENT** | The version in use today (V1.3) |
-| 🔜 **PLANNED / UPCOMING** | Next in line; work starts imminently (V1.4) |
-| 🗓️ **PLANNED** | Scheduled in the V1.x → V2.0 roadmap |
+| 🟢 **CURRENT / IMPLEMENTED** | The version in use / implemented on `viraj-dev` under review (V1.4, V1.5) |
+| 🔜 **PLANNED / UPCOMING** | Next in line; work starts imminently (V1.6) |
+| 🗓️ **PLANNED** | Scheduled in the V1.x → V2.0 roadmap (V1.7+) |
 | 🔭 **FUTURE SCOPE** | After V2.0 — not part of this roadmap |
 
 ---
@@ -100,8 +100,8 @@ gantt
     V1.4 Roundabouts + Scenario Config       :active,  v14, 2026-10-07, 1d
     V1.5 Real-World Junction Modelling       :active,  v15, 2026-10-07, 1d
     section Upcoming
-    section Planned
     V1.6 Safety & Environmental Analysis     :         v16, 2026-11-13, 7d
+    section Planned
     V1.7 Scenario / What-If Planning         :         v17, 2026-11-20, 8d
     V1.8–V1.9 Calibration & Network Foundations :      v18, 2026-11-28, 10d
     V2.0 Decision-Support Platform           :         v20, 2026-12-08, 10d
@@ -115,7 +115,7 @@ gantt
 | W12 | Oct 6 | V1.3 | Adaptive Signal Control | ✅ COMPLETE (ahead of the W14 slot) |
 | W12 | Oct 7 | V1.4 | Advanced Roundabout Modelling + Full Scenario Configuration | 🟢 IMPLEMENTED, under review (ahead of the W15 slot) |
 | W12 | Oct 7 | V1.5 | Real-World Junction Modelling | 🟢 IMPLEMENTED, under review (ahead of the W16 slot) |
-| W17 | Nov 13 – Nov 19 | V1.6 | Safety & Environmental Analysis | 🗓️ PLANNED |
+| W17 | Nov 13 – Nov 19 | V1.6 | Safety & Environmental Analysis | 🔜 UPCOMING |
 | W18 | Nov 20 – Nov 27 | V1.7 | Scenario / What-If Planning | 🗓️ PLANNED |
 | W19 | Nov 28 – Dec 7 | V1.8 / V1.9 | Calibration & Network-Level Foundations | 🗓️ PLANNED |
 | W20 | Dec 8 – Dec 17 | V2.0 | UrbanFlow Decision-Support Platform | 🗓️ PLANNED |
@@ -220,7 +220,7 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 
 *Movements.* An explicit **U-turn** movement, only where a scenario's lane use puts it: a half circle into the kerb lane at a signal (released with the lefts, yielding to all, rejected unless its radius meets the AASHTO design turning radius of every class using it), the inner ring lane at a roundabout. Movements, lanes and demand that would lead into a missing arm are rejected, never re-routed.
 
-*Scenario, validation, comparison.* Optional document fields (`approaches.<dir>: null`, `bearing`, `laneWidth`, `"uturn"`, `turning.uturn`) — V1.4 documents compile and fingerprint unchanged (pinned against values recorded with the V1.4 code). Every rejection says what, where, why and what is valid ([contract §9](architecture/06-scenario-configuration-contract.md#9-real-world-junctions-v15)). The comparison pipeline is unchanged in kind — same scenario, different control — and reports approach-level results for the arms that exist. Frontend: the V1.4 builder gains "Which roads meet here?", U-turn arrows and shares, and per-arm bearing and lane width under Advanced; the plan preview and both live maps draw arms on their real bearings.
+*Scenario, validation, comparison.* Optional document fields (`approaches.<dir>: null`, `bearing`, `laneWidth`, `"uturn"`, `turning.uturn`) — V1.4 documents compile and fingerprint unchanged (pinned against values recorded with the V1.4 code). Every rejection says what, where, why and what is valid ([contract §9](architecture/06-scenario-configuration-contract.md#9-real-world-junctions-v15)). Fast-tier safety validation passed with 0 contacts across all tested shapes, exact reproduction and legacy compatibility; the 60-run slow safety matrix and the full slow regression suite were **not run** for V1.5 and remain pending ([validation §4.3](research/validation.md#43-v15-real-world-junction-validation-2026-10-07)). The comparison pipeline is unchanged in kind — same scenario, different control — and reports approach-level results for the arms that exist. Frontend: the V1.4 builder gains "Which roads meet here?", U-turn arrows and shares, and per-arm bearing and lane width under Advanced; the plan preview and both live maps draw arms on their real bearings.
 
 *Import foundation.* `assign_slots()` places measured arm bearings on compass slots or explains why it cannot — the step a future OpenStreetMap/GIS importer needs. No importer is part of V1.5.
 

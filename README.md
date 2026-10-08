@@ -8,7 +8,7 @@
 
 | Version | Status | Next | Stack |
 | :-: | :-: | :-: | :-: |
-| **V1.3** | ✅ V1.0 deployed on AWS · V1.1 vehicle types, V1.2 lane modelling and V1.3 adaptive signal control complete | V1.4 Advanced roundabout modelling | Python · FastAPI · React · TypeScript · Docker · AWS EC2 |
+| **V1.5** | ✅ V1.0 deployed on AWS · V1.1–V1.3 complete · V1.4 & V1.5 implemented on `viraj-dev` (under review) | V1.6 Safety & environmental analysis | Python · FastAPI · React · TypeScript · Docker · AWS EC2 |
 
 </div>
 
@@ -65,7 +65,7 @@ flowchart LR
 | **Reproducibility** | Every saved run records configuration, seed, timing, code version and Python version · server-side re-run with discrepancy and limitation reporting · JSON/CSV export · compare up to six saved runs |
 | **Platform** | FastAPI REST + WebSocket streaming (≈ 10 Hz) · per-visitor live sessions · SQLite (WAL) persistence · optional Cognito sign-in · Docker Compose · CI with nightly regression |
 
-Since V1.1–V1.3 the simulator also models cars, SUVs, buses, trucks and motorcycles, gradual lane changing (mixed-traffic results are exploratory until calibrated), and a signal that responds to traffic (adaptive, vehicle-actuated) alongside the fixed timetable. What it does **not** model yet — multi-lane roundabout circulation, real junction layouts, crash risk, emissions, field calibration — is listed with its planned version in [Validation & evidence](docs/research/validation.md#5-known-limitations).
+Since V1.1–V1.5 the simulator also models cars, SUVs, buses, trucks and motorcycles, gradual lane changing (mixed-traffic results are exploratory until calibrated), a signal that responds to traffic (adaptive, vehicle-actuated) alongside the fixed timetable, multi-lane roundabout circulation with exit convergence zones (V1.4), and real-world 3- or 4-arm junctions with configurable bearings, per-arm lane widths and U-turns (V1.5). What it does **not** model yet — crash-risk prediction, emissions, field calibration — is listed with its planned version in [Validation & evidence](docs/research/validation.md#5-known-limitations).
 
 ---
 
@@ -219,9 +219,9 @@ flowchart LR
 | W12 · Oct 5–6 | **V1.1** | Different Vehicle Types | ✅ Complete |
 | W12 · Oct 5–6 | **V1.2** | Advanced Lane Modelling | ✅ Complete |
 | W12 · Oct 6 | **V1.3** | Adaptive Signal Control | ✅ Complete |
-| W15 · Oct 28–Nov 4 | **V1.4** | Advanced Roundabout Modelling | 🔜 Upcoming |
-| W16 · Nov 5–12 | V1.5 | Real-World Junction Modelling | Planned |
-| W17 · Nov 13–19 | V1.6 | Safety & Environmental Analysis | Planned |
+| W12 · Oct 7 | **V1.4** | Advanced Roundabout Modelling + Scenario Config | 🟢 Implemented (under review) |
+| W12 · Oct 7 | **V1.5** | Real-World Junction Modelling | 🟢 Implemented (under review) |
+| W17 · Nov 13–19 | **V1.6** | Safety & Environmental Analysis | 🔜 Upcoming |
 | W18 · Nov 20–27 | V1.7 | Scenario / What-If Planning | Planned |
 | W19 · Nov 28–Dec 7 | V1.8 / V1.9 | Calibration & Network-Level Foundations | Planned |
 | W20 · Dec 8–17 | **V2.0** | UrbanFlow Decision-Support Platform | Planned |

@@ -70,7 +70,7 @@ Tracked per vehicle (`backend/src/vehicles/vehicle.py`) and aggregated into the 
 
 | Metric | Definition & calculation | Unit | Interpretation | Limitations | Used in |
 | --- | --- | --- | --- | --- | --- |
-| `averageQueueLength` | Mean over the four approaches of each approach's time-averaged queue | veh | "Typical queue on one approach" | Counts queued vehicles, not metres | Guided card; Monte Carlo |
+| `averageQueueLength` | Mean over existing approaches of each approach's time-averaged queue | veh | "Typical queue on one approach" | Counts queued vehicles, not metres | Guided card; Monte Carlo |
 | `maxQueueLength` | Largest single-approach queue seen | veh | Worst back-up | Extreme value, noisy | Guided card |
 | `currentQueueLengths` | Queue per approach this tick | veh | Live map/labels | Instantaneous | Snapshots |
 | `activeAverageQueueLength` | Mean total queue over ticks where any queue existed | veh | Queue size *when* there is one | — | Specialist |
@@ -105,6 +105,14 @@ Tracked per vehicle (`backend/src/vehicles/vehicle.py`) and aggregated into the 
 | `masterEfficiencyScore` | Fixed-weight composite of throughput rate (+30), average wait (−25), stops per vehicle (−15), fairness (+20), idle-green loss (−10), normalised to 0–100 | 0–100 | Valid only for comparing runs of the **same** geometry. Never shown signal-vs-roundabout side by side, because idle-green loss is signal-only and the throughput term is normalised to a fixed ceiling. `null` until a vehicle has exited. |
 
 The specialist layer also offers a **user-weighted scoring panel** (`WeightedScoringPanel.tsx`), hidden until warm-up is over. It is an exploration aid, not a verdict.
+
+### 2.7 Breakdowns and signal timing (V1.1, V1.3, V1.4/V1.5)
+
+| Metric | Definition & calculation | Unit | Interpretation | Limitations | Used in |
+| --- | --- | --- | --- | --- | --- |
+| `approachBreakdown` | Map of `{exited, averageDelay, active, averageQueueLength, maxQueueLength}` per existing approach (`north`, `south`, `east`, `west`) | mixed | Approach-level delay, throughput, and queue burden | Lists only existing approaches (3 or 4) | Specialist breakdown |
+| `vehicleTypeBreakdown` | Map of `{exited, share, averageDelay, active}` per vehicle class (`car`, `suv`, `bus`, `truck`, `motorcycle`) | mixed | Class-level delay and modal split | Only includes classes present in the run | Specialist breakdown |
+| `signalTiming` | `{signalControl, phaseChanges, greenSeconds, averageGreenDuration, unusedGreenSeconds, greenUtilisation, detectionDistance}` | mixed | Green time allocation, phase changes, and unused green time | **Signal only** (`null` for roundabout or pre-warmup) | Specialist signal diagnostics |
 
 ---
 

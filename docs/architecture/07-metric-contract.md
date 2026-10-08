@@ -122,7 +122,7 @@ $$
 | Statistic | Formula | Description |
 |-----------|---------|-------------|
 | Current queue per direction | $Q_d(t)$ | Instantaneous queue length per approach |
-| Average queue length | $\bar{Q} = \frac{1}{4} \sum_{d} \bar{Q}_d$ | Mean across all 4 approaches, time-averaged |
+| Average queue length | $\bar{Q} = \frac{1}{|D|} \sum_{d \in D} \bar{Q}_d$ | Mean across existing approaches, time-averaged |
 | Maximum queue length | $Q_{\max} = \max_{d,t} Q_d(t)$ | Worst queue observed across all directions and times |
 
 **Edge Cases:**
@@ -567,6 +567,43 @@ Measurement-only diagnostics (`backend/src/metrics/definitions/safety_conflicts.
 
 `traffic.totalVehicles` caps the vehicles generated per run (default 200; schema maximum 5000). Once reached, generation stops and later demand is not offered, so `totalVehiclesSpawned` is no longer the offered demand. `vehicleLimitReached` is `true` once `totalVehiclesSpawned ≥ vehicleLimit`. The dashboard compiler and the study runners size the limit to the scenario (`demand_vehicle_limit`: expected arrivals × 1.5 + 50, bounded to [200, 5000]) unless the caller sets one; any run that still reaches its limit is flagged and, in sweeps, marked *inconclusive*.
 
+### 7.11 Vehicle Type Breakdown (`vehicleTypeBreakdown`, V1.1)
+
+Per vehicle class breakdown (`backend/src/metrics/definitions/vehicle_mix.py`). Returns a dictionary mapping each active or exited vehicle class (`car`, `suv`, `bus`, `truck`, `motorcycle`) to:
+
+- `exited`: count of post-warmup exited vehicles of this class
+- `share`: proportion of total post-warmup exited vehicles (0.0 to 1.0)
+- `averageDelay`: mean delay (seconds) of exited vehicles of this class
+- `active`: count of currently active vehicles of this class
+
+Classes not present in the vehicle mix are omitted.
+
+### 7.12 Approach Breakdown (`approachBreakdown`, V1.4/V1.5)
+
+Per approach breakdown (`backend/src/metrics/definitions/approach_breakdown.py`). Returns a dictionary mapping each existing approach direction (`north`, `south`, `east`, `west`) to:
+
+- `exited`: count of post-warmup vehicles that entered via this approach and have exited
+- `averageDelay`: mean delay (seconds) for exited vehicles from this approach
+- `active`: count of currently active vehicles that originated on this approach
+- `averageQueueLength`: time-averaged queue length on this approach
+- `maxQueueLength`: maximum queue length observed on this approach
+
+In a 3-arm junction (V1.5), only the three configured approaches are included.
+
+### 7.13 Signal Timing Metrics (`signalTiming`, V1.3)
+
+Operational tracking of signal green utilization (`backend/src/metrics/definitions/signal_timing.py`). For signalized intersections post-warmup, returns:
+
+- `signalControl`: `"fixed_time"` or `"adaptive"`
+- `phaseChanges`: cumulative count of phase changes
+- `greenSeconds`: cumulative seconds of green signal displayed
+- `averageGreenDuration`: mean duration of completed green phases (seconds), or `null`
+- `unusedGreenSeconds`: cumulative green seconds during which the green approach had zero throughput while another phase was calling
+- `greenUtilisation`: fraction of green time actively serving vehicles ($1.0 - \text{unusedGreenSeconds} / \text{greenSeconds}$), or `null`
+- `detectionDistance`: detector setback distance used for measurement (30.0 m)
+
+For roundabouts or prior to post-warmup signal operation, `signalTiming` is `null`.
+
 ---
 
 ## 8. Metric Summary Table
@@ -650,7 +687,25 @@ The metrics output is a flat object, for example (abbreviated — not every key 
   "collisionCount": 0,
   "masterEfficiencyScore": 81.0,
   "vehicleLimit": 200,
-  "vehicleLimitReached": false
+  "vehicleLimitReached": false,
+  "vehicleTypeBreakdown": {
+    "car": { "exited": 120, "share": 0.65, "averageDelay": 22.1, "active": 8 }
+  },
+  "approachBreakdown": {
+    "north": { "exited": 50, "averageDelay": 21.0, "active": 3, "averageQueueLength": 3.8, "maxQueueLength": 8 },
+    "south": { "exited": 45, "averageDelay": 24.5, "active": 4, "averageQueueLength": 4.1, "maxQueueLength": 9 },
+    "east": { "exited": 45, "averageDelay": 22.8, "active": 3, "averageQueueLength": 4.5, "maxQueueLength": 10 },
+    "west": { "exited": 45, "averageDelay": 25.2, "active": 4, "averageQueueLength": 4.6, "maxQueueLength": 12 }
+  },
+  "signalTiming": {
+    "signalControl": "fixed_time",
+    "phaseChanges": 18,
+    "greenSeconds": 160.0,
+    "averageGreenDuration": 30.0,
+    "unusedGreenSeconds": 12.0,
+    "greenUtilisation": 0.925,
+    "detectionDistance": 30.0
+  }
 }
 ```
 
