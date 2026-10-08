@@ -1,0 +1,156 @@
+name: Production EC2 Deployment
+
+# ==============================================================================
+# Pipeline: main -> merge into deployment -> GitHub Actions -> SSH to EC2 ->
+#           pull deployment -> rebuild Docker containers -> restart services ->
+#           health check deployment.
+# ==============================================================================
+
+on:
+  push:
+    branches:
+      - deployment
+  workflow_dispatch:
+    inputs:
+      target_commit:
+        description: "Git commit SHA to deploy (leave blank for latest commit on deployment branch)"
+        required: false
+        default: ""
+
+# Prevent multiple deployments from racing against the same EC2 instance.
+# cancel-in-progress: false ensures that active deployments run to completion
+# without leaving EC2 containers in an interrupted or inconsistent state.
+concurrency:
+  group: production-ec2-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy-to-ec2:
+    name: Deploy to AWS EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate Required Secrets
+        shell: bash
+        run: |
+          MISSING_SECRETS=""
+          if [ -z "${{ secrets.EC2_HOST }}" ]; then
+            MISSING_SECRETS="${MISSING_SECRETS} EC2_HOST"
+          fi
+          if [ -z "${{ secrets.EC2_USER }}" ]; then
+            MISSING_SECRETS="${MISSING_SECRETS} EC2_USER"
+          fi
+          if [ -z "${{ secrets.EC2_SSH_PRIVATE_KEY }}" ]; then
+            MISSING_SECRETS="${MISSING_SECRETS} EC2_SSH_PRIVATE_KEY"
+          fi
+
+          if [ -n "$MISSING_SECRETS" ]; then
+            echo "::error::Missing required GitHub Actions Secret(s):${MISSING_SECRETS}"
+            echo "Please configure the required secrets under: Repository -> Settings -> Secrets and variables -> Actions"
+            exit 1
+          fi
+          echo "All required GitHub Actions secrets are present."
+
+      - name: Checkout Code
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.target_commit || github.sha }}
+
+      - name: Setup SSH Authentication
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_PORT: ${{ secrets.EC2_SSH_PORT || '22' }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          # Write private key with normalized line endings and secure permissions
+          echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/ec2_deploy_key
+          chmod 600 ~/.ssh/ec2_deploy_key
+
+          # Fetch and register EC2 host public key to avoid interactive prompt
+          echo "Scanning host keys for $EC2_HOST:$EC2_PORT..."
+          ssh-keyscan -p "$EC2_PORT" -H "$EC2_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Verify SSH Connectivity
+        shell: bash
+        env:
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_PORT: ${{ secrets.EC2_SSH_PORT || '22' }}
+        run: |
+          echo "Testing SSH connectivity to ${EC2_USER}@${EC2_HOST}:${EC2_PORT}..."
+          if ! ssh -i ~/.ssh/ec2_deploy_key \
+                  -p "$EC2_PORT" \
+                  -o BatchMode=yes \
+                  -o ConnectTimeout=15 \
+                  "${EC2_USER}@${EC2_HOST}" \
+                  "echo 'SSH connection verified. Hostname:' \$(hostname)"; then
+            echo "::error::Failed to establish SSH connection to EC2."
+            echo "Verify that:"
+            echo "  1. EC2 instance is running and has a reachable public IP."
+            echo "  2. EC2_HOST, EC2_USER, and EC2_SSH_PRIVATE_KEY match the target instance."
+            echo "  3. Inbound port 22 is permitted in the EC2 Security Group."
+            exit 1
+          fi
+
+      - name: Transfer Deployment Script to EC2
+        shell: bash
+        env:
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_PORT: ${{ secrets.EC2_SSH_PORT || '22' }}
+        run: |
+          echo "Transferring scripts/deploy-ec2.sh to EC2 /tmp/deploy-ec2.sh..."
+          scp -i ~/.ssh/ec2_deploy_key \
+              -P "$EC2_PORT" \
+              -o BatchMode=yes \
+              scripts/deploy-ec2.sh \
+              "${EC2_USER}@${EC2_HOST}:/tmp/deploy-ec2.sh"
+
+          ssh -i ~/.ssh/ec2_deploy_key \
+              -p "$EC2_PORT" \
+              -o BatchMode=yes \
+              "${EC2_USER}@${EC2_HOST}" \
+              "chmod +x /tmp/deploy-ec2.sh"
+
+      - name: Execute Deployment & Verification
+        shell: bash
+        env:
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_PORT: ${{ secrets.EC2_SSH_PORT || '22' }}
+          DEPLOY_PATH: ${{ secrets.EC2_DEPLOY_PATH || '~/Traffic-Simulation' }}
+          TARGET_COMMIT: ${{ inputs.target_commit || github.sha }}
+        run: |
+          echo "Triggering production deployment on EC2..."
+          echo "Target Commit: ${TARGET_COMMIT}"
+          echo "Repository Directory: ${DEPLOY_PATH}"
+
+          ssh -i ~/.ssh/ec2_deploy_key \
+              -p "$EC2_PORT" \
+              -o BatchMode=yes \
+              "${EC2_USER}@${EC2_HOST}" \
+              "bash /tmp/deploy-ec2.sh --commit '${TARGET_COMMIT}' --repo-dir '${DEPLOY_PATH}'"
+
+      - name: Cleanup SSH Key & Remote Artifacts
+        if: always()
+        shell: bash
+        env:
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_PORT: ${{ secrets.EC2_SSH_PORT || '22' }}
+        run: |
+          if [ -f ~/.ssh/ec2_deploy_key ]; then
+            ssh -i ~/.ssh/ec2_deploy_key \
+                -p "$EC2_PORT" \
+                -o BatchMode=yes \
+                -o ConnectTimeout=5 \
+                "${EC2_USER}@${EC2_HOST}" \
+                "rm -f /tmp/deploy-ec2.sh" 2>/dev/null || true
+            rm -f ~/.ssh/ec2_deploy_key
+          fi
+          echo "Temporary deployment artifacts cleaned up."

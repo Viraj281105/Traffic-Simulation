@@ -1,7 +1,7 @@
 # Deployment & Operations
 
 > **Status:** Current · V1.0 (AWS cloud deployment milestone) · verified against `docker-compose.yml`, `docker-compose.dev.yml`, `backend/Dockerfile`, `frontend/Dockerfile`, `frontend/templates/default.conf.template`, `start.ps1` and `backend/src/main.py`
-> **Step-by-step runbook:** [AWS EC2 deployment runbook](AWS_FREE_TIER_DEPLOYMENT.md) · **Day-to-day behaviour:** [Operations guide](../operations.md)
+> **Step-by-step runbook:** [AWS EC2 deployment runbook](AWS_FREE_TIER_DEPLOYMENT.md) · **Automated CI/CD:** [Production CI/CD setup](production-cicd-setup.md) · **Day-to-day behaviour:** [Operations guide](../operations.md)
 
 ---
 
@@ -115,6 +115,14 @@ GIT_COMMIT=$(git rev-parse HEAD) docker compose up -d --build
 ```
 
 Only images whose inputs changed are rebuilt; data in `traffic_data` is untouched.
+
+### Automated CI/CD (GitHub Actions)
+
+Production deployments are automated via GitHub Actions (`.github/workflows/deploy.yml`):
+1. Developers merge tested changes from `main` into the dedicated `deployment` branch.
+2. GitHub Actions connects securely to EC2 via SSH and executes `scripts/deploy-ec2.sh`.
+3. The stack is rebuilt, restarted, and verified against `/health` and `/api/version` automatically with zero manual SSH required.
+4. See the full [Khushi CI/CD setup & handoff guide](production-cicd-setup.md).
 
 ---
 
