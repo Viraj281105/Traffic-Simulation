@@ -20,6 +20,7 @@ export const VIEW_ROUTES = {
   volume: "/app/volume",
   validation: "/app/validation",
   research: "/app/research",
+  admin: "/app/admin",
 } as const;
 
 export type RoutedView = keyof typeof VIEW_ROUTES;

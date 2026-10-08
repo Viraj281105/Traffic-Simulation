@@ -155,6 +155,33 @@ def init_db() -> None:
     if "email" not in ss_cols:
         cursor.execute("ALTER TABLE sweep_sessions ADD COLUMN email TEXT;")
 
+    # 6. Users table — lightweight registry of everyone who has logged in via Cognito.
+    #    `sub` is the immutable Cognito identifier (never changes even if email changes).
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS users (
+            sub TEXT PRIMARY KEY,
+            email TEXT,
+            username TEXT,
+            first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+    )
+
+    # Safe migration for users table
+    cursor.execute("PRAGMA table_info(users);")
+    u_cols = {row[1] for row in cursor.fetchall()}
+    if "username" not in u_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN username TEXT;")
+    if "last_seen" not in u_cols:
+        cursor.execute(
+            "ALTER TABLE users ADD COLUMN last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP;"
+        )
+
+    # Index for fast lookup by email
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);")
+
     conn.commit()
     conn.close()
 
