@@ -32,7 +32,9 @@ from src.networks.validate import parse_network, validate_network
 from src.planning.models import PlanningStudy
 
 
-def _calibration_record(study: PlanningStudy, errors: List[str]) -> Optional[Dict[str, Any]]:
+def _calibration_record(
+    study: PlanningStudy, errors: List[str]
+) -> Optional[Dict[str, Any]]:
     if study.calibration is None:
         return None
     try:
