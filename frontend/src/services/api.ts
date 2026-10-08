@@ -80,6 +80,16 @@ export async function pauseDualSimulation(): Promise<void> {
   await post("/api/simulation/dual/pause");
 }
 
+/** Set the speed multiplier for the live simulation engine. */
+export async function setSimulationSpeed(multiplier: number): Promise<void> {
+  await post("/api/simulation/speed", { multiplier });
+}
+
+/** Set the speed multiplier for the dual simulation engine. */
+export async function setDualSimulationSpeed(multiplier: number): Promise<void> {
+  await post("/api/simulation/dual/speed", { multiplier });
+}
+
 /** Send new configuration to backend. */
 export async function updateSimulationConfig(
   config: DashboardScenarioPayload,

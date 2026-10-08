@@ -69,7 +69,7 @@ import {
   dashboardPayload,
   sameConfigValues,
 } from "./types/config";
-import { saveReplay, updateSimulationConfig } from "./services/api";
+import { saveReplay, updateSimulationConfig, setSimulationSpeed, setDualSimulationSpeed } from "./services/api";
 import { approachLanes } from "./scenario/scenarioModel";
 import { hasResults, sideSummary } from "./metrics/plainLanguage";
 import type {
@@ -324,6 +324,7 @@ function Dashboard({
   };
 
   const [activeReplay, setActiveReplay] = useState<SavedReplay | null>(null);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [toast, setToast] = useState<{
     message: string;
@@ -590,10 +591,20 @@ function Dashboard({
   const handleStop = () => {
     randomizeSeed();
     setActiveReplay(null);
+    setPlaybackSpeed(1);
     if (viewMode === "single") {
       singleReset().catch(() => {});
     } else {
       stop().catch(() => {});
+    }
+  };
+
+  const handleSpeedChange = (speed: number) => {
+    setPlaybackSpeed(speed);
+    if (viewMode === "single") {
+      setSimulationSpeed(speed).catch(() => {});
+    } else {
+      setDualSimulationSpeed(speed).catch(() => {});
     }
   };
 
@@ -1166,6 +1177,8 @@ function Dashboard({
             onPlay={handlePlay}
             onPause={handlePause}
             onStop={handleStop}
+            playbackSpeed={playbackSpeed}
+            onSpeedChange={handleSpeedChange}
             simple={!isSingle}
             durationSeconds={duration}
           />

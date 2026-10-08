@@ -9,6 +9,7 @@ class SimulationSection(BaseModel):
     warmupTime: float = Field(30.0, ge=0)
     randomSeed: Optional[int] = Field(None, ge=0)
     snapshotFrequency: float = Field(10.0, gt=0, le=60)
+    timeScale: float = Field(1.0, gt=0, le=10.0)
 
 
 class DirectionalSplit(BaseModel):

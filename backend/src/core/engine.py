@@ -50,6 +50,7 @@ class SimulationEngine:
         self.clock: Clock = clock
         self.duration: float = duration
         self.config: Dict[str, Any] = config if config is not None else {}
+        self.speed_multiplier: float = 1.0
 
         self.status: SimulationStatus = SimulationStatus.INITIALIZED
 
@@ -223,7 +224,8 @@ class SimulationEngine:
                     break
 
             elapsed = time.time() - start_time
-            sleep_time = max(0.0, self.clock.time_step - elapsed)
+            target_sleep = self.clock.time_step / (getattr(self.config.simulation, 'timeScale', 1.0) * self.speed_multiplier)
+            sleep_time = max(0.0, target_sleep - elapsed)
             time.sleep(sleep_time)
 
     def pause(self) -> None:

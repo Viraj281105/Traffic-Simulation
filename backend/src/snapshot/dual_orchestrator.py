@@ -21,6 +21,7 @@ class DualSimulationOrchestrator:
 
     def __init__(self, config: Dict[str, Any]) -> None:
         self.config = config
+        self.speed_multiplier = 1.0
 
         # Make deep copies of the configuration for both instances
         self.config_signal = json.loads(json.dumps(config))
@@ -236,7 +237,8 @@ class DualSimulationOrchestrator:
                     break
 
             elapsed = time.time() - start_time
-            sleep_time = max(0.0, self.clock_signal.time_step - elapsed)
+            target_sleep = self.clock_signal.time_step / (getattr(self.engine_signal.config.simulation, 'timeScale', 1.0) * self.speed_multiplier)
+            sleep_time = max(0.0, target_sleep - elapsed)
             time.sleep(sleep_time)
 
     def resume(self) -> None:

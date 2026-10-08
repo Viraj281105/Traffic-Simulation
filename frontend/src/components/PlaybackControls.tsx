@@ -14,6 +14,8 @@ interface PlaybackControlsProps {
   simple?: boolean;
   /** Configured run length, shown in simple mode. */
   durationSeconds?: number;
+  playbackSpeed?: number;
+  onSpeedChange?: (speed: number) => void;
 }
 
 const STATUS_WORDS: Record<string, string> = {
@@ -36,6 +38,8 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   disabled = false,
   simple = false,
   durationSeconds,
+  playbackSpeed = 1,
+  onSpeedChange,
 }) => {
   const simTime = snapshot?.timestamp ?? 0;
   const tick = snapshot?.tick ?? 0;
@@ -106,6 +110,23 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           <RotateCcw size={15} aria-hidden="true" className="pb-icon" />
           {simple ? "Start over" : "Reset"}
         </button>
+        {onSpeedChange && (
+          <div className="pb-speed-controls" style={{ display: "flex", gap: "2px", marginLeft: "10px" }}>
+            {[1, 2, 4].map((speed) => (
+              <button
+                key={speed}
+                type="button"
+                className={`pb-btn pb-secondary ${playbackSpeed === speed ? "active" : ""}`}
+                onClick={() => { onSpeedChange(speed); }}
+                disabled={disabled}
+                title={`Run at ${String(speed)}x speed`}
+                style={{ minWidth: "40px", padding: "0 8px" }}
+              >
+                {speed}x
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {simple ? (
