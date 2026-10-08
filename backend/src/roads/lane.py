@@ -73,6 +73,16 @@ class Lane:
 
         self._vehicles: List[Any] = []
 
+        # Explicit lane identity (V1.2), set by RoadNetwork for the lanes it
+        # builds: which approach the lane belongs to, its index across that
+        # approach (0 = next to the centreline, i.e. the left-most lane of an
+        # incoming carriageway in right-hand traffic), and its role
+        # ("incoming", "outgoing" or "connection"). None/"" for hand-built
+        # lanes, which every consumer must tolerate.
+        self.approach: Optional[Any] = None
+        self.index: Optional[int] = None
+        self.role: str = ""
+
         # Optional virtual obstacle placed on this lane by a controller (e.g. stop-line)
         self.virtual_obstacle: Optional[Any] = None
 
@@ -83,6 +93,19 @@ class Lane:
         # Valid only for the lane's steady-state middle arc, not its
         # entry/exit transition zones — see router.find_leader.
         self.circulating_radius: Optional[float] = None
+
+        # Roundabout connection lanes only (V1.4, set by RoadNetwork): the
+        # circulating lane the path runs on (0 innermost), the distance along
+        # the path at which it starts spiralling out towards its exit, and
+        # the arm it exits to. None everywhere else.
+        self.ring_lane: Optional[int] = None
+        self.exit_transition_start: Optional[float] = None
+        self.exit_direction: Optional[Any] = None
+
+    def distance_to_waypoint(self, index: int) -> float:
+        """Distance along the lane to waypoint ``index`` (clamped)."""
+        index = max(0, min(index, len(self._cum_lengths) - 1))
+        return self._cum_lengths[index]
 
     def _segment(self, distance: float) -> Tuple[int, float]:
         """Index of the waypoint segment holding ``distance`` (clamped to the

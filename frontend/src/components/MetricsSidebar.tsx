@@ -110,6 +110,30 @@ export function VehicleCountChips({
 function ControllerState({ snapshot }: { snapshot: LiveSnapshot }) {
   const c = snapshot.controller;
   if (c.type === "fixed_time_signal") {
+    const a = c.signalControl === "adaptive" ? c.adaptive : undefined;
+    const timing = snapshot.metrics.signalTiming;
+    if (a) {
+      const clearing =
+        c.currentPhase.endsWith("yellow") || c.currentPhase === "all_red";
+      return (
+        <div className="controller-state">
+          <p>
+            Adaptive · phase{" "}
+            <strong>{c.currentPhase.replace(/_/g, " ")}</strong> ·{" "}
+            {a.status.replace("_", " ")}
+            {clearing ? "" : ` · green ${a.greenElapsed.toFixed(0)} s`} · cycle{" "}
+            {c.cycleNumber}
+          </p>
+          <p>
+            {a.decisions.greens} greens · {a.decisions.gapOuts} ended by a gap ·{" "}
+            {a.decisions.maxOuts} at max · {a.decisions.phasesSkipped} skipped
+            {timing?.averageGreenDuration != null
+              ? ` · mean green ${timing.averageGreenDuration.toFixed(1)} s`
+              : ""}
+          </p>
+        </div>
+      );
+    }
     return (
       <p className="controller-state">
         Phase <strong>{c.currentPhase.replace(/_/g, " ")}</strong> ·{" "}

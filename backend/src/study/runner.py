@@ -118,6 +118,10 @@ def simulate_geometry(
         "timeStep": clock.time_step,
         "engineDuration": engine.duration,
         "warmupTime": collector.warmup_time,
+        # Final controller state: the adaptive signal's decision counts (V1.3).
+        "controllerState": json.loads(
+            json.dumps(getattr(orch, f"controller_{geometry}").get_state())
+        ),
     }
 
 

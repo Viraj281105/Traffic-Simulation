@@ -8,7 +8,7 @@
 
 | Version | Status | Next | Stack |
 | :-: | :-: | :-: | :-: |
-| **V1.0** | ✅ Complete — deployed on AWS, demo recorded | V1.1 Vehicle types · V1.2 Lane modelling | Python · FastAPI · React · TypeScript · Docker · AWS EC2 |
+| **V1.3** | ✅ V1.0 deployed on AWS · V1.1 vehicle types, V1.2 lane modelling and V1.3 adaptive signal control complete | V1.4 Advanced roundabout modelling | Python · FastAPI · React · TypeScript · Docker · AWS EC2 |
 
 </div>
 
@@ -65,7 +65,7 @@ flowchart LR
 | **Reproducibility** | Every saved run records configuration, seed, timing, code version and Python version · server-side re-run with discrepancy and limitation reporting · JSON/CSV export · compare up to six saved runs |
 | **Platform** | FastAPI REST + WebSocket streaming (≈ 10 Hz) · per-visitor live sessions · SQLite (WAL) persistence · optional Cognito sign-in · Docker Compose · CI with nightly regression |
 
-What V1.0 does **not** model — other vehicle types, lane changing, adaptive signals, multi-lane roundabout circulation, real junction layouts, crash risk, emissions, field calibration — is listed with its planned version in [Validation & evidence](docs/research/validation.md#5-known-limitations).
+Since V1.1–V1.3 the simulator also models cars, SUVs, buses, trucks and motorcycles, gradual lane changing (mixed-traffic results are exploratory until calibrated), and a signal that responds to traffic (adaptive, vehicle-actuated) alongside the fixed timetable. What it does **not** model yet — multi-lane roundabout circulation, real junction layouts, crash risk, emissions, field calibration — is listed with its planned version in [Validation & evidence](docs/research/validation.md#5-known-limitations).
 
 ---
 
@@ -216,10 +216,10 @@ flowchart LR
 | Week (2026) | Version | Theme | Status |
 | --- | --- | --- | --- |
 | W11 · Oct 2–5 | **V1.0** | Finalisation & Demo | ✅ Complete |
-| W12 · Oct 6–12 | **V1.1** | Different Vehicle Types | 🔜 Upcoming |
-| W13 · Oct 13–19 | **V1.2** | Advanced Lane Modelling | 🔜 Upcoming |
-| W14 · Oct 20–27 | V1.3 | Adaptive Signal Control | Planned |
-| W15 · Oct 28–Nov 4 | V1.4 | Advanced Roundabout Modelling | Planned |
+| W12 · Oct 5–6 | **V1.1** | Different Vehicle Types | ✅ Complete |
+| W12 · Oct 5–6 | **V1.2** | Advanced Lane Modelling | ✅ Complete |
+| W12 · Oct 6 | **V1.3** | Adaptive Signal Control | ✅ Complete |
+| W15 · Oct 28–Nov 4 | **V1.4** | Advanced Roundabout Modelling | 🔜 Upcoming |
 | W16 · Nov 5–12 | V1.5 | Real-World Junction Modelling | Planned |
 | W17 · Nov 13–19 | V1.6 | Safety & Environmental Analysis | Planned |
 | W18 · Nov 20–27 | V1.7 | Scenario / What-If Planning | Planned |

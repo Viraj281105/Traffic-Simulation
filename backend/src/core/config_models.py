@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -24,12 +24,34 @@ class TurnProbabilities(BaseModel):
     right: float = Field(..., ge=0, le=1)
 
 
+class ApproachMix(BaseModel):
+    car: Optional[float] = Field(None, ge=0, le=1)
+    suv: Optional[float] = Field(None, ge=0, le=1)
+    bus: Optional[float] = Field(None, ge=0, le=1)
+    truck: Optional[float] = Field(None, ge=0, le=1)
+    motorcycle: Optional[float] = Field(None, ge=0, le=1)
+
+
+class ApproachTurnProbabilities(TurnProbabilities):
+    # V1.5: an approach's U-turn share (unset: none).
+    uturn: Optional[float] = Field(None, ge=0, le=1)
+
+
+class TrafficApproachItem(BaseModel):
+    """One approach's own traffic (V1.4); see config_validation."""
+
+    direction: str
+    turnProbabilities: Optional[ApproachTurnProbabilities] = None
+    vehicleMix: Optional[ApproachMix] = None
+
+
 class TrafficSection(BaseModel):
     totalVehicles: int = Field(200, gt=0, le=5000)
     arrivalRate: float = Field(0.5, gt=0, le=10.0)
     arrivalDistribution: str = Field("poisson")
     directionalSplit: Optional[DirectionalSplit] = None
     turnProbabilities: Optional[TurnProbabilities] = None
+    approaches: Optional[List[TrafficApproachItem]] = None
 
 
 class IntersectionCenter(BaseModel):
@@ -40,12 +62,32 @@ class IntersectionCenter(BaseModel):
 class GeometrySection(BaseModel):
     intersectionType: str
     intersectionCenter: Optional[IntersectionCenter] = None
+    # V1.4: a roundabout's ring lane count. Unset: the widest approach's.
+    circulatingLanes: Optional[int] = Field(None, ge=1, le=3)
+    # V1.5: the compass slots that have an arm (unset: all four).
+    arms: Optional[List[Literal["north", "south", "east", "west"]]] = None
 
 
 class ApproachItem(BaseModel):
     direction: str
     lanes: Optional[int] = Field(None, ge=1, le=4)
+    # V1.4: this approach's own length, and the movements each lane allows.
+    length: Optional[float] = Field(None, gt=50, le=1000)
+    laneUse: Optional[List[List[Literal["uturn", "left", "straight", "right"]]]] = None
+    # V1.5: the arm's compass bearing and its own lane width.
+    bearing: Optional[float] = Field(None, ge=0, lt=360)
+    laneWidth: Optional[float] = Field(None, gt=2.5, le=5.0)
     speedLimit: Optional[float] = Field(None, gt=0)
+
+
+class LaneChangeSection(BaseModel):
+    """Lane changing on multi-lane approaches (V1.2), see vehicles/lane_change.py."""
+
+    enabled: bool = Field(True)
+    accelerationThreshold: float = Field(0.2, ge=0, le=2.0)
+    safeDeceleration: float = Field(4.0, gt=0, le=9.0)
+    # Overrides every vehicle class's own politeness when set.
+    politeness: Optional[float] = Field(None, ge=0, le=1)
 
 
 class RoadsSection(BaseModel):
@@ -53,12 +95,51 @@ class RoadsSection(BaseModel):
     laneWidth: float = Field(3.5, gt=2.5, le=5.0)
     lanesPerApproach: int = Field(2, ge=1, le=4)
     speedLimit: float = Field(13.89, gt=0, le=30.0)
+    # approaches[].lanes overrides lanesPerApproach for that approach (V1.2);
+    # approaches[].speedLimit is still reserved (accepted, not read).
     approaches: Optional[List[ApproachItem]] = None
+    laneChange: Optional[LaneChangeSection] = None
 
 
 class MinMaxRange(BaseModel):
     min: float = Field(..., gt=0)
     max: float = Field(..., gt=0)
+
+
+class VehicleMixSection(BaseModel):
+    """Share of arrivals per vehicle class (V1.1); see vehicles/vehicle_types.py.
+    Must sum to 1 (config_validation). Omitted classes have no share."""
+
+    car: Optional[float] = Field(None, ge=0, le=1)
+    suv: Optional[float] = Field(None, ge=0, le=1)
+    bus: Optional[float] = Field(None, ge=0, le=1)
+    truck: Optional[float] = Field(None, ge=0, le=1)
+    motorcycle: Optional[float] = Field(None, ge=0, le=1)
+
+
+class VehicleTypeOverrides(BaseModel):
+    """Overrides of one vehicle class's default parameters (research use)."""
+
+    length: Optional[MinMaxRange] = None
+    width: Optional[MinMaxRange] = None
+    desiredSpeedFactor: Optional[MinMaxRange] = None
+    maxAcceleration: Optional[float] = Field(None, gt=0)
+    comfortDeceleration: Optional[float] = Field(None, gt=0)
+    desiredTimeHeadway: Optional[float] = Field(None, gt=0)
+    minimumGap: Optional[float] = Field(None, gt=0)
+    idmDelta: Optional[float] = Field(None, gt=0)
+    maxLateralAcceleration: Optional[float] = Field(None, gt=0, le=8.0)
+    laneChangeDuration: Optional[float] = Field(None, gt=0, le=15.0)
+    laneChangeMinDistance: Optional[float] = Field(None, gt=0, le=100.0)
+    politeness: Optional[float] = Field(None, ge=0, le=1)
+
+
+class VehicleTypesSection(BaseModel):
+    car: Optional[VehicleTypeOverrides] = None
+    suv: Optional[VehicleTypeOverrides] = None
+    bus: Optional[VehicleTypeOverrides] = None
+    truck: Optional[VehicleTypeOverrides] = None
+    motorcycle: Optional[VehicleTypeOverrides] = None
 
 
 class VehicleGenerationSection(BaseModel):
@@ -74,6 +155,9 @@ class VehicleGenerationSection(BaseModel):
     # and the roundabout alike (src/vehicles/speed_profile.py). Unset means
     # the model default (3.0 m/s^2).
     maxLateralAcceleration: Optional[float] = Field(None, gt=0, le=8.0)
+    # Mixed vehicle classes (V1.1). Unset: the V1.0 single-car population.
+    vehicleMix: Optional[VehicleMixSection] = None
+    vehicleTypes: Optional[VehicleTypesSection] = None
 
 
 # The canonical paired NS/EW signal plan (ControllerSection.phaseSequence's
@@ -86,6 +170,18 @@ DEFAULT_PHASE_SEQUENCE: List[str] = [
     "ew_yellow",
     "all_red",
 ]
+
+
+class AdaptiveSignalSection(BaseModel):
+    """Adaptive (vehicle-actuated) signal settings (V1.3), see
+    controllers/adaptive_signal.py. Cross-field rules live in
+    config_validation (maxGreen > minGreen and the rest)."""
+
+    minGreen: float = Field(10.0, ge=5, le=60)
+    maxGreen: float = Field(50.0, ge=10, le=180)
+    extensionStep: float = Field(2.5, ge=0.5, le=10)
+    detectionDistance: float = Field(30.0, ge=5, le=200)
+    demandThreshold: int = Field(1, ge=1, le=20)
 
 
 class ControllerSection(BaseModel):
@@ -126,6 +222,10 @@ class ControllerSection(BaseModel):
     followUpTime: float = Field(2.5, gt=0)
     entrySpeed: float = Field(5.0, gt=0)
     circulatingSpeed: float = Field(8.0, gt=0, le=15.0)
+    # V1.3: how a signal times its greens. Unset means fixed-time, so a
+    # config that never mentions it dumps (and runs) exactly as before.
+    signalControl: Optional[Literal["fixed_time", "adaptive"]] = None
+    adaptive: Optional[AdaptiveSignalSection] = None
 
 
 class MetricsSection(BaseModel):

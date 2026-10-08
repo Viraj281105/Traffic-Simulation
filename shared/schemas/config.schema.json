@@ -41,6 +41,45 @@
           },
           "required": ["left", "straight", "right"],
           "default": { "left": 0.2, "straight": 0.6, "right": 0.2 }
+        },
+        "approaches": {
+          "type": "array",
+          "description": "Per-approach traffic (V1.4). turnProbabilities overrides traffic.turnProbabilities for that approach (must sum to 1); vehicleMix overrides vehicleGeneration.vehicleMix for that approach (must sum to 1). How busy each approach is stays in arrivalRate x directionalSplit. Each approach may appear once. See docs/architecture/06-scenario-configuration-contract.md.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "direction": { "type": "string", "enum": ["north", "south", "east", "west"] },
+              "turnProbabilities": {
+                "type": "object",
+                "properties": {
+                  "left": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "straight": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "right": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "uturn": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "Share making a U-turn (V1.5). Omitted: 0. Counts towards the sum of 1; needs a lane whose laneUse allows 'uturn'."
+                  }
+                },
+                "required": ["left", "straight", "right"],
+                "additionalProperties": false
+              },
+              "vehicleMix": {
+                "type": "object",
+                "properties": {
+                  "car": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "suv": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "bus": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "truck": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "motorcycle": { "type": "number", "minimum": 0, "maximum": 1 }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": ["direction"],
+            "additionalProperties": false
+          }
         }
       }
     },
@@ -48,6 +87,20 @@
       "type": "object",
       "properties": {
         "intersectionType": { "type": "string", "enum": ["fixed_time_signal", "roundabout"] },
+        "circulatingLanes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3,
+          "description": "Circulating lanes of a roundabout (V1.4), independent of the approach lane counts. Omitted: as many as the widest approach (the V1.0-V1.3 relationship). Ignored by a signal. Entry and exit lanes are mapped onto the ring by the V1.4 lane assignment; see docs/simulation/methodology.md. Supersedes the reserved controller.circulatingLanes."
+        },
+        "arms": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": { "type": "string", "enum": ["north", "south", "east", "west"] },
+          "description": "Compass slots that have an arm (V1.5). Omitted: all four. A junction needs 3 or 4 arms; an absent arm has no lanes, no demand (its directionalSplit share must be 0) and no movement may lead into it. See docs/simulation/methodology.md (real-world junction geometry)."
+        },
         "intersectionCenter": {
           "type": "object",
           "properties": {
@@ -74,16 +127,68 @@
         },
         "approaches": {
           "type": "array",
-          "description": "RESERVED — per-approach overrides are accepted and validated, but not read by the engine: every approach uses lanesPerApproach and no speed limit is applied. See docs/architecture/06-scenario-configuration-contract.md section 2.4.",
+          "description": "Per-approach overrides. lanes (V1.2) overrides lanesPerApproach for that approach; at a signal, opposite approaches (north/south, east/west) must have equal lane counts (a roundabout has no such rule, V1.4). length (V1.4) overrides approachLength. laneUse (V1.4) lists the movements each lane allows, lane 1 (next to the centre line) first. speedLimit is RESERVED: accepted and validated but not read. See docs/architecture/06-scenario-configuration-contract.md section 2.4.",
           "items": {
             "type": "object",
             "properties": {
               "direction": { "type": "string", "enum": ["north", "south", "east", "west"] },
               "lanes": { "type": "integer", "minimum": 1, "maximum": 4 },
+              "length": { "type": "number", "exclusiveMinimum": 50, "maximum": 1000 },
+              "bearing": {
+                "type": "number",
+                "minimum": 0,
+                "exclusiveMaximum": 360,
+                "description": "Compass bearing of the arm from the junction centre outwards (V1.5): degrees clockwise from north. Omitted: the slot's own bearing (north 0, east 90, south 180, west 270). Must be within 30 degrees of the slot."
+              },
+              "laneWidth": {
+                "type": "number",
+                "exclusiveMinimum": 2.5,
+                "maximum": 5.0,
+                "description": "This arm's own lane width in metres (V1.5). Omitted: roads.laneWidth."
+              },
+              "laneUse": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 4,
+                "items": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": { "type": "string", "enum": ["uturn", "left", "straight", "right"] }
+                }
+              },
               "speedLimit": { "type": "number", "exclusiveMinimum": 0 }
             },
             "required": ["direction"]
           }
+        },
+        "laneChange": {
+          "type": "object",
+          "description": "Lane changing on multi-lane approaches (V1.2): MOBIL decisions carried out as gradual manoeuvres. See docs/simulation/methodology.md.",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "accelerationThreshold": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2.0,
+              "default": 0.2,
+              "description": "MOBIL switching threshold (m/s^2): the net acceleration advantage a discretionary change must bring."
+            },
+            "safeDeceleration": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 9.0,
+              "default": 4.0,
+              "description": "MOBIL safety limit b_safe (m/s^2): the hardest braking a change may impose on the new follower."
+            },
+            "politeness": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Overrides every vehicle class's own MOBIL politeness factor when set."
+            }
+          },
+          "additionalProperties": false
         }
       }
     },
@@ -125,6 +230,30 @@
           "maximum": 8.0,
           "default": 3.0,
           "description": "Lateral-acceleration limit (m/s^2) on every curved path, signal and roundabout alike."
+        },
+        "vehicleMix": {
+          "type": "object",
+          "description": "Share of arrivals per vehicle class (V1.1); must sum to 1. Omitted: every vehicle is the V1.0 passenger car, exactly as before. In a mix, 'car' is the vehicle the fields above describe and every other class uses its own defaults (see vehicleTypes).",
+          "properties": {
+            "car": { "type": "number", "minimum": 0, "maximum": 1 },
+            "suv": { "type": "number", "minimum": 0, "maximum": 1 },
+            "bus": { "type": "number", "minimum": 0, "maximum": 1 },
+            "truck": { "type": "number", "minimum": 0, "maximum": 1 },
+            "motorcycle": { "type": "number", "minimum": 0, "maximum": 1 }
+          },
+          "additionalProperties": false
+        },
+        "vehicleTypes": {
+          "type": "object",
+          "description": "Per-class parameter overrides (research use). Unset fields keep the class defaults documented in docs/simulation/configuration.md.",
+          "properties": {
+            "car": { "$ref": "#/$defs/vehicleTypeOverrides" },
+            "suv": { "$ref": "#/$defs/vehicleTypeOverrides" },
+            "bus": { "$ref": "#/$defs/vehicleTypeOverrides" },
+            "truck": { "$ref": "#/$defs/vehicleTypeOverrides" },
+            "motorcycle": { "$ref": "#/$defs/vehicleTypeOverrides" }
+          },
+          "additionalProperties": false
         }
       }
     },
@@ -186,7 +315,25 @@
         "criticalGap": { "type": "number", "exclusiveMinimum": 0, "maximum": 10.0, "default": 4.0 },
         "followUpTime": { "type": "number", "exclusiveMinimum": 0, "default": 2.5 },
         "entrySpeed": { "type": "number", "exclusiveMinimum": 0, "default": 5.0 },
-        "circulatingSpeed": { "type": "number", "exclusiveMinimum": 0, "maximum": 15.0, "default": 8.0 }
+        "circulatingSpeed": { "type": "number", "exclusiveMinimum": 0, "maximum": 15.0, "default": 8.0 },
+        "signalControl": {
+          "type": "string",
+          "enum": ["fixed_time", "adaptive"],
+          "default": "fixed_time",
+          "description": "How a signalised junction times its greens (V1.3). 'fixed_time': every phase runs its configured duration. 'adaptive': the same phase plan, yellows and all-reds, but each green is ended by detected demand (minimum green, gap-out, maximum green; see controller.adaptive). Omitted means fixed_time. Not valid with a roundabout. See docs/simulation/methodology.md."
+        },
+        "adaptive": {
+          "type": "object",
+          "description": "Adaptive signal settings (V1.3), used when signalControl is 'adaptive'. Every field is optional and defaults as shown. Cross-field rules: maxGreen > minGreen, extensionStep < maxGreen, detectionDistance < roads.approachLength.",
+          "properties": {
+            "minGreen": { "type": "number", "minimum": 5, "maximum": 60, "default": 10, "description": "Seconds a green always lasts, so a standing queue gets moving." },
+            "maxGreen": { "type": "number", "minimum": 10, "maximum": 180, "default": 50, "description": "Most seconds a green may continue once another phase has vehicles waiting." },
+            "extensionStep": { "type": "number", "minimum": 0.5, "maximum": 10, "default": 2.5, "description": "Passage time (s): the green ends after this long with no vehicle moving through the detection zone of its lanes." },
+            "detectionDistance": { "type": "number", "minimum": 5, "maximum": 200, "default": 30, "description": "Length (m) of the stop-line detection zone on each incoming lane." },
+            "demandThreshold": { "type": "integer", "minimum": 1, "maximum": 20, "default": 1, "description": "Vehicles detected on another phase's lanes needed to place a call that can end the current green." }
+          },
+          "additionalProperties": false
+        }
       }
     },
     "metrics": {
@@ -230,5 +377,33 @@
       }
     }
   },
-  "required": ["simulation", "geometry"]
+  "required": ["simulation", "geometry"],
+  "$defs": {
+    "range": {
+      "type": "object",
+      "properties": {
+        "min": { "type": "number", "exclusiveMinimum": 0 },
+        "max": { "type": "number", "exclusiveMinimum": 0 }
+      },
+      "required": ["min", "max"]
+    },
+    "vehicleTypeOverrides": {
+      "type": "object",
+      "properties": {
+        "length": { "$ref": "#/$defs/range", "description": "Length range (m)." },
+        "width": { "$ref": "#/$defs/range", "description": "Width range (m)." },
+        "desiredSpeedFactor": { "$ref": "#/$defs/range", "description": "Desired speed as a fraction of roads.speedLimit." },
+        "maxAcceleration": { "type": "number", "exclusiveMinimum": 0 },
+        "comfortDeceleration": { "type": "number", "exclusiveMinimum": 0 },
+        "desiredTimeHeadway": { "type": "number", "exclusiveMinimum": 0 },
+        "minimumGap": { "type": "number", "exclusiveMinimum": 0 },
+        "idmDelta": { "type": "number", "exclusiveMinimum": 0 },
+        "maxLateralAcceleration": { "type": "number", "exclusiveMinimum": 0, "maximum": 8.0 },
+        "laneChangeDuration": { "type": "number", "exclusiveMinimum": 0, "maximum": 15.0 },
+        "laneChangeMinDistance": { "type": "number", "exclusiveMinimum": 0, "maximum": 100.0 },
+        "politeness": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": false
+    }
+  }
 }

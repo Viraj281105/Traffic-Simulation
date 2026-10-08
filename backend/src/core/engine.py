@@ -13,11 +13,25 @@ from typing import Any, Callable, Dict, List, Optional
 
 from src.core.clock import Clock
 from src.core.enums import SimulationStatus
-from src.intersection.conflict_manager import ConflictManager
-from src.roads.network import RoadNetwork
+from src.intersection.conflict_manager import (
+    ConflictManager,
+    conflict_clearance_for,
+)
+from src.roads.junction_geometry import (
+    configured_arms,
+    configured_bearings,
+    configured_lane_widths,
+)
+from src.roads.lane_config import configured_approach_lengths, configured_lane_use
+from src.roads.network import (
+    RoadNetwork,
+    resolve_circulating_lanes,
+    resolve_lanes_per_approach,
+)
 from src.vehicles.idm import IntelligentDriverModel
 from src.vehicles.pool import VehiclePool
 from src.vehicles.spawner import VehicleSpawner
+from src.vehicles.vehicle_types import design_vehicle_allowance, has_vehicle_mix
 
 logger = logging.getLogger(__name__)
 
@@ -61,20 +75,44 @@ class SimulationEngine:
             inner_radius = ctrl_cfg.get("innerRadius", 10.0)
             outer_radius = ctrl_cfg.get("outerRadius", 20.0)
 
+            allowance = design_vehicle_allowance(self.config)
             self.network.setup_default_intersection(
                 approach_length=road_cfg.get("approachLength", 200.0),
                 lane_width=road_cfg.get("laneWidth", 3.5),
-                lanes_per_approach=road_cfg.get("lanesPerApproach", 2),
+                lanes_per_approach=resolve_lanes_per_approach(road_cfg),
                 is_roundabout=is_roundabout,
                 inner_radius=inner_radius,
                 outer_radius=outer_radius,
+                design_vehicle_allowance=allowance,
+                # V1.4: per-approach lengths and lane use, and the ring's own
+                # lane count (unset: as wide as the widest approach).
+                approach_lengths=configured_approach_lengths(road_cfg) or None,
+                lane_use=configured_lane_use(road_cfg) or None,
+                circulating_lanes=resolve_circulating_lanes(self.config),
+                # V1.5: which arms exist, their bearings and lane widths
+                # (all unset: the four-arm junction on the compass axes).
+                arms=configured_arms(self.config),
+                bearings=configured_bearings(self.config) or None,
+                lane_widths=configured_lane_widths(self.config) or None,
             )
 
             # Register all connection lanes with the conflict manager and
             # pre-compute crossing points
             for conn_lane in self.network.get_all_connection_lanes():
                 self.conflict_manager.register_connection_lane(conn_lane)
-            self.conflict_manager.compute_conflict_points()
+            self.conflict_manager.compute_conflict_points(
+                conflict_clearance_for(allowance)
+            )
+            # Committed vehicles merge onto a shared exit lane in physical
+            # order on junctions laid out for long vehicles (see
+            # ConflictManager._holder_behind_on_merge).
+            self.conflict_manager.merge_in_position_order = allowance > 0
+            # V1.4: hold crossing traffic for committed vehicles that can no
+            # longer stop short of a crossing, with any vehicle mix. The
+            # legacy cars-only population keeps V1.0 exactly (pinned by test).
+            self.conflict_manager.protect_unstoppable_committed = has_vehicle_mix(
+                self.config
+            )
 
             logger.info(
                 "ConflictManager initialized: %d connection lanes, %d conflict points",

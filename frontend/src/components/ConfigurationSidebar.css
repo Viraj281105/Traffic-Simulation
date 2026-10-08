@@ -143,6 +143,12 @@
   transform: scale(0.98);
 }
 
+/* The traffic-mix preset that matches the current shares. */
+.config-preset-pill.is-active {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
 .preset-emoji {
   font-size: 14px;
 }
@@ -396,9 +402,51 @@ h2.config-sidebar-title {
   height: 16px;
 }
 
+/* Signal control (V1.3): fixed timetable or responds to traffic. */
+.config-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.config-radio-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-2);
+  cursor: pointer;
+}
+
+.config-radio-row > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.config-radio-row input {
+  accent-color: var(--color-accent);
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.config-link-btn {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 12px;
+  color: var(--color-accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .config-slider:focus-visible,
 .config-seed-input:focus-visible,
 .config-checkbox-row input:focus-visible,
+.config-radio-row input:focus-visible,
 .config-sidebar-panel button:focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;

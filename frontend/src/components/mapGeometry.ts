@@ -27,12 +27,16 @@ export const ROUNDABOUT_TRANSITION_ARC = 10.0;
 export const SIGNAL_STOP_LINE_SETBACK = 3.5;
 
 /** Distance (m) from the centre to a signal approach's stop line: where the
- *  backend ends each incoming lane and holds vehicles on red. */
+ *  backend ends each incoming lane and holds vehicles on red. ``setback``
+ *  is the snapshot's `intersection.stopLineSetback` when known: larger than
+ *  SIGNAL_STOP_LINE_SETBACK when the vehicle mix includes buses or trucks
+ *  (the junction is laid out for its longest vehicle). */
 export function signalStopLineDistance(
   lanes: number,
   laneWidth: number,
+  setback: number = SIGNAL_STOP_LINE_SETBACK,
 ): number {
-  return lanes * laneWidth + SIGNAL_STOP_LINE_SETBACK;
+  return lanes * laneWidth + setback;
 }
 
 /** Half the width (m) of the square of world both maps show, so the signal

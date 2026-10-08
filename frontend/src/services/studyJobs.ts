@@ -29,6 +29,7 @@ export interface StudyJob<T> {
 export const STUDY_JOB_ROUTES = {
   sweep: "/api/v1/study/sweeps/jobs",
   monteCarlo: "/api/v1/study/validate/monte-carlo/jobs",
+  controlComparison: "/api/v1/study/control-comparison/jobs",
 } as const;
 
 export const STUDY_POLL_INTERVAL_MS = 1000;

@@ -231,3 +231,26 @@ def test_calibration_status_requires_one_lane_on_every_approach() -> None:
     status = calibration_status(mixed)
     assert status["calibrated"] is False
     assert status["lanesPerApproach"]["west"] == 2
+
+
+def test_mixed_vehicle_classes_are_not_the_calibrated_comparison() -> None:
+    one_lane = {"roads": {"lanesPerApproach": 1}}
+    mixed = {**one_lane, "vehicleGeneration": {"vehicleMix": {"car": 0.8, "bus": 0.2}}}
+    status = calibration_status(mixed)
+    assert status["calibrated"] is False
+    assert status["mixedTraffic"] is True
+    assert "mixed vehicle classes" in status["note"]
+    # A "mix" of cars only is still the calibrated population.
+    cars = {**one_lane, "vehicleGeneration": {"vehicleMix": {"car": 1.0}}}
+    assert calibration_status(cars)["calibrated"] is True
+    # Per-approach overrides count too.
+    widened = {
+        "roads": {
+            "lanesPerApproach": 1,
+            "approaches": [
+                {"direction": "east", "lanes": 2},
+                {"direction": "west", "lanes": 2},
+            ],
+        }
+    }
+    assert calibration_status(widened)["calibrated"] is False

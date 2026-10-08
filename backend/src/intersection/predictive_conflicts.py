@@ -91,6 +91,7 @@ import math
 from typing import Any, Dict, FrozenSet, List, Optional, Sequence, Set, Tuple
 
 from src.core.enums import VehicleState
+from src.vehicles.body import LONG_VEHICLE_THRESHOLD, body_pose
 from src.vehicles.vehicle import Vehicle
 
 # Distances (metres) ahead of each vehicle at which its path is sampled when
@@ -160,6 +161,7 @@ _DENSE_DISTANCES: Tuple[float, ...] = tuple(
 # round, and the vehicle that had been told to go was then told to stop.
 _DECISION_MEMORY_TICKS: int = 30
 
+
 # Speed floor used when converting a distance to an arrival time, so a nearly
 # stopped vehicle yields a large (but finite) time rather than dividing by zero.
 _MIN_SPEED_FOR_ETA: float = 0.5
@@ -215,8 +217,10 @@ def _project_poses(
         while idx < len(vehicle.route):
             lane = vehicle.route[idx]
             if remaining <= lane.length:
-                x, y = lane.get_point_at_distance(remaining)
-                pose = (x, y, lane.get_heading_at_distance(remaining))
+                # The same body model the collision audit sees (vehicles/
+                # body.py): for vehicles up to 5 m exactly the lane point and
+                # heading; a long vehicle's body sits on its axle chord.
+                pose = body_pose(vehicle.route, idx, remaining, vehicle.length)
                 break
             remaining -= lane.length
             idx += 1
@@ -647,8 +651,21 @@ class PredictiveConflictResolver:
 
     @staticmethod
     def _inside_intersection(vehicle: Vehicle) -> bool:
-        return vehicle.lane is not None and vehicle.lane.lane_id.lower().startswith(
-            "conn"
+        lane = vehicle.lane
+        if lane is None:
+            return False
+        lane_id = lane.lane_id.lower()
+        if lane_id.startswith("conn"):
+            return True
+        # A long vehicle (V1.1) is inside once its *front* has crossed the
+        # give-way/stop line, half a body before its centre moves onto the
+        # connection lane. Treating a 12 m bus as still waiting to enter made
+        # this layer stop it with 6 m of its body across the circulating
+        # lane, where it was struck. Cars keep the V1.0 rule.
+        return (
+            vehicle.length > LONG_VEHICLE_THRESHOLD
+            and "_in_" in lane_id
+            and vehicle.position + vehicle.length / 2.0 >= lane.length
         )
 
     @staticmethod
@@ -829,6 +846,12 @@ class PredictiveConflictResolver:
 
         id_a = va.lane.lane_id.lower()
         id_b = vb.lane.lane_id.lower()
+        ring_a = getattr(va.lane, "ring_lane", None)
+        ring_b = getattr(vb.lane, "ring_lane", None)
+        if ring_a is not None and ring_b is not None:
+            # V1.4: the ring lane is recorded on the path (it is no longer
+            # always the entry lane in the id). Same rule as below.
+            return bool(ring_a == ring_b)
         if id_a.startswith("conn_") and id_b.startswith("conn_"):
             parts_a = id_a.split("_")
             parts_b = id_b.split("_")

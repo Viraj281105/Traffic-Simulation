@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { ConfigurationSidebar } from "../components/ConfigurationSidebar";
 import type { SimulationConfigValues } from "../types/config";
 import { DEFAULT_CONFIG_VALUES } from "../types/config";
@@ -177,6 +177,31 @@ describe("ConfigurationSidebar", () => {
 
     expect(screen.getByLabelText(/Lanes per approach/i)).toHaveValue(
       String(DEFAULT_CONFIG_VALUES.lanes),
+    );
+  });
+
+  it("names and describes the traffic-mix presets for assistive tech", () => {
+    render(
+      <ConfigurationSidebar
+        isOpen={true}
+        onClose={vi.fn()}
+        config={mockConfig}
+        onApply={vi.fn()}
+        mode="comparative"
+      />,
+    );
+    const presets = screen.getByRole("group", { name: "Traffic mix presets" });
+    const cars = within(presets).getByRole("button", { name: "Cars only" });
+    expect(cars).toHaveAttribute("aria-pressed", "true");
+    expect(cars).toHaveAccessibleDescription(
+      /every vehicle is the reference car/,
+    );
+    const freight = within(presets).getByRole("button", {
+      name: "Bus & freight route",
+    });
+    expect(freight).toHaveAttribute("aria-pressed", "false");
+    expect(freight).toHaveAccessibleDescription(
+      "Three in ten vehicles are buses or trucks.",
     );
   });
 

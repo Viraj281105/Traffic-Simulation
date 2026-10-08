@@ -1,14 +1,14 @@
 # UrbanFlow Roadmap
 
 > **This is the single authoritative roadmap.** It supersedes every earlier roadmap, deferred-features log and V1.1/V2/V3 plan in this repository (preserved in git history).
-> **Current version:** V1.0 — **COMPLETE** (demo and recording finished) · **Next:** V1.1 and V1.2 · **Last updated:** 2026-10-05
+> **Current version:** V1.3 — V1.1 (vehicle types), V1.2 (lane modelling) and V1.3 (adaptive signal control) **COMPLETE** · **V1.4** (advanced roundabouts + full scenario configuration) **implemented on `viraj-dev`, under review** · **Last updated:** 2026-10-07
 > **Beyond V2.0:** [Future Scope](future-scope/future_scope.md) — post-V2.0 research frontiers only.
 
 | Status | Meaning |
 | --- | --- |
 | ✅ **COMPLETE** | Shipped, documented, tested |
-| 🟢 **CURRENT** | The version in use today (V1.0) |
-| 🔜 **PLANNED / UPCOMING** | Next in line; work starts imminently (V1.1, V1.2) |
+| 🟢 **CURRENT** | The version in use today (V1.3) |
+| 🔜 **PLANNED / UPCOMING** | Next in line; work starts imminently (V1.4) |
 | 🗓️ **PLANNED** | Scheduled in the V1.x → V2.0 roadmap |
 | 🔭 **FUTURE SCOPE** | After V2.0 — not part of this roadmap |
 
@@ -94,13 +94,13 @@ gantt
     axisFormat %b %d
     section Complete
     V1.0 Finalisation & Demo                 :done,    v10, 2026-10-02, 4d
+    V1.1 Different Vehicle Types             :done,    v11, 2026-10-05, 2d
+    V1.2 Advanced Lane Modelling             :done,    v12, 2026-10-05, 2d
+    V1.3 Adaptive Signal Control             :done,    v13, 2026-10-06, 1d
+    V1.4 Roundabouts + Scenario Config       :active,  v14, 2026-10-07, 1d
+    V1.5 Real-World Junction Modelling       :active,  v15, 2026-10-07, 1d
     section Upcoming
-    V1.1 Different Vehicle Types             :active,  v11, 2026-10-06, 7d
-    V1.2 Advanced Lane Modelling             :         v12, 2026-10-13, 7d
     section Planned
-    V1.3 Adaptive Signal Control             :         v13, 2026-10-20, 8d
-    V1.4 Advanced Roundabout Modelling       :         v14, 2026-10-28, 8d
-    V1.5 Real-World Junction Modelling       :         v15, 2026-11-05, 8d
     V1.6 Safety & Environmental Analysis     :         v16, 2026-11-13, 7d
     V1.7 Scenario / What-If Planning         :         v17, 2026-11-20, 8d
     V1.8–V1.9 Calibration & Network Foundations :      v18, 2026-11-28, 10d
@@ -110,11 +110,11 @@ gantt
 | Week | Dates | Version | Theme | Status |
 | --- | --- | --- | --- | --- |
 | W11 | Oct 2 – Oct 5 | V1.0 | Finalisation & Demo | ✅ COMPLETE |
-| W12 | Oct 6 – Oct 12 | V1.1 | Different Vehicle Types | 🔜 PLANNED / UPCOMING |
-| W13 | Oct 13 – Oct 19 | V1.2 | Advanced Lane Modelling | 🔜 PLANNED / UPCOMING |
-| W14 | Oct 20 – Oct 27 | V1.3 | Adaptive Signal Control | 🗓️ PLANNED |
-| W15 | Oct 28 – Nov 4 | V1.4 | Advanced Roundabout Modelling | 🗓️ PLANNED |
-| W16 | Nov 5 – Nov 12 | V1.5 | Real-World Junction Modelling | 🗓️ PLANNED |
+| W12 | Oct 5 – Oct 6 | V1.1 | Different Vehicle Types | ✅ COMPLETE (with V1.2) |
+| W12 | Oct 5 – Oct 6 | V1.2 | Advanced Lane Modelling | ✅ COMPLETE (with V1.1) |
+| W12 | Oct 6 | V1.3 | Adaptive Signal Control | ✅ COMPLETE (ahead of the W14 slot) |
+| W12 | Oct 7 | V1.4 | Advanced Roundabout Modelling + Full Scenario Configuration | 🟢 IMPLEMENTED, under review (ahead of the W15 slot) |
+| W12 | Oct 7 | V1.5 | Real-World Junction Modelling | 🟢 IMPLEMENTED, under review (ahead of the W16 slot) |
 | W17 | Nov 13 – Nov 19 | V1.6 | Safety & Environmental Analysis | 🗓️ PLANNED |
 | W18 | Nov 20 – Nov 27 | V1.7 | Scenario / What-If Planning | 🗓️ PLANNED |
 | W19 | Nov 28 – Dec 7 | V1.8 / V1.9 | Calibration & Network-Level Foundations | 🗓️ PLANNED |
@@ -126,7 +126,7 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 
 ### V1.1 — Different Vehicle Types
 
-**W12 · Oct 6 – Oct 12 · 🔜 PLANNED / UPCOMING**
+**✅ COMPLETE · delivered with V1.2 on 2026-10-06**
 
 **Goal:** introduce heterogeneous traffic.
 
@@ -137,13 +137,15 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 | Engine | Spawning · simulation logic · validation |
 | Presentation | Vehicle representation · configuration UI · legends / visual differentiation |
 
-**V1.0 starting point:** one passenger-car population; length `U(4.0, 5.0)` m, width `U(1.8, 2.2)` m and desired speed are randomised per vehicle, but IDM parameters (`a`, `b`, `T`, `s₀`, `δ`) are shared by all vehicles (`vehicleGeneration.*`).
+**Delivered:** five vehicle classes — car, SUV, bus, truck, motorcycle — each with its own dimensions, IDM parameters (a, b, T, s₀), desired-speed range, cornering limit and lane-change behaviour (`backend/src/vehicles/vehicle_types.py`); `vehicleGeneration.vehicleMix` and `vehicleTypes` in the schema; type-aware seeded spawning; long-vehicle handling (axle-chord body pose, length-aware conflict zones, design-vehicle signal geometry, roundabout gap allowance and entry commitment); a per-class metric breakdown; a "What traffic uses the junction?" question, an advanced mix editor, class-specific map sprites, legends and a per-class results table. Without a mix, single-lane runs reproduce V1.0 bit for bit. Mixed results are exploratory (not calibrated). See [methodology §5.4](simulation/methodology.md#54-vehicle-classes-v11).
+
+**V1.0 starting point (for reference):** one passenger-car population; length `U(4.0, 5.0)` m, width `U(1.8, 2.2)` m and desired speed are randomised per vehicle, but IDM parameters (`a`, `b`, `T`, `s₀`, `δ`) are shared by all vehicles (`vehicleGeneration.*`).
 
 ---
 
 ### V1.2 — Advanced Lane Modelling
 
-**W13 · Oct 13 – Oct 19 · 🔜 PLANNED / UPCOMING**
+**✅ COMPLETE · delivered with V1.1 on 2026-10-06**
 
 **Goal:** move beyond single-lane assumptions.
 
@@ -154,13 +156,15 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 | Quality | Physics and regression tests |
 | Presentation | Lane configuration UI · visualisation · user controls |
 
-**V1.0 starting point:** 1–4 lanes per approach exist, but the calibrated comparison is one lane; a vehicle's lane is fixed at spawn by turn intent (left / straight / right policy); there is no lane changing; the versioned schema accepts only one lane count for all approaches.
+**Delivered:** explicit lane identity and one lane-use policy (`RoadNetwork.permitted_turns`, narrowed by the signal plan where its heads demand it); per-approach lane counts via `roads.approaches[].lanes` (opposite approaches must match); MOBIL lane changing carried out as gradual, distance-based manoeuvres with shadow occupancy of both lanes, safety checks against each vehicle's own IDM, mandatory changes and missed-turn fallback (`backend/src/vehicles/lane_change.py`); `roads.laneChange` settings; lane arrows, lane-change indicators, a lane-changing switch and side-street lanes in the signal research view. V1.0's undocumented single-tick lane jump is gone. See [methodology §4 and §6.1](simulation/methodology.md#61-lane-changing-v12).
+
+**V1.0 starting point (for reference):** 1–4 lanes per approach exist, but the calibrated comparison is one lane; a vehicle's lane is fixed at spawn by turn intent (left / straight / right policy); there is no lane changing; the versioned schema accepts only one lane count for all approaches.
 
 ---
 
 ### V1.3 — Adaptive Signal Control
 
-**W14 · Oct 20 – Oct 27 · 🗓️ PLANNED**
+**✅ COMPLETE · delivered on 2026-10-06 (planned for W14)**
 
 **Goal:** compare fixed-time signals with responsive/adaptive control.
 
@@ -170,15 +174,17 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 | Evidence | Experiments · validation |
 | Presentation | Controller selection UI · visual comparison · result presentation |
 
-**V1.0 starting point:** fixed-time control only. Controllers share the `BaseController` interface and are built by `controllers/factory.py`, so a new controller plugs in without changing the engine loop.
+**Delivered:** a vehicle-actuated adaptive signal (`backend/src/controllers/adaptive_signal.py`) on the fixed-time signal's own phase plan, heads, yellow and all-red — minimum green, passage-based extension and gap-out, maximum green once another phase calls, rest in green, cyclic order with phases skipped when nobody waits — selected by `controller.signalControl: "adaptive"` with `controller.adaptive` settings (fixed-time stays the default and is unchanged); stop-line detection shared with a new green-time measure for both signals (`metrics.signalTiming`); a reproducible three-way study, fixed-time vs adaptive vs roundabout (`/api/v1/study/control-comparison`, Research Lab); a "How should the signal respond to traffic?" question, adaptive advanced settings, a live map panel explaining each decision, and results that name the controller. Results: adaptive lowers delay against the fixed timetable below saturation and gains nothing measurable at and above capacity; on one lane the roundabout keeps the lowest delay from busy demand upwards ([validation §4.1](research/validation.md#41-fixed-time-vs-adaptive-vs-roundabout-v13-2026-10-06)). See [methodology §7.3](simulation/methodology.md#73-adaptive-signal--controllersadaptive_signalpy-v13).
+
+**V1.0 starting point (for reference):** fixed-time control only. Controllers share the `BaseController` interface and are built by `controllers/factory.py`, so a new controller plugs in without changing the engine loop.
 
 ---
 
 ### V1.4 — Advanced Roundabout Modelling
 
-**W15 · Oct 28 – Nov 4 · 🗓️ PLANNED**
+**🟢 IMPLEMENTED · 2026-10-07 (ahead of the W15 slot) · under review — extended to full user configuration**
 
-**Goal:** advance roundabout modelling beyond the current implementation.
+**Goal:** advance roundabout modelling beyond the current implementation, and let users build the junction they want to investigate.
 
 | Scope | |
 | --- | --- |
@@ -186,13 +192,19 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 | Evidence | Collision validation |
 | Presentation | Roundabout configuration · visualisation improvements |
 
-**V1.0 starting point:** concentric rings, one per approach lane, without spiral lane assignment; multi-lane runs are exploratory (low-speed inner-ring-exit contacts under saturation); `controller.circulatingLanes` is accepted but inert.
+**Delivered (implemented on `viraj-dev`, awaiting review):**
+
+*Roundabout.* The ring has its own lane count (`geometry.circulatingLanes`, 1–2; three-lane rings are rejected as not yet validated) and an explicit two-lane designation — left turns inner, right turns outer, straight on the entry lane's own — with right-aligned entry and exit mapping, merging entries for approaches one lane wider than the ring, keep-clear entry and **exit convergence zones** taken in strict arrival order (`roads/lane_config.py`, `controllers/roundabout.py`). Roundabout approaches may now all differ. One-lane rings are unchanged to the last bit. Three rejected designs and the measurements behind each decision are in [methodology §7.4.1](simulation/methodology.md#741-multi-lane-rings-v14); safety results in [validation §4.2](research/validation.md#42-v14-roundabout-validation-matrix). This resolves **K1** for supported configurations.
+
+*Full scenario configuration.* A strategy-neutral, versioned **scenario document** (`core/scenario.py`) — per-approach lanes, length, lane arrows, roundabout lane markings, demand, turning and vehicle mix; scenario mix; signal, adaptive and roundabout design; duration, warm-up, seed, arrival pattern — compiled once per strategy so comparisons differ only in control; strict validation that explains every rejection (`core/lane_validation.py`); `POST /api/v1/scenarios/validate` and `/compile`, scenario input to `/api/v1/simulations`, the live comparison and the control-comparison study; a per-approach results breakdown (`metrics.approachBreakdown`). Frontend: a **scenario builder** (guided "Build your own junction" and the Research Lab) with lane cards and movement toggles, "How busy is each road?", a live plan, completeness and validation panel, an explicit-percentage vehicle mix editor, presets as editable shortcuts, import/export; maps draw each arm and the ring from the snapshot; results name the scenario and split by approach.
+
+**Starting point (V1.0–V1.3):** concentric rings, one per approach lane, without lane designation; multi-lane runs were exploratory (low-speed inner-ring-exit contacts under saturation); `controller.circulatingLanes` was accepted but inert (it still is — superseded by `geometry.circulatingLanes`).
 
 ---
 
 ### V1.5 — Real-World Junction Modelling
 
-**W16 · Nov 5 – Nov 12 · 🗓️ PLANNED**
+**🟢 IMPLEMENTED · 2026-10-07 (ahead of the W16 slot) · under review**
 
 **Goal:** allow simulations to represent configurable real-world junction layouts.
 
@@ -201,6 +213,18 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 | Model | Junction geometry / configuration model · traffic inputs |
 | Engine | Backend support |
 | Presentation | Junction builder · configuration workflow · visual editor |
+
+**Delivered (implemented on `viraj-dev`, awaiting review):**
+
+*Geometry.* A geometry layer (`roads/junction_geometry.py`) between the validated scenario and the lanes the engine runs on: three- or four-arm junctions, each arm on its own compass bearing (within 30° of its compass slot, neighbours at least 45° apart) with its own lane count, length and lane width; skew-aware stop lines; turning paths bent at the true crossing of entry and exit lanes; roundabout entries checked for overlap. Built once at set-up, never per tick; arms on their slots' axes use the exact V1.0 arithmetic, so every earlier scenario is reproduced bit for bit. See [methodology §4.4](simulation/methodology.md#44-real-world-junction-geometry-v15).
+
+*Movements.* An explicit **U-turn** movement, only where a scenario's lane use puts it: a half circle into the kerb lane at a signal (released with the lefts, yielding to all, rejected unless its radius meets the AASHTO design turning radius of every class using it), the inner ring lane at a roundabout. Movements, lanes and demand that would lead into a missing arm are rejected, never re-routed.
+
+*Scenario, validation, comparison.* Optional document fields (`approaches.<dir>: null`, `bearing`, `laneWidth`, `"uturn"`, `turning.uturn`) — V1.4 documents compile and fingerprint unchanged (pinned against values recorded with the V1.4 code). Every rejection says what, where, why and what is valid ([contract §9](architecture/06-scenario-configuration-contract.md#9-real-world-junctions-v15)). The comparison pipeline is unchanged in kind — same scenario, different control — and reports approach-level results for the arms that exist. Frontend: the V1.4 builder gains "Which roads meet here?", U-turn arrows and shares, and per-arm bearing and lane width under Advanced; the plan preview and both live maps draw arms on their real bearings.
+
+*Import foundation.* `assign_slots()` places measured arm bearings on compass slots or explains why it cannot — the step a future OpenStreetMap/GIS importer needs. No importer is part of V1.5.
+
+*Deferred.* Five-or-more-arm and staggered junctions (need movement rules and signal stages beyond the slot model); lane drops inside a signalised junction (K3); U-turns via medians or jughandles; per-arm speed limits; a map-based importer.
 
 **V1.0 starting point:** one abstract four-leg junction with symmetric approaches (`roads.approachLength`, `laneWidth`); `roads.approaches[]` is accepted by the schema but not read.
 
@@ -274,9 +298,9 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 | Same-seed signal vs roundabout comparison | ✅ | ● | ● | ● | ● | ● | ● | ● | ● | ◆ |
 | Plain-language results & reliability check | ✅ | ● | ● | ● | ● | ● | ● | ● | ● | ◆ |
 | Reproducible saved runs | ✅ | ● | ● | ● | ● | ● | ● | ● | ● | ◆ |
-| Heterogeneous vehicles | — | ▲ | ● | ● | ● | ● | ● | ● | ● | ◆ |
-| Multi-lane traffic & lane changes | partial | | ▲ | ● | ● | ● | ● | ● | ● | ◆ |
-| Adaptive signal control | — | | | ▲ | ● | ● | ● | ● | ● | ◆ |
+| Heterogeneous vehicles | — | ✅ | ● | ● | ● | ● | ● | ● | ● | ◆ |
+| Multi-lane traffic & lane changes | partial | | ✅ | ● | ● | ● | ● | ● | ● | ◆ |
+| Adaptive signal control | — | | | ✅ | ● | ● | ● | ● | ● | ◆ |
 | Multi-lane roundabout circulation | exploratory | | | | ▲ | ● | ● | ● | ● | ◆ |
 | Real-world junction layouts | — | | | | | ▲ | ● | ● | ● | ◆ |
 | Safety proxies & emissions | exploratory | | | | | | ▲ | ● | ● | ◆ |

@@ -20,6 +20,12 @@ from typing import Any, Dict, List, Optional, Tuple
 from src.controllers.virtual_obstacle import VirtualObstacle
 from src.core.enums import TurnIntent
 from src.roads.network import RoadNetwork
+from src.vehicles.body import (
+    LONG_VEHICLE_THRESHOLD,
+    body_pose,
+    forward_probe,
+    polygons_overlap,
+)
 from src.vehicles.vehicle import Vehicle
 
 # ---------------------------------------------------------------------------
@@ -27,8 +33,18 @@ from src.vehicles.vehicle import Vehicle
 # ---------------------------------------------------------------------------
 
 _EMERGENCY_DIST: float = 2.5  # meters — triggers emergency braking
+_LATERAL_MARGIN: float = 0.3  # meters — added to the two half-widths
+# Distances ahead (m) at which a long vehicle's body is posed along its route
+# for the Layer 4 check (see _long_vehicle_probe_gap).
+_PROBE_STEPS: Tuple[float, ...] = (0.5, 1.0, 1.5, 2.0, 2.5)
 _SENSOR_RANGE: float = 30.0  # meters — max 360° sensor reach
 _LOOK_AHEAD_LANES: int = 3  # how many route lanes to scan forward
+# A leader's tail within this radial distance (m) of a ring lane's centre is
+# on that lane (half the narrowest supported ring lane, 3.0 m, plus margin).
+_RING_BAND: float = 2.0
+# Distance (m) from a roundabout path's end back to its exit throat, where it
+# has left the ring (RoadNetwork's ROUNDABOUT_ENTRY_SETBACK).
+_THROAT_SETBACK: float = 4.0
 
 
 @lru_cache(maxsize=4096)
@@ -49,6 +65,19 @@ def _conn_lane_index(lane_id: str) -> Optional[int]:
     return None
 
 
+def ring_index(lane: Any) -> Optional[int]:
+    """Circulating lane a roundabout connection lane runs on.
+
+    V1.4 records it on the lane (``Lane.ring_lane``), because it is no longer
+    always the entry lane. Hand-built lanes without it fall back to the index
+    in the id, which is what it always was before.
+    """
+    ring = getattr(lane, "ring_lane", None)
+    if ring is not None:
+        return int(ring)
+    return _conn_lane_index(lane.lane_id)
+
+
 @lru_cache(maxsize=4096)
 def _proximity_lane_key(lane_id: str) -> Tuple[str, bool, Optional[int]]:
     """(lower-cased id, is a connection lane, circulating lane index) — what
@@ -57,6 +86,101 @@ def _proximity_lane_key(lane_id: str) -> Tuple[str, bool, Optional[int]]:
     lower = lane_id.lower()
     is_conn = lower.startswith("conn")
     return lower, is_conn, _conn_lane_index(lower) if is_conn else None
+
+
+def _long_vehicle_probe_gap(
+    vehicle: Vehicle,
+    my_x: float,
+    my_y: float,
+    fwd_x: float,
+    fwd_y: float,
+    other: Vehicle,
+) -> Optional[float]:
+    """Layer 4 for a pair involving a long vehicle (V1.1): the gap to *other*
+    if *vehicle*'s body, moved a little further along its own route, would
+    touch *other*'s body; None if the next _EMERGENCY_DIST metres are clear.
+
+    The car test (below, in find_leader) compares centre points along a
+    straight line from the centre: lateral offset against the two
+    half-widths, forward distance against the two half-lengths. That is
+    exact for vehicles in line and close enough for cars, but for an 11 m
+    vehicle it reaches 14 m out along a straight line — off the outside of
+    any curve. A bus leaving the roundabout braked to a stop for a truck
+    queued on the entry lane across the splitter island, and a truck
+    finishing a right turn did the same for a bus held at the next
+    approach's stop line. Here the vehicle's body is posed where it will
+    actually be (vehicles/body.py) at a few points along its route.
+    """
+    route = vehicle.route
+    lane = vehicle.lane
+    other_box = other.get_bounding_box()
+    try:
+        idx = route.index(lane) if lane is not None else -1
+    except ValueError:
+        idx = -1
+    if idx < 0:
+        probe = forward_probe(
+            my_x,
+            my_y,
+            vehicle.heading,
+            vehicle.length,
+            vehicle.width,
+            _EMERGENCY_DIST,
+            _LATERAL_MARGIN / 2.0,
+        )
+        if not polygons_overlap(probe, other_box):
+            return None
+        nearest = min((px - my_x) * fwd_x + (py - my_y) * fwd_y for px, py in other_box)
+        return max(0.0, nearest - vehicle.length / 2.0)
+
+    clear = 0.0
+    for step in _PROBE_STEPS:
+        x, y, heading = body_pose(route, idx, vehicle.position + step, vehicle.length)
+        box = forward_probe(
+            x,
+            y,
+            heading,
+            vehicle.length,
+            vehicle.width,
+            0.0,
+            _LATERAL_MARGIN / 2.0,
+        )
+        if polygons_overlap(box, other_box):
+            return clear
+        clear = step
+    return None
+
+
+def _tail_on_ring_before_exit(
+    leader: Vehicle, lane: Any, theta_from: float, ring_radius: float
+) -> Optional[float]:
+    """Arc distance (m, along the ring) from ``theta_from`` to *leader*'s rear,
+    if that rear lies on the ring lane of radius *ring_radius* before *lane*'s
+    path has left it (its exit throat); None otherwise."""
+    leader_lane = leader.lane
+    if leader_lane is None:
+        return None
+    rx, ry = leader_lane.get_point_at_distance(
+        max(0.0, leader.position - leader.length / 2.0)
+    )
+    if abs(math.hypot(rx, ry) - ring_radius) > _RING_BAND:
+        return None
+    throat = getattr(lane, "_v14_throat_angle", None)
+    if throat is None:
+        tx, ty = lane.get_point_at_distance(lane.length - _THROAT_SETBACK)
+        throat = math.atan2(ty, tx)
+        lane._v14_throat_angle = throat
+    rear_diff = (math.atan2(ry, rx) - theta_from) % (2 * math.pi)
+    if rear_diff > math.pi or rear_diff >= (throat - theta_from) % (2 * math.pi):
+        return None
+    return ring_radius * rear_diff
+
+
+def _remaining_ring_angle(lane: Any, theta_from: float) -> float:
+    """Counter-clockwise angle from ``theta_from`` to where ``lane`` ends
+    (its exit from the ring)."""
+    ex, ey = lane.end_coords
+    return (math.atan2(ey, ex) - theta_from) % (2 * math.pi)
 
 
 # ---------------------------------------------------------------------------
@@ -171,7 +295,7 @@ def find_leader(
             if same_index_radius is None:
                 same_index_radius = avg_radius
 
-            my_lane_idx = _conn_lane_index(lane.lane_id)
+            my_lane_idx = ring_index(lane)
             if my_lane_idx is None:
                 my_lane_idx = 0
 
@@ -192,7 +316,7 @@ def find_leader(
                 ):
                     continue
 
-                v_lane_idx = _conn_lane_index(v.lane.lane_id)
+                v_lane_idx = ring_index(v.lane)
                 if v_lane_idx is not None and v_lane_idx != my_lane_idx:
                     continue
 
@@ -211,6 +335,45 @@ def find_leader(
 
                     # Only consider vehicles that are actually ahead of us in forward circular flow (within 180 degrees)
                     if not (0.0 < diff <= math.pi):
+                        continue
+
+                    # ...and, for a long vehicle on either side (V1.1), only
+                    # those before this path leaves the ring. A vehicle
+                    # beyond our exit is not on our path. V1.0 counted it
+                    # anyway; with two cars the resulting gap stays positive
+                    # and only causes mild braking, so the calibrated car
+                    # results are left exactly as they were. With two 11 m
+                    # bodies the gap collapses to zero: an exiting truck
+                    # stopped for a truck that had just entered downstream
+                    # of its exit, and the ring locked in a cycle of such
+                    # waits (30% heavy vehicles, 1.0 veh/s, seed 13).
+                    if (
+                        vehicle.length > LONG_VEHICLE_THRESHOLD
+                        or v.length > LONG_VEHICLE_THRESHOLD
+                    ) and diff > _remaining_ring_angle(lane, theta_self):
+                        # V1.4: unless its tail still lies on this ring lane
+                        # where we have not yet left it. A 10.6 m bus queued
+                        # just past an inner-lane exit covers ~24 degrees of
+                        # that lane behind it, over the start of the exit
+                        # curve; a truck leaving by that exit ignored it and
+                        # drove into its tail (2-lane ring, 50 % motorcycles,
+                        # seed 2). The tail is read from the leader's own
+                        # path, so a vehicle that has just entered — its tail
+                        # still out on the entry, at a larger radius — stays
+                        # ignored exactly as V1.1 intended.
+                        tail = _tail_on_ring_before_exit(
+                            v, lane, theta_self, same_index_radius
+                        )
+                        if tail is None:
+                            continue
+                        v_dist = dist_to_lane_start + tail + v.length / 2.0
+                        if v_dist > 0:
+                            gap = max(
+                                0.0, v_dist - (vehicle.length / 2.0 + v.length / 2.0)
+                            )
+                            if gap < best_gap:
+                                best_gap = gap
+                                best_leader = v
                         continue
 
                     arc_dist = same_index_radius * diff
@@ -301,6 +464,7 @@ def find_leader(
                             "connection_lane_id": av.lane.lane_id,
                             "position_on_lane": av.position,
                             "speed": av.speed,
+                            "length": av.length,
                         }
                         for av in active_vehicles or []
                         if av is not vehicle
@@ -317,6 +481,7 @@ def find_leader(
                     all_vehicles_info=conn_vehicles_info,
                     vehicle_speed=vehicle.speed,
                     on_connection_lane=lane is vehicle.lane,
+                    vehicle_length=vehicle.length,
                 )
 
                 if block_dist < float("inf"):
@@ -352,6 +517,8 @@ def find_leader(
         # rather than once per other vehicle.
         is_roundabout = getattr(network, "is_roundabout", False)
         id_a, a_is_conn, idx_a = _proximity_lane_key(vehicle.lane.lane_id)
+        if a_is_conn:
+            idx_a = ring_index(vehicle.lane)
 
         for other in active_vehicles:
             if other is vehicle or other.lane is None:
@@ -359,6 +526,8 @@ def find_leader(
 
             # Skip parallel lanes of the same street (non-connection lanes starting with same direction prefix)
             id_b, b_is_conn, idx_b = _proximity_lane_key(other.lane.lane_id)
+            if b_is_conn and is_roundabout:
+                idx_b = ring_index(other.lane)
             if is_roundabout:
                 # In a roundabout, vehicles circulating in the SAME lane
                 # index are already tracked by the angular arc-length logic
@@ -388,9 +557,28 @@ def find_leader(
                 # Other vehicle is behind or beside us — not a forward threat
                 continue
 
+            if (
+                vehicle.length > LONG_VEHICLE_THRESHOLD
+                or other.length > LONG_VEHICLE_THRESHOLD
+            ):
+                reach = (
+                    vehicle.length + other.length + vehicle.width + other.width
+                ) / 2.0 + _EMERGENCY_DIST
+                if dx * dx + dy * dy > reach * reach:
+                    continue
+                probe_gap = _long_vehicle_probe_gap(
+                    vehicle, my_x, my_y, fwd_x, fwd_y, other
+                )
+                if probe_gap is not None and probe_gap < best_gap:
+                    best_gap = probe_gap
+                    best_leader = VirtualObstacle(
+                        position=0.0, speed=other.speed, length=other.length
+                    )
+                continue
+
             # Lateral distance perpendicular to our heading
             lat_dist = abs(-dx * fwd_y + dy * fwd_x)
-            corridor_width = (vehicle.width + other.width) / 2.0 + 0.3  # ~2.2m
+            corridor_width = (vehicle.width + other.width) / 2.0 + _LATERAL_MARGIN
 
             if lat_dist > corridor_width:
                 # Outside our lane envelope (e.g. adjacent lane, waiting at perpendicular red light)

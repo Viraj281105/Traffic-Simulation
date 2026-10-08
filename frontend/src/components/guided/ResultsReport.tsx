@@ -3,8 +3,10 @@ import type { DualSnapshot } from "../../types/simulation";
 import type { SimulationConfigValues } from "../../types/config";
 import {
   DEMAND_LEVELS,
+  adaptiveSettings,
   demandLevelFor,
   demandRate,
+  isAdaptive,
   signalCycleSeconds,
 } from "../../types/config";
 import {
@@ -42,6 +44,11 @@ import {
   type SessionRun,
 } from "./comparisonRun";
 import type { MetricDef } from "../../metrics/catalog";
+import { VehicleClassResults } from "./VehicleClassResults";
+import { ApproachResults } from "./ApproachResults";
+import { describeRoads, ringLanes } from "../../scenario/scenarioModel";
+import { describeMix, hasMixedTraffic } from "../../vehicles/vehicleClasses";
+import { signalControlLabel } from "../../signals/signalControl";
 
 const LOW_SAMPLE_NOTE =
   "Fewer than 20 vehicles got through on at least one side, so read the “1 in 20” and per-direction figures as rough.";
@@ -236,9 +243,16 @@ export function ResultsReport({
         <ul className="scenario-chips" aria-label="Scenario">
           <li>{scenarioLabel(config)}</li>
           <li>
-            {config.lanes === 1 ? "1 lane" : `${String(config.lanes)} lanes`}{" "}
-            per approach
+            {config.scenario
+              ? describeRoads(config.scenario)
+              : `${config.lanes === 1 ? "1 lane" : `${String(config.lanes)} lanes`} per approach`}
           </li>
+          <li>
+            {config.vehicleMix
+              ? `Mixed traffic: ${describeMix(config.vehicleMix)}`
+              : "Cars only"}
+          </li>
+          <li>{signalControlLabel(config)}</li>
           <li>{duration(config.duration)} of traffic</li>
           <li>Traffic pattern #{config.randomSeed}</li>
         </ul>
@@ -499,6 +513,19 @@ export function ResultsReport({
             </div>
           </section>
 
+          <VehicleClassResults
+            signal={ctx.signal.metrics?.vehicleTypeBreakdown}
+            roundabout={ctx.roundabout.metrics?.vehicleTypeBreakdown}
+          />
+
+          {config.scenario && (
+            <ApproachResults
+              scenario={config.scenario}
+              signal={ctx.signal.metrics?.approachBreakdown}
+              roundabout={ctx.roundabout.metrics?.approachBreakdown}
+            />
+          )}
+
           <section className="results-section" aria-labelledby="r-why">
             <h2 id="r-why">Why did this happen?</h2>
             <div className="why-grid">
@@ -509,6 +536,7 @@ export function ResultsReport({
                 greenEw: config.ewGreenDuration ?? config.greenDuration,
                 cycleSeconds: signalCycleSeconds(config),
                 criticalGap: config.criticalGap,
+                adaptive: isAdaptive(config) ? adaptiveSettings(config) : null,
               }).map((e) => (
                 <div className="why-item" key={e.title}>
                   <h3>{e.title}</h3>
@@ -534,6 +562,7 @@ export function ResultsReport({
                   ctx.roundabout.metrics?.vehicleLimitReached,
                 ),
                 vehicleLimit: ctx.signal.metrics?.vehicleLimit ?? null,
+                mixedTraffic: hasMixedTraffic(config.vehicleMix),
               }).map((note) => (
                 <li key={note.text} className={`trust-${note.tone}`}>
                   {note.text}
@@ -724,19 +753,57 @@ export function ResultsReport({
             <div>
               <dt>Signal plan</dt>
               <dd>
-                NS / EW green {config.nsGreenDuration ?? config.greenDuration} /{" "}
-                {config.ewGreenDuration ?? config.greenDuration} s, yellow{" "}
-                {config.yellowDuration} s, all-red {config.allRedDuration} s
+                {isAdaptive(config) ? (
+                  <>
+                    Adaptive (vehicle-actuated): min green{" "}
+                    {adaptiveSettings(config).minGreen} s, max green{" "}
+                    {adaptiveSettings(config).maxGreen} s, passage time{" "}
+                    {adaptiveSettings(config).extensionStep} s over a{" "}
+                    {adaptiveSettings(config).detectionDistance} m stop-line
+                    zone
+                  </>
+                ) : (
+                  <>
+                    Fixed time: NS / EW green{" "}
+                    {config.nsGreenDuration ?? config.greenDuration} /{" "}
+                    {config.ewGreenDuration ?? config.greenDuration} s
+                  </>
+                )}
+                ; yellow {config.yellowDuration} s, all-red{" "}
+                {config.allRedDuration} s
               </dd>
             </div>
             <div>
               <dt>Roundabout</dt>
               <dd>
-                Single circulating lane, critical gap t_c ={" "}
-                {config.criticalGap.toFixed(1)} s, follow-up t_f ={" "}
-                {config.followUpTime.toFixed(1)} s
+                {(config.scenario
+                  ? ringLanes(config.scenario)
+                  : Math.min(config.lanes, 2)) === 1
+                  ? "Single circulating lane"
+                  : "Two circulating lanes (left turns inner, right turns outer; exits taken in turn)"}
+                , critical gap t_c = {config.criticalGap.toFixed(1)} s,
+                follow-up t_f = {config.followUpTime.toFixed(1)} s
               </dd>
             </div>
+            {config.scenario && (
+              <div>
+                <dt>Scenario</dt>
+                <dd>
+                  “{config.scenario.name}”:{" "}
+                  {(["north", "east", "south", "west"] as const)
+                    .flatMap((a) => {
+                      const arm = config.scenario?.approaches[a];
+                      return arm
+                        ? [
+                            `${a} ${String(arm.lanes)} lane(s), ${String(Math.round(arm.vehiclesPerHour))} veh/h`,
+                          ]
+                        : [];
+                    })
+                    .join("; ")}
+                  . Exported scenario files reproduce this run exactly.
+                </dd>
+              </div>
+            )}
           </dl>
           <div className="next-actions">
             <button

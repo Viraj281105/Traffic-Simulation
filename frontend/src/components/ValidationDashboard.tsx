@@ -890,10 +890,10 @@ export const ValidationDashboard: React.FC = () => {
                   ))}
                 </div>
                 <span className="adv-sub">
-                  With more than one lane both junctions model every lane, but
-                  drivers leaving the roundabout from an inner ring cross the
-                  outer one without lane markings, so results are exploratory
-                  and not the calibrated baseline.
+                  With more than one lane both junctions model every lane and
+                  the roundabout gets up to two circulating lanes, with lane
+                  designation and exits taken in turn (V1.4). Results are
+                  exploratory, not the calibrated baseline.
                 </span>
               </div>
 

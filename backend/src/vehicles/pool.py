@@ -11,10 +11,17 @@ import logging
 import math
 from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple
 
-from src.core.enums import Direction, TurnIntent, VehicleState
+from src.core.enums import Direction, VehicleState
 from src.intersection.predictive_conflicts import (
     PredictiveConflictResolver,
     apply_predictive_constraint,
+)
+from src.roads.network import SIGNAL_STOP_LINE_SETBACK
+from src.vehicles.idm import IntelligentDriverModel
+from src.vehicles.lane_change import (
+    LaneChangeModel,
+    origin_lane_leader,
+    resolve_lane_change_settings,
 )
 from src.vehicles.router import _conn_lane_index, find_leader
 from src.vehicles.speed_profile import (
@@ -88,7 +95,7 @@ def _check_sat_overlap(
     return True
 
 
-def _audit_group(lane_id: str) -> str:
+def _audit_group(lane_id: str, ring: Optional[int] = None) -> str:
     """The collision audit's "same street" key: pairs with equal keys are
     parallel lanes of one street and are not audited against each other.
 
@@ -100,11 +107,14 @@ def _audit_group(lane_id: str) -> str:
     audit. Same origin *and* same lane index (regardless of turn intent) are
     one continuous physical path (see Layer 1's same-lane-index following),
     so those still group together.
+
+    V1.4: the circulating lane is the lane's own ``ring_lane`` when it has
+    one (passed as *ring*), since it is no longer always the entry lane.
     """
     lid = lane_id.lower()
     if lid.startswith("conn_"):
         origin = lid.split("_")[1][0] if "_" in lid else lid
-        return f"{origin}{_conn_lane_index(lid)}"
+        return f"{origin}{_conn_lane_index(lid) if ring is None else ring}"
     if lid and lid[0] in ("n", "s", "e", "w"):
         return lid[0]
     return lid
@@ -126,6 +136,9 @@ class VehiclePool:
         # was told to give way to whom, keyed by vehicle id, so it must be
         # reset with the pool (see reset() below).
         self._predictive: PredictiveConflictResolver = PredictiveConflictResolver()
+        # Lane changing (V1.2), built from the engine's config on first use.
+        self._lane_changes: Optional[LaneChangeModel] = None
+        self._lane_changes_config_id: Optional[int] = None
 
     def reset(self) -> None:
         """Clear every trace of the previous run.
@@ -137,14 +150,42 @@ class VehiclePool:
         vehicle that happened to reuse an id from the old run.
         """
         for vehicle in self.active_vehicles:
-            if vehicle.lane is not None:
-                vehicle.lane.remove_vehicle(vehicle)
+            # Also drops a mid-manoeuvre vehicle from the lane it was leaving.
+            vehicle.detach()
         self.active_vehicles.clear()
         self.exited_vehicles.clear()
         self._collision_count = 0
         self._colliding_pairs.clear()
         self._last_lane_change.clear()
         self._predictive.reset()
+        if self._lane_changes is not None:
+            self._lane_changes.reset()
+
+    @property
+    def lane_change_count(self) -> int:
+        """Lane changes started this run (each one runs to completion)."""
+        return self._lane_changes.changes_started if self._lane_changes else 0
+
+    @property
+    def missed_turn_count(self) -> int:
+        """Vehicles that could not reach a lane permitting their turn in time."""
+        return self._lane_changes.missed_turns if self._lane_changes else 0
+
+    def _lane_change_model(self, engine: Any) -> LaneChangeModel:
+        config = getattr(engine, "config", None) or {}
+        if self._lane_changes is None or self._lane_changes_config_id != id(config):
+            default_idm = getattr(engine, "idm", None)
+            if default_idm is None:
+                default_idm = _idm_from_config(config)
+            previous = self._lane_changes
+            self._lane_changes = LaneChangeModel(
+                resolve_lane_change_settings(config), default_idm
+            )
+            if previous is not None:
+                self._lane_changes.changes_started = previous.changes_started
+                self._lane_changes.missed_turns = previous.missed_turns
+            self._lane_changes_config_id = id(config)
+        return self._lane_changes
 
     def add_vehicle(self, vehicle: Vehicle) -> None:
         if vehicle not in self.active_vehicles:
@@ -166,16 +207,7 @@ class VehiclePool:
         idm = getattr(engine, "idm", None)
         config = getattr(engine, "config", {})
         if idm is None:
-            from src.vehicles.idm import IntelligentDriverModel
-
-            veh_gen = config.get("vehicleGeneration", {})
-            idm = IntelligentDriverModel(
-                max_acceleration=veh_gen.get("maxAcceleration", 2.0),
-                comfort_deceleration=veh_gen.get("comfortDeceleration", 3.0),
-                desired_time_headway=veh_gen.get("desiredTimeHeadway", 1.5),
-                minimum_gap=veh_gen.get("minimumGap", 2.0),
-                idm_delta=veh_gen.get("idmDelta", 4.0),
-            )
+            idm = _idm_from_config(config)
 
         # ConflictManager pre-computes conflict/crossing points from straight
         # chords between each connection lane's start/end coordinates (see
@@ -234,18 +266,41 @@ class VehiclePool:
         # keeps arbitrating entry. A signalised junction has no gap logic at
         # all, so it always arbitrates in full.
         net = getattr(engine, "network", None)
+        # V1.4: the ring has its own lane count; a one-lane ring fed by a
+        # two-lane (merging) entry is still a single ring for this purpose.
+        ring_count = int(getattr(net, "circulating_lanes", 0) or 0)
         single_ring_roundabout = (
             geom_type == "roundabout"
             and net is not None
-            and all(
-                len(approach.get_lanes()) <= 1
-                for approach in getattr(net, "_incoming", {}).values()
+            and (
+                ring_count == 1
+                if ring_count
+                else all(
+                    len(approach.get_lanes()) <= 1
+                    for approach in getattr(net, "_incoming", {}).values()
+                )
             )
         )
         predictive_limits = self._predictive.compute_braking_distances(
             self.active_vehicles,
             entry_gated_by_controller=single_ring_roundabout,
             junction_arbitrated_elsewhere=conflict_manager is not None,
+        )
+        # V1.4: per-vehicle stopping limits set by the controller this tick
+        # (the roundabout's exit zones, see RoundaboutController), expressed
+        # exactly like the predictive layer's and folded in the same way.
+        controller_limits = getattr(
+            getattr(engine, "controller", None), "vehicle_stop_limits", None
+        )
+        if controller_limits:
+            predictive_limits = dict(predictive_limits)
+            for vid, allowed in controller_limits.items():
+                existing = predictive_limits.get(vid)
+                if existing is None or allowed < existing:
+                    predictive_limits[vid] = allowed
+
+        stop_line_setback = float(
+            getattr(net, "stop_line_setback", SIGNAL_STOP_LINE_SETBACK)
         )
 
         # Curve speed (see speed_profile.py): the same lateral-acceleration
@@ -281,16 +336,36 @@ class VehiclePool:
                 gap, leader, predictive_limits.get(vehicle.vehicle_id)
             )
 
+            # Mid lane change the vehicle still overlaps the lane it is
+            # leaving, so whatever is ahead there constrains it too.
+            if vehicle.lane_change is not None:
+                origin_leader, origin_gap = origin_lane_leader(vehicle)
+                if origin_leader is not None and origin_gap < gap:
+                    leader, gap = origin_leader, origin_gap
+
+            # Per-class behaviour (V1.1): a vehicle with a profile brings its
+            # own IDM, curve limit and braking; a legacy one uses the
+            # engine-wide values exactly as before.
+            params = vehicle.params
+            if params is not None:
+                vehicle_idm = params.idm
+                vehicle_lat = params.max_lateral_acceleration
+                vehicle_decel = params.comfort_deceleration
+            else:
+                vehicle_idm = idm
+                vehicle_lat = max_lateral_accel
+                vehicle_decel = curve_decel
+
             # The vehicle's own desired speed, lowered where a curve ahead
             # requires it. vehicle.desired_speed itself is left untouched: it
             # is also the free-flow reference for delay.
             desired = min(
                 vehicle.desired_speed,
-                curve_speed_ceiling(vehicle, max_lateral_accel, curve_decel),
+                curve_speed_ceiling(vehicle, vehicle_lat, vehicle_decel),
             )
 
             # Calculate acceleration using IDM
-            acc = idm.calculate_acceleration(
+            acc = vehicle_idm.calculate_acceleration(
                 speed=vehicle.speed,
                 desired_speed=max(0.1, desired),
                 lead_speed=leader.speed if leader is not None else None,
@@ -317,7 +392,16 @@ class VehiclePool:
                 # outgoing approach, so for most of those 2 s it holds zones it
                 # left long ago, and the next vehicle in the queue is blocked
                 # behind a junction that is visibly empty.
-                if "_out_" in vehicle.lane.lane_id:
+                #
+                # "Clear" means the whole body, not just the centre: a 12 m
+                # bus whose centre has reached the outgoing lane can still
+                # have its rear in the junction box. The outgoing lane starts
+                # the stop-line setback beyond the box, so the rear is out
+                # once position >= length/2 - that setback — immediately for
+                # every vehicle up to 7 m (all V1.0 cars).
+                if "_out_" in vehicle.lane.lane_id and vehicle.position >= (
+                    vehicle.length / 2.0 - stop_line_setback
+                ):
                     conflict_manager.release_vehicle(vehicle.vehicle_id)
 
         # Move exited vehicles from active to exited list
@@ -345,27 +429,36 @@ class VehiclePool:
             (
                 v,
                 v.lane,
-                _audit_group(v.lane.lane_id),
+                _audit_group(v.lane.lane_id, getattr(v.lane, "ring_lane", None)),
                 {lane_obj.lane_id for lane_obj in v.route} if v.route else set(),
                 v.coords,
+                v.lane_change is not None,
             )
             for v in self.active_vehicles
             if v.lane is not None
         ]
         still_colliding: Set[FrozenSet[str]] = set()
-        for i, (va, lane_a, group_a, va_lane_ids, (ax, ay)) in enumerate(entries):
-            for vb, lane_b, group_b, vb_lane_ids, (bx, by) in entries[i + 1 :]:
-                # Skip vehicles on the same lane — close following is normal
-                if lane_a is lane_b:
-                    continue
+        for i, (va, lane_a, group_a, va_lane_ids, (ax, ay), chg_a) in enumerate(
+            entries
+        ):
+            for vb, lane_b, group_b, vb_lane_ids, (bx, by), chg_b in entries[i + 1 :]:
+                # The three exemptions below assume both vehicles keep to
+                # their lanes. A vehicle part-way through a lane change does
+                # not: it straddles two lanes, so it is audited against
+                # everything near it, including the vehicles it is merging
+                # between.
+                if not (chg_a or chg_b):
+                    # Skip vehicles on the same lane — close following is normal
+                    if lane_a is lane_b:
+                        continue
 
-                # Skip parallel lanes of the same street (see _audit_group)
-                if group_a == group_b:
-                    continue
+                    # Skip parallel lanes of the same street (see _audit_group)
+                    if group_a == group_b:
+                        continue
 
-                # Skip vehicles that share any lane in their routes (same path)
-                if va_lane_ids & vb_lane_ids:
-                    continue
+                    # Skip vehicles that share any lane in their routes (same path)
+                    if va_lane_ids & vb_lane_ids:
+                        continue
 
                 # Quick bounding radius check before running full SAT
                 dx = bx - ax
@@ -442,139 +535,44 @@ class VehiclePool:
     def _attempt_lane_change(
         self, vehicle: Vehicle, current_time: float, engine: Any
     ) -> None:
-        """Attempt to perform a lane change if conditions permit and it is beneficial."""
-        current_lane = vehicle.lane
-        can_change_lane = (
-            getattr(vehicle, "turn_intent", None) == TurnIntent.STRAIGHT
-            and current_lane is not None
-            and vehicle.route
-            and current_lane == vehicle.route[0]
-            and (current_lane.length - vehicle.position >= 20.0)
-            and (
-                current_time - self._last_lane_change.get(vehicle.vehicle_id, -999.0)
-                >= 3.0
-            )
-        )
+        """Consider a lane change for *vehicle* (see vehicles/lane_change.py).
 
-        if not (can_change_lane and current_lane is not None):
-            return
-
+        V1.0 moved the vehicle into the adjacent lane in a single tick — a
+        3.5 m sideways jump, never checked by the collision audit. Changes are
+        now MOBIL decisions carried out as gradual, distance-based manoeuvres.
+        """
         network = getattr(engine, "network", None)
-        if network is None:
+        if network is None or vehicle.lane is None:
             return
-
-        # Determine approach direction
-        direction = _direction_from_incoming_lane_id(current_lane.lane_id)
-
-        if direction is None:
-            return
-
         try:
-            approach = network.get_incoming_approach(direction)
-            lanes = approach.get_lanes()
-            if len(lanes) <= 1:
-                return
-
-            curr_idx = lanes.index(current_lane)
-            # Candidates: adjacent lanes
-            candidates = []
-            if curr_idx > 0:
-                candidates.append(curr_idx - 1)
-            if curr_idx < len(lanes) - 1:
-                candidates.append(curr_idx + 1)
-
-            # Evaluate current gap
-            curr_gap = float("inf")
-            curr_leader = None
-            for v in current_lane.get_vehicles():
-                if v is vehicle:
-                    continue
-                dist = v.position - vehicle.position
-                if 0 < dist < curr_gap:
-                    curr_gap = dist
-                    curr_leader = v
-
-            # Also check if we are blocked by a red light
-            is_blocked_by_light = False
-            virtual_obs = getattr(current_lane, "virtual_obstacle", None)
-            if virtual_obs is not None:
-                obs_dist = virtual_obs.position - vehicle.position
-                if 0 < obs_dist < min(curr_gap, 25.0):
-                    curr_gap = obs_dist
-                    is_blocked_by_light = True
-
-            # We want to switch if our path is blocked or we are stuck behind a slower leader
-            is_slow_leader = (
-                curr_leader is not None
-                and curr_leader.speed < vehicle.speed - 2.0
-                and curr_gap < 20.0
+            started = self._lane_change_model(engine).attempt(
+                vehicle,
+                network,
+                current_time,
+                self._last_lane_change.get(vehicle.vehicle_id, -999.0),
             )
-            if is_slow_leader or is_blocked_by_light:
-                best_target_idx = None
-                best_target_gap = -1.0
-
-                for target_idx in candidates:
-                    target_lane = lanes[target_idx]
-                    # Check safety
-                    ahead_gap = float("inf")
-                    behind_gap = float("inf")
-                    behind_veh = None
-
-                    for v in target_lane.get_vehicles():
-                        dist = v.position - vehicle.position
-                        if dist >= 0:
-                            if dist < ahead_gap:
-                                ahead_gap = dist
-                        else:
-                            dist_behind = -dist
-                            if dist_behind < behind_gap:
-                                behind_gap = dist_behind
-                                behind_veh = v
-
-                    # Also check target lane virtual obstacle
-                    target_virtual_obs = getattr(target_lane, "virtual_obstacle", None)
-                    if target_virtual_obs is not None:
-                        obs_dist = target_virtual_obs.position - vehicle.position
-                        if 0 < obs_dist < ahead_gap:
-                            ahead_gap = obs_dist
-
-                    # Safety threshold: at least minimum gap + vehicle length
-                    safe_behind = True
-                    if behind_veh is not None:
-                        speed_diff = max(0.0, behind_veh.speed - vehicle.speed)
-                        safe_behind = behind_gap > (
-                            vehicle.length + 3.0 + speed_diff * 1.5
-                        )
-                    else:
-                        safe_behind = behind_gap > (vehicle.length + 3.0)
-
-                    safe_ahead = ahead_gap > (vehicle.length + 3.0)
-
-                    if safe_behind and safe_ahead:
-                        if ahead_gap > curr_gap + 12.0 or ahead_gap > 35.0:
-                            if ahead_gap > best_target_gap:
-                                best_target_gap = ahead_gap
-                                best_target_idx = target_idx
-
-                if best_target_idx is not None:
-                    target_lane = lanes[best_target_idx]
-                    current_lane.remove_vehicle(vehicle)
-                    vehicle.lane = target_lane
-                    target_lane.add_vehicle(vehicle)
-                    self._last_lane_change[vehicle.vehicle_id] = current_time
-                    # Regenerate route with new lane index
-                    vehicle.route = network.generate_route(
-                        direction, best_target_idx, vehicle.turn_intent
-                    )
         except (KeyError, ValueError, IndexError) as e:
             # KeyError: network.get_incoming_approach() for an unregistered
             # direction (matches the pattern used throughout roundabout.py/
-            # router.py). ValueError: lanes.index(current_lane) if the
-            # vehicle's lane isn't in this approach's lane list. IndexError:
-            # a malformed lane/route lookup inside generate_route(). These
-            # are the same "lane data unavailable, skip this attempt"
-            # conditions every other lane-lookup site in this codebase
-            # narrows to — a bare `except Exception` previously also
-            # swallowed genuine programming errors (e.g. AttributeError)
-            # silently instead of letting them surface.
+            # router.py). ValueError: the vehicle's lane isn't in this
+            # approach's lane list. IndexError: a malformed lane/route lookup
+            # inside generate_route(). These are the same "lane data
+            # unavailable, skip this attempt" conditions every other
+            # lane-lookup site in this codebase narrows to; genuine
+            # programming errors (e.g. AttributeError) still surface.
             logger.error(f"Error changing lane for vehicle {vehicle.vehicle_id}: {e}")
+            return
+        if started:
+            self._last_lane_change[vehicle.vehicle_id] = current_time
+
+
+def _idm_from_config(config: Dict[str, Any]) -> IntelligentDriverModel:
+    """The engine-wide IDM a legacy vehicle uses, from vehicleGeneration."""
+    veh_gen = config.get("vehicleGeneration", {}) or {}
+    return IntelligentDriverModel(
+        max_acceleration=veh_gen.get("maxAcceleration", 2.0),
+        comfort_deceleration=veh_gen.get("comfortDeceleration", 3.0),
+        desired_time_headway=veh_gen.get("desiredTimeHeadway", 1.5),
+        minimum_gap=veh_gen.get("minimumGap", 2.0),
+        idm_delta=veh_gen.get("idmDelta", 4.0),
+    )

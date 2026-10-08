@@ -45,10 +45,18 @@ function ctx(
 }
 
 // Keys the collector emits that are context for other metrics rather than
-// metrics themselves (thresholds, applicability, sample-size flag, and the
-// per-approach queue shown as bars).
+// metrics themselves (thresholds, applicability, sample-size flag, the
+// per-approach queue shown as bars, the per-vehicle-class breakdown of
+// the headline metrics shown as its own table — VehicleClassResults —, the
+// V1.3 signal green-time measures, a nested object shown in the
+// single-signal panel and the Research Lab, and the V1.4 per-approach
+// breakdown of the same headline metrics, shown as its own table in the
+// results and the scenario study).
 const CONTEXT_KEYS = new Set([
   "currentQueueLengths",
+  "vehicleTypeBreakdown",
+  "approachBreakdown",
+  "signalTiming",
   "travelTimeReliabilityLowSampleSize",
   "ttcThresholdSeconds",
   "petThresholdSeconds",
@@ -67,7 +75,11 @@ describe("metric catalog", () => {
     const emitted = new Set(
       [...block.matchAll(/^\s+"(\w+)":/gm)].map((m) => m[1]),
     );
-    emitted.add("masterEfficiencyScore"); // assigned after the literal
+    // Assigned after the literal.
+    for (const key of source.matchAll(/^\s+base_metrics\["(\w+)"\] =/gm))
+      emitted.add(key[1]);
+    expect(emitted.has("masterEfficiencyScore")).toBe(true);
+    expect(emitted.has("signalTiming")).toBe(true);
     const described = new Set<string>(METRICS.map((m) => m.key));
     const missing = [...emitted].filter(
       (k) => !described.has(k) && !CONTEXT_KEYS.has(k),

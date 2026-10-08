@@ -37,6 +37,8 @@ backend/
 │   ├── controllers/
 │   │   ├── base.py              BaseController ABC: update(), get_state(), reset()
 │   │   ├── fixed_time_signal.py Phase plans, per-corridor greens, offset, stop-line obstacles
+│   │   ├── adaptive_signal.py   V1.3 vehicle-actuated signal: same plan, greens ended by detection
+│   │   ├── signal_detection.py  V1.3 stop-line presence/passage detection on incoming lanes
 │   │   ├── roundabout.py        Gap acceptance, follow-up time, entry/circulating caps, spillback
 │   │   ├── virtual_obstacle.py  Zero-speed barrier used as a leader at stop/give-way lines
 │   │   └── factory.py           create_controller(), build_tick_callback(), derive_signals_state()
@@ -179,7 +181,7 @@ The full decision record: [decisions](../decisions/README.md).
 | --- | --- | --- |
 | A vehicle type (V1.1) | `vehicles/spawner.py` (assignment), `vehicles/vehicle.py` (properties), IDM parameter source, snapshot vehicle fields, `config_models.py` + `config.schema.json` | Same-seed comparison still gives both strategies identical vehicles |
 | Lane changing (V1.2) | `vehicles/pool.py`, `vehicles/router.py`, `roads/network.py` | Deterministic, order-independent updates; collision audit stays clean |
-| A controller (V1.3) | New `BaseController` subclass; `controllers/factory.py`; schema enum; `derive_signals_state()` if it exposes signals | Engine loop unchanged; metrics unchanged |
+| A controller | New `BaseController` subclass; `controllers/factory.py`; schema enum; `derive_signals_state()` if it exposes signals. V1.3's adaptive signal is the worked example: it subclasses `FixedTimeSignalController` (so the signal-geometry gates apply) and is selected by `controller.signalControl`, not a new geometry | Engine loop unchanged; metrics unchanged |
 | A metric | `metrics/definitions/`, `MetricCollector.get_metrics()`, `frontend/src/metrics/catalog.ts` (a test enforces this), metrics reference | Warm-up convention; backend-only computation |
 
 ---

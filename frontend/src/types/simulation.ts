@@ -35,7 +35,17 @@ export interface SnapshotVehicle {
   spawnTime: number;
   exitTime: number | null;
   distanceTraveled: number;
+  /** V1.1 vehicle class ("car" when the scenario has no mix). Optional
+   *  because snapshots from older backends and saved replays omit it. */
+  vehicleType?: VehicleClass;
+  /** V1.2 lane index across the approach (0 next to the centreline). */
+  laneIndex?: number | null;
+  /** V1.2 side of a lane change in progress (driver's view), else null. */
+  laneChange?: "left" | "right" | null;
 }
+
+/** Vehicle classes the backend simulates (V1.1). */
+export type VehicleClass = "car" | "suv" | "bus" | "truck" | "motorcycle";
 
 // ── Signal / Controller state ──────────────────────────────────────────────
 
@@ -75,13 +85,58 @@ export interface SignalHead {
   color: SignalColor;
 }
 
+/** V1.3: one green the adaptive signal ended, and why. */
+export interface AdaptiveDecision {
+  time: number;
+  phase: SignalPhase;
+  /** gapOut: traffic stopped arriving; maxOut: the maximum green was reached
+   *  while others waited. */
+  decision: "gapOut" | "maxOut";
+  greenSeconds: number;
+  next: SignalPhase;
+  /** Vehicles waiting for the next phase when it was called. */
+  waiting: number;
+}
+
+/** V1.3: the adaptive signal's settings and what it is doing now. */
+export interface AdaptiveSignalState {
+  status: "min_green" | "extending" | "resting" | "clearance";
+  minGreen: number;
+  maxGreen: number;
+  extensionStep: number;
+  detectionDistance: number;
+  demandThreshold: number;
+  greenElapsed: number;
+  gapTimer: number;
+  /** Vehicles detected on the lanes the current green releases. */
+  servedDemand: number;
+  /** Other phases with vehicles waiting (a call). */
+  phasesWaiting: number;
+  /** Vehicles detected near the stop line, per approach. */
+  detected: Partial<Record<SignalDirection, number>>;
+  nextPhase: SignalPhase | null;
+  decisions: {
+    greens: number;
+    gapOuts: number;
+    maxOuts: number;
+    greensExtended: number;
+    phasesSkipped: number;
+    restSeconds: number;
+  };
+  recentDecisions: AdaptiveDecision[];
+}
+
 export interface FixedTimeControllerState {
   type: "fixed_time_signal";
   timeInCurrentState: number;
   currentPhase: SignalPhase;
+  /** Fixed-time: exact. Adaptive: an upper bound (see the snapshot schema). */
   phaseTimeRemaining: number;
   cycleNumber: number;
   signals: SignalHead[];
+  /** V1.3; absent in snapshots saved before it (fixed-time). */
+  signalControl?: "fixed_time" | "adaptive";
+  adaptive?: AdaptiveSignalState;
 }
 
 export interface RoundaboutControllerState {
@@ -92,6 +147,14 @@ export interface RoundaboutControllerState {
   circulatingCount: number;
   yieldingCount: number;
   gapAcceptance: number;
+  /** V1.4: circulating lanes (independent of the approach lane counts). */
+  circulatingLanes?: number;
+  /** V1.4: vehicles giving way at an exit spiral-out right now. */
+  exitYieldingCount?: number;
+  /** V1.4: exit give-ways since the run started. */
+  exitYieldEvents?: number;
+  /** V1.4: vehicles that had to continue out through a late conflict. */
+  forcedExitCommitments?: number;
 }
 
 export type ControllerState =
@@ -103,6 +166,16 @@ export interface Approach {
   direction: SignalDirection;
   queueLength: number;
   laneCount: number;
+  /** V1.2: movements permitted from each incoming lane, lane 0 first
+   *  (V1.5 adds "uturn"). */
+  lanePermittedTurns?: ("uturn" | "left" | "straight" | "right")[][];
+  /** V1.5, real-world geometry only: the arm's compass bearing (degrees
+   *  clockwise from north, outwards from the centre). */
+  bearing?: number;
+  /** V1.5, real-world geometry only: the arm's lane width (m). */
+  laneWidth?: number;
+  /** V1.5, real-world geometry only: centre to stop / give-way line (m). */
+  stopLineDistance?: number;
 }
 
 export interface IntersectionState {
@@ -111,6 +184,47 @@ export interface IntersectionState {
   centerY: number;
   boundingRadius: number;
   approaches: Approach[];
+  /** V1.1: conflict area to stop line (m); grows with the longest vehicle
+   *  class in the mix (design-vehicle geometry). 3.5 when absent. */
+  stopLineSetback?: number;
+  /** V1.4: a roundabout's circulating lanes; null for a signal. */
+  circulatingLanes?: number | null;
+}
+
+/** V1.4 results for the vehicles that came from one approach. */
+export interface ApproachResult {
+  exited: number;
+  averageDelay: number;
+  active: number;
+  averageQueueLength: number;
+  maxQueueLength: number;
+}
+
+/** V1.3 green-time measures, the same for fixed-time and adaptive signals. */
+export interface SignalTiming {
+  signalControl: "fixed_time" | "adaptive";
+  phaseChanges: number;
+  greenSeconds: number;
+  averageGreenDuration: number | null;
+  /** Green with nobody near the stop line while others waited on red. */
+  unusedGreenSeconds: number;
+  greenUtilisation: number | null;
+  detectionDistance: number;
+}
+
+/** V1.1 per-class results (same delays as averageDelay). */
+export interface VehicleTypeResult {
+  exited: number;
+  share: number;
+  averageDelay: number;
+  active: number;
+}
+
+/** V1.2 lane-model counters for the run so far. */
+export interface LaneModelState {
+  laneChanges: number;
+  laneChangesInProgress: number;
+  missedTurns: number;
 }
 
 // ── Running metrics ────────────────────────────────────────────────────────
@@ -199,6 +313,15 @@ export interface RunningMetrics {
   petThresholdSeconds?: number;
   /** False where PET is not measured at all (roundabout geometry). */
   petApplicable?: boolean;
+  /** V1.1: served vehicles, share and mean delay per vehicle class. */
+  vehicleTypeBreakdown?: Partial<Record<VehicleClass, VehicleTypeResult>>;
+  /** V1.4: served vehicles, mean delay and queues per approach. */
+  approachBreakdown?: Partial<
+    Record<"north" | "south" | "east" | "west", ApproachResult>
+  >;
+  /** V1.3: how a signal used its green time after warm-up; null for a
+   *  roundabout and during warm-up. */
+  signalTiming?: SignalTiming | null;
 }
 
 // ── Vehicle counts ─────────────────────────────────────────────────────────
@@ -242,6 +365,8 @@ export interface LiveSnapshot {
   metrics: RunningMetrics;
   vehicleCounts: VehicleCounts;
   simulationStatus: SimulationStatus;
+  /** V1.2 lane-model counters; absent from older snapshots. */
+  laneModel?: LaneModelState;
 }
 
 export interface DualSnapshot {

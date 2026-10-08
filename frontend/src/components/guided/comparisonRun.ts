@@ -13,6 +13,8 @@ import {
   type MetricContext,
 } from "../../metrics/catalog";
 import { sideSummary } from "../../metrics/plainLanguage";
+import { describeMix } from "../../vehicles/vehicleClasses";
+import { signalControlLabel } from "../../signals/signalControl";
 
 /** One comparison the user ran this session, kept so alternatives can be
  *  read side by side without saving each one. */
@@ -73,6 +75,9 @@ export function sessionRunFrom(
 }
 
 export function scenarioLabel(config: SimulationConfigValues): string {
+  if (config.scenario) {
+    return `“${config.scenario.name}” (≈ ${vehiclesPerHour(config.arrivalRate).toLocaleString()} veh/h)`;
+  }
   const level = demandLevelFor(config.arrivalRate, config.lanes);
   return `${level ? level.label : "Custom"} traffic (≈ ${vehiclesPerHour(config.arrivalRate).toLocaleString()} veh/h)`;
 }
@@ -89,6 +94,8 @@ export function downloadComparisonCsv(
   const header = [
     `Signal vs roundabout — ${source}`,
     `Scenario: ${scenarioLabel(config)}, ${String(config.lanes)} lane(s) per approach, seed ${String(config.randomSeed)}`,
+    `Traffic: ${describeMix(config.vehicleMix)}`,
+    `Signal: ${signalControlLabel(config)}`,
     elapsedSeconds !== null
       ? `Simulated time: ${elapsedSeconds.toFixed(1)} s`
       : "",

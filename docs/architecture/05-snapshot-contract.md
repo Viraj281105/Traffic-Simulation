@@ -39,6 +39,7 @@ A **Snapshot** is a complete, self-contained representation of the simulation st
 | 14 | `vehicleCounts` | `VehicleCounts` | ✅ | Summary counts of vehicles by state | — | See Section 7 |
 | 15 | `simulationStatus` | `string` | ✅ | Current simulation status | — | `"running"` |
 | 16 | `units` | `UnitSystem` | ✅ | Unit system used in this snapshot | — | See Section 8 |
+| 17 | `laneModel` | `object` | ❌ | V1.2 lane counters for the run so far: `laneChanges` (started; each runs to completion), `laneChangesInProgress`, `missedTurns` (vehicles that could not reach a lane permitting their turn in time) | — | `{"laneChanges": 13, "laneChangesInProgress": 2, "missedTurns": 0}` |
 
 ---
 
@@ -65,6 +66,11 @@ Each entry in the `vehicles` array describes one vehicle at this instant.
 | 15 | `spawnTime` | `number` | ✅ | Simulation time when this vehicle was spawned | seconds (s) | `10.0` |
 | 16 | `exitTime` | `number` | ❌ | Simulation time when this vehicle exited (null if still active) | seconds (s) | `55.3` |
 | 17 | `distanceTraveled` | `number` | ✅ | Total distance traveled since spawn | meters (m) | `85.7` |
+| 18 | `vehicleType` | `string` | ❌ | V1.1 class (enum: `car`, `suv`, `bus`, `truck`, `motorcycle`); always `car` without a configured mix | — | `"bus"` |
+| 19 | `laneIndex` | `integer \| null` | ❌ | V1.2 index of the vehicle's lane across its approach (0 next to the centreline); `null` for exited vehicles | — | `1` |
+| 20 | `laneChange` | `string \| null` | ❌ | V1.2 side of a lane change in progress, from the driver's view (`left`, `right`), else `null`. During a change `x`/`y`/`heading` move gradually between the lanes; `laneId` is already the target lane. | — | `"left"` |
+
+Fields 18–20 are additive and optional: snapshots and saved replays from before V1.1 omit them, and clients treat a missing `vehicleType` as `car`. `length`/`width` are the vehicle's true dimensions (a 2 m motorcycle, a 12 m bus); a long vehicle's `x`/`y`/`heading` describe its body on the chord between its axles (see [methodology §6](../simulation/methodology.md#6-vehicle-dynamics--the-intelligent-driver-model)).
 
 ---
 
@@ -77,6 +83,7 @@ Each entry in the `vehicles` array describes one vehicle at this instant.
 | 3 | `centerY` | `number` | ✅ | Y-coordinate of intersection center | meters (m) | `0.0` |
 | 4 | `boundingRadius` | `number` | ✅ | Radius of the intersection's bounding circle | meters (m) | `25.0` |
 | 5 | `approaches` | `array<Approach>` | ✅ | List of approach arms | — | See below |
+| 6 | `stopLineSetback` | `number` | ❌ | V1.1: distance from the conflict area to each signal stop line — 3.5 m, plus the longest vehicle class's length beyond 5 m when the mix has buses or trucks (design vehicle). Renderers draw the junction box from it. | meters (m) | `10.5` |
 
 ### Approach Object
 
@@ -85,6 +92,7 @@ Each entry in the `vehicles` array describes one vehicle at this instant.
 | 1 | `direction` | `string` | ✅ | Approach direction (enum: `north`, `south`, `east`, `west`) | — | `"north"` |
 | 2 | `queueLength` | `integer` | ✅ | Number of vehicles currently queued on this approach | — | `5` |
 | 3 | `laneCount` | `integer` | ✅ | Number of lanes on this approach | — | `2` |
+| 4 | `lanePermittedTurns` | `array<array<string>>` | ❌ | V1.2: movements permitted from each incoming lane, lane 0 first (the lane arrows) | — | `[["left","straight"],["straight","right"]]` |
 
 ---
 
@@ -107,6 +115,8 @@ The controller state uses a **discriminated union** pattern. The `type` field de
 | 4 | `phaseTimeRemaining` | `number` | ✅ | Time remaining in the current phase | seconds (s) | `14.8` |
 | 5 | `cycleNumber` | `integer` | ✅ | Current signal cycle count | — | `3` |
 | 6 | `signals` | `array<SignalHead>` | ✅ | State of each signal head | — | See below |
+| 7 | `signalControl` | `string` | ❌ | V1.3: `fixed_time` or `adaptive` (always present in snapshots built since V1.3; absent in older saved frames, which are fixed-time). For an adaptive green `phaseTimeRemaining` is an upper bound: the time to the minimum green, then to the maximum once another phase calls, 0 while it rests with nobody waiting | — | `"adaptive"` |
+| 8 | `adaptive` | `object` | ❌ | V1.3, adaptive only: settings (`minGreen`, `maxGreen`, `extensionStep`, `detectionDistance`, `demandThreshold`), live `status` (`min_green`, `extending`, `resting`, `clearance`), `greenElapsed`, `gapTimer`, `servedDemand`, `phasesWaiting`, `detected` per approach, `nextPhase`, `decisions` (`greens`, `gapOuts`, `maxOuts`, `greensExtended`, `phasesSkipped`, `restSeconds`) and `recentDecisions` (last 12: `time`, `phase`, `decision` `gapOut`/`maxOut`, `greenSeconds`, `next`, `waiting`) | mixed | — |
 
 #### SignalHead Object
 
@@ -127,7 +137,7 @@ The controller state uses a **discriminated union** pattern. The `type` field de
 
 ### 5.4 Adding Future Controllers
 
-To add a new controller type (e.g., `adaptive_signal`):
+The adaptive signal (V1.3) did **not** need a new type: it is a signal (`type: "fixed_time_signal"`, the geometry) whose `signalControl` is `"adaptive"`, with its extra state under `adaptive` (§5.2). To add a genuinely new controller type:
 1. Add the type value to the `ControllerType` enum in `shared/enums/controller-type.md`
 2. Define the controller-specific fields in a new subsection (e.g., 5.4 Adaptive Signal State)
 3. Update `snapshot.schema.json` with the new discriminated union variant
@@ -155,6 +165,8 @@ Real-time metric values computed up to the current tick. All values are cumulati
 | 12 | `directionalFairnessIndex` | `number` | ✅ | Jain's Fairness Index across approach directions | dimensionless (0-1) | `0.85` |
 | 13 | `activeVehicleCount` | `integer` | ✅ | Number of vehicles currently in the simulation | — | `18` |
 | 14 | `totalVehiclesSpawned` | `integer` | ✅ | Total vehicles generated since simulation start | — | `60` |
+| 15 | `vehicleTypeBreakdown` | `object` | ❌ | V1.1: per class present, `{exited, share, averageDelay, active}` — post-warm-up vehicles served, their share, their mean delay (same per-vehicle delays as `averageDelay`, so the classes reconcile with it) and vehicles active now | mixed | `{"bus": {"exited": 4, "share": 0.36, "averageDelay": 5.45, "active": 8}}` |
+| 16 | `signalTiming` | `object \| null` | ❌ | V1.3, signals only (null for a roundabout and during warm-up): `signalControl`, `phaseChanges` (greens started), `greenSeconds`, `averageGreenDuration` (completed greens; null if none), `unusedGreenSeconds` (green with nobody detected on its lanes while another phase had vehicles waiting), `greenUtilisation` (1 − unused / green), `detectionDistance` (30 m, the same for fixed-time and adaptive) | mixed | `{"signalControl": "adaptive", "phaseChanges": 10, "averageGreenDuration": 16.9, "greenUtilisation": 0.84}` |
 
 ---
 

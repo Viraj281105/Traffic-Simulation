@@ -1,6 +1,7 @@
 import math
 from typing import Any, Dict, List
 
+from src.roads.network import resolve_lanes_per_approach
 from src.vehicles.vehicle import Vehicle
 
 
@@ -90,7 +91,7 @@ def calculate_space_footprint_consumed(config: Dict[str, Any]) -> float:
         outer_radius = ctrl_cfg.get("outerRadius", 20.0)
         return float(round(math.pi * (outer_radius**2), 2))
     else:
-        lanes = roads_cfg.get("lanesPerApproach", 2)
+        lanes = resolve_lanes_per_approach(roads_cfg)
         lane_width = roads_cfg.get("laneWidth", 3.5)
         if isinstance(lanes, dict):
             lane_count = max(lanes.values()) if lanes else 2

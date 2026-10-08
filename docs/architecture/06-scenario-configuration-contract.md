@@ -49,6 +49,7 @@ The versioned API accepts this configuration over REST and validates it against 
 | 3 | `arrivalDistribution` | `string` | ❌ | `"poisson"` | Arrival process type | enum: `poisson`, `uniform`, `burst` |
 | 4 | `directionalSplit` | `object` | ❌ | See below | Fraction of vehicles from each direction | Values sum to 1.0 |
 | 5 | `turnProbabilities` | `object` | ❌ | See below | Turn intent probabilities | Values sum to 1.0 per direction |
+| 6 | `approaches` | `array<TrafficApproachConfig>` | ❌ | absent | **V1.4** per-approach traffic: `{direction, turnProbabilities?, vehicleMix?}`. `turnProbabilities` replaces field 5 for that approach; `vehicleMix` replaces `vehicleGeneration.vehicleMix` for that approach (a junction serving a bus route on one road only). How busy each approach is stays `arrivalRate × directionalSplit`. | each approach at most once; each object sums to 1 (±0.01); never normalised |
 
 #### Default `directionalSplit`
 ```json
@@ -75,6 +76,7 @@ The versioned API accepts this configuration over REST and validates it against 
 |---|-------|------|----------|---------|-------------|------------|
 | 1 | `intersectionType` | `string` | ✅ | — | Type of intersection | enum: `fixed_time_signal`, `roundabout` |
 | 2 | `intersectionCenter` | `object` | ❌ | `{"x": 0, "y": 0}` | Center coordinates | — |
+| 3 | `circulatingLanes` | `integer` | ❌ | widest approach, at most 2 | **V1.4** a roundabout's circulating lanes, independent of the approach lane counts (see §2.6.2). Ignored by a signal. | 1–2 accepted; 3 is in the schema range but rejected with an explanation (not yet supported); each ring lane at least 3.0 m and the widest vehicle + 1.0 m wide; an approach may have at most one lane more than the ring |
 
 ### 2.4 `roads` — Road Configuration
 
@@ -82,11 +84,23 @@ The versioned API accepts this configuration over REST and validates it against 
 |---|-------|------|----------|---------|-------------|------------|
 | 1 | `approachLength` | `number` | ❌ | `200` | Length of each approach arm | > 50, ≤ 1000 meters |
 | 2 | `laneWidth` | `number` | ❌ | `3.5` | Width of each lane | > 2.5, ≤ 5.0 meters |
-| 3 | `lanesPerApproach` | `integer` | ❌ | `2` | Lane count applied to all four approaches | 1–4 (see `shared/schemas/config.schema.json`) |
+| 3 | `lanesPerApproach` | `integer` | ❌ | `2` | Lane count applied to every approach without its own `approaches[].lanes` | 1–4 (see `shared/schemas/config.schema.json`) |
 | 4 | `speedLimit` | `number` | ❌ | `13.89` | Speed limit on approach roads (50 km/h). Unless `vehicleGeneration.desiredSpeed` is set, each driver's desired speed is drawn from 85–105% of it (see §2.5). | > 0, ≤ 30 m/s (≈108 km/h) |
-| 5 | `approaches` | `array<ApproachConfig>` | ❌ | All 4 directions | Per-approach overrides. **Reserved — accepted and schema-validated, but not read by the engine**: every approach uses `lanesPerApproach` and no speed limit is applied. See below. | See below |
+| 5 | `approaches` | `array<ApproachConfig>` | ❌ | All 4 directions | Per-approach overrides. `lanes` is applied (V1.2); `speedLimit` is reserved. See below. | See below |
+| 6 | `laneChange` | `LaneChangeConfig` | ❌ | enabled | Lane changing on multi-lane approaches (V1.2). See below. | See below |
 
-> **Asymmetric lane counts — not yet part of this contract.** The versioned config schema (`shared/schemas/config.schema.json`, enforced on `POST /api/v1/configs/validate` and `POST /api/v1/simulations`) only accepts `lanesPerApproach` as a single integer shared by all four approaches. Internally, the legacy live dashboard routes (`backend/src/main.py`) and the simulation engine (`backend/src/roads/network.py`) already accept a per-direction object (`{"north": 2, "south": 3, ...}`), but that shape is an implementation detail of the live/interactive path, not a validated or documented versioned-API feature. Officially supporting asymmetric per-direction lane counts in the versioned contract — including the schema, Pydantic models, and any dependent metric formulas such as [Space/Footprint Consumed](07-metric-contract.md#61-space--footprint-consumed) — is planned future work, not current behavior.
+> **Per-approach lane counts (V1.2, V1.4).** `approaches[].lanes` overrides `lanesPerApproach` for the approach it names (`roads.network.resolve_lanes_per_approach`); the dashboard sends the same thing as `lanesNorth`…`lanesWest`. **At a signal, north and south must match, and east and west must match** (`config_validation._lane_count_errors`): each road carries the same lane count both ways, so through traffic from a wider approach would have to merge inside the junction, which the model does not represent (V1.0 locked up on north 1 / south 2). A two-lane main road crossing a one-lane side street is supported; the signal's junction box is square and sized to the widest road. **A roundabout has no such rule since V1.4**: its ring has its own lane count (`geometry.circulatingLanes`), entry and exit lanes are mapped onto it explicitly (`roads/lane_config.py`), and nothing drives straight from one approach into the opposite one. [Space/Footprint Consumed](07-metric-contract.md#61-space--footprint-consumed) uses the widest approach.
+>
+> **Lane use (V1.4).** `approaches[].laneUse` lists the movements each lane allows, lane 1 (next to the centre line) first — e.g. `[["left"], ["straight"], ["straight", "right"]]`. Omitted: the default policy (left from the left-most lane, right from the right-most, straight from any). Rules (`core/lane_validation.py`): one entry per lane; every lane at least one movement; at a signal, arrows must not cross (every movement of a lane at or to the right of every movement of the lanes to its left) and every turning lane needs its own receiving lane (two left-turn lanes need a two-lane road to turn into); at a roundabout, every movement must be routable under the lane designation (left inner, right outer, straight on the entry lane's own ring lane); and every movement with a positive turning share must be allowed by some lane. A roundabout without `laneUse` derives its lane markings from the designation. `approaches[].length` (V1.4) gives one approach its own length (adaptive detection must be shorter than the shortest approach).
+
+#### LaneChangeConfig Object (V1.2)
+
+| # | Field | Type | Required | Default | Description | Validation |
+|---|-------|------|----------|---------|-------------|------------|
+| 1 | `enabled` | `boolean` | ❌ | `true` | Allow lane changes on multi-lane approaches | — |
+| 2 | `accelerationThreshold` | `number` | ❌ | `0.2` | MOBIL switching threshold Δa_th | ≥ 0, ≤ 2 m/s² |
+| 3 | `safeDeceleration` | `number` | ❌ | `4.0` | MOBIL safety limit b_safe: hardest braking a change may impose on the new follower | > 0, ≤ 9 m/s² |
+| 4 | `politeness` | `number` | ❌ | per class | Overrides every class's MOBIL politeness factor | 0–1 |
 
 > **`speedLimit` is applied (since 2026-09-25).** It sets the default
 > desired-speed range for both geometries (`src/vehicles/speed_profile.py`).
@@ -98,8 +112,10 @@ The versioned API accepts this configuration over REST and validates it against 
 | # | Field | Type | Required | Default | Description | Validation |
 |---|-------|------|----------|---------|-------------|------------|
 | 1 | `direction` | `string` | ✅ | — | Approach direction | enum: `north`, `south`, `east`, `west` |
-| 2 | `lanes` | `integer` | ❌ | Inherits from `lanesPerApproach` | Lane count for this approach. **Not applied** — asymmetric lane counts are not part of this contract (see the note above); the approach uses `lanesPerApproach`. | ≥ 1, ≤ 4 |
-| 3 | `speedLimit` | `number` | ❌ | Inherits from `roads.speedLimit` | Speed limit for this approach. Not applied (see `roads.speedLimit`). | > 0 m/s |
+| 2 | `lanes` | `integer` | ❌ | Inherits from `lanesPerApproach` | Lane count for this approach (V1.2; at a signal it must equal the opposite approach's). | ≥ 1, ≤ 4 |
+| 3 | `length` | `number` | ❌ | `roads.approachLength` | **V1.4** this approach's own length | > 50, ≤ 1000 m |
+| 4 | `laneUse` | `array<array<string>>` | ❌ | default policy | **V1.4** movements per lane, lane 1 first (see the lane-use note above) | one list per lane; values `left`/`straight`/`right`; no empty lane |
+| 5 | `speedLimit` | `number` | ❌ | Inherits from `roads.speedLimit` | Speed limit for this approach. Not applied (see `roads.speedLimit`). | > 0 m/s |
 
 ### 2.5 `vehicleGeneration` — Vehicle Properties
 
@@ -114,6 +130,10 @@ The versioned API accepts this configuration over REST and validates it against 
 | 7 | `desiredTimeHeadway` | `number` | ❌ | `1.5` | Desired following time headway | > 0 seconds |
 | 8 | `idmDelta` | `number` | ❌ | `4` | IDM acceleration exponent | > 0 |
 | 9 | `maxLateralAcceleration` | `number` | ❌ | `3.0` | Lateral-acceleration limit on every curved path (signal turns, roundabout entry, ring and exit): a vehicle's speed on a curve of radius R is at most √(a·R), and it brakes for the curve at `comfortDeceleration` | > 0, ≤ 8 m/s² |
+| 10 | `vehicleMix` | `object` | ❌ | absent | V1.1 share of arrivals per class: `car`, `suv`, `bus`, `truck`, `motorcycle`. **Absent: every vehicle is the V1.0 car, drawn exactly as before.** | each 0–1, sum 1 (±0.01), at least one > 0, no other keys |
+| 11 | `vehicleTypes` | `object` | ❌ | class defaults | V1.1 per-class overrides, keyed by class: `length`, `width`, `desiredSpeedFactor` (`{min,max}`, the last as a fraction of `roads.speedLimit`); `maxAcceleration`, `comfortDeceleration`, `desiredTimeHeadway`, `minimumGap`, `idmDelta`, `maxLateralAcceleration` (≤ 8), `laneChangeDuration` (≤ 15 s), `laneChangeMinDistance` (≤ 100 m), `politeness` (0–1) | ranges `max ≥ min`; no other keys |
+
+> **Fields 1–9 describe the car.** In a mixed population the `car` class is exactly the vehicle fields 1–9 define; the other classes use the defaults in [methodology §5.4](../simulation/methodology.md#54-vehicle-classes-v11), overridable through `vehicleTypes`. With an explicit `desiredSpeed`, each class keeps its speed ratio to the car.
 
 ### 2.6 `controller` — Controller-Specific Configuration
 
@@ -156,13 +176,34 @@ If none of a duration's names are present, the hardcoded fallback (30 / 5 / 4 / 
 
 **`phaseSequence` vocabulary:** each entry is either the literal string `"all_red"`, or `"<group>_<green|yellow>"` where `<group>` is one of `n`, `s`, `e`, `w` (a single approach) or `ns`/`sn`, `ew`/`we` (a paired, order-invariant approach group sharing one green — e.g. `ns_green` runs NORTH and SOUTH together). Green-phase duration uses `straightRightDuration` (after alias resolution above); yellow-phase duration uses `yellowDuration`; `all_red` uses `allRedDuration`. During a paired-group green phase, all three turn intents (including permissive left) are allowed for both directions in the group — left-turners crossing opposing straight traffic are arbitrated by `ConflictManager` (see [08-communication-contract.md](08-communication-contract.md)), not by a separate protected-left sub-phase. An entry that doesn't match this vocabulary raises a configuration error surfaced as `400 VALIDATION_ERROR` by `POST /api/v1/simulations` and `POST /api/simulation/new`. When `phaseSequence` is omitted entirely, the controller instead builds its original one-direction-at-a-time cycle (straight+right green → protected left green → yellow → all-red, repeated for N→S→E→W) — see the note on default-consistency below.
 
+#### 2.6.1a Signal control: fixed-time or adaptive (V1.3)
+
+A signalised junction (`intersectionType: "fixed_time_signal"` — the geometry name is unchanged) times its greens one of two ways, chosen by `controller.signalControl`:
+
+| # | Field | Type | Required | Default | Description | Validation |
+|---|-------|------|----------|---------|-------------|------------|
+| 1 | `signalControl` | `string` | ❌ | `"fixed_time"` (when omitted) | `"fixed_time"`: every green runs its configured duration (§2.6.1). `"adaptive"`: the same phase plan, yellow and all-red, with each green ended by stop-line detection | enum `fixed_time`, `adaptive`; `adaptive` is rejected for a roundabout |
+| 2 | `adaptive` | `AdaptiveSignalConfig` | ❌ | defaults below | Adaptive settings; read only when `signalControl` is `"adaptive"` | See below |
+
+**AdaptiveSignalConfig** (`controllers/adaptive_signal.py`; methodology [§7.3](../simulation/methodology.md#73-adaptive-signal--controllersadaptive_signalpy-v13)):
+
+| # | Field | Type | Default | Description | Validation |
+|---|-------|------|---------|-------------|------------|
+| 1 | `minGreen` | `number` | `10` | Seconds every green lasts | 5–60 |
+| 2 | `maxGreen` | `number` | `50` | Most seconds a green may continue once another phase calls | 10–180, > `minGreen` |
+| 3 | `extensionStep` | `number` | `2.5` | Passage time: the green ends (gap-out) after this long with no vehicle moving through the detection zone, if another phase calls | 0.5–10, < `maxGreen` |
+| 4 | `detectionDistance` | `number` | `30` | Stop-line detection zone length per incoming lane (m) | 5–200, < `roads.approachLength` |
+| 5 | `demandThreshold` | `integer` | `1` | Vehicles detected on another phase's lanes needed to place a call | 1–20 |
+
+Unknown fields are rejected. Adaptive control also requires a phase plan it can end greens in safely: every stage (consecutive greens of the same approaches) must be followed by a yellow covering those approaches and an `all_red`; the default paired plan and the one-direction-at-a-time default cycle qualify. `controller.offset` must be 0 or omitted (a fixed-time coordination concept). Yellow and all-red durations are the §2.6.1 fields, unchanged. Omitting `signalControl` keeps every V1.2 configuration — and its results — exactly as before.
+
 #### 2.6.2 Roundabout Controller
 
 | # | Field | Type | Required | Default | Description | Validation |
 |---|-------|------|----------|---------|-------------|------------|
 | 1 | `innerRadius` | `number` | ❌ | `10` | Inner radius of the circulatory roadway | > 5, ≤ 50 meters |
 | 2 | `outerRadius` | `number` | ❌ | `20` | Outer radius of the circulatory roadway | > `innerRadius` |
-| 3 | `circulatingLanes` | `integer` | ❌ | `1` | **Reserved / future-only** — see note below | ≥ 1, ≤ 3 |
+| 3 | `circulatingLanes` | `integer` | ❌ | `1` | **Reserved, no effect** — superseded by `geometry.circulatingLanes` (V1.4); see note below | ≥ 1, ≤ 3; if set alongside `geometry.circulatingLanes` the two must agree |
 | 4 | `criticalGap` | `number` | ❌ | `4.0` | Minimum acceptable gap for entry | > 0, ≤ 10 seconds |
 | 5 | `followUpTime` | `number` | ❌ | `2.5` | Time between consecutive entering vehicles | > 0 seconds |
 | 6 | `entrySpeed` | `number` | ❌ | `5.0` | Maximum speed at roundabout entry | > 0 m/s |
@@ -187,7 +228,7 @@ If none of a duration's names are present, the hardcoded fallback (30 / 5 / 4 / 
 > [09-engineering-standards.md](09-engineering-standards.md) if a comparison
 > study is being planned, and validate the signal's capacity curve first).
 
-> **`circulatingLanes` is reserved / future-only — it has no runtime effect today.** The value is accepted and schema-validated, and `RoundaboutController` stores it, but nothing in the engine ever reads it back out. The circulating lane count a roundabout actually uses is derived entirely from `roads.lanesPerApproach` (each approach's own incoming lane count doubles as its circulating lane count in `backend/src/roads/network.py` and `backend/src/controllers/roundabout.py`) — approach lanes, circulating lane indices, connection lanes, and exit lanes are all coupled through that one value, with no independent ring-lane-count path anywhere in the current implementation. `circulatingLanes` is being kept in the schema and Pydantic model (not removed or deprecated) because it is expected to become necessary once asymmetric `lanesPerApproach` (see §2.4 above) reaches roundabouts — a single ring can only have one physical lane count, independent of any one approach's lane count, so an asymmetric-lanes roundabout will need a real, independent ring-lane-count parameter. Making it functional will require explicit future design decisions for ring geometry and the approach-lane → ring-lane mapping; none of that exists yet.
+> **The ring's lane count is `geometry.circulatingLanes` (V1.4).** Until V1.3 the ring count was the approach lane count and `controller.circulatingLanes` was accepted but never read. V1.4 adds the real parameter in `geometry` rather than reviving the controller field, because V1.0–V1.3 configs (including every saved dashboard comparison) carry `controller.circulatingLanes: 1` alongside two-lane approaches: giving it meaning now would silently change what those configs simulate. `controller.circulatingLanes` therefore stays reserved and inert. With `geometry.circulatingLanes` omitted the ring is as wide as the widest approach, capped at 2 — every V1.0–V1.3 one- and two-lane roundabout keeps its paths exactly; a 3-lane approach now merges onto a 2-lane ring (three-lane rings are not supported, see [methodology §7.4](../simulation/methodology.md#74-roundabout--controllersroundaboutpy)).
 
 ### 2.7 `metrics` — Metric Collection Configuration
 
@@ -378,7 +419,13 @@ If none of a duration's names are present, the hardcoded fallback (30 / 5 / 4 / 
 | Sum-to-one | `turnProbabilities` values | Must sum to 1.0 (±0.01 tolerance) |
 | Cross-field | `warmupTime < duration` | Warmup cannot exceed total duration. Applied to an explicitly supplied `warmupTime`; a run relying on the 30 s default is not rejected (its metrics simply stay in warm-up). |
 | Cross-field | `outerRadius > innerRadius` | Roundabout outer must exceed inner (an explicit radius is also checked against the other's default) |
-| Cross-field | `vehicleGeneration` ranges | `max ≥ min` for `vehicleLength`, `vehicleWidth`, `desiredSpeed` |
+| Cross-field | `vehicleGeneration` ranges | `max ≥ min` for `vehicleLength`, `vehicleWidth`, `desiredSpeed` and every `vehicleTypes` range |
+| Sum-to-one | `vehicleMix` values | Known classes only, each ≥ 0, at least one > 0, sum 1.0 (±0.01) |
+| Cross-field | lane counts | At a signal: north = south and east = west, after `approaches[].lanes` overrides (a roundabout is exempt since V1.4) |
+| Cross-field | lane use (V1.4) | One entry per lane, no empty lane; signal arrows must not cross; a receiving lane per turning lane; roundabout movements routable under the designation; every movement with a positive turning share allowed by some lane |
+| Cross-field | roundabout ring (V1.4) | `geometry.circulatingLanes` 1–2 (3 rejected as unsupported); ring lane width ≥ max(3.0 m, widest vehicle + 1.0 m), with the outer radius needed named in the message; an approach at most one lane wider than the ring; `controller.circulatingLanes`, if also set, agrees |
+| Sum-to-one | `traffic.approaches[]` (V1.4) | Each `turnProbabilities` and `vehicleMix` sums to 1.0 (±0.01); each approach listed at most once (also in `roads.approaches`) |
+| Cross-field | adaptive signal (V1.3) | `signalControl: "adaptive"` only with a signal; `maxGreen > minGreen`, `extensionStep < maxGreen`, `detectionDistance < approachLength`, no `offset`, a phase plan with a yellow and all-red after every stage, no unknown `adaptive` fields |
 | Not implemented | `arrivalDistribution: "burst"` | In the enum, but rejected with 400 until the spawner implements it |
 | Finite numbers | All numeric fields | NaN / ±Infinity are rejected (they pass JSON-schema bounds) |
 | Controller match | `controller` fields | **Not enforced, by design of the current model.** `ControllerSection` is a single merged model that carries defaults for both controllers (e.g. `innerRadius` and `greenTime` are always present after validation on the typed route), and the dashboard and study presets send one mixed block. Each controller reads only its own keys and ignores the rest, so a mismatched key has no effect. Enforcing this would reject every typed-route config; it needs a split controller model first. |
@@ -414,7 +461,123 @@ All other fields use their documented defaults.
 
 | Topic | Document |
 |-------|----------|
+| Scenario documents (V1.4) | §8 below · [API §5.1](../api/README.md#51-scenario-documents-v14) |
 | Shared contract layer | [04-shared-contract-layer.md](./04-shared-contract-layer.md) |
 | Snapshot schema | [05-snapshot-contract.md](./05-snapshot-contract.md) |
 | Metric definitions | [07-metric-contract.md](./07-metric-contract.md) |
 | Communication (config submission) | [08-communication-contract.md](./08-communication-contract.md) |
+
+---
+
+## 8. Scenario documents (V1.4)
+
+The configuration above is what the engine runs, and it mixes the junction with how it is controlled (`geometry.intersectionType`, the `controller` block). A **scenario document** describes only the junction and its traffic; `backend/src/core/scenario.py` compiles it into a configuration **once per strategy** — `fixed_time`, `adaptive`, `roundabout` — so every strategy gets identical approaches, lanes, traffic, vehicles, duration and seed by construction, and only the control section differs. The Research Lab, the guided comparison's "Build your own junction" and the API all use it; it is what users export and import.
+
+```json
+{
+  "format": "urbanflow-scenario",
+  "version": 1,
+  "name": "Arterial meets side road",
+  "description": "",
+  "junction": { "type": "fixed_time_signal" },
+  "approaches": {
+    "north": {
+      "lanes": 3, "length": 250,
+      "laneUse": [["left"], ["straight"], ["straight", "right"]],
+      "vehiclesPerHour": 900,
+      "turning": { "left": 0.2, "straight": 0.6, "right": 0.2 }
+    },
+    "south": { "lanes": 3, "vehiclesPerHour": 400, "turning": { "left": 0.2, "straight": 0.6, "right": 0.2 } },
+    "east":  { "lanes": 2, "vehiclesPerHour": 300, "turning": { "left": 0.25, "straight": 0.5, "right": 0.25 },
+               "vehicleMix": { "car": 0.7, "bus": 0.3 } },
+    "west":  { "lanes": 2, "vehiclesPerHour": 300, "turning": { "left": 0.25, "straight": 0.5, "right": 0.25 } }
+  },
+  "roads": { "laneWidth": 3.5, "speedLimit": 13.89, "laneChanging": true },
+  "vehicles": { "mix": { "car": 0.8, "bus": 0.1, "motorcycle": 0.1 } },
+  "signal": { "greenTime": 30, "nsGreenTime": 40, "ewGreenTime": 20, "yellowTime": 4, "allRedTime": 2,
+              "adaptive": { "minGreen": 10, "maxGreen": 50, "extensionStep": 2.5, "detectionDistance": 30, "demandThreshold": 1 } },
+  "roundabout": { "circulatingLanes": 2, "innerRadius": 12, "outerRadius": 22, "criticalGap": 4,
+                  "followUpTime": 2.5, "entrySpeed": 5, "circulatingSpeed": 8 },
+  "simulation": { "duration": 300, "warmup": 30, "seed": 7, "arrivalPattern": "poisson", "timeStep": 0.1 }
+}
+```
+
+| Section | Field | Compiles to |
+| --- | --- | --- |
+| `junction` | `type`: `fixed_time_signal` \| `adaptive_signal` \| `roundabout` | The strategy run when only one is asked for; comparisons choose their own |
+| `approaches.<dir>` | `lanes` (1–4), `length` (50–1000 m, default 200) | `roads.approaches[]` (`lanesPerApproach` = the widest) |
+| | `laneUse` — signal lane arrows | `roads.approaches[].laneUse` for the signal strategies |
+| | `roundaboutLaneUse` — roundabout lane markings (omit for automatic) | `roads.approaches[].laneUse` for the roundabout |
+| | `vehiclesPerHour` (0–7200) | `traffic.arrivalRate` = the sum / 3600; `directionalSplit` = each share |
+| | `turning` | `traffic.approaches[].turnProbabilities` |
+| | `vehicleMix` (optional) | `traffic.approaches[].vehicleMix` |
+| `roads` | `laneWidth`, `speedLimit`, `laneChanging` | `roads.laneWidth`, `roads.speedLimit`, `roads.laneChange.enabled` |
+| `vehicles` | `mix` (omit for the calibrated cars-only population), `types` | `vehicleGeneration.vehicleMix`, `vehicleTypes` |
+| `signal` | `greenTime`, `nsGreenTime`, `ewGreenTime`, `yellowTime`, `allRedTime`, `adaptive{…}` | the signal `controller` block (paired plan), plus `signalControl: "adaptive"` and `adaptive` for the adaptive strategy |
+| `roundabout` | `circulatingLanes` (1–2, omit for automatic), `innerRadius`, `outerRadius`, `criticalGap`, `followUpTime`, `entrySpeed`, `circulatingSpeed` | `geometry.circulatingLanes` and the roundabout `controller` block |
+| `simulation` | `duration`, `warmup`, `seed`, `arrivalPattern` (`poisson` \| `uniform`), `timeStep` | `simulation.*`, `traffic.arrivalDistribution`; `traffic.totalVehicles` sized to the demand |
+| `advanced` | any engine sections (research use) | deep-merged into every compiled configuration, then validated with it |
+
+Every compiled configuration also carries `scenario: {format, version, name, fingerprint, strategy}`, which the engine ignores and run history keeps, so a stored run names the scenario it came from. **Signal lane arrows and roundabout lane markings are separate** because they are part of each junction's design, not of the road: where a two-lane ring meets a one-lane road, a left turn into it may need to come from a different entry lane than signal arrows would allow.
+
+**Validation** (`validate_scenario`): the document is parsed strictly (unknown fields are errors, so a typo is never silently ignored), then compiled for each requested strategy and checked against the full engine contract (§5). Errors common to all strategies are reported once; an error specific to one strategy carries its name ("Roundabout: …"). Nothing is normalised — a vehicle mix totalling 95 % is an error, not 100 % after rescaling. `warnings` say how the results should be read (more than one lane, or mixed vehicles: exploratory; a lane offered more than about 1,800 veh/h).
+
+## 9. Real-world junctions (V1.5)
+
+V1.5 lets a scenario describe the junction it actually has, not only the abstract four-arm crossroads. Every addition is **optional**: a document that uses none of them compiles to exactly the configuration it did in V1.4 and keeps the same fingerprint (pinned by `tests/core/test_scenario_v15.py` against values recorded with the V1.4 code), so the format stays `version: 1`. A server older than V1.5 rejects the new fields by name instead of ignoring them.
+
+### 9.1 Scenario document fields
+
+| Field | Meaning | Compiles to |
+| --- | --- | --- |
+| `approaches.<dir>: null` | That compass slot has no arm (a T or Y junction). A junction needs 3 or 4 arms | `geometry.arms` (the slots that exist); `directionalSplit.<dir> = 0`; no `roads.approaches` / `traffic.approaches` entry |
+| `approaches.<dir>.bearing` | Compass bearing of the arm from the junction centre outwards, degrees clockwise from north (0 ≤ b < 360). Omitted: the slot's own (N 0, E 90, S 180, W 270) | `roads.approaches[].bearing` |
+| `approaches.<dir>.laneWidth` | The arm's own lane width (2.5 < w ≤ 5 m). Omitted: `roads.laneWidth` | `roads.approaches[].laneWidth` |
+| `laneUse` / `roundaboutLaneUse` entries | May include `"uturn"` (V1.5). Never part of a default lane use | `roads.approaches[].laneUse` |
+| `turning.uturn` | Share of the approach's traffic making a U-turn (omitted: 0); counts towards the sum of 1 | `traffic.approaches[].turnProbabilities.uturn` |
+
+```json
+"approaches": {
+  "north": null,
+  "south": { "lanes": 1, "vehiclesPerHour": 300, "turning": { "left": 0.5, "straight": 0, "right": 0.5 } },
+  "east":  { "lanes": 2, "vehiclesPerHour": 700, "bearing": 75, "laneWidth": 3.25,
+             "turning": { "left": 0.3, "straight": 0.7, "right": 0 } },
+  "west":  { "lanes": 2, "vehiclesPerHour": 650, "bearing": 262,
+             "turning": { "left": 0, "straight": 0.7, "right": 0.3 } }
+}
+```
+
+### 9.2 Engine configuration fields
+
+| Field | Rule |
+| --- | --- |
+| `geometry.arms` | Unique slot names; omitted means all four. With fewer than four: `traffic.directionalSplit` is required and must give every missing slot 0; no `roads.approaches` / `traffic.approaches` entry may name a missing slot |
+| `roads.approaches[].bearing` | Within 30° of the slot; neighbouring arms at least 45° apart |
+| `roads.approaches[].laneWidth` | Same bounds as `roads.laneWidth` |
+| `roads.approaches[].laneUse[][]` | Adds `"uturn"` to the movement names |
+| `traffic.approaches[].turnProbabilities.uturn` | Optional; the scenario-wide `traffic.turnProbabilities` has no U-turn share (U-turns are always an approach's explicit choice) |
+
+### 9.3 Validation rules (V1.5)
+
+Each message says **what** is invalid, **where**, **why**, and **what would be valid**. Nothing is adjusted.
+
+| Rule | Example message (abridged) |
+| --- | --- |
+| 3 or 4 arms | "approaches: 2 arm(s) given (east, west); a junction needs 3 or 4 arms. Two arms are a bend in one road …" |
+| Arm within 30° of its slot | "roads.approaches[east].bearing (140°) is 50° from the east slot (90°) … give the east arm a bearing from 60° to 120°, or describe this road as the arm of the slot it is nearest to" |
+| Neighbouring arms ≥ 45° apart | "The north and east arms are only 40° apart … Spread the arms further apart" |
+| Skewed signal leaves ≥ 20 m of approach | "The north approach is too short for this junction's angles: its stop line has to sit 37.3 m from the centre … Make it at least 57 m long, or bring the arms closer to right angles" |
+| Roundabout mouths must not overlap | "At the roundabout the north and east arms overlap where they meet the ring … Increase roundabout.outerRadius, spread the arms further apart, or use fewer or narrower lanes" |
+| No demand into a missing arm | "The south approach has traffic turning straight, into a slot this junction has no arm in; set that turning share to 0 (from south a vehicle can go left/right)" |
+| No lane marked for a missing arm | "The south approach's lane 1 allows straight, which would leave by the north slot, where this junction has no arm …" |
+| Every lane keeps a movement | "The south approach's lane 2 has no movement under the default lane use once movements into the missing arm are removed; give the south approach explicit lane arrows …" |
+| Turning shares set at a three-arm junction | Random turning would send traffic into the missing arm |
+| Signal U-turn from lane 1 only | "… a U-turn crosses every lane to its left, so at a signal it may only start from lane 1 …" |
+| Signal U-turn radius ≥ design turning radius | "A U-turn from the north approach is not physically possible here: … gives a 1.75 m radius …, but a car needs at least 6.4 m (design turning radius). Valid options: at least 4 lanes each way at 3.5 m …; or no U-turn at this signal (a roundabout serves U-turns on its ring)" |
+| Roundabout U-turn uses the inner lane | As a left turn: from an entry lane that feeds the inner circulating lane |
+
+The validate response's `design.<strategy>.geometry` reports, per arm, the bearing, lanes, lane width, length and the distance from the centre to the stop / give-way line that the engine will lay out.
+
+### 9.4 Import foundation
+
+The canonical representation of a real junction is this scenario document. `roads/junction_geometry.assign_slots(bearings)` is the step a future importer (OpenStreetMap, a GIS layer, a site survey) needs between "roads leave this node at these bearings" and a document: it places 3–4 measured bearings on compass slots, keeping their order, with the smallest largest deviation, and explains when it cannot (five or more arms, two arms, bunched arms, an arm more than 30° from any slot). No importer is part of V1.5.

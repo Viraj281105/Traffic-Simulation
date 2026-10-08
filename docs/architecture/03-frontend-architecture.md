@@ -32,6 +32,7 @@ frontend/
 │   │   ├── PlaybackControls.tsx    Play / pause / start over; plain and technical modes
 │   │   ├── HistoryDashboard.tsx · RunPage.tsx · ComparePage.tsx · RunTags.tsx   Saved section
 │   │   ├── ResearchHub.tsx · VolumeAnalysisDashboard.tsx · ValidationDashboard.tsx · IntegrityCheck.tsx
+│   │   ├── ControlComparisonStudy.tsx (V1.3 three-way study, on /app/research) · AdaptiveSignalStatus.tsx (adaptive map overlay)
 │   │   ├── Login.tsx               Sign-in dialog
 │   │   └── ui/                     Shared UI: loaders, page transitions, status states, logo
 │   ├── hooks/                      useWebSocketSnapshot · useSimulationPolling · useLiveComparisonHistory ·

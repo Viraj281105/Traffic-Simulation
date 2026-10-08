@@ -12,6 +12,8 @@ import { useWebSocketSnapshot } from "./hooks/useWebSocketSnapshot";
 import { useSimulationPolling } from "./hooks/useSimulationPolling";
 import { IntersectionMap } from "./components/IntersectionMap";
 import { RoundaboutMap } from "./components/RoundaboutMap";
+import { AdaptiveSignalStatus } from "./components/AdaptiveSignalStatus";
+import { VehicleLegend } from "./components/VehicleLegend";
 import { MetricsSidebar } from "./components/MetricsSidebar";
 import {
   ComparativeDashboard,
@@ -61,8 +63,13 @@ import { StatusState } from "./components/ui/StatusState";
 import { useNavIndicator } from "./components/ui/useNavIndicator";
 import { UrbanFlowLoader } from "./components/ui/Loader";
 import type { SimulationConfigValues } from "./types/config";
-import { DEFAULT_CONFIG_VALUES, dashboardPayload } from "./types/config";
+import {
+  DEFAULT_CONFIG_VALUES,
+  dashboardPayload,
+  sameConfigValues,
+} from "./types/config";
 import { saveReplay, updateSimulationConfig } from "./services/api";
+import { approachLanes } from "./scenario/scenarioModel";
 import { hasResults, sideSummary } from "./metrics/plainLanguage";
 import type {
   LiveSnapshot,
@@ -201,14 +208,11 @@ function configFromReplay(
     arrivalRate: replay.config.traffic?.arrivalRate ?? current.arrivalRate,
     duration: replay.config.simulation?.duration ?? current.duration,
     randomSeed: replay.config.simulation?.randomSeed ?? current.randomSeed,
+    // Saves without the dashboard configuration predate V1.3, whose signals
+    // all ran the fixed timetable.
+    signalControl: undefined,
+    adaptive: null,
   };
-}
-
-function sameConfig(a: SimulationConfigValues, b: SimulationConfigValues) {
-  const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<
-    keyof SimulationConfigValues
-  >;
-  return [...keys].every((k) => (a[k] ?? null) === (b[k] ?? null));
 }
 
 type HistoryPage = { kind: "run"; runId: string } | { kind: "compare" };
@@ -378,7 +382,18 @@ function Dashboard({
     followUpTime,
     nsGreenDuration,
     ewGreenDuration,
+    vehicleMix,
+    laneChanging,
+    lanesEastWest,
+    signalControl,
+    adaptive,
+    scenario,
   } = configValues;
+  // Object-valued: compared by content in the sync effect below.
+  const vehicleMixKey = JSON.stringify(vehicleMix ?? null);
+  const adaptiveKey = JSON.stringify(adaptive ?? null);
+  const scenarioKey = JSON.stringify(scenario ?? null);
+  const armLanes = approachLanes(configValues);
 
   const randomizeSeed = () => {
     setActiveReplay(null);
@@ -420,8 +435,15 @@ function Dashboard({
             followUpTime,
             nsGreenDuration,
             ewGreenDuration,
+            vehicleMix: JSON.parse(vehicleMixKey) as typeof vehicleMix,
+            laneChanging,
+            lanesEastWest,
+            signalControl,
+            adaptive: JSON.parse(adaptiveKey) as typeof adaptive,
+            scenario: JSON.parse(scenarioKey) as typeof scenario,
           },
           intersectionType,
+          viewMode === "signal",
         ),
       )
         .then(() => {
@@ -454,6 +476,12 @@ function Dashboard({
     followUpTime,
     nsGreenDuration,
     ewGreenDuration,
+    vehicleMixKey,
+    laneChanging,
+    lanesEastWest,
+    signalControl,
+    adaptiveKey,
+    scenarioKey,
   ]);
 
   const handleApplyConfig = (newConfig: SimulationConfigValues) => {
@@ -493,7 +521,7 @@ function Dashboard({
     recordCurrentRun();
     setActiveReplay(null);
     setStage("watch");
-    if (sameConfig(next, configValues)) {
+    if (sameConfigValues(next, configValues)) {
       if (!isPlaying) play().catch(() => {});
       return;
     }
@@ -679,21 +707,25 @@ function Dashboard({
         <div className="column-header">
           <h2 className="column-title" id="col-signal-title">
             <span className="series-dot is-signal" aria-hidden="true" />
-            Traffic signal
+            {signalControl === "adaptive"
+              ? "Traffic signal · responds to traffic"
+              : "Traffic signal"}
           </h2>
         </div>
         <div className="canvas-wrapper">
           <IntersectionMap
             snapshot={dualSnapshot?.signal ?? null}
-            lanesNorth={lanes}
-            lanesSouth={lanes}
-            lanesEast={lanes}
-            lanesWest={lanes}
+            lanesNorth={armLanes.north}
+            lanesSouth={armLanes.south}
+            lanesEast={armLanes.east}
+            lanesWest={armLanes.west}
             laneWidth={laneWidth}
             showCrosswalks={true}
             showStopLines={showStopLines}
             debug={debug}
           />
+          <VehicleLegend snapshot={dualSnapshot?.signal} />
+          <AdaptiveSignalStatus snapshot={dualSnapshot?.signal} />
         </div>
       </section>
       <section
@@ -714,6 +746,7 @@ function Dashboard({
             showCrosswalks={false}
             debug={debug}
           />
+          <VehicleLegend snapshot={dualSnapshot?.roundabout} />
         </div>
       </section>
     </div>
@@ -1038,15 +1071,19 @@ function Dashboard({
             ) : (
               <IntersectionMap
                 snapshot={singleSnapshot}
-                lanesNorth={lanes}
-                lanesSouth={lanes}
-                lanesEast={lanes}
-                lanesWest={lanes}
+                lanesNorth={armLanes.north}
+                lanesSouth={armLanes.south}
+                lanesEast={scenario ? armLanes.east : (lanesEastWest ?? lanes)}
+                lanesWest={scenario ? armLanes.west : (lanesEastWest ?? lanes)}
                 laneWidth={laneWidth}
                 showCrosswalks={true}
                 showStopLines={showStopLines}
                 debug={debug}
               />
+            )}
+            <VehicleLegend snapshot={singleSnapshot} />
+            {viewMode !== "roundabout" && (
+              <AdaptiveSignalStatus snapshot={singleSnapshot} />
             )}
           </div>
           <div className="single-side-column">
