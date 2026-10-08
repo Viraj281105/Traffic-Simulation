@@ -85,6 +85,10 @@
         "unstructuredTraffic": {
           "type": "boolean",
           "default": false
+        },
+        "aggressiveTwoWheelers": {
+          "type": "boolean",
+          "default": false
         }
       }
     },

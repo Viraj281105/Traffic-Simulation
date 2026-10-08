@@ -53,6 +53,7 @@ class TrafficSection(BaseModel):
     turnProbabilities: Optional[TurnProbabilities] = None
     approaches: Optional[List[TrafficApproachItem]] = None
     unstructuredTraffic: bool = Field(False)
+    aggressiveTwoWheelers: bool = Field(False)
 
 
 class IntersectionCenter(BaseModel):

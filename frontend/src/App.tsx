@@ -410,6 +410,7 @@ function Dashboard({
     adaptive,
     scenario,
     unstructuredTraffic,
+    aggressiveTwoWheelers,
   } = configValues;
   // Object-valued: compared by content in the sync effect below.
   const vehicleMixKey = JSON.stringify(vehicleMix ?? null);
@@ -464,6 +465,7 @@ function Dashboard({
             adaptive: JSON.parse(adaptiveKey) as typeof adaptive,
             scenario: JSON.parse(scenarioKey) as typeof scenario,
             unstructuredTraffic,
+            aggressiveTwoWheelers,
           },
           intersectionType,
           viewMode === "signal",
@@ -506,7 +508,9 @@ function Dashboard({
     adaptiveKey,
     scenarioKey,
     unstructuredTraffic,
+    aggressiveTwoWheelers,
   ]);
+
 
   const handleApplyConfig = (newConfig: SimulationConfigValues) => {
     setActiveReplay(null);

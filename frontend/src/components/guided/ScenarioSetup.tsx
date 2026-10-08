@@ -411,6 +411,20 @@ export function ScenarioSetup({
                 <span className="choice-desc">Realistic driver imperfections (hesitation, variable reaction, blocking)</span>
               </label>
             </div>
+            {draft.unstructuredTraffic && (
+              <label className="checkbox-label" style={{ marginTop: "1rem", display: "flex", gap: "0.5rem", alignItems: "center", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={draft.aggressiveTwoWheelers}
+                  onChange={(e) => { set("aggressiveTwoWheelers", e.target.checked); }}
+                  style={{ width: "1.2rem", height: "1.2rem", accentColor: "#e5a910" }}
+                />
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  <span className="choice-title" style={{ fontSize: "1rem", marginBottom: "0.2rem" }}>Aggressive Two-Wheelers</span>
+                  <span className="choice-desc" style={{ fontSize: "0.85rem" }}>Scooters will aggressively overtake and enter wherever they see space.</span>
+                </div>
+              </label>
+            )}
           </fieldset>
 
           <fieldset className="guided-question">

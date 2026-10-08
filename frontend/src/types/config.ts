@@ -77,6 +77,7 @@ export interface SimulationConfigValues {
    *  for display (see scenario/scenarioModel.configValuesFromScenario). */
   scenario?: ScenarioDocument | null;
   unstructuredTraffic: boolean;
+  aggressiveTwoWheelers: boolean;
 }
 
 /** Field-by-field equality, comparing the vehicle mix by value. */
@@ -128,6 +129,7 @@ export const DEFAULT_CONFIG_VALUES: SimulationConfigValues = {
   nsGreenDuration: null,
   ewGreenDuration: null,
   unstructuredTraffic: false,
+  aggressiveTwoWheelers: false,
 };
 
 export interface ScenarioPreset {
@@ -165,6 +167,7 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
       criticalGap: 3.8,
       followUpTime: 2.2,
       unstructuredTraffic: false,
+      aggressiveTwoWheelers: false,
     },
   },
   {
@@ -184,6 +187,7 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
       criticalGap: 4.8,
       followUpTime: 3.0,
       unstructuredTraffic: false,
+      aggressiveTwoWheelers: false,
     },
   },
   {
@@ -204,6 +208,7 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
       criticalGap: 4.2,
       followUpTime: 2.6,
       unstructuredTraffic: false,
+      aggressiveTwoWheelers: false,
     },
   },
 ];
@@ -241,6 +246,7 @@ export interface DashboardScenarioPayload {
    *  flat fields above (they still describe it, for older readers). */
   scenario?: ScenarioDocument;
   unstructuredTraffic: boolean;
+  aggressiveTwoWheelers: boolean;
 }
 
 export function dashboardPayload(
@@ -285,6 +291,7 @@ export function dashboardPayload(
     ...(isAdaptive(config) ? adaptivePayload(config.adaptive) : {}),
     ...(config.scenario ? { scenario: config.scenario } : {}),
     unstructuredTraffic: config.unstructuredTraffic,
+    aggressiveTwoWheelers: config.aggressiveTwoWheelers,
   };
 }
 
