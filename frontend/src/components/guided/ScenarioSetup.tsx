@@ -379,7 +379,43 @@ export function ScenarioSetup({
 
           <fieldset className="guided-question">
             <legend>
-              <span className="q-number">5</span> How long should we watch?
+              <span className="q-number">5</span> How do drivers behave?
+            </legend>
+            <div className="choice-grid">
+              <label
+                className={`choice-card${!draft.unstructuredTraffic ? " is-selected" : ""}`}
+              >
+                <input
+                  type="radio"
+                  name="unstructuredTraffic"
+                  checked={!draft.unstructuredTraffic}
+                  onChange={() => {
+                    set("unstructuredTraffic", false);
+                  }}
+                />
+                <span className="choice-title">Structured / Idealistic</span>
+                <span className="choice-desc">Perfect drivers following exact rules</span>
+              </label>
+              <label
+                className={`choice-card${draft.unstructuredTraffic ? " is-selected" : ""}`}
+              >
+                <input
+                  type="radio"
+                  name="unstructuredTraffic"
+                  checked={draft.unstructuredTraffic}
+                  onChange={() => {
+                    set("unstructuredTraffic", true);
+                  }}
+                />
+                <span className="choice-title">Unstructured / Chaotic</span>
+                <span className="choice-desc">Realistic driver imperfections (hesitation, variable reaction, blocking)</span>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset className="guided-question">
+            <legend>
+              <span className="q-number">6</span> How long should we watch?
             </legend>
             <div className="choice-grid three">
               {RUN_LENGTHS.map((l) => (
