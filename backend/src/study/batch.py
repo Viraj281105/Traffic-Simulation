@@ -37,25 +37,27 @@ def run_suite_batch_experiment(
         cfg = copy.deepcopy(base_config)
         cfg["traffic"][k] = val
         cfg["simulation"]["randomSeed"] = seed
+        intersection_type = cfg.get("geometry", {}).get("intersectionType", "signal")
+        geometry = "roundabout" if "roundabout" in intersection_type.lower() else "signal"
+        task_id = f"batch_{suite_id[:8]}_{val}_{seed}"
         
         # Build SimTask
         task = SimTask(
-            id=f"batch_{suite_id[:8]}_{val}_{seed}",
             config=cfg,
+            geometry=geometry,
             duration=cfg["simulation"].get("duration", 300),
-            warmup_time=30.0,
-            time_step=0.1
+            label=task_id,
         )
         tasks.append(task)
         
-    results = run_simulation_tasks(tasks, progress, max_workers=2)
+    results = run_simulation_tasks(tasks, progress)
     
     run_ids = []
     with get_db_connection() as conn:
         suite = ScenarioSuiteDAO.get(conn, suite_id)
         existing_runs = suite.get("run_ids", []) if suite else []
         
-        for task_id, res in results.items():
+        for task, res in zip(tasks, results):
             if not res.get("metrics"):
                 continue
             
