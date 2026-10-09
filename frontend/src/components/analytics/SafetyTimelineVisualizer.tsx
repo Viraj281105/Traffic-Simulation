@@ -36,6 +36,7 @@ const ttcSamplesDef = METRICS.find((m) => m.key === "ttcSampleCount")!;
 const minPetDef = METRICS.find((m) => m.key === "minPET")!;
 const petEventsDef = METRICS.find((m) => m.key === "petEventCount")!;
 const petSamplesDef = METRICS.find((m) => m.key === "petSampleCount")!;
+const nearMissDef = METRICS.find((m) => m.key === "nearMissCount")!;
 
 const SIGNAL_COLOR = SERIES.signal;
 const ROUNDABOUT_COLOR = SERIES.roundabout;
@@ -52,6 +53,9 @@ export function SafetyTimelineVisualizer({
 
   const sigCollisions = sigM?.collisionCount ?? 0;
   const rndCollisions = rndM?.collisionCount ?? 0;
+
+  const sigNearMisses = sigM?.nearMissCount ?? 0;
+  const rndNearMisses = rndM?.nearMissCount ?? 0;
 
   const ttcThreshold =
     sigM?.ttcThresholdSeconds ?? rndM?.ttcThresholdSeconds ?? 1.5;
@@ -97,6 +101,50 @@ export function SafetyTimelineVisualizer({
               {rndCollisions === 0
                 ? "No vehicle overlaps recorded"
                 : "Collision events observed"}
+            </span>
+          </div>
+        </div>
+        </div>
+      </div>
+
+      {/* Prominent Near Miss Counter */}
+      <div className="collision-highlight-row" style={{ marginTop: "12px" }}>
+        <div
+          className={`collision-card signal ${sigNearMisses > 0 ? "has-events" : "zero-events"}`}
+        >
+          <div className="collision-card-header">
+            <span className="control-pill signal">
+              <span className="series-dot is-signal" aria-hidden="true" />{" "}
+              Fixed-Time Signal
+            </span>
+            <span className="collision-type">Near Miss Events</span>
+          </div>
+          <div className="collision-stat-body">
+            <span className="collision-count">{sigNearMisses}</span>
+            <span className="collision-status-text">
+              {sigNearMisses === 0
+                ? "No near misses recorded"
+                : `Deduplicated close calls (TTC ≤ ${ttcThreshold.toFixed(1)}s)`}
+            </span>
+          </div>
+        </div>
+
+        <div
+          className={`collision-card roundabout ${rndNearMisses > 0 ? "has-events" : "zero-events"}`}
+        >
+          <div className="collision-card-header">
+            <span className="control-pill roundabout">
+              <span className="series-dot is-roundabout" aria-hidden="true" />{" "}
+              Modern Roundabout
+            </span>
+            <span className="collision-type">Near Miss Events</span>
+          </div>
+          <div className="collision-stat-body">
+            <span className="collision-count">{rndNearMisses}</span>
+            <span className="collision-status-text">
+              {rndNearMisses === 0
+                ? "No near misses recorded"
+                : `Deduplicated close calls (TTC ≤ ${ttcThreshold.toFixed(1)}s)`}
             </span>
           </div>
         </div>
@@ -255,6 +303,26 @@ export function SafetyTimelineVisualizer({
             </div>
           </div>
         </div>
+
+        <div className="surrogate-metric-card">
+          <span className="surrogate-card-title">
+            Deduplicated Near-Miss Events (TTC ≤ {ttcThreshold.toFixed(1)} s)
+          </span>
+          <div className="surrogate-values-row">
+            <div className="surrogate-val-group">
+              <span className="val-control">Signal:</span>
+              <span className="val-strong">
+                {formatMetric(nearMissDef, signalCtx)}
+              </span>
+            </div>
+            <div className="surrogate-val-group">
+              <span className="val-control">Roundabout:</span>
+              <span className="val-strong">
+                {formatMetric(nearMissDef, roundaboutCtx)}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Mandatory Surrogate Safety Disclaimer Banner */}
@@ -277,8 +345,8 @@ export function SafetyTimelineVisualizer({
             would touch if both kept their current speed and heading. Same-lane
             car-following is excluded. &ldquo;Low-TTC events&rdquo; counts
             ticks, so one long close approach counts many times; it is an
-            exposure count, not a number of distinct near-misses. The smallest
-            TTC is a run-long minimum.
+            exposure count. <strong>Deduplicated near-misses</strong> collapse 
+            sustained tailgating into a single encounter per cooldown window.
           </li>
           <li>
             <strong>PET</strong> is measured only at the signal&apos;s conflict

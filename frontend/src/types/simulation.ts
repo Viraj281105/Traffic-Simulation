@@ -313,6 +313,16 @@ export interface RunningMetrics {
   petThresholdSeconds?: number;
   /** False where PET is not measured at all (roundabout geometry). */
   petApplicable?: boolean;
+
+  /** V1.6: Deduplicated near-miss events (see definitions/safety_conflicts.py) */
+  nearMissCount?: number;
+  nearMissCooldownSeconds?: number;
+
+  /** V1.6: Environmental estimates */
+  estimatedFuelLitersTotal?: number;
+  estimatedCO2KgTotal?: number;
+  environmentalMetricsAreEstimates?: boolean;
+
   /** V1.1: served vehicles, share and mean delay per vehicle class. */
   vehicleTypeBreakdown?: Partial<Record<VehicleClass, VehicleTypeResult>>;
   /** V1.4: served vehicles, mean delay and queues per approach. */

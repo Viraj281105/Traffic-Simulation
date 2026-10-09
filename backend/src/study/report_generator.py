@@ -407,3 +407,27 @@ def generate_study_report_csv(
         )
 
     return output.getvalue()
+
+def generate_suite_csv(runs: List[Dict[str, Any]]) -> str:
+    """Generates a CSV report comparing an N-way suite of runs (V1.7)."""
+    output = io.StringIO()
+    writer = csv.writer(output, lineterminator="\n")
+
+    writer.writerow(["Run ID", "Geometry", "Seed", "Variation", "Metric", "Value"])
+
+    for run in runs:
+        run_id = run.get("id", "")
+        geometry = run.get("intersection_type", "")
+        seed = run.get("random_seed", "")
+        # Try to pull the variation name from tags or name if applicable, or we just put the name
+        variation = run.get("name", "")
+        metrics = run.get("summary_metrics", {})
+        
+        # Flatten metrics for CSV
+        for m_key, m_val in metrics.items():
+            if isinstance(m_val, (int, float, str, bool)):
+                writer.writerow([run_id, geometry, seed, variation, m_key, m_val])
+            elif m_val is None:
+                writer.writerow([run_id, geometry, seed, variation, m_key, ""])
+                
+    return output.getvalue()

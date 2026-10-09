@@ -10,11 +10,16 @@ from src.metrics.definitions.derived_metrics import (
     calculate_critical_saturation_volume,
     calculate_space_footprint_consumed,
 )
+from src.metrics.definitions.environmental_estimates import (
+    estimate_co2_kg,
+    estimate_fuel_liters_per_vehicle_per_tick,
+)
 from src.metrics.definitions.fairness import calculate_directional_fairness
 from src.metrics.definitions.idle_loss import calculate_idle_loss_tick
 from src.metrics.definitions.queue_length import get_current_queue_lengths
 from src.metrics.definitions.safety_conflicts import (
     ConflictZoneOccupancyTracker,
+    NearMissTracker,
     find_ttc_events,
 )
 from src.metrics.definitions.signal_timing import SignalTimingTracker
@@ -99,6 +104,12 @@ class MetricCollector:
         self.ttc_threshold_seconds: float = metrics_cfg.get("ttcThresholdSeconds", 1.5)
         self.pet_threshold_seconds: float = metrics_cfg.get("petThresholdSeconds", 5.0)
         self.ttc_search_radius: float = metrics_cfg.get("ttcSearchRadius", 50.0)
+        # Near-miss deduplication cooldown (see NearMissTracker in
+        # metrics/definitions/safety_conflicts.py). Default 5.0 s prevents a
+        # sustained tailgating situation from inflating the event count.
+        self.near_miss_cooldown_seconds: float = metrics_cfg.get(
+            "nearMissCooldownSeconds", 5.0
+        )
 
         # The spawner's per-run vehicle cap (same key, same default), so a
         # run whose demand was truncated by it can be flagged (see
@@ -123,6 +134,11 @@ class MetricCollector:
         self.congestion_recovery_time: float = 0.0
         self.demand_ticks: int = 0
         self.service_ticks: int = 0
+
+        # Environmental estimate accumulators (post-warmup, all active vehicles).
+        # Always estimates -- see metrics/definitions/environmental_estimates.py.
+        self._total_fuel_liters_est: float = 0.0
+        self._total_co2_kg_est: float = 0.0
 
         # Maintain list of queue lengths over time to compute time-average and max
         self.queue_history: List[Dict[str, int]] = []
@@ -157,8 +173,16 @@ class MetricCollector:
         # per-tick metric). Min values are None until at least one
         # observation exists -- see get_metrics() for how that's reported.
         self._min_ttc: Optional[float] = None
-        self._ttc_event_count: int = 0
+        self._ttc_event_count: int = 0  # raw per-tick per-pair hits (backward compat)
         self._ttc_sample_count: int = 0
+        # Deduplicated near-miss events (one per conflict encounter per cooldown
+        # window, per NearMissTracker). This is what gets reported as
+        # "nearMissCount" in the metrics output -- a safer count than the raw
+        # per-tick ttcEventCount.
+        self._near_miss_count: int = 0
+        self._near_miss_tracker: NearMissTracker = NearMissTracker(
+            cooldown_window=self.near_miss_cooldown_seconds
+        )
 
         self._min_pet: Optional[float] = None
         self._pet_event_count: int = 0
@@ -215,6 +239,18 @@ class MetricCollector:
         # Increment post-warmup simulation ticks count
         self.total_ticks_post_warmup += 1
 
+        # Environmental estimates: accumulate fuel/CO2 for all active vehicles
+        # this tick. Only post-warmup (matching all other per-tick metrics).
+        # Each vehicle uses its current speed and acceleration. See
+        # metrics/definitions/environmental_estimates.py for model assumptions
+        # and limitations.
+        for v in active_vehicles:
+            fuel_tick = estimate_fuel_liters_per_vehicle_per_tick(
+                v.speed, v.acceleration, self.time_step
+            )
+            self._total_fuel_liters_est += fuel_tick
+            self._total_co2_kg_est += estimate_co2_kg(fuel_tick)
+
         if signal_controller is not None:
             if (
                 self._signal_timing is None
@@ -269,14 +305,20 @@ class MetricCollector:
         # TTC: computed every tick regardless of geometry (needs only
         # vehicle kinematics). See safety_conflicts.py for the candidate
         # pair filter and formula.
-        for _va_id, _vb_id, ttc in find_ttc_events(
-            active_vehicles, self.ttc_search_radius
-        ):
+        all_ttc_events = find_ttc_events(active_vehicles, self.ttc_search_radius)
+        # Collect sub-threshold events for the near-miss deduplicator.
+        below_threshold: List[Tuple[str, str, float]] = []
+        for va_id, vb_id, ttc in all_ttc_events:
             self._ttc_sample_count += 1
             if self._min_ttc is None or ttc < self._min_ttc:
                 self._min_ttc = ttc
             if ttc <= self.ttc_threshold_seconds:
-                self._ttc_event_count += 1
+                self._ttc_event_count += 1  # raw (kept for backward compat)
+                below_threshold.append((va_id, vb_id, ttc))
+        # Deduplicated near-miss count: one event per pair per cooldown window.
+        self._near_miss_count += self._near_miss_tracker.update(
+            current_time, below_threshold
+        )
 
         # PET: only measurable where real conflict-point geometry exists
         # (fixed_time_signal). A None/absent conflict_manager leaves PET
@@ -554,9 +596,17 @@ class MetricCollector:
             # geometries. min*=None means zero observations were made
             # (never a synonym for "zero risk").
             "minTTC": self._min_ttc,
+            # Raw per-tick per-pair TTC hits (kept for backward compatibility).
+            # Use nearMissCount for deduplicated conflict events.
             "ttcEventCount": self._ttc_event_count,
             "ttcSampleCount": self._ttc_sample_count,
             "ttcThresholdSeconds": self.ttc_threshold_seconds,
+            # Deduplicated near-miss events: one logged event per vehicle-pair
+            # per nearMissCooldownSeconds window. A pair tailgating for 30 ticks
+            # = 1 near-miss event, not 30. See NearMissTracker in
+            # metrics/definitions/safety_conflicts.py.
+            "nearMissCount": self._near_miss_count,
+            "nearMissCooldownSeconds": self.near_miss_cooldown_seconds,
             "minPET": self._min_pet,
             "petEventCount": self._pet_event_count,
             "petSampleCount": self._pet_sample_count,
@@ -590,4 +640,15 @@ class MetricCollector:
         base_metrics["signalTiming"] = (
             self._signal_timing.summary() if self._signal_timing is not None else None
         )
+        # Environmental estimates (V1.6). Always labelled as estimates.
+        # See metrics/definitions/environmental_estimates.py for the model,
+        # its assumptions, constants, units, and limitations.
+        base_metrics["estimatedFuelLitersTotal"] = round(
+            self._total_fuel_liters_est, 3
+        )
+        base_metrics["estimatedCO2KgTotal"] = round(self._total_co2_kg_est, 3)
+        # This key is permanent and must always be True. It signals to every
+        # consumer (frontend, export, API) that these are simplified model
+        # outputs, not direct measurements. Never set this to False.
+        base_metrics["environmentalMetricsAreEstimates"] = True
         return base_metrics

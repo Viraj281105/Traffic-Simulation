@@ -230,3 +230,42 @@ export function runExportUrl(runId: string, format: "json" | "csv"): string {
 export async function getReplay<T>(id: string): Promise<T> {
   return get<T>(`/api/v1/replays/${encodeURIComponent(id)}`);
 }
+
+// ── Scenario Suites (V1.7) ────────────────────────────────────────────────
+
+export interface ScenarioSuite {
+  id: string;
+  name: string;
+  description: string;
+  run_ids: string[];
+  config_variations: Record<string, any>;
+  created_at: string;
+}
+
+export async function createSuite(payload: {
+  name: string;
+  description: string;
+  run_ids: string[];
+  config_variations: Record<string, any>;
+}): Promise<{ id: string }> {
+  return post("/api/suites", payload);
+}
+
+export async function getSuites(): Promise<{ suites: ScenarioSuite[] }> {
+  return get("/api/suites");
+}
+
+export async function getSuiteById(id: string): Promise<{ suite: ScenarioSuite, runs: RunRecord[] }> {
+  return get(`/api/suites/${encodeURIComponent(id)}`);
+}
+
+export function suiteExportCsvUrl(suiteId: string): string {
+  return `${BASE}/api/suites/${encodeURIComponent(suiteId)}/export/csv`;
+}
+
+export async function enqueueSuiteBatch(
+  suiteId: string,
+  config: import("../types/config").BatchExperimentConfig
+): Promise<{ jobId: string }> {
+  return post(`/api/suites/${encodeURIComponent(suiteId)}/batch`, config);
+}

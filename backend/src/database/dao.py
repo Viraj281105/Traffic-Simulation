@@ -432,3 +432,75 @@ class SweepSessionDAO:
             {"id": r["id"], "name": r["name"], "created_at": r["created_at"]}
             for r in cursor.fetchall()
         ]
+
+
+class ScenarioSuiteDAO:
+    """DAO for managing scenario suites (V1.7)."""
+
+    @staticmethod
+    def save(
+        conn: sqlite3.Connection,
+        suite_id: str,
+        name: str,
+        description: str,
+        run_ids: list[str],
+        config_variations: Dict[str, Any],
+        commit: bool = True,
+    ) -> None:
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "INSERT OR REPLACE INTO scenario_suites (id, name, description, run_ids_json, config_variations_json) VALUES (?, ?, ?, ?, ?);",
+                (suite_id, name, description, json.dumps(run_ids), json.dumps(config_variations)),
+            )
+            # Update the suite_id on the runs
+            for rid in run_ids:
+                cursor.execute(
+                    "UPDATE simulation_runs SET suite_id = ? WHERE id = ?;",
+                    (suite_id, rid),
+                )
+            if commit:
+                conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+
+    @staticmethod
+    def get(conn: sqlite3.Connection, suite_id: str) -> Optional[Dict[str, Any]]:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id, name, description, run_ids_json, config_variations_json, created_at FROM scenario_suites WHERE id = ?;",
+            (suite_id,),
+        )
+        row = cursor.fetchone()
+        if row:
+            return {
+                "id": row["id"],
+                "name": row["name"],
+                "description": row["description"],
+                "run_ids": json.loads(row["run_ids_json"]),
+                "config_variations": json.loads(row["config_variations_json"]),
+                "created_at": row["created_at"],
+            }
+        return None
+
+    @staticmethod
+    def list_suites(
+        conn: sqlite3.Connection, limit: int = 50, offset: int = 0
+    ) -> list[Dict[str, Any]]:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id, name, description, run_ids_json, created_at FROM scenario_suites ORDER BY created_at DESC LIMIT ? OFFSET ?;",
+            (limit, offset),
+        )
+        return [
+            {
+                "id": r["id"],
+                "name": r["name"],
+                "description": r["description"],
+                "run_ids": json.loads(r["run_ids_json"]),
+                "created_at": r["created_at"],
+            }
+            for r in cursor.fetchall()
+        ]
+

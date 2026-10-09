@@ -1567,3 +1567,18 @@
   line-height: 1.4;
   opacity: 0.8;
 }
+
+/* ── N-Way Dashboard ──────────────────────────────────────────────────────── */
+.n-way-dashboard {
+  max-width: 95vw !important;
+  width: 1400px !important;
+}
+
+.multi-run-heading {
+  font-size: 13px;
+  line-height: 1.3;
+}
+.multi-run-heading small {
+  color: var(--text-secondary);
+  font-weight: normal;
+}
