@@ -4,6 +4,11 @@ name: Production EC2 Deployment
 # Pipeline: main -> merge into deployment -> GitHub Actions -> SSH to EC2 ->
 #           pull deployment -> rebuild Docker containers -> restart services ->
 #           health check deployment.
+#
+# The build runs on EC2 as a process detached from the SSH session, and this
+# workflow polls it (scripts/run-remote-deploy.sh). A dropped SSH connection can
+# therefore neither kill the deployment nor be mistaken for its result: the job
+# succeeds only when the remote deploy script has recorded exit status 0.
 # ==============================================================================
 
 on:
@@ -28,6 +33,8 @@ jobs:
   deploy-to-ec2:
     name: Deploy to AWS EC2
     runs-on: ubuntu-latest
+    # Backstop only; scripts/run-remote-deploy.sh enforces its own 40-minute limit.
+    timeout-minutes: 60
 
     steps:
       - name: Validate Required Secrets
@@ -87,6 +94,8 @@ jobs:
                   -p "$EC2_PORT" \
                   -o BatchMode=yes \
                   -o ConnectTimeout=15 \
+                  -o ServerAliveInterval=15 \
+                  -o ServerAliveCountMax=4 \
                   "${EC2_USER}@${EC2_HOST}" \
                   "echo 'SSH connection verified. Hostname:' \$(hostname)"; then
             echo "::error::Failed to establish SSH connection to EC2."
@@ -108,17 +117,24 @@ jobs:
           scp -i ~/.ssh/ec2_deploy_key \
               -P "$EC2_PORT" \
               -o BatchMode=yes \
+              -o ConnectTimeout=15 \
+              -o ServerAliveInterval=15 \
+              -o ServerAliveCountMax=4 \
               scripts/deploy-ec2.sh \
               "${EC2_USER}@${EC2_HOST}:/tmp/deploy-ec2.sh"
 
           ssh -i ~/.ssh/ec2_deploy_key \
               -p "$EC2_PORT" \
               -o BatchMode=yes \
+              -o ConnectTimeout=15 \
+              -o ServerAliveInterval=15 \
+              -o ServerAliveCountMax=4 \
               "${EC2_USER}@${EC2_HOST}" \
               "chmod +x /tmp/deploy-ec2.sh"
 
       - name: Execute Deployment & Verification
         shell: bash
+        timeout-minutes: 50
         env:
           EC2_USER: ${{ secrets.EC2_USER }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
@@ -130,11 +146,9 @@ jobs:
           echo "Target Commit: ${TARGET_COMMIT}"
           echo "Repository Directory: ${DEPLOY_PATH}"
 
-          ssh -i ~/.ssh/ec2_deploy_key \
-              -p "$EC2_PORT" \
-              -o BatchMode=yes \
-              "${EC2_USER}@${EC2_HOST}" \
-              "bash /tmp/deploy-ec2.sh --commit '${TARGET_COMMIT}' --repo-dir '${DEPLOY_PATH}'"
+          # Starts deploy-ec2.sh detached on EC2, streams its log, and fails the
+          # step unless the remote script itself exits 0. See the script header.
+          bash scripts/run-remote-deploy.sh
 
       - name: Cleanup SSH Key & Remote Artifacts
         if: always()

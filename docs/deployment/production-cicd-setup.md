@@ -306,6 +306,20 @@ ssh -i /path/to/traffic-key.pem <EC2_USER>@<EC2_HOST>
 cd ~/Traffic-Simulation
 ```
 
+### How the workflow talks to EC2
+
+`Execute Deployment & Verification` runs `scripts/run-remote-deploy.sh` on the GitHub runner. It starts `scripts/deploy-ec2.sh` on EC2 **detached from the SSH session** and then polls it over short, independent SSH calls (keepalives on, tolerant of transient failures), streaming the log as it grows. The step succeeds only when the remote script has recorded exit status `0`.
+
+On EC2 the deployment's state lives in `~/.urbanflow-deploy/<run-id>-<attempt>/`:
+
+| File | Meaning |
+|---|---|
+| `deploy.log` | Full output of `deploy-ec2.sh` |
+| `pid` | Process id of the detached deployment |
+| `status` | Exit code, written only after the script has finished (absent = still running or killed) |
+
+If the runner loses SSH it keeps retrying (about 10 minutes) and then **fails** with "outcome UNKNOWN" — it never reports success without the `status` file. The detached deployment is not stopped by a runner failure; check `status` and `deploy.log` on EC2 before retrying.
+
 ### Useful Diagnostic Commands
 ```bash
 # 1. View running container statuses and healthcheck results
@@ -339,6 +353,12 @@ curl -s http://localhost/api/version
 - **Behavior:** If newly started containers fail to become healthy within 60 seconds (e.g. startup crash), `scripts/deploy-ec2.sh` automatically prints the last 100 log lines from both containers.
 - **Automated Rollback:** The script automatically attempts to revert to the previous Git commit and restarts the previous containers.
 - **GitHub Status:** The GitHub Action still fails loudly with a non-zero exit code to alert the team.
+
+### Scenario B2: SSH Drops or the Instance Freezes During the Build
+- **Symptoms:** runner log shows `Status poll failed ... exit 255` or `client_loop: send disconnect: Broken pipe`, then either the deployment finishes anyway (transient drop — the job still succeeds) or the step fails with `Lost contact with EC2` / `process disappeared without recording an exit status`.
+- **Behavior:** the build runs detached on EC2, so a dropped SSH session does not stop it. On failure the runner prints a diagnostics block (memory, disk, kernel OOM-killer events, containers, log tail).
+- **Likely causes on a 1 GB instance:** the frontend build (`tsc && vite build`) exhausting RAM with no swap (the host stalls, sshd stops answering, and the OOM killer may kill the deployment). `deploy-ec2.sh` now builds one service at a time, logs memory/disk before and after each build, warns when RAM < 1.5 GB and no swap is configured, and aborts before building if free disk is under `MIN_FREE_DISK_MB` (default 2048).
+- **Action:** read the diagnostics block, confirm swap is active (`free -h`), then re-run the workflow. If `~/.urbanflow-deploy/<run>/status` is missing and the process is gone, the deployment did not complete: containers were only touched if the log reached `Recreating containers`.
 
 ### Scenario C: EC2 is Unreachable
 - **Behavior:** If the EC2 instance is stopped, rebooting, or security groups block port 22, GitHub Actions fails at the `Verify SSH Connectivity` step with a clear error annotation.
