@@ -23,7 +23,10 @@ import { PlaybackControls } from "./components/PlaybackControls";
 import type { SavedReplay } from "./components/HistoryDashboard";
 import { ConfigurationSidebar } from "./components/ConfigurationSidebar";
 import { ResearchHub } from "./components/ResearchHub";
-import { ScenarioSetup } from "./components/guided/ScenarioSetup";
+import {
+  ScenarioSetup,
+  type GuidedRunRequest,
+} from "./components/guided/ScenarioSetup";
 import { LiveGuide } from "./components/guided/LiveGuide";
 import { ResultsReport } from "./components/guided/ResultsReport";
 import {
@@ -69,7 +72,14 @@ import {
   dashboardPayload,
   sameConfigValues,
 } from "./types/config";
-import { saveReplay, updateSimulationConfig, setSimulationSpeed, setDualSimulationSpeed, createSuite, enqueueSuiteBatch } from "./services/api";
+import {
+  saveReplay,
+  updateSimulationConfig,
+  setSimulationSpeed,
+  setDualSimulationSpeed,
+  createSuite,
+  enqueueSuiteBatch,
+} from "./services/api";
 import { approachLanes } from "./scenario/scenarioModel";
 import { hasResults, sideSummary } from "./metrics/plainLanguage";
 import type {
@@ -484,7 +494,7 @@ function Dashboard({
           },
           intersectionType,
           viewMode === "signal",
-        )
+        ),
       )
         .then(() => {
           if (version === syncVersion.current && playAfterSync.current) {
@@ -526,7 +536,6 @@ function Dashboard({
     aggressiveTwoWheelers,
   ]);
 
-
   const handleApplyConfig = (newConfig: SimulationConfigValues) => {
     setActiveReplay(null);
     setConfigValues(newConfig);
@@ -560,28 +569,31 @@ function Dashboard({
     setSessionRuns((prev) => [...prev.filter((r) => r.id !== run.id), run]);
   };
 
-  const handleGuidedRun = (next: SimulationConfigValues & { isBatch?: boolean }) => {
-    if (next.isBatch) {
-      delete next.isBatch;
+  const handleGuidedRun = ({ isBatch, ...next }: GuidedRunRequest) => {
+    if (isBatch) {
       const payload = dashboardPayload(next, "fixed_time_signal");
+      const arrivalRates = [0.1, 0.2, 0.4, 0.8, 1.2];
       createSuite({
         name: `Batch Experiment - ${new Date().toLocaleTimeString()}`,
-        description: `Batch experiment generated from dashboard.`,
+        description: "Batch experiment generated from dashboard.",
         run_ids: [],
-        config_variations: { arrivalRate: [0.1, 0.2, 0.4, 0.8, 1.2] },
-      }).then((suite) => {
-        enqueueSuiteBatch(suite.id, {
-          baseConfig: payload,
-          sweepParameters: { arrivalRate: [0.1, 0.2, 0.4, 0.8, 1.2] },
-          numSeeds: 3,
-        }).then((res) => {
+        config_variations: { arrivalRate: arrivalRates },
+      })
+        .then((suite) =>
+          enqueueSuiteBatch(suite.id, {
+            baseConfig: payload,
+            sweepParameters: { arrivalRate: arrivalRates },
+            numSeeds: 3,
+          }),
+        )
+        .then((res) => {
           showToast(`Batch enqueued! Job ID: ${res.jobId}`);
           navigate(VIEW_ROUTES.history);
+        })
+        .catch((e: unknown) => {
+          console.error(e);
+          showToast("Failed to enqueue batch experiment", "error");
         });
-      }).catch(e => {
-        console.error(e);
-        showToast("Failed to enqueue batch experiment", "error");
-      });
       return;
     }
     recordCurrentRun();

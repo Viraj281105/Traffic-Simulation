@@ -104,7 +104,6 @@ export function SafetyTimelineVisualizer({
             </span>
           </div>
         </div>
-        </div>
       </div>
 
       {/* Prominent Near Miss Counter */}
@@ -345,7 +344,7 @@ export function SafetyTimelineVisualizer({
             would touch if both kept their current speed and heading. Same-lane
             car-following is excluded. &ldquo;Low-TTC events&rdquo; counts
             ticks, so one long close approach counts many times; it is an
-            exposure count. <strong>Deduplicated near-misses</strong> collapse 
+            exposure count. <strong>Deduplicated near-misses</strong> collapse
             sustained tailgating into a single encounter per cooldown window.
           </li>
           <li>

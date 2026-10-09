@@ -32,6 +32,9 @@ import {
 } from "../../scenario/scenarioModel";
 import type { ScenarioDocument, Strategy } from "../../scenario/scenarioTypes";
 
+/** A guided run; `isBatch` asks the parent for a batch experiment instead. */
+export type GuidedRunRequest = SimulationConfigValues & { isBatch?: boolean };
+
 const LANE_CHOICES = [1, 2, 3];
 
 /** Step 1 of the comparison: the junction described in everyday terms.
@@ -43,7 +46,7 @@ export function ScenarioSetup({
   runInProgress,
 }: {
   config: SimulationConfigValues;
-  onRun: (config: SimulationConfigValues) => void;
+  onRun: (config: GuidedRunRequest) => void;
   /** A comparison is already running or paused with the current settings. */
   runInProgress: boolean;
 }) {
@@ -569,7 +572,7 @@ export function ScenarioSetup({
                 if (isBatchMode) {
                   // In a real app we'd open a modal to select parameters.
                   // For now, we'll just inform the parent to do a batch run.
-                  onRun({ ...draft, scenario: null, isBatch: true } as any);
+                  onRun({ ...draft, scenario: null, isBatch: true });
                 } else {
                   onRun({ ...draft, scenario: null });
                 }
@@ -577,17 +580,36 @@ export function ScenarioSetup({
             >
               {runInProgress && unchanged && !config.scenario
                 ? "Continue watching →"
-                : isBatchMode ? "Enqueue Batch Experiment →" : "Run the comparison →"}
+                : isBatchMode
+                  ? "Enqueue Batch Experiment →"
+                  : "Run the comparison →"}
             </button>
             <div className="batch-toggle" style={{ marginTop: "1rem" }}>
-              <label className="checkbox-label" style={{ display: "flex", gap: "0.5rem", alignItems: "center", cursor: "pointer", justifyContent: "center" }}>
+              <label
+                className="checkbox-label"
+                style={{
+                  display: "flex",
+                  gap: "0.5rem",
+                  alignItems: "center",
+                  cursor: "pointer",
+                  justifyContent: "center",
+                }}
+              >
                 <input
                   type="checkbox"
                   checked={isBatchMode}
-                  onChange={(e) => { setIsBatchMode(e.target.checked); }}
-                  style={{ width: "1.2rem", height: "1.2rem", accentColor: "#e5a910" }}
+                  onChange={(e) => {
+                    setIsBatchMode(e.target.checked);
+                  }}
+                  style={{
+                    width: "1.2rem",
+                    height: "1.2rem",
+                    accentColor: "#e5a910",
+                  }}
                 />
-                <span className="choice-title" style={{ fontSize: "1rem" }}>Run as Batch Experiment (Sweeping Demand Levels)</span>
+                <span className="choice-title" style={{ fontSize: "1rem" }}>
+                  Run as Batch Experiment (Sweeping Demand Levels)
+                </span>
               </label>
             </div>
             {runInProgress && !unchanged && !isBatchMode && (
