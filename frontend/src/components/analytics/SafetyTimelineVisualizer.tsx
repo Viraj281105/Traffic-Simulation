@@ -104,7 +104,6 @@ export function SafetyTimelineVisualizer({
             </span>
           </div>
         </div>
-        </div>
       </div>
 
       {/* Prominent Near Miss Counter */}
