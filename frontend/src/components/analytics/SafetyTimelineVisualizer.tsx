@@ -54,6 +54,9 @@ export function SafetyTimelineVisualizer({
   const sigCollisions = sigM?.collisionCount ?? 0;
   const rndCollisions = rndM?.collisionCount ?? 0;
 
+  const sigNearMisses = sigM?.nearMissCount ?? 0;
+  const rndNearMisses = rndM?.nearMissCount ?? 0;
+
   const ttcThreshold =
     sigM?.ttcThresholdSeconds ?? rndM?.ttcThresholdSeconds ?? 1.5;
   const petThreshold = sigM?.petThresholdSeconds ?? 5.0;
@@ -98,6 +101,50 @@ export function SafetyTimelineVisualizer({
               {rndCollisions === 0
                 ? "No vehicle overlaps recorded"
                 : "Collision events observed"}
+            </span>
+          </div>
+        </div>
+        </div>
+      </div>
+
+      {/* Prominent Near Miss Counter */}
+      <div className="collision-highlight-row" style={{ marginTop: "12px" }}>
+        <div
+          className={`collision-card signal ${sigNearMisses > 0 ? "has-events" : "zero-events"}`}
+        >
+          <div className="collision-card-header">
+            <span className="control-pill signal">
+              <span className="series-dot is-signal" aria-hidden="true" />{" "}
+              Fixed-Time Signal
+            </span>
+            <span className="collision-type">Near Miss Events</span>
+          </div>
+          <div className="collision-stat-body">
+            <span className="collision-count">{sigNearMisses}</span>
+            <span className="collision-status-text">
+              {sigNearMisses === 0
+                ? "No near misses recorded"
+                : `Deduplicated close calls (TTC ≤ ${ttcThreshold.toFixed(1)}s)`}
+            </span>
+          </div>
+        </div>
+
+        <div
+          className={`collision-card roundabout ${rndNearMisses > 0 ? "has-events" : "zero-events"}`}
+        >
+          <div className="collision-card-header">
+            <span className="control-pill roundabout">
+              <span className="series-dot is-roundabout" aria-hidden="true" />{" "}
+              Modern Roundabout
+            </span>
+            <span className="collision-type">Near Miss Events</span>
+          </div>
+          <div className="collision-stat-body">
+            <span className="collision-count">{rndNearMisses}</span>
+            <span className="collision-status-text">
+              {rndNearMisses === 0
+                ? "No near misses recorded"
+                : `Deduplicated close calls (TTC ≤ ${ttcThreshold.toFixed(1)}s)`}
             </span>
           </div>
         </div>
