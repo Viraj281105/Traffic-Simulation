@@ -643,9 +643,7 @@ class MetricCollector:
         # Environmental estimates (V1.6). Always labelled as estimates.
         # See metrics/definitions/environmental_estimates.py for the model,
         # its assumptions, constants, units, and limitations.
-        base_metrics["estimatedFuelLitersTotal"] = round(
-            self._total_fuel_liters_est, 3
-        )
+        base_metrics["estimatedFuelLitersTotal"] = round(self._total_fuel_liters_est, 3)
         base_metrics["estimatedCO2KgTotal"] = round(self._total_co2_kg_est, 3)
         # This key is permanent and must always be True. It signals to every
         # consumer (frontend, export, API) that these are simplified model

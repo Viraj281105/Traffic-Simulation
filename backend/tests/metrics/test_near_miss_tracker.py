@@ -8,10 +8,10 @@ per cooldown window, not one per tick.
 
 from src.metrics.definitions.safety_conflicts import NearMissTracker
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _event(va: str = "va", vb: str = "vb", ttc: float = 1.0):
     return (va, vb, ttc)

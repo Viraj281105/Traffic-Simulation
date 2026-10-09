@@ -364,4 +364,3 @@ class NearMissTracker:
                 self._last_event[key] = current_time
                 new_events += 1
         return new_events
-

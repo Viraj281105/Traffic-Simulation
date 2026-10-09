@@ -16,7 +16,6 @@ from src.metrics.definitions.environmental_estimates import (
     estimate_fuel_liters_per_vehicle_per_tick,
 )
 
-
 # ---------------------------------------------------------------------------
 # estimate_fuel_liters_per_vehicle_per_tick
 # ---------------------------------------------------------------------------
@@ -109,8 +108,8 @@ def _run_collector_ticks(
     have real numeric .speed and .acceleration but are otherwise minimal stubs
     built from the existing test helpers in the safety-conflicts test suite.
     """
-    from src.metrics.collector import MetricCollector
     from src.core.enums import Direction
+    from src.metrics.collector import MetricCollector
     from src.roads.lane import Lane
     from src.vehicles.vehicle import Vehicle
 
@@ -176,8 +175,8 @@ def test_co2_proportional_to_fuel_in_metrics() -> None:
 
 def test_no_fuel_accumulated_before_warmup() -> None:
     """Fuel stays 0 when only pre-warmup ticks are run (warmup=30s)."""
-    from src.metrics.collector import MetricCollector
     from src.core.enums import Direction
+    from src.metrics.collector import MetricCollector
     from src.roads.lane import Lane
     from src.vehicles.vehicle import Vehicle
 
@@ -187,7 +186,9 @@ def test_no_fuel_accumulated_before_warmup() -> None:
     }
     collector = MetricCollector(config)
     lane = Lane("env_pre_warmup", 0.0, 0.0, 0.0, 500.0)
-    v = Vehicle("v_warmup", 4.0, 2.0, 10.0, [lane], start_position=0.0, initial_speed=5.0)
+    v = Vehicle(
+        "v_warmup", 4.0, 2.0, 10.0, [lane], start_position=0.0, initial_speed=5.0
+    )
     v.acceleration = 0.0
     signals = {d: "green" for d in Direction}
 
