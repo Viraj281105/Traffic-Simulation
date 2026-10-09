@@ -200,9 +200,14 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
       <WarmupNotice snapshot={snapshot} />
 
       {m?.deadlockInsight && (
-        <div className="config-alert config-alert-warning" style={{ margin: "1rem 0" }}>
+        <div
+          className="config-alert config-alert-warning"
+          style={{ margin: "1rem 0" }}
+        >
           <span aria-hidden="true">⚠️</span>
-          <span><strong>Deadlock Status:</strong> {m.deadlockInsight}</span>
+          <span>
+            <strong>Deadlock Status:</strong> {m.deadlockInsight}
+          </span>
         </div>
       )}
 

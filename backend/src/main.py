@@ -1733,8 +1733,10 @@ def pause_live_simulation() -> Dict[str, Any]:
         "message": "Live simulation paused",
     }
 
+
 class SpeedRequest(BaseModel):
     multiplier: float
+
 
 @app.post("/api/simulation/speed", dependencies=[Depends(require_api_key)])
 def set_live_simulation_speed(req: SpeedRequest) -> Dict[str, Any]:
@@ -1842,6 +1844,7 @@ def pause_dual_simulation() -> Dict[str, Any]:
     orch = get_or_create_dual_orchestrator()
     orch.pause()
     return {"status": orch.get_status(), "message": "Dual simulation paused"}
+
 
 @app.post("/api/simulation/dual/speed", dependencies=[Depends(require_api_key)])
 def set_dual_simulation_speed(req: SpeedRequest) -> Dict[str, Any]:

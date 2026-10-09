@@ -17,6 +17,7 @@ from src.intersection.conflict_manager import (
     ConflictManager,
     conflict_clearance_for,
 )
+from src.metrics.deadlock_detector import DeadlockDetector
 from src.roads.junction_geometry import (
     configured_arms,
     configured_bearings,
@@ -31,9 +32,8 @@ from src.roads.network import (
 from src.vehicles.idm import IntelligentDriverModel
 from src.vehicles.pool import VehiclePool
 from src.vehicles.spawner import VehicleSpawner
-from src.vehicles.vehicle_types import design_vehicle_allowance, has_vehicle_mix
 from src.vehicles.stochastic_idm import StochasticIDM
-from src.metrics.deadlock_detector import DeadlockDetector
+from src.vehicles.vehicle_types import design_vehicle_allowance, has_vehicle_mix
 
 logger = logging.getLogger(__name__)
 
@@ -141,11 +141,11 @@ class SimulationEngine:
             idm_cls = StochasticIDM if is_unstructured else IntelligentDriverModel
             self.idm = idm_cls(**idm_kwargs)
 
+            self.deadlock_detector: Optional[DeadlockDetector] = None
             if is_unstructured:
-                self.deadlock_detector = DeadlockDetector(self.clock, self.pool)
-                self.register_tick_callback(lambda: self.deadlock_detector.tick(self.config.get("simulation", {}).get("timeStep", 0.1)))
-            else:
-                self.deadlock_detector = None
+                detector = DeadlockDetector(self.clock, self.pool)
+                self.deadlock_detector = detector
+                self.register_tick_callback(lambda: detector.tick(self.clock.time_step))
 
         self._thread: Optional[threading.Thread] = None
         self._stop_event: threading.Event = threading.Event()
@@ -227,7 +227,10 @@ class SimulationEngine:
                     break
 
             elapsed = time.time() - start_time
-            target_sleep = self.clock.time_step / (self.config.get("simulation", {}).get("timeScale", 1.0) * self.speed_multiplier)
+            target_sleep = self.clock.time_step / (
+                self.config.get("simulation", {}).get("timeScale", 1.0)
+                * self.speed_multiplier
+            )
             sleep_time = max(0.0, target_sleep - elapsed)
             time.sleep(sleep_time)
 

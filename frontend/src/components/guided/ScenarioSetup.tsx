@@ -395,7 +395,9 @@ export function ScenarioSetup({
                   }}
                 />
                 <span className="choice-title">Structured / Idealistic</span>
-                <span className="choice-desc">Perfect drivers following exact rules</span>
+                <span className="choice-desc">
+                  Perfect drivers following exact rules
+                </span>
               </label>
               <label
                 className={`choice-card${draft.unstructuredTraffic ? " is-selected" : ""}`}
@@ -409,20 +411,46 @@ export function ScenarioSetup({
                   }}
                 />
                 <span className="choice-title">Unstructured / Chaotic</span>
-                <span className="choice-desc">Realistic driver imperfections (hesitation, variable reaction, blocking)</span>
+                <span className="choice-desc">
+                  Realistic driver imperfections (hesitation, variable reaction,
+                  blocking)
+                </span>
               </label>
             </div>
             {draft.unstructuredTraffic && (
-              <label className="checkbox-label" style={{ marginTop: "1rem", display: "flex", gap: "0.5rem", alignItems: "center", cursor: "pointer" }}>
+              <label
+                className="checkbox-label"
+                style={{
+                  marginTop: "1rem",
+                  display: "flex",
+                  gap: "0.5rem",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+              >
                 <input
                   type="checkbox"
                   checked={draft.aggressiveTwoWheelers}
-                  onChange={(e) => { set("aggressiveTwoWheelers", e.target.checked); }}
-                  style={{ width: "1.2rem", height: "1.2rem", accentColor: "#e5a910" }}
+                  onChange={(e) => {
+                    set("aggressiveTwoWheelers", e.target.checked);
+                  }}
+                  style={{
+                    width: "1.2rem",
+                    height: "1.2rem",
+                    accentColor: "#e5a910",
+                  }}
                 />
                 <div style={{ display: "flex", flexDirection: "column" }}>
-                  <span className="choice-title" style={{ fontSize: "1rem", marginBottom: "0.2rem" }}>Aggressive Two-Wheelers</span>
-                  <span className="choice-desc" style={{ fontSize: "0.85rem" }}>Scooters will aggressively overtake and enter wherever they see space.</span>
+                  <span
+                    className="choice-title"
+                    style={{ fontSize: "1rem", marginBottom: "0.2rem" }}
+                  >
+                    Aggressive Two-Wheelers
+                  </span>
+                  <span className="choice-desc" style={{ fontSize: "0.85rem" }}>
+                    Scooters will aggressively overtake and enter wherever they
+                    see space.
+                  </span>
                 </div>
               </label>
             )}
