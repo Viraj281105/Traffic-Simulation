@@ -806,8 +806,6 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
               />
             </fieldset>
           )}
-
-
         </form>
 
         <div className="config-sidebar-footer">
