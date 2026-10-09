@@ -91,8 +91,11 @@ def resolve_lane_change_settings(config: Mapping[str, Any]) -> LaneChangeSetting
     roads = config.get("roads") or {}
     section = roads.get("laneChange") if isinstance(roads, Mapping) else None
     traffic = config.get("traffic") or {}
-    aggressive = bool(traffic.get("aggressiveTwoWheelers", False) and traffic.get("unstructuredTraffic", False))
-    
+    aggressive = bool(
+        traffic.get("aggressiveTwoWheelers", False)
+        and traffic.get("unstructuredTraffic", False)
+    )
+
     if not isinstance(section, Mapping):
         return LaneChangeSettings(aggressive_two_wheelers=aggressive)
     defaults = LaneChangeSettings()
@@ -261,10 +264,14 @@ class LaneChangeModel:
         permitted = [network.permitted_turns(direction, i) for i in range(n_lanes)]
         mandatory = turn not in permitted[idx]
 
-        is_aggressive = self.settings.aggressive_two_wheelers and getattr(getattr(vehicle.params, "profile", None), "type_id", None) == "motorcycle"
+        is_aggressive = (
+            self.settings.aggressive_two_wheelers
+            and getattr(getattr(vehicle.params, "profile", None), "type_id", None)
+            == "motorcycle"
+        )
 
         remaining = lane.length - vehicle.position
-        
+
         # Rash driving: aggressive scooters don't care about being in the right lane until the last 30 meters!
         if is_aggressive and remaining > 30.0:
             mandatory = False
@@ -272,7 +279,7 @@ class LaneChangeModel:
         distance = self.manoeuvre_distance(vehicle)
         actual_end_margin = 1.0 if is_aggressive else END_MARGIN
         actual_cooldown = 0.2 if is_aggressive else COOLDOWN
-        
+
         if remaining < distance + actual_end_margin:
             if mandatory:
                 self._miss_turn(vehicle, network, direction, idx, permitted[idx])
@@ -307,10 +314,14 @@ class LaneChangeModel:
                 f, f.position, me
             )
 
-        is_aggressive = self.settings.aggressive_two_wheelers and getattr(getattr(vehicle.params, "profile", None), "type_id", None) == "motorcycle"
+        is_aggressive = (
+            self.settings.aggressive_two_wheelers
+            and getattr(getattr(vehicle.params, "profile", None), "type_id", None)
+            == "motorcycle"
+        )
         b_safe = 8.0 if is_aggressive else self.settings.safe_deceleration
         actual_min_gap = 0.2 if is_aggressive else MIN_ACCEPTED_GAP
-        
+
         best: Optional[Tuple[float, int]] = None
         for target_idx in candidates:
             target = lanes[target_idx]
@@ -348,16 +359,14 @@ class LaneChangeModel:
                 new_gain = a_f_new - self._acc(f, f.position, new_leader)
 
             politeness = 0.0 if is_aggressive else self._politeness(vehicle)
-            incentive = (a_self_new - a_self) + politeness * (
-                new_gain + old_gain
-            )
-            
+            incentive = (a_self_new - a_self) + politeness * (new_gain + old_gain)
+
             if is_aggressive:
                 cur_dist = cur_leader.position if cur_leader else lane.length
                 new_dist = new_leader.position if new_leader else target.length
                 if new_dist > cur_dist + 5.0:
                     incentive += 2.0  # massive incentive to switch to a more open lane
-            
+
             threshold = 0.05 if is_aggressive else self.settings.acceleration_threshold
             if not mandatory and incentive <= threshold:
                 continue

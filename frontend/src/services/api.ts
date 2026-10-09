@@ -86,7 +86,9 @@ export async function setSimulationSpeed(multiplier: number): Promise<void> {
 }
 
 /** Set the speed multiplier for the dual simulation engine. */
-export async function setDualSimulationSpeed(multiplier: number): Promise<void> {
+export async function setDualSimulationSpeed(
+  multiplier: number,
+): Promise<void> {
   await post("/api/simulation/dual/speed", { multiplier });
 }
 

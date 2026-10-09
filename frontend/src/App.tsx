@@ -69,7 +69,12 @@ import {
   dashboardPayload,
   sameConfigValues,
 } from "./types/config";
-import { saveReplay, updateSimulationConfig, setSimulationSpeed, setDualSimulationSpeed } from "./services/api";
+import {
+  saveReplay,
+  updateSimulationConfig,
+  setSimulationSpeed,
+  setDualSimulationSpeed,
+} from "./services/api";
 import { approachLanes } from "./scenario/scenarioModel";
 import { hasResults, sideSummary } from "./metrics/plainLanguage";
 import type {
@@ -470,7 +475,7 @@ function Dashboard({
           },
           intersectionType,
           viewMode === "signal",
-        )
+        ),
       )
         .then(() => {
           if (version === syncVersion.current && playAfterSync.current) {
@@ -511,7 +516,6 @@ function Dashboard({
     unstructuredTraffic,
     aggressiveTwoWheelers,
   ]);
-
 
   const handleApplyConfig = (newConfig: SimulationConfigValues) => {
     setActiveReplay(null);

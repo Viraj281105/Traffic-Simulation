@@ -111,13 +111,18 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           {simple ? "Start over" : "Reset"}
         </button>
         {onSpeedChange && (
-          <div className="pb-speed-controls" style={{ display: "flex", gap: "2px", marginLeft: "10px" }}>
+          <div
+            className="pb-speed-controls"
+            style={{ display: "flex", gap: "2px", marginLeft: "10px" }}
+          >
             {[1, 2, 4].map((speed) => (
               <button
                 key={speed}
                 type="button"
                 className={`pb-btn pb-secondary ${playbackSpeed === speed ? "active" : ""}`}
-                onClick={() => { onSpeedChange(speed); }}
+                onClick={() => {
+                  onSpeedChange(speed);
+                }}
                 disabled={disabled}
                 title={`Run at ${String(speed)}x speed`}
                 style={{ minWidth: "40px", padding: "0 8px" }}
