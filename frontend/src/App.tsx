@@ -116,6 +116,16 @@ const ValidationDashboard = lazy(() =>
     default: m.ValidationDashboard,
   })),
 );
+const JunctionStudyPage = lazy(() =>
+  import("./components/JunctionStudyPage").then((m) => ({
+    default: m.JunctionStudyPage,
+  })),
+);
+const ThreeWayStudyPage = lazy(() =>
+  import("./components/ThreeWayStudyPage").then((m) => ({
+    default: m.ThreeWayStudyPage,
+  })),
+);
 const AdminPanel = lazy(() =>
   import("./components/AdminPanel").then((m) => ({ default: m.AdminPanel })),
 );
@@ -180,6 +190,8 @@ const RESEARCH_VIEWS: ReadonlySet<ViewMode> = new Set([
   "research",
   "volume",
   "validation",
+  "junction",
+  "threeWay",
   "signal",
   "roundabout",
   "single",
@@ -194,8 +206,10 @@ function sectionOf(view: ViewMode): Section {
 
 const RESEARCH_TABS: { view: RoutedView; label: string }[] = [
   { view: "research", label: "Overview" },
-  { view: "volume", label: "Traffic-level sweep" },
+  { view: "junction", label: "Your own junction" },
+  { view: "threeWay", label: "Three-way study" },
   { view: "validation", label: "Statistical validation" },
+  { view: "volume", label: "Traffic-level sweep" },
   { view: "signal", label: "Signal on its own" },
   { view: "roundabout", label: "Roundabout on its own" },
 ];
@@ -1097,6 +1111,24 @@ function Dashboard({
         >
           <Suspense fallback={viewLoading}>
             <ValidationDashboard />
+          </Suspense>
+        </PageTransition>
+      ) : viewMode === "junction" ? (
+        <PageTransition
+          transitionKey={pageKey}
+          className="app-main full-screen page-scroll"
+        >
+          <Suspense fallback={viewLoading}>
+            <JunctionStudyPage />
+          </Suspense>
+        </PageTransition>
+      ) : viewMode === "threeWay" ? (
+        <PageTransition
+          transitionKey={pageKey}
+          className="app-main full-screen page-scroll"
+        >
+          <Suspense fallback={viewLoading}>
+            <ThreeWayStudyPage />
           </Suspense>
         </PageTransition>
       ) : viewMode === "admin" ? (
