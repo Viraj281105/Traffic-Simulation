@@ -119,6 +119,18 @@ vi.mock("../auth/cognito", async (importOriginal) => ({
   getAuthToken: () => Promise.resolve(null),
 }));
 
+// The junction study validates its scenario against the backend as it is
+// edited; here every scenario can be simulated.
+vi.mock("../services/scenarioApi", () => ({
+  validateScenario: vi.fn().mockResolvedValue({
+    valid: true,
+    errors: [],
+    warnings: [],
+    strategies: ["fixed_time", "adaptive", "roundabout"],
+  }),
+  compileScenario: vi.fn(),
+}));
+
 vi.mock("../hooks/useContainerSize", () => ({
   useContainerSize: () => [() => undefined, { width: 800, height: 600 }],
 }));
@@ -278,7 +290,9 @@ describe("App", () => {
     await user.click(screen.getByRole("link", { name: "Research lab" }));
     expect(window.location.pathname).toBe("/app/research");
     expect(
-      screen.getByRole("heading", { name: /tools for deeper analysis/i }),
+      screen.getByRole("heading", {
+        name: /how urbanflow compares traffic control/i,
+      }),
     ).toBeInTheDocument();
 
     const researchNav = () =>
@@ -303,6 +317,214 @@ describe("App", () => {
     expect(
       researchNav().getByRole("link", { name: /signal on its own/i }),
     ).toHaveAttribute("aria-current", "page");
+  });
+
+  describe("Your own junction tab", () => {
+    const researchNav = () =>
+      within(screen.getByRole("navigation", { name: "Research tools" }));
+    const studyHeading = /your own junction: a controlled study/i;
+
+    it("is a Research lab tab, next to the Overview and the three-way study", async () => {
+      signIn();
+      const user = userEvent.setup();
+      render(<App />);
+      await user.click(screen.getByRole("link", { name: "Research lab" }));
+
+      const labels = researchNav()
+        .getAllByRole("link")
+        .map((link) => link.textContent);
+      expect(labels).toEqual([
+        "Overview",
+        "Your own junction",
+        "Three-way study",
+        "Statistical validation",
+        "Traffic-level sweep",
+        "Signal on its own",
+        "Roundabout on its own",
+      ]);
+      expect(
+        researchNav().getByRole("link", { name: "Your own junction" }),
+      ).toHaveAttribute("href", "/app/junction");
+    });
+
+    it("keeps the study off the Research lab overview", async () => {
+      signIn();
+      const user = userEvent.setup();
+      render(<App />);
+      await user.click(screen.getByRole("link", { name: "Research lab" }));
+
+      expect(
+        screen.getByRole("heading", {
+          name: /how urbanflow compares traffic control/i,
+        }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("heading", { name: studyHeading }),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Scenario name")).not.toBeInTheDocument();
+      // The overview still offers it: the tab, plus a card linking to it.
+      const links = screen.getAllByRole("link", { name: /your own junction/i });
+      expect(links.length).toBeGreaterThanOrEqual(2);
+      for (const link of links) {
+        expect(link).toHaveAttribute("href", "/app/junction");
+      }
+    });
+
+    it("opens the existing study and switches cleanly with Statistical validation", async () => {
+      signIn();
+      const user = userEvent.setup();
+      render(<App />);
+      await user.click(screen.getByRole("link", { name: "Research lab" }));
+
+      await user.click(
+        researchNav().getByRole("link", { name: "Your own junction" }),
+      );
+      expect(window.location.pathname).toBe("/app/junction");
+      expect(
+        await screen.findByRole("heading", { level: 1, name: studyHeading }),
+      ).toBeInTheDocument();
+      expect(
+        researchNav().getByRole("link", { name: "Your own junction" }),
+      ).toHaveAttribute("aria-current", "page");
+      expect(
+        screen.getByRole("link", { name: "Research lab" }),
+      ).toHaveAttribute("aria-current", "page");
+      expect(screen.getByLabelText("Scenario name")).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", {
+          name: /run the study \(15 simulations\)/i,
+        }),
+      ).toBeInTheDocument();
+      // Nothing from the other research pages shares the screen.
+      expect(
+        screen.queryByRole("heading", {
+          name: /how urbanflow compares traffic control/i,
+        }),
+      ).not.toBeInTheDocument();
+
+      await user.click(
+        researchNav().getByRole("link", { name: "Statistical validation" }),
+      );
+      expect(window.location.pathname).toBe("/app/validation");
+      expect(
+        await screen.findByRole("heading", {
+          name: /statistical validation studio/i,
+        }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("heading", { name: studyHeading }),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Scenario name")).not.toBeInTheDocument();
+
+      await user.click(
+        researchNav().getByRole("link", { name: "Your own junction" }),
+      );
+      expect(
+        await screen.findByRole("heading", { level: 1, name: studyHeading }),
+      ).toBeInTheDocument();
+      expect(screen.getAllByLabelText("Scenario name")).toHaveLength(1);
+      expect(
+        screen.queryByRole("heading", {
+          name: /statistical validation studio/i,
+        }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("opens straight from its URL, as after a refresh", async () => {
+      window.history.replaceState(null, "", "/app/junction");
+      render(<App />);
+
+      expect(
+        await screen.findByRole("heading", { level: 1, name: studyHeading }),
+      ).toBeInTheDocument();
+      expect(
+        researchNav().getByRole("link", { name: "Your own junction" }),
+      ).toHaveAttribute("aria-current", "page");
+      expect(
+        screen.getByRole("link", { name: "Research lab" }),
+      ).toHaveAttribute("aria-current", "page");
+    });
+  });
+
+  describe("Three-way study tab", () => {
+    const researchNav = () =>
+      within(screen.getByRole("navigation", { name: "Research tools" }));
+
+    it("is reached from the overview and from its own tab", async () => {
+      signIn();
+      const user = userEvent.setup();
+      render(<App />);
+      await user.click(screen.getByRole("link", { name: "Research lab" }));
+
+      // The overview's methodology button leads to the method page.
+      await user.click(screen.getByRole("link", { name: "Methodology" }));
+      expect(window.location.pathname).toBe("/app/three-way");
+      expect(
+        await screen.findByRole("heading", {
+          level: 1,
+          name: "Three-way study",
+        }),
+      ).toBeInTheDocument();
+      expect(
+        researchNav().getByRole("link", { name: "Three-way study" }),
+      ).toHaveAttribute("aria-current", "page");
+      expect(
+        screen.getByRole("link", { name: "Research lab" }),
+      ).toHaveAttribute("aria-current", "page");
+      // Nothing from the overview shares the page, and the run controls live here.
+      expect(
+        screen.queryByRole("heading", {
+          name: /how urbanflow compares traffic control/i,
+        }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /run the three-way study/i }),
+      ).toBeInTheDocument();
+
+      await user.click(researchNav().getByRole("link", { name: "Overview" }));
+      expect(
+        await screen.findByRole("heading", {
+          name: /how urbanflow compares traffic control/i,
+        }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("heading", { level: 1, name: "Three-way study" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("opens straight from its URL, as after a refresh", async () => {
+      window.history.replaceState(null, "", "/app/three-way");
+      render(<App />);
+      expect(
+        await screen.findByRole("heading", {
+          level: 1,
+          name: "Three-way study",
+        }),
+      ).toBeInTheDocument();
+      expect(
+        researchNav().getByRole("link", { name: "Three-way study" }),
+      ).toHaveAttribute("aria-current", "page");
+    });
+
+    it("keeps every other research tool one click away", async () => {
+      signIn();
+      const user = userEvent.setup();
+      render(<App />);
+      await user.click(screen.getByRole("link", { name: "Research lab" }));
+      for (const [name, path] of [
+        ["Your own junction", "/app/junction"],
+        ["Three-way study", "/app/three-way"],
+        ["Statistical validation", "/app/validation"],
+        ["Traffic-level sweep", "/app/volume"],
+        ["Signal on its own", "/app/signal"],
+        ["Roundabout on its own", "/app/roundabout"],
+      ] as const) {
+        expect(researchNav().getByRole("link", { name })).toHaveAttribute(
+          "href",
+          path,
+        );
+      }
+    });
   });
 
   it("redirects the legacy /app.html entry to the default view", async () => {

@@ -19,6 +19,8 @@ export const VIEW_ROUTES = {
   history: "/app/history",
   volume: "/app/volume",
   validation: "/app/validation",
+  junction: "/app/junction",
+  threeWay: "/app/three-way",
   research: "/app/research",
   admin: "/app/admin",
 } as const;

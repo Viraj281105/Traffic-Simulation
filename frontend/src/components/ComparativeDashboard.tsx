@@ -7,7 +7,12 @@ import React, {
   useState,
   type ComponentProps,
 } from "react";
-import type { DualSnapshot, LiveSnapshot } from "../types/simulation";
+import type {
+  DualSnapshot,
+  LiveSnapshot,
+  RunningMetrics,
+} from "../types/simulation";
+import type { Geometry } from "../metrics/catalog";
 import type { ConnectionStatus } from "../services/websocket";
 import type { RunRecord } from "../services/api";
 import { WeightedScoringPanel } from "./WeightedScoringPanel";
@@ -430,7 +435,9 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
         <div className="modal-header">
           <div className="modal-header-left">
             <h2 className="modal-title" id="comparison-dialog-title">
-              {isNWay ? "Scenario Suite Comparison" : "Signal vs roundabout — full comparison"}
+              {isNWay
+                ? "Scenario Suite Comparison"
+                : "Signal vs roundabout — full comparison"}
             </h2>
             {!isNWay && (
               <div
@@ -459,8 +466,8 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
                     setViewMode("table");
                   }}
                 >
-                  <Table size={14} aria-hidden="true" className="uf-glyph" /> Data
-                  Table
+                  <Table size={14} aria-hidden="true" className="uf-glyph" />{" "}
+                  Data Table
                 </button>
               </div>
             )}
@@ -473,14 +480,20 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
           {isNWay ? (
             <div className="modal-visual-sections">
               <MultiRunSections
-                columns={runs.map(r => ({
+                columns={runs.map((r) => ({
                   key: r.runId,
-                  heading: <div className="multi-run-heading"><strong>{r.name || r.runId.substring(0, 8)}</strong><br/><small>{r.intersectionType}</small></div>,
+                  heading: (
+                    <div className="multi-run-heading">
+                      <strong>{r.name || r.runId.substring(0, 8)}</strong>
+                      <br />
+                      <small>{r.intersectionType}</small>
+                    </div>
+                  ),
                   ctx: {
-                    metrics: r.summaryMetrics as any,
-                    geometry: r.intersectionType as any,
+                    metrics: r.summaryMetrics as unknown as RunningMetrics,
+                    geometry: r.intersectionType as Geometry,
                     inWarmup: false,
-                  }
+                  },
                 }))}
                 baselineIndex={0}
                 collapsed={[]}

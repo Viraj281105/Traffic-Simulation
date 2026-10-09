@@ -1,0 +1,357 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>UrbanFlow Demo Script</title><style>
+body{font:15px/1.55 -apple-system,'Segoe UI',Roboto,sans-serif;max-width:900px;margin:32px auto;padding:0 20px;color:#1a2433}
+h1{font-size:28px;border-bottom:3px solid #0f6b4f;padding-bottom:8px}
+h2{font-size:21px;margin-top:34px;color:#0f6b4f;border-bottom:1px solid #d5dde5;padding-bottom:4px}
+h3{font-size:17px;margin-top:22px}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}
+th,td{border:1px solid #d5dde5;padding:7px 10px;text-align:left;vertical-align:top}
+th{background:#eef3f7}
+blockquote{margin:12px 0;padding:8px 16px;border-left:4px solid #0f6b4f;background:#f2f8f5}
+code{background:#eef3f7;padding:1px 5px;border-radius:4px;font-size:13px}
+hr{border:0;border-top:1px solid #d5dde5;margin:26px 0}
+@media print{body{margin:0;max-width:none;font-size:12.5px}h2{page-break-after:avoid}table,blockquote{page-break-inside:avoid}}
+</style></head><body><h1>UrbanFlow — Live Demo Script</h1>
+<p><strong>Length:</strong> about 15 minutes (12 minutes if you skip the Research lab tour). <strong>Audience:</strong> planning officers and technical reviewers. <strong>Tagline:</strong> <em>Signal or roundabout? Try both.</em></p>
+<blockquote>
+<p>UrbanFlow shows evidence, not a verdict. Say this early and repeat it at the end.</p>
+</blockquote>
+<hr />
+<h2>0. Before you start (5 minutes, off-camera)</h2>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>How</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>App is running</td>
+<td>Open <code>http://localhost:5173/</code> (dev stack) or <code>http://localhost/</code> (Docker). The landing page must load.</td>
+</tr>
+<tr>
+<td>Backend is healthy</td>
+<td><code>http://localhost:8000/health</code> returns <code>{"status":"healthy"}</code>.</td>
+</tr>
+<tr>
+<td>Signed in</td>
+<td>Dev stack shows a <strong>DEV AUTH</strong> chip, so no login is needed. A production build asks for sign-in when you open the <strong>Research lab</strong> or press <strong>Save</strong>.</td>
+</tr>
+<tr>
+<td>Browser</td>
+<td>Light theme, 100% zoom, full screen. Close other tabs.</td>
+</tr>
+<tr>
+<td>Saved runs</td>
+<td>Open <strong>Saved</strong> once. Delete stray test runs so the demo list is clean.</td>
+</tr>
+<tr>
+<td>Warm up the lab</td>
+<td>Open <strong>Research lab → Three-way study</strong> and start it before you present. It runs 90 simulations and takes several minutes. Keep that tab open.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Numbers change.</strong> Each run draws a random traffic pattern, and <strong>Start over</strong> picks a new one. Do not read figures from this script. Read the numbers on screen. To make a run repeatable, set the seed under <strong>Advanced settings → Random seed</strong>. A fixed seed reproduces the same traffic.</p>
+<p><strong>Speed.</strong> The simulation plays in real time. Use the <strong>4x</strong> button in the playback bar so a 5-minute run takes about 75 seconds.</p>
+<hr />
+<h2>1. Landing page — the pitch (1.5 min)</h2>
+<p><strong>Open:</strong> <code>/</code></p>
+<p><strong>Do:</strong>
+1. Pause on the hero: <strong>"Signal or roundabout? Try both."</strong>
+2. Point at the three facts under the buttons: <em>3 steps</em>, <em>Same cars for both</em>, <em>No verdict: your call</em>.
+3. Scroll to <strong>01 / The premise</strong>: two cards, <em>Signal control</em> and <em>Roundabout control</em>.
+4. Scroll to <strong>02 / How it works</strong>: four cards (Describe your junction, Watch both run, Read the results, Check and compare).
+5. Scroll to <strong>03 / What you learn</strong>: plain-language questions on the left, specialist tools on the right.
+6. Optional: click the moon icon to show dark mode.</p>
+<p><strong>Say:</strong></p>
+<blockquote>
+<p>"A junction on your street is up for redesign: keep the traffic lights, or build a roundabout? People argue from opinion. UrbanFlow turns that into a fair test. It runs both options on the same virtual junction with exactly the same cars, then tells you in plain language what happened, why, and how sure you can be. It never picks a winner. The decision stays with you."</p>
+</blockquote>
+<p><strong>Click:</strong> <strong>Compare your junction</strong>.</p>
+<hr />
+<h2>2. Compare, Step 1 — Describe the junction (2 min)</h2>
+<p><strong>Page:</strong> <code>/app/comparative</code>. The step bar at the top shows <strong>1 Your junction → 2 Watch both run → 3 Results</strong>.</p>
+<p><strong>Do and say, question by question:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>What to show</th>
+<th>Talking point</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. How busy is the junction?</td>
+<td>Six cards from <strong>Light</strong> (310 veh/h) to <strong>Over capacity</strong> (1,630 veh/h). Select <strong>Busy</strong>.</td>
+<td>"Levels are relative to what a one-lane junction can carry, so 'busy' means the same thing at every lane count."</td>
+</tr>
+<tr>
+<td>2. How many lanes?</td>
+<td><strong>1 / 2 / 3 lanes</strong>. Leave on <strong>1</strong>. Briefly click <strong>2</strong> to show the caution note, then go back to <strong>1</strong>.</td>
+<td>"One lane per approach is the calibrated case. More lanes are flagged as indicative."</td>
+</tr>
+<tr>
+<td>3. What traffic?</td>
+<td><strong>Cars only</strong>, <strong>Typical city mix</strong>, <strong>Bus &amp; freight route</strong>, <strong>Many two-wheelers</strong>.</td>
+<td>"Buses, trucks and motorcycles each drive differently. The calibrated comparison is cars only."</td>
+</tr>
+<tr>
+<td>4. Signal behaviour</td>
+<td><strong>On a fixed timetable</strong> or <strong>Responds to traffic</strong>.</td>
+<td>"Fixed timer versus detectors that give green where cars are waiting."</td>
+</tr>
+<tr>
+<td>5. Driver behaviour</td>
+<td><strong>Structured</strong> or <strong>Unstructured / Chaotic</strong>.</td>
+<td>"Idealised drivers or realistic hesitation and blocking."</td>
+</tr>
+<tr>
+<td>6. How long to watch?</td>
+<td><strong>Quick look</strong> (2 min), <strong>Standard</strong> (5 min), <strong>Thorough</strong> (10 min). Select <strong>Standard</strong>.</td>
+<td>"The first 30 seconds are a warm-up and are not counted."</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Then show the depth:</strong>
+1. Scroll to <strong>The two options being compared</strong>. Read the signal timetable (30 s green, 72 s cycle) and the roundabout rule (gap of at least 4.0 s).
+2. Click <strong>Advanced settings</strong>. Show presets, signal timing, roundabout gap, and <strong>Random seed</strong>. Set the seed to a fixed number if you want repeatable numbers. Click <strong>Use these settings</strong>.
+3. Scroll to the top and click <strong>Build your own junction</strong>. Show the six-step builder: junction type, roads and lanes with lane arrows, traffic per road, vehicle mix, simulation, advanced presets. Say: <em>"Same tool, full control: T-junctions, lane arrows, per-road demand, import and export."</em> Click <strong>Answer a few questions</strong> to go back.</p>
+<p><strong>Click:</strong> <strong>Run the comparison →</strong></p>
+<hr />
+<h2>3. Compare, Step 2 — Watch both run (2.5 min)</h2>
+<p><strong>Important:</strong> the page opens in a <strong>Ready</strong> state. <strong>Press Play</strong> in the playback bar. The text says "Press Play below to start both junctions at once."</p>
+<p><strong>Do:</strong>
+1. Click <strong>Play</strong>, then <strong>4x</strong>.
+2. Point at the two maps: <strong>Traffic signal</strong> and <strong>Roundabout</strong>. On a narrow window they stack. On a wide screen they sit side by side.
+3. Point at the live panel: progress bar (<code>0:31 of 5:00</code>), the shaded warm-up section, and the three live rows: <strong>Vehicles waiting now</strong>, <strong>Got through so far</strong>, <strong>Time lost per driver so far</strong>.
+4. Read <strong>What to look for</strong>: queues build on red and clear in bursts, versus drivers slowing and waiting for a gap.
+5. Click <strong>Show specialist live charts &amp; all metrics</strong>. Show the tabs Flow, Performance, Queues, Safety, Capacity, Table. Click <strong>← Back to the simple view</strong>.
+6. Point at the playback bar: <strong>Play / Pause / Start over</strong>, speed buttons, <strong>Simulated time</strong>, <strong>Status</strong>.</p>
+<p><strong>Say:</strong></p>
+<blockquote>
+<p>"Both maps receive the same vehicles at the same moments. Only the control differs. The warm-up lets traffic build from an empty road, so early numbers are not counted."</p>
+</blockquote>
+<p><strong>Tip:</strong> you can click <strong>See results so far →</strong> once the warm-up is over. Wait for <strong>Finished</strong> if you can.</p>
+<p><strong>Click:</strong> <strong>See your results →</strong></p>
+<hr />
+<h2>4. Compare, Step 3 — Results (3.5 min)</h2>
+<p><strong>Page:</strong> the results report. Walk it top to bottom.</p>
+<table>
+<thead>
+<tr>
+<th>Section</th>
+<th>What to say</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Scenario chips</strong> (traffic level, lanes, mix, signal, duration, traffic pattern number)</td>
+<td>"Everything needed to reproduce this run."</td>
+</tr>
+<tr>
+<td><strong>In short</strong></td>
+<td>Read the three bullets aloud. "It states both values and says which was lower. Then it says it does not pick a winner."</td>
+</tr>
+<tr>
+<td><strong>How much time do drivers lose?</strong></td>
+<td>Show the paired bars, the A–F grade ("Is that a lot of time lost?"), and open <strong>How is this measured?</strong> "Time lost is not the same as waiting. It includes slowing the layout forces."</td>
+</tr>
+<tr>
+<td><strong>How much traffic gets through?</strong></td>
+<td>"Same arrivals, so a difference means one cleared traffic faster."</td>
+</tr>
+<tr>
+<td><strong>How long do queues get?</strong></td>
+<td>Typical queue, longest queue, time with more than 5 vehicles queued.</td>
+</tr>
+<tr>
+<td><strong>Is every direction treated alike?</strong></td>
+<td>Fairness band in words, with the index.</td>
+</tr>
+<tr>
+<td><strong>Why did this happen?</strong></td>
+<td>Read one or two items, for example how the signal and the roundabout decide who goes, or idle green on the signal.</td>
+</tr>
+<tr>
+<td><strong>How reliable is this?</strong></td>
+<td>Read the fairness note and the "Not modelled" note: pedestrians, cyclists, crash risk. "We say what the model cannot do."</td>
+</tr>
+</tbody>
+</table>
+<h3>The key moment: the reliability check</h3>
+<ol>
+<li>In <strong>How reliable is this?</strong>, keep <strong>5 (recommended)</strong> and click <strong>Check reliability</strong>. It takes about 10 seconds for a short run.</li>
+<li>Read the headline and the table (<strong>Consistent difference</strong>, <strong>Not consistent — could be chance</strong>, or <strong>About the same</strong>), plus the <strong>Lower at</strong> tally.</li>
+<li>Open <strong>Show the statistics</strong>: means with 95% intervals, p-values, Cohen's d, per-seed table.</li>
+</ol>
+<p><strong>Say:</strong></p>
+<blockquote>
+<p>"One run is one traffic pattern. In my rehearsal a single run showed the signal about 5 seconds better, but across five new patterns the difference was not consistent. That is exactly why we repeat the test. Your numbers will differ, so read your own headline."</p>
+</blockquote>
+<h3>Try another scenario</h3>
+<ol>
+<li>Click <strong>Try busier traffic</strong>. A new comparison starts for the next demand level. Press Play and use 4x if you want to show it, or skip ahead.</li>
+<li>Point at the table <strong>Scenarios you have run this session</strong>: time lost, vehicles through, longest queue for each run.</li>
+<li>Click <strong>Save this comparison</strong>. A toast confirms the save.</li>
+</ol>
+<h3>Specialist layer</h3>
+<ol>
+<li>Scroll down and expand <strong>All measurements &amp; method (for specialists)</strong>.</li>
+<li>Show the method list (IDM driver model, Poisson arrivals, 50 km/h limit, warm-up, signal plan, roundabout gap).</li>
+<li>Click <strong>Open charts &amp; user-weighted scoring</strong>. Show the charts and the weighted score with presets <strong>Balanced / Throughput first / Delay first / Equal weights</strong>. Say: "The score reflects your priorities, not an objective ranking." Press <strong>Escape</strong> to close.</li>
+<li>Click <strong>Download all metrics (CSV)</strong>.</li>
+</ol>
+<hr />
+<h2>5. Saved — reproducibility (1.5 min)</h2>
+<p><strong>Click:</strong> <strong>Saved</strong> in the top bar. Page <code>/app/history</code>.</p>
+<p><strong>Do:</strong>
+1. Show the table: saved time, run ID, name, type, seed, commit, config (<strong>Exact</strong>), simulated time, average delay and vehicles served as <em>signal / roundabout</em>.
+2. Click a run name to open its own page. Show <strong>Re-run and export</strong> (<strong>Open in simulator</strong>, <strong>Compare with other runs</strong>, <strong>Export JSON</strong>, <strong>Export CSV</strong>), the <strong>Reproducibility</strong> panel (run ID, seed, git commit, Python version, time step, duration, warm-up), <strong>Verify reproduction (headless)</strong>, <strong>Notes and tags</strong>, the stored metrics, and the stored configuration.
+3. Go back, tick two runs, click <strong>Compare selected (2)</strong>. Show <strong>Settings that differ</strong> and the metric table with differences against a baseline run. Point out the warnings about different seeds or code versions.</p>
+<p><strong>Say:</strong></p>
+<blockquote>
+<p>"Every saved run keeps its exact configuration, seed, timing and code version, so anyone can reproduce it or audit it later."</p>
+</blockquote>
+<hr />
+<h2>6. Research lab (3 min)</h2>
+<p><strong>Click:</strong> <strong>Research lab</strong>. A sub-navigation bar appears: Overview, Your own junction, Three-way study, Statistical validation, Traffic-level sweep, Signal on its own, Roundabout on its own.</p>
+<table>
+<thead>
+<tr>
+<th>Tab</th>
+<th>What to show</th>
+<th>Say</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Overview</strong></td>
+<td>The seven-stage "How a study proceeds" diagram, the three control strategies, the metric gallery, the <strong>Why one run is not enough</strong> widget (click <strong>After 3 runs / After 10 runs</strong>), and the evidence ladder.</td>
+<td>"Inconclusive is a result of its own. It is not 'no difference'."</td>
+</tr>
+<tr>
+<td><strong>Your own junction</strong></td>
+<td>The preset "Typical urban junction", the controls to compare (fixed signal, adaptive signal, roundabout), seeds and demand multipliers. Click <strong>Run the study</strong>.</td>
+<td>"Any junction the model supports, run under every control on matched seeds." After about 1.5 minutes: show the delay table with 95% intervals, the readings (for example <em>Roundabout lower</em>, <em>Inconclusive</em>), the by-approach and by-vehicle-class tables, and the CSV and JSON downloads.</td>
+</tr>
+<tr>
+<td><strong>Three-way study</strong></td>
+<td>The pre-started run, plus the matched-seeds diagram and the worked example of how a reading is classified (tie check, then interval).</td>
+<td>"Same seeds across three controls. The method is stated, with its limits."</td>
+</tr>
+<tr>
+<td><strong>Statistical validation</strong></td>
+<td>Click <strong>Launch Quick Check</strong> (3 seeds, about 25 s). Show the verdict (for example <em>No statistically supported difference</em>), the per-metric cards with Cohen's d and p-value, and the charts. Then click <strong>Run integrity check</strong>.</td>
+<td>"The integrity check confirms no vehicles are lost or created, no conflicting greens, and that a seed reproduces its results."</td>
+</tr>
+<tr>
+<td><strong>Traffic-level sweep</strong></td>
+<td>Click <strong>Load Past Sweep</strong> and choose one. Show the crossover bracket ("where the lower-delay control changes"), the tier tally, the delay curve with the <strong>Crossover</strong> marker, and the <strong>Demand Explorer</strong>.</td>
+<td>"Which option is better depends on traffic. Here is where the answer flips." Running a new sweep takes minutes, so use a saved one.</td>
+</tr>
+<tr>
+<td><strong>Signal on its own</strong> / <strong>Roundabout on its own</strong></td>
+<td>Click <strong>Play</strong>, then <strong>4x</strong>. Show stop lines, queue labels, the live phase text, the full metric panel, <strong>Scenario settings</strong>, <strong>Save to History</strong>.</td>
+<td>"For specialists: one control, every metric."</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>7. Close (30 seconds)</h2>
+<p><strong>Say:</strong></p>
+<blockquote>
+<p>"UrbanFlow turns 'signal or roundabout?' into a fair, repeatable test. Same cars, both options, plain-language answers with the numbers visible, the reason behind them, an honest reliability check, and the limits stated up front. Calibrated for one lane with cars; everything else is labelled indicative. It shows the evidence. The decision stays with you."</p>
+</blockquote>
+<p><strong>Click:</strong> the <strong>UrbanFlow</strong> logo to return to the landing page.</p>
+<hr />
+<h2>Appendix A — Timing plan</h2>
+<table>
+<thead>
+<tr>
+<th>Segment</th>
+<th>Minutes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. Landing</td>
+<td>1.5</td>
+</tr>
+<tr>
+<td>2. Step 1 Describe</td>
+<td>2</td>
+</tr>
+<tr>
+<td>3. Step 2 Watch</td>
+<td>2.5</td>
+</tr>
+<tr>
+<td>4. Step 3 Results and reliability</td>
+<td>3.5</td>
+</tr>
+<tr>
+<td>5. Saved</td>
+<td>1.5</td>
+</tr>
+<tr>
+<td>6. Research lab</td>
+<td>3</td>
+</tr>
+<tr>
+<td>7. Close</td>
+<td>0.5</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td><strong>about 14.5</strong></td>
+</tr>
+</tbody>
+</table>
+<h2>Appendix B — If something goes wrong</h2>
+<table>
+<thead>
+<tr>
+<th>Problem</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Page says "Loading…" for a few seconds</td>
+<td>Wait. Routes load on first open.</td>
+</tr>
+<tr>
+<td>Step 2 sits at <strong>Ready</strong></td>
+<td>Press <strong>Play</strong>. The scenario starts only when you press it.</td>
+</tr>
+<tr>
+<td><strong>See results so far</strong> is greyed out</td>
+<td>The warm-up is not over yet, or no vehicle has got through. Wait a few more seconds.</td>
+</tr>
+<tr>
+<td>Reliability check or study fails</td>
+<td>Check <code>http://localhost:8000/health</code>. Restart the backend and retry.</td>
+</tr>
+<tr>
+<td>Numbers differ from your rehearsal</td>
+<td>Expected. Set a fixed <strong>Random seed</strong> in Advanced settings, or narrate what is on screen.</td>
+</tr>
+<tr>
+<td>Sign-in prompt on Research lab or Save (production build)</td>
+<td>Sign in with your demo account.</td>
+</tr>
+<tr>
+<td>A study takes too long</td>
+<td>Use <strong>Load Past Sweep</strong>, or a 3-seed, 2-minute setting.</td>
+</tr>
+</tbody>
+</table>
+<h2>Appendix C — What not to claim</h2>
+<ul>
+<li>UrbanFlow does <strong>not</strong> say one design is better everywhere.</li>
+<li>Calibration is against UrbanFlow's own measured capacity, <strong>not</strong> observed traffic.</li>
+<li>Safety figures (TTC, PET) are exploratory surrogates, not crash risk.</li>
+<li>There is no emissions or fuel model, and pedestrians and cyclists are not modelled.</li>
+<li>Multi-lane and mixed-vehicle results are <strong>indicative</strong>, not calibrated.</li>
+</ul></body></html>

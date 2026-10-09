@@ -1,0 +1,1122 @@
+/* Research lab overview, three-way study page and their diagrams.
+   Everything here is scoped to `rl-` classes (or to the two page classes) and
+   built from the shared tokens (styles/tokens.css); the page frame, tool
+   cards, tables, buttons and badges are the existing ones (Guided.css,
+   styles/components.css). Signal is amber and the roundabout teal, as in
+   every chart and legend. */
+
+.research-hub,
+.three-way {
+  gap: 44px;
+}
+
+/* ── Hero ────────────────────────────────────────────────────────────────── */
+.rl-hero .rl-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+.rl-hero .rl-actions .pb-btn {
+  text-decoration: none;
+}
+
+/* ── Sections ────────────────────────────────────────────────────────────── */
+.rl-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+  /* Clear the sticky app header when reached by an in-page link. */
+  scroll-margin-top: 72px;
+}
+.rl-section-head h2 {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+.rl-lede {
+  margin-top: 4px;
+  max-width: 68ch;
+  font-size: 15px;
+  color: var(--color-text-2);
+}
+.rl-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+}
+.rl-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--radius-xs);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--color-accent);
+  text-decoration: none;
+}
+.rl-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.rl-link svg {
+  transition: transform var(--dur-base) var(--ease-spring);
+}
+.rl-link:hover svg {
+  transform: translateX(3px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .rl-link:hover svg {
+    transform: none;
+  }
+}
+.rl-group-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-3);
+}
+.rl-small-label {
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-3);
+}
+.rl-small-note {
+  font-size: 12px;
+  color: var(--color-text-3);
+}
+
+.rl-more {
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+.rl-more > summary {
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+.rl-more[open] > summary {
+  margin-bottom: 12px;
+}
+.rl-more > p {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--color-text-2);
+}
+
+/* Panels that hold a figure: the same surface as the page's other panels. */
+.rl-figure,
+.rl-compare,
+.rl-paired {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-raised);
+}
+.rl-figure figcaption {
+  max-width: 75ch;
+  font-size: 13px;
+  color: var(--color-text-2);
+}
+
+/* ── SVG vocabulary ──────────────────────────────────────────────────────── */
+.rl-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  font-family: var(--font-sans);
+}
+.rl-svg.is-tile {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+}
+/* Road, ground and markings match the scenario builder's junction plan. */
+.rl-svg .rl-ground {
+  fill: color-mix(in srgb, var(--color-success) 9%, var(--color-surface-2));
+}
+.rl-svg .rl-road,
+.rl-svg .rl-ring {
+  fill: #3a434c;
+}
+.rl-svg .rl-ring {
+  fill: none;
+  stroke: #3a434c;
+  stroke-width: 22;
+}
+.rl-svg .rl-island {
+  fill: color-mix(in srgb, var(--color-success) 26%, var(--color-surface-2));
+}
+.rl-svg .rl-centre {
+  stroke: var(--series-signal);
+  stroke-width: 1.2;
+  stroke-dasharray: 6 5;
+}
+.rl-svg .rl-stop {
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 2;
+}
+.rl-svg .rl-yield {
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+.rl-svg .rl-ring-arrow,
+.rl-svg .rl-arrow-head {
+  fill: #fff;
+  opacity: 0.92;
+}
+.rl-svg .rl-arrow-line {
+  stroke: #fff;
+  stroke-linecap: round;
+  opacity: 0.92;
+}
+.rl-svg .rl-car {
+  fill: var(--color-accent);
+  stroke: rgba(0, 0, 0, 0.35);
+  stroke-width: 0.6;
+}
+.rl-svg .rl-car.is-waiting {
+  fill: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  stroke: var(--color-accent);
+  stroke-width: 1.2;
+  stroke-dasharray: 2 2;
+}
+.rl-svg .rl-head {
+  fill: #1b2330;
+  stroke: rgba(255, 255, 255, 0.25);
+  stroke-width: 0.6;
+}
+.rl-svg .rl-lamp-go {
+  fill: var(--color-success);
+}
+.rl-svg .rl-lamp-stop {
+  fill: var(--color-danger);
+}
+.rl-svg .rl-lamp-warn {
+  fill: var(--color-warning);
+}
+.rl-svg .rl-zone {
+  fill: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  stroke: var(--color-accent);
+  stroke-width: 1;
+  stroke-dasharray: 3 2;
+}
+
+/* Phase bars and run boxes. Text on a coloured fill uses the page colour,
+   which contrasts with the fill in both themes. */
+.rl-svg .rl-seg-go {
+  fill: var(--color-success);
+}
+.rl-svg .rl-seg-go.is-extension {
+  fill: color-mix(in srgb, var(--color-success) 55%, var(--color-surface-2));
+}
+.rl-svg .rl-seg-warn {
+  fill: var(--color-warning);
+}
+.rl-svg .rl-seg-warn.is-solid {
+  fill: var(--series-signal);
+}
+.rl-svg .rl-seg-warn.is-outline {
+  fill: color-mix(in srgb, var(--series-signal) 22%, transparent);
+  stroke: var(--series-signal);
+  stroke-width: 1.5;
+}
+.rl-svg .rl-seg-stop {
+  fill: var(--color-danger);
+}
+.rl-svg .rl-seg-open {
+  fill: none;
+  stroke: var(--color-success);
+  stroke-width: 1.2;
+  stroke-dasharray: 4 3;
+}
+.rl-svg .rl-seg-text {
+  fill: var(--color-bg);
+  font-size: 9px;
+  font-weight: 700;
+}
+.rl-svg .rl-tick {
+  stroke: rgba(255, 255, 255, 0.7);
+  stroke-width: 1;
+}
+.rl-svg .rl-block {
+  fill: var(--color-surface-3);
+  stroke: var(--color-border-strong);
+}
+.rl-svg .rl-block.is-roundabout {
+  fill: var(--series-roundabout);
+  stroke: none;
+}
+.rl-svg .rl-gap-ok {
+  fill: var(--color-success);
+}
+.rl-svg .rl-seed-tile {
+  fill: var(--color-surface-3);
+  stroke: var(--color-border-strong);
+}
+.rl-svg .rl-bracket {
+  fill: none;
+  stroke: var(--color-border-strong);
+  stroke-dasharray: 4 3;
+}
+
+/* The control schematics are scaled down into three columns, so their labels
+   are set larger than the charts'. */
+.rl-strategy .rl-svg .rl-note {
+  font-size: 13px;
+}
+.rl-strategy .rl-svg .rl-seg-text {
+  font-size: 12px;
+}
+
+/* The metric drawings are scaled up from a small box, so labels are smaller. */
+.rl-metric .rl-svg .rl-note {
+  font-size: 8.5px;
+}
+
+/* Labels, axes and marks shared by the charts. */
+.rl-svg .rl-note {
+  fill: var(--color-text-2);
+  font-size: 9.5px;
+  font-weight: 500;
+}
+.rl-svg .rl-note.is-strong {
+  fill: var(--color-text);
+  font-weight: 700;
+}
+.rl-svg .rl-tick-label {
+  fill: var(--chart-axis);
+  font-size: 9.5px;
+}
+.rl-svg .rl-axis {
+  stroke: var(--chart-axis);
+  stroke-width: 1;
+}
+.rl-svg .rl-grid {
+  stroke: var(--chart-grid);
+  stroke-width: 1;
+}
+.rl-svg .rl-zero {
+  stroke: var(--color-text-3);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.rl-svg .rl-band {
+  fill: var(--color-accent-soft);
+  stroke: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  stroke-dasharray: 3 3;
+}
+.rl-svg .rl-ci {
+  stroke: var(--color-accent);
+  stroke-width: 2.2;
+}
+.rl-svg .rl-mean {
+  fill: var(--color-accent);
+}
+.rl-svg .rl-dot {
+  fill: var(--color-text);
+}
+.rl-svg .rl-dot.is-run {
+  fill: var(--color-text-3);
+}
+.rl-svg .rl-dot.is-a {
+  fill: var(--color-accent);
+}
+.rl-svg .rl-dot.is-b {
+  fill: var(--series-neutral);
+}
+.rl-svg .rl-mean-line {
+  stroke: var(--color-accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+.rl-svg .rl-mean-line.is-b {
+  stroke: var(--series-neutral);
+}
+.rl-svg .rl-ink {
+  fill: none;
+  stroke: var(--color-text-3);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.rl-svg .rl-bar {
+  fill: var(--color-surface-3);
+  stroke: var(--color-border-strong);
+}
+.rl-svg .rl-bar.is-accent {
+  fill: var(--color-accent);
+  stroke: none;
+}
+.rl-svg .rl-chip {
+  fill: var(--color-surface-3);
+  stroke: var(--color-border-strong);
+}
+.rl-svg .rl-chip-text {
+  fill: var(--color-text);
+  font-size: 9px;
+  font-weight: 700;
+}
+.rl-svg .rl-trace {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.rl-svg .rl-bell {
+  fill: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  stroke: var(--color-accent);
+  stroke-width: 1.5;
+}
+.rl-svg .rl-gauge {
+  fill: none;
+  stroke: var(--color-border-strong);
+  stroke-width: 8;
+  stroke-linecap: round;
+}
+.rl-svg .rl-needle {
+  stroke: var(--color-text);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+.rl-svg .rl-conflict {
+  fill: color-mix(in srgb, var(--color-danger) 30%, transparent);
+  stroke: var(--color-danger);
+  stroke-width: 1.5;
+}
+.rl-svg .rl-empty {
+  fill: none;
+  stroke: var(--color-border-strong);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+
+/* ── Workflow ────────────────────────────────────────────────────────────── */
+.rl-flow {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px 24px;
+}
+.rl-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-raised);
+}
+/* A chevron in the gap links each stage to the next. */
+.rl-step::after {
+  content: "";
+  position: absolute;
+  top: 30px;
+  right: -17px;
+  width: 11px;
+  height: 11px;
+  border-top: 2px solid var(--color-border-strong);
+  border-right: 2px solid var(--color-border-strong);
+  transform: rotate(45deg);
+}
+.rl-step:nth-child(4n)::after,
+.rl-step:last-child::after {
+  display: none;
+}
+.rl-step-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.rl-step-head h3 {
+  font-size: 15px;
+  font-weight: 650;
+}
+.rl-step-n,
+.rl-rung-n {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--brand-green) 28%, transparent);
+  background: var(--brand-green-soft);
+  color: var(--brand-green-ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+.rl-step > p {
+  font-size: 13px;
+  color: var(--color-text-2);
+}
+.rl-tile-plan {
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+}
+.rl-tile-plan .junction-preview {
+  width: auto;
+  height: 118px;
+  border-radius: 0;
+}
+.rl-io {
+  display: grid;
+  gap: 4px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px dashed var(--color-border);
+  font-size: 12px;
+}
+.rl-io > div {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 6px;
+}
+.rl-io dt {
+  padding-top: 1px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-3);
+}
+.rl-io dd {
+  margin: 0;
+  color: var(--color-text-2);
+}
+
+/* ── Control strategies ──────────────────────────────────────────────────── */
+.rl-strategies {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.rl-same {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 22px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+.rl-same-plans {
+  display: flex;
+  gap: 12px;
+}
+.rl-same-plans figure {
+  width: 108px;
+  margin: 0;
+}
+.rl-same-plans figcaption {
+  margin-top: 4px;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--color-text-3);
+}
+.rl-same-text {
+  flex: 1 1 260px;
+}
+.rl-same-text h3 {
+  font-size: 15px;
+  font-weight: 650;
+}
+.rl-same-text p {
+  max-width: 52ch;
+  font-size: 13.5px;
+  color: var(--color-text-2);
+}
+.rl-strategy-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.rl-strategy {
+  --rl-tone: var(--series-signal);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-top: 3px solid var(--rl-tone);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-raised);
+}
+.rl-strategy.is-roundabout {
+  --rl-tone: var(--series-roundabout);
+}
+.rl-strategy h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 650;
+}
+.rl-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--rl-tone);
+  border: 2px solid var(--rl-tone);
+}
+.rl-strategy.is-adaptive .rl-swatch {
+  background: transparent;
+}
+.rl-strategy .rl-svg {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+.rl-strategy > p {
+  font-size: 13.5px;
+  color: var(--color-text-2);
+}
+.rl-params {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rl-params li {
+  padding: 3px 9px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-2);
+  font-size: 12px;
+  color: var(--color-text-2);
+}
+
+/* ── Metric gallery ──────────────────────────────────────────────────────── */
+.rl-metric-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+.rl-metric-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.rl-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+.rl-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-raised);
+}
+.rl-metric.is-unavailable {
+  border-style: dashed;
+  background: transparent;
+  box-shadow: none;
+}
+.rl-metric h4 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 650;
+}
+.rl-unit {
+  padding: 1px 7px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-text-3);
+}
+.rl-metric > p {
+  font-size: 13px;
+  color: var(--color-text-2);
+}
+.rl-metric summary {
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+.rl-metric dl {
+  display: grid;
+  gap: 2px;
+  margin-top: 8px;
+}
+.rl-metric dt {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-3);
+}
+.rl-metric dd {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--color-text-2);
+}
+.rl-metric dd.rl-exact {
+  font-size: 11.5px;
+}
+
+/* ── Comparison explainer and paired example ─────────────────────────────── */
+.rl-compare-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 14px;
+}
+.rl-seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+.rl-seg button {
+  padding: 6px 14px;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-2);
+  cursor: pointer;
+}
+.rl-seg button:hover {
+  color: var(--color-text);
+}
+.rl-seg button[aria-pressed="true"] {
+  background: var(--brand-green-soft);
+  color: var(--brand-green-ink);
+}
+.rl-example-badge {
+  --badge-tone: var(--color-warning);
+}
+.rl-compare-plots {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.rl-legend {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--color-text-2);
+}
+.rl-key {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 4px;
+  vertical-align: -1px;
+}
+.rl-key.is-a {
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+.rl-key.is-b {
+  background: var(--series-neutral);
+  transform: rotate(45deg) scale(0.85);
+}
+.rl-reading {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--color-text-2);
+}
+.rl-reading strong {
+  color: var(--color-text);
+}
+.rl-points {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  font-size: 13px;
+  color: var(--color-text-2);
+}
+.rl-points li,
+.rl-working li,
+.rl-bullets li {
+  padding-left: 12px;
+  border-left: 2px solid var(--brand-green);
+}
+.rl-points strong,
+.rl-bullets strong {
+  color: var(--color-text);
+}
+.rl-paired-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.rl-paired-table .is-picked {
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  color: var(--color-text);
+}
+.rl-paired-table .is-gap {
+  border-left: 1px solid var(--color-border-strong);
+}
+.rl-paired-table td,
+.rl-paired-table th {
+  font-variant-numeric: tabular-nums;
+}
+.rl-paired-table tfoot th,
+.rl-paired-table tfoot td {
+  border-top: 2px solid var(--color-border-strong);
+  font-weight: 650;
+}
+.rl-working {
+  list-style: none;
+  display: grid;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--color-text-2);
+}
+.rl-working strong {
+  color: var(--color-text);
+}
+.rl-matched {
+  max-width: 560px;
+}
+
+/* ── Decision rule and definitions ───────────────────────────────────────── */
+.rl-decision {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rl-decision > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 20px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.rl-decision-q {
+  flex: 1 1 280px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.rl-decision-q p {
+  font-size: 14px;
+  font-weight: 600;
+}
+.rl-decision-a {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.rl-outcome {
+  padding: 3px 11px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  font-size: 12.5px;
+  font-weight: 650;
+}
+.rl-outcome.is-tie {
+  background: var(--color-surface-2);
+  color: var(--color-text-2);
+}
+.rl-outcome.is-lower {
+  border-color: color-mix(in srgb, var(--brand-green) 40%, transparent);
+  background: var(--brand-green-soft);
+  color: var(--brand-green-ink);
+}
+.rl-outcome.is-open {
+  border-color: color-mix(in srgb, var(--color-warning) 40%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 8%, transparent);
+  color: var(--color-warning);
+}
+.rl-defs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px 20px;
+}
+.rl-defs dt {
+  font-size: 14px;
+  font-weight: 650;
+}
+.rl-defs dd {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--color-text-2);
+}
+.rl-bullets {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 24px;
+}
+.rl-bullets li {
+  border-left-color: var(--color-border-strong);
+  font-size: 13.5px;
+  color: var(--color-text-2);
+}
+
+/* ── Evidence ladder ─────────────────────────────────────────────────────── */
+.rl-evidence {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+.rl-ladder {
+  position: relative;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.rl-ladder::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  left: 11px;
+  width: 2px;
+  background: var(--color-border-strong);
+}
+.rl-rung {
+  position: relative;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 12px;
+}
+.rl-rung > div {
+  margin-left: calc(var(--rung) * 12px);
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-raised);
+}
+.rl-rung h3 {
+  margin-bottom: 4px;
+  font-size: 15px;
+  font-weight: 650;
+}
+.rl-rung p {
+  font-size: 13px;
+  color: var(--color-text-2);
+}
+.rl-rung .rl-branch {
+  grid-column: 2;
+  margin-left: calc(var(--rung) * 12px + 16px);
+  padding: 8px 12px;
+  border-left: 3px solid var(--color-warning);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-warning) 8%, transparent);
+  font-size: 12.5px;
+}
+.rl-rung.is-outside > div {
+  border-style: dashed;
+  background: transparent;
+  box-shadow: none;
+}
+.rl-rung.is-outside .rl-rung-n {
+  border-style: dashed;
+  background: var(--color-bg);
+}
+.rl-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 0 7px;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-pill);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.rl-tag.is-yes {
+  color: var(--color-success);
+}
+.rl-tag.is-no {
+  color: var(--color-warning);
+}
+.rl-keep {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+.rl-keep li {
+  display: flex;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--color-text-2);
+}
+.rl-keep svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--brand-green-ink);
+}
+
+/* ── Where to go ─────────────────────────────────────────────────────────── */
+.rl-tool-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rl-tool-group .tool-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+/* ── Three-way study: the run form takes the builder's field styling ───── */
+.three-way .control-study__form select {
+  padding: 5px 8px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 13px;
+}
+.three-way .control-study__form label {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+/* ── Your own junction page: what is held the same ───────────────────────── */
+.rl-held {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+.rl-held > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.rl-held .rl-small-label {
+  margin: 0;
+  min-width: 128px;
+}
+.rl-held ul {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rl-held li {
+  padding: 3px 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-2);
+  font-size: 12.5px;
+  color: var(--color-text-2);
+}
+.rl-held .is-differs li {
+  border-color: color-mix(in srgb, var(--brand-green) 40%, transparent);
+  background: var(--brand-green-soft);
+  color: var(--brand-green-ink);
+}
+
+/* ── Narrower screens ────────────────────────────────────────────────────── */
+@media (max-width: 1000px) {
+  .rl-flow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .rl-step:nth-child(4n)::after {
+    display: block;
+  }
+  .rl-step:nth-child(2n)::after,
+  .rl-step:last-child::after {
+    display: none;
+  }
+  .rl-strategy-grid,
+  .rl-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .rl-defs {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 800px) {
+  .rl-compare-plots,
+  .rl-paired-grid,
+  .rl-evidence,
+  .rl-points,
+  .rl-bullets {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rl-strategy-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 600px) {
+  .research-hub,
+  .three-way {
+    gap: 36px;
+  }
+  .rl-flow,
+  .rl-metric-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rl-step:nth-child(n)::after {
+    display: block;
+    top: auto;
+    right: auto;
+    bottom: -16px;
+    left: calc(50% - 6px);
+    transform: rotate(135deg);
+  }
+  .rl-step:last-child::after {
+    display: none;
+  }
+  .rl-rung > div,
+  .rl-rung .rl-branch {
+    margin-left: 0;
+  }
+  .rl-tile-plan .junction-preview {
+    height: 140px;
+  }
+  .rl-step .rl-svg.is-tile {
+    max-width: 280px;
+  }
+}
