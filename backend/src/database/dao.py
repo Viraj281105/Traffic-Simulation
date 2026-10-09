@@ -451,7 +451,13 @@ class ScenarioSuiteDAO:
         try:
             cursor.execute(
                 "INSERT OR REPLACE INTO scenario_suites (id, name, description, run_ids_json, config_variations_json) VALUES (?, ?, ?, ?, ?);",
-                (suite_id, name, description, json.dumps(run_ids), json.dumps(config_variations)),
+                (
+                    suite_id,
+                    name,
+                    description,
+                    json.dumps(run_ids),
+                    json.dumps(config_variations),
+                ),
             )
             # Update the suite_id on the runs
             for rid in run_ids:
@@ -464,6 +470,36 @@ class ScenarioSuiteDAO:
         except Exception:
             conn.rollback()
             raise
+
+    @staticmethod
+    def add_runs(
+        conn: sqlite3.Connection,
+        suite_id: str,
+        run_ids: list[str],
+        commit: bool = False,
+    ) -> None:
+        """Attach runs to an existing suite, keeping the ones already in it."""
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT run_ids_json FROM scenario_suites WHERE id = ?;", (suite_id,)
+        )
+        row = cursor.fetchone()
+        if row is None:
+            raise ValueError(f"Suite {suite_id} not found")
+        merged = list(
+            dict.fromkeys([*json.loads(row["run_ids_json"]), *run_ids]),
+        )
+        cursor.execute(
+            "UPDATE scenario_suites SET run_ids_json = ? WHERE id = ?;",
+            (json.dumps(merged), suite_id),
+        )
+        for rid in run_ids:
+            cursor.execute(
+                "UPDATE simulation_runs SET suite_id = ? WHERE id = ?;",
+                (suite_id, rid),
+            )
+        if commit:
+            conn.commit()
 
     @staticmethod
     def get(conn: sqlite3.Connection, suite_id: str) -> Optional[Dict[str, Any]]:
@@ -503,4 +539,3 @@ class ScenarioSuiteDAO:
             }
             for r in cursor.fetchall()
         ]
-

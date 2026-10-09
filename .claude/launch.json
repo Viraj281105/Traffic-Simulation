@@ -4,14 +4,46 @@
     {
       "name": "backend",
       "runtimeExecutable": "C:\\Viraj\\Code\\Traffic-Simulation\\backend\\.venv\\Scripts\\python.exe",
-      "runtimeArgs": ["-m", "uvicorn", "src.main:app", "--app-dir", "C:\\Viraj\\Code\\Traffic-Simulation\\backend", "--port", "8000"],
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "src.main:app",
+        "--app-dir",
+        "C:\\Viraj\\Code\\Traffic-Simulation\\backend",
+        "--port",
+        "8000"
+      ],
       "port": 8000,
-      "env": { "DEV_AUTH_BYPASS": "1" }
+      "env": {
+        "DEV_AUTH_BYPASS": "1"
+      }
+    },
+    {
+      "name": "backend-v2-demo",
+      "runtimeExecutable": "C:\\Viraj\\Code\\Traffic-Simulation\\backend\\.venv\\Scripts\\python.exe",
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "src.main:app",
+        "--app-dir",
+        "C:\\Viraj\\Code\\Traffic-Simulation\\backend",
+        "--port",
+        "8765"
+      ],
+      "port": 8765,
+      "env": {
+        "DEV_AUTH_BYPASS": "1"
+      }
     },
     {
       "name": "frontend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "C:\\Viraj\\Code\\Traffic-Simulation\\frontend", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "C:\\Viraj\\Code\\Traffic-Simulation\\frontend",
+        "run",
+        "dev"
+      ],
       "port": 5173
     }
   ]

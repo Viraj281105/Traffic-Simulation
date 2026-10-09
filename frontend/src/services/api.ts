@@ -238,7 +238,7 @@ export interface ScenarioSuite {
   name: string;
   description: string;
   run_ids: string[];
-  config_variations: Record<string, any>;
+  config_variations: Record<string, unknown>;
   created_at: string;
 }
 
@@ -246,7 +246,7 @@ export async function createSuite(payload: {
   name: string;
   description: string;
   run_ids: string[];
-  config_variations: Record<string, any>;
+  config_variations: Record<string, unknown>;
 }): Promise<{ id: string }> {
   return post("/api/suites", payload);
 }
@@ -255,7 +255,9 @@ export async function getSuites(): Promise<{ suites: ScenarioSuite[] }> {
   return get("/api/suites");
 }
 
-export async function getSuiteById(id: string): Promise<{ suite: ScenarioSuite, runs: RunRecord[] }> {
+export async function getSuiteById(
+  id: string,
+): Promise<{ suite: ScenarioSuite; runs: RunRecord[] }> {
   return get(`/api/suites/${encodeURIComponent(id)}`);
 }
 
@@ -265,7 +267,7 @@ export function suiteExportCsvUrl(suiteId: string): string {
 
 export async function enqueueSuiteBatch(
   suiteId: string,
-  config: import("../types/config").BatchExperimentConfig
+  config: import("../types/config").BatchExperimentConfig,
 ): Promise<{ jobId: string }> {
   return post(`/api/suites/${encodeURIComponent(suiteId)}/batch`, config);
 }

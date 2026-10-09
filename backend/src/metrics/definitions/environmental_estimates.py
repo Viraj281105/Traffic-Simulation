@@ -53,7 +53,7 @@ from __future__ import annotations
 # ---------------------------------------------------------------------------
 
 # Idle fuel rate (L/s): a vehicle at rest with engine running.
-# 0.00060 L/s ˜ 2.16 L/hour, a typical petrol idle figure.
+# 0.00060 L/s â‰ˆ 2.16 L/hour, a typical petrol idle figure.
 _IDLE_FUEL_RATE: float = 0.00060
 
 # Speed coefficient (L/s per m/s). Tuned so that at 60 km/h (16.67 m/s)

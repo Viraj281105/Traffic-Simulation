@@ -1,15 +1,16 @@
-import json
 import sqlite3
 
 import pytest
 
-from src.database.dao import ScenarioSuiteDAO, SimulationRunDAO
+from src.database.dao import ScenarioSuiteDAO
 from src.database.db import init_db
+
 
 @pytest.fixture
 def test_db():
     # Use in-memory db for testing
     import src.database.db
+
     src.database.db.DB_PATH = ":memory:"
     init_db()
     conn = sqlite3.connect(":memory:")
@@ -20,7 +21,7 @@ def test_db():
     # A better approach for SQLite in-memory:
     cursor = conn.cursor()
     cursor.execute("PRAGMA foreign_keys = ON;")
-    
+
     # 1. Runs
     cursor.execute(
         """
@@ -63,23 +64,27 @@ def test_db():
     yield conn
     conn.close()
 
+
 def test_save_and_get_suite(test_db):
     suite_id = "suite-123"
     run_ids = ["run-1", "run-2"]
-    
+
     # Need to insert runs first because of schema logic, though there's no FK constraint yet
     for r in run_ids:
-        test_db.execute("INSERT INTO simulation_runs (id, status, elapsed) VALUES (?, 'COMPLETED', 1.0)", (r,))
-    
+        test_db.execute(
+            "INSERT INTO simulation_runs (id, status, elapsed) VALUES (?, 'COMPLETED', 1.0)",
+            (r,),
+        )
+
     ScenarioSuiteDAO.save(
         test_db,
         suite_id=suite_id,
         name="Test Suite",
         description="A test suite",
         run_ids=run_ids,
-        config_variations={"run-1": "base", "run-2": "variant"}
+        config_variations={"run-1": "base", "run-2": "variant"},
     )
-    
+
     suite = ScenarioSuiteDAO.get(test_db, suite_id)
     assert suite is not None
     assert suite["id"] == suite_id
@@ -87,7 +92,7 @@ def test_save_and_get_suite(test_db):
     assert suite["description"] == "A test suite"
     assert suite["run_ids"] == run_ids
     assert suite["config_variations"]["run-1"] == "base"
-    
+
     # Verify the suite_id was updated on the runs
     cursor = test_db.cursor()
     cursor.execute("SELECT id, suite_id FROM simulation_runs;")
@@ -96,14 +101,38 @@ def test_save_and_get_suite(test_db):
     for r in runs:
         assert r["suite_id"] == suite_id
 
+
 def test_list_suites(test_db):
     import time
+
     ScenarioSuiteDAO.save(test_db, "s1", "Suite 1", "", [], {})
     time.sleep(1.0)
     ScenarioSuiteDAO.save(test_db, "s2", "Suite 2", "", [], {})
-    
+
     suites = ScenarioSuiteDAO.list_suites(test_db)
     assert len(suites) == 2
     # newest first
     assert suites[0]["id"] == "s2"
     assert suites[1]["id"] == "s1"
+
+
+def test_add_runs_keeps_existing_and_tags_new_runs(test_db):
+    for r in ("run-1", "run-2", "run-3"):
+        test_db.execute(
+            "INSERT INTO simulation_runs (id, status, elapsed) VALUES (?, 'COMPLETED', 1.0)",
+            (r,),
+        )
+    ScenarioSuiteDAO.save(test_db, "s1", "Suite", "", ["run-1"], {})
+
+    ScenarioSuiteDAO.add_runs(test_db, "s1", ["run-2", "run-3", "run-1"], commit=True)
+
+    suite = ScenarioSuiteDAO.get(test_db, "s1")
+    assert suite is not None
+    assert suite["run_ids"] == ["run-1", "run-2", "run-3"]
+    cursor = test_db.execute("SELECT id FROM simulation_runs WHERE suite_id = 's1';")
+    assert {row["id"] for row in cursor.fetchall()} == {"run-1", "run-2", "run-3"}
+
+
+def test_add_runs_unknown_suite_raises(test_db):
+    with pytest.raises(ValueError):
+        ScenarioSuiteDAO.add_runs(test_db, "missing", ["run-1"])

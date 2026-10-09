@@ -100,9 +100,11 @@ Where the user was confused before, and what replaced it:
 /app/history            SAVED                saved comparisons & runs
   /app/runs/<id>                             run record, provenance, re-run, exports
   /app/compare?runs=…                        compare up to six saved runs
-/app/research           RESEARCH LAB hub     tool cards + plain↔technical metric map
+/app/research           RESEARCH LAB overview  how a study works, metric explainers, evidence ladder, tool cards
   /app/volume                                traffic-level sweep
   /app/validation                            Monte Carlo statistical study
+  /app/junction                              controlled study of your own junction
+  /app/three-way                             three-way study and its method
   /app/signal                                signal on its own (full live metrics)
   /app/roundabout                            roundabout on its own
 ```

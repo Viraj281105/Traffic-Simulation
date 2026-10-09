@@ -45,7 +45,8 @@ function ctx(
 }
 
 // Keys the collector emits that are context for other metrics rather than
-// metrics themselves (thresholds, applicability, sample-size flag, the
+// metrics themselves (thresholds, the near-miss cooldown, the
+// environmental-estimate flag, applicability, sample-size flag, the
 // per-approach queue shown as bars, the per-vehicle-class breakdown of
 // the headline metrics shown as its own table — VehicleClassResults —, the
 // V1.3 signal green-time measures, a nested object shown in the
@@ -61,6 +62,8 @@ const CONTEXT_KEYS = new Set([
   "ttcThresholdSeconds",
   "petThresholdSeconds",
   "petApplicable",
+  "nearMissCooldownSeconds",
+  "environmentalMetricsAreEstimates",
   "vehicleLimit",
   "vehicleLimitReached",
 ]);
@@ -179,7 +182,7 @@ describe("metric catalog", () => {
   it("names the TTC threshold the backend used", () => {
     expect(
       metricLabel(def("ttcEventCount"), ctx({}).metrics ?? undefined),
-    ).toBe("Low-TTC events (TTC ≤ 1.5 s)");
+    ).toBe("Low-TTC raw hits (TTC ≤ 1.5 s)");
   });
 
   it("reports differences as roundabout minus signal, in units", () => {

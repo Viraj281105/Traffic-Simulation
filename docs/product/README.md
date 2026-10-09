@@ -106,7 +106,7 @@ flowchart LR
 | Landing | `/` | What UrbanFlow is, who it is for, how it works, what you learn, the method |
 | **Compare** (default) | `/app/comparative` | The three-step guided comparison |
 | **Saved** | `/app/history` · `/app/runs/<id>` · `/app/compare?runs=…` | Saved comparisons and runs; provenance, re-run, exports, labels; compare up to six runs |
-| **Research Lab** | `/app/research` | Hub plus `/app/volume` (traffic-level sweep), `/app/validation` (statistical validation), `/app/signal` and `/app/roundabout` (each strategy on its own) |
+| **Research Lab** | `/app/research` | Hub plus `/app/volume` (traffic-level sweep), `/app/validation` (statistical validation), `/app/junction` (a controlled study of your own junction), `/app/three-way` (the three-way study and its method), `/app/signal` and `/app/roundabout` (each strategy on its own) |
 
 ### The six layers of a result
 

@@ -65,9 +65,9 @@ from src.core.scenario import (
 )
 from src.database.dao import (
     RunMetricsDAO,
+    ScenarioSuiteDAO,
     SimulationRunDAO,
     SweepSessionDAO,
-    ScenarioSuiteDAO,
     describe_reproducibility,
 )
 from src.database.db import DB_PATH, get_db_connection, init_db  # noqa: F401
@@ -3184,17 +3184,19 @@ def delete_replay(
 
 # ── Scenario Suites (V1.7) ──────────────────────────────────────────────────
 
+
 class ScenarioSuiteCreate(BaseModel):
     name: str
     description: str
     run_ids: list[str]
     config_variations: Dict[str, Any]
 
+
 @app.post("/api/suites")
 def create_suite(
     suite_data: ScenarioSuiteCreate,
     user_id: Optional[str] = Depends(get_current_user_id),
-):
+) -> Dict[str, str]:
     suite_id = str(uuid.uuid4())
     with get_db_connection() as conn:
         ScenarioSuiteDAO.save(
@@ -3203,7 +3205,7 @@ def create_suite(
             name=suite_data.name,
             description=suite_data.description,
             run_ids=suite_data.run_ids,
-            config_variations=suite_data.config_variations
+            config_variations=suite_data.config_variations,
         )
     return {"id": suite_id}
 
@@ -3213,7 +3215,7 @@ def list_suites(
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
     user_id: Optional[str] = Depends(get_current_user_id),
-):
+) -> Dict[str, Any]:
     with get_db_connection() as conn:
         suites = ScenarioSuiteDAO.list_suites(conn, limit, offset)
         return {"suites": suites}
@@ -3223,7 +3225,7 @@ def list_suites(
 def get_suite(
     suite_id: str,
     user_id: Optional[str] = Depends(get_current_user_id),
-):
+) -> Dict[str, Any]:
     with get_db_connection() as conn:
         suite = ScenarioSuiteDAO.get(conn, suite_id)
         if not suite:
@@ -3236,19 +3238,22 @@ def get_suite(
                 runs.append(r)
         return {"suite": suite, "runs": runs}
 
+
 class BatchExperimentRequest(BaseModel):
-    baseConfig: dict
-    sweepParameters: dict
+    baseConfig: Dict[str, Any]
+    sweepParameters: Dict[str, Any]
     numSeeds: int
+
 
 @app.post("/api/suites/{suite_id}/batch")
 def enqueue_suite_batch(
     suite_id: str,
     req: BatchExperimentRequest,
     user_id: Optional[str] = Depends(get_current_user_id),
-):
-    from src.study.jobs import jobs, TooManyJobsError
+) -> Dict[str, str]:
     from src.study.batch import run_suite_batch_experiment
+    from src.study.jobs import TooManyJobsError, jobs
+
     try:
         job = jobs.submit(
             "suite_batch",
@@ -3264,12 +3269,14 @@ def enqueue_suite_batch(
     except TooManyJobsError as e:
         raise HTTPException(status_code=429, detail=str(e))
 
+
 @app.get("/api/suites/{suite_id}/export/csv")
 def export_suite_csv(
     suite_id: str,
     user_id: Optional[str] = Depends(get_current_user_id),
-):
+) -> StreamingResponse:
     from src.study.report_generator import generate_suite_csv
+
     with get_db_connection() as conn:
         suite = ScenarioSuiteDAO.get(conn, suite_id)
         if not suite:
@@ -3285,4 +3292,3 @@ def export_suite_csv(
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename=suite_{suite_id}.csv"},
     )
-

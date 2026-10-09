@@ -267,6 +267,7 @@
 }
 .scenario-builder input[type="number"],
 .scenario-builder select,
+.scenario-study .control-study__form select,
 .sb-name {
   background: var(--color-surface);
   color: var(--color-text);
@@ -498,6 +499,32 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+/* The run form shares .control-study__form with the three-way study
+   (Guided.css); here its groups and fields take the builder's field styling. */
+.scenario-study .control-study__form fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.scenario-study .control-study__form legend {
+  padding: 0;
+  margin-bottom: 4px;
+}
+.scenario-study .control-study__form label:not(.sb-check) {
+  font-size: 12px;
+  font-weight: 650;
+}
+.scenario-study .control-study__form .sb-check {
+  flex-direction: row;
+  font-weight: 400;
+  color: var(--color-text);
+}
+.scenario-study .chip:disabled,
+.scenario-study .link-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .config-json {
   max-height: 360px;
