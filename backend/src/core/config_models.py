@@ -246,6 +246,11 @@ class MetricsSection(BaseModel):
     ttcThresholdSeconds: float = Field(1.5, gt=0)
     petThresholdSeconds: float = Field(5.0, gt=0)
     ttcSearchRadius: float = Field(50.0, gt=0)
+    # Minimum simulated seconds between two logged near-miss events for the
+    # same vehicle pair. Prevents a sustained tailgating situation (one
+    # ongoing conflict over many ticks) from inflating the count. See
+    # metrics/definitions/safety_conflicts.py NearMissTracker.
+    nearMissCooldownSeconds: float = Field(5.0, gt=0)
 
 
 class VisualizationSection(BaseModel):

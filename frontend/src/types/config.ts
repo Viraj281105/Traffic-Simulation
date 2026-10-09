@@ -357,3 +357,14 @@ export function signalCycleSeconds(config: SimulationConfigValues): number {
   const ew = config.ewGreenDuration ?? config.greenDuration;
   return ns + ew + 2 * (config.yellowDuration + config.allRedDuration);
 }
+
+// ── Batch Experiments (V1.7) ────────────────────────────────────────────────
+
+export interface BatchExperimentConfig {
+  /** The base configuration for all runs in the batch. */
+  baseConfig: DashboardScenarioPayload;
+  /** Variations to sweep over. e.g. { "arrivalRate": [0.2, 0.4, 0.6] } */
+  sweepParameters: Record<string, number[]>;
+  /** Number of random seeds to run for each variation. */
+  numSeeds: number;
+}

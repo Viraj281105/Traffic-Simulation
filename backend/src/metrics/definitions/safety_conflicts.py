@@ -40,7 +40,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, FrozenSet, List, Optional, Tuple
 
 from src.vehicles.vehicle import Vehicle
 
@@ -294,3 +294,74 @@ class ConflictZoneOccupancyTracker:
         # clearing as a follower arrives) -- lowest vehicle_id, purely for
         # a stable, reproducible choice, not a safety judgement.
         return min(in_zone, key=lambda v: v.vehicle_id)
+
+
+# ---------------------------------------------------------------------------
+# Near-Miss Deduplication
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class NearMissTracker:
+    """Converts per-tick per-pair TTC threshold breaches into distinct,
+    deduplicated near-miss *events*.
+
+    Problem solved:
+        ``find_ttc_events`` returns a TTC value for every closing pair every
+        tick. A pair of vehicles tailgating for 30 ticks below the TTC
+        threshold produces 30 raw hits, grossly over-counting what should be
+        logged as a single ongoing conflict event.
+
+    Solution:
+        For each vehicle-ID pair (order-independent), record the simulation
+        time of the last logged event. A new event is only emitted when
+        ``current_time - last_event_time >= cooldown_window``. The pair key
+        is a ``frozenset`` so {va, vb} == {vb, va}.
+
+    Units:
+        ``cooldown_window`` is in simulated seconds, matching
+        ``current_time`` passed into :meth:`update`.
+
+    Args:
+        cooldown_window: Minimum simulated seconds between two logged events
+            for the same vehicle pair.  Corresponds to the config key
+            ``metrics.nearMissCooldownSeconds`` (default 5.0 s).
+    """
+
+    cooldown_window: float = 5.0
+    # {frozenset({va_id, vb_id}): last_event_sim_time}
+    _last_event: Dict[FrozenSet[str], float] = field(default_factory=dict)
+
+    def reset(self) -> None:
+        """Clear all recorded pair events (call at simulation reset / warmup)."""
+        self._last_event.clear()
+
+    def update(
+        self,
+        current_time: float,
+        ttc_events: List[Tuple[str, str, float]],
+    ) -> int:
+        """Process raw TTC events for this tick and return the number of
+        *new* (deduplicated) near-miss events emitted.
+
+        Args:
+            current_time: Simulated clock time in seconds (post-warmup).
+            ttc_events: Output of ``find_ttc_events`` for this tick —
+                list of (vehicle_a_id, vehicle_b_id, ttc) triples that are
+                already below the caller's TTC threshold.
+
+        Returns:
+            Count of distinct new near-miss events (0 or more per tick).
+            Typically 0 when an existing conflict is sustained; 1+ only when
+            a pair crosses the threshold for the first time or after the
+            cooldown window has elapsed since their last event.
+        """
+        new_events = 0
+        for va_id, vb_id, _ttc in ttc_events:
+            key: FrozenSet[str] = frozenset({va_id, vb_id})
+            last = self._last_event.get(key)
+            if last is None or (current_time - last) >= self.cooldown_window:
+                self._last_event[key] = current_time
+                new_events += 1
+        return new_events
+

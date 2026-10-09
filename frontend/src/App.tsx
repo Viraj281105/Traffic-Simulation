@@ -69,7 +69,7 @@ import {
   dashboardPayload,
   sameConfigValues,
 } from "./types/config";
-import { saveReplay, updateSimulationConfig, setSimulationSpeed, setDualSimulationSpeed } from "./services/api";
+import { saveReplay, updateSimulationConfig, setSimulationSpeed, setDualSimulationSpeed, createSuite, enqueueSuiteBatch } from "./services/api";
 import { approachLanes } from "./scenario/scenarioModel";
 import { hasResults, sideSummary } from "./metrics/plainLanguage";
 import type {
@@ -546,7 +546,30 @@ function Dashboard({
     setSessionRuns((prev) => [...prev.filter((r) => r.id !== run.id), run]);
   };
 
-  const handleGuidedRun = (next: SimulationConfigValues) => {
+  const handleGuidedRun = (next: SimulationConfigValues & { isBatch?: boolean }) => {
+    if (next.isBatch) {
+      delete next.isBatch;
+      const payload = dashboardPayload(next, "fixed_time_signal");
+      createSuite({
+        name: `Batch Experiment - ${new Date().toLocaleTimeString()}`,
+        description: `Batch experiment generated from dashboard.`,
+        run_ids: [],
+        config_variations: { arrivalRate: [0.1, 0.2, 0.4, 0.8, 1.2] },
+      }).then((suite) => {
+        enqueueSuiteBatch(suite.id, {
+          baseConfig: payload,
+          sweepParameters: { arrivalRate: [0.1, 0.2, 0.4, 0.8, 1.2] },
+          numSeeds: 3,
+        }).then((res) => {
+          showToast(`Batch enqueued! Job ID: ${res.jobId}`);
+          navigate(VIEW_ROUTES.history);
+        });
+      }).catch(e => {
+        console.error(e);
+        showToast("Failed to enqueue batch experiment", "error");
+      });
+      return;
+    }
     recordCurrentRun();
     setActiveReplay(null);
     setStage("watch");

@@ -59,6 +59,20 @@ def init_db() -> None:
         """
     )
 
+    # 3. Scenario Suites table (V1.7)
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS scenario_suites (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT,
+            run_ids_json TEXT NOT NULL DEFAULT '[]',
+            config_variations_json TEXT NOT NULL DEFAULT '{}',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+    )
+
     # Safe migration: ensure existing tables receive any missing columns
     cursor.execute("PRAGMA table_info(simulation_runs);")
     existing_cols = {row[1] for row in cursor.fetchall()}
@@ -77,6 +91,7 @@ def init_db() -> None:
         ("tags_json", "TEXT"),
         ("user_id", "TEXT"),
         ("email", "TEXT"),
+        ("suite_id", "TEXT"),
     ]
     for col_name, col_def in columns_to_add:
         if col_name not in existing_cols:

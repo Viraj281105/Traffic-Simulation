@@ -129,14 +129,17 @@ class SimulationEngine:
             traffic_cfg = self.config.get("traffic", {})
             is_unstructured = traffic_cfg.get("unstructuredTraffic", False)
 
+            idm_kwargs = {
+                "max_acceleration": veh_gen.get("maxAcceleration", 2.0),
+                "comfort_deceleration": veh_gen.get("comfortDeceleration", 3.0),
+                "desired_time_headway": veh_gen.get("desiredTimeHeadway", 1.5),
+                "minimum_gap": veh_gen.get("minimumGap", 2.0),
+                "idm_delta": veh_gen.get("idmDelta", 4.0),
+            }
+            if is_unstructured:
+                idm_kwargs["rng"] = self.spawner.rng
             idm_cls = StochasticIDM if is_unstructured else IntelligentDriverModel
-            self.idm = idm_cls(
-                max_acceleration=veh_gen.get("maxAcceleration", 2.0),
-                comfort_deceleration=veh_gen.get("comfortDeceleration", 3.0),
-                desired_time_headway=veh_gen.get("desiredTimeHeadway", 1.5),
-                minimum_gap=veh_gen.get("minimumGap", 2.0),
-                idm_delta=veh_gen.get("idmDelta", 4.0),
-            )
+            self.idm = idm_cls(**idm_kwargs)
 
             if is_unstructured:
                 self.deadlock_detector = DeadlockDetector(self.clock, self.pool)

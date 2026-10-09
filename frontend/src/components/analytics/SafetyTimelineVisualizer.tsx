@@ -36,6 +36,7 @@ const ttcSamplesDef = METRICS.find((m) => m.key === "ttcSampleCount")!;
 const minPetDef = METRICS.find((m) => m.key === "minPET")!;
 const petEventsDef = METRICS.find((m) => m.key === "petEventCount")!;
 const petSamplesDef = METRICS.find((m) => m.key === "petSampleCount")!;
+const nearMissDef = METRICS.find((m) => m.key === "nearMissCount")!;
 
 const SIGNAL_COLOR = SERIES.signal;
 const ROUNDABOUT_COLOR = SERIES.roundabout;
@@ -255,6 +256,26 @@ export function SafetyTimelineVisualizer({
             </div>
           </div>
         </div>
+
+        <div className="surrogate-metric-card">
+          <span className="surrogate-card-title">
+            Deduplicated Near-Miss Events (TTC ≤ {ttcThreshold.toFixed(1)} s)
+          </span>
+          <div className="surrogate-values-row">
+            <div className="surrogate-val-group">
+              <span className="val-control">Signal:</span>
+              <span className="val-strong">
+                {formatMetric(nearMissDef, signalCtx)}
+              </span>
+            </div>
+            <div className="surrogate-val-group">
+              <span className="val-control">Roundabout:</span>
+              <span className="val-strong">
+                {formatMetric(nearMissDef, roundaboutCtx)}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Mandatory Surrogate Safety Disclaimer Banner */}
@@ -277,8 +298,8 @@ export function SafetyTimelineVisualizer({
             would touch if both kept their current speed and heading. Same-lane
             car-following is excluded. &ldquo;Low-TTC events&rdquo; counts
             ticks, so one long close approach counts many times; it is an
-            exposure count, not a number of distinct near-misses. The smallest
-            TTC is a run-long minimum.
+            exposure count. <strong>Deduplicated near-misses</strong> collapse 
+            sustained tailgating into a single encounter per cooldown window.
           </li>
           <li>
             <strong>PET</strong> is measured only at the signal&apos;s conflict

@@ -34,9 +34,9 @@ export const METRIC_GROUPS: MetricGroup[] = [
   },
   {
     id: "safety",
-    title: "Safety",
+    title: "Safety & Environment",
     blurb:
-      "Collisions and surrogate measures (TTC, PET). Thresholds are literature defaults; event counts are exploratory, not a validated safety ranking.",
+      "Collisions, surrogate safety measures (TTC, PET), and estimated environmental impact (fuel, CO₂). Thresholds are literature defaults; environmental metrics are simplified kinematic estimates, not real-world measurements.",
   },
   {
     id: "capacity",
@@ -269,12 +269,22 @@ export const METRICS: MetricDef[] = [
   },
   {
     key: "ttcEventCount",
-    label: "Low-TTC events",
+    label: "Low-TTC raw hits",
     unit: "",
     decimals: 0,
     group: "safety",
     description:
-      "Simulation ticks (0.1 s each) in which a different-lane pair had a time-to-collision at or below the threshold (see label). One long close approach is counted many times, so this is an exposure count, not a number of distinct near-misses.",
+      "Simulation ticks (0.1 s each) in which a different-lane pair had a time-to-collision at or below the threshold. One long close approach is counted many times, so this is a raw exposure count, not a number of distinct near-misses.",
+    postWarmup: true,
+  },
+  {
+    key: "nearMissCount",
+    label: "Near-miss events",
+    unit: "",
+    decimals: 0,
+    group: "safety",
+    description:
+      "Deduplicated near-miss events: a time-to-collision at or below the threshold. A pair of vehicles can only trigger one event per cooldown window (default 5 s), meaning a sustained tailgating situation counts as one encounter, not many.",
     postWarmup: true,
   },
   {
@@ -299,6 +309,26 @@ export const METRICS: MetricDef[] = [
       "Successive crossings of a signal conflict point with a gap at or below the PET threshold (a count of crossings, unlike the per-tick TTC count). The default threshold is generous, so many ordinary crossings qualify. Not measured for roundabouts.",
     postWarmup: true,
     appliesTo: ["fixed_time_signal"],
+  },
+  {
+    key: "estimatedFuelLitersTotal",
+    label: "Estimated fuel",
+    unit: "L",
+    decimals: 3,
+    group: "safety",
+    description:
+      "⚠️ ESTIMATE: Simplified kinematic estimation of total fuel consumed since warm-up. Assumes generic petrol passenger cars. Not calibrated to real-world vehicles.",
+    postWarmup: true,
+  },
+  {
+    key: "estimatedCO2KgTotal",
+    label: "Estimated CO₂",
+    unit: "kg",
+    decimals: 3,
+    group: "safety",
+    description:
+      "⚠️ ESTIMATE: Simplified estimation of CO₂ emissions based on estimated fuel consumption (approx 2.31 kg CO₂ / L petrol).",
+    postWarmup: true,
   },
 
   // ── Capacity & demand ────────────────────────────────────────────────────

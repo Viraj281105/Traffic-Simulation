@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import type { DualSnapshot, LiveSnapshot } from "../types/simulation";
 import type { ConnectionStatus } from "../services/websocket";
+import type { RunRecord } from "../services/api";
 import { WeightedScoringPanel } from "./WeightedScoringPanel";
 import type { ScoringWeights } from "../types/scoring";
 import { DEFAULT_WEIGHTS } from "../types/scoring";
@@ -18,7 +19,7 @@ import {
   isInWarmup,
   type MetricContext,
 } from "../metrics/catalog";
-import { ComparisonSections } from "./MetricSections";
+import { ComparisonSections, MultiRunSections } from "./MetricSections";
 import { ConnectionBadge } from "./MetricsSidebar";
 import { useLiveComparisonHistory } from "../hooks/useLiveComparisonHistory";
 import { VehiclesFlowVisualizer } from "./analytics/VehiclesFlowVisualizer";
@@ -373,6 +374,7 @@ export function ComparisonPanel({
 interface ComparativeDashboardProps {
   snapshot: DualSnapshot | null;
   replayName: string | null;
+  runs?: RunRecord[];
   onClose: () => void;
 }
 
@@ -381,6 +383,7 @@ interface ComparativeDashboardProps {
 export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
   snapshot,
   replayName,
+  runs,
   onClose,
 }) => {
   const [weights, setWeights] = useState<ScoringWeights>(DEFAULT_WEIGHTS);
@@ -409,11 +412,13 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
 
   const { signal, roundabout } = contexts(snapshot);
 
+  const isNWay = runs && runs.length > 0;
+
   return (
     <div className="analytics-modal-overlay" onClick={onClose}>
       <div
         ref={dialogRef}
-        className="analytics-modal-content comparative-dashboard"
+        className={`analytics-modal-content comparative-dashboard ${isNWay ? "n-way-dashboard" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="comparison-dialog-title"
@@ -425,45 +430,63 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
         <div className="modal-header">
           <div className="modal-header-left">
             <h2 className="modal-title" id="comparison-dialog-title">
-              Signal vs roundabout — full comparison
+              {isNWay ? "Scenario Suite Comparison" : "Signal vs roundabout — full comparison"}
             </h2>
-            <div
-              className="modal-view-toggle"
-              role="group"
-              aria-label="Dashboard view"
-            >
-              <button
-                type="button"
-                className={`toggle-tab-btn ${viewMode === "visual" ? "active" : ""}`}
-                onClick={() => {
-                  setViewMode("visual");
-                }}
+            {!isNWay && (
+              <div
+                className="modal-view-toggle"
+                role="group"
+                aria-label="Dashboard view"
               >
-                <ChartColumn
-                  size={14}
-                  aria-hidden="true"
-                  className="uf-glyph"
-                />{" "}
-                Visual Analytics
-              </button>
-              <button
-                type="button"
-                className={`toggle-tab-btn ${viewMode === "table" ? "active" : ""}`}
-                onClick={() => {
-                  setViewMode("table");
-                }}
-              >
-                <Table size={14} aria-hidden="true" className="uf-glyph" /> Data
-                Table
-              </button>
-            </div>
+                <button
+                  type="button"
+                  className={`toggle-tab-btn ${viewMode === "visual" ? "active" : ""}`}
+                  onClick={() => {
+                    setViewMode("visual");
+                  }}
+                >
+                  <ChartColumn
+                    size={14}
+                    aria-hidden="true"
+                    className="uf-glyph"
+                  />{" "}
+                  Visual Analytics
+                </button>
+                <button
+                  type="button"
+                  className={`toggle-tab-btn ${viewMode === "table" ? "active" : ""}`}
+                  onClick={() => {
+                    setViewMode("table");
+                  }}
+                >
+                  <Table size={14} aria-hidden="true" className="uf-glyph" /> Data
+                  Table
+                </button>
+              </div>
+            )}
           </div>
 
           <CloseButton label="Close comparison" onClick={onClose} />
         </div>
 
         <div className="modal-body">
-          {!snapshot ? (
+          {isNWay ? (
+            <div className="modal-visual-sections">
+              <MultiRunSections
+                columns={runs.map(r => ({
+                  key: r.runId,
+                  heading: <div className="multi-run-heading"><strong>{r.name || r.runId.substring(0, 8)}</strong><br/><small>{r.intersectionType}</small></div>,
+                  ctx: {
+                    metrics: r.summaryMetrics as any,
+                    geometry: r.intersectionType as any,
+                    inWarmup: false,
+                  }
+                }))}
+                baselineIndex={0}
+                collapsed={[]}
+              />
+            </div>
+          ) : !snapshot ? (
             <p className="comparison-empty">
               No comparison data yet. Start a comparative run first.
             </p>

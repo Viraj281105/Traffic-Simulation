@@ -20,7 +20,7 @@ class DeadlockDetector:
         self.has_occurred = False
 
     def tick(self, dt: float) -> None:
-        current_time = self.clock.current_time
+        current_time = self.clock.get_elapsed_time()
         
         # Track stopped durations
         active_vehicles = self.pool.get_active_vehicles()
