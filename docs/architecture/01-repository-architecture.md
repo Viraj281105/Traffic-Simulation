@@ -43,7 +43,7 @@ Traffic-Simulation/                 (product name: UrbanFlow)
 │                                   GitHub automation (setup_github.py, assign_issues.py, …) · README.md
 ├── docs/                           Documentation — start at docs/README.md
 │   ├── architecture/ simulation/ research/ api/ product/ deployment/ testing/
-│   ├── decisions/ reports/ future-scope/ resources/
+│   ├── decisions/ reports/ future-scope/ resources/ roadmap/ (V2.0 audit, V3.0 plans)
 │   ├── ROADMAP.md · operations.md · bug-fix-report.md
 │   └── project-management/ issues/ code-review/   (historical)
 ├── landingpage/                    Legacy prototype workspace (pnpm) — not built, deployed or referenced

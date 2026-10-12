@@ -228,9 +228,13 @@ flowchart LR
 
 Authoritative detail: [ROADMAP](docs/ROADMAP.md).
 
-### After V2.0
+### V3.0 (planned, proposed — not started)
 
-Ten research frontiers, none of which duplicate the roadmap: emergency vehicle priority · AI-based signal control · connected-vehicle communication · platooning · autonomous intersection management · uncertainty & robust simulation · weather & road conditions · incidents & disruption · large-scale networks · digital-twin integration. See [Future Scope](docs/future-scope/future_scope.md).
+A composable, AI-assisted traffic-control experimentation platform: signalised roundabouts and a validated strategy registry, high driver aggression as a declared default for new scenarios, an AI experiment copilot and a bounded strategy-discovery search (both validated by the deterministic backend; evidence, not a verdict), a Robustness Lab, and a Python SDK with portable packages. Nothing in V3.0 is implemented; it starts only after the V2.0 release gate. See [ROADMAP §7](docs/ROADMAP.md#7-v30--composable-ai-assisted-traffic-control-experimentation-planned-proposed) and the [V3 plans](docs/roadmap/V3_PRODUCT_STRATEGY.md).
+
+### Beyond V3.0
+
+Research frontiers that do not duplicate the roadmap: emergency vehicle priority · learned (RL) signal control · connected-vehicle communication · platooning · autonomous intersection management · weather & road conditions · incidents & disruption · large-scale networks · digital-twin integration. (Uncertainty & robust simulation moved into the V3.0 plan.) See [Future Scope](docs/future-scope/future_scope.md).
 
 ---
 

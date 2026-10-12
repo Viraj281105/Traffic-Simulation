@@ -98,8 +98,12 @@ flowchart TB
 
 | Document | Status | Purpose |
 | --- | --- | --- |
-| [ROADMAP.md](ROADMAP.md) | **Authoritative** | V0.1 → V1.0 history and the V1.1 → V2.0 roadmap |
-| [future-scope/future_scope.md](future-scope/future_scope.md) | **Authoritative** | Post-V2.0 research frontiers |
+| [ROADMAP.md](ROADMAP.md) | **Authoritative** | V0.1 → V1.0 history, the V1.1 → V2.0 roadmap, and the proposed V3.0 plan (§7) |
+| [roadmap/V2_COMPLETION_AUDIT.md](roadmap/V2_COMPLETION_AUDIT.md) | Proposed | V2.0 completion audit and the binary V2.0 release gate (G-V2) |
+| [roadmap/V3_PRODUCT_STRATEGY.md](roadmap/V3_PRODUCT_STRATEGY.md) | Proposed | V3.0 strategy: signalised roundabouts and composable strategies, high-aggression default, two AI features, Robustness Lab contract |
+| [roadmap/V3_WEEKLY_SPRINT_PLAN.md](roadmap/V3_WEEKLY_SPRINT_PLAN.md) | Proposed | Capacity model, one major feature per week, gates, GitHub issue map |
+| [roadmap/V3_PRESENTATION_PLAN.md](roadmap/V3_PRESENTATION_PLAN.md) | Proposed | Preview (29 Oct), interim (26 Nov) and final (7 Jan 2027) presentations |
+| [future-scope/future_scope.md](future-scope/future_scope.md) | **Authoritative** | Research frontiers beyond the roadmap |
 | [future-scope/ui_ux_and_nextgen_innovations.md](future-scope/ui_ux_and_nextgen_innovations.md) | Archived | Early UI brainstorm, mapped to roadmap/future scope |
 | [project-management/](project-management/README.md) | Historical | Original milestone plan, labels, Kanban |
 | [issues/](issues/README.md) | Historical | Original atomic issue breakdown |
