@@ -16,6 +16,8 @@ anti-conservative. These tests cover:
 
 import math
 
+import pytest
+
 from src.study.validation import (
     _calculate_stats,
     _compare_groups,
@@ -76,16 +78,25 @@ def test_t_distribution_is_monotonically_decreasing_in_t() -> None:
 
 
 def test_compare_groups_requires_at_least_two_samples_per_group() -> None:
+    # Updated contract: d is null, not 0.0 ("negligible effect"), when there
+    # is no spread estimate to scale it by.
     result = _compare_groups([1.0], [1.0, 2.0, 3.0])
-    assert result == {"cohensD": 0.0, "pValue": None, "significant": False}
+    assert result == {
+        "cohensD": None,
+        "pValue": None,
+        "significant": False,
+        "untestableReason": "insufficient_data",
+    }
 
 
-def test_compare_groups_identical_distributions_are_not_significant() -> None:
+def test_compare_groups_identical_constant_groups_are_untestable() -> None:
+    # Updated contract: Welch's t is 0/0 here. It used to report p = 1.0.
     values = [10.0, 10.0, 10.0, 10.0, 10.0]
     result = _compare_groups(values, list(values))
-    assert result["cohensD"] == 0.0
-    assert result["pValue"] == 1.0
+    assert result["cohensD"] is None
+    assert result["pValue"] is None
     assert result["significant"] is False
+    assert result["untestableReason"] == "no_variation"
 
 
 def test_compare_groups_clearly_different_distributions_are_significant() -> None:
@@ -99,10 +110,77 @@ def test_compare_groups_clearly_different_distributions_are_significant() -> Non
     assert result["cohensD"] < -5  # a is far below b
 
 
-def test_compare_groups_zero_variance_groups_return_p_one() -> None:
-    result = _compare_groups([5.0, 5.0, 5.0], [5.0, 5.0, 5.0])
-    assert result["pValue"] == 1.0
-    assert result["significant"] is False
+# ── _compare_groups: cases with no defined test statistic ────────────────────
+# Welch's t = (mean_a - mean_b) / SE with SE^2 = s_a^2/n_a + s_b^2/n_b, and the
+# Welch-Satterthwaite df divides by the same variances. With s_a = s_b = 0 both
+# are undefined (scipy.stats.ttest_ind(equal_var=False) returns NaN), so no
+# p-value is reported -- neither 1.0 ("no evidence") nor 0.0 ("certain").
+
+
+@pytest.mark.parametrize(
+    ("a", "b"),
+    [
+        ([5.0, 5.0, 5.0], [3.0, 3.0, 3.0]),  # constant, different means
+        ([5.0, 5.0, 5.0], [5.0, 5.0, 5.0]),  # constant, equal means
+        ([0.1] * 3, [0.2] * 3),  # same, but the means carry round-off
+        ([0.1] * 3, [0.1] * 3),
+        ([2.0, 2.0], [7.0, 7.0]),  # the smallest testable n
+    ],
+)
+def test_constant_groups_have_no_test_statistic(a: list[float], b: list[float]) -> None:
+    result = _compare_groups(a, b)
+    assert result == {
+        "cohensD": None,
+        "pValue": None,
+        "significant": False,
+        "untestableReason": "no_variation",
+    }
+
+
+def test_round_off_does_not_turn_constant_groups_significant() -> None:
+    # sum([0.1] * 3) / 3 is not exactly 0.1, which left a "variance" of ~1e-33.
+    # The old code then reported p = 0.0, significant, Cohen's d ~ -3.7e15 for
+    # data that [5, 5, 5] vs [3, 3, 3] reported as p = 1.0. Both are now the
+    # same untestable case.
+    assert _compare_groups([0.1] * 3, [0.2] * 3) == _compare_groups(
+        [5.0] * 3, [3.0] * 3
+    )
+
+
+def test_one_constant_group_is_still_a_welch_test() -> None:
+    # Only one variance is zero: SE > 0 and df = n - 1 of the varying group.
+    result = _compare_groups([5.0, 5.0, 5.0], [3.0, 4.0, 5.0])
+    assert "untestableReason" not in result
+    assert result["degreesOfFreedom"] == 2.0
+    assert result["pValue"] == 0.2254
+    assert result["cohensD"] == 1.414
+
+
+def test_real_but_tiny_variation_is_tested() -> None:
+    # A spread of ~6e-7 on values near 5 is variation, not round-off.
+    result = _compare_groups([5.0, 5.0, 5.000001], [3.0, 3.0, 3.000001])
+    assert "untestableReason" not in result
+    assert result["significant"] is True
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_non_finite_values_are_untestable_not_nan(bad: float) -> None:
+    # Used to return pValue NaN, which is not valid JSON.
+    result = _compare_groups([bad, 1.0, 2.0], [2.0, 3.0, 4.0])
+    assert result["pValue"] is None
+    assert result["cohensD"] is None
+    assert result["untestableReason"] == "invalid_data"
+
+
+def test_ordinary_inputs_are_unchanged() -> None:
+    # Pinned before the untestable cases were added.
+    result = _compare_groups([1, 2, 3, 4, 5], [2, 4, 6, 8, 11])
+    assert result == {
+        "cohensD": -1.18,
+        "pValue": 0.115,
+        "significant": False,
+        "degreesOfFreedom": 5.57,
+    }
 
 
 # ── _compare_groups: small-n (n=5) behaviour, the case this fix targets ──────

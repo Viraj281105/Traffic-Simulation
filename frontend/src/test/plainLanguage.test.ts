@@ -241,11 +241,7 @@ describe("duration", () => {
 describe("readReliability", () => {
   function study(
     delays: [number, number][],
-    comparison: {
-      pValue: number | null;
-      significant: boolean;
-      cohensD: number;
-    },
+    comparison: ReliabilityResult["comparison"]["delay"],
   ): ReliabilityResult {
     const stat = (xs: number[]) => {
       const mean = xs.reduce((a, b) => a + b, 0) / xs.length;
@@ -364,6 +360,63 @@ describe("readReliability", () => {
     expect(reading.headline).toMatch(
       /^More vehicles got through the traffic signal/,
     );
+  });
+
+  const noVariation = {
+    pValue: null,
+    significant: false,
+    cohensD: null,
+    untestableReason: "no_variation",
+  } as const;
+
+  it("does not call an identical-every-time gap chance or significant", () => {
+    const reading = readReliability(
+      study(
+        [
+          [30, 20],
+          [30, 20],
+          [30, 20],
+        ],
+        noVariation,
+      ),
+      "delay",
+    );
+    expect(reading.verdict).toBe("no-variation");
+    expect(reading.headline).toBe(
+      "The time lost per driver differed by the same amount in every traffic pattern.",
+    );
+    expect(reading.detail).toContain("no statistical test applies");
+    expect(reading.detail).not.toMatch(/luck|chance|p [=<]/);
+    expect(reading.tally).toEqual({ signal: 0, roundabout: 3, tie: 0 });
+  });
+
+  it("reads identical results with no variation as about the same", () => {
+    const reading = readReliability(
+      study(
+        [
+          [20, 20],
+          [20, 20],
+        ],
+        noVariation,
+      ),
+      "delay",
+    );
+    expect(reading.verdict).toBe("no-gap");
+    expect(reading.detail).toContain("no p-value applies");
+  });
+
+  it("does not describe a missing effect size as negligible", () => {
+    const reading = readReliability(
+      study([[30, 20]], {
+        pValue: null,
+        significant: false,
+        cohensD: null,
+        untestableReason: "insufficient_data",
+      }),
+      "delay",
+    );
+    expect(reading.detail).not.toContain("negligible");
+    expect(reading.detail).toContain("no test possible");
   });
 });
 

@@ -239,3 +239,22 @@ def test_report_combines_sweep_and_validation_evidence_without_recommending() ->
     assert "Executive Recommendation" not in csv_text
     assert "Welch p-value" in csv_text
     assert "Cohen's d" in csv_text
+
+
+def test_validation_evidence_without_variation_says_why_no_test_applies() -> None:
+    # Every seed gave each control the same value: no p-value, and the text
+    # must neither call the gap supported nor blame too few patterns.
+    validation = _validation(None, False)
+    untestable = {
+        "pValue": None,
+        "significant": False,
+        "cohensD": None,
+        "untestableReason": "no_variation",
+    }
+    validation["comparison"] = {key: untestable for key in validation["comparison"]}
+    evidence = _summarize_validation_evidence(validation)
+    text = evidence["text"]
+    assert "no pattern-to-pattern variation to test against" in text
+    assert "fewer than 2 patterns" not in text
+    assert "statistically supported at alpha" not in text
+    assert all(row["supported"] is False for row in evidence["metrics"])

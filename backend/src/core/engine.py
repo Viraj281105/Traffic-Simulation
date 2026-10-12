@@ -206,15 +206,17 @@ class SimulationEngine:
 
     def _run_loop(self) -> None:
         while not self._stop_event.is_set():
-            with self._lock:
-                status = self.status
-                if status != SimulationStatus.RUNNING:
-                    break
-
             start_time = time.time()
 
             try:
-                self.step()
+                # The status check and the tick are one critical section. With
+                # the lock released between them, a stop() landing in the gap
+                # made step() raise on the now-COMPLETED engine, and this loop
+                # reported that as ERROR — a clean stop surfacing as a failure.
+                with self._lock:
+                    if self.status != SimulationStatus.RUNNING:
+                        break
+                    self.step()
             except Exception:
                 logger.exception("Error in simulation step")
                 with self._lock:
@@ -222,7 +224,9 @@ class SimulationEngine:
                 break
 
             with self._lock:
-                status = self.status
+                # Any: mypy narrowed self.status to RUNNING above and cannot
+                # see that step() may have completed the run since.
+                status: Any = self.status
                 if status == SimulationStatus.COMPLETED:
                     break
 

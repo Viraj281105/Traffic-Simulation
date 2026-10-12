@@ -22,6 +22,7 @@ const VERDICT_WORDS = {
   consistent: "Consistent difference",
   "not-consistent": "Not consistent — could be chance",
   "no-gap": "About the same",
+  "no-variation": "Same in every pattern — no test applies",
 } as const;
 
 type State =
@@ -208,7 +209,7 @@ export function ReliabilityCheck({
                           ? "< 0.001"
                           : c.pValue.toFixed(3)}
                     </td>
-                    <td>{c.cohensD.toFixed(2)}</td>
+                    <td>{c.cohensD === null ? "—" : c.cohensD.toFixed(2)}</td>
                     <td>
                       {c.degreesOfFreedom === undefined
                         ? "—"

@@ -545,10 +545,15 @@ export interface StatSummary {
 }
 
 export interface GroupComparison {
+  /** Null when no test statistic is defined (see untestableReason). */
   pValue: number | null;
   significant: boolean;
-  cohensD: number;
+  /** Null when no test statistic is defined (see untestableReason). */
+  cohensD: number | null;
   degreesOfFreedom?: number;
+  /** Why there is no p-value: too few patterns, an invalid value, or no
+   *  pattern-to-pattern variation in either control. */
+  untestableReason?: "insufficient_data" | "invalid_data" | "no_variation";
 }
 
 export type StudyMetric = "delay" | "throughput" | "queue";
@@ -585,7 +590,13 @@ export function effectSizeWord(d: number): string {
     .label;
 }
 
-export type ReliabilityVerdict = "consistent" | "not-consistent" | "no-gap";
+export type ReliabilityVerdict =
+  | "consistent"
+  | "not-consistent"
+  | "no-gap"
+  /** Every pattern gave each control the same value, and the values differ:
+   *  there is no variation to test the gap against, so no test applies. */
+  | "no-variation";
 
 export interface ReliabilityReading {
   metric: StudyMetric;
@@ -647,13 +658,34 @@ export function readReliability(
   const lowerSide: Side = s.mean <= r.mean ? "signal" : "roundabout";
   const lowerCount = tally[lowerSide];
   const means = `${words.unit(s.mean)} at the signal, ${words.unit(r.mean)} at the roundabout on average`;
-  const size = effectSizeWord(cmp.cohensD);
   const pText =
     cmp.pValue === null
       ? "no test possible"
       : cmp.pValue < 0.001
         ? "p < 0.001"
         : `p = ${cmp.pValue.toFixed(3)}`;
+
+  if (cmp.untestableReason === "no_variation") {
+    const same = `every one of the ${String(n)} traffic patterns gave the same result for each`;
+    if (!gap || gap.similar) {
+      return {
+        metric,
+        verdict: "no-gap",
+        headline: `Across ${String(n)} traffic patterns, the ${words.noun} was about the same for both.`,
+        detail: `${means}; ${same}, so there is no variation to test and no p-value applies.`,
+        tally,
+      };
+    }
+    return {
+      metric,
+      verdict: "no-variation",
+      headline: `The ${words.noun} differed by the same amount in every traffic pattern.`,
+      detail: `${means}; ${same}. With no pattern-to-pattern variation there is nothing to test the gap against, so no statistical test applies: the gap is exact for these patterns, not evidence about traffic the model does not capture.`,
+      tally,
+    };
+  }
+  const size =
+    cmp.cohensD === null ? "not measurable" : effectSizeWord(cmp.cohensD);
 
   if (cmp.significant) {
     const higherSide: Side = lowerSide === "signal" ? "roundabout" : "signal";

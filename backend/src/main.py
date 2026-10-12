@@ -70,7 +70,12 @@ from src.database.dao import (
     SweepSessionDAO,
     describe_reproducibility,
 )
-from src.database.db import DB_PATH, get_db_connection, init_db  # noqa: F401
+from src.database.db import (  # noqa: F401
+    DB_PATH,
+    ensure_db_initialized,
+    get_db_connection,
+    init_db,
+)
 from src.database.replay_dao import ReplayDAO
 from src.metrics.collector import MetricCollector
 from src.networks.api import router as networks_router
@@ -980,7 +985,7 @@ async def websocket_stream(websocket: WebSocket, simulationId: str) -> None:  # 
     try:
         while True:
             # Generate and send state snapshot
-            snapshot = builder.build()
+            snapshot = await asyncio.to_thread(builder.build)
             await websocket.send_json(snapshot)
 
             # Check if simulation complete
@@ -990,8 +995,23 @@ async def websocket_stream(websocket: WebSocket, simulationId: str) -> None:  # 
             await asyncio.sleep(snapshot_interval)
     except WebSocketDisconnect:
         pass
-    except Exception as e:
-        await websocket.close(code=1011, reason=str(e))
+    except Exception:
+        logger.exception("Simulation stream %s failed", simulationId)
+        await _close_after_stream_error(websocket)
+
+
+async def _close_after_stream_error(websocket: WebSocket) -> None:
+    """Closes a stream that failed server-side; never raises.
+
+    The reason is generic on purpose. The handlers used to send str(exc),
+    which put internal error text on the wire — and a close reason longer
+    than the protocol's 123-byte limit made close() itself raise, out of the
+    handler. The exception is logged by the caller instead.
+    """
+    try:
+        await websocket.close(code=1011, reason="Internal server error")
+    except Exception:
+        pass
 
 
 DEFAULT_CONFIG: Dict[str, Any] = {
@@ -1217,8 +1237,6 @@ async def _live_session_middleware(request: Request, call_next: Any) -> Any:
     if not request.url.path.startswith(_LIVE_SESSION_PATH_PREFIX):
         return await call_next(request)
 
-    import logging
-
     from fastapi.security import HTTPAuthorizationCredentials
 
     from src.auth import verify_token
@@ -1236,9 +1254,9 @@ async def _live_session_middleware(request: Request, call_next: Any) -> Any:
             claims = verify_token(creds)
             key = str(claims.get("sub", ""))
         except Exception as e:
-            logging.error(f"JWT Verification failed: {e}")
-            from fastapi.responses import JSONResponse
-
+            # A client presenting a bad token is a client error: logged on the
+            # module logger at warning level, not as a server error on root.
+            logger.warning("JWT verification failed: %s", e)
             return JSONResponse(status_code=401, content={"detail": "Invalid token"})
 
     ctx_token = _live_session_var.set(_get_or_create_session(key))
@@ -1735,7 +1753,12 @@ def pause_live_simulation() -> Dict[str, Any]:
 
 
 class SpeedRequest(BaseModel):
-    multiplier: float
+    # The engines' run loops divide the tick period by this value. Zero used
+    # to raise ZeroDivisionError in the background thread, killing it while
+    # the engine still reported RUNNING (so its session was never reclaimed);
+    # a negative value silently meant "flat out". Bounded like timeScale
+    # (SimulationSection, le=10); the dashboard offers 1x, 2x and 4x.
+    multiplier: float = Field(gt=0, le=10.0)
 
 
 @app.post("/api/simulation/speed", dependencies=[Depends(require_api_key)])
@@ -1784,7 +1807,10 @@ async def websocket_live_stream(websocket: WebSocket) -> None:
                 frame = (engine, engine.status, engine.clock.get_elapsed_time())
                 now = time.time()
                 if _frame_changed(frame, last_frame) or now - last_sent_time >= 1.0:
-                    snapshot = builder.build()
+                    # Off the event loop: build() waits on the engine lock
+                    # for any tick in progress, and every other request and
+                    # stream would otherwise wait with it.
+                    snapshot = await asyncio.to_thread(builder.build)
                     await websocket.send_json(snapshot)
                     last_frame = frame
                     last_sent_time = now
@@ -1793,12 +1819,9 @@ async def websocket_live_stream(websocket: WebSocket) -> None:
             await asyncio.sleep(0.1)
     except WebSocketDisconnect:
         pass
-    except Exception as e:
+    except Exception:
         logger.exception("Live simulation websocket failed")
-        try:
-            await websocket.close(code=1011, reason=str(e))
-        except Exception:
-            pass
+        await _close_after_stream_error(websocket)
     finally:
         _live_session_var.reset(token)
 
@@ -1905,7 +1928,7 @@ async def websocket_dual_stream(websocket: WebSocket) -> None:
             )
             now = time.time()
             if _frame_changed(frame, last_frame) or now - last_sent_time >= 1.0:
-                snapshot = orch.get_dual_snapshot()
+                snapshot = await asyncio.to_thread(orch.get_dual_snapshot)
                 await websocket.send_json(snapshot)
                 last_frame = frame
                 last_sent_time = now
@@ -1914,12 +1937,9 @@ async def websocket_dual_stream(websocket: WebSocket) -> None:
             await asyncio.sleep(0.1)
     except WebSocketDisconnect:
         pass
-    except Exception as e:
+    except Exception:
         logger.exception("Dual simulation websocket failed")
-        try:
-            await websocket.close(code=1011, reason=str(e))
-        except Exception:
-            pass
+        await _close_after_stream_error(websocket)
     finally:
         _live_session_var.reset(token)
 
@@ -2090,7 +2110,7 @@ def list_sweeps_endpoint(
     limit: PageLimit = 20, offset: PageOffset = 0
 ) -> list[Dict[str, Any]]:
     """Lists past volume sweep benchmark experiments."""
-    init_db()
+    ensure_db_initialized()
     with get_db_connection() as conn:
         return SweepSessionDAO.list_sessions(conn, limit=limit, offset=offset)
     return []
@@ -2099,7 +2119,7 @@ def list_sweeps_endpoint(
 @app.get("/api/v1/study/sweeps/{sweep_id}")
 def get_sweep_endpoint(sweep_id: str) -> Dict[str, Any]:
     """Retrieves a specific volume sweep benchmark session."""
-    init_db()
+    ensure_db_initialized()
     with get_db_connection() as conn:
         session = SweepSessionDAO.get(conn, sweep_id)
         if not session:
@@ -2129,7 +2149,7 @@ def list_simulation_runs_endpoint(
     batch_id: str | None = None,
 ) -> list[Dict[str, Any]]:
     """Lists past simulation runs with their status, metrics, and filters."""
-    init_db()
+    ensure_db_initialized()
     with get_db_connection() as conn:
         return SimulationRunDAO.list_runs(
             conn,
@@ -2145,7 +2165,7 @@ def list_simulation_runs_endpoint(
 @app.get("/api/v1/study/history/runs/{run_id}")
 def get_simulation_run_endpoint(run_id: str) -> Dict[str, Any]:
     """Retrieves metadata and time-series metrics for a specific simulation run."""
-    init_db()
+    ensure_db_initialized()
     with get_db_connection() as conn:
         run = SimulationRunDAO.get(conn, run_id)
         if not run:
@@ -2189,7 +2209,7 @@ def get_run_reproducibility_endpoint(run_id: str) -> Dict[str, Any]:
     metrics, plus its name, notes and tags. Fields a run never recorded
     (runs saved before V1.1) are null."""
     _validate_run_id(run_id)
-    init_db()
+    ensure_db_initialized()
     with get_db_connection() as conn:
         return _run_record(conn, run_id)
     raise HTTPException(status_code=500, detail="Database connection error")
@@ -2240,7 +2260,7 @@ def update_run_metadata_endpoint(
             raise HTTPException(status_code=400, detail="Run name cannot be empty")
     notes = (payload.notes or "").strip() or None
     tags = _clean_tags(payload.tags)
-    init_db()
+    ensure_db_initialized()
     with get_db_connection() as conn:
         found = SimulationRunDAO.update_metadata(
             conn,
@@ -2332,7 +2352,7 @@ def export_run_endpoint(run_id: str, format: str = "json") -> Any:  # noqa: A002
     fmt = format.lower()
     if fmt not in ("json", "csv"):
         raise HTTPException(status_code=400, detail="format must be 'json' or 'csv'")
-    init_db()
+    ensure_db_initialized()
     with get_db_connection() as conn:
         record = _run_record(conn, run_id)
         timeline = RunMetricsDAO.get_all_for_run(conn, run_id)
@@ -2365,7 +2385,7 @@ def export_run_endpoint(run_id: str, format: str = "json") -> Any:  # noqa: A002
 @app.post("/api/v1/study/history/runs/compare")
 def compare_runs_endpoint(payload: RunComparisonRequest) -> Dict[str, Any]:
     """Compares two historical simulation runs side-by-side with delta analysis."""
-    init_db()
+    ensure_db_initialized()
     with get_db_connection() as conn:
         run_a = SimulationRunDAO.get(conn, payload.runIdA)
         if not run_a:
@@ -2593,7 +2613,7 @@ def reproduce_run_endpoint(run_id: str) -> Dict[str, Any]:
     (or mismatch) should be read with care, rather than claiming more than
     the stored record supports.
     """
-    init_db()
+    ensure_db_initialized()
     with get_db_connection() as conn:
         run = SimulationRunDAO.get(conn, run_id)
     if not run:
@@ -3039,7 +3059,7 @@ def save_replay(
     user_id: str = Depends(get_current_user_id),
     email: str = Depends(get_current_user_email),
 ) -> Dict[str, Any]:
-    init_db()
+    ensure_db_initialized()
     mode = payload.mode or (
         "dual"
         if "signal" in payload.metrics and "roundabout" in payload.metrics
@@ -3126,7 +3146,7 @@ def list_replays(
     offset: PageOffset = 0,
     user_id: str = Depends(get_current_user_id),
 ) -> list[Dict[str, Any]]:
-    init_db()
+    ensure_db_initialized()
     with get_db_connection() as conn:
         return _with_reproducibility(
             ReplayDAO.list_all(conn, limit=limit, offset=offset, user_id=user_id), conn
@@ -3138,7 +3158,7 @@ def list_replays(
 def get_replay(
     replay_id: str, user_id: str = Depends(get_current_user_id)
 ) -> Dict[str, Any]:
-    init_db()
+    ensure_db_initialized()
     with get_db_connection() as conn:
         replay = ReplayDAO.get(conn, replay_id)
         if not replay:
@@ -3159,7 +3179,7 @@ def get_replay(
 def delete_replay(
     replay_id: str, user_id: str = Depends(get_current_user_id)
 ) -> Dict[str, Any]:
-    init_db()
+    ensure_db_initialized()
     with get_db_connection() as conn:
         row = (
             conn.cursor()
@@ -3192,12 +3212,13 @@ class ScenarioSuiteCreate(BaseModel):
     config_variations: Dict[str, Any]
 
 
-@app.post("/api/suites")
+@app.post("/api/suites", dependencies=[Depends(require_api_key)])
 def create_suite(
     suite_data: ScenarioSuiteCreate,
     user_id: Optional[str] = Depends(get_current_user_id),
 ) -> Dict[str, str]:
     suite_id = str(uuid.uuid4())
+    ensure_db_initialized()
     with get_db_connection() as conn:
         ScenarioSuiteDAO.save(
             conn,
@@ -3216,6 +3237,7 @@ def list_suites(
     offset: int = Query(0, ge=0),
     user_id: Optional[str] = Depends(get_current_user_id),
 ) -> Dict[str, Any]:
+    ensure_db_initialized()
     with get_db_connection() as conn:
         suites = ScenarioSuiteDAO.list_suites(conn, limit, offset)
         return {"suites": suites}
@@ -3226,6 +3248,7 @@ def get_suite(
     suite_id: str,
     user_id: Optional[str] = Depends(get_current_user_id),
 ) -> Dict[str, Any]:
+    ensure_db_initialized()
     with get_db_connection() as conn:
         suite = ScenarioSuiteDAO.get(conn, suite_id)
         if not suite:
@@ -3239,35 +3262,97 @@ def get_suite(
         return {"suite": suite, "runs": runs}
 
 
+# A batch runs len(arrivalRate) x numSeeds simulations of one geometry: capped
+# at the Monte Carlo study's largest workload (MAX_MONTE_CARLO_SEEDS seeds x
+# two geometries). The dashboard's batch runs 5 rates x 3 seeds.
+MAX_BATCH_SIMULATIONS = 2 * MAX_MONTE_CARLO_SEEDS
+
+
 class BatchExperimentRequest(BaseModel):
+    # The dashboard's scenario payload (the body of /api/simulation/config),
+    # or an engine configuration (one with a "traffic" section).
     baseConfig: Dict[str, Any]
-    sweepParameters: Dict[str, Any]
-    numSeeds: int
+    # The arrival rate is the one parameter a batch varies.
+    sweepParameters: Dict[
+        Literal["arrivalRate"],
+        Annotated[
+            list[StudyArrivalRate],
+            Field(min_length=1, max_length=MAX_SWEEP_ARRIVAL_RATES),
+        ],
+    ] = Field(min_length=1)
+    numSeeds: int = Field(ge=1, le=MAX_MONTE_CARLO_SEEDS)
+
+    @model_validator(mode="after")
+    def _workload_in_bounds(self) -> "BatchExperimentRequest":
+        runs = len(self.sweepParameters["arrivalRate"]) * self.numSeeds
+        if runs > MAX_BATCH_SIMULATIONS:
+            raise ValueError(
+                f"A batch may run at most {MAX_BATCH_SIMULATIONS} simulations "
+                f"(arrival rates x seeds); this one asks for {runs}"
+            )
+        return self
 
 
-@app.post("/api/suites/{suite_id}/batch")
+def _batch_base_config(raw: Dict[str, Any]) -> Dict[str, Any]:
+    """The engine configuration a batch runs, validated like any other run.
+
+    The dashboard sends its flat scenario payload, which is compiled exactly
+    as the live comparison compiles it. The batch runner used to receive that
+    payload uncompiled and index ``config["traffic"]``, so every batch the
+    dashboard started failed in the background job.
+    """
+    if not isinstance(raw.get("traffic"), dict):
+        return _compile_dashboard_config(raw, seed_val=0)
+    try:
+        jsonschema.validate(instance=raw, schema=CONFIG_SCHEMA)
+    except jsonschema.ValidationError as err:
+        raise HTTPException(
+            status_code=400, detail=f"Invalid configuration: {err.message}"
+        ) from err
+    semantic_errors = semantic_config_errors(raw)
+    if semantic_errors:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid configuration: {'; '.join(semantic_errors)}",
+        )
+    try:
+        _check_study_time_step(raw)
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
+    return raw
+
+
+@app.post("/api/suites/{suite_id}/batch", dependencies=[Depends(require_api_key)])
 def enqueue_suite_batch(
     suite_id: str,
     req: BatchExperimentRequest,
     user_id: Optional[str] = Depends(get_current_user_id),
 ) -> Dict[str, str]:
     from src.study.batch import run_suite_batch_experiment
-    from src.study.jobs import TooManyJobsError, jobs
 
+    base_config = _batch_base_config(req.baseConfig)
+    # Checked before any simulation runs, not discovered when the finished
+    # runs are attached to it.
+    ensure_db_initialized()
+    with get_db_connection() as conn:
+        if ScenarioSuiteDAO.get(conn, suite_id) is None:
+            raise HTTPException(status_code=404, detail="Suite not found")
+
+    arrival_rates = list(req.sweepParameters["arrivalRate"])
     try:
         job = jobs.submit(
             "suite_batch",
             lambda p: run_suite_batch_experiment(
                 suite_id=suite_id,
-                base_config=req.baseConfig,
-                sweep_parameters=req.sweepParameters,
+                base_config=base_config,
+                arrival_rates=arrival_rates,
                 num_seeds=req.numSeeds,
                 progress=p,
             ),
         )
-        return {"jobId": job.id}
-    except TooManyJobsError as e:
-        raise HTTPException(status_code=429, detail=str(e))
+    except TooManyJobsError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+    return {"jobId": job.id}
 
 
 @app.get("/api/suites/{suite_id}/export/csv")
@@ -3277,6 +3362,7 @@ def export_suite_csv(
 ) -> StreamingResponse:
     from src.study.report_generator import generate_suite_csv
 
+    ensure_db_initialized()
     with get_db_connection() as conn:
         suite = ScenarioSuiteDAO.get(conn, suite_id)
         if not suite:

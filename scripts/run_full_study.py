@@ -284,7 +284,10 @@ def main() -> int:
         rnd_str = (
             f"{rnd_st.get('mean', 0.0):.2f} ± {rnd_st.get('ci', rnd_st.get('ci95', 0.0)):.2f}"
         )
-        d_val = m_cmp.get("cohensD", 0.0)
+        # Null when no test statistic is defined (study/validation.py
+        # _untestable); printed as N/A rather than formatted as a number.
+        d_val = m_cmp.get("cohensD")
+        d_str = f"{d_val:8.3f}" if d_val is not None else f"{'N/A':>8}"
         p_val = m_cmp.get("pValue")
         p_str = (
             "<0.001"
@@ -295,10 +298,16 @@ def main() -> int:
         )
         is_sig = m_cmp.get("significant", False)
 
-        sig_label = "Supported" if is_sig else "Not supported"
+        sig_label = (
+            "Supported"
+            if is_sig
+            else "No test applies"
+            if m_cmp.get("untestableReason")
+            else "Not supported"
+        )
 
         print(
-            f"  {m.capitalize():<14} | {sig_str:<24} | {rnd_str:<26} | {d_val:8.3f} | {p_str:>8} | {sig_label}"
+            f"  {m.capitalize():<14} | {sig_str:<24} | {rnd_str:<26} | {d_str} | {p_str:>8} | {sig_label}"
         )
 
     print("  " + "-" * 98)
