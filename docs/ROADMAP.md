@@ -1,8 +1,8 @@
 # UrbanFlow Roadmap
 
 > **This is the single authoritative roadmap.** It supersedes every earlier roadmap, deferred-features log and V1.1/V2/V3 plan in this repository (preserved in git history).
-> **Current version:** V1.3 (shipped baseline) · **V1.4** (advanced roundabouts + full scenario configuration) and **V1.5** (real-world junction modelling) **IMPLEMENTED on `viraj-dev`, under review** · **Next upcoming:** V1.6 (safety & environmental analysis) · **Last updated:** 2026-10-08
-> **Beyond V2.0:** [Future Scope](future-scope/future_scope.md) — post-V2.0 research frontiers only.
+> **Current version:** V1.3 (shipped baseline) · **V1.4** (advanced roundabouts + full scenario configuration) and **V1.5** (real-world junction modelling) **IMPLEMENTED on `viraj-dev`, under review** · **Next upcoming:** V1.6 (safety & environmental analysis) · **Last updated:** 2026-10-12
+> **After V2.0:** [§7 V3.0](#7-v30--composable-ai-assisted-traffic-control-experimentation-planned-proposed) — composable, AI-assisted traffic-control experimentation (**PLANNED, proposed, blocked by the V2.0 release gate**; detail in [`roadmap/`](roadmap/V3_PRODUCT_STRATEGY.md)). **Beyond that:** [Future Scope](future-scope/future_scope.md) — research frontiers only.
 
 | Status | Meaning |
 | --- | --- |
@@ -316,21 +316,47 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 
 | Theme | Inside the roadmap (≤ V2.0) | Future Scope (post-V2.0) — only what is genuinely new |
 | --- | --- | --- |
-| Vehicles | Cars, SUVs, buses, trucks, bikes (V1.1) | Emergency vehicles with priority and yielding (FS-1) |
-| Signals | Adaptive / responsive control (V1.3) | Learning-based (RL) signal control (FS-2) |
+| Vehicles | Cars, SUVs, buses, trucks, bikes (V1.1) | Emergency vehicles with priority and yielding (FS-1; V3.0 §7 records its expected deferral) |
+| Signals | Adaptive / responsive control (V1.3); signalised roundabouts and bounded strategy search (**V3.0, §7**) | Learning-based (RL) signal control (FS-2) |
 | Lanes & cooperation | Lanes, lane changes (V1.2) | V2V/V2I communication (FS-3); platooning (FS-4) |
 | Intersection control | Signals, roundabouts (V1.0–V1.4) | Reservation-based autonomous intersections (FS-5) |
-| Evidence | Scenario batches & reproducibility (V1.7); calibration (V1.8/9) | Uncertainty quantification & robustness (FS-6) |
+| Evidence | Scenario batches & reproducibility (V1.7); calibration (V1.8/9); uncertainty & robustness (**V3.0 Robustness Lab, §7**, moved from FS-6) | — |
 | Conditions | — | Weather & road condition (FS-7); incidents & disruption (FS-8) |
 | Scale | Network-level **foundations** (V1.8/9) | Large-scale network simulation (FS-9) |
 | Data | Real-world traffic **inputs** & calibration (V1.8/9) | Continuously updated digital twin (FS-10) |
 
 ---
 
-## 7. Maintaining this roadmap
+## 7. V3.0 — Composable, AI-assisted traffic-control experimentation (PLANNED, proposed)
+
+> **Status: 🗓️ PLANNED — proposed, not approved, nothing implemented.** V3.0 implementation starts only after the V2.0 release gate (G-V2) and the V3.0 design-approval gate (G-D). All dates and effort figures are proposals pending product-owner approval. Detail, contracts, acceptance criteria and gates: [V3 product strategy](roadmap/V3_PRODUCT_STRATEGY.md) · [weekly sprint plan](roadmap/V3_WEEKLY_SPRINT_PLAN.md) · [presentation plan](roadmap/V3_PRESENTATION_PLAN.md) · [V2.0 completion audit](roadmap/V2_COMPLETION_AUDIT.md). Tracking: GitHub umbrella issue #150.
+
+**Direction.** Evolve UrbanFlow from an intersection simulator into a **composable, AI-assisted traffic-control experimentation platform** — *evidence, not a verdict*. Results are conditional on stated, assumed inputs; no AI output or simulation result is presented as proof that a strategy is universally superior.
+
+**One major demonstrable feature per implementation week (proposed):**
+
+| Week (proposed) | Major feature | Role | Funding |
+| --- | --- | --- | --- |
+| W1 · 30 Oct – 5 Nov 2026 | **Robustness Lab** vertical slice (uncertainty sampling, paired ensembles, statistical contract) — moved here from Future Scope FS-6 | Evidence engine | Committed |
+| W2 · 6 – 12 Nov | **Signalised roundabouts** (`metered_entry`: signals gate entries, the existing gap-acceptance logic stays in force) | Flagship simulation feature | Committed |
+| W3 · 13 – 19 Nov | **Composable control strategies** (registry, compatibility validation, fingerprint parity) + adaptive signalised roundabout | Architecture | Committed; adaptive variant conditional |
+| W4 · 20 – 26 Nov | **High driver aggression** as the default for *new* scenarios (a new versioned profile; stored scenarios keep today's behaviour) · interim presentation 26 Nov | Declared model assumption | Committed |
+| W5 · 27 Nov – 3 Dec | **AI Traffic Experiment Copilot** (proposal-only, backend-validated, confirm-before-run, evidence-grounded summaries) | AI feature A | Committed; AI claim conditional on a provider decision |
+| W6 · 4 – 10 Dec | **AI Control Strategy Discovery Lab** (bounded multi-objective evolutionary search with held-out evaluation — optimisation, not a learned model) | AI feature B | Committed |
+| W7 · 11 – 17 Dec | **Python SDK, `/api/v3`, `.ufpkg` packages, tokens and quotas** | Platform | Committed (minimum) |
+| W8 · 18 – 24 Dec | **Traffic Chaos / Strategy Breakpoint Explorer** (stationary extremes) | Stress analysis | Conditional |
+| W9 · 25 – 31 Dec | **Integration, release candidate, evaluation showcase** (final showcase proposed Thu 7 Jan 2027) | Release | Committed |
+
+**Capacity.** The scope does not fit the original 26 Nov calendar (≈ 37.5 committed engineer-days against 18.75 planned); the proposal extends the schedule at 85 % planned load (decision D-SCOPE). Emergency/priority control, learned (RL) controllers, incident simulation, regime discovery, a visual strategy composer, an AI report generator and a PWA are **not** in V3.0 (deferred or Future Scope).
+
+**Moved or changed in Future Scope (no duplication):** FS-6 (uncertainty & robustness) → V3.0 Robustness Lab; the search-based part of FS-2 → V3.0 Discovery Lab (learned/RL controllers remain FS-2); FS-1 (emergency) stays in Future Scope, with a conditional V3.0 readiness gate that is expected to defer it.
+
+---
+
+## 8. Maintaining this roadmap
 
 1. This file is the only roadmap. Do not add competing roadmap or "deferred" lists elsewhere.
 2. Do not add V1.x milestones or move scope between versions without an explicit decision recorded here.
 3. When a version ships, change its status, update §5, and move its "V1.0 starting point" note into a short "delivered" note.
-4. Anything that does not fit V1.1–V2.0 belongs in [Future Scope](future-scope/future_scope.md) — and only if it does not duplicate a roadmap item.
+4. Anything that does not fit V1.1–V3.0 belongs in [Future Scope](future-scope/future_scope.md) — and only if it does not duplicate a roadmap item.
 5. Implementation decisions that constrain future work are recorded in [docs/decisions](decisions/README.md#implementation-decisions-v10).
