@@ -209,17 +209,19 @@ class DualSimulationOrchestrator:
 
     def _run_loop(self) -> None:
         while not self._stop_event.is_set():
-            with self._lock:
-                if (
-                    self.engine_signal.status != SimulationStatus.RUNNING
-                    or self.engine_roundabout.status != SimulationStatus.RUNNING
-                ):
-                    break
-
             start_time = time.time()
 
             try:
-                self.step()
+                # Check and tick under one lock hold, as SimulationEngine's own
+                # loop does: a stop() between the two used to make step() raise
+                # on COMPLETED engines, which was then reported as ERROR.
+                with self._lock:
+                    if (
+                        self.engine_signal.status != SimulationStatus.RUNNING
+                        or self.engine_roundabout.status != SimulationStatus.RUNNING
+                    ):
+                        break
+                    self.step()
             except Exception:
                 logger.exception("Error in dual simulation step")
                 with self._lock:

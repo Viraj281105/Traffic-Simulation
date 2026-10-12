@@ -363,8 +363,9 @@ export function signalCycleSeconds(config: SimulationConfigValues): number {
 export interface BatchExperimentConfig {
   /** The base configuration for all runs in the batch. */
   baseConfig: DashboardScenarioPayload;
-  /** Variations to sweep over. e.g. { "arrivalRate": [0.2, 0.4, 0.6] } */
-  sweepParameters: Record<string, number[]>;
-  /** Number of random seeds to run for each variation. */
+  /** Arrival rates to sweep over, e.g. { arrivalRate: [0.2, 0.4, 0.6] }.
+   *  The arrival rate is the only parameter a batch varies (1-20 rates). */
+  sweepParameters: { arrivalRate: number[] };
+  /** Seeds per arrival rate (1-30; rates x seeds at most 60). */
   numSeeds: number;
 }

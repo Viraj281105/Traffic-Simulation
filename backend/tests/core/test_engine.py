@@ -176,3 +176,74 @@ def test_engine_with_config_and_step() -> None:
     for _ in range(5):
         engine.step()
     assert engine.status == SimulationStatus.COMPLETED
+
+
+class _StopOnFirstClockRead:
+    """Stands in for the ``time`` module inside a run loop: the loop's first
+    wall-clock read (taken at the top of its first tick) calls ``stop()``
+    first, which is a stop() landing just as the loop begins that tick."""
+
+    def __init__(self, stop: object) -> None:
+        self._stop = stop
+        self._fired = False
+
+    def time(self) -> float:
+        if not self._fired:
+            self._fired = True
+            self._stop()  # type: ignore[operator]
+        return time.time()
+
+    @staticmethod
+    def sleep(seconds: float) -> None:
+        time.sleep(seconds)
+
+
+def test_stop_racing_the_next_tick_is_not_reported_as_an_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A stop() that lands as the run loop begins a tick must leave the engine
+    COMPLETED. The loop used to release its lock between the RUNNING check and
+    step(), so step() then raised on the COMPLETED engine and the loop flipped
+    it to ERROR — and fired the ERROR status callback for a clean stop."""
+    import src.core.engine as engine_module
+
+    engine = SimulationEngine(Clock(0.1), duration=1000.0)
+    seen: list[SimulationStatus] = []
+    engine.register_status_callback(seen.append)
+    monkeypatch.setattr(engine_module, "time", _StopOnFirstClockRead(engine.stop))
+
+    engine.start()
+    assert engine._thread is not None
+    engine._thread.join(timeout=5)
+
+    assert not engine._thread.is_alive()
+    assert engine.status == SimulationStatus.COMPLETED
+    assert SimulationStatus.ERROR not in seen
+
+
+def test_dual_stop_racing_the_next_tick_is_not_reported_as_an_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The same race in the lockstep signal-vs-roundabout loop."""
+    import src.snapshot.dual_orchestrator as dual_module
+    from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
+
+    orch = DualSimulationOrchestrator(
+        {
+            "simulation": {"duration": 1000, "randomSeed": 1},
+            "traffic": {"arrivalRate": 0.2},
+        }
+    )
+
+    def stop_without_join() -> None:
+        # stop() joins the loop thread; called from that thread it must not.
+        orch.stop()
+
+    monkeypatch.setattr(dual_module, "time", _StopOnFirstClockRead(stop_without_join))
+
+    orch.start()
+    assert orch._thread is not None
+    orch._thread.join(timeout=5)
+
+    assert not orch._thread.is_alive()
+    assert orch.get_status() == "completed"

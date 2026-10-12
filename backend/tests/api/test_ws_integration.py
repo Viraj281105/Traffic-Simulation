@@ -63,3 +63,35 @@ def test_simulation_command_apis() -> None:
     res_pause = client.post("/api/simulation/pause")
     assert res_pause.status_code == 200
     assert res_pause.json()["status"] == "paused"
+
+
+def test_ws_stream_failure_closes_with_a_generic_reason(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """A snapshot that fails server-side closes the stream with 1011 and a
+    generic reason. The handler used to send str(exc) as the reason: internal
+    error text on the wire, and close() itself raised once that text passed
+    the protocol's 123-byte limit."""
+    import pytest
+    from starlette.websockets import WebSocketDisconnect
+
+    from src.snapshot.builder import SnapshotBuilder
+
+    created = client.post(
+        "/api/v1/simulations",
+        json={
+            "simulation": {"timeStep": 0.1, "duration": 30, "warmupTime": 0.0},
+            "geometry": {"intersectionType": "fixed_time_signal"},
+        },
+    )
+    assert created.status_code == 201
+    sim_id = created.json()["simulationId"]
+
+    def failing_build(self: SnapshotBuilder) -> None:
+        raise RuntimeError("internal detail " * 20)
+
+    monkeypatch.setattr(SnapshotBuilder, "build", failing_build)
+
+    with client.websocket_connect(f"/ws/v1/stream?simulationId={sim_id}") as ws:
+        with pytest.raises(WebSocketDisconnect) as closed:
+            ws.receive_json()
+    assert closed.value.code == 1011
+    assert closed.value.reason == "Internal server error"

@@ -101,6 +101,7 @@ Used by the guided comparison and the single-strategy views. State lives in the 
 | POST 🔑 | `/api/simulation/dual/pause` | Pause the comparison | — | `{status, message}` |
 | POST 🔑 | `/api/simulation/dual/reset` | Discard and rebuild the comparison | — | `{status, message, randomSeed}` |
 | GET | `/api/simulation/dual/status` | Comparison clock | — | `{status, elapsed, tick}` |
+| POST 🔑 | `/api/simulation/speed` · `/dual/speed` | Playback speed of the single engine / the comparison | `{multiplier}`, 0 < multiplier ≤ 10 (the dashboard offers 1, 2, 4) | `{message}`. 422 outside the bounds. Changes wall-clock pacing only, never simulated results. |
 | GET | `/api/simulation/active-vehicles` | Active vehicles of the session's single engine | — | `vehicles[]` from the current snapshot |
 | GET | `/api/simulation/status` · `/single-vehicle` | Legacy single-vehicle demo (V0.1) | — | Demo state; `/single-vehicle` advances 0.1 s per call while running |
 | POST 🔑 | `/api/simulation/start` · `/stop` · `/reset` | Legacy demo controls (`/stop` also stops the session's live engine) | — | `{status, message}` |
@@ -221,6 +222,20 @@ A saved replay and its run record share one ID; deleting one deletes both.
 
 When the request carries the caller's live-session cookie and that session's engine ran with the claimed seed, the server stores the **engine's** exact configuration and metrics at the recorded elapsed time instead of the client's copy.
 
+### 7.1 Scenario suites (V1.7)
+
+A suite groups saved runs; a batch fills it by running one base scenario over several arrival rates and seeds in a background job.
+
+| Method | Route | Purpose | Input | Output | Errors |
+| --- | --- | --- | --- | --- | --- |
+| POST 🔑 👤 | `/api/suites` | Create a suite | `{name, description, run_ids, config_variations}` | `{id}` | 401, 422 |
+| GET 👤 | `/api/suites?limit=50&offset=0` | List suites | — | `{suites}` | 401 |
+| GET 👤 | `/api/suites/{suiteId}` | A suite and its run records | — | `{suite, runs}` | 404 |
+| POST 🔑 👤 | `/api/suites/{suiteId}/batch` | Start a batch | `{baseConfig, sweepParameters: {arrivalRate: [...]}, numSeeds}` — `baseConfig` is the dashboard body (as for `/api/simulation/config`) or an engine configuration; 1–20 rates in (0, 10], 1–30 seeds (42, 43, …), at most 60 simulations | `{jobId}`; poll `/api/v1/study/jobs/{jobId}`. Every run is stored with provenance and attached to the suite | 400 invalid `baseConfig`, 404 unknown suite, 422 bounds, 429 |
+| GET 👤 | `/api/suites/{suiteId}/export/csv` | Download the suite's runs | — | CSV | 404 |
+
+Suites are shared research records, like run history: any signed-in user can list and read every suite, and start a batch in it. They are deliberately not owner-scoped — a suite only groups runs, and those runs are readable by anyone through `/api/v1/study/history/runs?batch_id=<suiteId>`, so a private suite would hide nothing. Only saved replays (§7) are per-user.
+
 ---
 
 ## 8. WebSockets
@@ -231,7 +246,7 @@ When the request carries the caller's live-session cookie and that session's eng
 | `/ws/simulation/live` | Caller's live session (cookie) | as above | Client disconnects | Ignored |
 | `/ws/v1/stream?simulationId=<id>` | One versioned simulation | `simulation.snapshotFrequency` (default 10 Hz, 1–60) | Snapshot status `completed` or `error` | Ignored — control via `POST …/control` |
 
-Close codes: `1008` unknown `simulationId` (versioned stream) · `1011` server error.
+Close codes: `1008` unknown `simulationId` (versioned stream) · `1011` server error (generic reason; the detail is in the server log).
 
 ### 8.1 Lifecycle of a guided comparison
 

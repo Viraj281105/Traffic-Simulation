@@ -1,12 +1,21 @@
 import contextlib
 import os
 import sqlite3
-from typing import Generator
+import threading
+from typing import Generator, Set
 
 DEFAULT_DB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "simulation.db")
 )
 DB_PATH = os.environ.get("DB_PATH", DEFAULT_DB_PATH)
+
+# Database files init_db() has already prepared in this process.
+_initialized_paths: Set[str] = set()
+_initialized_paths_lock = threading.Lock()
+# Serialises ensure_db_initialized()'s slow path. Concurrent init_db() runs on
+# one file race each other's migrations (both read a column as missing, both
+# ALTER TABLE) and fail with "database is locked" / "duplicate column name".
+_init_lock = threading.Lock()
 
 
 def init_db() -> None:
@@ -15,7 +24,17 @@ def init_db() -> None:
     if db_dir:
         os.makedirs(db_dir, exist_ok=True)
 
-    conn = sqlite3.connect(DB_PATH, timeout=5.0)
+    # closing(): a failed statement must not leak the connection. The CREATE
+    # and ALTER statements each take effect as they run, so a retry after a
+    # partial failure resumes where this one stopped.
+    with contextlib.closing(sqlite3.connect(DB_PATH, timeout=5.0)) as conn:
+        _create_schema(conn)
+
+    with _initialized_paths_lock:
+        _initialized_paths.add(DB_PATH)
+
+
+def _create_schema(conn: sqlite3.Connection) -> None:
     cursor = conn.cursor()
 
     # Enable WAL mode, busy timeout, and Foreign Key support
@@ -198,7 +217,30 @@ def init_db() -> None:
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);")
 
     conn.commit()
-    conn.close()
+
+
+def ensure_db_initialized() -> None:
+    """Runs init_db() unless it already ran for this database file.
+
+    Request handlers call this before touching the database. They used to
+    call init_db() itself, which re-runs every CREATE/PRAGMA/migration
+    statement and commits — about 19 ms per request on a local disk, more
+    than the query it guarded. The schema is still created on first use of a
+    file, and again if that file has since been removed (the tests point
+    DB_PATH at fresh temporary files).
+    """
+    if _is_initialized(DB_PATH):
+        return
+    with _init_lock:
+        # Another thread may have finished it while this one waited.
+        if not _is_initialized(DB_PATH):
+            init_db()
+
+
+def _is_initialized(path: str) -> bool:
+    with _initialized_paths_lock:
+        ready = path in _initialized_paths
+    return ready and os.path.exists(path)
 
 
 @contextlib.contextmanager
