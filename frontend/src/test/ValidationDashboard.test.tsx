@@ -281,6 +281,39 @@ describe("ValidationDashboard", () => {
     expect(screen.queryByText(/±1\.05/)).toBeNull();
   });
 
+  it("shows metrics with no defined test as untestable, not negligible", async () => {
+    const untestable = {
+      pValue: null,
+      cohensD: null,
+      significant: false,
+      untestableReason: "no_variation",
+    };
+    await runOnce({
+      ...MOCK_VALIDATION,
+      alpha: 0.05,
+      comparison: {
+        delay: untestable,
+        throughput: untestable,
+        queue: { pValue: 0.6, cohensD: 0.1, significant: false },
+      },
+    });
+    const pills = Array.from(document.querySelectorAll(".sig-pill")).map(
+      (pill) => pill.textContent,
+    );
+    expect(pills).toEqual([
+      "Avg Delay (s): No test applies",
+      "Throughput (veh): No test applies",
+      "Avg Queue (veh): Not supported",
+    ]);
+    // The two untestable effect badges.
+    expect(screen.getAllByText("No test applies")).toHaveLength(2);
+    expect(
+      screen.getByText(/no seed-to-seed variation to test a difference/i),
+    ).toBeInTheDocument();
+    // Only the testable queue metric gets a size word.
+    expect(screen.getAllByText("Negligible")).toHaveLength(1);
+  });
+
   it("does not say that non-significance means the controls are equal", async () => {
     await runOnce({
       ...MOCK_VALIDATION,

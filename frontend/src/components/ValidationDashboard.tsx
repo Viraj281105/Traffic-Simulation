@@ -96,9 +96,13 @@ interface ValidationResult {
 interface GroupComparison {
   pValue: number | null;
   significant: boolean;
-  cohensD: number;
+  /** Null when no test statistic is defined (see untestableReason). */
+  cohensD: number | null;
   /** Welch-Satterthwaite degrees of freedom (absent for degenerate cases). */
   degreesOfFreedom?: number;
+  /** Why there is no p-value: too few seeds, an invalid value, or no
+   *  seed-to-seed variation in either control. */
+  untestableReason?: "insufficient_data" | "invalid_data" | "no_variation";
 }
 
 const METRIC_KEYS = ["delay", "throughput", "queue"] as const;
@@ -119,11 +123,18 @@ const METRIC_UNITS: Record<MetricKey, string> = {
 const SIGNAL_COLOR = "#3b82f6"; // Vibrant blue
 const ROUND_COLOR = "#10b981"; // Emerald green
 
-function getCohensDLabel(d: number): {
+function getCohensDLabel(d: number | null): {
   label: string;
   color: string;
   bg: string;
 } {
+  // No effect size is defined (too few seeds, or no variation to scale by).
+  if (d === null)
+    return {
+      label: "No test applies",
+      color: "#64748b",
+      bg: "rgba(100, 116, 139, 0.12)",
+    };
   const absD = Math.abs(d);
   if (absD >= 0.8)
     return {
@@ -1188,10 +1199,22 @@ export const ValidationDashboard: React.FC = () => {
                       {METRIC_LABELS[k]}:{" "}
                       {result.comparison[k].significant
                         ? `Supported (p<${resultAlpha.toString()})`
-                        : "Not supported"}
+                        : result.comparison[k].untestableReason
+                          ? "No test applies"
+                          : "Not supported"}
                     </span>
                   ))}
                 </div>
+                {METRIC_KEYS.some(
+                  (k) => result.comparison[k].untestableReason,
+                ) && (
+                  <p className="verdict-detail">
+                    &quot;No test applies&quot; marks a metric with no p-value:
+                    every seed gave each control the same value, or there were
+                    too few seeds, so there is no seed-to-seed variation to test
+                    a difference against.
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -1317,7 +1340,11 @@ export const ValidationDashboard: React.FC = () => {
                               <div className="stats-footer-left">
                                 <span className="stat-badge-chip">
                                   Cohen&apos;s d:{" "}
-                                  <strong>{cmp.cohensD.toFixed(3)}</strong>
+                                  <strong>
+                                    {cmp.cohensD === null
+                                      ? "—"
+                                      : cmp.cohensD.toFixed(3)}
+                                  </strong>
                                 </span>
                                 {cmp.pValue !== null && (
                                   <span className="stat-badge-chip">

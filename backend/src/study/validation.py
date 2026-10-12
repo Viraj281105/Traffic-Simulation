@@ -172,6 +172,28 @@ def _student_t_two_tailed_p_value(t_stat: float, degrees_of_freedom: float) -> f
     return _regularized_incomplete_beta(degrees_of_freedom / 2.0, 0.5, x)
 
 
+# A group's spread at or below this fraction of the data's magnitude is
+# floating-point round-off, not variation (see _compare_groups).
+_ZERO_SPREAD_RELATIVE_TOLERANCE = 1e-9
+
+
+def _untestable(reason: str) -> Dict[str, Any]:
+    """A comparison no test statistic is defined for.
+
+    ``reason`` is ``"insufficient_data"`` (fewer than two values in a group),
+    ``"invalid_data"`` (a non-finite value) or ``"no_variation"`` (neither
+    group varies). The p-value and Cohen's d are null rather than a number:
+    0.0 for d read as "negligible effect", and 1.0 for p as "no evidence of a
+    difference", neither of which these data show.
+    """
+    return {
+        "cohensD": None,
+        "pValue": None,
+        "significant": False,
+        "untestableReason": reason,
+    }
+
+
 def _compare_groups(
     a: List[float], b: List[float], alpha: float = 0.05
 ) -> Dict[str, Any]:
@@ -190,24 +212,44 @@ def _compare_groups(
     the normal approximation and therefore does not understate p-values at
     low n. At large n the two converge, so this does not change behaviour
     for studies that already run with many seeds.
+
+    When no test statistic is defined -- too few values, a non-finite value,
+    or no spread in either group -- the result is ``_untestable``: null
+    p-value and d, ``significant`` False, and an ``untestableReason``. One
+    group without spread is still a defined Welch test (its df comes from the
+    other group) and is tested as usual.
     """
     n_a, n_b = len(a), len(b)
     if n_a < 2 or n_b < 2:
-        return {"cohensD": 0.0, "pValue": None, "significant": False}
+        return _untestable("insufficient_data")
+    if not all(math.isfinite(x) for x in (*a, *b)):
+        return _untestable("invalid_data")
 
     mean_a = sum(a) / n_a
     mean_b = sum(b) / n_b
     var_a = sum((x - mean_a) ** 2 for x in a) / (n_a - 1)
     var_b = sum((x - mean_b) ** 2 for x in b) / (n_b - 1)
 
+    # With no spread in either group the standard error is zero, so Welch's t
+    # (difference / SE) and its Welch-Satterthwaite df (0 / 0) are undefined:
+    # there is no pattern-to-pattern variation to judge the difference
+    # against, whether the means differ or not. This used to return p = 1.0
+    # ("no evidence of a difference") with d = 0 -- yet the same data in
+    # values that do not round exactly ([0.1]*3 vs [0.2]*3) left round-off
+    # "variance" of ~1e-33 and came out p = 0.0, significant, d ~ 1e15. A
+    # spread below a relative tolerance is therefore treated as none.
+    scale = max(1.0, max(abs(x) for x in (*a, *b)))
+    no_spread = _ZERO_SPREAD_RELATIVE_TOLERANCE * scale
+    if math.sqrt(var_a) <= no_spread and math.sqrt(var_b) <= no_spread:
+        return _untestable("no_variation")
+
+    # Past the guard at least one group varies, so both are positive.
     pooled_std = math.sqrt((var_a + var_b) / 2.0)
-    cohens_d = (mean_a - mean_b) / pooled_std if pooled_std > 0 else 0.0
+    cohens_d = (mean_a - mean_b) / pooled_std
 
     se_sq_a = var_a / n_a
     se_sq_b = var_b / n_b
     se = math.sqrt(se_sq_a + se_sq_b)
-    if se == 0:
-        return {"cohensD": round(cohens_d, 3), "pValue": 1.0, "significant": False}
     t_stat = abs(mean_a - mean_b) / se
 
     # Welch-Satterthwaite degrees of freedom.

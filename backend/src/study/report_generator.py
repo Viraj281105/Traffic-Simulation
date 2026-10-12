@@ -14,6 +14,17 @@ _ONE_SEED_NOTE = (
 )
 
 
+# Why a validation comparison has no p-value (study/validation.py _untestable).
+_UNTESTABLE_SENTENCES = {
+    "insufficient_data": "; no test was possible (fewer than 2 patterns).",
+    "invalid_data": "; no test was possible (a run returned no valid value).",
+    "no_variation": (
+        "; every pattern gave the same value for each control, so there is no "
+        "pattern-to-pattern variation to test against and no p-value applies."
+    ),
+}
+
+
 def _decided_sequence(runs: List[Dict[str, Any]]) -> List[str]:
     """Winners of the decided tiers (ties and inconclusive tiers dropped), in
     arrival-rate order (run order when a run carries no rate)."""
@@ -215,7 +226,13 @@ def _summarize_validation_evidence(validation: Dict[str, Any]) -> Dict[str, Any]
             f"{unit} over {n} random traffic patterns"
         )
         if p is None:
-            sentences.append(head + "; no test was possible (fewer than 2 patterns).")
+            sentences.append(
+                head
+                + _UNTESTABLE_SENTENCES.get(
+                    cmp.get("untestableReason"),
+                    _UNTESTABLE_SENTENCES["insufficient_data"],
+                )
+            )
         elif supported:
             sentences.append(
                 head
