@@ -8,7 +8,7 @@
 
 | Version | Status | Next | Stack |
 | :-: | :-: | :-: | :-: |
-| **V2.0 (release gate open)** | ✅ V1.0 deployed on AWS · V1.1–V1.3 complete · V1.4–V2.0 implemented and merged, V1.6–V1.9 partly ([status](docs/ROADMAP.md)) · **not released**: the [V2.0 release gate](docs/roadmap/V2_COMPLETION_AUDIT.md) is open | V2.0 release decision | Python · FastAPI · React · TypeScript · Docker · AWS EC2 |
+| **V2.0** | ✅ V2.0 complete — [release gate](docs/roadmap/V2_COMPLETION_AUDIT.md) passed 2026-10-13 · V1.6–V1.9 delivered partly ([status](docs/ROADMAP.md)) | V3.0 design approval (G-D) | Python · FastAPI · React · TypeScript · Docker · AWS EC2 |
 
 </div>
 
@@ -220,12 +220,12 @@ flowchart LR
 | W12 · Oct 5–6 | **V1.1** | Different Vehicle Types | ✅ Complete |
 | W12 · Oct 5–6 | **V1.2** | Advanced Lane Modelling | ✅ Complete |
 | W12 · Oct 6 | **V1.3** | Adaptive Signal Control | ✅ Complete |
-| W12 · Oct 7 | **V1.4** | Advanced Roundabout Modelling + Scenario Config | 🟢 Implemented, merged |
-| W12 · Oct 7 | **V1.5** | Real-World Junction Modelling | 🟢 Implemented, merged |
-| Oct 9 (planned W17) | **V1.6** | Safety & Environmental Analysis | 🟢 Implemented, partial (exploratory, not validated) |
-| Oct 9 (planned W18) | V1.7 | Scenario / What-If Planning | 🟢 Implemented, partial |
-| Oct 8 (planned W19) | V1.8 / V1.9 | Calibration & Network-Level Foundations | 🟢 Implemented, partial (no field data or fitting; networks not simulated) |
-| Oct 8–12 (planned W20) | **V2.0** | UrbanFlow Decision-Support Platform | 🟢 Implemented · **release gate open** |
+| W12 · Oct 7 | **V1.4** | Advanced Roundabout Modelling + Scenario Config | ✅ Complete |
+| W12 · Oct 7 | **V1.5** | Real-World Junction Modelling | ✅ Complete |
+| Oct 9 (planned W17) | **V1.6** | Safety & Environmental Analysis | ✅ Complete, partial (exploratory, not validated) |
+| Oct 9 (planned W18) | V1.7 | Scenario / What-If Planning | ✅ Complete, partial |
+| Oct 8 (planned W19) | V1.8 / V1.9 | Calibration & Network-Level Foundations | ✅ Complete, partial (no field data or fitting; networks not simulated) |
+| Oct 8–12 (planned W20) | **V2.0** | UrbanFlow Decision-Support Platform | ✅ Complete (release gate passed 2026-10-13) |
 
 Authoritative detail: [ROADMAP](docs/ROADMAP.md).
 
