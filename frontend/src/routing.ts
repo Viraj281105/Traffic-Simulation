@@ -22,6 +22,7 @@ export const VIEW_ROUTES = {
   junction: "/app/junction",
   threeWay: "/app/three-way",
   research: "/app/research",
+  planner: "/app/planner",
   admin: "/app/admin",
 } as const;
 

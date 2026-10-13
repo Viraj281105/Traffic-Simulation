@@ -5,8 +5,8 @@ import {
   ApiError,
   getReplay,
   getRunRecord,
+  fetchRunExport,
   reproduceRun,
-  runExportUrl,
   updateRunMetadata,
   type ReproductionResult,
   type RunRecord,
@@ -159,6 +159,31 @@ function RunDetails({
   onOpenInSimulator: (replay: SavedReplay) => void;
 }) {
   const [openError, setOpenError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState<"json" | "csv" | null>(null);
+
+  // Fetched with the signed-in user's token and saved from memory: a saved
+  // run is private, so a plain download link (no token) would be refused.
+  const exportRun = (format: "json" | "csv") => {
+    setExportError(null);
+    setExporting(format);
+    fetchRunExport(record.runId, format)
+      .then((text) => {
+        downloadText(
+          `run_${record.runId}.${format}`,
+          text,
+          format === "json" ? "application/json" : "text/csv;charset=utf-8",
+        );
+      })
+      .catch(() => {
+        setExportError(
+          `The ${format.toUpperCase()} export could not be downloaded. Try again.`,
+        );
+      })
+      .finally(() => {
+        setExporting(null);
+      });
+  };
   const status = provenanceStatus(record);
   const commit = commitLabel(record.gitCommitHash);
   const config = configLabel(record);
@@ -232,20 +257,28 @@ function RunDetails({
           >
             Compare with other runs
           </a>
-          <a
+          <button
+            type="button"
             className="pb-btn pb-secondary"
-            href={runExportUrl(record.runId, "json")}
-            download={`run_${record.runId}.json`}
+            onClick={() => {
+              exportRun("json");
+            }}
+            disabled={exporting !== null}
+            aria-busy={exporting === "json"}
           >
             Export JSON
-          </a>
-          <a
+          </button>
+          <button
+            type="button"
             className="pb-btn pb-secondary"
-            href={runExportUrl(record.runId, "csv")}
-            download={`run_${record.runId}.csv`}
+            onClick={() => {
+              exportRun("csv");
+            }}
+            disabled={exporting !== null}
+            aria-busy={exporting === "csv"}
           >
             Export CSV
-          </a>
+          </button>
           <button
             type="button"
             className="pb-btn pb-secondary"
@@ -264,6 +297,11 @@ function RunDetails({
         {openError && (
           <p className="history-status error" role="alert">
             {openError}
+          </p>
+        )}
+        {exportError && (
+          <p className="history-status error" role="alert">
+            {exportError}
           </p>
         )}
         <p className="run-hint">

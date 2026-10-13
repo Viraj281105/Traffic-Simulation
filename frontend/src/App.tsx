@@ -52,6 +52,7 @@ import {
   GitCompareArrows,
   Bookmark,
   FlaskConical,
+  ClipboardList,
   Settings2,
   Dices,
   LogIn,
@@ -134,6 +135,11 @@ const ThreeWayStudyPage = lazy(() =>
 const AdminPanel = lazy(() =>
   import("./components/AdminPanel").then((m) => ({ default: m.AdminPanel })),
 );
+const PlannerPage = lazy(() =>
+  import("./components/planner/PlannerPage").then((m) => ({
+    default: m.PlannerPage,
+  })),
+);
 const viewLoading = <UrbanFlowLoader label="Loading…" />;
 
 type ViewMode = RoutedView | "single";
@@ -189,7 +195,7 @@ const SINGLE_VIEWS: ReadonlySet<ViewMode> = new Set([
 /** The three places in the product. Compare is the guided path everyone
  *  starts on; Saved holds kept comparisons; the Research lab gathers every
  *  specialist tool. */
-type Section = "compare" | "saved" | "research" | "admin";
+type Section = "compare" | "saved" | "plan" | "research" | "admin";
 
 const RESEARCH_VIEWS: ReadonlySet<ViewMode> = new Set([
   "research",
@@ -205,6 +211,7 @@ const RESEARCH_VIEWS: ReadonlySet<ViewMode> = new Set([
 function sectionOf(view: ViewMode): Section {
   if (view === "history") return "saved";
   if (view === "admin") return "admin";
+  if (view === "planner") return "plan";
   if (RESEARCH_VIEWS.has(view)) return "research";
   return "compare";
 }
@@ -1162,6 +1169,15 @@ function Dashboard({
             <ThreeWayStudyPage />
           </Suspense>
         </PageTransition>
+      ) : viewMode === "planner" ? (
+        <PageTransition
+          transitionKey={pageKey}
+          className="app-main full-screen page-scroll"
+        >
+          <Suspense fallback={viewLoading}>
+            <PlannerPage />
+          </Suspense>
+        </PageTransition>
       ) : viewMode === "admin" ? (
         <PageTransition
           transitionKey={pageKey}
@@ -1302,6 +1318,7 @@ const MAIN_TABS: {
     icon: GitCompareArrows,
   },
   { view: "history", section: "saved", label: "Saved", icon: Bookmark },
+  { view: "planner", section: "plan", label: "Plan", icon: ClipboardList },
   {
     view: "research",
     section: "research",
@@ -1332,7 +1349,7 @@ function MainNav({
           current={section === tab.section}
           icon={tab.icon}
           onIntercept={
-            tab.section === "research"
+            tab.section === "research" || tab.section === "plan"
               ? (e, href) => {
                   e.preventDefault();
                   requireAuth(() => {

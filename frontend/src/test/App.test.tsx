@@ -40,6 +40,7 @@ vi.mock("../services/api", () => ({
   getReplay: (id: string) => getReplay(id) as Promise<unknown>,
   reproduceRun: vi.fn(),
   updateRunMetadata: vi.fn(),
+  fetchRunExport: vi.fn(),
   runExportUrl: (id: string, format: string) =>
     `/api/v1/study/history/runs/${id}/export?format=${format}`,
   ApiError: class ApiError extends Error {
@@ -155,6 +156,22 @@ describe("App", () => {
 
     expect(container.firstChild).not.toBeNull();
   });
+
+  // axe walks the whole rendered document: about 3 s for the planner form on
+  // an idle machine, past the default 5 s when the full suite runs alongside
+  // other work. It waits only on rendered output, so the budget hides no race.
+  it(
+    "has no automatically detectable accessibility violations (axe)",
+    { timeout: 15_000 },
+    async () => {
+      render(<App />);
+      await waitFor(() => {
+        expect(updateSimulationConfig).toHaveBeenCalled();
+      });
+      const { axeViolations } = await import("./axe");
+      expect(await axeViolations(document.body)).toEqual([]);
+    },
+  );
 
   it("pushes the current configuration to the backend on mount", async () => {
     render(<App />);

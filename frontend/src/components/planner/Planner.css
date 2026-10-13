@@ -1,0 +1,203 @@
+/* V2.0 planner page. Uses the app's theme tokens only. */
+
+.planner {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px 16px 48px;
+  color: var(--color-text);
+}
+
+.planner-header h1 {
+  margin: 0 0 6px;
+}
+
+.planner-header p,
+.planner-muted {
+  color: var(--color-text-2);
+}
+
+.planner-setup,
+.planner-study,
+.planner-results {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.planner-block,
+.planner-banner,
+.planner-scale {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+
+.planner-block h2,
+.planner-block h3,
+.planner-scale h3 {
+  margin-top: 0;
+}
+
+.planner-banner {
+  border-color: var(--color-warning);
+}
+
+.planner-banner p {
+  margin: 0 0 6px;
+}
+
+.planner-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0;
+  font-size: 14px;
+}
+
+.planner-table caption {
+  text-align: left;
+  color: var(--color-text-2);
+  padding-bottom: 6px;
+}
+
+.planner-table th,
+.planner-table td {
+  border-bottom: 1px solid var(--color-border);
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.planner-ci {
+  color: var(--color-text-3);
+  font-size: 12px;
+}
+
+.planner-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0;
+  border: 0;
+  padding: 0;
+}
+
+.planner-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.planner-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 12px;
+}
+
+.planner-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.planner button,
+.planner input,
+.planner select {
+  font: inherit;
+}
+
+.planner button {
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.planner button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.planner button:focus-visible,
+.planner input:focus-visible,
+.planner select:focus-visible,
+.planner a:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.planner .planner-primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+.planner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.planner-error {
+  color: var(--color-text);
+  border-left: 3px solid var(--color-warning);
+  padding-left: 8px;
+}
+
+.planner-ok {
+  border-left: 3px solid var(--color-success);
+  padding-left: 8px;
+}
+
+.planner-progress progress {
+  width: 100%;
+  max-width: 480px;
+}
+
+.planner-open {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.planner-findings li {
+  margin-bottom: 10px;
+}
+
+.planner-evidence {
+  font-size: 12px;
+  color: var(--color-text-2);
+  overflow-wrap: anywhere;
+}
+
+.planner-provenance {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 12px;
+}
+
+.planner-provenance dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.planner-provenance code,
+.planner-evidence code {
+  font-family: var(--font-mono);
+}
+
+@media (max-width: 700px) {
+  .planner-table {
+    display: block;
+    overflow-x: auto;
+  }
+}

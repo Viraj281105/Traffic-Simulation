@@ -8,6 +8,7 @@ const getRunRecord = vi.fn();
 const getReplay = vi.fn();
 const reproduceRun = vi.fn();
 const updateRunMetadata = vi.fn();
+const fetchRunExport = vi.fn();
 
 vi.mock("../services/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../services/api")>()),
@@ -16,10 +17,13 @@ vi.mock("../services/api", async (importOriginal) => ({
   reproduceRun: (id: string) => reproduceRun(id) as Promise<unknown>,
   updateRunMetadata: (id: string, c: unknown) =>
     updateRunMetadata(id, c) as Promise<unknown>,
+  fetchRunExport: (id: string, format: string) =>
+    fetchRunExport(id, format) as Promise<unknown>,
 }));
 
 import { ApiError } from "../services/api";
 import { RunPage } from "../components/RunPage";
+import { axeViolations } from "./axe";
 
 const RUN_ID = "0f3c9a1e-1111-4222-8333-944445555666";
 
@@ -113,19 +117,81 @@ describe("RunPage", () => {
     const p95 = document.querySelector('[data-metric="p95Delay"] dd');
     expect(p95).toHaveTextContent("—");
 
-    expect(screen.getByRole("link", { name: "Export JSON" })).toHaveAttribute(
-      "href",
-      `/api/v1/study/history/runs/${RUN_ID}/export?format=json`,
-    );
-    expect(screen.getByRole("link", { name: "Export CSV" })).toHaveAttribute(
-      "href",
-      `/api/v1/study/history/runs/${RUN_ID}/export?format=csv`,
-    );
+    // Exports are buttons, not links: a saved run is private, so the file is
+    // fetched with the user's token rather than by a tokenless link.
+    expect(screen.getByRole("button", { name: "Export JSON" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Export CSV" })).toBeEnabled();
+    expect(screen.queryByRole("link", { name: /Export/ })).toBeNull();
     expect(screen.getByLabelText("Tags (comma-separated)")).toHaveValue(
       "baseline",
     );
     expect(screen.getByLabelText("Notes")).toHaveValue("first pass");
   });
+
+  it("downloads exports through the signed-in client", async () => {
+    const user = userEvent.setup();
+    getRunRecord.mockResolvedValue(exact);
+    fetchRunExport.mockResolvedValue('{"exportVersion":1}');
+    const created: Blob[] = [];
+    const createObjectURL = vi.fn((blob: Blob) => {
+      created.push(blob);
+      return "blob:run";
+    });
+    const revokeObjectURL = vi.fn();
+    Object.assign(URL, { createObjectURL, revokeObjectURL });
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => undefined);
+    render(<RunPage runId={RUN_ID} onOpenInSimulator={vi.fn()} />);
+
+    await user.click(
+      await screen.findByRole("button", { name: "Export JSON" }),
+    );
+
+    expect(fetchRunExport).toHaveBeenCalledWith(RUN_ID, "json");
+    await vi.waitFor(() => {
+      expect(click).toHaveBeenCalledTimes(1);
+    });
+    expect(created[0].type).toBe("application/json");
+    expect(created[0].size).toBe('{"exportVersion":1}'.length);
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:run");
+    expect(screen.queryByRole("alert")).toBeNull();
+    click.mockRestore();
+  });
+
+  it("says so when an export cannot be downloaded", async () => {
+    const user = userEvent.setup();
+    getRunRecord.mockResolvedValue(exact);
+    fetchRunExport.mockRejectedValue(new ApiError(404, "Not Found"));
+    render(<RunPage runId={RUN_ID} onOpenInSimulator={vi.fn()} />);
+
+    await user.click(await screen.findByRole("button", { name: "Export CSV" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The CSV export could not be downloaded. Try again.",
+    );
+    expect(fetchRunExport).toHaveBeenCalledWith(RUN_ID, "csv");
+    expect(screen.getByRole("button", { name: "Export CSV" })).toBeEnabled();
+  });
+
+  // axe walks the whole rendered document: about 3 s for the planner form on
+  // an idle machine, past the default 5 s when the full suite runs alongside
+  // other work. It waits only on rendered output, so the budget hides no race.
+  it(
+    "has no automatically detectable accessibility violations (axe)",
+    { timeout: 15_000 },
+    async () => {
+      getRunRecord.mockResolvedValue(exact);
+      // Inside <main>, as the app mounts it (PageTransition renders <main>).
+      render(
+        <main>
+          <RunPage runId={RUN_ID} onOpenInSimulator={vi.fn()} />
+        </main>,
+      );
+      await screen.findByRole("heading", { name: "Roundabout baseline" });
+      expect(await axeViolations(document.body)).toEqual([]);
+    },
+  );
 
   it("shows a not-found state for an unknown run", async () => {
     getRunRecord.mockRejectedValue(new ApiError(404, "Not Found"));
