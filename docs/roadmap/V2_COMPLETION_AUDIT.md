@@ -1,6 +1,6 @@
 # V2.0 Completion Audit
 
-> **Status:** **revision 6 (2026-10-13): release gate NOT PASSED — engineering rows pass locally; open: external CI on a pushed gate commit, second-engineer review, deployment** · base `viraj-dev` @ `4b40cc9` (= `origin/viraj-dev`; merged into `origin/main` by PRs #141/#169) plus the local gate commits listed in §7.0c · earlier revisions kept below for history
+> **Status:** **revision 7 (2026-10-13): V2.0 release gate PASSED** — approved by the product owner on gate commit `6b609ce` (`viraj-dev`) with CI green on that commit; production deployment is left to the product owner (manual) and is **not verified by this audit** · earlier revisions kept below for history
 > **Series:** [V2 completion audit](V2_COMPLETION_AUDIT.md) · [V3 product strategy](V3_PRODUCT_STRATEGY.md) · [V3 weekly sprint plan](V3_WEEKLY_SPRINT_PLAN.md) · [V3 presentation plan](V3_PRESENTATION_PLAN.md)
 > **Authority:** [`docs/ROADMAP.md`](../ROADMAP.md) is the single authoritative roadmap and was **not** edited. Where this audit finds ROADMAP statements that are out of date (§7, R4.2) it records the correction as an *owner-authorised edit still to be made*.
 
@@ -19,6 +19,29 @@ The gate's work packages W1, W3, W4, W5 and W6 (part A) were carried out and the
 * **Gate verdict: NOT PASSED.** Code, security and documentation rows now pass locally; the gate is held by (1) the slow suite (**2 of 190 fail**, a known model limit with a stale test expectation — owner decision), (2) no gate commit / review / CI (not authorised in this run), (3) product-owner decisions D-V2-0…D-V2-6, (4) `ROADMAP.md` (not editable without authorisation), (5) accessibility tooling (axe) not run, (6) the deployment rows (G-PROD).
 * **New findings:** 155 of the 190 slow tests are in **no** CI job (the nightly slow run covers 35), so earlier "slow suite green in CI" statements covered 18 % of it; the documented "suites are deliberately shared" design (API reference §7.1) is reversed by the D-V2-3 proposal implemented here and needs explicit PO confirmation; V1 run history (`/api/v1/study/history/runs`) is unauthenticated, so suite privacy hides suite metadata but not run metrics; a planning study could previously attach (and read the fitted scenario of) another user's calibration run — fixed; the planning API's 422 reasons were flattened into a Python repr in the error envelope — now a list in `error.details.errors`.
 * **Both failed deployments diagnosed (R5.1):** run 37914357365 (`4956570`) failed in `npm run build` on the EC2 host (TypeScript syntax errors in `SafetyTimelineVisualizer.tsx`, since fixed in `b707e3e`/`26e5577`; the script aborted and left the old containers running); run 37932609196 (`6977d20`) lost its SSH session (`client_loop: send disconnect: Broken pipe`, exit 255) about five minutes into the remote `npm run build` — the failure mode `8f6e80f` redesigns (detached run). Whether the second run's remote build finished is unknown.
+
+### Revision 7 (2026-10-13) — release gate decision: **G-V2 PASSED**
+
+**Gate commit:** `6b609ce` on `viraj-dev` (pushed 2026-10-13; `4b40cc9..6b609ce`: `614566a` security and data integrity, `554e767` simulation evidence and CI coverage, `548b56e` frontend, `6b609ce` documentation).
+
+**CI on the gate commit (all green):**
+* Continuous Integration, push — [38374615193](https://github.com/Viraj281105/Traffic-Simulation/actions/runs/38374615193): Schema Validation, Backend Lint & Types (ruff, ruff format, mypy), Backend CI (`pytest -m "not slow"` + 85 % coverage gate, Python 3.11), Frontend CI (ESLint, tsc, Prettier, Vitest), build-and-test.
+* Continuous Integration, manual dispatch with the slow suite — [38374630279](https://github.com/Viraj281105/Traffic-Simulation/actions/runs/38374630279): the same jobs plus **all 12 slow shards** (the first CI run of the full slow suite; previously 5 shards covered 35 of 190 tests).
+* Docker Container CI, push — [38374615230](https://github.com/Viraj281105/Traffic-Simulation/actions/runs/38374615230): compose validation, backend and frontend image builds, full-stack compose smoke test.
+* Static check of the deployment scripts: `shellcheck -S warning` (v0.10.0) on the committed `scripts/deploy-ec2.sh`, `scripts/run-remote-deploy.sh`, `scripts/validate-schemas.sh` — clean.
+
+**Product-owner decisions (2026-10-13), recorded in the accepted-gap register (§7.8):**
+
+| Item | Decision | Status in this audit |
+| --- | --- | --- |
+| R1.7 Independent review of the gate commit | **Waived** by the product owner | Accepted gap — no second-engineer review took place |
+| R2.8 Keyboard-only and screen-reader review | **Done**, per the product owner | Owner-attested; this audit verified the automated part (axe in Vitest, browser contrast check) only |
+| R5.2–R5.4, R6.1–R6.3 Production deployment (G-PROD) | **Left to the product owner, done manually** | Not verified by this audit (no access to production); the pipeline root causes (R5.1) and script checks are recorded |
+| D-V2-2, D-V2-3, D-V2-7, D-V2-8, npm deferral | Approved / accepted (revision 6) | Evidence in revision 6 and §7.0b–7.0c |
+
+**Gate verdict.** Dimensions 1–5 are PASS on the gate commit or an accepted gap above; dimension 6 (production) is left to the product owner's manual deployment. **G-V2 is passed and V2.0 is complete.** Issues #142–#149 are closed with this evidence. **V3.0 still needs its own design-approval gate (G-D, #150) before implementation starts** (§7.12).
+
+**Known limitations that ship with V2.0 (documented, not defects):** calibration is a comparison framework — no field data has been run through it and nothing is fitted; network documents are validated but multi-junction networks are not simulated; a third approach lane on a two-lane roundabout adds no capacity (K1); safety proxies and fuel/CO₂ figures are exploratory; interrupted planning jobs are reported, not resumed; no per-IP request-rate limit (compute is bounded per client); Python 3.11 is the supported runtime (Dependabot PR #134, Python 3.14, is not part of V2.0).
 
 ### Revision 6 (2026-10-13) — product-owner decisions applied, residual risks closed, final verification
 
@@ -81,6 +104,8 @@ Working tree only: **no commit, push, merge, PR or deployment** (not authorised)
 ## 0. Verdict (read this first)
 
 **V2.0 is NOT release-ready.** The backend is real and works end to end; the product experience the roadmap names for V2.0 ("end-to-end planner workflow … final presentation layer") does not exist, and several security, evidence and documentation criteria are open.
+
+**Revision 7 — G-V2 PASSED (2026-10-13):** product-owner approval on gate commit `6b609ce` with CI green (push, full slow suite, Docker); review waived, accessibility review owner-attested, production deployment left to the product owner (manual; not verified here). V2.0 is complete.
 
 **Revision 6 (§7.0b, §7.0c):** every engineering check that can run locally passes on the final tree (backend fast suite on Python 3.14 and 3.11, full slow suite, frontend, build, images and a full-stack smoke test); the product-owner decisions D-V2-2/3/7/8 and the npm deferral are recorded. **Still not release-ready:** no pushed gate commit with external CI, no second-engineer review, deployment unverified. Issue #142 stays open.
 
