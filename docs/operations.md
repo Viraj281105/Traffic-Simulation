@@ -213,6 +213,87 @@ reachable through nginx. `API_KEY` is defence in depth for anything that reaches
 it another way (a shared Docker network, a port published for debugging,
 a direct `docker exec`).
 
+**Production: `API_KEY` is mandatory.** `docker-compose.yml` defaults it to
+empty (`API_KEY=${API_KEY:-}`), which *disables* the check. Set it on the host
+(`.env` or the environment) before every production start, and confirm after a
+deploy that a request without the key is refused, e.g.
+`curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:8000/api/v2/networks/validate`
+from the host must print `401`. Nothing in the repository can verify the
+production value; it is an operator check.
+
+### Signed-in users and ownership (`/api/v2`, suites, replays)
+
+The key identifies the proxy, not a person, so every route that runs compute
+for a user or stores user data also requires a verified Cognito ID token
+(`Authorization: Bearer <token>`). That covers every `/api/v2` route
+(calibration, networks, planning), scenario suites and saved replays. Records
+belong to their creator; another user's record answers 404 (replays: 403).
+Admins — users whose email is in `ADMIN_EMAILS` — can list every calibration
+run and suite, including legacy rows stored before those tables had an owner
+column; ordinary users never see legacy rows. The owner columns are added
+automatically on first use (`ALTER TABLE … ADD COLUMN user_id`); no manual
+migration is needed, and existing rows are kept.
+
+**Run history** (`/api/v1/study/history/runs`) follows the same rule for
+runs that have an owner: a run saved by a signed-in user (a saved replay, or a
+run from their suite's batch) is visible, exportable, comparable and
+reproducible only by that user or an admin. Runs without an owner — sweeps
+and studies started without signing in — stay public to read, and only an
+admin may change their labels. The rule lives in one place,
+`backend/src/access.py`. Admin status needs a **verified** email
+(`email_verified` in the ID token) listed in `ADMIN_EMAILS`, and the backend
+accepts only RS256-signed user-pool tokens.
+
+### Request and workload limits
+
+| Limit | Value | Where |
+| --- | --- | --- |
+| Concurrent synchronous simulations (sync study routes, the study report export, run reproduction, calibration `POST /runs`, planning `POST /run` and `/{id}/reproduce`) | 2 in total and **1 per client**; further requests get 429 at once | `src/request_limits.py` `MAX_SYNC_COMPUTE_REQUESTS`, `MAX_SYNC_COMPUTE_PER_CLIENT` |
+| Background study jobs / planning jobs | 4 / 2 | `src/study/jobs.py`, `src/planning/service.py` |
+| Steps per run (`duration / timeStep`) | 72,000 (validator and engine) | `src/core/limits.py` `MAX_SIMULATION_TICKS` |
+| Simulated duration | 3600 s | schema, `src/request_limits.py` |
+| Request body | 1 MiB on `/api/v2/networks/*`, `/api/v2/planning/validate` (app); nginx's default 1 MiB on every proxied request | `src/request_limits.py`, nginx |
+
+These are per backend process; the stack runs one. A *client* is the
+address nginx passes in `X-Real-IP` (nginx overwrites whatever the browser
+sent, and the backend is reachable only through nginx), so one client cannot
+hold both synchronous slots; visitors behind one NAT count as one client.
+
+**No per-IP request-rate limit, deliberately.** The live dashboard polls up to
+10 times a second per viewer and the demo is often shown to a room behind one
+NAT address, so an nginx `limit_req` sized to stop a flood would also stop a
+legitimate audience. The exhaustible resource -- simulation -- is bounded
+above. If the deployment is exposed to hostile traffic, add a rate limit at
+the edge (ALB/AWS WAF rate-based rule) sized from observed traffic. Residual
+risk: one client can fill the four background-job slots (each job bounded by
+the study caps and the step ceiling); others then get 429 until they finish.
+
+**WebSocket origin.** `/ws/*` handshakes from a page on another site are
+refused (close code 1008): CORS does not cover WebSockets and the browser
+would send the visitor's live-session cookie. Same-site pages (the `Host` the
+browser connected to; ports are not compared because nginx forwards `Host`
+without one), the origins in `CORS_ORIGINS`, and clients that send no
+`Origin` (scripts) are accepted (`src/ws_origin.py`). Serving the app under a
+second hostname needs that origin added to `CORS_ORIGINS`.
+
+`DEV_AUTH_BYPASS=1` (only in `docker-compose.dev.yml`) accepts the local
+development token as one fixed local user. Never set it in production.
+
+### Data retention and deletion
+
+| Data | Where | Kept | Deleted by |
+| --- | --- | --- | --- |
+| Calibration runs (they contain the observations a user typed in) | `uf_calibration_runs` | Until deleted | Owner or admin: `DELETE /api/v2/calibration/runs/{id}` |
+| Planning studies (queued, running, finished or failed) | `uf_planning_studies` + memory | Until deleted. Every state is stored; a study a stopped process was still running is shown after restart as **failed — interrupted by a server restart** (it is not resumed; run it again) | Owner: `DELETE /api/v2/planning/{id}` (not while queued or running) |
+| Saved replays | `saved_replays` | Until deleted | Owner: `DELETE /api/v1/replays/{id}` |
+| Scenario suites | `scenario_suites` | Until removed by an operator | No API route |
+| Simulation run history | `simulation_runs`, `run_metrics` | Until removed by an operator | A saved replay's run is deleted with the replay; otherwise no API route. Owned runs are private to their owner; unowned runs are public (see above) |
+
+There is no automatic expiry. Deleting a calibration run does not remove the
+copy of its result embedded in planning studies that used it, but those
+studies can then no longer be reproduced. Back up `simulation.db` before any
+manual clean-up.
+
 ### The access gate — who may use the demo
 
 `API_KEY` does not restrict *who* can drive the demo, because nginx adds the key

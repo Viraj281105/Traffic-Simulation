@@ -15,6 +15,13 @@ DEFAULT_TOTAL_VEHICLES: int = 200
 # ``traffic.totalVehicles`` is schema-capped at 5000 (core/config_models.py).
 MAX_TOTAL_VEHICLES: int = 5000
 
+# A run costs one engine step per time step, so its work is duration / timeStep,
+# not duration alone. The schema bounds duration (<= 3600 s) but accepts any
+# positive time step, so a 1e-6 s step turned a one-hour run into 3.6 billion
+# steps. The ceiling is the longest run at a 0.05 s step (twice the default
+# 0.1 s step's maximum); every documented workflow is far inside it.
+MAX_SIMULATION_TICKS: int = 72_000
+
 # Headroom over the expected number of arrivals when deriving a limit from a
 # scenario, so ordinary Poisson variation never reaches it.
 DEMAND_LIMIT_HEADROOM: float = 1.5

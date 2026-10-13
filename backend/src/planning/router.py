@@ -6,7 +6,12 @@ mounts it with one line::
 
     from src.planning.router import create_router
     app.include_router(create_router(user_dependency=get_current_user_id,
+                                     admin_dependency=get_current_user_is_admin,
                                      dependencies=[Depends(require_api_key)]))
+
+Every route, ``validate`` included, takes the signed-in user: the browser
+proxy attaches the API key to every request, so the key alone does not
+identify a person.
 """
 
 from __future__ import annotations
@@ -24,9 +29,14 @@ PREFIX = "/api/v2/planning"
 
 def create_router(
     user_dependency: Optional[Callable[..., str]] = None,
+    admin_dependency: Optional[Callable[..., bool]] = None,
     dependencies: Sequence[Any] = (),
     service: Optional[PlanningService] = None,
+    run_dependencies: Sequence[Any] = (),
 ) -> APIRouter:
+    """``run_dependencies`` apply to the routes that simulate inside the
+    request, ``POST /run`` and ``POST /{id}/reproduce`` (main passes its
+    concurrent-simulation gate, src/request_limits.py)."""
     router = APIRouter(
         prefix=PREFIX, tags=["planning-v2"], dependencies=list(dependencies)
     )
@@ -37,29 +47,42 @@ def create_router(
 
     user_dep = current_user if user_dependency else (lambda: "anonymous")
 
+    def current_admin(admin: bool = Depends(admin_dependency)) -> bool:
+        return admin
+
+    admin_dep = current_admin if admin_dependency else (lambda: False)
+
     def _unprocessable(err: PlanningError) -> HTTPException:
         return HTTPException(status_code=422, detail={"errors": err.errors})
 
     @router.post("/validate")
-    def validate(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
-        return svc.validate(payload)
+    def validate(
+        payload: Dict[str, Any] = Body(...),
+        user: str = Depends(user_dep),
+        admin: bool = Depends(admin_dep),
+    ) -> Dict[str, Any]:
+        return svc.validate(user, payload, admin)
 
-    @router.post("/run")
+    @router.post("/run", dependencies=list(run_dependencies))
     def run(
-        payload: Dict[str, Any] = Body(...), user: str = Depends(user_dep)
+        payload: Dict[str, Any] = Body(...),
+        user: str = Depends(user_dep),
+        admin: bool = Depends(admin_dep),
     ) -> Dict[str, Any]:
         try:
-            record = svc.run(user, payload)
+            record = svc.run(user, payload, admin)
         except PlanningError as err:
             raise _unprocessable(err) from err
         return svc._public(record, with_result=True)
 
     @router.post("/jobs", status_code=202)
     def start(
-        payload: Dict[str, Any] = Body(...), user: str = Depends(user_dep)
+        payload: Dict[str, Any] = Body(...),
+        user: str = Depends(user_dep),
+        admin: bool = Depends(admin_dep),
     ) -> Dict[str, Any]:
         try:
-            return svc.submit(user, payload)
+            return svc.submit(user, payload, admin)
         except PlanningError as err:
             raise _unprocessable(err) from err
         except TooManyJobsError as err:
@@ -73,6 +96,18 @@ def create_router(
             raise HTTPException(
                 status_code=404, detail="Planning study not found"
             ) from err
+
+    @router.delete("/{study_id}")
+    def delete(study_id: str, user: str = Depends(user_dep)) -> Dict[str, Any]:
+        try:
+            svc.delete(user, study_id)
+        except NotFound as err:
+            raise HTTPException(
+                status_code=404, detail="Planning study not found"
+            ) from err
+        except PlanningError as err:
+            raise HTTPException(status_code=409, detail="; ".join(err.errors)) from err
+        return {"id": study_id, "deleted": True}
 
     @router.get("/{study_id}/report")
     def report(
@@ -94,7 +129,7 @@ def create_router(
             },
         )
 
-    @router.post("/{study_id}/reproduce")
+    @router.post("/{study_id}/reproduce", dependencies=list(run_dependencies))
     def reproduce(study_id: str, user: str = Depends(user_dep)) -> Dict[str, Any]:
         try:
             return svc.reproduce(user, study_id)

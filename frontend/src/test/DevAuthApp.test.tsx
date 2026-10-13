@@ -35,6 +35,7 @@ vi.mock("../services/api", () => ({
   getReplay: vi.fn().mockResolvedValue(null),
   reproduceRun: vi.fn(),
   updateRunMetadata: vi.fn(),
+  fetchRunExport: vi.fn(),
   runExportUrl: () => "",
   ApiError: class ApiError extends Error {
     status = 500;

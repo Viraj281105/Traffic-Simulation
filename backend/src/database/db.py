@@ -118,6 +118,12 @@ def _create_schema(conn: sqlite3.Connection) -> None:
                 f"ALTER TABLE simulation_runs ADD COLUMN {col_name} {col_def};"
             )
 
+    # Scenario suites belong to their creator. Suites stored before this
+    # column existed keep user_id NULL and are visible to admins only.
+    cursor.execute("PRAGMA table_info(scenario_suites);")
+    if "user_id" not in {row[1] for row in cursor.fetchall()}:
+        cursor.execute("ALTER TABLE scenario_suites ADD COLUMN user_id TEXT;")
+
     # Indexes on simulation_runs for fast querying and filtering
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_sim_runs_type ON simulation_runs(intersection_type);"

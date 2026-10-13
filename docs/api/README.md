@@ -1,6 +1,6 @@
 # API & WebSocket Reference
 
-> **Status:** Current · V1.0 · every route on this page is registered in `backend/src/main.py` (verified 2026-10-05). Nothing here is planned or hypothetical.
+> **Status:** Current · V1.0–V2.0 · every route on this page is registered in `backend/src/main.py` (V1 routes verified 2026-10-05; the `/api/v2` list in §10 was taken from the app's OpenAPI document on 2026-10-12). Nothing here is planned or hypothetical.
 > **Interactive schema:** FastAPI serves OpenAPI docs at `/docs` on the backend (e.g. `http://localhost:8000/docs` in development).
 > **Narrative guide:** [Operations guide](../operations.md) explains behaviour in more depth (study jobs, provenance, access control).
 
@@ -28,13 +28,14 @@ Errors raised by the application use one envelope:
 
 | Status | `code` | Typical cause |
 | --- | --- | --- |
-| 400 | `VALIDATION_ERROR` | Schema or cross-field rule violated; malformed run ID; bad `format` |
+| 400 | `VALIDATION_ERROR` | Schema or cross-field rule violated (including more than 72,000 steps, i.e. `duration / timeStep`); malformed run ID; bad `format`; a stored run outside the reproducible range |
 | 401 | `UNAUTHORIZED` | Missing/invalid API key or token |
-| 403 | — | Replay owned by another user |
+| 403 | — | Replay owned by another user; changing the labels of a shared (unowned) run without being an admin |
+| 413 | `PAYLOAD_TOO_LARGE` | Body over 1 MiB on `/api/v2/networks/*` or `/api/v2/planning/validate` |
 | 404 | `NOT_FOUND` | Unknown simulation, run, sweep, job or replay |
 | 409 | `INVALID_STATE_TRANSITION` | `start` on a simulation that is not `initialized` |
-| 422 | *(FastAPI default shape)* | Request body fails Pydantic validation (e.g. `numSeeds` > 30) |
-| 429 | `SIMULATION_LIMIT_REACHED` | > 50 versioned simulations, or > 4 active study jobs |
+| 422 | *(FastAPI default shape)* or `VALIDATION_ERROR` | Request body fails Pydantic validation (e.g. `numSeeds` > 30); a planning study the server rejects (`/api/v2/planning`) uses the envelope with `details.errors` listing every reason |
+| 429 | `SIMULATION_LIMIT_REACHED` | > 50 versioned simulations, > 4 active study jobs, > 2 planning jobs, or 2 synchronous simulations already running, or this client already running one (§6.2) |
 
 Two exceptions to the envelope: **422** keeps FastAPI's default `{"detail": [...]}` array, and an invalid user bearer token on `/api/simulation/*` is rejected by middleware as `401 {"detail": "Invalid token"}` (a bearer value equal to the API key is not a user token and falls back to the cookie session).
 
@@ -176,6 +177,8 @@ Jobs live in server memory: a restart drops unfinished jobs; finished jobs are k
 
 ### 6.2 Synchronous study routes (scripts, existing clients)
 
+These run whole simulations inside the request. **At most two run at once, and one per client**, across `sweeps/run`, `validate/monte-carlo`, `validate/repeatability`, `control-comparison/run`, `GET /api/v1/study/export`, `history/runs/{id}/reproduce`, `POST /api/v2/calibration/runs`, `POST /api/v2/planning/run` and `POST /api/v2/planning/{id}/reproduce`; a request that finds no slot is refused at once with **429** (`src/request_limits.py`). The background-job routes (§6.1) are the intended path for the app.
+
 | Method | Route | Body | Output |
 | --- | --- | --- | --- |
 | POST 🔑 | `/api/v1/study/sweeps/run` | `{arrivalRates?: number[] (≤ 20, each 0–10), duration?: 60 (1–3600), randomSeed?: 42, name?, customConfig?}` | Sweep result: `sessionId, name, duration, randomSeed, seedsPerTier, tieTolerance, calibration, curves{rates, volumesVehPerHour, signal{…}, roundabout{…}, crossoverArrivalRate, crossoverHourlyVolume, crossoverBracketArrivalRates}, runs[]` — persisted |
@@ -197,15 +200,17 @@ In the Monte Carlo body, `scenario` and `customConfig` are mutually exclusive (4
 
 ### 6.4 Run history
 
+**Who sees what** (`src/access.py`, `src/history/router.py`). A run saved by a signed-in user (a saved replay, or a run from that user's suite batch) belongs to them: every route below answers **404** to anyone else, exactly as for a missing run, and it is absent from their listings. Runs with no owner (sweeps and studies started without signing in, legacy rows) stay readable by anyone; their labels can be changed only by an admin (**403** otherwise). Read routes accept an optional bearer token: without one the caller is anonymous, and a token that is presented but invalid is a **401**, never anonymous. Exports of an owned run therefore need the token (the app fetches them; a plain link would be refused).
+
 | Method | Route | Purpose | Input | Output | Errors |
 | --- | --- | --- | --- | --- | --- |
 | GET | `/api/v1/study/history/runs` | List runs | `limit` (50), `offset`, `intersection_type`, `seed`, `batch_id` | Run rows | 422 |
 | GET | `/api/v1/study/history/runs/{runId}` | Run + per-tick metrics | — | `{run, metricsTimeline}` | 404 |
 | GET | `/api/v1/study/history/runs/{runId}/reproducibility` | Full reproducibility record | — | See [reproducibility §3](../research/reproducibility.md#3-the-reproducibility-record) (+ `savedReplay`) | 400, 404 |
-| PATCH 🔑 | `/api/v1/study/history/runs/{runId}` | Labels only | `{name?: 1–120 chars, notes?: ≤ 4000, tags?: ≤ 20 × ≤ 32 chars}` — `null`/`[]` clears notes/tags | Updated record | 400, 404, 422 |
+| PATCH 🔑 👤 | `/api/v1/study/history/runs/{runId}` | Labels only (owner or admin) | `{name?: 1–120 chars, notes?: ≤ 4000, tags?: ≤ 20 × ≤ 32 chars}` — `null`/`[]` clears notes/tags | Updated record | 400, 401, 403, 404, 422 |
 | GET | `/api/v1/study/history/runs/{runId}/export?format=json\|csv` | Download | `format` (default `json`) | JSON `{exportFormat, exportVersion, exportedAt, exportedBy, run, metricsTimeline}` or CSV `section,key,value` | 400, 404 |
-| POST | `/api/v1/study/history/runs/compare` | Two-run delta | `{runIdA, runIdB}` | `{runA, runB, comparison{delayDelta, delayDeltaPercent, throughputDelta, queueDelta, stopsDelta, winner, winnerBasis}, identicalSeed, seed}` | 404 |
-| POST 🔑 | `/api/v1/study/history/runs/{runId}/reproduce` | Headless re-run and check | — | See [reproducibility §4.2](../research/reproducibility.md#42-through-the-api) | 400, 404 |
+| POST | `/api/v1/study/history/runs/compare` | Two-run delta (B − A) | `{runIdA, runIdB}` | `{runA, runB, comparison{delayDelta, delayDeltaPercent, throughputDelta, queueDelta, stopsDelta, winner, winnerBasis}, identicalSeed, seed}`. A delta is **null** when either run lacks that metric (e.g. a signal-vs-roundabout run, whose metrics are stored per geometry), and `winner` is then `"unavailable"`; it is otherwise the lower mean delay or `"tie"`, descriptive only | 404 |
+| POST 🔑 | `/api/v1/study/history/runs/{runId}/reproduce` | Headless re-run and check | — | See [reproducibility §4.2](../research/reproducibility.md#42-through-the-api). Refused (400) when the stored duration exceeds 3600 s or 72,000 steps | 400, 404, 429 |
 
 ---
 
@@ -234,11 +239,15 @@ A suite groups saved runs; a batch fills it by running one base scenario over se
 | POST 🔑 👤 | `/api/suites/{suiteId}/batch` | Start a batch | `{baseConfig, sweepParameters: {arrivalRate: [...]}, numSeeds}` — `baseConfig` is the dashboard body (as for `/api/simulation/config`) or an engine configuration; 1–20 rates in (0, 10], 1–30 seeds (42, 43, …), at most 60 simulations | `{jobId}`; poll `/api/v1/study/jobs/{jobId}`. Every run is stored with provenance and attached to the suite | 400 invalid `baseConfig`, 404 unknown suite, 422 bounds, 429 |
 | GET 👤 | `/api/suites/{suiteId}/export/csv` | Download the suite's runs | — | CSV | 404 |
 
-Suites are shared research records, like run history: any signed-in user can list and read every suite, and start a batch in it. They are deliberately not owner-scoped — a suite only groups runs, and those runs are readable by anyone through `/api/v1/study/history/runs?batch_id=<suiteId>`, so a private suite would hide nothing. Only saved replays (§7) are per-user.
+**Suites are private to their creator** (since the V2.0 release-gate work, 2026-10-12; decision D-V2-3 in the [V2.0 audit](../roadmap/V2_COMPLETION_AUDIT.md) awaits product-owner confirmation). Another user's suite answers 404 on every suite route; admins (`ADMIN_EMAILS`) see every suite, including legacy suites stored before suites had an owner, which nobody else can see. A suite can be created only around runs that exist, are not another user's and are in no other suite.
+
+A suite's batch runs belong to the suite's owner (an admin running a legacy suite owns them), so they are as private as the suite in the run history (§6.4).
 
 ---
 
 ## 8. WebSockets
+
+**Origin.** A handshake whose `Origin` is neither this site (same host name as the request's `Host`) nor one of `CORS_ORIGINS` is refused with close code **1008** before it is accepted; a client that sends no `Origin` (not a browser) is accepted (`src/ws_origin.py`).
 
 | Endpoint | Scope | Rate | Ends when | Client messages |
 | --- | --- | --- | --- | --- |
@@ -329,3 +338,58 @@ curl -X POST http://localhost:8000/api/v1/simulations/<id>/control \
 # stream:  ws://localhost:8000/ws/v1/stream?simulationId=<id>
 curl "http://localhost:8000/api/v1/simulations/<id>/report?format=json"
 ```
+
+---
+
+## 10. Decision-support API — `/api/v2` (V1.8–V2.0)
+
+Taken from the app's OpenAPI document (`GET /openapi.json`), 2026-10-12. Request and result documents are specified by the JSON Schemas in [`shared/schemas/v2/`](../../shared/schemas/v2/) and described in [Decision support](../product/decision-support.md) and [Calibration](../research/calibration.md).
+
+**Access.** Every `/api/v2` route requires **both** the API key (🔑, when `API_KEY` is set) **and** a signed-in user (👤). The browser proxy attaches the key to every request, so the key alone identifies the proxy, not a person. `backend/tests/api/test_v2_route_auth.py` checks every mounted `/api/v2` route: no key → 401, key without a user → 401, key with an unverifiable token → 401.
+
+**Ownership.** Calibration runs and planning studies belong to the user who created them. Another user's record answers 404, exactly like a missing one. Admins see every calibration run, including legacy runs stored before runs had an owner (visible to admins only). A planning study may attach only a calibration run its user can see.
+
+**Limits.** Bodies over 1 MiB are refused with 413 on `/api/v2/networks/*` and `/api/v2/planning/validate`. A planning study runs at most 240 simulations (alternatives × demand scales × seeds; ≤ 6 alternatives, ≤ 5 scales, ≤ 30 seeds); at most two planning jobs run at once (429 otherwise). There is no job cancellation.
+
+**What the results are and are not.** A planning study reports evidence (differences from a baseline with intervals, ties and inconclusive readings), never a ranking or a recommendation. A calibration run *compares* a simulation with observations a user supplies and rates the agreement; it does not fit model parameters, so no study is "field-calibrated" by it. Network documents are validated, compiled and fingerprinted; **multi-junction networks are not simulated** — a planning study accepts a network only when it has exactly one junction.
+
+### 10.1 Calibration — `/api/v2/calibration` 🔑 👤
+
+| Method | Route | Purpose | Output | Errors |
+| --- | --- | --- | --- | --- |
+| GET | `/thresholds` | Rating thresholds applied to every comparison | `{version, thresholds}` | 401 |
+| POST | `/validate` | Check observations against a scenario without simulating | `{valid, errors, warnings, …}` (always 200 for a parseable body) | 401, 422 |
+| POST | `/runs` | Simulate, compare with the observations, store | 201 `{id, createdAt, result}` | 400, 401, 422 |
+| GET | `/runs?limit=50` | The caller's runs, newest first (every run for an admin) | `{runs}` | 401 |
+| GET | `/runs/{run_id}` | One of the caller's runs | `{id, createdAt, request, result}` | 401, 404 |
+| DELETE | `/runs/{run_id}` | Delete one of the caller's runs and the observations it holds | `{id, deleted: true}` | 401, 404 |
+| GET | `/runs/{run_id}/scenario` | The scenario the run simulated (observed inputs written in), for use as a planning subject | `{id, scenario, fingerprint, originalFingerprint, appliedFit, fieldCalibration}` | 401, 404 |
+
+### 10.2 Networks — `/api/v2/networks` 🔑 👤 (stateless, nothing stored)
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| POST | `/validate` | `{network}` → `{valid, errors, warnings, fingerprint}` (always 200 for a parseable body) |
+| POST | `/compile` | Execution plan: junction order, route-implied arm flows, edges (400 if invalid) |
+| POST | `/fingerprint` | `{fingerprint, nodeCount, edgeCount}` |
+| POST | `/scenario` | Each inline junction's scenario with route-implied volume and turning applied |
+| POST | `/result-structure` | The `urbanflow-network-result` contract with `status: "not_executed"` |
+| POST | `/from-scenario` | `{scenario}` → the single-junction network that represents it, with validation and fingerprint |
+
+All return 401 without key/user and 413 over 1 MiB.
+
+### 10.3 Planning — `/api/v2/planning` 🔑 👤
+
+| Method | Route | Purpose | Output | Errors |
+| --- | --- | --- | --- | --- |
+| POST | `/validate` | Check a study without running it | `{valid, errors, warnings, simulations, scenarioFingerprint, alternatives}` | 401, 413 |
+| POST | `/run` | Run synchronously (scripts) | the study record with `result` | 401, 422 |
+| POST | `/jobs` | Start as a background job | 202 `{id, name, status: "queued", …}` | 401, 422, 429 |
+| GET | `/{study_id}` | Status and, when finished, the result. While queued or running, `progress` = `{phase, total, completed, fraction, elapsedSeconds}` counted in simulations across the whole study. A study a stopped server process was still running reads `status: "failed"`, `error: "Interrupted by a server restart …"` | `{id, name, status, error, createdAt, result, progress}` | 401, 404 |
+| DELETE | `/{study_id}` | Delete a finished or failed study (memory and database) | `{id, deleted: true}` | 401, 404, 409 while queued/running |
+| GET | `/{study_id}/report?format=json\|md\|csv` | Download the report | file with `Content-Disposition` | 401, 404, 422 not finished |
+| POST | `/{study_id}/reproduce` | Re-run the stored request and compare result fingerprints | `{reproduced, originalResultFingerprint, rerunResultFingerprint, gitCommitOriginal, gitCommitRerun}` | 401, 404, 422 |
+
+`status` is `queued`, `running`, `completed` or `failed` (with `error`). Finished studies are kept in `uf_planning_studies` and survive a restart; a study that was queued or running when the server stopped is lost (in-memory jobs).
+
+The browser workflow over these routes is the planner page, `/app/planner` ([planner guide](../product/planner-guide.md)).

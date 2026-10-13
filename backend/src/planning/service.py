@@ -1,7 +1,8 @@
 """Planning service: submit, run, retrieve, export, reproduce.
 
 Framework-free so tests and the router share it. Studies are owned by the
-user who submitted them. Results are kept in memory and, best effort, in a
+user who submitted them, and a study may attach only a calibration run its
+user can see (``calibration_store.get_for_user``). Results are kept in memory and, best effort, in a
 table of our own (``uf_planning_studies``, created lazily) so they survive a
 restart; a database failure never fails a study.
 """
@@ -42,13 +43,63 @@ CREATE TABLE IF NOT EXISTS uf_planning_studies (
     request_json TEXT,
     result_json TEXT,
     fingerprint TEXT,
-    created_at TEXT
+    created_at TEXT,
+    status TEXT,
+    error TEXT
 )
 """
+
+# Shown for a study that a previous server process was still running: its job
+# died with that process (there is no durable job queue), so it is reported as
+# failed with this reason rather than vanishing (a 404 would read as "deleted").
+INTERRUPTED_ERROR = (
+    "Interrupted by a server restart before it finished; run the study again."
+)
+
+
+def _ensure_table(conn: Any) -> None:
+    """Create the table, and add the status/error columns to one created
+    before they existed (inline migration, as in database/db.py). Rows from
+    before the migration were only ever written for completed studies."""
+    conn.execute(_TABLE)
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(uf_planning_studies)")}
+    for column in ("status", "error"):
+        if column not in columns:
+            conn.execute(f"ALTER TABLE uf_planning_studies ADD COLUMN {column} TEXT")
+    conn.commit()
 
 
 class NotFound(LookupError):  # noqa: N818
     pass
+
+
+class StudyProgress(Progress):
+    """Progress of a whole study. ``run_study`` runs one comparison per
+    distinct alternative and each calls ``begin`` again, which on a plain
+    ``Progress`` restarts the count; this keeps the simulations already
+    finished and reports against the study's total."""
+
+    def __init__(self, total: int) -> None:
+        super().__init__()
+        self._study_total = total
+        self._finished_before = 0
+
+    def begin(self, labels: List[str]) -> None:
+        with self._lock:
+            self._finished_before += len(self._labels)
+        super().begin(labels)
+
+    def snapshot(self) -> Dict[str, Any]:
+        out = super().snapshot()
+        with self._lock:
+            done = self._finished_before + sum(self._fractions)
+            completed = self._finished_before + sum(self._done)
+        total = max(self._study_total, completed)
+        out["total"] = total
+        out["completed"] = completed
+        out["fraction"] = round(done / total, 4) if total else 0.0
+        out["etaSeconds"] = None  # only meaningful per batch; not shown
+        return out
 
 
 def parse_study(payload: Any) -> Tuple[Optional[PlanningStudy], List[str]]:
@@ -72,10 +123,11 @@ class PlanningStore:
         self._persist = persist
 
     def put(self, record: Dict[str, Any]) -> None:
+        """Keep the record and persist its current state: queued, running,
+        completed and failed studies all survive a restart."""
         with self._lock:
             self._records[record["id"]] = record
-        if record.get("result") is not None:
-            self._save(record)
+        self._save(record)
 
     def get(self, user_id: str, study_id: str) -> Optional[Dict[str, Any]]:
         with self._lock:
@@ -86,25 +138,63 @@ class PlanningStore:
             return None  # another user's study is indistinguishable from none
         return rec
 
+    def delete(self, study_id: str) -> None:
+        """Remove a study everywhere. Unlike saving, a failure here is raised:
+        a delete that silently left the data on disk would be a false promise
+        to the user."""
+        with self._lock:
+            self._records.pop(study_id, None)
+        if not self._persist:
+            return
+        from src.database.db import get_db_connection
+
+        with get_db_connection() as conn:
+            _ensure_table(conn)
+            conn.execute("DELETE FROM uf_planning_studies WHERE id = ?", (study_id,))
+            conn.commit()
+
+    def mark_interrupted(self) -> int:
+        """Mark every study a previous process left queued or running as
+        failed (``INTERRUPTED_ERROR``). Call once, before this process starts
+        any job. Returns how many were marked."""
+        if not self._persist:
+            return 0
+        from src.database.db import get_db_connection
+
+        with get_db_connection() as conn:
+            _ensure_table(conn)
+            cursor = conn.execute(
+                "UPDATE uf_planning_studies SET status = 'failed', error = ? "
+                "WHERE status IN ('queued', 'running')",
+                (INTERRUPTED_ERROR,),
+            )
+            conn.commit()
+            return int(cursor.rowcount)
+
     def _save(self, rec: Dict[str, Any]) -> None:
         if not self._persist:
             return
         try:
             from src.database.db import get_db_connection
 
+            result = rec.get("result")
             with get_db_connection() as conn:
-                conn.execute(_TABLE)
+                _ensure_table(conn)
                 conn.execute(
-                    "INSERT OR REPLACE INTO uf_planning_studies VALUES (?,?,?,?,?,?,?,?)",
+                    "INSERT OR REPLACE INTO uf_planning_studies (id, user_id, name, "
+                    "schema_version, request_json, result_json, fingerprint, "
+                    "created_at, status, error) VALUES (?,?,?,?,?,?,?,?,?,?)",
                     (
                         rec["id"],
                         rec["userId"],
                         rec["name"],
                         1,
                         json.dumps(rec["request"]),
-                        json.dumps(rec["result"]),
-                        rec["result"]["scenario"]["fingerprint"],
+                        None if result is None else json.dumps(result),
+                        None if result is None else result["scenario"]["fingerprint"],
                         rec["createdAt"],
+                        rec["status"],
+                        rec.get("error"),
                     ),
                 )
                 conn.commit()
@@ -120,7 +210,7 @@ class PlanningStore:
             from src.database.db import get_db_connection
 
             with get_db_connection() as conn:
-                conn.execute(_TABLE)
+                _ensure_table(conn)
                 row = conn.execute(
                     "SELECT * FROM uf_planning_studies WHERE id = ?", (study_id,)
                 ).fetchone()
@@ -130,10 +220,12 @@ class PlanningStore:
                 "id": row["id"],
                 "userId": row["user_id"],
                 "name": row["name"],
-                "status": "completed",
+                "status": row["status"] or "completed",
                 "request": json.loads(row["request_json"]),
-                "result": json.loads(row["result_json"]),
-                "error": None,
+                "result": None
+                if row["result_json"] is None
+                else json.loads(row["result_json"]),
+                "error": row["error"],
                 "createdAt": row["created_at"],
             }
         except Exception:
@@ -151,9 +243,38 @@ class PlanningService:
         self.jobs = JobRegistry()  # our own registry, not the V1 study one
         self._progress: Dict[str, Progress] = {}
 
+    # ---- access ---------------------------------------------------------
+    @staticmethod
+    def _calibration_access_errors(
+        user_id: str, study: PlanningStudy, is_admin: bool
+    ) -> List[str]:
+        """Refuse a calibration run the caller cannot see, with the same
+        message as a missing run, before anything reads it."""
+        if study.calibration is None:
+            return []
+        from src.calibration import store as calibration_store
+
+        run_id = study.calibration.runId
+        try:
+            visible = calibration_store.get_for_user(run_id, user_id, is_admin)
+        except Exception as exc:  # the table or database is unusable
+            return [f"calibration: could not read stored runs ({exc})"]
+        if visible is None:
+            return [
+                f"calibration: run {run_id!r} not found "
+                "(create one with POST /api/v2/calibration/runs)"
+            ]
+        return []
+
     # ---- validate / run -------------------------------------------------
-    def validate(self, payload: Any) -> Dict[str, Any]:
+    def validate(
+        self, user_id: str, payload: Any, is_admin: bool = False
+    ) -> Dict[str, Any]:
         study, errors = parse_study(payload)
+        if study is not None:
+            errors = self._calibration_access_errors(user_id, study, is_admin)
+            if errors:
+                study = None
         if study is None:
             return {
                 "valid": False,
@@ -182,22 +303,29 @@ class PlanningService:
             ],
         }
 
-    def _require_study(self, payload: Any) -> PlanningStudy:
+    def _require_study(
+        self, payload: Any, user_id: str, is_admin: bool = False
+    ) -> PlanningStudy:
         study, errors = parse_study(payload)
         if study is None:
             raise PlanningError(errors)
+        errors = self._calibration_access_errors(user_id, study, is_admin)
+        if errors:
+            raise PlanningError(errors)
         return study
 
-    def run(self, user_id: str, payload: Any) -> Dict[str, Any]:
+    def run(self, user_id: str, payload: Any, is_admin: bool = False) -> Dict[str, Any]:
         """Synchronous run; returns the stored record."""
-        study = self._require_study(payload)
+        study = self._require_study(payload, user_id, is_admin)
         record = self._new_record(user_id, study)
         self._execute(record, study, None)
         return record
 
     # ---- jobs -----------------------------------------------------------
-    def submit(self, user_id: str, payload: Any) -> Dict[str, Any]:
-        study = self._require_study(payload)
+    def submit(
+        self, user_id: str, payload: Any, is_admin: bool = False
+    ) -> Dict[str, Any]:
+        study = self._require_study(payload, user_id, is_admin)
         check = prepare(study)
         if not check["valid"]:
             raise PlanningError(check["errors"])
@@ -209,10 +337,18 @@ class PlanningService:
         if active >= MAX_ACTIVE_PLANNING_JOBS:
             raise TooManyJobsError(f"{active} planning studies are already running")
         record = self._new_record(user_id, study)
+        distinct = {(r.spec.strategy, r.fingerprint) for r in check["alternatives"]}
+        study_progress = StudyProgress(
+            len(distinct) * len(study.demand.scales) * study.repetitions.seeds
+        )
+        self._progress[record["id"]] = study_progress
 
-        def work(progress: Progress) -> Dict[str, Any]:
+        def work(_job_progress: Progress) -> Dict[str, Any]:
             record["status"] = "running"
-            self._execute(record, study, progress)
+            try:
+                self._execute(record, study, study_progress)
+            finally:
+                self._progress.pop(record["id"], None)
             return {}
 
         self.jobs.submit("planning", work)
@@ -253,6 +389,13 @@ class PlanningService:
     ) -> Dict[str, Any]:
         out = {k: record[k] for k in ("id", "name", "status", "error", "createdAt")}
         out["result"] = record["result"] if with_result else None
+        # Simulations finished so far, while the study is queued or running.
+        progress = self._progress.get(record["id"])
+        out["progress"] = (
+            progress.snapshot()
+            if progress is not None and record["status"] in ("queued", "running")
+            else None
+        )
         return out
 
     def get(self, user_id: str, study_id: str) -> Dict[str, Any]:
@@ -276,7 +419,7 @@ class PlanningService:
             raise NotFound(study_id)
         if rec["result"] is None:
             raise PlanningError([f"Study is {rec['status']}; nothing to reproduce yet"])
-        study = self._require_study(rec["request"])
+        study = self._require_study(rec["request"], user_id)
         rerun = run_study(study, comparison_fn=self.comparison_fn)
         original = rec["result"]["meta"]["resultFingerprint"]
         again = result_fingerprint(rerun)
@@ -289,6 +432,19 @@ class PlanningService:
             "gitCommitRerun": rerun["meta"]["gitCommit"],
         }
 
+    def delete(self, user_id: str, study_id: str) -> None:
+        """Delete the caller's finished or failed study, in memory and on
+        disk. A queued or running study cannot be deleted (there is no job
+        cancellation); that is a ``PlanningError``."""
+        rec = self.store.get(user_id, study_id)
+        if rec is None:
+            raise NotFound(study_id)
+        if rec["status"] in ("queued", "running"):
+            raise PlanningError(
+                [f"Study is {rec['status']}; wait for it to finish, then delete it"]
+            )
+        self.store.delete(study_id)
+
 
 def _fingerprint(doc: Any) -> str:
     from src.core.scenario import scenario_fingerprint
@@ -300,7 +456,18 @@ _default: Optional[PlanningService] = None
 
 
 def get_service() -> PlanningService:
+    """The process-wide service. Created once per process, so this is where
+    studies an earlier process was running are marked interrupted: before it
+    exists, no job of this process can be queued or running."""
     global _default
     if _default is None:
-        _default = PlanningService()
+        service = PlanningService()
+        try:
+            marked = service.store.mark_interrupted()
+        except Exception:  # an unusable database must not stop the API
+            logger.warning("Could not check for interrupted studies", exc_info=True)
+        else:
+            if marked:
+                logger.warning("%d planning study(ies) interrupted by restart", marked)
+        _default = service
     return _default

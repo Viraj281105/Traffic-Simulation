@@ -183,3 +183,34 @@ def test_the_study_rejects_built_in_settings_alongside_a_scenario() -> None:
         json={"scenario": SCENARIO, "lanes": 2},
     )
     assert response.status_code == 422
+
+
+def test_validate_says_a_lane_wider_than_the_ring_adds_no_capacity() -> None:
+    """A roundabout ring has at most two lanes; a third approach lane merges
+    onto it. That is a model boundary the user must be told about, not a
+    silent capacity loss (validation.md K1)."""
+
+    def warnings_for(
+        lanes: int, junction: str = "roundabout", strategy: str = "roundabout"
+    ) -> list[str]:
+        scenario = {
+            **SCENARIO,
+            "junction": {"type": junction},
+            "approaches": {
+                d: _arm(lanes, 200) for d in ("north", "south", "east", "west")
+            },
+            "roundabout": {"innerRadius": 12, "outerRadius": 22},
+        }
+        body = client.post(
+            "/api/v1/scenarios/validate",
+            json={"scenario": scenario, "strategies": [strategy]},
+        ).json()
+        assert body["valid"], body["errors"]
+        return [w for w in body["warnings"] if w.startswith("Roundabout:")]
+
+    (warning,) = warnings_for(3)
+    assert "3 lanes but the ring has 2" in warning
+    assert "queue space, not capacity" in warning
+    assert warnings_for(2) == []
+    assert warnings_for(1) == []
+    assert warnings_for(3, "fixed_time_signal", "fixed_time") == []

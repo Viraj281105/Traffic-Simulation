@@ -22,6 +22,7 @@ from src.controllers.adaptive_signal import (
     resolve_adaptive_settings,
 )
 from src.core.lane_validation import lane_configuration_errors
+from src.core.limits import MAX_SIMULATION_TICKS
 from src.roads.junction_geometry import present_arms
 from src.roads.lane_config import shortest_approach_length
 from src.roads.network import lane_counts, resolve_lanes_per_approach
@@ -76,6 +77,18 @@ def semantic_config_errors(config: Dict[str, Any]) -> List[str]:
     sim = _section(config, "simulation")
     duration = sim.get("duration")
     warmup = sim.get("warmupTime")
+    step = sim.get("timeStep")
+    if (
+        _number(duration)
+        and _number(step)
+        and step > 0
+        and duration / step > MAX_SIMULATION_TICKS
+    ):
+        errors.append(
+            f"simulation.duration / simulation.timeStep is "
+            f"{duration / step:,.0f} steps; at most {MAX_SIMULATION_TICKS:,} "
+            "are allowed (for example 3600 s at a 0.05 s step)"
+        )
     if _number(duration) and _number(warmup) and not warmup < duration:
         errors.append(
             f"simulation.warmupTime ({warmup:g}) must be less than "

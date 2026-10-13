@@ -13,6 +13,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from src.core.clock import Clock
 from src.core.enums import SimulationStatus
+from src.core.limits import MAX_SIMULATION_TICKS
 from src.intersection.conflict_manager import (
     ConflictManager,
     conflict_clearance_for,
@@ -46,6 +47,12 @@ class SimulationEngine:
     ) -> None:
         if duration <= 0:
             raise ValueError("duration must be greater than zero")
+        # Backstop for every path that builds an engine (validators reject
+        # such configs first, with a readable message; see core/limits.py).
+        if duration / clock.time_step > MAX_SIMULATION_TICKS:
+            raise ValueError(
+                f"duration / time step exceeds {MAX_SIMULATION_TICKS} steps"
+            )
 
         self.clock: Clock = clock
         self.duration: float = duration

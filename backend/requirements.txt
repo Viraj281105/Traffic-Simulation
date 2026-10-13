@@ -34,5 +34,17 @@ typing_extensions==4.16.0
 uvicorn==0.52.3
 websockets==17.0.1
 
-python-jose[cryptography]==3.3.0
-requests==2.31.0
+python-jose[cryptography]==3.5.0
+requests==2.33.1
+# Runtime dependencies of python-jose and requests, pinned so every image
+# build resolves the same versions (they were unpinned before the V2.0
+# release-gate audit; values are those of the tested 3.11 dev image).
+cffi==2.1.1
+charset-normalizer==3.5.1
+cryptography==50.0.1
+ecdsa==0.19.2
+pyasn1==0.6.4
+pycparser==3.0
+rsa==4.9.1
+six==1.17.0
+urllib3==2.8.0
