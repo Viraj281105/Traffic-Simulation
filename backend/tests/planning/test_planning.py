@@ -376,6 +376,39 @@ def test_api_job_flow_and_ownership(client: TestClient) -> None:
     client.current["user"] = "mallory"  # type: ignore[attr-defined]
     assert client.get(f"/api/v2/planning/{sid}").status_code == 404
     assert client.get(f"/api/v2/planning/{sid}/report").status_code == 404
+    assert client.post(f"/api/v2/planning/{sid}/reproduce").status_code == 404
+    assert client.delete(f"/api/v2/planning/{sid}").status_code == 404
+
+
+def test_api_owner_deletes_a_study(client: TestClient) -> None:
+    sid = client.post("/api/v2/planning/run", json=study()).json()["id"]
+    client.current["user"] = "mallory"  # type: ignore[attr-defined]
+    assert client.delete(f"/api/v2/planning/{sid}").status_code == 404
+    client.current["user"] = "alice"  # type: ignore[attr-defined]
+    assert client.get(f"/api/v2/planning/{sid}").status_code == 200
+    res = client.delete(f"/api/v2/planning/{sid}")
+    assert res.status_code == 200 and res.json() == {"id": sid, "deleted": True}
+    assert client.get(f"/api/v2/planning/{sid}").status_code == 404
+    assert client.delete(f"/api/v2/planning/{sid}").status_code == 404
+
+
+def test_a_running_study_cannot_be_deleted(fake_service: PlanningService) -> None:
+    record = fake_service._new_record("alice", PlanningStudy.model_validate(study()))
+    with pytest.raises(PlanningError):
+        fake_service.delete("alice", record["id"])
+    assert fake_service.store.get("alice", record["id"]) is not None
+
+
+def test_deleted_study_is_removed_from_the_database(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("src.database.db.DB_PATH", str(tmp_path / "plan.db"))
+    svc = PlanningService(store=PlanningStore(persist=True), comparison_fn=make_fake())
+    sid = svc.run("alice", study())["id"]
+    fresh = PlanningStore(persist=True)  # what a restarted server would read
+    assert fresh.get("alice", sid) is not None
+    svc.delete("alice", sid)
+    assert PlanningStore(persist=True).get("alice", sid) is None
 
 
 def test_api_rejects_invalid_study(client: TestClient) -> None:
@@ -402,3 +435,23 @@ def test_real_comparison_end_to_end_is_deterministic() -> None:
     assert {r["alternativeId"] for r in a["results"]} == {"fixed", "rbt"}
     assert a["results"][0]["performance"]["values"]["throughput"]["n"] == 2
     assert a["reliability"]["sampleAdequacy"] == "small"
+
+
+def test_study_progress_accumulates_across_comparisons() -> None:
+    from src.planning.service import StudyProgress
+
+    progress = StudyProgress(total=4)
+    progress.begin(["a1", "a2"])  # first alternative's two simulations
+    progress.finish(0)
+    progress.finish(1)
+    progress.begin(["b1", "b2"])  # a plain Progress would restart at 0 here
+    progress.advance(0, 0.5)
+    snap = progress.snapshot()
+    assert snap["total"] == 4 and snap["completed"] == 2
+    assert snap["fraction"] == pytest.approx(2.5 / 4)
+
+
+def test_finished_study_reports_no_progress(client: TestClient) -> None:
+    done = client.post("/api/v2/planning/run", json=study()).json()
+    got = client.get(f"/api/v2/planning/{done['id']}").json()
+    assert got["status"] == "completed" and got["progress"] is None

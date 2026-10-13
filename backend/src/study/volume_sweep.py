@@ -10,7 +10,12 @@ from src.database.dao import (
     SimulationRunDAO,
     SweepSessionDAO,
 )
-from src.database.db import DB_PATH, get_db_connection, init_db  # noqa: F401
+from src.database.db import (  # noqa: F401
+    DB_PATH,
+    ensure_db_initialized,
+    get_db_connection,
+    init_db,
+)
 from src.study.calibration import calibration_status, study_warmup, sweep_rates
 from src.study.runner import GEOMETRY_TITLES, Progress, SimTask, run_simulation_tasks
 from src.study.tolerances import delays_are_tied, tie_tolerance
@@ -61,7 +66,7 @@ def run_volume_sweep_experiment(
     Executes an automated multi-volume parameter sweep comparing Fixed-Time Signals
     and Modern Roundabouts across specified vehicle arrival rates under identical seeds.
     """
-    init_db()
+    ensure_db_initialized()
 
     rates = (
         arrival_rates

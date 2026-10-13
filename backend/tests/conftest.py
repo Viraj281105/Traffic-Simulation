@@ -101,18 +101,32 @@ def signed_in_user() -> Iterator[str]:
 
     Saved replays belong to the signed-in user: their endpoints resolve the
     user from a verified Cognito token (``src.auth``). Tests have no Cognito
-    pool to issue one, so this overrides the two identity dependencies with a
-    fixed user, the standard FastAPI way to test a protected route. Token
+    pool to issue one, so this overrides the identity dependencies with a
+    fixed, non-admin user, the standard FastAPI way to test a protected route. Token
     verification itself is left in place for every test that does not ask
     for this fixture, so the unauthenticated behaviour stays covered.
     """
-    from src.auth import get_current_user_email, get_current_user_id
+    from src.auth import (
+        get_current_user_email,
+        get_current_user_id,
+        get_current_user_is_admin,
+        get_optional_user_id,
+        get_optional_user_is_admin,
+    )
     from src.main import app
 
-    app.dependency_overrides[get_current_user_id] = lambda: TEST_USER_ID
-    app.dependency_overrides[get_current_user_email] = lambda: TEST_USER_EMAIL
+    overrides = {
+        get_current_user_id: lambda: TEST_USER_ID,
+        get_current_user_email: lambda: TEST_USER_EMAIL,
+        get_current_user_is_admin: lambda: False,
+        # Routes that also serve anonymous callers (the run history) resolve
+        # the caller through the optional dependencies.
+        get_optional_user_id: lambda: TEST_USER_ID,
+        get_optional_user_is_admin: lambda: False,
+    }
+    app.dependency_overrides.update(overrides)
     try:
         yield TEST_USER_ID
     finally:
-        app.dependency_overrides.pop(get_current_user_id, None)
-        app.dependency_overrides.pop(get_current_user_email, None)
+        for dependency in overrides:
+            app.dependency_overrides.pop(dependency, None)

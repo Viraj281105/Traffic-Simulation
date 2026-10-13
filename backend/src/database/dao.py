@@ -2,6 +2,8 @@ import json
 import sqlite3
 from typing import Any, Dict, Optional, cast
 
+from src.access import ANONYMOUS, Caller, can_see, owner_filter
+
 
 class ConfigurationDAO:
     """DAO for managing simulation configuration items."""
@@ -159,6 +161,25 @@ class SimulationRunDAO:
         return _decode_run_row(row) if row else None
 
     @staticmethod
+    def owner_of(conn: sqlite3.Connection, run_id: str) -> tuple[bool, Optional[str]]:
+        """(exists, owner) of a run; the owner is None for an unowned run."""
+        row = conn.execute(
+            "SELECT user_id FROM simulation_runs WHERE id = ?;", (run_id,)
+        ).fetchone()
+        return (False, None) if row is None else (True, row["user_id"])
+
+    @staticmethod
+    def get_visible(
+        conn: sqlite3.Connection, run_id: str, caller: Caller
+    ) -> Optional[Dict[str, Any]]:
+        """The run, or None when it does not exist **or** ``caller`` may not
+        see it (``src/access.py``): another user's run reads as missing."""
+        exists, owner = SimulationRunDAO.owner_of(conn, run_id)
+        if not exists or not can_see(owner, caller, unowned_public=True):
+            return None
+        return SimulationRunDAO.get(conn, run_id)
+
+    @staticmethod
     def list_runs(
         conn: sqlite3.Connection,
         limit: int = 50,
@@ -166,11 +187,15 @@ class SimulationRunDAO:
         intersection_type: Optional[str] = None,
         seed: Optional[int] = None,
         batch_id: Optional[str] = None,
+        caller: Caller = ANONYMOUS,
     ) -> list[Dict[str, Any]]:
+        """Runs ``caller`` may see (``src/access.py``: unowned runs are
+        public, owned runs are their owner's), newest first."""
         cursor = conn.cursor()
         query = f"SELECT {_RUN_COLUMNS} FROM simulation_runs"
-        conditions = []
-        params: list[Any] = []
+        visible, visible_params = owner_filter(caller, unowned_public=True)
+        conditions = [visible]
+        params: list[Any] = list(visible_params)
 
         if intersection_type:
             conditions.append("intersection_type = ?")
@@ -435,7 +460,11 @@ class SweepSessionDAO:
 
 
 class ScenarioSuiteDAO:
-    """DAO for managing scenario suites (V1.7)."""
+    """DAO for managing scenario suites (V1.7).
+
+    A suite belongs to the user who created it (``user_id``); suites stored
+    before the column existed have none and are visible to admins only.
+    """
 
     @staticmethod
     def save(
@@ -446,17 +475,19 @@ class ScenarioSuiteDAO:
         run_ids: list[str],
         config_variations: Dict[str, Any],
         commit: bool = True,
+        user_id: Optional[str] = None,
     ) -> None:
         cursor = conn.cursor()
         try:
             cursor.execute(
-                "INSERT OR REPLACE INTO scenario_suites (id, name, description, run_ids_json, config_variations_json) VALUES (?, ?, ?, ?, ?);",
+                "INSERT OR REPLACE INTO scenario_suites (id, name, description, run_ids_json, config_variations_json, user_id) VALUES (?, ?, ?, ?, ?, ?);",
                 (
                     suite_id,
                     name,
                     description,
                     json.dumps(run_ids),
                     json.dumps(config_variations),
+                    user_id,
                 ),
             )
             # Update the suite_id on the runs
@@ -521,13 +552,34 @@ class ScenarioSuiteDAO:
         return None
 
     @staticmethod
+    def is_visible(
+        conn: sqlite3.Connection, suite_id: str, user_id: str, is_admin: bool
+    ) -> bool:
+        """True when the suite exists and is the caller's (any suite for an
+        admin). Another user's suite is indistinguishable from a missing one."""
+        row = conn.execute(
+            "SELECT user_id FROM scenario_suites WHERE id = ?;", (suite_id,)
+        ).fetchone()
+        if row is None:
+            return False
+        return can_see(row["user_id"], Caller(user_id, is_admin), unowned_public=False)
+
+    @staticmethod
     def list_suites(
-        conn: sqlite3.Connection, limit: int = 50, offset: int = 0
+        conn: sqlite3.Connection,
+        limit: int = 50,
+        offset: int = 0,
+        user_id: Optional[str] = None,
+        is_admin: bool = False,
     ) -> list[Dict[str, Any]]:
+        """The caller's suites, newest first; every suite for an admin. With
+        no caller and no admin flag, nothing (never everything by default)."""
+        where, params = owner_filter(Caller(user_id, is_admin), unowned_public=False)
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT id, name, description, run_ids_json, created_at FROM scenario_suites ORDER BY created_at DESC LIMIT ? OFFSET ?;",
-            (limit, offset),
+            "SELECT id, name, description, run_ids_json, created_at FROM scenario_suites "
+            f"WHERE {where} ORDER BY created_at DESC LIMIT ? OFFSET ?;",
+            (*params, limit, offset),
         )
         return [
             {

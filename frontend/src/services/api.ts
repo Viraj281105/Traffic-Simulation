@@ -227,6 +227,23 @@ export function runExportUrl(runId: string, format: "json" | "csv"): string {
   return `${BASE}${runUrl(runId)}/export?format=${format}`;
 }
 
+/** The body of a run export, fetched with the signed-in user's token. A saved
+ *  run is private to its owner, so a plain link (which sends no token) would
+ *  be refused; the caller saves the text as a file. */
+export async function fetchRunExport(
+  runId: string,
+  format: "json" | "csv",
+): Promise<string> {
+  const token = await getAuthToken();
+  const response = await fetch(runExportUrl(runId, format), {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!response.ok) {
+    throw new ApiError(response.status, response.statusText);
+  }
+  return response.text();
+}
+
 export async function getReplay<T>(id: string): Promise<T> {
   return get<T>(`/api/v1/replays/${encodeURIComponent(id)}`);
 }

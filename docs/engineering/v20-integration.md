@@ -60,7 +60,7 @@ cd backend
 * Safety: collision count plus exploratory proxies; environmental: stop-and-go proxies only (no emissions model). V1.6 keys appear via the indicator registry once Khushi's work is merged.
 * Calibration "demand" fit is input assimilation (documented in its caveats); a status is only about the compared quantities. A short window (the demo's 50 s) gives a noisy / `POOR` rating by design.
 * Calibration runs are synchronous and not user-scoped; no `tune` search.
-* No frontend UI exists for V1.8–V2.0 (no `frontend/` files changed, so no typecheck/build was needed or run).
+* No frontend UI existed for V1.8–V2.0 when this was written (no `frontend/` files changed, so no typecheck/build was needed or run). *Update 2026-10-12:* the planning workflow now has a page, `/app/planner` (`frontend/src/components/planner/`, client `frontend/src/services/v2/planning.ts`; see the [planner guide](../product/planner-guide.md)); calibration and networks still have no UI.
 
 ## Frontend integration (when someone builds it)
 

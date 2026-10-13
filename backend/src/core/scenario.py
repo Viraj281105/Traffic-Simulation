@@ -524,6 +524,24 @@ def scenario_warnings(document: ScenarioDocument, strategies: List[str]) -> List
             "U-turns: their paths and yielding are modelled but not calibrated "
             "against observed U-turn behaviour; results are exploratory."
         )
+    if "roundabout" in strategies or document.junction.type == "roundabout":
+        from src.roads.lane_config import MAX_CIRCULATING_LANES
+
+        widest = max(arm.lanes for arm in arms.values())
+        rings = document.roundabout.circulatingLanes or min(
+            widest, MAX_CIRCULATING_LANES
+        )
+        if widest > rings:
+            # A model boundary, measured: on a two-lane ring a third
+            # (merging) entry lane served the same as two lanes within noise
+            # over 70 paired seeds, two demands and two horizons (every 95 %
+            # CI of the mean effect contains zero; docs/research/validation.md
+            # §4.4 and K1).
+            warnings.append(
+                f"Roundabout: an approach has {widest} lanes but the ring has "
+                f"{rings}. The extra entry lane merges onto the inner ring lane, "
+                "so it adds queue space, not capacity."
+            )
     for d, arm in arms.items():
         per_lane = arm.vehiclesPerHour / arm.lanes
         if per_lane > 1800:

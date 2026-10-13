@@ -152,6 +152,23 @@ jobs:
             path: tests/integration/test_calibrated_capacity_regression.py
           - name: signal-lockup
             path: tests/vehicles/test_router.py
+          # These five held 155 of the 190 slow tests and were in no job
+          # until the V2.0 release-gate audit (2026-10-12). Their absence is
+          # now caught by tests/test_ci_slow_matrix.py in backend-test.
+          - name: calibration-pass
+            path: tests/integration/test_calibration_pass.py
+          - name: adaptive-signal-runs
+            path: tests/integration/test_adaptive_signal_runs.py
+          - name: real-world-junctions
+            path: tests/integration/test_real_world_junctions_v15.py
+          - name: roundabout-multilane
+            path: tests/integration/test_roundabout_multilane_v14.py
+          - name: vehicle-types-and-lanes
+            path: tests/integration/test_vehicle_types_and_lanes.py
+          - name: randomized-invariants
+            path: tests/integration/test_randomized_invariants.py
+          - name: roundabout-lane-capacity
+            path: tests/integration/test_roundabout_lane_capacity.py
     defaults:
       run:
         working-directory: backend

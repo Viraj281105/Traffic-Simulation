@@ -8,7 +8,7 @@
 
 | Version | Status | Next | Stack |
 | :-: | :-: | :-: | :-: |
-| **V1.5** | ✅ V1.0 deployed on AWS · V1.1–V1.3 complete · V1.4 & V1.5 implemented on `viraj-dev` (under review) | V1.6 Safety & environmental analysis | Python · FastAPI · React · TypeScript · Docker · AWS EC2 |
+| **V2.0** | ✅ V2.0 complete — [release gate](docs/roadmap/V2_COMPLETION_AUDIT.md) passed 2026-10-13 · V1.6–V1.9 delivered partly ([status](docs/ROADMAP.md)) | V3.0 design approval (G-D) | Python · FastAPI · React · TypeScript · Docker · AWS EC2 |
 
 </div>
 
@@ -179,7 +179,7 @@ The browser never simulates and never computes a metric; the backend is the sing
 | **Determinism** | Same seed → same result, in-process, across processes, and after save → restore → re-run |
 | **Comparative evidence** | A calibrated one-lane capacity curve pinned by regression tests; multi-seed statistics with stated method and limits |
 
-Measured results are in the [comparative report](docs/reports/comparative_report.md) — each scoped to the conditions it was measured under. UrbanFlow is validated internally; it is **not yet calibrated against observed field traffic** (planned for V1.8/V1.9). Details: [Validation & evidence](docs/research/validation.md) · [Testing](docs/testing/README.md).
+Measured results are in the [comparative report](docs/reports/comparative_report.md) — each scoped to the conditions it was measured under. UrbanFlow is validated internally; it is **not calibrated against observed field traffic**: V1.8 added a framework that compares a simulation with counts you supply and rates the agreement, but no real observations have been run through it and no model parameters are fitted. Details: [Validation & evidence](docs/research/validation.md) · [Testing](docs/testing/README.md).
 
 ---
 
@@ -195,6 +195,7 @@ V1.0 runs on **Amazon EC2** as a Docker Compose stack: an nginx container servin
 | --- | --- |
 | [Documentation hub](docs/README.md) | Map of every document, by audience |
 | [Product story](docs/product/README.md) | Personas, principles, the planner journey |
+| [Planner guide](docs/product/planner-guide.md) | Run, read, export and reproduce a junction study in the browser (`/app/planner`) |
 | [System overview](docs/architecture/00-system-overview.md) | Architecture, data flow, lifecycle, concurrency |
 | [Simulation methodology](docs/simulation/methodology.md) | What is modelled, how, and under which assumptions |
 | [Configuration reference](docs/simulation/configuration.md) | Planner, advanced and research configuration |
@@ -219,18 +220,22 @@ flowchart LR
 | W12 · Oct 5–6 | **V1.1** | Different Vehicle Types | ✅ Complete |
 | W12 · Oct 5–6 | **V1.2** | Advanced Lane Modelling | ✅ Complete |
 | W12 · Oct 6 | **V1.3** | Adaptive Signal Control | ✅ Complete |
-| W12 · Oct 7 | **V1.4** | Advanced Roundabout Modelling + Scenario Config | 🟢 Implemented (under review) |
-| W12 · Oct 7 | **V1.5** | Real-World Junction Modelling | 🟢 Implemented (under review) |
-| W17 · Nov 13–19 | **V1.6** | Safety & Environmental Analysis | 🔜 Upcoming |
-| W18 · Nov 20–27 | V1.7 | Scenario / What-If Planning | Planned |
-| W19 · Nov 28–Dec 7 | V1.8 / V1.9 | Calibration & Network-Level Foundations | Planned |
-| W20 · Dec 8–17 | **V2.0** | UrbanFlow Decision-Support Platform | Planned |
+| W12 · Oct 7 | **V1.4** | Advanced Roundabout Modelling + Scenario Config | ✅ Complete |
+| W12 · Oct 7 | **V1.5** | Real-World Junction Modelling | ✅ Complete |
+| Oct 9 (planned W17) | **V1.6** | Safety & Environmental Analysis | ✅ Complete, partial (exploratory, not validated) |
+| Oct 9 (planned W18) | V1.7 | Scenario / What-If Planning | ✅ Complete, partial |
+| Oct 8 (planned W19) | V1.8 / V1.9 | Calibration & Network-Level Foundations | ✅ Complete, partial (no field data or fitting; networks not simulated) |
+| Oct 8–12 (planned W20) | **V2.0** | UrbanFlow Decision-Support Platform | ✅ Complete (release gate passed 2026-10-13) |
 
 Authoritative detail: [ROADMAP](docs/ROADMAP.md).
 
-### After V2.0
+### V3.0 (planned, proposed — not started)
 
-Ten research frontiers, none of which duplicate the roadmap: emergency vehicle priority · AI-based signal control · connected-vehicle communication · platooning · autonomous intersection management · uncertainty & robust simulation · weather & road conditions · incidents & disruption · large-scale networks · digital-twin integration. See [Future Scope](docs/future-scope/future_scope.md).
+A composable, AI-assisted traffic-control experimentation platform: signalised roundabouts and a validated strategy registry, high driver aggression as a declared default for new scenarios, an AI experiment copilot and a bounded strategy-discovery search (both validated by the deterministic backend; evidence, not a verdict), a Robustness Lab, and a Python SDK with portable packages. Nothing in V3.0 is implemented; it starts only after the V2.0 release gate. See [ROADMAP §7](docs/ROADMAP.md#7-v30--composable-ai-assisted-traffic-control-experimentation-planned-proposed) and the [V3 plans](docs/roadmap/V3_PRODUCT_STRATEGY.md).
+
+### Beyond V3.0
+
+Research frontiers that do not duplicate the roadmap: emergency vehicle priority · learned (RL) signal control · connected-vehicle communication · platooning · autonomous intersection management · weather & road conditions · incidents & disruption · large-scale networks · digital-twin integration. (Uncertainty & robust simulation moved into the V3.0 plan.) See [Future Scope](docs/future-scope/future_scope.md).
 
 ---
 

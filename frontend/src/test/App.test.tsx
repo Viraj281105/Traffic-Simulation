@@ -40,6 +40,7 @@ vi.mock("../services/api", () => ({
   getReplay: (id: string) => getReplay(id) as Promise<unknown>,
   reproduceRun: vi.fn(),
   updateRunMetadata: vi.fn(),
+  fetchRunExport: vi.fn(),
   runExportUrl: (id: string, format: string) =>
     `/api/v1/study/history/runs/${id}/export?format=${format}`,
   ApiError: class ApiError extends Error {
@@ -155,6 +156,22 @@ describe("App", () => {
 
     expect(container.firstChild).not.toBeNull();
   });
+
+  // axe walks the whole rendered document: about 3 s for the planner form on
+  // an idle machine, past the default 5 s when the full suite runs alongside
+  // other work. It waits only on rendered output, so the budget hides no race.
+  it(
+    "has no automatically detectable accessibility violations (axe)",
+    { timeout: 15_000 },
+    async () => {
+      render(<App />);
+      await waitFor(() => {
+        expect(updateSimulationConfig).toHaveBeenCalled();
+      });
+      const { axeViolations } = await import("./axe");
+      expect(await axeViolations(document.body)).toEqual([]);
+    },
+  );
 
   it("pushes the current configuration to the backend on mount", async () => {
     render(<App />);
@@ -370,65 +387,79 @@ describe("App", () => {
       }
     });
 
-    it("opens the existing study and switches cleanly with Statistical validation", async () => {
-      signIn();
-      const user = userEvent.setup();
-      render(<App />);
-      await user.click(screen.getByRole("link", { name: "Research lab" }));
+    // Three route changes across two full pages, each confirmed with
+    // whole-document role/label queries (getByLabelText alone is ~300 ms on the
+    // study form). Measured at 1.6-2.1 s alone on an idle machine and 2-4 s on a
+    // busy one; inside the parallel full suite it crossed the default 5 s.
+    // Every wait is a findBy on rendered output, never a timer, so the longer
+    // budget hides no race.
+    it(
+      "opens the existing study and switches cleanly with Statistical validation",
+      {
+        timeout: 15_000,
+      },
+      async () => {
+        signIn();
+        const user = userEvent.setup();
+        render(<App />);
+        await user.click(screen.getByRole("link", { name: "Research lab" }));
 
-      await user.click(
-        researchNav().getByRole("link", { name: "Your own junction" }),
-      );
-      expect(window.location.pathname).toBe("/app/junction");
-      expect(
-        await screen.findByRole("heading", { level: 1, name: studyHeading }),
-      ).toBeInTheDocument();
-      expect(
-        researchNav().getByRole("link", { name: "Your own junction" }),
-      ).toHaveAttribute("aria-current", "page");
-      expect(
-        screen.getByRole("link", { name: "Research lab" }),
-      ).toHaveAttribute("aria-current", "page");
-      expect(screen.getByLabelText("Scenario name")).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", {
-          name: /run the study \(15 simulations\)/i,
-        }),
-      ).toBeInTheDocument();
-      // Nothing from the other research pages shares the screen.
-      expect(
-        screen.queryByRole("heading", {
-          name: /how urbanflow compares traffic control/i,
-        }),
-      ).not.toBeInTheDocument();
+        await user.click(
+          researchNav().getByRole("link", { name: "Your own junction" }),
+        );
+        expect(window.location.pathname).toBe("/app/junction");
+        expect(
+          await screen.findByRole("heading", { level: 1, name: studyHeading }),
+        ).toBeInTheDocument();
+        expect(
+          researchNav().getByRole("link", { name: "Your own junction" }),
+        ).toHaveAttribute("aria-current", "page");
+        expect(
+          screen.getByRole("link", { name: "Research lab" }),
+        ).toHaveAttribute("aria-current", "page");
+        expect(screen.getByLabelText("Scenario name")).toBeInTheDocument();
+        expect(
+          screen.getByRole("button", {
+            name: /run the study \(15 simulations\)/i,
+          }),
+        ).toBeInTheDocument();
+        // Nothing from the other research pages shares the screen.
+        expect(
+          screen.queryByRole("heading", {
+            name: /how urbanflow compares traffic control/i,
+          }),
+        ).not.toBeInTheDocument();
 
-      await user.click(
-        researchNav().getByRole("link", { name: "Statistical validation" }),
-      );
-      expect(window.location.pathname).toBe("/app/validation");
-      expect(
-        await screen.findByRole("heading", {
-          name: /statistical validation studio/i,
-        }),
-      ).toBeInTheDocument();
-      expect(
-        screen.queryByRole("heading", { name: studyHeading }),
-      ).not.toBeInTheDocument();
-      expect(screen.queryByLabelText("Scenario name")).not.toBeInTheDocument();
+        await user.click(
+          researchNav().getByRole("link", { name: "Statistical validation" }),
+        );
+        expect(window.location.pathname).toBe("/app/validation");
+        expect(
+          await screen.findByRole("heading", {
+            name: /statistical validation studio/i,
+          }),
+        ).toBeInTheDocument();
+        expect(
+          screen.queryByRole("heading", { name: studyHeading }),
+        ).not.toBeInTheDocument();
+        expect(
+          screen.queryByLabelText("Scenario name"),
+        ).not.toBeInTheDocument();
 
-      await user.click(
-        researchNav().getByRole("link", { name: "Your own junction" }),
-      );
-      expect(
-        await screen.findByRole("heading", { level: 1, name: studyHeading }),
-      ).toBeInTheDocument();
-      expect(screen.getAllByLabelText("Scenario name")).toHaveLength(1);
-      expect(
-        screen.queryByRole("heading", {
-          name: /statistical validation studio/i,
-        }),
-      ).not.toBeInTheDocument();
-    });
+        await user.click(
+          researchNav().getByRole("link", { name: "Your own junction" }),
+        );
+        expect(
+          await screen.findByRole("heading", { level: 1, name: studyHeading }),
+        ).toBeInTheDocument();
+        expect(screen.getAllByLabelText("Scenario name")).toHaveLength(1);
+        expect(
+          screen.queryByRole("heading", {
+            name: /statistical validation studio/i,
+          }),
+        ).not.toBeInTheDocument();
+      },
+    );
 
     it("opens straight from its URL, as after a refresh", async () => {
       window.history.replaceState(null, "", "/app/junction");

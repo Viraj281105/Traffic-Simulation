@@ -1,16 +1,16 @@
 # Future Scope — Post-V2.0 Research Frontiers
 
 > **This is the single authoritative Future Scope.** It replaces every earlier future-scope list in this repository.
-> **Status:** 🔭 FUTURE SCOPE — none of these capabilities exist, and none are part of the V1.1–V2.0 roadmap.
+> **Status:** 🔭 FUTURE SCOPE — none of these capabilities exist, and none are part of the V1.1–V2.0 roadmap or the proposed V3.0 plan ([ROADMAP §7](../ROADMAP.md#7-v30--composable-ai-assisted-traffic-control-experimentation-planned-proposed)). **Revision 2026-10-12:** FS-6 moved to V3.0; FS-2 narrowed to learned/RL controllers; FS-1 annotated.
 > **Boundary rule:** a capability scheduled anywhere in [the roadmap](../ROADMAP.md) is **not** listed here. Where a frontier builds on a roadmap capability, only the genuinely new extension beyond V2.0 is described.
 
 ```mermaid
 flowchart LR
     V10["V1.0<br/>Foundation"] --> V1X["V1.1–V1.9<br/>Capability expansion"] --> V20["V2.0<br/>Decision-support platform"]
     V20 --> FS["POST-V2.0 · RESEARCH FRONTIERS"]
-    FS --> A["Priority & intelligence<br/>FS-1 Emergency priority<br/>FS-2 AI signal control"]
+    FS --> A["Priority & intelligence<br/>FS-1 Emergency priority<br/>FS-2 Learned (RL) signal control"]
     FS --> B["Cooperative & autonomous<br/>FS-3 Connected vehicles<br/>FS-4 Platooning<br/>FS-5 Autonomous intersections"]
-    FS --> C["Robustness & conditions<br/>FS-6 Uncertainty<br/>FS-7 Weather & road<br/>FS-8 Incidents"]
+    FS --> C["Robustness & conditions<br/>FS-7 Weather & road<br/>FS-8 Incidents"]
     FS --> D["Scale & live data<br/>FS-9 Large-scale networks<br/>FS-10 Digital twin"]
 ```
 
@@ -18,12 +18,12 @@ flowchart LR
 
 | # | Frontier | Indicative effort | Builds on (roadmap, ≤ V2.0) | Genuinely new beyond V2.0 |
 | ---: | --- | :-: | --- | --- |
-| FS-1 | Emergency Vehicle Priority | 1–2 months | Vehicle types (V1.1), adaptive control (V1.3) | Priority vehicles, signal pre-emption, yielding/clearance, response metrics |
-| FS-2 | AI-Based Traffic Signal Control | 2–3 months | Adaptive control (V1.3), batch experiments (V1.7) | Learning-based controllers trained in simulation |
+| FS-1 | Emergency Vehicle Priority *(V3.0 readiness gate G-E expected to defer it)* | 1–2 months | Vehicle types (V1.1), adaptive control (V1.3) | Priority vehicles, signal pre-emption, yielding/clearance, response metrics |
+| FS-2 | Learned (RL) Traffic Signal Control *(search-based strategy discovery moved to V3.0)* | 2–3 months | Adaptive control (V1.3), batch experiments (V1.7), V3.0 strategy registry and Discovery Lab | Learning-based controllers trained in simulation |
 | FS-3 | Connected Vehicle Communication | 2–3 months | Network foundations (V1.8/V1.9) | V2V/V2I messaging with latency, loss and imperfect information |
 | FS-4 | Vehicle Platooning & Cooperative Driving | 2–3 months | Vehicle types (V1.1), lanes (V1.2) | Coordinated groups with cooperative longitudinal control |
 | FS-5 | Autonomous Intersection Management | 3–4 months | Conflict management (V1.0), signals & roundabouts (V1.0–V1.4) | Reservation/negotiation-based, signal-free passage |
-| FS-6 | Uncertainty & Robust Traffic Simulation | 2–3 months | Batch experiments (V1.7), calibration (V1.8/V1.9) | Probabilistic models of behaviour, demand and conditions; sensitivity and robustness reporting |
+| FS-6 | ~~Uncertainty & Robust Traffic Simulation~~ — **moved to the roadmap (V3.0 Robustness Lab, ROADMAP §7)** | — | — | — |
 | FS-7 | Weather & Road-Condition Effects | 1–2 months | IDM and curve-speed model (V1.0) | Weather scenarios, friction and visibility effects |
 | FS-8 | Incident & Disruption Simulation | 2–3 months | Lane model and routing (V1.2) | Crashes, blockages, closures, rerouting and recovery |
 | FS-9 | Large-Scale Traffic Network Simulation | 3–6 months | Network-level foundations (V1.8/V1.9) | City-scale networks, corridors, congestion propagation |
@@ -43,8 +43,9 @@ Effort figures are indicative planning estimates, not commitments.
 | **Value** | Emergency response analysis · traffic-control evaluation under emergency conditions · public-safety planning |
 | **Deliverables** | Emergency vehicle models · priority logic · signal pre-emption · yield/clearance behaviour · emergency response metrics |
 | **Boundary** | V1.1 introduces ordinary vehicle classes. Priority status, pre-emption and the behaviour of other road users towards an emergency vehicle are new here. |
+| **V3.0 note** | The proposed V3.0 strategy registry reserves a *priority overlay* layer, and a readiness gate (G-E, needs at least 4.5 unallocated engineer-days) is **expected to defer** this work. Simulated response times would be model outputs, not predictions. |
 
-## FS-2 · AI-Based Traffic Signal Control
+## FS-2 · Learned (RL) Traffic Signal Control
 
 **Indicative effort:** 2–3 months
 
@@ -53,7 +54,7 @@ Effort figures are indicative planning estimates, not commitments.
 | **Core** | Learning-based signal control · simulated training · DQN/PPO or other reinforcement-learning approaches · comparison against existing controllers |
 | **Value** | AI traffic-optimisation research · identifying conditions where learning-based control helps · an intelligent traffic-control research platform |
 | **Deliverables** | RL environment · training pipeline · trained controllers · policy evaluation · fixed-time vs adaptive vs AI comparison |
-| **Boundary** | V1.3 delivers rule-based adaptive control. Learned policies and the training infrastructure are new here. |
+| **Boundary** | V1.3 delivers rule-based adaptive control; the proposed V3.0 Discovery Lab (ROADMAP §7) delivers *search-based* strategy discovery (evolutionary optimisation, not a learned model). Learned policies and their training infrastructure remain new here; they would enter through the V3.0 strategy registry as `experimental` types, evaluated on disjoint seeds. |
 
 ## FS-3 · Connected Vehicle Communication
 
@@ -88,27 +89,9 @@ Effort figures are indicative planning estimates, not commitments.
 | **Deliverables** | Intersection reservation system · conflict-resolution algorithm · trajectory coordination · safety validation · performance comparison |
 | **Boundary** | V1.0's `ConflictManager` reserves conflict zones *inside* signal and roundabout control. Replacing signals and give-way rules with negotiated passage is new here. |
 
-## FS-6 · Uncertainty & Robust Traffic Simulation
+## FS-6 · Uncertainty & Robust Traffic Simulation — moved to the roadmap
 
-**Indicative effort:** 2–3 months
-
-| | |
-| --- | --- |
-| **Core** | Driver-behaviour uncertainty · demand uncertainty · reaction-time uncertainty · traffic-condition uncertainty · probabilistic scenarios · sensitivity analysis |
-| **Value** | More robust planning conclusions · quantified confidence · reduced dependence on single scenarios |
-| **Deliverables** | Uncertainty models · probabilistic scenario generation · sensitivity analysis · confidence/robustness reporting |
-| **Boundary** | V1.0 repeats seeds and V1.7 runs scenario batches; V1.8/V1.9 calibrates. Modelling the *parameters themselves* as uncertain, and reporting robustness across that uncertainty, is new here. |
-
-## FS-7 · Weather & Road-Condition Effects
-
-**Indicative effort:** 1–2 months
-
-| | |
-| --- | --- |
-| **Core** | Rain · fog · snow where applicable · reduced visibility · vehicle behaviour changes · road friction |
-| **Value** | Adverse-condition analysis · robust infrastructure evaluation · improved real-world applicability |
-| **Deliverables** | Weather scenarios · road-friction model · visibility effects · weather-aware analysis |
-| **Boundary** | All roadmap versions assume dry, clear conditions. |
+This frontier is no longer Future Scope: it is the **Robustness Lab** in the proposed V3.0 plan ([ROADMAP §7](../ROADMAP.md#7-v30--composable-ai-assisted-traffic-control-experimentation-planned-proposed); contract in the [V3 product strategy](../roadmap/V3_PRODUCT_STRATEGY.md) §5). Kept as a stub so that existing FS-6 references resolve and the item is not duplicated.
 
 ## FS-8 · Incident & Disruption Simulation
 

@@ -6,9 +6,11 @@
 #
 # Steps:
 #   1. Acquire execution lock to prevent concurrent deployments.
-#   2. Validate local environment (Git, Docker, Compose v2).
+#   2. Validate local environment (Git, Docker, Compose v2) and check host
+#      resources (free disk is enforced; memory/swap is reported).
 #   3. Fetch and checkout the target commit on the deployment branch.
-#   4. Rebuild images with GIT_COMMIT build argument (without stopping containers).
+#   4. Rebuild images one service at a time with the GIT_COMMIT build argument
+#      (without stopping containers).
 #   5. Recreate and restart containers safely (preserving persistent SQLite volume).
 #   6. Safely prune obsolete dangling images.
 #   7. Run post-deployment health checks against /health, /, and /api/version.
@@ -25,6 +27,8 @@ HEALTH_TIMEOUT=60
 HTTP_PORT=""
 SKIP_HEALTH_CHECK=0
 LOCK_FILE="/tmp/urbanflow-deploy.lock"
+# Minimum free space (MB) on the Docker data filesystem required to start a build.
+MIN_FREE_DISK_MB="${MIN_FREE_DISK_MB:-2048}"
 
 # --- Helper Functions ---
 log_info() {
@@ -41,6 +45,71 @@ log_warn() {
 
 log_error() {
     echo -e "\033[1;31m[ERROR]\033[0m $*" >&2
+}
+
+# --- Failure diagnostics ---
+# CURRENT_STAGE records where the script was, so a failure (or a signal from a
+# dropped SSH session / killed parent) is attributable to a stage in the log.
+CURRENT_STAGE="startup"
+
+on_err() {
+    local rc=$1 line=$2 cmd=$3
+    log_error "Command failed (exit $rc) at line $line during stage '$CURRENT_STAGE': $cmd"
+}
+
+on_exit() {
+    local rc=$?
+    if [[ $rc -ne 0 ]]; then
+        log_error "Deployment script exiting with status $rc during stage: $CURRENT_STAGE"
+    fi
+}
+
+on_signal() {
+    log_error "Received signal $1 during stage '$CURRENT_STAGE'. The deployment was interrupted."
+    exit "$2"
+}
+
+trap 'on_err "$?" "$LINENO" "$BASH_COMMAND"' ERR
+trap on_exit EXIT
+trap 'on_signal SIGHUP 129' HUP
+trap 'on_signal SIGINT 130' INT
+trap 'on_signal SIGTERM 143' TERM
+
+# Log memory, swap and disk so build-time resource pressure shows up in the CI log.
+log_resources() {
+    log_info "Host resources ($1):"
+    if command -v free >/dev/null 2>&1; then free -m | sed 's/^/    /'; fi
+    df -Pm / 2>/dev/null | sed 's/^/    /' || true
+}
+
+# Fail early if the disk is nearly full (builds would die half-way through);
+# only warn about memory, since low memory without swap is a risk, not a fact.
+check_host_resources() {
+    local docker_root free_mb mem_mb swap_mb
+    docker_root=$($DOCKER_CMD info --format '{{.DockerRootDir}}' 2>/dev/null || echo "/")
+    free_mb=$(df -Pm "$docker_root" 2>/dev/null | awk 'NR==2 {print $(NF-2)}' || true)
+    if [[ -z "$free_mb" ]]; then
+        free_mb=$(df -Pm / 2>/dev/null | awk 'NR==2 {print $(NF-2)}' || true)
+    fi
+    if [[ -n "$free_mb" ]]; then
+        log_info "Free disk for Docker data: ${free_mb} MB (minimum ${MIN_FREE_DISK_MB} MB)"
+        if [[ "$free_mb" -lt "$MIN_FREE_DISK_MB" ]]; then
+            log_error "Only ${free_mb} MB free; at least ${MIN_FREE_DISK_MB} MB is required to build images."
+            log_error "Free space (e.g. 'docker image prune', 'docker builder prune') and redeploy. Nothing was changed."
+            exit 1
+        fi
+    else
+        log_warn "Could not determine free disk space; continuing."
+    fi
+    if [[ -r /proc/meminfo ]]; then
+        mem_mb=$(awk '/^MemTotal:/ {printf "%d", $2/1024}' /proc/meminfo)
+        swap_mb=$(awk '/^SwapTotal:/ {printf "%d", $2/1024}' /proc/meminfo)
+        log_info "Memory: ${mem_mb} MB RAM, ${swap_mb} MB swap"
+        if [[ "$mem_mb" -lt 1500 && "$swap_mb" -eq 0 ]]; then
+            log_warn "Low memory and NO swap: the frontend build (tsc + vite) can exhaust RAM, freeze the host and drop SSH."
+            log_warn "Configure the 2 GB swap file described in docs/deployment/AWS_FREE_TIER_DEPLOYMENT.md section 4."
+        fi
+    fi
 }
 
 show_help() {
@@ -101,6 +170,7 @@ done
 REPO_DIR="${REPO_DIR/#\~/$HOME}"
 
 # --- 1. Concurrency Control (Lock File) ---
+CURRENT_STAGE="acquiring deployment lock"
 exec 200>"$LOCK_FILE"
 if ! flock -n 200; then
     log_error "Another deployment is currently running on this EC2 instance. Aborting to prevent race condition."
@@ -117,6 +187,7 @@ else
 fi
 
 # --- 2. Environment & Prerequisites Validation ---
+CURRENT_STAGE="validating environment"
 if ! command -v git >/dev/null 2>&1; then
     log_error "git is not installed on this system."
     exit 1
@@ -171,7 +242,12 @@ fi
 HTTP_PORT="${HTTP_PORT:-80}"
 log_info "Health check probe port: $HTTP_PORT"
 
+# Host resource preflight (before any repository or container state is touched)
+log_resources "before deployment"
+check_host_resources
+
 # --- 3. Git Fetch and Checkout ---
+CURRENT_STAGE="fetching and checking out target commit"
 log_info "Fetching latest changes from origin..."
 git fetch origin "$DEPLOY_BRANCH"
 
@@ -198,15 +274,29 @@ log_info "Active commit for deployment: $DEPLOYED_COMMIT"
 
 # --- 4. Build Images (Safe Pre-flight Build) ---
 # Building images while old containers remain running prevents downtime if build fails.
-log_info "Building Docker images (GIT_COMMIT=$DEPLOYED_COMMIT)..."
-if ! GIT_COMMIT="$DEPLOYED_COMMIT" $DOCKER_CMD compose build; then
-    log_error "Docker Compose build failed! Aborting deployment. Existing containers remain running."
-    exit 1
-fi
+# Services are built one at a time: 'docker compose build' otherwise builds the
+# backend and frontend in parallel, and the frontend's `tsc && vite build` is the
+# memory-hungry step on a 1 GB instance. Building sequentially lowers peak memory.
+CURRENT_STAGE="building images"
+log_info "Building Docker images (GIT_COMMIT=$DEPLOYED_COMMIT), one service at a time..."
+BUILD_SERVICES=$($DOCKER_CMD compose config --services)
+for SERVICE in $BUILD_SERVICES; do
+    CURRENT_STAGE="building image: $SERVICE"
+    log_info "Building service '$SERVICE'..."
+    BUILD_START=$SECONDS
+    if ! GIT_COMMIT="$DEPLOYED_COMMIT" $DOCKER_CMD compose build "$SERVICE"; then
+        log_error "Docker build of '$SERVICE' failed after $((SECONDS - BUILD_START))s! Aborting deployment. Existing containers remain running."
+        log_resources "after failed build"
+        exit 1
+    fi
+    log_info "Service '$SERVICE' built in $((SECONDS - BUILD_START))s."
+done
 log_success "Docker images built successfully."
+log_resources "after build"
 
 # --- Rollback Helper Function ---
 perform_rollback() {
+    CURRENT_STAGE="rollback"
     log_error "Deployment failed! Initiating rollback procedure..."
     if [[ -n "$PREVIOUS_COMMIT" && "$PREVIOUS_COMMIT" != "$DEPLOYED_COMMIT" ]]; then
         log_warn "Attempting automated rollback to previous commit: $PREVIOUS_COMMIT..."
@@ -224,6 +314,7 @@ perform_rollback() {
 }
 
 # --- 5. Recreate & Restart Containers ---
+CURRENT_STAGE="recreating containers"
 # Persistent volume 'traffic_data' (/app/data/simulation.db) is preserved by docker compose up.
 log_info "Recreating containers with new images..."
 if ! GIT_COMMIT="$DEPLOYED_COMMIT" $DOCKER_CMD compose up -d --remove-orphans; then
@@ -233,11 +324,13 @@ fi
 log_success "Containers recreated and running in detached mode."
 
 # --- 6. Prune Dangling Images Safely ---
+CURRENT_STAGE="pruning dangling images"
 # Cleans only untagged dangling build layers; active images and persistent volumes are untouched.
 log_info "Pruning obsolete dangling Docker images..."
 $DOCKER_CMD image prune -f >/dev/null 2>&1 || true
 
 # --- 7. Post-Deployment Health Check ---
+CURRENT_STAGE="post-deployment health check"
 if [[ "$SKIP_HEALTH_CHECK" -eq 1 ]]; then
     log_warn "Health check skipped by user flag."
 else
@@ -295,6 +388,7 @@ else
 fi
 
 # --- 8. Final Status Report ---
+CURRENT_STAGE="final status report"
 log_success "=========================================================="
 log_success "UrbanFlow production deployment completed successfully!"
 log_success "Deployed Commit: $DEPLOYED_COMMIT"

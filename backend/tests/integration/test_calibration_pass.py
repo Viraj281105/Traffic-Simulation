@@ -185,11 +185,26 @@ def test_more_lanes_serve_more_traffic_fast(kind: str) -> None:
 @pytest.mark.parametrize("kind", ["fixed_time_signal", "roundabout"])
 @pytest.mark.parametrize("seed", [1, 2, 3])
 def test_capacity_rises_with_lanes(kind: str, seed: int) -> None:
+    """Each lane adds capacity, up to the junction's own limit.
+
+    A signal serves every approach lane, so 1 < 2 < 3 lanes. A roundabout's
+    ring has at most two lanes (MAX_CIRCULATING_LANES): 1 < 2 here, while a
+    third approach lane merges onto the inner ring lane and adds queue space,
+    not capacity (validation.md K1; a scenario warning says so).
+
+    The original strict ``served[1] < served[2]`` for the roundabout asserted
+    capacity the model is documented not to have, and failed for seeds 2 and
+    3 (93 vs 87, 103 vs 102). The third lane's effect is nil within noise, but
+    per-seed noise is about 5 % (from -11.5 % to +11.8 % over 40 seeds, V2.0
+    release-gate audit), so no per-seed bound on it is meaningful:
+    test_roundabout_lane_capacity.py checks it over ten paired seeds instead.
+    """
+    lane_counts = (1, 2) if kind == "roundabout" else (1, 2, 3)
     served = []
-    for lanes in (1, 2, 3):
+    for lanes in lane_counts:
         _, m = _run(kind, 5400.0, lanes, seed, 240.0)
         served.append(m["throughput"])
-    assert served[0] < served[1] < served[2]
+    assert served == sorted(set(served)), served  # strictly increasing
 
 
 @pytest.mark.slow
