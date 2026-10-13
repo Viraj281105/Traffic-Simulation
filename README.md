@@ -8,7 +8,7 @@
 
 | Version | Status | Next | Stack |
 | :-: | :-: | :-: | :-: |
-| **V1.5** | ✅ V1.0 deployed on AWS · V1.1–V1.3 complete · V1.4 & V1.5 implemented on `viraj-dev` (under review) | V1.6 Safety & environmental analysis | Python · FastAPI · React · TypeScript · Docker · AWS EC2 |
+| **V2.0 (release gate open)** | ✅ V1.0 deployed on AWS · V1.1–V1.3 complete · V1.4–V2.0 implemented and merged, V1.6–V1.9 partly ([status](docs/ROADMAP.md)) · **not released**: the [V2.0 release gate](docs/roadmap/V2_COMPLETION_AUDIT.md) is open | V2.0 release decision | Python · FastAPI · React · TypeScript · Docker · AWS EC2 |
 
 </div>
 
@@ -179,7 +179,7 @@ The browser never simulates and never computes a metric; the backend is the sing
 | **Determinism** | Same seed → same result, in-process, across processes, and after save → restore → re-run |
 | **Comparative evidence** | A calibrated one-lane capacity curve pinned by regression tests; multi-seed statistics with stated method and limits |
 
-Measured results are in the [comparative report](docs/reports/comparative_report.md) — each scoped to the conditions it was measured under. UrbanFlow is validated internally; it is **not yet calibrated against observed field traffic** (planned for V1.8/V1.9). Details: [Validation & evidence](docs/research/validation.md) · [Testing](docs/testing/README.md).
+Measured results are in the [comparative report](docs/reports/comparative_report.md) — each scoped to the conditions it was measured under. UrbanFlow is validated internally; it is **not calibrated against observed field traffic**: V1.8 added a framework that compares a simulation with counts you supply and rates the agreement, but no real observations have been run through it and no model parameters are fitted. Details: [Validation & evidence](docs/research/validation.md) · [Testing](docs/testing/README.md).
 
 ---
 
@@ -195,6 +195,7 @@ V1.0 runs on **Amazon EC2** as a Docker Compose stack: an nginx container servin
 | --- | --- |
 | [Documentation hub](docs/README.md) | Map of every document, by audience |
 | [Product story](docs/product/README.md) | Personas, principles, the planner journey |
+| [Planner guide](docs/product/planner-guide.md) | Run, read, export and reproduce a junction study in the browser (`/app/planner`) |
 | [System overview](docs/architecture/00-system-overview.md) | Architecture, data flow, lifecycle, concurrency |
 | [Simulation methodology](docs/simulation/methodology.md) | What is modelled, how, and under which assumptions |
 | [Configuration reference](docs/simulation/configuration.md) | Planner, advanced and research configuration |
@@ -219,12 +220,12 @@ flowchart LR
 | W12 · Oct 5–6 | **V1.1** | Different Vehicle Types | ✅ Complete |
 | W12 · Oct 5–6 | **V1.2** | Advanced Lane Modelling | ✅ Complete |
 | W12 · Oct 6 | **V1.3** | Adaptive Signal Control | ✅ Complete |
-| W12 · Oct 7 | **V1.4** | Advanced Roundabout Modelling + Scenario Config | 🟢 Implemented (under review) |
-| W12 · Oct 7 | **V1.5** | Real-World Junction Modelling | 🟢 Implemented (under review) |
-| W17 · Nov 13–19 | **V1.6** | Safety & Environmental Analysis | 🔜 Upcoming |
-| W18 · Nov 20–27 | V1.7 | Scenario / What-If Planning | Planned |
-| W19 · Nov 28–Dec 7 | V1.8 / V1.9 | Calibration & Network-Level Foundations | Planned |
-| W20 · Dec 8–17 | **V2.0** | UrbanFlow Decision-Support Platform | Planned |
+| W12 · Oct 7 | **V1.4** | Advanced Roundabout Modelling + Scenario Config | 🟢 Implemented, merged |
+| W12 · Oct 7 | **V1.5** | Real-World Junction Modelling | 🟢 Implemented, merged |
+| Oct 9 (planned W17) | **V1.6** | Safety & Environmental Analysis | 🟢 Implemented, partial (exploratory, not validated) |
+| Oct 9 (planned W18) | V1.7 | Scenario / What-If Planning | 🟢 Implemented, partial |
+| Oct 8 (planned W19) | V1.8 / V1.9 | Calibration & Network-Level Foundations | 🟢 Implemented, partial (no field data or fitting; networks not simulated) |
+| Oct 8–12 (planned W20) | **V2.0** | UrbanFlow Decision-Support Platform | 🟢 Implemented · **release gate open** |
 
 Authoritative detail: [ROADMAP](docs/ROADMAP.md).
 

@@ -1,15 +1,15 @@
 # UrbanFlow Roadmap
 
 > **This is the single authoritative roadmap.** It supersedes every earlier roadmap, deferred-features log and V1.1/V2/V3 plan in this repository (preserved in git history).
-> **Current version:** V1.3 (shipped baseline) · **V1.4** (advanced roundabouts + full scenario configuration) and **V1.5** (real-world junction modelling) **IMPLEMENTED on `viraj-dev`, under review** · **Next upcoming:** V1.6 (safety & environmental analysis) · **Last updated:** 2026-10-12
+> **Current version:** V1.3 (shipped baseline) · **V1.4 – V2.0 IMPLEMENTED** (merged to `main` by 2026-10-12, PRs #141 and #169), **not yet released**: the **V2.0 release gate (G-V2) has not passed** — see the [V2.0 completion audit](roadmap/V2_COMPLETION_AUDIT.md) for what is verified, what is partial and what still needs product-owner decisions, review, CI and deployment · **Last updated:** 2026-10-13 (status corrections from the release-gate audit; scope and planned dates unchanged)
 > **After V2.0:** [§7 V3.0](#7-v30--composable-ai-assisted-traffic-control-experimentation-planned-proposed) — composable, AI-assisted traffic-control experimentation (**PLANNED, proposed, blocked by the V2.0 release gate**; detail in [`roadmap/`](roadmap/V3_PRODUCT_STRATEGY.md)). **Beyond that:** [Future Scope](future-scope/future_scope.md) — research frontiers only.
 
 | Status | Meaning |
 | --- | --- |
 | ✅ **COMPLETE** | Shipped, documented, tested |
-| 🟢 **CURRENT / IMPLEMENTED** | The version in use / implemented on `viraj-dev` under review (V1.4, V1.5) |
-| 🔜 **PLANNED / UPCOMING** | Next in line; work starts imminently (V1.6) |
-| 🗓️ **PLANNED** | Scheduled in the V1.x → V2.0 roadmap (V1.7+) |
+| 🟢 **CURRENT / IMPLEMENTED** | Implemented and merged, awaiting the V2.0 release gate (V1.4 – V2.0); a milestone marked *partial* delivers only part of its scope, as stated |
+| 🔜 **PLANNED / UPCOMING** | Next in line; work starts imminently |
+| 🗓️ **PLANNED** | Scheduled, not implemented (V3.0, §7) |
 | 🔭 **FUTURE SCOPE** | After V2.0 — not part of this roadmap |
 
 ---
@@ -19,8 +19,8 @@
 ```mermaid
 flowchart LR
     A["<b>V1.0</b><br/>Foundation<br/>+ validated comparison<br/>+ cloud deployment<br/>✅ COMPLETE"]
-    B["<b>V1.1 – V1.9</b><br/>Capability expansion<br/>vehicles · lanes · adaptive signals ·<br/>roundabouts · real junctions · safety ·<br/>scenarios · calibration<br/>🗓️ PLANNED"]
-    C["<b>V2.0</b><br/>Mature UrbanFlow<br/>decision-support platform<br/>🗓️ PLANNED"]
+    B["<b>V1.1 – V1.9</b><br/>Capability expansion<br/>vehicles · lanes · adaptive signals ·<br/>roundabouts · real junctions · safety ·<br/>scenarios · calibration<br/>✅ V1.1–V1.3 · 🟢 V1.4–V1.9 implemented"]
+    C["<b>V2.0</b><br/>Mature UrbanFlow<br/>decision-support platform<br/>🟢 implemented · release gate open"]
     D["<b>POST-V2.0</b><br/>New research frontiers<br/>(Future Scope)<br/>🔭"]
     A --> B --> C --> D
 ```
@@ -97,11 +97,12 @@ gantt
     V1.1 Different Vehicle Types             :done,    v11, 2026-10-05, 2d
     V1.2 Advanced Lane Modelling             :done,    v12, 2026-10-05, 2d
     V1.3 Adaptive Signal Control             :done,    v13, 2026-10-06, 1d
+    section Implemented, release gate open
     V1.4 Roundabouts + Scenario Config       :active,  v14, 2026-10-07, 1d
     V1.5 Real-World Junction Modelling       :active,  v15, 2026-10-07, 1d
-    section Upcoming
+    V1.6–V2.0 (implemented 2026-10-08/09)    :active,  v16i, 2026-10-08, 2d
+    section Original planned slots
     V1.6 Safety & Environmental Analysis     :         v16, 2026-11-13, 7d
-    section Planned
     V1.7 Scenario / What-If Planning         :         v17, 2026-11-20, 8d
     V1.8–V1.9 Calibration & Network Foundations :      v18, 2026-11-28, 10d
     V2.0 Decision-Support Platform           :         v20, 2026-12-08, 10d
@@ -113,12 +114,14 @@ gantt
 | W12 | Oct 5 – Oct 6 | V1.1 | Different Vehicle Types | ✅ COMPLETE (with V1.2) |
 | W12 | Oct 5 – Oct 6 | V1.2 | Advanced Lane Modelling | ✅ COMPLETE (with V1.1) |
 | W12 | Oct 6 | V1.3 | Adaptive Signal Control | ✅ COMPLETE (ahead of the W14 slot) |
-| W12 | Oct 7 | V1.4 | Advanced Roundabout Modelling + Full Scenario Configuration | 🟢 IMPLEMENTED, under review (ahead of the W15 slot) |
-| W12 | Oct 7 | V1.5 | Real-World Junction Modelling | 🟢 IMPLEMENTED, under review (ahead of the W16 slot) |
-| W17 | Nov 13 – Nov 19 | V1.6 | Safety & Environmental Analysis | 🔜 UPCOMING |
-| W18 | Nov 20 – Nov 27 | V1.7 | Scenario / What-If Planning | 🗓️ PLANNED |
-| W19 | Nov 28 – Dec 7 | V1.8 / V1.9 | Calibration & Network-Level Foundations | 🗓️ PLANNED |
-| W20 | Dec 8 – Dec 17 | V2.0 | UrbanFlow Decision-Support Platform | 🗓️ PLANNED |
+| W12 | Oct 7 | V1.4 | Advanced Roundabout Modelling + Full Scenario Configuration | 🟢 IMPLEMENTED, merged (ahead of the W15 slot) |
+| W12 | Oct 7 | V1.5 | Real-World Junction Modelling | 🟢 IMPLEMENTED, merged (ahead of the W16 slot) |
+| W17 (plan) | Nov 13 – Nov 19 | V1.6 | Safety & Environmental Analysis | 🟢 IMPLEMENTED 2026-10-09, *partial* — proxies and estimates exploratory, not validated |
+| W18 (plan) | Nov 20 – Nov 27 | V1.7 | Scenario / What-If Planning | 🟢 IMPLEMENTED 2026-10-09, *partial* — batches are demand sweeps of one scenario; what-if alternatives are the V2.0 planner |
+| W19 (plan) | Nov 28 – Dec 7 | V1.8 / V1.9 | Calibration & Network-Level Foundations | 🟢 IMPLEMENTED 2026-10-08, *partial* — see the milestone notes |
+| W20 (plan) | Dec 8 – Dec 17 | V2.0 | UrbanFlow Decision-Support Platform | 🟢 IMPLEMENTED 2026-10-08 (planner UI 2026-10-12), **release gate open** |
+
+V1.4 – V2.0 were implemented ahead of their planned weeks; the weeks and dates above are the original plan, kept for reference. Release status is decided by the V2.0 release gate in the [V2.0 completion audit](roadmap/V2_COMPLETION_AUDIT.md), not by this table.
 
 Each milestone below lists its **goal**, its **scope** (authoritative), and the **V1.0 starting point** — a factual note on what exists today, so the work starts from the code rather than from assumptions.
 
@@ -182,7 +185,7 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 
 ### V1.4 — Advanced Roundabout Modelling
 
-**🟢 IMPLEMENTED · 2026-10-07 (ahead of the W15 slot) · under review — extended to full user configuration**
+**🟢 IMPLEMENTED · 2026-10-07 (ahead of the W15 slot) · merged; awaiting the V2.0 release gate — extended to full user configuration**
 
 **Goal:** advance roundabout modelling beyond the current implementation, and let users build the junction they want to investigate.
 
@@ -204,7 +207,7 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 
 ### V1.5 — Real-World Junction Modelling
 
-**🟢 IMPLEMENTED · 2026-10-07 (ahead of the W16 slot) · under review**
+**🟢 IMPLEMENTED · 2026-10-07 (ahead of the W16 slot) · merged; awaiting the V2.0 release gate**
 
 **Goal:** allow simulations to represent configurable real-world junction layouts.
 
@@ -220,7 +223,7 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 
 *Movements.* An explicit **U-turn** movement, only where a scenario's lane use puts it: a half circle into the kerb lane at a signal (released with the lefts, yielding to all, rejected unless its radius meets the AASHTO design turning radius of every class using it), the inner ring lane at a roundabout. Movements, lanes and demand that would lead into a missing arm are rejected, never re-routed.
 
-*Scenario, validation, comparison.* Optional document fields (`approaches.<dir>: null`, `bearing`, `laneWidth`, `"uturn"`, `turning.uturn`) — V1.4 documents compile and fingerprint unchanged (pinned against values recorded with the V1.4 code). Every rejection says what, where, why and what is valid ([contract §9](architecture/06-scenario-configuration-contract.md#9-real-world-junctions-v15)). Fast-tier safety validation passed with 0 contacts across all tested shapes, exact reproduction and legacy compatibility; the 60-run slow safety matrix and the full slow regression suite were **not run** for V1.5 and remain pending ([validation §4.3](research/validation.md#43-v15-real-world-junction-validation-2026-10-07)). The comparison pipeline is unchanged in kind — same scenario, different control — and reports approach-level results for the arms that exist. Frontend: the V1.4 builder gains "Which roads meet here?", U-turn arrows and shares, and per-arm bearing and lane width under Advanced; the plan preview and both live maps draw arms on their real bearings.
+*Scenario, validation, comparison.* Optional document fields (`approaches.<dir>: null`, `bearing`, `laneWidth`, `"uturn"`, `turning.uturn`) — V1.4 documents compile and fingerprint unchanged (pinned against values recorded with the V1.4 code). Every rejection says what, where, why and what is valid ([contract §9](architecture/06-scenario-configuration-contract.md#9-real-world-junctions-v15)). Fast-tier safety validation passed with 0 contacts across all tested shapes, exact reproduction and legacy compatibility; the 60-run slow safety matrix and the full slow regression suite were not run at the time; they were run in the V2.0 release-gate audit — **60/60** for the V1.5 matrix, and the full slow suite green on Python 3.11 ([validation §4.4](research/validation.md#44-v20-validation-addendum--what-was-and-was-not-checked-2026-10-12)). The comparison pipeline is unchanged in kind — same scenario, different control — and reports approach-level results for the arms that exist. Frontend: the V1.4 builder gains "Which roads meet here?", U-turn arrows and shares, and per-arm bearing and lane width under Advanced; the plan preview and both live maps draw arms on their real bearings.
 
 *Import foundation.* `assign_slots()` places measured arm bearings on compass slots or explains why it cannot — the step a future OpenStreetMap/GIS importer needs. No importer is part of V1.5.
 
@@ -232,7 +235,7 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 
 ### V1.6 — Safety & Environmental Analysis
 
-**W17 · Nov 13 – Nov 19 · 🗓️ PLANNED**
+**Planned W17 · Nov 13 – Nov 19 · 🟢 IMPLEMENTED 2026-10-09, partial** — safety proxies (collisions, near-miss/TTC/PET) and a safety dashboard exist and are tested as implementation, but are exploratory, not validated; fuel/CO₂ are labelled uncalibrated estimates. Detail: audit A-16, A-17.
 
 **Goal:** expand evaluation beyond delay and throughput.
 
@@ -248,7 +251,7 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 
 ### V1.7 — Scenario / What-If Planning
 
-**W18 · Nov 20 – Nov 27 · 🗓️ PLANNED**
+**Planned W18 · Nov 20 – Nov 27 · 🟢 IMPLEMENTED 2026-10-09, partial** — scenario suites with batch experiments (a demand sweep of one scenario), suite comparison and CSV reporting; suites are private to their creator. Comparing intervention alternatives is delivered by the V2.0 planner. Detail: audit A-18, A-19.
 
 **Goal:** allow planners to compare intervention scenarios under different traffic conditions.
 
@@ -263,7 +266,7 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 
 ### V1.8 / V1.9 — Calibration & Network-Level Foundations
 
-**W19 · Nov 28 – Dec 7 · 🗓️ PLANNED**
+**Planned W19 · Nov 28 – Dec 7 · 🟢 IMPLEMENTED 2026-10-08, partial** — *calibration:* a framework that compares a simulation with observed counts a user supplies and rates the agreement; **no observed field data has been run through it and no model parameters are fitted**, so no result is field-calibrated. *Networks:* network documents are validated, compiled and fingerprinted; **multi-junction networks are not simulated**; no network visualisation. API only (`/api/v2/calibration`, `/api/v2/networks`). Detail: audit A-20 – A-32.
 
 **Goal:** connect simulations more closely to observed traffic and establish foundations for connected/networked simulation.
 
@@ -279,7 +282,7 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 
 ### V2.0 — UrbanFlow Decision-Support Platform
 
-**W20 · Dec 8 – Dec 17 · 🗓️ PLANNED**
+**Planned W20 · Dec 8 – Dec 17 · 🟢 IMPLEMENTED 2026-10-08 (planning API) and 2026-10-12 (planner UI, `/app/planner`) · release gate open** — evidence-only planning studies (no ranking or recommendation), background jobs, reports (JSON, Markdown, CSV) and reproduction; release-gate status in the [V2.0 completion audit](roadmap/V2_COMPLETION_AUDIT.md).
 
 **Goal:** integrate the major capabilities into a mature evidence-based planning workflow.
 
@@ -308,7 +311,7 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 | Calibration to observed traffic | — | | | | | | | | ▲ | ◆ |
 | Network-level foundations | — | | | | | | | | ▲ | ◆ |
 
-✅ shipped · ▲ introduced · ● carried forward · ◆ integrated into the V2.0 platform
+✅ shipped · ▲ introduced · ● carried forward · ◆ integrated into the V2.0 platform. V1.4 – V2.0 symbols mean *implemented*, not released (V2.0 release gate open). "Calibration to observed traffic" is a comparison framework only: no field data has been run through it and nothing is fitted. "Network-level foundations" do not include multi-junction simulation.
 
 ---
 

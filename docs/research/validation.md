@@ -165,7 +165,62 @@ Four shapes, each one scenario document compiled for fixed-time, adaptive and ro
 
 **Runtime.** Geometry is compiled once at set-up, never per tick. On the V1.4 presets V1.5 computes the identical simulation, and interleaved A/B runs of the V1.4 code (commit `dcf7461`) and V1.5 on the bus-corridor preset (120 s, five rounds each, CPU time per tick) gave equal means within noise: fixed-time 2.21 vs 2.03 ms, roundabout 2.79 vs 2.76 ms. An earlier single reading of 4.6 ms (V1.5) against 2.2 ms (V1.4) was taken while the test suite ran concurrently and did not reproduce. Real-world shapes run at 2.4–3.8 ms/tick (120 s, wall clock, unloaded).
 
-**Not completed — do not read as passed.** (1) The slow 60-run matrix (`test_real_world_safety_matrix`: 4 shapes × 3 strategies × seeds 1–5 × 300 s) is in the suite but was stopped before completion for this report; it has **no result**. (2) The full `pytest -m slow` suite was **not run** against V1.5. Until both are run, V1.5 safety evidence is the fast tier above. Capacity on real-world geometry is uncalibrated and exploratory.
+**Completed later (2026-10-12, see §4.4).** The slow 60-run matrix (`test_real_world_safety_matrix`: 4 shapes × 3 strategies × seeds 1–5 × 300 s) and the full `pytest -m slow` suite have now been run: the matrix passed **60/60**. Capacity on real-world geometry remains uncalibrated and exploratory.
+
+### 4.4 V2.0 validation addendum — what was and was not checked (2026-10-12)
+
+Run for the V2.0 release gate ([audit §7](../roadmap/V2_COMPLETION_AUDIT.md)) on two trees: the slow suite on an unmodified export of commit `4b40cc9`; everything else on the release-gate working tree (`4b40cc9` plus the uncommitted gate changes). **No CI run exists for these results yet**; they are local evidence on Windows, Python 3.14.7 (CI and Docker use 3.11).
+
+**Full slow suite, first complete run.** `pytest -m slow`, one process per file, **188 of 190 passed** (≈ 2 h wall clock per long file):
+
+| File | Result | In the CI slow matrix? |
+| --- | --- | :-: |
+| `test_real_world_junctions_v15.py` (V1.5 safety matrix) | 60/60 | **No** |
+| `test_adaptive_signal_runs.py` | 27/27 | **No** |
+| `test_roundabout_multilane_v14.py` | 24/24 | **No** |
+| `test_vehicle_types_and_lanes.py` | 20/20 | **No** |
+| `test_calibration_pass.py` | **22/24 — 2 failed** | **No** |
+| `test_calibrated_capacity_regression.py` | 10/10 | Yes |
+| `test_roundabout_lockup.py` | 10/10 | Yes |
+| `test_roundabout_conflicts.py` | 9/9 | Yes |
+| `test_signal_capacity.py` | 5/5 | Yes |
+| `vehicles/test_router.py` | 1/1 | Yes |
+
+The two failures are `test_capacity_rises_with_lanes[2-roundabout]` and `[3-roundabout]` (`served[1] < served[2]` fails: 93 vs 87 and 103 vs 102 vehicles). The same 188/190, with **identical values**, was reproduced on **Python 3.11.16** (the CI and Docker runtime) in the release-gate verification run, so the result does not depend on the interpreter.
+
+**Resolution (release-gate verification run, 2026-10-12): a documented model boundary, not a defect — measured.** The failing comparison is 2 approach lanes vs 3 on a ring that has at most two lanes (`MAX_CIRCULATING_LANES`); the third lane is a merging entry onto the inner ring lane, which validation *accepts*. To tell noise from a merge-friction loss, the same configuration (5,400 veh/h, 240 s, the test's harness) was run for 20 seeds, paired:
+
+| | 2 approach lanes | 3 approach lanes |
+| --- | :-: | :-: |
+| Mean vehicles served (20 seeds) | 98.65 | 98.95 |
+| Paired difference (3 − 2) | | **+0.3, SD 4.3, 95 % CI −1.7 to +2.3** |
+| Seeds where 3 lanes served more / fewer / equal | | 10 / 9 / 1 |
+| Worst single-seed shortfall | | −6.5 % (seed 2) |
+| Collisions (40 runs) | 0 | 0 |
+
+**Independent re-validation (2026-10-13), with the product owner's conditional acceptance.** Three further experiments tested whether the result depends on the seeds, the horizon or the demand (`python scripts/roundabout_lane_experiment.py --first-seed 21 --seeds 20`, `--seeds 10 --duration 600`, `--seeds 10 --vph 2880 --duration 300`):
+
+| Experiment | Paired seeds | Mean effect of the third lane | 95 % CI | Per-seed range | Collisions |
+| --- | :-: | :-: | :-: | :-: | :-: |
+| 5,400 veh/h, 240 s (above) | 1–20 | +0.3 of ~99 | −1.7 to +2.3 | −6.5 % to +11.8 % | 0 |
+| 5,400 veh/h, 240 s, new seeds | 21–40 | −0.55 of ~99 | −3.1 to +2.0 | **−11.5 %** to +10.2 % | 0 |
+| 5,400 veh/h, 600 s | 1–10 | −3.4 of ~276 | −9.8 to +3.0 | −8.6 % to +2.1 % | 0 |
+| 2,880 veh/h, 300 s | 1–10 | +0.6 of ~121 | −4.9 to +6.1 | −9.8 % to +12.1 % | 0 |
+
+Every confidence interval contains zero (the widest, at 600 s, still allows a loss of up to 3.6 %): across 70 paired seeds, three demands and two horizons the third lane neither adds nor measurably removes capacity — the K1 boundary, not a defect. The largest shortfall at 600 s (seed 10, −8.6 %) was examined for a stall: after the initial ~40 s fill, every 30 s window discharged 10–19 vehicles with at most 3–4 vehicles stopped on the ring, in both lane counts; the shortfall is a slightly lower discharge spread over the run, not a lock-up.
+
+**The re-validation overturned the first version of the corrected test.** Its per-seed bound (third lane ≥ 90 % of two lanes) was justified by "largest shortfall observed 6.5 %"; seed 22 falls 11.5 % short. Per-seed noise is about 5 % (1 SD), so any per-seed bound is either noise-sensitive or too loose to detect a real loss. The test now checks the claim the way it was measured: `test_roundabout_lane_capacity.py` runs ten paired seeds and requires the third lane's total to be at least 95 % of two lanes' (standard error of that ratio ≈ 1.6 %, so 0.95 is three standard errors below "no effect" and a genuine loss of about 8 % or more fails it; measured 0.994, and between 0.983 and 1.01 on every other ten-seed block above). `test_capacity_rises_with_lanes` keeps the robust per-seed part — 1 < 2 lanes for the roundabout, 1 < 2 < 3 for the signal. The boundary is now also shown to the user: scenario validation warns *"an approach has 3 lanes but the ring has 2 … adds queue space, not capacity"* (`core/scenario.py scenario_warnings`, pinned by `test_validate_says_a_lane_wider_than_the_ring_adds_no_capacity`). **Product-owner acknowledgement of this classification is requested (D-V2-8).** All ten slow files, and a new randomized-invariants file, are now in the nightly CI matrix, and `tests/test_ci_slow_matrix.py` fails the ordinary PR job if any slow-test file is ever left out again.
+
+**Randomized invariants (new).** `tests/integration/test_randomized_invariants.py` draws valid scenarios through the product compiler — all three strategies, one and two lanes, three- and four-arm junctions, 150–1,000 veh/h per lane, mixed vehicle classes — and checks every tick: vehicle conservation, finite non-negative speeds, finite positions, no conflicting greens (fixed-time and adaptive), exact clock advance; and per run no collisions and a bit-identical second run (complete metrics document). Fast: 6 cases; slow: **48/48 passed**. A first version of the harness crashed on T-junctions whose turning shares pointed at the missing arm; both product validators (`validate_scenario` and `semantic_config_errors`) already reject such scenarios, so this was a harness error, not a product defect.
+
+**Decision-support layer (V1.8–V2.0).** What *was* checked: the planning, calibration and network APIs by their unit and integration tests (non-slow suite); every `/api/v2` route's authentication; owner isolation of calibration runs, planning studies and suites, each with a mutation check (removing the owner filter fails the tests); a planning study cannot attach another user's calibration run; a real planner study run end to end in the browser against a running backend — 3 alternatives × 2 seeds, results with intervals, exports (JSON 99.7 kB, Markdown 8.3 kB, CSV 4.8 kB), **reproduce: identical result fingerprint**, re-open after reload, delete.
+
+What was **not** checked, and must not be read as validated:
+
+* **No observed traffic data has ever been run through the calibration framework** (level 1 of the [calibration terminology](../roadmap/V3_PRODUCT_STRATEGY.md#8-calibration-terminology-normative)); no parameters are fitted (level 2). A calibration result *rates agreement with supplied counts*; it does not make a study field-calibrated.
+* **Multi-junction networks are not simulated.** `networks/execution.py` implements sequential execution only against an injected test simulator; no API or planning path runs it with the engine. A study accepts a network only when it has one junction.
+* Planning-study statistics rest on the paired-comparison method of §4 with the study's seeds (2–30); a "tie" is a difference within the tie tolerance and can coexist with a wide interval at small seed counts — the reliability flags say so.
+* Automated accessibility (axe) was not run; a keyboard path through the planner form was checked by hand only.
 
 ---
 
@@ -173,14 +228,14 @@ Four shapes, each one scenario document compiled for fixed-time, adaptive and ro
 
 | # | Limitation | Consequence | Status |
 | --- | --- | --- | --- |
-| K1 | ~~Multi-lane roundabout without lane assignment~~ — **resolved in V1.4**: up to two designated circulating lanes, keep-clear entry and exit convergence zones; 0 contacts and no standstill in 250 runs (§4.2). Remaining: three circulating lanes are rejected, not modelled; a third approach lane merges onto the two-lane ring and adds no capacity; multi-lane capacity is uncalibrated. *Was:* concentric rings without spiral lane assignment; inner-ring exits crossed outer rings (5 low-speed contacts in 54 runs, 2026-09-25; 2 in 32 mixed-traffic runs and a heavy-traffic lock-up, 2026-10-06) | Multi-lane results remain **exploratory** (uncalibrated capacity) and are labelled so; they are no longer flagged as unsafe. Scenarios asking for three ring lanes, or an approach two or more lanes wider than the ring, are rejected with an explanation | Resolved in [V1.4](../ROADMAP.md#v14--advanced-roundabout-modelling); three-lane rings not scheduled |
+| K1 | ~~Multi-lane roundabout without lane assignment~~ — **resolved in V1.4**: up to two designated circulating lanes, keep-clear entry and exit convergence zones; 0 contacts and no standstill in 250 runs (§4.2). Remaining: three circulating lanes are rejected, not modelled; a third approach lane merges onto the two-lane ring and adds no capacity (measured over 70 paired seeds, two demands and two horizons: no significant effect either way, §4.4; validation warns about it); multi-lane capacity is uncalibrated. *Was:* concentric rings without spiral lane assignment; inner-ring exits crossed outer rings (5 low-speed contacts in 54 runs, 2026-09-25; 2 in 32 mixed-traffic runs and a heavy-traffic lock-up, 2026-10-06) | Multi-lane results remain **exploratory** (uncalibrated capacity) and are labelled so; they are no longer flagged as unsafe. Scenarios asking for three ring lanes, or an approach two or more lanes wider than the ring, are rejected with an explanation | Resolved in [V1.4](../ROADMAP.md#v14--advanced-roundabout-modelling); three-lane rings not scheduled |
 | K2 | **One-lane signal is conservative**: one shared lane, permissive lefts, no turn bay | A waiting left-turner holds the only lane; maximum served flow sits below HCM shared-lane practice | Model scope; lane modelling in [V1.2](../ROADMAP.md#v12--advanced-lane-modelling) |
 | K3 | ~~No lane changing~~ — **resolved in V1.2**: gradual MOBIL lane changing on approaches. Remaining: no lane drops/merges inside the junction (opposite approaches must have equal lane counts); motorcycles do not filter between lanes | Through traffic rebalances across permitted lanes; uneven opposite approaches are rejected rather than simulated | Lane drops: deferred from V1.5 (not scheduled) |
 | K4 | ~~Homogeneous passenger-car fleet~~ — **resolved in V1.1**: car, SUV, bus, truck, motorcycle. Remaining: class parameters are literature-ordered model inputs, not calibrated; no articulated vehicles; at most 12 m | Mixed-traffic results are **exploratory** and labelled so (`calibration.mixedTraffic`) | Calibration: [V1.8/V1.9](../ROADMAP.md#v18--v19--calibration--network-level-foundations) |
 | K5 | ~~Fixed-time signals only~~ — **resolved in V1.3**: an adaptive (vehicle-actuated) signal on the same phase plan, and a three-way study. Remaining: see K17–K18 | Fixed-time vs adaptive vs roundabout is measured with identical traffic | — |
 | K6 | ~~Abstract four-leg geometry~~ — **largely resolved in V1.5**: three- or four-arm junctions, arms on their own bearings (within 30° of a compass slot) with their own lane widths and lengths, explicit U-turns (§4.3). Remaining: five-or-more-arm and staggered junctions are rejected, not modelled; no importer from map data (the slot-assignment foundation exists); real-world geometry is uncalibrated | A junction can be described as built, within those bounds; anything outside them is rejected with the reason. Results on such junctions are **exploratory** and labelled so | Multi-arm junctions and import: not scheduled (see [roadmap V1.5 deferred](../ROADMAP.md#v15--real-world-junction-modelling)) |
-| K7 | **Safety measures are exploratory**; no crash-risk model; no emissions | Safety is shown only as model-integrity cautions | [V1.6](../ROADMAP.md#v16--safety--environmental-analysis) |
-| K8 | **No field calibration** | Absolute numbers are model outputs, not predictions for a site | [V1.8/V1.9](../ROADMAP.md#v18--v19--calibration--network-level-foundations) |
+| K7 | **Safety measures are exploratory proxies** (collisions, near-miss/TTC, PET where defined; V1.6); no crash-risk model. Fuel/CO₂ are indicative estimates from a linear model with petrol-car constants, labelled *not calibrated*; no emissions model | Safety and environmental figures are model outputs, never predictions; absolute emissions are not quoted | V1.6 (exploratory, as above) |
+| K8 | **No field calibration.** V1.8 added a framework that *compares* a simulation with observations a user supplies and rates the agreement; no real observations have been run through it and no parameters are fitted (§4.4) | Absolute numbers are model outputs, not predictions for a site; no UrbanFlow result is "field-calibrated" | Parameter tuning and a real case study are open (audit A-21, A-22) |
 | K9 | **Stationary demand** within a run; one seed per sweep tier | No peak-hour profiles; sweep curves have no seed bands | Scenario planning in [V1.7](../ROADMAP.md#v17--scenario--what-if-planning) |
 | K10 | **Live comparison runs at 1× real time** | A 10-minute scenario takes 10 minutes to watch ("See results so far" mitigates) | Not scheduled |
 | K11 | **Delay includes geometric slowing** (curve and entry speed limits) | Delay ≠ time spent stopped; `averageWaitTime` reports the latter in the specialist layer | By design |
@@ -206,11 +261,11 @@ Items below strengthen *evidence*; each belongs to a roadmap milestone rather th
 | Physics and regression tests for lane changes | V1.2 — **done** (`tests/vehicles/test_lane_change.py`, `tests/integration/test_vehicle_types_and_lanes.py`) |
 | Adaptive-control experiments with validation against fixed-time | V1.3 — **done** (§4.1: three-way study over six demand levels, 1 and 2 lanes, cars and mixed traffic; exact replay; no signal collisions) |
 | Collision validation of multi-lane circulation (removes K1) | V1.4 — **done** (§4.2: 250 runs, one and two ring lanes, unequal, merging and asymmetric approaches, four mixes, 0 contacts) |
-| Safety validation of real-world geometry (three-arm, skewed, asymmetric, U-turns) | V1.5 — **fast tier done** (§4.3: 0 contacts, exact replay); the 60-run slow matrix and the full slow suite are **not yet run**; capacity on such junctions remains exploratory |
+| Safety validation of real-world geometry (three-arm, skewed, asymmetric, U-turns) | V1.5 — **done** (§4.3 fast tier; slow 60-run matrix 60/60, §4.4); capacity on such junctions remains exploratory |
 | Validated safety proxies; emissions where scientifically supportable | V1.6 |
 | Batch experiments with reproducibility at scenario level | V1.7 |
-| Calibration framework against observed traffic | V1.8 / V1.9 |
-| Research validation of the integrated platform | V2.0 |
+| Calibration framework against observed traffic | V1.8 / V1.9 — **framework exists; never run on real observations** (§4.4) |
+| Research validation of the integrated platform | V2.0 — **partial** (§4.4: what was and was not checked) |
 
 ---
 

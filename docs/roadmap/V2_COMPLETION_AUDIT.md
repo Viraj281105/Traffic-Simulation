@@ -1,6 +1,6 @@
 # V2.0 Completion Audit
 
-> **Status:** PROPOSED — **revision 2, with revision-3 corrections of 2026-10-12** · **Branch:** `viraj-dev` @ `d62338d`, which PR #141 merged into `main` at `324cde0` (09:33 UTC, 2026-10-12) · all dates and estimates are *proposed* until the product owner approves them
+> **Status:** **revision 6 (2026-10-13): release gate NOT PASSED — engineering rows pass locally; open: external CI on a pushed gate commit, second-engineer review, deployment** · base `viraj-dev` @ `4b40cc9` (= `origin/viraj-dev`; merged into `origin/main` by PRs #141/#169) plus the local gate commits listed in §7.0c · earlier revisions kept below for history
 > **Series:** [V2 completion audit](V2_COMPLETION_AUDIT.md) · [V3 product strategy](V3_PRODUCT_STRATEGY.md) · [V3 weekly sprint plan](V3_WEEKLY_SPRINT_PLAN.md) · [V3 presentation plan](V3_PRESENTATION_PLAN.md)
 > **Authority:** [`docs/ROADMAP.md`](../ROADMAP.md) is the single authoritative roadmap and was **not** edited. Where this audit finds ROADMAP statements that are out of date (§7, R4.2) it records the correction as an *owner-authorised edit still to be made*.
 
@@ -11,6 +11,62 @@ This audit answers one question: **is everything promised through V2.0 actually 
 * **Repository state corrected (§1).** The four local commits are no longer unpushed: PR #141 merged them into `main` (merge commit `324cde0`); Continuous Integration and Docker Container CI are green on that commit, and the **scheduled** CI run on `324cde0` (event `schedule`) ran the five `Backend Slow Simulation Regression` jobs, all green. The push/PR runs skipped the slow job. This is **context, not a gate PASS**: the gate commit is still to be declared and every gate check re-run on it (rule in §7).
 * **V3.0 scope firewall (new §7.12).** The V3.0 plan now includes signalised roundabouts, a strategy registry, a driver-aggression default and two AI features. **None of it is V2.0 scope, none of it may delay or alter the V2.0 gate, and none of it may be merged before G-V2.** The V2.0 release gate rows, work packages and 7.75 ED estimate are unchanged; V2.0 closure is not compressed.
 * The audit's findings (rows PASS/FAIL/NOT RUN) are **not changed** by this correction except where §1 now records a verified fact.
+
+### Revision 4 (2026-10-12) — release-gate verification run
+
+The gate's work packages W1, W3, W4, W5 and W6 (part A) were carried out and the gate checks were run **locally**. Everything below is evidence from the **working tree `4b40cc9` + uncommitted gate changes** (no commit, push, PR or deployment was authorised), except the slow suite, which ran on an unmodified export of `4b40cc9`. **No gate commit exists, so no row is PASS "on the gate commit"; §7.0 shows each row's status and its local evidence.**
+
+* **Gate verdict: NOT PASSED.** Code, security and documentation rows now pass locally; the gate is held by (1) the slow suite (**2 of 190 fail**, a known model limit with a stale test expectation — owner decision), (2) no gate commit / review / CI (not authorised in this run), (3) product-owner decisions D-V2-0…D-V2-6, (4) `ROADMAP.md` (not editable without authorisation), (5) accessibility tooling (axe) not run, (6) the deployment rows (G-PROD).
+* **New findings:** 155 of the 190 slow tests are in **no** CI job (the nightly slow run covers 35), so earlier "slow suite green in CI" statements covered 18 % of it; the documented "suites are deliberately shared" design (API reference §7.1) is reversed by the D-V2-3 proposal implemented here and needs explicit PO confirmation; V1 run history (`/api/v1/study/history/runs`) is unauthenticated, so suite privacy hides suite metadata but not run metrics; a planning study could previously attach (and read the fitted scenario of) another user's calibration run — fixed; the planning API's 422 reasons were flattened into a Python repr in the error envelope — now a list in `error.details.errors`.
+* **Both failed deployments diagnosed (R5.1):** run 37914357365 (`4956570`) failed in `npm run build` on the EC2 host (TypeScript syntax errors in `SafetyTimelineVisualizer.tsx`, since fixed in `b707e3e`/`26e5577`; the script aborted and left the old containers running); run 37932609196 (`6977d20`) lost its SSH session (`client_loop: send disconnect: Broken pipe`, exit 255) about five minutes into the remote `npm run build` — the failure mode `8f6e80f` redesigns (detached run). Whether the second run's remote build finished is unknown.
+
+### Revision 6 (2026-10-13) — product-owner decisions applied, residual risks closed, final verification
+
+**Product-owner decisions recorded (2026-10-13):** D-V2-7 *approved* — saved (owned) runs are owner/admin-only; unowned runs keep the documented public-read policy. D-V2-3 *approved* — private scenario suites and owner-scoped batch results. D-V2-8 *conditionally accepted*, subject to independent validation (done below). npm advisories: deferral accepted *if* verified development-only (verified below). D-V2-2 *authorised* for evidence-backed factual corrections to `ROADMAP.md`, no scope changes (done below). Local commits permitted after a full diff review; **no push, merge, deployment or closure of #142**.
+
+* **D-V2-8 independent validation — classification confirmed, test tolerance overturned.** 50 more paired seeds (new seeds 21–40; a 600 s horizon; 2,880 veh/h): every 95 % CI of the third lane's mean effect contains zero; 0 collisions in 140 runs; the largest 600 s shortfall (seed 10, −8.6 %) shows steady discharge with no stall. But seed 22 falls **11.5 %** short, falsifying the revision-5 per-seed 10 % bound and its stated justification. Replaced by a ten-seed aggregate (`tests/integration/test_roundabout_lane_capacity.py`, ratio ≥ 0.95, three standard errors; new nightly CI shard); the per-seed test keeps only the robust 1 < 2 check for the roundabout. Evidence: [validation §4.4](../research/validation.md). **D-V2-8: condition met → accepted.**
+* **npm deferral — verified development-only.** `npm audit` (6: 2 critical, 2 high, 2 moderate): `tinypool`, `vitest`, `@vitest/mocker`, `@vitest/coverage-v8` (test runner); `brace-expansion` (eslint, coverage glob); `source-map-js` (`@tailwindcss/node`, `postcss`, build time only, even though `npm audit --omit=dev` lists it because Tailwind is declared in `dependencies`). The production frontend image copies only `dist/` and the nginx templates (`frontend/Dockerfile`), and none of these packages' code is in the 37 shipped bundle files. Exploitation needs attacker-controlled build inputs or test-runner options. **Deferred** (accepted); remedy: Vitest 3 → 5 major upgrade after V2.0.
+* **Residual risk 1 — per-client limits.** *Fixed (app):* one client may hold at most one of the two synchronous-compute slots (client = nginx's `X-Real-IP`, which nginx overwrites). Two more synchronous simulation routes were found ungated and gated: `GET /api/v1/study/export` (ran a sweep and a Monte Carlo study on an anonymous GET) and `POST /api/v2/planning/{id}/reproduce`. *Not fixed, deliberately:* an nginx per-IP request-rate limit — the dashboard polls at up to 10 Hz per viewer and demos share one NAT, so it would block legitimate audiences while compute is already bounded; recommended at the edge (ALB/WAF) from observed traffic. *Residual (low):* one client can still fill the 4 background-job slots (each bounded by study caps and the step ceiling). Release impact: none blocking.
+* **Residual risk 2 — WebSocket origin.** *Fixed:* `/ws/*` handshakes from another site's page are refused before accept (`src/ws_origin.py`): same host name as `Host` (ports not compared — nginx forwards `Host` without one, verified through the production nginx on port 18080), or `CORS_ORIGINS`, or no `Origin` (non-browser). Verified: unit and handshake tests on all three streams; live dev server (foreign 403, dev 101); the app's own stream in the browser; production images through nginx (foreign 403, same-site 101).
+* **Residual risk 3 — planning jobs across restarts.** *Two defects fixed:* (1) a study queued or running when the process stopped answered 404 afterwards, indistinguishable from "deleted"; (2) failed studies were never persisted although the operations guide said they were. Every state is now stored (inline additive migration, `status`/`error` columns), and the process-wide service marks studies an earlier process left unfinished as **failed — "Interrupted by a server restart …"**, which the planner UI shows. *Not done:* resuming interrupted jobs (needs a durable job queue; documented). Mutation-checked: reverting to completed-only persistence fails 2 of the 4 new tests.
+* **`ROADMAP.md` and README** — status corrections only (V1.4–V2.0 implemented and merged; V1.6–V1.9 partial, with what is missing stated; V1.5 slow matrix now run; V2.0 release gate open). Planned slot dates, scope tables and §7 (V3.0) unchanged.
+* **Container privileges checked:** the backend server process runs as `appuser` (uid 999, real/effective/saved/fs), after the entrypoint's root-only volume-ownership repair; nginx as uid 101.
+
+#### 7.0c Revision 6 — final verification of the exact working tree (2026-10-13)
+
+| Check (command) | Environment | Result |
+| --- | --- | --- |
+| `pytest -m "not slow"` (coverage gate in `addopts`) | Windows, Python 3.14.7 | **1,271 passed, 0 failed, coverage 94.83 %** (floor 85 %), 239 slow deselected, 21 min |
+| `pytest -m "not slow" -v` | Docker `python:3.11.16` image, tree copy incl. checkout files | **1,271 passed, 0 failed, coverage 94.86 %**, 63 min (the three checkout-dependent tests of revision 5 pass here) |
+| `pytest <file> -m slow --no-cov`, every slow file, one process each | Docker Python 3.11.16 | **239 passed, 0 failed** across 12 files (incl. the new 10-seed `test_roundabout_lane_capacity.py`, 41 min; longest shard) |
+| `ruff check src/ tests/` · `ruff format --check src/ tests/` · `mypy src/` (strict) | Python 3.14.7 | clean · 220 files formatted · 105 files, no issues |
+| `python scripts/validate_schemas.py` | — | passed (3 files) |
+| `docker compose -f docker-compose.yml config` · `-f docker-compose.dev.yml config` | Docker 29.7.2 | both valid |
+| `docker build -f backend/Dockerfile .` · `docker build -f frontend/Dockerfile ./frontend` | Docker 29.7.2 | both built |
+| Full-stack smoke of those images (backend + nginx, API key set to a throwaway value) | Docker network, port 18080 | `/health` 200 · `/app/planner` 200 · unknown page 404 · run list 200 · anonymous PATCH 401 · `/api/v2` without a user 401 (key injected) · WebSocket foreign origin 403, same-site 101 |
+| `npx vitest run` · `tsc --noEmit` · `eslint .` · `prettier --check .` · `npm run build` | Node 24.20.0 | **35 files, 409/409**; tsc, ESLint, Prettier clean; build exit 0 (also 409/409 ×3 earlier on identical frontend code) |
+| `npm audit` · `npm audit --omit=dev` · `pip-audit -r requirements.txt` | — | as in §7.0b / above; no new findings |
+| Roundabout re-validation (`scripts/roundabout_lane_experiment.py`, 3 runs) | Python 3.14.7 | as above |
+
+**Not verifiable here (still open):** external CI on a pushed gate commit (R2.6); deployment (R5.x, R6.x — production `API_KEY`, Cognito settings, running commit); review by a second engineer (R1.7); keyboard and screen-reader accessibility review.
+
+### Revision 5 (2026-10-12/13) — hardening run
+
+Working tree only: **no commit, push, merge, PR or deployment** (not authorised). Builds on the revision-4 gate changes, which were preserved unchanged except where listed. Every claim below has its command in §7.0b.
+
+* **Gate verdict: still NOT PASSED** — now held only by owner/operator items: no reviewed gate commit + CI run (R1.5, R1.7, R2.6), product-owner decisions (D-V2-3, D-V2-7, D-V2-8, deferred npm advisories), `ROADMAP.md` (R4.2), and deployment (R5.x, R6.x). Every engineering row that can be run locally now passes (§7.0b).
+* **Security defects found and fixed** (each with regression tests; the shared access rule was mutation-checked — disabling it fails 12 tests):
+  1. **Owned runs were public** — `/api/v1/study/history/runs*` let anyone list, read, export, compare and reproduce a signed-in user's saved runs, and **anonymously rename or rewrite notes/tags on any run** (PATCH had only the proxy-injected API key). Now owner/admin only (404 to others); unowned study runs stay public to read and admin-only to relabel (403). This implements the D-V2-7 question in its deny-by-default form — **PO confirmation requested**.
+  2. **Private suites leaked their results** — suite-batch runs were stored without an owner, so `?batch_id=<suite>` listed them publicly. Now owned by the suite owner.
+  3. **Unbounded synchronous compute (DoS)** — seven synchronous simulation routes, reachable without sign-in, had no concurrency bound; a few dozen concurrent requests would starve every synchronous route, `/health` included. Now 2 at a time, 429 at once otherwise (`src/request_limits.py`).
+  4. **Unbounded run length (DoS)** — the schema accepted any `timeStep > 0`, so a 1e-6 s step made a 3600 s run 3.6 billion steps. Now at most 72,000 steps, enforced by the shared validator and by the engine itself; reproducing a stored run with a client-supplied duration is bounded too.
+  5. **Hardening:** admin requires `email_verified`; a token without `sub` is refused; tokens must be RS256 (blocks HS256-with-public-key confusion, CVE-2024-33663 / CVE-2026-85394, the latter without an upstream fix); CSV exports neutralise spreadsheet formulas (run and suite exports; the planning CSV carries no free text).
+  6. **Dependencies:** `python-jose` 3.3.0 → 3.5.0, `requests` 2.31.0 → 2.33.1 (none of their advisories was exploitable as used; verified first by a new end-to-end test of the real Cognito RS256 path, which previously had none). Their transitive dependencies are now pinned.
+* **Integrity:** `POST /history/runs/compare` substituted 0 for missing metrics and still named a "winner" (two comparison runs read as a 0 s "tie"); now null deltas and `winner: "unavailable"`.
+* **Simulation (R2.2):** the two slow roundabout failures are a **documented model boundary, not a defect**, on 20-seed paired evidence (third merging lane on a two-lane ring: +0.3 of ~99 vehicles, 95 % CI −1.7 to +2.3; 0 collisions) — [validation §4.4](../research/validation.md). Test corrected to what the model promises; validation now warns users. **PO acknowledgement requested (D-V2-8).** New randomized-invariant test over the accepted scenario space (fast 6, slow 48).
+* **CI:** the five slow files that were in no CI job (155 tests) plus the new one are in the nightly matrix; `tests/test_ci_slow_matrix.py` fails the PR job if a slow file is ever left out.
+* **Accessibility (R2.8):** axe-core 4.13.0 (dev, pinned) in Vitest: app shell, planner setup and results, run page — 0 violations. Colour contrast, which jsdom cannot measure, checked with the same axe in a real browser on the dev stack: Compare, Planner and Run page, light and dark — **0 violations** (69, 43 and 136 text nodes passing; 6–23 nodes per page on gradients undeterminable; a 1 px decorative dot grid was hidden for the measurement). Not claimed: full WCAG conformance or screen-reader usability.
+* **Modularisation:** run history extracted from `main.py` (3,449 → 2,873 lines) into `src/history/` (`router.py` HTTP and access, `reproduce.py` domain logic, `export.py` pure CSV); one ownership rule in `src/access.py` now serves runs, suites and calibration runs; request limits consolidated in `src/request_limits.py`. Behaviour is preserved except for the deliberate fixes above: every existing history and reproduction test passes unchanged except one that encoded anonymous relabelling, which was updated to the new contract.
 
 ### What changed in revision 2
 
@@ -25,6 +81,21 @@ This audit answers one question: **is everything promised through V2.0 actually 
 ## 0. Verdict (read this first)
 
 **V2.0 is NOT release-ready.** The backend is real and works end to end; the product experience the roadmap names for V2.0 ("end-to-end planner workflow … final presentation layer") does not exist, and several security, evidence and documentation criteria are open.
+
+**Revision 6 (§7.0b, §7.0c):** every engineering check that can run locally passes on the final tree (backend fast suite on Python 3.14 and 3.11, full slow suite, frontend, build, images and a full-stack smoke test); the product-owner decisions D-V2-2/3/7/8 and the npm deferral are recorded. **Still not release-ready:** no pushed gate commit with external CI, no second-engineer review, deployment unverified. Issue #142 stays open.
+
+**Revision 4 (local verification, §7.0):** V2.0 was still **not release-ready**, but for different reasons. The planner UI, the access-control and privacy fixes and the documentation now exist and pass locally. What holds the gate: two slow tests, the absence of a reviewed gate commit with CI, product-owner decisions, `ROADMAP.md`, accessibility tooling and deployment. *Revision-2 counts are kept below the new ones for history.*
+
+| Dimension of the release gate (§7) | Rows | PASS (local) | FAIL | NOT RUN (on a gate commit) | BLOCKED |
+| --- | :-: | :-: | :-: | :-: | :-: |
+| 1 Code complete and reviewed | 8 | 5 | 1 | 0 | 2 |
+| 2 Automated tests and build checks | 8 | 1 | 1 | 5 | 1 |
+| 3 Security and privacy | 8 | 7 | 0 | 0 | 1 |
+| 4 Documentation | 5 | 4 | 0 | 0 | 1 |
+| 5 Deployment pipeline (not production) | 4 | 1 | 0 | 1 | 2 |
+| 6 Production deployment and smoke test (separately authorised) | 3 | 0 | 0 | 0 | 3 |
+
+*Revision 2 (superseded):*
 
 | Dimension of the release gate (§7) | Rows | PASS | FAIL | NOT RUN | BLOCKED |
 | --- | :-: | :-: | :-: | :-: | :-: |
@@ -207,6 +278,84 @@ Why "API key only" is not protection: the nginx template adds `X-API-Key` to **e
 
 **Rule.** All checks are re-run on **one gate commit** (the release candidate, pushed). Evidence from an earlier tree is context, not a PASS.
 
+### 7.0 Revision 4 — status of every gate row (2026-10-12)
+
+**PASS (local)** = the requirement is met and verified on the working tree (`4b40cc9` + uncommitted gate changes); it must be re-confirmed by R2.x on the gate commit. The tables in §7.2–§7.7 keep the requirement definitions; their status column is superseded by this table.
+
+| Row | Status | Evidence (exact) | Remaining |
+| --- | :-: | --- | --- |
+| R1.1 Planner MVP | **PASS (local)** | `frontend/src/components/planner/*`, `frontend/src/services/v2/planning.ts`, route `/app/planner` in `routing.ts` + nginx template (`routing.test.tsx` mirror green); `src/test/planner.test.tsx` 19 tests (PL-1…PL-9 incl. `unavailable`, tie, null statistic, 429, failed job, unreachable, 404); live run in the browser against the running dev stack (below) | Review by the frontend owner (#143 is assigned to khushik8605; `v20-integration.md` asked for coordination) |
+| R1.2 `/api/v2` per-user auth | **PASS (local)** | `main.py` mounts networks with key + user, calibration router takes user/admin deps, `planning/validate` takes the user; `tests/api/test_v2_route_auth.py` (every OpenAPI `/api/v2` route × no key / key-no-user / forged token / dev token without bypass → 401) | — |
+| R1.3 Calibration-run ownership | **PASS (local)** | `calibration/store.py` `user_id` column (inline migration), owner-scoped get/list/delete, legacy rows admin-only; `tests/calibration/test_calibration_ownership.py` (8 tests incl. migration of an old table); mutation check: disabling the filter fails 5 tests | — |
+| R1.4 Suite privacy | **PASS (local)** | `scenario_suites.user_id` (inline migration), scoped list/get/batch/export, legacy admin-only, creation refuses other users' runs; `tests/api/test_suite_privacy.py` (5 tests), `tests/database/test_suite_dao.py`; mutation check fails 3 tests | **D-V2-3 confirmation** (reverses the documented shared-suite design); V1 run history still public (new decision D-V2-7) |
+| R1.5 Pending work committed | **BLOCKED** | Gate changes are uncommitted (commit not authorised in this run) | Owner commits |
+| R1.6 Null `cohensD`/`pValue` consumers | **PASS** | Unchanged since `dd3d36b`; all consumer suites green (backend non-slow, frontend ×3) | Re-confirm on the gate commit |
+| R1.7 Gate commit, PR, review | **BLOCKED** | No commit/push/PR authorised; reviewer not named (D-V2-0, D-V2-5) | — |
+| R1.8 Clean tree at gate time | **FAIL** | 20+ files of uncommitted gate changes (by design of this run) | Commit, then re-check |
+| R2.1 Backend non-slow + coverage | **NOT RUN** (gate commit) | Local, final tree: `pytest -m "not slow"` **1,204 passed, 0 failed, 190 deselected, coverage 94.52 %** (floor 85 %), 20 min 50 s. An earlier run on the same day found one failure caused by the suite-privacy change (`test_suite_dao.py::test_list_suites` relied on an unscoped list); the test was updated to the owner-scoped contract with added scoping assertions, not weakened | Gate commit |
+| R2.2 Slow suite | **FAIL** | Full `pytest -m slow` on an export of `4b40cc9`, one process per file: **188/190**; failed `test_calibration_pass.py::test_capacity_rises_with_lanes[2-roundabout]` (93 < 87) and `[3-roundabout]` (103 < 102) — the documented ≤ 2-ring-lane limit (validation §4.2) vs a stale expectation. Files `test_real_world_junctions_v15` 60/60, `test_adaptive_signal_runs` 27/27, `test_roundabout_multilane_v14` 24/24, `test_vehicle_types_and_lanes` 20/20, the five CI-matrix files 35/35. **155 slow tests are in no CI job** | Owner decides test vs model (D-V2-8); add the five missing files to the CI slow matrix |
+| R2.3 ruff / format / mypy | **NOT RUN** (gate commit) | Local: `ruff check .` clean, `ruff format --check .` 206 files formatted, `mypy src` 98 files no issues | Gate commit |
+| R2.4 Frontend vitest ×3, tsc, eslint, prettier | **NOT RUN** (gate commit) | Local: vitest 35 files / **403 tests ×3** green; `tsc --noEmit` clean; `eslint .` and `prettier --check .` clean (after formatting the new test file) | Gate commit |
+| R2.5 Production build | **NOT RUN** (gate commit) | Local `npm run build` (tsc + vite) succeeded in 14.4 s; Docker CI's `build-frontend` job builds the image on push | Gate commit + Docker CI |
+| R2.6 CI green on gate commit | **BLOCKED** | No push authorised | — |
+| R2.7 Planner acceptance PL-1…PL-10 | **PASS (local)** | (a) 19 mocked-API UI tests; (b) real run in the browser against the dev stack (Docker, Python 3.11, `DEV_AUTH_BYPASS`): server validation (15 → 6 simulations after setting 2 seeds), job with cumulative progress ("4 of 6"), results, exports JSON 99,740 B / MD 8,317 B / CSV 4,774 B, **reproduce: identical result fingerprint `99cdeadc710c5a59`**, re-open after reload, delete → 404 and a clear "not found" message; (c) PL-9 *after backend restart* verified by `test_deleted_study_is_removed_from_the_database` (fresh store reads the DB), **not** by restarting a live server; PL-10 by R3.1/R3.2 tests | Live restart check on the gate commit |
+| R2.8 Accessibility | **NOT RUN** | No axe tooling in the repo (adding it is a dependency decision); keyboard: Tab order and visible focus checked by hand on the planner form; landmarks: no nested `<main>`, tables have captions and `scope` | Add vitest-axe or run axe once (D-V2-9) |
+| R3.1 Route-level auth test | **PASS (local)** | `tests/api/test_v2_route_auth.py` (parametrised from the OpenAPI document, 20 routes) | — |
+| R3.2 Planning isolation | **PASS** | `tests/planning/test_planning.py` (get, report, reproduce, delete → 404 for another user) | — |
+| R3.3 Calibration isolation | **PASS (local)** | R1.3; plus a planning study cannot attach another user's run (validate/run/jobs) | — |
+| R3.4 Suite isolation | **PASS (local)** | R1.4 | V1 history exposure (D-V2-7) |
+| R3.5 Request-size limits | **PASS (local)** | `src/request_limits.py` (ASGI; declared and chunked bodies) 1 MiB on `/api/v2/networks/*` and `/api/v2/planning/validate` → 413 `PAYLOAD_TOO_LARGE`; `tests/api/test_request_limits.py` (incl. a realistic large network ≥ 20× under the cap) | — |
+| R3.6 Dev bypass not in prod compose | **PASS** | Unchanged; `test_dev_auth_bypass.py` green | — |
+| R3.7 Deletion or documented retention | **PASS (local)** | `DELETE /api/v2/calibration/runs/{id}` (owner/admin), `DELETE /api/v2/planning/{id}` (owner; 409 while running); retention table in `docs/operations.md` (suites and run history: no delete route, documented) | D-V2-6 confirmation |
+| R3.8 Production `API_KEY` set | **BLOCKED** | Operator check on the host; procedure now in `docs/operations.md` | Operator |
+| R4.1 `/api/v2` API reference | **PASS (local)** | `docs/api/README.md` §10 from the OpenAPI document (all 20 routes), error table (413, 422 envelope) | — |
+| R4.2 README and ROADMAP status | **BLOCKED** | `ROADMAP.md` not editable without authorisation (D-V2-2); README: only the calibration sentence corrected and the planner guide linked — its status row and roadmap table still mirror `ROADMAP.md` | D-V2-2 |
+| R4.3 Validation addendum, K7/K8 | **PASS (local)** | `docs/research/validation.md` §4.4 (checked / not checked), K7, K8, §4.3, §6 rows updated | — |
+| R4.4 Planner guide | **PASS (local)** | `docs/product/planner-guide.md`, linked from README | Screenshots optional |
+| R4.5 Operator notes | **PASS (local)** | `docs/operations.md`: `API_KEY` mandatory + host check, per-user auth and admins, data retention and deletion | — |
+| R5.1 Root cause of failed runs | **PASS** | Revision-4 block above (both logs read via `gh run view --log-failed`) | — |
+| R5.2 Fix on `deployment` | **BLOCKED** | Merge is a deployment trigger (G-PROD) | PO |
+| R5.3 Static checks | **NOT RUN** (partial) | `bash -n` passes for `scripts/deploy-ec2.sh`, `run-remote-deploy.sh`, `validate-schemas.sh`; `shellcheck` not installed; workflow not re-reviewed line by line | shellcheck + review |
+| R5.4 Successful pipeline run | **BLOCKED** | G-PROD | PO |
+| R6.1–R6.3 Production | **BLOCKED** | No authorisation (G-PROD) | PO |
+
+#### 7.0a Commands (local, Windows, backend Python 3.14.7; dev stack Python 3.11.16)
+
+```
+backend> .venv/Scripts/python.exe -m pytest -m "not slow"                       # coverage gate in addopts
+backend> .venv/Scripts/python.exe -m ruff check . ; ruff format --check . ; mypy src
+export of 4b40cc9> pytest <file> -m slow --no-cov -v --durations=0              # each of the 10 slow files, in parallel
+frontend> npx prettier --check . ; npx eslint . ; npx tsc --noEmit ; npx vitest run (x3) ; npm run build
+```
+
+**New decisions raised by revision 4:** D-V2-7 should V1 run history (`/api/v1/study/history/runs`) become per-user? · D-V2-8 the two failing slow tests: change the expectation to the documented ≤ 2-ring-lane limit, or treat as a model defect · D-V2-9 add an axe dependency (vitest-axe) or accept a one-off manual axe run.
+
+**Side effect to note:** the running Docker dev stack bind-mounts `backend/src`, so it hot-reloaded the gate changes and its `init_db` added the `scenario_suites.user_id` column to the dev volume's database (additive; no row changed). One planning study was created there for the walk-through and deleted afterwards through the new route.
+
+### 7.0b Revision 5 — row changes and evidence (2026-10-13)
+
+Rows not listed keep their §7.0 status. "PASS (local)" still needs re-confirmation on a gate commit (R1.7/R2.6).
+
+| Row | Was | Now | Evidence (command → result, final working tree) |
+| --- | :-: | :-: | --- |
+| R2.1 Backend non-slow + coverage | NOT RUN | **PASS (local)** | Python 3.14.7: `pytest -m "not slow"` → **1,247 passed, 0 failed, coverage 94.81 %** (floor 85 %), 24 min. Python 3.11.16 (CI/Docker runtime, container copy without `.git`): **1,244 passed, 3 failed, coverage 94.87 %** — the 3 are the checkout-dependent tests in the environment note below, which pass on 3.11 with the checkout files present (39/39 for their files) |
+| R2.2 Slow suite | FAIL | **PASS (local)**, classification pending D-V2-8 | Python 3.11.16, one process per file, final tree: **238/238 passed, 0 failed** (190 original + 48 randomized; calibration-pass 24/24, real-world junctions 60/60, adaptive 27/27, multilane 24/24, vehicle types 20/20, calibrated capacity 10/10, lock-up 10/10, conflicts 9/9, signal capacity 5/5, router 1/1; longest file 34 min). Baseline tree on 3.11 earlier: 188/190, the two roundabout cases, values identical to 3.14 |
+| R2.3 ruff / format / mypy | NOT RUN | **PASS (local)** | `ruff check src tests` clean; `ruff format` clean; `mypy src` (strict) 104 files, no issues |
+| R2.4 Frontend | NOT RUN | **PASS (local)** | `vitest run` ×3 → **35 files, 409/409** each; `tsc --noEmit`, `eslint .`, `prettier --check .` clean |
+| R2.5 Production build | NOT RUN | **PASS (local)** | `npm run build` (tsc + vite) exit 0 |
+| R2.8 Accessibility | NOT RUN | **PASS (local)**, automated checks only | axe in Vitest (4 tests, 0 violations) + browser contrast check (0 violations, both themes, 3 pages). Keyboard and screen-reader review: not done |
+| R3.4 Suite isolation | PASS (local) | **PASS (local)**, gap closed | Batch runs owned by the suite owner (`test_suite_batch_runs_belong_to_the_suite_owner`) |
+| R3.9 *(new)* Run-history isolation | — | **PASS (local)** | `tests/api/test_run_history_access.py` (owner / other / anonymous / admin on every route, filters, labels, compare, reproduce bound); live dev server: owner 200, anonymous 404 on read and 401 on PATCH; browser export works for the owner |
+| R3.10 *(new)* Compute bounds | — | **PASS (local)** | `tests/api/test_compute_limits.py` (every synchronous route → 429 when full; thread safety; step ceiling in validator, scenario API and engine) |
+| R3.11 *(new)* Token verification | — | **PASS (local)** | `tests/api/test_cognito_token_verification.py` (valid ID and access tokens; expired, wrong audience, wrong key, unknown kid, tampered, HS256 with PEM and DER public key, `alg: none`, malformed → 401) |
+| R3.12 *(new)* Dependency audit | — | **PASS with accepted risk** (PO to accept) | `pip-audit -r requirements.txt`: only `ecdsa` CVE-2024-23342 (signing only; never used) and python-jose CVE-2026-85394 (no fix; blocked by the RS256 pin, tested). `npm audit --omit=dev`: `source-map-js` (build time, own sources only); dev only: `brace-expansion`, Vitest/tinypool (test runner). Fixes are patch bumps ≤ 4 weeks old or a forced Vitest major: deferred |
+
+**Environment notes.** Three tests fail in a container copy that lacks `.git` and `frontend/Dockerfile` (`test_get_git_commit_hash_against_the_real_repo`, `test_mid_run_save_reproduces_to_the_recorded_elapsed_time`, `test_nginx_template_keeps_runtime_variables_unsubstituted`); with those checkout files copied in, the three files pass on 3.11 (39/39). CI runs from a real checkout. The dev Docker stack was used for the live checks; one test replay was created there and deleted.
+
+**Residual risks (not fixed for V2.0).** No per-client rate limit (one client can hold both synchronous slots; each run is bounded by the step ceiling) · WebSocket streams have no Origin check (a cross-site page could read a visitor's live simulation frames; no personal data in them) · in-flight planning jobs are lost on restart (documented) · compute and job caps are per process (production runs one) · deployment unverified.
+
+**Commands.** Backend (from `backend/`): `pytest -m "not slow"`; `pytest <file> -m slow --no-cov` per slow file; `ruff check src tests`; `ruff format --check src tests`; `mypy src`; `pip-audit -r requirements.txt`. Frontend (from `frontend/`): `npx vitest run` ×3; `npx tsc --noEmit`; `npx eslint .`; `npx prettier --check .`; `npm run build`; `npm audit [--omit=dev]`. Roundabout third-lane experiment: `python scripts/roundabout_lane_experiment.py`.
+
 ### 7.1 Minimum viable planner workflow (acceptance for R1.1 and R2.7)
 
 The V2.0 planner must let a non-engineer do all of the following in the browser against the existing `/api/v2/planning` API:
@@ -363,6 +512,9 @@ V3.0 planning now includes large simulation and AI features (signalised roundabo
 ---
 
 ## 8. What this audit did not do
+
+*Revision 4:* no commit, push, merge, PR, deployment, GitHub milestone change or `ROADMAP.md` edit; application code **was** changed (working tree only) to resolve gate rows, and every change is listed in §7.0. The paragraph below describes revision 2.
+
 
 No deployment, commit, push, merge or branch change · no edits to `.claude/launch.json`, application code, tests or `ROADMAP.md` · the backend and frontend suites were **not re-run for revision 2** (owner's instruction), so every test row is NOT RUN against the gate commit · no `slow` run, no Docker or `vite` build, no accessibility tooling · no probing of production or of the EC2 host · no line-by-line review of the codebase — statuses rest on tests, docs, runtime observation of the first audit and targeted code reading, and say so where that is thin.
 
