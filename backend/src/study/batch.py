@@ -57,7 +57,11 @@ def run_suite_batch_experiment(
     arrival_rates: List[float],
     num_seeds: int,
     progress: Optional[Progress] = None,
+    owner_id: Optional[str] = None,
 ) -> Dict[str, Any]:
+    """Run the sweep and attach its runs to the suite. ``owner_id`` is stored
+    on every run: a private suite's results must be as private as the suite,
+    and an unowned run is public in the run history (src/access.py)."""
     progress = progress or Progress()
     tasks = batch_tasks(suite_id, base_config, arrival_rates, num_seeds)
     results = run_simulation_tasks(tasks, progress)
@@ -83,6 +87,7 @@ def run_suite_batch_experiment(
                 arrival_rate=config["traffic"].get("arrivalRate", 0.0),
                 duration=res["engineDuration"],
                 batch_id=suite_id,
+                user_id=owner_id,
                 config=config,
                 summary_metrics=metrics,
                 # Recorded like every other study run (see volume_sweep.py):

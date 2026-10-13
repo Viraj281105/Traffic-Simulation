@@ -8,7 +8,6 @@ import json
 import logging
 import os
 import random
-import re
 import secrets
 import threading
 import time
@@ -35,15 +34,14 @@ from pydantic import BaseModel, Field, model_validator
 from src.auth import (
     get_current_user_email,
     get_current_user_id,
+    get_current_user_is_admin,
     get_verified_claims,
 )
 from src.calibration.api import build_router as build_calibration_router
 from src.controllers.factory import (
     build_tick_callback,
     create_controller,
-    derive_signals_state,
 )
-from src.controllers.fixed_time_signal import FixedTimeSignalController
 from src.core.clock import Clock
 from src.core.config_models import ScenarioConfiguration
 from src.core.config_validation import semantic_config_errors
@@ -64,7 +62,6 @@ from src.core.scenario import (
     validate_scenario,
 )
 from src.database.dao import (
-    RunMetricsDAO,
     ScenarioSuiteDAO,
     SimulationRunDAO,
     SweepSessionDAO,
@@ -77,9 +74,20 @@ from src.database.db import (  # noqa: F401
     init_db,
 )
 from src.database.replay_dao import ReplayDAO
+from src.history.reproduce import engine_metrics
+from src.history.router import build_router as build_history_router
 from src.metrics.collector import MetricCollector
 from src.networks.api import router as networks_router
 from src.planning.router import create_router as build_planning_router
+from src.request_limits import (  # noqa: F401  (re-exported for tests/scripts)
+    MAX_PAGE_SIZE,
+    MAX_STUDY_DURATION_SECONDS,
+    MIN_STUDY_DURATION_SECONDS,
+    BodySizeLimitMiddleware,
+    PageLimit,
+    PageOffset,
+    compute_slot,
+)
 from src.snapshot.buffer import SnapshotBuffer
 from src.snapshot.builder import SnapshotBuilder
 from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
@@ -93,13 +101,13 @@ from src.study.report_generator import (
     generate_study_report_json,
 )
 from src.study.runner import Progress, shutdown_pool
-from src.study.tolerances import delays_are_tied
 from src.study.validation import (
     SUPPORTED_CONFIDENCE_LEVELS,
     run_invariant_checks,
     run_statistical_validation,
 )
 from src.study.volume_sweep import run_volume_sweep_experiment
+from src.ws_origin import origin_allowed
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -115,7 +123,6 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="Traffic Simulation Framework API", version="1.0.0", lifespan=_lifespan
 )
-app.include_router(networks_router)  # V1.9 /api/v2/networks
 
 # ── CORS ──────────────────────────────────────────────────────────────────
 # Origins are environment-driven (CORS_ORIGINS, comma-separated), never
@@ -140,6 +147,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# 1 MiB cap on the stateless /api/v2 compute endpoints (src/request_limits.py).
+app.add_middleware(BodySizeLimitMiddleware)
 
 # ── Minimal API-key protection for mutating / compute-heavy endpoints ──────
 # Disabled (no-op) when API_KEY is unset/empty — the intended local-dev
@@ -185,15 +194,37 @@ def require_api_key(
     )
 
 
-# V1.8 /api/v2/calibration (src/calibration/api.py).
-app.include_router(build_calibration_router(require_api_key))
+# Every /api/v2 route needs the API key AND a signed-in user. nginx attaches
+# the key to every browser request (frontend/templates/default.conf.template),
+# so the key identifies the proxy, not a person; a route guarded by the key
+# alone is public. tests/api/test_v2_route_auth.py checks every mounted route.
+
+# V1.9 /api/v2/networks (src/networks/api.py): stateless, nothing stored.
+app.include_router(
+    networks_router,
+    dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
+)
+
+# V1.8 /api/v2/calibration (src/calibration/api.py): runs belong to their creator.
+app.include_router(
+    build_calibration_router(
+        require_api_key, get_current_user_id, get_current_user_is_admin
+    )
+)
 
 # V2.0 /api/v2/planning (src/planning/router.py).
 app.include_router(
     build_planning_router(
-        user_dependency=get_current_user_id, dependencies=[Depends(require_api_key)]
+        user_dependency=get_current_user_id,
+        admin_dependency=get_current_user_is_admin,
+        dependencies=[Depends(require_api_key)],
+        run_dependencies=[Depends(compute_slot)],
     )
 )
+
+# V1.1 /api/v1/study/history/runs (src/history/router.py): stored runs; a
+# signed-in user's runs are theirs, unowned study runs stay public.
+app.include_router(build_history_router(require_api_key))
 
 
 # ── Uniform error envelope (docs/architecture/08-communication-contract.md
@@ -212,6 +243,8 @@ _STATUS_ERROR_CODES: Dict[int, str] = {
     401: "UNAUTHORIZED",
     404: "NOT_FOUND",
     409: "INVALID_STATE_TRANSITION",
+    413: "PAYLOAD_TOO_LARGE",
+    422: "VALIDATION_ERROR",
     429: "SIMULATION_LIMIT_REACHED",
     500: "INTERNAL_ERROR",
 }
@@ -219,7 +252,16 @@ _STATUS_ERROR_CODES: Dict[int, str] = {
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
-    message = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+    details: Optional[Dict[str, Any]] = None
+    if isinstance(exc.detail, str):
+        message = exc.detail
+    elif isinstance(exc.detail, dict) and isinstance(exc.detail.get("errors"), list):
+        # The planning router's {"errors": [...]}: kept as a list a client
+        # can show, rather than flattened into a Python repr.
+        message = "; ".join(str(e) for e in exc.detail["errors"])
+        details = {"errors": [str(e) for e in exc.detail["errors"]]}
+    else:
+        message = str(exc.detail)
     code = _STATUS_ERROR_CODES.get(exc.status_code, "INTERNAL_ERROR")
     return JSONResponse(
         status_code=exc.status_code,
@@ -227,7 +269,7 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
             "error": {
                 "code": code,
                 "message": message,
-                "details": None,
+                "details": details,
                 "timestamp": datetime.now(timezone.utc)
                 .isoformat()
                 .replace("+00:00", "Z"),
@@ -965,8 +1007,21 @@ def _resolve_snapshot_interval(config: Dict[str, Any]) -> float:
     return 1.0 / snapshot_frequency
 
 
+async def _refuse_foreign_origin(websocket: WebSocket) -> bool:
+    """Close a handshake from another site's page before accepting it
+    (src/ws_origin.py); True when refused."""
+    origin = websocket.headers.get("origin")
+    if origin_allowed(origin, websocket.headers.get("host"), CORS_ORIGINS):
+        return False
+    logger.warning("Refused WebSocket from origin %r", origin)
+    await websocket.close(code=1008)
+    return True
+
+
 @app.websocket("/ws/v1/stream")
 async def websocket_stream(websocket: WebSocket, simulationId: str) -> None:  # noqa: N803
+    if await _refuse_foreign_origin(websocket):
+        return
     await websocket.accept()
     try:
         sim = _get_simulation_or_404(simulationId)
@@ -1786,6 +1841,8 @@ def _frame_changed(
 
 @app.websocket("/ws/simulation/live")
 async def websocket_live_stream(websocket: WebSocket) -> None:
+    if await _refuse_foreign_origin(websocket):
+        return
     await websocket.accept()
     session_key = websocket.cookies.get(LIVE_SESSION_COOKIE) or _DEFAULT_SESSION_KEY
     token = _live_session_var.set(_get_or_create_session(session_key))
@@ -1907,6 +1964,8 @@ def get_dual_simulation_status() -> Dict[str, Any]:
 
 @app.websocket("/ws/simulation/dual")
 async def websocket_dual_stream(websocket: WebSocket) -> None:
+    if await _refuse_foreign_origin(websocket):
+        return
     await websocket.accept()
     session_key = websocket.cookies.get(LIVE_SESSION_COOKIE) or _DEFAULT_SESSION_KEY
     token = _live_session_var.set(_get_or_create_session(session_key))
@@ -1958,19 +2017,11 @@ async def websocket_dual_stream(websocket: WebSocket) -> None:
 # arrival rates at 60 s, and the documented study workflows stay inside these
 # limits. `duration` matches the ceiling SimulationSection.duration already
 # enforces everywhere else, so the study path is no longer the odd one out.
-MAX_STUDY_DURATION_SECONDS = 3600.0
-MIN_STUDY_DURATION_SECONDS = 1.0
 MAX_SWEEP_ARRIVAL_RATES = 20
 MAX_MONTE_CARLO_SEEDS = 30
 
-
-# Pagination for the history/sweep/replay listings. The values go straight
-# into SQL "LIMIT ? OFFSET ?", where SQLite reads a negative LIMIT as "no
-# limit": ?limit=-1 dumped the entire table, sweep result blobs included, in
-# one response.
-MAX_PAGE_SIZE = 500
-PageLimit = Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)]
-PageOffset = Annotated[int, Query(ge=0)]
+# MAX_STUDY_DURATION_SECONDS, MIN_STUDY_DURATION_SECONDS and the PageLimit /
+# PageOffset pagination bounds live in src/request_limits.py.
 
 # Each swept arrival rate is bounded by the same range the scenario config
 # already enforces for traffic.arrivalRate, so a sweep cannot ask for a
@@ -2067,7 +2118,10 @@ def _run_sweep(
     )
 
 
-@app.post("/api/v1/study/sweeps/run", dependencies=[Depends(require_api_key)])
+@app.post(
+    "/api/v1/study/sweeps/run",
+    dependencies=[Depends(require_api_key), Depends(compute_slot)],
+)
 def run_sweep_endpoint(payload: VolumeSweepRequest | None = None) -> Dict[str, Any]:
     """Runs an automated traffic volume sweep comparing Signals vs. Roundabouts."""
     return _run_sweep(payload or VolumeSweepRequest())
@@ -2135,587 +2189,9 @@ def get_sweep_endpoint(sweep_id: str) -> Dict[str, Any]:
     raise HTTPException(status_code=500, detail="Database connection error")
 
 
-class RunComparisonRequest(BaseModel):
-    runIdA: str
-    runIdB: str
-
-
-@app.get("/api/v1/study/history/runs")
-def list_simulation_runs_endpoint(
-    limit: PageLimit = 50,
-    offset: PageOffset = 0,
-    intersection_type: str | None = None,
-    seed: int | None = None,
-    batch_id: str | None = None,
-) -> list[Dict[str, Any]]:
-    """Lists past simulation runs with their status, metrics, and filters."""
-    ensure_db_initialized()
-    with get_db_connection() as conn:
-        return SimulationRunDAO.list_runs(
-            conn,
-            limit=limit,
-            offset=offset,
-            intersection_type=intersection_type,
-            seed=seed,
-            batch_id=batch_id,
-        )
-    return []
-
-
-@app.get("/api/v1/study/history/runs/{run_id}")
-def get_simulation_run_endpoint(run_id: str) -> Dict[str, Any]:
-    """Retrieves metadata and time-series metrics for a specific simulation run."""
-    ensure_db_initialized()
-    with get_db_connection() as conn:
-        run = SimulationRunDAO.get(conn, run_id)
-        if not run:
-            raise HTTPException(status_code=404, detail="Simulation run not found")
-        metrics = RunMetricsDAO.get_all_for_run(conn, run_id)
-        return {"run": run, "metricsTimeline": metrics}
-    raise HTTPException(status_code=500, detail="Database connection error")
-
-
-# Run ids are UUIDs, "sweep_<8 hex>_<sig|rnd>_<rate>" or other simple slugs.
-# Anything else (spaces, dots, slashes, unicode) cannot name a stored run and
-# is rejected up front as malformed rather than looked up.
-_RUN_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
-
-
-def _validate_run_id(run_id: str) -> None:
-    if not _RUN_ID_PATTERN.fullmatch(run_id):
-        raise HTTPException(status_code=400, detail="Malformed run ID")
-
-
-def _run_record(conn: Any, run_id: str) -> Dict[str, Any]:
-    """The full reproducibility record of a run plus what the saved-run page
-    needs: its name (falling back to the saved replay's name for runs saved
-    before names were stored on the run) and whether a dashboard replay
-    exists to restore it from. 404 when the run does not exist."""
-    run = SimulationRunDAO.get(conn, run_id)
-    if not run:
-        raise HTTPException(status_code=404, detail="Simulation run not found")
-    record = describe_reproducibility(run)
-    replay = ReplayDAO.get(conn, run_id)
-    if record["name"] is None and replay is not None:
-        record["name"] = replay["name"]
-    record["savedReplay"] = replay is not None
-    return record
-
-
-@app.get("/api/v1/study/history/runs/{run_id}/reproducibility")
-def get_run_reproducibility_endpoint(run_id: str) -> Dict[str, Any]:
-    """Everything needed to re-run a stored experiment exactly: its config
-    (seed pinned), seed, git commit, Python version, timing and summary
-    metrics, plus its name, notes and tags. Fields a run never recorded
-    (runs saved before V1.1) are null."""
-    _validate_run_id(run_id)
-    ensure_db_initialized()
-    with get_db_connection() as conn:
-        return _run_record(conn, run_id)
-    raise HTTPException(status_code=500, detail="Database connection error")
-
-
-_MAX_TAGS = 20
-
-
-class RunMetadataUpdate(BaseModel):
-    """User-entered labels. Omitted fields are left unchanged; ``notes`` and
-    ``tags`` can be cleared with null / an empty value."""
-
-    name: Optional[str] = Field(default=None, max_length=120)
-    notes: Optional[str] = Field(default=None, max_length=4000)
-    tags: Optional[list[Annotated[str, Field(max_length=32)]]] = Field(
-        default=None, max_length=_MAX_TAGS
-    )
-
-
-def _clean_tags(tags: Optional[list[str]]) -> list[str]:
-    """Trimmed, non-empty, de-duplicated (case-insensitively, first spelling
-    kept) tags in their given order."""
-    seen: set[str] = set()
-    cleaned: list[str] = []
-    for tag in tags or []:
-        t = " ".join(tag.split())
-        if t and t.lower() not in seen:
-            seen.add(t.lower())
-            cleaned.append(t)
-    return cleaned
-
-
-@app.patch(
-    "/api/v1/study/history/runs/{run_id}",
-    dependencies=[Depends(require_api_key)],
-)
-def update_run_metadata_endpoint(
-    run_id: str, payload: RunMetadataUpdate
-) -> Dict[str, Any]:
-    """Renames a run and sets its notes/tags. Touches only these labels --
-    never the stored configuration, seed, provenance or metrics."""
-    _validate_run_id(run_id)
-    provided = payload.model_fields_set
-    name: Optional[str] = None
-    if "name" in provided:
-        name = (payload.name or "").strip()
-        if not name:
-            raise HTTPException(status_code=400, detail="Run name cannot be empty")
-    notes = (payload.notes or "").strip() or None
-    tags = _clean_tags(payload.tags)
-    ensure_db_initialized()
-    with get_db_connection() as conn:
-        found = SimulationRunDAO.update_metadata(
-            conn,
-            run_id,
-            name=name,
-            notes=notes,
-            tags=tags,
-            set_name="name" in provided,
-            set_notes="notes" in provided,
-            set_tags="tags" in provided,
-        )
-        if not found:
-            raise HTTPException(status_code=404, detail="Simulation run not found")
-        if name is not None:
-            # Keep the History list (saved_replays) showing the same name.
-            ReplayDAO.rename(conn, run_id, name)
-        return _run_record(conn, run_id)
-    raise HTTPException(status_code=500, detail="Database connection error")
-
-
-def _flatten(prefix: str, value: Any, out: list[tuple[str, str]]) -> None:
-    """Dotted-path rows for nested dicts; lists are kept as JSON."""
-    if isinstance(value, dict):
-        for k, v in value.items():
-            _flatten(f"{prefix}.{k}" if prefix else str(k), v, out)
-    else:
-        out.append((prefix, _csv_value(value)))
-
-
-def _csv_value(value: Any) -> str:
-    """A cell for one value. Missing values stay empty -- never 0."""
-    if value is None:
-        return ""
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, (list, dict)):
-        return json.dumps(value)
-    return str(value)
-
-
-def _run_export_csv(record: Dict[str, Any]) -> str:
-    rows: list[tuple[str, str, str]] = []
-    for key in (
-        "runId",
-        "name",
-        "createdAt",
-        "status",
-        "intersectionType",
-        "runMode",
-        "batchId",
-    ):
-        rows.append(("run", key, _csv_value(record.get(key))))
-    rows.append(("run", "tags", "; ".join(record.get("tags") or [])))
-    rows.append(("run", "notes", _csv_value(record.get("notes"))))
-    for key in (
-        "seed",
-        "provenanceRecorded",
-        "configSource",
-        "exactConfig",
-        "configAvailable",
-        "gitCommitHash",
-        "pythonVersion",
-    ):
-        rows.append(("reproducibility", key, _csv_value(record.get(key))))
-    for key, value in (record.get("timing") or {}).items():
-        rows.append(("timing", key, _csv_value(value)))
-    for section, payload in (
-        ("config", record.get("config") or {}),
-        ("metrics", record.get("summaryMetrics") or {}),
-    ):
-        flat: list[tuple[str, str]] = []
-        _flatten("", payload, flat)
-        rows.extend((section, k, v) for k, v in flat)
-
-    output = io.StringIO()
-    writer = csv.writer(output, lineterminator="\n")
-    writer.writerow(["section", "key", "value"])
-    writer.writerows(rows)
-    return output.getvalue()
-
-
-@app.get("/api/v1/study/history/runs/{run_id}/export")
-def export_run_endpoint(run_id: str, format: str = "json") -> Any:  # noqa: A002
-    """Downloads one stored run as JSON or CSV: identity, name/notes/tags,
-    seed, provenance, timing, the exact stored configuration and its stored
-    metrics (raw backend keys and units; see the metric catalog for labels).
-    Values the run never recorded are null (JSON) or empty (CSV)."""
-    _validate_run_id(run_id)
-    fmt = format.lower()
-    if fmt not in ("json", "csv"):
-        raise HTTPException(status_code=400, detail="format must be 'json' or 'csv'")
-    ensure_db_initialized()
-    with get_db_connection() as conn:
-        record = _run_record(conn, run_id)
-        timeline = RunMetricsDAO.get_all_for_run(conn, run_id)
-    filename = f"run_{run_id}.{fmt}"
-    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
-    if fmt == "csv":
-        return StreamingResponse(
-            iter([_run_export_csv(record)]),
-            media_type="text/csv; charset=utf-8",
-            headers=headers,
-        )
-    return JSONResponse(
-        content={
-            "exportFormat": "traffic-simulation-run",
-            "exportVersion": 1,
-            "exportedAt": datetime.now(timezone.utc).isoformat(),
-            # The server producing this file -- distinct from the run's own
-            # recorded provenance inside "run".
-            "exportedBy": {
-                "gitCommitHash": GIT_COMMIT_HASH,
-                "pythonVersion": PYTHON_VERSION,
-            },
-            "run": record,
-            "metricsTimeline": timeline,
-        },
-        headers=headers,
-    )
-
-
-@app.post("/api/v1/study/history/runs/compare")
-def compare_runs_endpoint(payload: RunComparisonRequest) -> Dict[str, Any]:
-    """Compares two historical simulation runs side-by-side with delta analysis."""
-    ensure_db_initialized()
-    with get_db_connection() as conn:
-        run_a = SimulationRunDAO.get(conn, payload.runIdA)
-        if not run_a:
-            raise HTTPException(
-                status_code=404, detail=f"Run '{payload.runIdA}' not found"
-            )
-        run_b = SimulationRunDAO.get(conn, payload.runIdB)
-        if not run_b:
-            raise HTTPException(
-                status_code=404, detail=f"Run '{payload.runIdB}' not found"
-            )
-
-        metrics_a = run_a.get("summary_metrics", {})
-        metrics_b = run_b.get("summary_metrics", {})
-
-        delay_a = metrics_a.get("averageDelay", metrics_a.get("averageWaitTime", 0.0))
-        delay_b = metrics_b.get("averageDelay", metrics_b.get("averageWaitTime", 0.0))
-        tp_a = metrics_a.get("throughput", 0.0)
-        tp_b = metrics_b.get("throughput", 0.0)
-        queue_a = metrics_a.get("averageQueueLength", 0.0)
-        queue_b = metrics_b.get("averageQueueLength", 0.0)
-        stops_a = metrics_a.get("totalStops", 0)
-        stops_b = metrics_b.get("totalStops", 0)
-
-        delay_delta = round(delay_b - delay_a, 2)
-        delay_delta_pct = (
-            round(((delay_b - delay_a) / max(delay_a, 0.01)) * 100, 1)
-            if delay_a > 0
-            else 0.0
-        )
-        tp_delta = round(tp_b - tp_a, 1)
-        queue_delta = round(queue_b - queue_a, 1)
-        stops_delta = stops_b - stops_a
-
-        # Which run had the lower MEAN DELAY -- a description of these two
-        # single runs, not a ranking or a significance statement. "About the
-        # same" uses the one shared tie rule (study/tolerances.py), so this
-        # endpoint agrees with the sweep and the guided results page.
-        if delays_are_tied(delay_a, delay_b):
-            winner = "tie"
-        elif delay_a < delay_b:
-            winner = run_a.get("intersection_type") or payload.runIdA
-        else:
-            winner = run_b.get("intersection_type") or payload.runIdB
-
-        return {
-            "runA": {
-                "id": payload.runIdA,
-                "intersectionType": run_a.get("intersection_type"),
-                "seed": run_a.get("random_seed"),
-                "arrivalRate": run_a.get("arrival_rate"),
-                "metrics": metrics_a,
-            },
-            "runB": {
-                "id": payload.runIdB,
-                "intersectionType": run_b.get("intersection_type"),
-                "seed": run_b.get("random_seed"),
-                "arrivalRate": run_b.get("arrival_rate"),
-                "metrics": metrics_b,
-            },
-            "comparison": {
-                "delayDelta": delay_delta,
-                "delayDeltaPercent": delay_delta_pct,
-                "throughputDelta": tp_delta,
-                "queueDelta": queue_delta,
-                "stopsDelta": stops_delta,
-                "winner": winner,
-                "winnerBasis": (
-                    "lower mean delay between these two single runs; "
-                    "'tie' when within the shared tie tolerance. Descriptive "
-                    "only: not a significance test."
-                ),
-            },
-            "identicalSeed": run_a.get("random_seed") == run_b.get("random_seed"),
-            "seed": run_a.get("random_seed")
-            if run_a.get("random_seed") == run_b.get("random_seed")
-            else None,
-        }
-    raise HTTPException(status_code=500, detail="Database connection error")
-
-
-# Tolerances for the determinism check (unchanged from the original
-# endpoint): absolute differences in seconds of delay and vehicles served.
-_REPRO_DELAY_TOLERANCE_S = 0.05
-_REPRO_THROUGHPUT_TOLERANCE_VEH = 0.1
-
-
-def _reproduce_single(
-    run_config: Dict[str, Any], time_step: float, duration: float, steps: int
-) -> Dict[str, Any]:
-    """Re-runs one engine headlessly for `steps` ticks; its final metrics."""
-    clock = Clock(time_step=time_step)
-    engine = SimulationEngine(clock, duration=duration, config=run_config)
-    controller = create_controller(run_config, engine.network)
-    engine.controller = controller
-    collector = MetricCollector(run_config)
-
-    def tick_callback() -> None:
-        # engine.step() already calls controller.update() once per tick
-        # (via engine.controller, set above) before running tick
-        # callbacks — calling it again here would advance the
-        # controller's phase/follow-up timing at double the rate of the
-        # original run, breaking reproduction. Only read its resulting
-        # state, exactly like build_tick_callback does for ordinary runs.
-        #
-        # conflict_manager mirrors build_tick_callback's own gating:
-        # PET is only geometrically valid for fixed_time_signal (see
-        # metrics/definitions/safety_conflicts.py).
-        collector.update(
-            clock.get_elapsed_time(),
-            engine.pool.active_vehicles,
-            engine.pool.exited_vehicles,
-            derive_signals_state(controller),
-            conflict_manager=(
-                engine.conflict_manager
-                if isinstance(controller, FixedTimeSignalController)
-                else None
-            ),
-            signal_controller=(
-                controller
-                if isinstance(controller, FixedTimeSignalController)
-                else None
-            ),
-        )
-
-    engine.register_tick_callback(tick_callback)
-    for _ in range(steps):
-        if engine.status == SimulationStatus.COMPLETED:
-            break
-        engine.step()
-    return dict(_engine_metrics(engine, collector))
-
-
-def _reproduce_dual(run_config: Dict[str, Any], steps: int) -> Dict[str, Any]:
-    """Re-runs a signal-vs-roundabout comparison headlessly through the same
-    DualSimulationOrchestrator the live comparison uses (one lockstep step
-    per tick, as its run loop does); both sides' final metrics."""
-    orch = DualSimulationOrchestrator(run_config)
-    for _ in range(steps):
-        if orch.engine_signal.status == SimulationStatus.COMPLETED:
-            break
-        orch.step()
-    return {
-        "signal": dict(_engine_metrics(orch.engine_signal, orch.collector_signal)),
-        "roundabout": dict(
-            _engine_metrics(orch.engine_roundabout, orch.collector_roundabout)
-        ),
-    }
-
-
-def _compare_key_metrics(
-    original: Dict[str, Any], reproduced: Dict[str, Any], prefix: str = ""
-) -> tuple[list[str], list[str]]:
-    """Compares delay and vehicles served; returns (compared, discrepancies).
-    A metric is compared only when both sides actually have a value."""
-    compared: list[str] = []
-    discrepancies: list[str] = []
-    orig_delay = original.get("averageDelay", original.get("averageWaitTime"))
-    repro_delay = reproduced.get("averageDelay", reproduced.get("averageWaitTime"))
-    if orig_delay is not None and repro_delay is not None:
-        compared.append(f"{prefix}averageDelay")
-        if abs(orig_delay - repro_delay) > _REPRO_DELAY_TOLERANCE_S:
-            discrepancies.append(
-                f"{prefix}Delay mismatch: original={orig_delay}, "
-                f"reproduced={repro_delay}"
-            )
-    orig_tp = original.get("throughput")
-    repro_tp = reproduced.get("throughput")
-    if orig_tp is not None and repro_tp is not None:
-        compared.append(f"{prefix}throughput")
-        if abs(orig_tp - repro_tp) > _REPRO_THROUGHPUT_TOLERANCE_VEH:
-            discrepancies.append(
-                f"{prefix}Throughput mismatch: original={orig_tp}, "
-                f"reproduced={repro_tp}"
-            )
-    return compared, discrepancies
-
-
-def _reproduction_limitations(
-    provenance: Optional[Dict[str, Any]], compared: list[str]
-) -> list[str]:
-    """Every reason a reproduction result should be read with care."""
-    limitations: list[str] = []
-    if provenance is None:
-        limitations.append(
-            "This run was saved before provenance was recorded: its code "
-            "version, timing and configuration source are unknown, and it is "
-            "re-run to its full duration."
-        )
-    elif provenance.get("configSource") != "engine":
-        limitations.append(
-            "The stored configuration is the dashboard's summary, not the "
-            "exact engine configuration; anything it omits is re-run with "
-            "backend defaults."
-        )
-    recorded = (provenance or {}).get("gitCommitHash")
-    if recorded == "unknown" or (recorded and GIT_COMMIT_HASH == "unknown"):
-        limitations.append(
-            "The code version of the recording or of this server is unknown, "
-            "so it cannot be confirmed that both ran the same code."
-        )
-    elif recorded and recorded != GIT_COMMIT_HASH:
-        limitations.append(
-            f"The run was recorded at commit {recorded[:12]}; this server runs "
-            f"{GIT_COMMIT_HASH[:12]}. Code changes can explain differences."
-        )
-    if not compared:
-        limitations.append(
-            "The stored run has no delay or throughput values to compare "
-            "against, so determinism was not assessed."
-        )
-    return limitations
-
-
 @app.post(
-    "/api/v1/study/history/runs/{run_id}/reproduce",
-    dependencies=[Depends(require_api_key)],
-)
-def reproduce_run_endpoint(run_id: str) -> Dict[str, Any]:
-    """Re-executes a stored run headlessly from its stored configuration and
-    seed, up to its recorded elapsed time, and compares key metrics.
-
-    Never modifies the stored run. ``isDeterministic`` is null when there
-    was nothing to compare, and ``limitations`` lists every reason a match
-    (or mismatch) should be read with care, rather than claiming more than
-    the stored record supports.
-    """
-    ensure_db_initialized()
-    with get_db_connection() as conn:
-        run = SimulationRunDAO.get(conn, run_id)
-    if not run:
-        raise HTTPException(
-            status_code=404, detail=f"Simulation run '{run_id}' not found"
-        )
-
-    config = run.get("config")
-    if not config or not isinstance(config, dict) or len(config) == 0:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Run '{run_id}' does not have a saved configuration to reproduce.",
-        )
-
-    provenance = run.get("provenance")
-    mode = (provenance or {}).get("runMode") or "single"
-    original_metrics = run.get("summary_metrics", {})
-    if mode == "dual" and not (
-        isinstance(original_metrics.get("signal"), dict)
-        and isinstance(original_metrics.get("roundabout"), dict)
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Run '{run_id}' is a comparison but has no per-geometry "
-                "metrics to compare against."
-            ),
-        )
-
-    random_seed = run.get("random_seed", 0)
-    timing = (provenance or {}).get("timing") or {}
-    time_step = timing.get("timeStep") or config.get("simulation", {}).get(
-        "timeStep", 0.1
-    )
-    duration = timing.get("duration") or run.get("duration") or run.get("elapsed", 30.0)
-    elapsed = run.get("elapsed") or 0.0
-
-    # Runs with recorded provenance also recorded the engine's true elapsed
-    # time, so a run saved part-way through is reproduced to that instant.
-    # Older runs did not (replay saves stored the duration there), so they
-    # keep the original full-duration behaviour.
-    if provenance is not None and 0 < elapsed < duration:
-        target_elapsed = elapsed
-        steps = int(round(elapsed / time_step))
-    else:
-        target_elapsed = duration
-        steps = Clock(time_step).ticks_for_duration(duration)
-
-    # Clone config and ensure seed, timeStep, duration match
-    run_config = json.loads(json.dumps(config))
-    if "simulation" not in run_config:
-        run_config["simulation"] = {}
-    run_config["simulation"]["randomSeed"] = random_seed
-    run_config["simulation"]["timeStep"] = time_step
-    run_config["simulation"]["duration"] = duration
-
-    compared: list[str] = []
-    discrepancies: list[str] = []
-    if mode == "dual":
-        reproduced_metrics = _reproduce_dual(run_config, steps)
-        for side in ("signal", "roundabout"):
-            c, d = _compare_key_metrics(
-                original_metrics[side], reproduced_metrics[side], f"{side}."
-            )
-            compared += c
-            discrepancies += d
-    else:
-        reproduced_metrics = _reproduce_single(run_config, time_step, duration, steps)
-        compared, discrepancies = _compare_key_metrics(
-            original_metrics, reproduced_metrics
-        )
-
-    return {
-        "runId": run_id,
-        "mode": mode,
-        "seed": random_seed,
-        "intersectionType": run.get("intersection_type"),
-        "duration": duration,
-        "reproducedElapsed": round(target_elapsed, 6),
-        "isDeterministic": (len(discrepancies) == 0) if compared else None,
-        "comparedMetrics": compared,
-        "tolerances": {
-            "averageDelaySeconds": _REPRO_DELAY_TOLERANCE_S,
-            "throughputVehicles": _REPRO_THROUGHPUT_TOLERANCE_VEH,
-        },
-        "originalMetrics": original_metrics,
-        "reproducedMetrics": reproduced_metrics,
-        "discrepancies": discrepancies,
-        "limitations": _reproduction_limitations(provenance, compared),
-        "recordedGitCommitHash": (provenance or {}).get("gitCommitHash"),
-        # Best-effort provenance (src/core/provenance.py): "unknown"
-        # rather than a failure wherever .git isn't available, e.g. the
-        # production Docker image.
-        "provenance": {
-            "gitCommitHash": GIT_COMMIT_HASH,
-            "pythonVersion": PYTHON_VERSION,
-        },
-    }
-
-
-@app.post(
-    "/api/v1/study/validate/repeatability", dependencies=[Depends(require_api_key)]
+    "/api/v1/study/validate/repeatability",
+    dependencies=[Depends(require_api_key), Depends(compute_slot)],
 )
 def validate_repeatability_endpoint(
     payload: RepeatabilityValidationRequest | None = None,
@@ -2728,7 +2204,10 @@ def validate_repeatability_endpoint(
     )
 
 
-@app.post("/api/v1/study/validate/monte-carlo", dependencies=[Depends(require_api_key)])
+@app.post(
+    "/api/v1/study/validate/monte-carlo",
+    dependencies=[Depends(require_api_key), Depends(compute_slot)],
+)
 def validate_monte_carlo_endpoint(
     payload: MonteCarloValidationRequest | None = None,
 ) -> Dict[str, Any]:
@@ -2896,7 +2375,8 @@ def _run_control_comparison(
 
 
 @app.post(
-    "/api/v1/study/control-comparison/run", dependencies=[Depends(require_api_key)]
+    "/api/v1/study/control-comparison/run",
+    dependencies=[Depends(require_api_key), Depends(compute_slot)],
 )
 def run_control_comparison_endpoint(
     payload: ControlComparisonRequest | None = None,
@@ -2919,7 +2399,10 @@ def start_control_comparison_job(
     )
 
 
-@app.get("/api/v1/study/export", dependencies=[Depends(require_api_key)])
+@app.get(
+    "/api/v1/study/export",
+    dependencies=[Depends(require_api_key), Depends(compute_slot)],
+)
 def export_study_report_endpoint(format: str = "json") -> Any:  # noqa: A002
     """Exports full comprehensive validated study dataset in JSON or CSV format."""
     if format.lower() == "csv":
@@ -2956,20 +2439,6 @@ def _find_live_session(request: Request) -> Optional[_LiveSession]:
         return _live_sessions.get(key)
 
 
-def _engine_metrics(engine: SimulationEngine, collector: MetricCollector) -> Any:
-    """The collector's metrics for the engine's current state -- the same
-    call that produces every snapshot's "metrics" -- read under the engine
-    lock so a concurrent tick cannot interleave."""
-    with engine.lock:
-        return collector.get_metrics(
-            engine.clock.get_elapsed_time(),
-            engine.pool.active_vehicles,
-            engine.pool.exited_vehicles,
-            engine.spawner.spawned_count if engine.spawner else 0,
-            engine.pool.collision_count,
-        )
-
-
 def _capture_engine_run(
     session: Optional[_LiveSession], mode: str, claimed_seed: Any
 ) -> Optional[Dict[str, Any]]:
@@ -3002,8 +2471,8 @@ def _capture_engine_run(
 
         def read_metrics() -> Dict[str, Any]:
             return {
-                "signal": _engine_metrics(orch.engine_signal, orch.collector_signal),
-                "roundabout": _engine_metrics(
+                "signal": engine_metrics(orch.engine_signal, orch.collector_signal),
+                "roundabout": engine_metrics(
                     orch.engine_roundabout, orch.collector_roundabout
                 ),
             }
@@ -3017,7 +2486,7 @@ def _capture_engine_run(
         live_engine, live_collector = engine, collector
 
         def read_metrics() -> Dict[str, Any]:
-            return dict(_engine_metrics(live_engine, live_collector))
+            return dict(engine_metrics(live_engine, live_collector))
 
     elapsed = clock.get_elapsed_time()
     seed = engine.spawner.random_seed if engine.spawner is not None else None
@@ -3212,14 +2681,50 @@ class ScenarioSuiteCreate(BaseModel):
     config_variations: Dict[str, Any]
 
 
+# Suites are private to their creator; admins see every suite, including
+# legacy ones stored before suites had an owner. Another user's suite answers
+# 404, exactly like a missing one (tests/api/test_suite_privacy.py).
+
+
+def _visible_suite_or_404(
+    conn: Any, suite_id: str, user_id: str, is_admin: bool
+) -> Dict[str, Any]:
+    suite = (
+        ScenarioSuiteDAO.get(conn, suite_id)
+        if ScenarioSuiteDAO.is_visible(conn, suite_id, user_id, is_admin)
+        else None
+    )
+    if suite is None:
+        raise HTTPException(status_code=404, detail="Suite not found")
+    return suite
+
+
+def _check_runs_can_join_suite(conn: Any, run_ids: list[str], user_id: str) -> None:
+    """A new suite may hold only runs that exist, are not another user's and
+    are in no other suite (a run records a single ``suite_id``), so a caller
+    cannot pull someone else's runs into a suite they can read."""
+    for rid in run_ids:
+        row = conn.execute(
+            "SELECT user_id, suite_id FROM simulation_runs WHERE id = ?;", (rid,)
+        ).fetchone()
+        owned_by_other = row is not None and row["user_id"] not in (None, user_id)
+        if row is None or owned_by_other:
+            raise HTTPException(status_code=404, detail=f"Run '{rid}' not found")
+        if row["suite_id"] is not None:
+            raise HTTPException(
+                status_code=400, detail=f"Run '{rid}' already belongs to a suite"
+            )
+
+
 @app.post("/api/suites", dependencies=[Depends(require_api_key)])
 def create_suite(
     suite_data: ScenarioSuiteCreate,
-    user_id: Optional[str] = Depends(get_current_user_id),
+    user_id: str = Depends(get_current_user_id),
 ) -> Dict[str, str]:
     suite_id = str(uuid.uuid4())
     ensure_db_initialized()
     with get_db_connection() as conn:
+        _check_runs_can_join_suite(conn, suite_data.run_ids, user_id)
         ScenarioSuiteDAO.save(
             conn,
             suite_id=suite_id,
@@ -3227,6 +2732,7 @@ def create_suite(
             description=suite_data.description,
             run_ids=suite_data.run_ids,
             config_variations=suite_data.config_variations,
+            user_id=user_id,
         )
     return {"id": suite_id}
 
@@ -3235,24 +2741,26 @@ def create_suite(
 def list_suites(
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    user_id: Optional[str] = Depends(get_current_user_id),
+    user_id: str = Depends(get_current_user_id),
+    is_admin: bool = Depends(get_current_user_is_admin),
 ) -> Dict[str, Any]:
     ensure_db_initialized()
     with get_db_connection() as conn:
-        suites = ScenarioSuiteDAO.list_suites(conn, limit, offset)
+        suites = ScenarioSuiteDAO.list_suites(
+            conn, limit, offset, user_id=user_id, is_admin=is_admin
+        )
         return {"suites": suites}
 
 
 @app.get("/api/suites/{suite_id}")
 def get_suite(
     suite_id: str,
-    user_id: Optional[str] = Depends(get_current_user_id),
+    user_id: str = Depends(get_current_user_id),
+    is_admin: bool = Depends(get_current_user_is_admin),
 ) -> Dict[str, Any]:
     ensure_db_initialized()
     with get_db_connection() as conn:
-        suite = ScenarioSuiteDAO.get(conn, suite_id)
-        if not suite:
-            raise HTTPException(status_code=404, detail="Suite not found")
+        suite = _visible_suite_or_404(conn, suite_id, user_id, is_admin)
         # Fetch actual run records for the suite
         runs = []
         for rid in suite["run_ids"]:
@@ -3326,7 +2834,8 @@ def _batch_base_config(raw: Dict[str, Any]) -> Dict[str, Any]:
 def enqueue_suite_batch(
     suite_id: str,
     req: BatchExperimentRequest,
-    user_id: Optional[str] = Depends(get_current_user_id),
+    user_id: str = Depends(get_current_user_id),
+    is_admin: bool = Depends(get_current_user_is_admin),
 ) -> Dict[str, str]:
     from src.study.batch import run_suite_batch_experiment
 
@@ -3335,8 +2844,13 @@ def enqueue_suite_batch(
     # runs are attached to it.
     ensure_db_initialized()
     with get_db_connection() as conn:
-        if ScenarioSuiteDAO.get(conn, suite_id) is None:
-            raise HTTPException(status_code=404, detail="Suite not found")
+        suite_owner = conn.execute(
+            "SELECT user_id FROM scenario_suites WHERE id = ?;", (suite_id,)
+        ).fetchone()
+        _visible_suite_or_404(conn, suite_id, user_id, is_admin)
+    # The runs belong to the suite's owner; an admin running a legacy
+    # (unowned) suite owns them, so they are never stored public.
+    owner_id = (suite_owner["user_id"] if suite_owner else None) or user_id
 
     arrival_rates = list(req.sweepParameters["arrivalRate"])
     try:
@@ -3348,6 +2862,7 @@ def enqueue_suite_batch(
                 arrival_rates=arrival_rates,
                 num_seeds=req.numSeeds,
                 progress=p,
+                owner_id=owner_id,
             ),
         )
     except TooManyJobsError as exc:
@@ -3358,15 +2873,14 @@ def enqueue_suite_batch(
 @app.get("/api/suites/{suite_id}/export/csv")
 def export_suite_csv(
     suite_id: str,
-    user_id: Optional[str] = Depends(get_current_user_id),
+    user_id: str = Depends(get_current_user_id),
+    is_admin: bool = Depends(get_current_user_is_admin),
 ) -> StreamingResponse:
     from src.study.report_generator import generate_suite_csv
 
     ensure_db_initialized()
     with get_db_connection() as conn:
-        suite = ScenarioSuiteDAO.get(conn, suite_id)
-        if not suite:
-            raise HTTPException(status_code=404, detail="Suite not found")
+        suite = _visible_suite_or_404(conn, suite_id, user_id, is_admin)
         runs = []
         for rid in suite["run_ids"]:
             r = SimulationRunDAO.get(conn, rid)

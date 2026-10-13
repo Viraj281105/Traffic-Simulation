@@ -1,10 +1,10 @@
 import logging
 import os
 import time
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, List, Optional, cast
 
 import requests
-from fastapi import HTTPException, Security, status
+from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import jwk, jwt
 from jose.utils import base64url_decode
@@ -12,6 +12,8 @@ from jose.utils import base64url_decode
 from src.database.db import get_db_connection
 
 security = HTTPBearer()
+# Same scheme, but an absent Authorization header yields None instead of 401.
+optional_security = HTTPBearer(auto_error=False)
 
 # Load from .env if variables are not set
 # Load from .env if variables are not set
@@ -41,6 +43,9 @@ _ADMIN_EMAILS_RAW = os.getenv("ADMIN_EMAILS", "")
 ADMIN_EMAILS: frozenset[str] = frozenset(
     e.strip().lower() for e in _ADMIN_EMAILS_RAW.split(",") if e.strip()
 )
+
+# The only algorithm a Cognito user-pool token is accepted with.
+_TOKEN_ALGORITHM = "RS256"
 
 # Cache the keys so we don't fetch them on every request
 _JWKS_CACHE = None
@@ -104,6 +109,12 @@ def verify_token(
     try:
         # Get the key ID from the header
         headers = jwt.get_unverified_headers(token)
+        # Cognito signs with RS256 only. Refusing every other header value,
+        # and building the key as RS256 below, means the token can never pick
+        # the algorithm (HS256-with-the-public-key confusion, CVE-2024-33663
+        # and its incomplete fix CVE-2026-85394 in python-jose <= 3.5.0).
+        if headers.get("alg") != _TOKEN_ALGORITHM:
+            raise HTTPException(status_code=401, detail="Unsupported token algorithm")
         kid = headers.get("kid")
 
         # Find the public key matching the kid
@@ -119,7 +130,7 @@ def verify_token(
                 status_code=401, detail="Public key not found in jwks.json"
             )
 
-        public_key = jwk.construct(keys[key_index])
+        public_key = jwk.construct(keys[key_index], algorithm=_TOKEN_ALGORITHM)
 
         # Get the payload
         message, encoded_signature = str(token).rsplit(".", 1)
@@ -146,9 +157,20 @@ def verify_token(
         raise HTTPException(status_code=401, detail=f"Authentication error: {str(e)}")
 
 
+def _subject(claims: Dict[str, Any]) -> str:
+    """The token's ``sub``. A verified token without one names nobody, and an
+    empty id would match every unowned record, so it is refused."""
+    sub = str(claims.get("sub") or "").strip()
+    if not sub:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has no subject"
+        )
+    return sub
+
+
 def get_current_user_id(claims: Dict[str, Any] = Security(verify_token)) -> str:
     """Returns the Cognito username (sub) from the token."""
-    return str(claims.get("sub", ""))
+    return _subject(claims)
 
 
 def get_current_user_email(claims: Dict[str, Any] = Security(verify_token)) -> str:
@@ -195,9 +217,43 @@ def upsert_user(claims: Dict[str, Any]) -> None:
 
 
 def is_admin(claims: Dict[str, Any]) -> bool:
-    """Return True when the authenticated user's email is in ADMIN_EMAILS."""
+    """Return True when the authenticated user's *verified* email is in
+    ADMIN_EMAILS. An unverified address proves nothing about who holds it."""
     email = str(claims.get("email", "")).strip().lower()
-    return bool(email and email in ADMIN_EMAILS)
+    verified = claims.get("email_verified") in (True, "true")
+    return bool(email and verified and email in ADMIN_EMAILS)
+
+
+def get_current_user_is_admin(claims: Dict[str, Any] = Security(verify_token)) -> bool:
+    """True when the signed-in user is an admin (``ADMIN_EMAILS``). Owner-scoped
+    routes use it to let admins see every record, including legacy rows that
+    were stored before they had an owner."""
+    return is_admin(claims)
+
+
+def get_optional_claims(
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(optional_security),
+) -> Optional[Dict[str, Any]]:
+    """Claims of the caller when a bearer token is presented, None for an
+    anonymous request. A token that is presented but invalid is still a 401:
+    a bad token must never silently fall back to anonymous access."""
+    if credentials is None:
+        return None
+    return verify_token(credentials)
+
+
+def get_optional_user_id(
+    claims: Optional[Dict[str, Any]] = Depends(get_optional_claims),
+) -> Optional[str]:
+    """The signed-in user's id, or None for an anonymous caller. For routes
+    whose public records stay public but whose owned records are private."""
+    return None if claims is None else _subject(claims)
+
+
+def get_optional_user_is_admin(
+    claims: Optional[Dict[str, Any]] = Depends(get_optional_claims),
+) -> bool:
+    return claims is not None and is_admin(claims)
 
 
 def get_verified_claims(

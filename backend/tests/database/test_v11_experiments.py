@@ -177,11 +177,26 @@ def test_metadata_validation(test_db):
 
 
 def test_legacy_run_can_be_labelled(test_db):
+    """A legacy run has no owner, so it is shared: anyone may read it, and
+    only an admin may change its labels (src/history/router.py)."""
+    from src.auth import get_current_user_is_admin
+
     _legacy_run()
     client = TestClient(app)
-    rec = client.patch(
-        "/api/v1/study/history/runs/legacy_run", json={"tags": ["legacy"]}
-    ).json()
+    refused = client.patch(
+        "/api/v1/study/history/runs/legacy_run", json={"tags": ["vandal"]}
+    )
+    assert refused.status_code == 403
+    record = client.get("/api/v1/study/history/runs/legacy_run/reproducibility")
+    assert record.json()["tags"] == []
+
+    app.dependency_overrides[get_current_user_is_admin] = lambda: True
+    try:
+        rec = client.patch(
+            "/api/v1/study/history/runs/legacy_run", json={"tags": ["legacy"]}
+        ).json()
+    finally:
+        app.dependency_overrides[get_current_user_is_admin] = lambda: False
     assert rec["tags"] == ["legacy"]
     assert rec["name"] == "Old roundabout"
     assert rec["gitCommitHash"] is None

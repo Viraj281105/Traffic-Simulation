@@ -2,6 +2,7 @@ import csv
 import io
 from typing import Any, Dict, List, Optional, Tuple
 
+from src.csv_safety import spreadsheet_safe
 from src.study.tolerances import tie_tolerance
 from src.study.validation import run_statistical_validation
 from src.study.volume_sweep import run_volume_sweep_experiment
@@ -444,8 +445,14 @@ def generate_suite_csv(runs: List[Dict[str, Any]]) -> str:
         # Flatten metrics for CSV
         for m_key, m_val in metrics.items():
             if isinstance(m_val, (int, float, str, bool)):
-                writer.writerow([run_id, geometry, seed, variation, m_key, m_val])
+                row = [run_id, geometry, seed, variation, m_key, m_val]
             elif m_val is None:
-                writer.writerow([run_id, geometry, seed, variation, m_key, ""])
+                row = [run_id, geometry, seed, variation, m_key, ""]
+            else:
+                continue
+            # Run names and stored metric keys can be user-written text.
+            writer.writerow(
+                [spreadsheet_safe(c) if isinstance(c, str) else c for c in row]
+            )
 
     return output.getvalue()

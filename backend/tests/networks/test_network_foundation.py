@@ -349,7 +349,7 @@ def test_execution_abstraction_and_result_structure() -> None:
     assert out["network_level"]["vehicleLimitReached"] is False
 
 
-def test_api_endpoints() -> None:
+def test_api_endpoints(signed_in_user: str) -> None:
     body = {"network": _network()}
     v = client.post("/api/v2/networks/validate", json=body).json()
     assert v["valid"], v["errors"]

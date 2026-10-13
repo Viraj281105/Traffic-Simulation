@@ -434,7 +434,10 @@ def test_fit_writes_observed_demand_to_a_copy() -> None:
 
 # ── API ────────────────────────────────────────────────────────────────────
 @pytest.fixture
-def client(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+def client(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch, signed_in_user: str
+) -> TestClient:
+    # Every /api/v2/calibration route needs a signed-in user.
     monkeypatch.setattr("src.database.db.DB_PATH", str(tmp_path / "cal.db"))
     return TestClient(app)
 

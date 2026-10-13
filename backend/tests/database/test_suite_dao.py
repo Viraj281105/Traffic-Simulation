@@ -61,15 +61,23 @@ def test_save_and_get_suite(test_db):
 def test_list_suites(test_db):
     import time
 
-    ScenarioSuiteDAO.save(test_db, "s1", "Suite 1", "", [], {})
+    ScenarioSuiteDAO.save(test_db, "s1", "Suite 1", "", [], {}, user_id="alice")
     time.sleep(1.0)
-    ScenarioSuiteDAO.save(test_db, "s2", "Suite 2", "", [], {})
+    ScenarioSuiteDAO.save(test_db, "s2", "Suite 2", "", [], {}, user_id="alice")
+    ScenarioSuiteDAO.save(test_db, "s3", "Bob's", "", [], {}, user_id="bob")
 
-    suites = ScenarioSuiteDAO.list_suites(test_db)
+    suites = ScenarioSuiteDAO.list_suites(test_db, user_id="alice")
     assert len(suites) == 2
     # newest first
     assert suites[0]["id"] == "s2"
     assert suites[1]["id"] == "s1"
+
+    # Suites are private: never everything by default, everything for an admin.
+    assert ScenarioSuiteDAO.list_suites(test_db) == []
+    assert {s["id"] for s in ScenarioSuiteDAO.list_suites(test_db, user_id="bob")} == {
+        "s3"
+    }
+    assert len(ScenarioSuiteDAO.list_suites(test_db, is_admin=True)) == 3
 
 
 def test_add_runs_keeps_existing_and_tags_new_runs(test_db):
