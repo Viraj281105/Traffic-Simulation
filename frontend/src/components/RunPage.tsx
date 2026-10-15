@@ -27,6 +27,7 @@ import {
 import { VIEW_ROUTES, comparePath, followLink } from "../routing";
 import { parseStoredTimestamp } from "../utils/time";
 import { LoaderMark } from "./ui/Loader";
+import { ArrowLeft } from "lucide-react";
 
 type LoadState =
   | { kind: "loading" }
@@ -44,13 +45,14 @@ function Timestamp({ value }: { value: string | null }) {
 function BackToHistory() {
   return (
     <a
-      className="run-back-link"
+      className="uf-link run-back-link"
       href={VIEW_ROUTES.history}
       onClick={(event) => {
         followLink(event, VIEW_ROUTES.history);
       }}
     >
-      ← Saved runs
+      <ArrowLeft size={15} className="is-back" aria-hidden="true" />
+      Saved runs
     </a>
   );
 }

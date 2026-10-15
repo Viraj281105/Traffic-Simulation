@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { get } from "../services/api";
-import { Users, RefreshCw, Search, ShieldCheck, Activity } from "lucide-react";
+import { Users, RefreshCw, Search } from "lucide-react";
+import { StatusState } from "./ui/StatusState";
 import "./AdminPanel.css";
 
 interface UserRow {
@@ -79,95 +80,100 @@ export function AdminPanel() {
     );
   });
 
+  const loaded = !loading && !error;
+
   return (
-    <div className="admin-panel">
-      {/* ── Header ─────────────────────────────────────────────────── */}
-      <div className="admin-panel__hero">
-        <div className="admin-panel__hero-icon">
-          <ShieldCheck size={32} aria-hidden="true" />
-        </div>
+    <div className="guided-page admin-panel">
+      <header className="guided-intro admin-panel__intro">
         <div>
-          <h1 className="admin-panel__title">Admin Panel</h1>
-          <p className="admin-panel__subtitle">
-            Registered users from your Cognito user pool
-          </p>
+          <p className="guided-eyebrow">Admin</p>
+          <h1>Admin Panel</h1>
+          <p>Registered users from your Cognito user pool.</p>
         </div>
-        <div className="admin-panel__stat-pill">
-          <Activity size={14} aria-hidden="true" />
-          <strong>{count}</strong> total users
-        </div>
-      </div>
+        {loaded && (
+          <span className="uf-badge admin-panel__count">
+            <Users size={13} aria-hidden="true" />
+            {count.toString()} total {count === 1 ? "user" : "users"}
+          </span>
+        )}
+      </header>
 
-      {/* ── Toolbar ────────────────────────────────────────────────── */}
-      <div className="admin-panel__toolbar">
-        <div className="admin-panel__search-wrap">
-          <Search
-            size={15}
-            className="admin-panel__search-icon"
-            aria-hidden="true"
-          />
-          <input
-            id="admin-user-search"
-            type="search"
-            className="admin-panel__search"
-            placeholder="Search by email or username…"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-            }}
-            aria-label="Search users"
-          />
+      <section className="uf-panel admin-panel__body" aria-label="Users">
+        <div className="admin-panel__toolbar">
+          <div className="admin-panel__search-wrap">
+            <Search
+              size={15}
+              className="admin-panel__search-icon"
+              aria-hidden="true"
+            />
+            <input
+              id="admin-user-search"
+              type="search"
+              className="uf-input admin-panel__search"
+              placeholder="Search by email or username…"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+              }}
+              aria-label="Search users"
+            />
+          </div>
+          <button
+            type="button"
+            className={`pb-btn pb-secondary admin-panel__refresh${loading ? " is-spinning" : ""}`}
+            onClick={load}
+            disabled={loading}
+            aria-label="Refresh user list"
+            title="Refresh"
+          >
+            <RefreshCw size={15} aria-hidden="true" />
+            {loading ? "Loading…" : "Refresh"}
+          </button>
         </div>
-        <button
-          type="button"
-          className={`admin-panel__refresh ${loading ? "is-spinning" : ""}`}
-          onClick={load}
-          disabled={loading}
-          aria-label="Refresh user list"
-          title="Refresh"
-        >
-          <RefreshCw size={15} aria-hidden="true" />
-          {loading ? "Loading…" : "Refresh"}
-        </button>
-      </div>
 
-      {/* ── Error state ─────────────────────────────────────────────── */}
-      {error && (
-        <div className="admin-panel__error" role="alert">
-          <strong>Could not load users:</strong> {error}
-        </div>
-      )}
-
-      {/* ── Table ───────────────────────────────────────────────────── */}
-      {!error && (
-        <div className="admin-panel__table-wrap">
-          {loading && users.length === 0 ? (
-            <div className="admin-panel__skeleton-rows">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="admin-panel__skeleton-row" />
-              ))}
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="admin-panel__empty">
-              <Users
-                size={40}
-                className="admin-panel__empty-icon"
-                aria-hidden="true"
-              />
-              <p>
-                {query
-                  ? "No users match your search."
-                  : "No users have logged in yet."}
-              </p>
-            </div>
-          ) : (
-            <table className="admin-panel__table" aria-label="User registry">
+        {error ? (
+          <StatusState
+            tone="error"
+            role="alert"
+            compact
+            title="Could not load users"
+            actions={
+              <button
+                type="button"
+                className="pb-btn pb-secondary pb-sm"
+                onClick={load}
+              >
+                Try again
+              </button>
+            }
+          >
+            {error}
+          </StatusState>
+        ) : loading && users.length === 0 ? (
+          <div className="admin-panel__skeleton-rows" aria-hidden="true">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="admin-panel__skeleton-row" />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <StatusState tone="empty" compact title="No users to show">
+            {query
+              ? "No users match your search."
+              : "No users have logged in yet."}
+          </StatusState>
+        ) : (
+          <div className="uf-table-wrap">
+            <table className="uf-table" aria-label="User registry">
               <thead>
                 <tr>
-                  <th scope="col">#</th>
+                  <th scope="col" className="is-num">
+                    #
+                  </th>
                   <th scope="col">Email</th>
                   <th scope="col">Username</th>
-                  <th scope="col">Runs</th>
+                  <th scope="col" className="is-num">
+                    Runs
+                  </th>
                   <th scope="col">First seen</th>
                   <th scope="col">Last seen</th>
                 </tr>
@@ -175,7 +181,7 @@ export function AdminPanel() {
               <tbody>
                 {filtered.map((user, idx) => (
                   <tr key={user.sub}>
-                    <td className="admin-panel__td-index">{idx + 1}</td>
+                    <td className="is-num admin-panel__td-index">{idx + 1}</td>
                     <td>
                       <span className="admin-panel__email">
                         {user.email || "—"}
@@ -186,9 +192,9 @@ export function AdminPanel() {
                         {user.username}
                       </span>
                     </td>
-                    <td>
+                    <td className="is-num">
                       <span
-                        className={`admin-panel__run-badge ${user.runCount > 0 ? "has-runs" : ""}`}
+                        className={`admin-panel__run-badge${user.runCount > 0 ? " has-runs" : ""}`}
                       >
                         {user.runCount}
                       </span>
@@ -203,12 +209,11 @@ export function AdminPanel() {
                 ))}
               </tbody>
             </table>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </section>
 
-      {/* ── Footer ─────────────────────────────────────────────────── */}
-      <p className="admin-panel__footer-note">
+      <p className="uf-hint admin-panel__footer-note">
         Users are automatically recorded on first login. Passwords are never
         stored here — they stay in Cognito.
       </p>

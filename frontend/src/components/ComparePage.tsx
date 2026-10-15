@@ -34,6 +34,7 @@ import {
   useSearch,
 } from "../routing";
 import { LoaderMark } from "./ui/Loader";
+import { ArrowLeft } from "lucide-react";
 
 type Loaded =
   | { kind: "ready"; record: RunRecord }
@@ -88,15 +89,17 @@ export function ComparePage() {
   return (
     <div className="history-dashboard run-page">
       <a
-        className="run-back-link"
+        className="uf-link run-back-link"
         href={VIEW_ROUTES.history}
         onClick={(event) => {
           followLink(event, VIEW_ROUTES.history);
         }}
       >
-        ← Saved runs
+        <ArrowLeft size={15} className="is-back" aria-hidden="true" />
+        Saved runs
       </a>
       <header className="history-header">
+        <p className="guided-eyebrow">Saved</p>
         <h1>Compare saved runs</h1>
         <p>
           Stored metrics of up to {MAX_COMPARE_RUNS} runs side by side, with
