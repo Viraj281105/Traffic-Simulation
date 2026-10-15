@@ -1,0 +1,30 @@
+{
+  "purpose": "Preview fallback pack (B0-3)",
+  "generatedAtUtc": "2026-10-14T08:30:16Z",
+  "backend": {
+    "gitCommit": "886742fed0ccd464d74c9e331b9ce5dcac537e25",
+    "pythonVersion": "3.14.7"
+  },
+  "host": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.14.7"
+  },
+  "studies": [
+    {
+      "slug": "small-live",
+      "studyId": "116eeb2c1b6143dc9561ca4266144c6d",
+      "runSeconds": 2.66,
+      "reproduced": true,
+      "gitCommit": "886742fed0ccd464d74c9e331b9ce5dcac537e25",
+      "scenarioFingerprint": "c87df2abfdd786dd"
+    },
+    {
+      "slug": "medium-precomputed",
+      "studyId": "1e932d2434974559ac9651c1a1c01c46",
+      "runSeconds": 32.3,
+      "reproduced": true,
+      "gitCommit": "886742fed0ccd464d74c9e331b9ce5dcac537e25",
+      "scenarioFingerprint": "c8aa706a60df9df0"
+    }
+  ]
+}

@@ -1,0 +1,6163 @@
+{
+  "alternatives": [
+    {
+      "changesFromBase": [],
+      "fingerprint": "c8aa706a60df9df0",
+      "id": "base",
+      "isBaseline": true,
+      "label": "Fixed-time",
+      "patch": {},
+      "strategy": "fixed_time",
+      "strategyTitle": "Fixed-time signal",
+      "warnings": []
+    },
+    {
+      "changesFromBase": [],
+      "fingerprint": "c8aa706a60df9df0",
+      "id": "adaptive",
+      "isBaseline": false,
+      "label": "Adaptive",
+      "patch": {},
+      "strategy": "adaptive",
+      "strategyTitle": "Adaptive signal",
+      "warnings": []
+    },
+    {
+      "changesFromBase": [],
+      "fingerprint": "c8aa706a60df9df0",
+      "id": "rbt",
+      "isBaseline": false,
+      "label": "Roundabout",
+      "patch": {},
+      "strategy": "roundabout",
+      "strategyTitle": "Roundabout",
+      "warnings": []
+    }
+  ],
+  "calibration": null,
+  "comparison": {
+    "baselineId": "base",
+    "method": {
+      "delayComparison": "Paired per-seed differences in mean delay (first strategy minus second), Student-t interval on the mean difference. 'lower'/'higher' needs the interval to exclude zero and the means to differ by more than the tie tolerance; 'tie' means within the tolerance; otherwise 'inconclusive'. No multiple-comparison correction.",
+      "design": "Every seed is run once under each strategy, each compiled from the same scenario document: same approaches, lanes, lane use, demand, turning, vehicles, arrival sequence, duration and warm-up. Only the control section differs.",
+      "interval": "mean +/- t(n-1) * s / sqrt(n), two-sided Student-t"
+    },
+    "tieTolerance": {
+      "absSeconds": 1.0,
+      "relative": 0.05
+    },
+    "vsBaseline": [
+      {
+        "alternativeId": "adaptive",
+        "alternativeMean": 17.93,
+        "baselineId": "base",
+        "baselineMean": 21.58,
+        "ciHigh": 0.96,
+        "ciLow": -8.26,
+        "delta": -3.65,
+        "deltaPct": -16.9,
+        "demandScale": 0.8,
+        "direction": "lower_is_better",
+        "metric": "averageDelay",
+        "n": 3,
+        "reading": "inconclusive",
+        "verdict": "inconclusive"
+      },
+      {
+        "alternativeId": "adaptive",
+        "alternativeMean": 62.67,
+        "baselineId": "base",
+        "baselineMean": 59.67,
+        "ciHigh": 14.38,
+        "ciLow": -8.38,
+        "delta": 3.0,
+        "deltaPct": 5.03,
+        "demandScale": 0.8,
+        "direction": "higher_is_better",
+        "metric": "throughput",
+        "n": 3,
+        "reading": "tie",
+        "verdict": "tie"
+      },
+      {
+        "alternativeId": "adaptive",
+        "alternativeMean": 0.75,
+        "baselineId": "base",
+        "baselineMean": 1.1,
+        "ciHigh": 0.39,
+        "ciLow": -1.1,
+        "delta": -0.35,
+        "deltaPct": -32.02,
+        "demandScale": 0.8,
+        "direction": "lower_is_better",
+        "metric": "averageQueueLength",
+        "n": 3,
+        "reading": "tie",
+        "verdict": "tie"
+      },
+      {
+        "alternativeId": "adaptive",
+        "alternativeMean": 0.0,
+        "baselineId": "base",
+        "baselineMean": 0.0,
+        "ciHigh": 0.0,
+        "ciLow": 0.0,
+        "delta": 0.0,
+        "deltaPct": null,
+        "demandScale": 0.8,
+        "direction": "lower_is_better",
+        "metric": "collisionCount",
+        "n": 3,
+        "reading": "tie",
+        "verdict": "tie"
+      },
+      {
+        "alternativeId": "adaptive",
+        "alternativeMean": 22.04,
+        "baselineId": "base",
+        "baselineMean": 27.87,
+        "ciHigh": 10.89,
+        "ciLow": -22.54,
+        "delta": -5.83,
+        "deltaPct": -20.91,
+        "demandScale": 1.0,
+        "direction": "lower_is_better",
+        "metric": "averageDelay",
+        "n": 3,
+        "reading": "inconclusive",
+        "verdict": "inconclusive"
+      },
+      {
+        "alternativeId": "adaptive",
+        "alternativeMean": 77.0,
+        "baselineId": "base",
+        "baselineMean": 70.67,
+        "ciHigh": 11.5,
+        "ciLow": 1.16,
+        "delta": 6.33,
+        "deltaPct": 8.96,
+        "demandScale": 1.0,
+        "direction": "higher_is_better",
+        "metric": "throughput",
+        "n": 3,
+        "reading": "higher",
+        "verdict": "better"
+      },
+      {
+        "alternativeId": "adaptive",
+        "alternativeMean": 1.3,
+        "baselineId": "base",
+        "baselineMean": 2.11,
+        "ciHigh": 0.23,
+        "ciLow": -1.84,
+        "delta": -0.8,
+        "deltaPct": -38.13,
+        "demandScale": 1.0,
+        "direction": "lower_is_better",
+        "metric": "averageQueueLength",
+        "n": 3,
+        "reading": "inconclusive",
+        "verdict": "inconclusive"
+      },
+      {
+        "alternativeId": "adaptive",
+        "alternativeMean": 0.0,
+        "baselineId": "base",
+        "baselineMean": 0.0,
+        "ciHigh": 0.0,
+        "ciLow": 0.0,
+        "delta": 0.0,
+        "deltaPct": null,
+        "demandScale": 1.0,
+        "direction": "lower_is_better",
+        "metric": "collisionCount",
+        "n": 3,
+        "reading": "tie",
+        "verdict": "tie"
+      },
+      {
+        "alternativeId": "adaptive",
+        "alternativeMean": 32.4,
+        "baselineId": "base",
+        "baselineMean": 35.82,
+        "ciHigh": 9.21,
+        "ciLow": -16.05,
+        "delta": -3.42,
+        "deltaPct": -9.55,
+        "demandScale": 1.2,
+        "direction": "lower_is_better",
+        "metric": "averageDelay",
+        "n": 3,
+        "reading": "inconclusive",
+        "verdict": "inconclusive"
+      },
+      {
+        "alternativeId": "adaptive",
+        "alternativeMean": 82.0,
+        "baselineId": "base",
+        "baselineMean": 79.67,
+        "ciHigh": 16.89,
+        "ciLow": -12.22,
+        "delta": 2.33,
+        "deltaPct": 2.93,
+        "demandScale": 1.2,
+        "direction": "higher_is_better",
+        "metric": "throughput",
+        "n": 3,
+        "reading": "tie",
+        "verdict": "tie"
+      },
+      {
+        "alternativeId": "adaptive",
+        "alternativeMean": 2.98,
+        "baselineId": "base",
+        "baselineMean": 3.26,
+        "ciHigh": 1.29,
+        "ciLow": -1.85,
+        "delta": -0.28,
+        "deltaPct": -8.58,
+        "demandScale": 1.2,
+        "direction": "lower_is_better",
+        "metric": "averageQueueLength",
+        "n": 3,
+        "reading": "tie",
+        "verdict": "tie"
+      },
+      {
+        "alternativeId": "adaptive",
+        "alternativeMean": 0.0,
+        "baselineId": "base",
+        "baselineMean": 0.0,
+        "ciHigh": 0.0,
+        "ciLow": 0.0,
+        "delta": 0.0,
+        "deltaPct": null,
+        "demandScale": 1.2,
+        "direction": "lower_is_better",
+        "metric": "collisionCount",
+        "n": 3,
+        "reading": "tie",
+        "verdict": "tie"
+      },
+      {
+        "alternativeId": "rbt",
+        "alternativeMean": 15.99,
+        "baselineId": "base",
+        "baselineMean": 21.58,
+        "ciHigh": 3.82,
+        "ciLow": -14.99,
+        "delta": -5.58,
+        "deltaPct": -25.88,
+        "demandScale": 0.8,
+        "direction": "lower_is_better",
+        "metric": "averageDelay",
+        "n": 3,
+        "reading": "inconclusive",
+        "verdict": "inconclusive"
+      },
+      {
+        "alternativeId": "rbt",
+        "alternativeMean": 65.33,
+        "baselineId": "base",
+        "baselineMean": 59.67,
+        "ciHigh": 19.79,
+        "ciLow": -8.46,
+        "delta": 5.67,
+        "deltaPct": 9.5,
+        "demandScale": 0.8,
+        "direction": "higher_is_better",
+        "metric": "throughput",
+        "n": 3,
+        "reading": "inconclusive",
+        "verdict": "inconclusive"
+      },
+      {
+        "alternativeId": "rbt",
+        "alternativeMean": 0.14,
+        "baselineId": "base",
+        "baselineMean": 1.1,
+        "ciHigh": 0.46,
+        "ciLow": -2.38,
+        "delta": -0.96,
+        "deltaPct": -87.01,
+        "demandScale": 0.8,
+        "direction": "lower_is_better",
+        "metric": "averageQueueLength",
+        "n": 3,
+        "reading": "inconclusive",
+        "verdict": "inconclusive"
+      },
+      {
+        "alternativeId": "rbt",
+        "alternativeMean": 0.0,
+        "baselineId": "base",
+        "baselineMean": 0.0,
+        "ciHigh": 0.0,
+        "ciLow": 0.0,
+        "delta": 0.0,
+        "deltaPct": null,
+        "demandScale": 0.8,
+        "direction": "lower_is_better",
+        "metric": "collisionCount",
+        "n": 3,
+        "reading": "tie",
+        "verdict": "tie"
+      },
+      {
+        "alternativeId": "rbt",
+        "alternativeMean": 20.73,
+        "baselineId": "base",
+        "baselineMean": 27.87,
+        "ciHigh": 3.27,
+        "ciLow": -17.55,
+        "delta": -7.14,
+        "deltaPct": -25.61,
+        "demandScale": 1.0,
+        "direction": "lower_is_better",
+        "metric": "averageDelay",
+        "n": 3,
+        "reading": "inconclusive",
+        "verdict": "inconclusive"
+      },
+      {
+        "alternativeId": "rbt",
+        "alternativeMean": 78.0,
+        "baselineId": "base",
+        "baselineMean": 70.67,
+        "ciHigh": 11.13,
+        "ciLow": 3.54,
+        "delta": 7.33,
+        "deltaPct": 10.38,
+        "demandScale": 1.0,
+        "direction": "higher_is_better",
+        "metric": "throughput",
+        "n": 3,
+        "reading": "higher",
+        "verdict": "better"
+      },
+      {
+        "alternativeId": "rbt",
+        "alternativeMean": 0.46,
+        "baselineId": "base",
+        "baselineMean": 2.11,
+        "ciHigh": 0.07,
+        "ciLow": -3.37,
+        "delta": -1.65,
+        "deltaPct": -78.16,
+        "demandScale": 1.0,
+        "direction": "lower_is_better",
+        "metric": "averageQueueLength",
+        "n": 3,
+        "reading": "inconclusive",
+        "verdict": "inconclusive"
+      },
+      {
+        "alternativeId": "rbt",
+        "alternativeMean": 0.0,
+        "baselineId": "base",
+        "baselineMean": 0.0,
+        "ciHigh": 0.0,
+        "ciLow": 0.0,
+        "delta": 0.0,
+        "deltaPct": null,
+        "demandScale": 1.0,
+        "direction": "lower_is_better",
+        "metric": "collisionCount",
+        "n": 3,
+        "reading": "tie",
+        "verdict": "tie"
+      },
+      {
+        "alternativeId": "rbt",
+        "alternativeMean": 27.78,
+        "baselineId": "base",
+        "baselineMean": 35.82,
+        "ciHigh": 5.01,
+        "ciLow": -21.08,
+        "delta": -8.04,
+        "deltaPct": -22.44,
+        "demandScale": 1.2,
+        "direction": "lower_is_better",
+        "metric": "averageDelay",
+        "n": 3,
+        "reading": "inconclusive",
+        "verdict": "inconclusive"
+      },
+      {
+        "alternativeId": "rbt",
+        "alternativeMean": 90.0,
+        "baselineId": "base",
+        "baselineMean": 79.67,
+        "ciHigh": 17.92,
+        "ciLow": 2.74,
+        "delta": 10.33,
+        "deltaPct": 12.97,
+        "demandScale": 1.2,
+        "direction": "higher_is_better",
+        "metric": "throughput",
+        "n": 3,
+        "reading": "higher",
+        "verdict": "better"
+      },
+      {
+        "alternativeId": "rbt",
+        "alternativeMean": 1.0,
+        "baselineId": "base",
+        "baselineMean": 3.26,
+        "ciHigh": -0.52,
+        "ciLow": -4.02,
+        "delta": -2.27,
+        "deltaPct": -69.46,
+        "demandScale": 1.2,
+        "direction": "lower_is_better",
+        "metric": "averageQueueLength",
+        "n": 3,
+        "reading": "lower",
+        "verdict": "better"
+      },
+      {
+        "alternativeId": "rbt",
+        "alternativeMean": 0.0,
+        "baselineId": "base",
+        "baselineMean": 0.0,
+        "ciHigh": 0.0,
+        "ciLow": 0.0,
+        "delta": 0.0,
+        "deltaPct": null,
+        "demandScale": 1.2,
+        "direction": "lower_is_better",
+        "metric": "collisionCount",
+        "n": 3,
+        "reading": "tie",
+        "verdict": "tie"
+      }
+    ]
+  },
+  "findings": [
+    {
+      "caveats": [],
+      "confidence": "low",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[0]"
+        },
+        {
+          "path": "results[3].performance.values.averageDelay"
+        },
+        {
+          "path": "results[0].performance.values.averageDelay"
+        }
+      ],
+      "id": "F1",
+      "kind": "delay",
+      "statement": "Adaptive showed an inconclusive difference in mean delay compared with Fixed-time at x0.8 demand (3 seeds could not separate them)."
+    },
+    {
+      "caveats": [],
+      "confidence": "moderate",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[1]"
+        },
+        {
+          "path": "results[3].performance.values.throughput"
+        },
+        {
+          "path": "results[0].performance.values.throughput"
+        }
+      ],
+      "id": "F2",
+      "kind": "throughput",
+      "statement": "Adaptive served a similar number of vehicles compared with Fixed-time at x0.8 demand."
+    },
+    {
+      "caveats": [],
+      "confidence": "moderate",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[2]"
+        },
+        {
+          "path": "results[3].performance.values.averageQueueLength"
+        },
+        {
+          "path": "results[0].performance.values.averageQueueLength"
+        }
+      ],
+      "id": "F3",
+      "kind": "queue",
+      "statement": "Adaptive had similar average queues compared with Fixed-time at x0.8 demand."
+    },
+    {
+      "caveats": [
+        "Exploratory: simulated collisions are a rare-event proxy."
+      ],
+      "confidence": "moderate",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[3]"
+        },
+        {
+          "path": "results[3].safety.values.collisionCount"
+        },
+        {
+          "path": "results[0].safety.values.collisionCount"
+        }
+      ],
+      "id": "F4",
+      "kind": "safety",
+      "statement": "Adaptive had similar safety indicators (simulated collisions) compared with Fixed-time at x0.8 demand."
+    },
+    {
+      "caveats": [],
+      "confidence": "low",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[4]"
+        },
+        {
+          "path": "results[4].performance.values.averageDelay"
+        },
+        {
+          "path": "results[1].performance.values.averageDelay"
+        }
+      ],
+      "id": "F5",
+      "kind": "delay",
+      "statement": "Adaptive showed an inconclusive difference in mean delay compared with Fixed-time at x1 demand (3 seeds could not separate them)."
+    },
+    {
+      "caveats": [],
+      "confidence": "moderate",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[5]"
+        },
+        {
+          "path": "results[4].performance.values.throughput"
+        },
+        {
+          "path": "results[1].performance.values.throughput"
+        }
+      ],
+      "id": "F6",
+      "kind": "throughput",
+      "statement": "Adaptive served more vehicles than Fixed-time at x1 demand (+6.33 vehicles vs baseline, CI 1.16 to 11.5)."
+    },
+    {
+      "caveats": [],
+      "confidence": "low",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[6]"
+        },
+        {
+          "path": "results[4].performance.values.averageQueueLength"
+        },
+        {
+          "path": "results[1].performance.values.averageQueueLength"
+        }
+      ],
+      "id": "F7",
+      "kind": "queue",
+      "statement": "Adaptive showed an inconclusive difference in average queue length compared with Fixed-time at x1 demand (3 seeds could not separate them)."
+    },
+    {
+      "caveats": [
+        "Exploratory: simulated collisions are a rare-event proxy."
+      ],
+      "confidence": "moderate",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[7]"
+        },
+        {
+          "path": "results[4].safety.values.collisionCount"
+        },
+        {
+          "path": "results[1].safety.values.collisionCount"
+        }
+      ],
+      "id": "F8",
+      "kind": "safety",
+      "statement": "Adaptive had similar safety indicators (simulated collisions) compared with Fixed-time at x1 demand."
+    },
+    {
+      "caveats": [],
+      "confidence": "low",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[8]"
+        },
+        {
+          "path": "results[5].performance.values.averageDelay"
+        },
+        {
+          "path": "results[2].performance.values.averageDelay"
+        }
+      ],
+      "id": "F9",
+      "kind": "delay",
+      "statement": "Adaptive showed an inconclusive difference in mean delay compared with Fixed-time at x1.2 demand (3 seeds could not separate them)."
+    },
+    {
+      "caveats": [],
+      "confidence": "moderate",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[9]"
+        },
+        {
+          "path": "results[5].performance.values.throughput"
+        },
+        {
+          "path": "results[2].performance.values.throughput"
+        }
+      ],
+      "id": "F10",
+      "kind": "throughput",
+      "statement": "Adaptive served a similar number of vehicles compared with Fixed-time at x1.2 demand."
+    },
+    {
+      "caveats": [],
+      "confidence": "moderate",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[10]"
+        },
+        {
+          "path": "results[5].performance.values.averageQueueLength"
+        },
+        {
+          "path": "results[2].performance.values.averageQueueLength"
+        }
+      ],
+      "id": "F11",
+      "kind": "queue",
+      "statement": "Adaptive had similar average queues compared with Fixed-time at x1.2 demand."
+    },
+    {
+      "caveats": [
+        "Exploratory: simulated collisions are a rare-event proxy."
+      ],
+      "confidence": "moderate",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[11]"
+        },
+        {
+          "path": "results[5].safety.values.collisionCount"
+        },
+        {
+          "path": "results[2].safety.values.collisionCount"
+        }
+      ],
+      "id": "F12",
+      "kind": "safety",
+      "statement": "Adaptive had similar safety indicators (simulated collisions) compared with Fixed-time at x1.2 demand."
+    },
+    {
+      "caveats": [],
+      "confidence": "low",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[12]"
+        },
+        {
+          "path": "results[6].performance.values.averageDelay"
+        },
+        {
+          "path": "results[0].performance.values.averageDelay"
+        }
+      ],
+      "id": "F13",
+      "kind": "delay",
+      "statement": "Roundabout showed an inconclusive difference in mean delay compared with Fixed-time at x0.8 demand (3 seeds could not separate them)."
+    },
+    {
+      "caveats": [],
+      "confidence": "low",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[13]"
+        },
+        {
+          "path": "results[6].performance.values.throughput"
+        },
+        {
+          "path": "results[0].performance.values.throughput"
+        }
+      ],
+      "id": "F14",
+      "kind": "throughput",
+      "statement": "Roundabout showed an inconclusive difference in vehicles served compared with Fixed-time at x0.8 demand (3 seeds could not separate them)."
+    },
+    {
+      "caveats": [],
+      "confidence": "low",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[14]"
+        },
+        {
+          "path": "results[6].performance.values.averageQueueLength"
+        },
+        {
+          "path": "results[0].performance.values.averageQueueLength"
+        }
+      ],
+      "id": "F15",
+      "kind": "queue",
+      "statement": "Roundabout showed an inconclusive difference in average queue length compared with Fixed-time at x0.8 demand (3 seeds could not separate them)."
+    },
+    {
+      "caveats": [
+        "Exploratory: simulated collisions are a rare-event proxy."
+      ],
+      "confidence": "moderate",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[15]"
+        },
+        {
+          "path": "results[6].safety.values.collisionCount"
+        },
+        {
+          "path": "results[0].safety.values.collisionCount"
+        }
+      ],
+      "id": "F16",
+      "kind": "safety",
+      "statement": "Roundabout had similar safety indicators (simulated collisions) compared with Fixed-time at x0.8 demand."
+    },
+    {
+      "caveats": [],
+      "confidence": "low",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[16]"
+        },
+        {
+          "path": "results[7].performance.values.averageDelay"
+        },
+        {
+          "path": "results[1].performance.values.averageDelay"
+        }
+      ],
+      "id": "F17",
+      "kind": "delay",
+      "statement": "Roundabout showed an inconclusive difference in mean delay compared with Fixed-time at x1 demand (3 seeds could not separate them)."
+    },
+    {
+      "caveats": [],
+      "confidence": "moderate",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[17]"
+        },
+        {
+          "path": "results[7].performance.values.throughput"
+        },
+        {
+          "path": "results[1].performance.values.throughput"
+        }
+      ],
+      "id": "F18",
+      "kind": "throughput",
+      "statement": "Roundabout served more vehicles than Fixed-time at x1 demand (+7.33 vehicles vs baseline, CI 3.54 to 11.13)."
+    },
+    {
+      "caveats": [],
+      "confidence": "low",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[18]"
+        },
+        {
+          "path": "results[7].performance.values.averageQueueLength"
+        },
+        {
+          "path": "results[1].performance.values.averageQueueLength"
+        }
+      ],
+      "id": "F19",
+      "kind": "queue",
+      "statement": "Roundabout showed an inconclusive difference in average queue length compared with Fixed-time at x1 demand (3 seeds could not separate them)."
+    },
+    {
+      "caveats": [
+        "Exploratory: simulated collisions are a rare-event proxy."
+      ],
+      "confidence": "moderate",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[19]"
+        },
+        {
+          "path": "results[7].safety.values.collisionCount"
+        },
+        {
+          "path": "results[1].safety.values.collisionCount"
+        }
+      ],
+      "id": "F20",
+      "kind": "safety",
+      "statement": "Roundabout had similar safety indicators (simulated collisions) compared with Fixed-time at x1 demand."
+    },
+    {
+      "caveats": [],
+      "confidence": "low",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[20]"
+        },
+        {
+          "path": "results[8].performance.values.averageDelay"
+        },
+        {
+          "path": "results[2].performance.values.averageDelay"
+        }
+      ],
+      "id": "F21",
+      "kind": "delay",
+      "statement": "Roundabout showed an inconclusive difference in mean delay compared with Fixed-time at x1.2 demand (3 seeds could not separate them)."
+    },
+    {
+      "caveats": [],
+      "confidence": "moderate",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[21]"
+        },
+        {
+          "path": "results[8].performance.values.throughput"
+        },
+        {
+          "path": "results[2].performance.values.throughput"
+        }
+      ],
+      "id": "F22",
+      "kind": "throughput",
+      "statement": "Roundabout served more vehicles than Fixed-time at x1.2 demand (+10.33 vehicles vs baseline, CI 2.74 to 17.92)."
+    },
+    {
+      "caveats": [],
+      "confidence": "moderate",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[22]"
+        },
+        {
+          "path": "results[8].performance.values.averageQueueLength"
+        },
+        {
+          "path": "results[2].performance.values.averageQueueLength"
+        }
+      ],
+      "id": "F23",
+      "kind": "queue",
+      "statement": "Roundabout had shorter average queues than Fixed-time at x1.2 demand (-2.27 vehicles vs baseline, CI -4.02 to -0.52)."
+    },
+    {
+      "caveats": [
+        "Exploratory: simulated collisions are a rare-event proxy."
+      ],
+      "confidence": "moderate",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[23]"
+        },
+        {
+          "path": "results[8].safety.values.collisionCount"
+        },
+        {
+          "path": "results[2].safety.values.collisionCount"
+        }
+      ],
+      "id": "F24",
+      "kind": "safety",
+      "statement": "Roundabout had similar safety indicators (simulated collisions) compared with Fixed-time at x1.2 demand."
+    },
+    {
+      "caveats": [],
+      "confidence": "moderate",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[1]"
+        },
+        {
+          "path": "comparison.vsBaseline[5]"
+        },
+        {
+          "path": "comparison.vsBaseline[9]"
+        }
+      ],
+      "id": "F25",
+      "kind": "demand_sensitivity",
+      "statement": "The result for Adaptive on vehicles served depends on demand (x0.8 demand: tie; x1 demand: better; x1.2 demand: tie). It should not be read as holding outside the tested demand levels."
+    },
+    {
+      "caveats": [],
+      "confidence": "moderate",
+      "evidence": [
+        {
+          "path": "comparison.vsBaseline[13]"
+        },
+        {
+          "path": "comparison.vsBaseline[17]"
+        },
+        {
+          "path": "comparison.vsBaseline[21]"
+        }
+      ],
+      "id": "F26",
+      "kind": "demand_sensitivity",
+      "statement": "The result for Roundabout on vehicles served depends on demand (x0.8 demand: inconclusive; x1 demand: better; x1.2 demand: better). It should not be read as holding outside the tested demand levels."
+    },
+    {
+      "caveats": [],
+      "confidence": "moderate",
+      "evidence": [
+        {
+          "path": "reliability"
+        }
+      ],
+      "id": "F27",
+      "kind": "reliability",
+      "statement": "3 repetitions were run; intervals are wide and readings should be treated as indicative."
+    },
+    {
+      "caveats": [],
+      "confidence": "high",
+      "evidence": [
+        {
+          "path": "results[0].environmental"
+        }
+      ],
+      "id": "F28",
+      "kind": "note",
+      "statement": "No emissions or fuel model is available; environmental indicators are stop-and-go and idling proxies only, and no environmental claim is made."
+    }
+  ],
+  "format": "urbanflow-planning-result",
+  "limitations": [
+    "Results describe this scenario and these demand levels; they do not transfer to other junctions or conditions.",
+    "Readings are per metric and per demand scale; there is no overall winner.",
+    "Several metrics, alternatives and scales are read without multiple-comparison correction.",
+    "Safety indicators are exploratory rare-event proxies, not crash predictions.",
+    "Environmental indicators are stop-and-go/idling proxies; no emissions model exists.",
+    "No field data calibration is attached to this study.",
+    "Network model: the scenario is represented as a single-junction network; multi-junction execution is not part of this study."
+  ],
+  "meta": {
+    "baseSeed": 1,
+    "calibrationFingerprint": null,
+    "calibrationRunId": null,
+    "compiledConfigs": {
+      "adaptive": {
+        "controller": {
+          "adaptive": {
+            "demandThreshold": 1,
+            "detectionDistance": 30.0,
+            "extensionStep": 2.5,
+            "maxGreen": 50.0,
+            "minGreen": 10.0
+          },
+          "allRedDuration": 2.0,
+          "phaseSequence": [
+            "ns_green",
+            "ns_yellow",
+            "all_red",
+            "ew_green",
+            "ew_yellow",
+            "all_red"
+          ],
+          "signalControl": "adaptive",
+          "straightRightDuration": 30.0,
+          "yellowDuration": 4.0
+        },
+        "geometry": {
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "fixed_time_signal"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 1,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 1,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "b7aa6cdedcbb6961",
+          "format": "urbanflow-scenario",
+          "name": "Demo junction",
+          "strategy": "adaptive",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 300.0,
+          "randomSeed": 1,
+          "timeStep": 0.1,
+          "warmupTime": 30.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.2,
+                "right": 0.2,
+                "straight": 0.6
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.2,
+                "right": 0.2,
+                "straight": 0.6
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.2,
+                "right": 0.2,
+                "straight": 0.6
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.2,
+                "right": 0.2,
+                "straight": 0.6
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.26666666666666666,
+          "directionalSplit": {
+            "east": 0.25,
+            "north": 0.25,
+            "south": 0.25,
+            "west": 0.25
+          },
+          "totalVehicles": 200,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {}
+      },
+      "base": {
+        "controller": {
+          "allRedDuration": 2.0,
+          "phaseSequence": [
+            "ns_green",
+            "ns_yellow",
+            "all_red",
+            "ew_green",
+            "ew_yellow",
+            "all_red"
+          ],
+          "straightRightDuration": 30.0,
+          "yellowDuration": 4.0
+        },
+        "geometry": {
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "fixed_time_signal"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 1,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 1,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "b7aa6cdedcbb6961",
+          "format": "urbanflow-scenario",
+          "name": "Demo junction",
+          "strategy": "fixed_time",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 300.0,
+          "randomSeed": 1,
+          "timeStep": 0.1,
+          "warmupTime": 30.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.2,
+                "right": 0.2,
+                "straight": 0.6
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.2,
+                "right": 0.2,
+                "straight": 0.6
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.2,
+                "right": 0.2,
+                "straight": 0.6
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.2,
+                "right": 0.2,
+                "straight": 0.6
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.26666666666666666,
+          "directionalSplit": {
+            "east": 0.25,
+            "north": 0.25,
+            "south": 0.25,
+            "west": 0.25
+          },
+          "totalVehicles": 200,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {}
+      },
+      "rbt": {
+        "controller": {
+          "circulatingSpeed": 8.0,
+          "criticalGap": 4.0,
+          "entrySpeed": 5.0,
+          "followUpTime": 2.5,
+          "innerRadius": 10.0,
+          "outerRadius": 20.0
+        },
+        "geometry": {
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "roundabout"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 1,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 1,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "b7aa6cdedcbb6961",
+          "format": "urbanflow-scenario",
+          "name": "Demo junction",
+          "strategy": "roundabout",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 300.0,
+          "randomSeed": 1,
+          "timeStep": 0.1,
+          "warmupTime": 30.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.2,
+                "right": 0.2,
+                "straight": 0.6
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.2,
+                "right": 0.2,
+                "straight": 0.6
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.2,
+                "right": 0.2,
+                "straight": 0.6
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.2,
+                "right": 0.2,
+                "straight": 0.6
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.26666666666666666,
+          "directionalSplit": {
+            "east": 0.25,
+            "north": 0.25,
+            "south": 0.25,
+            "west": 0.25
+          },
+          "totalVehicles": 200,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {}
+      }
+    },
+    "createdAt": "2026-10-14T08:30:52.870117+00:00",
+    "duration": 300.0,
+    "engineModel": "UrbanFlow V1.5 core",
+    "executionModel": "one scenario comparison per alternative; shared seeds pair alternatives",
+    "format": "urbanflow-planning-result",
+    "gitCommit": "886742fed0ccd464d74c9e331b9ce5dcac537e25",
+    "inputFingerprint": "706f276ec287209b",
+    "networkFingerprint": "a9754f446bdb4fd8",
+    "pythonVersion": "3.14.7",
+    "reproduce": {
+      "deterministic": true,
+      "endpoint": "/api/v2/planning/{id}/reproduce"
+    },
+    "request": {
+      "alternatives": [
+        {
+          "id": "base",
+          "label": "Fixed-time",
+          "patch": {},
+          "strategy": "fixed_time"
+        },
+        {
+          "id": "adaptive",
+          "label": "Adaptive",
+          "patch": {},
+          "strategy": "adaptive"
+        },
+        {
+          "id": "rbt",
+          "label": "Roundabout",
+          "patch": {},
+          "strategy": "roundabout"
+        }
+      ],
+      "calibration": null,
+      "demand": {
+        "growthLabel": null,
+        "scales": [
+          0.8,
+          1.0,
+          1.2
+        ]
+      },
+      "format": "urbanflow-planning-study",
+      "indicators": [
+        "performance",
+        "safety",
+        "environmental",
+        "reliability"
+      ],
+      "name": "Preview study (medium, precomputed)",
+      "objective": "compare control options across three demand levels",
+      "repetitions": {
+        "baseSeed": 1,
+        "confidenceLevel": 0.95,
+        "seeds": 3
+      },
+      "subject": {
+        "network": null,
+        "scenario": {
+          "approaches": {
+            "east": {
+              "lanes": 1,
+              "vehiclesPerHour": 300
+            },
+            "north": {
+              "lanes": 1,
+              "vehiclesPerHour": 300
+            },
+            "south": {
+              "lanes": 1,
+              "vehiclesPerHour": 300
+            },
+            "west": {
+              "lanes": 1,
+              "vehiclesPerHour": 300
+            }
+          },
+          "format": "urbanflow-scenario",
+          "junction": {
+            "type": "fixed_time_signal"
+          },
+          "name": "Demo junction",
+          "simulation": {
+            "duration": 300,
+            "seed": 5,
+            "warmup": 30
+          },
+          "version": 1
+        }
+      },
+      "version": 1
+    },
+    "resultFingerprint": "b0ea6c688d52ee48",
+    "scenarioFingerprint": "c8aa706a60df9df0",
+    "scenarioFingerprints": {
+      "adaptive": "c8aa706a60df9df0",
+      "base": "c8aa706a60df9df0",
+      "rbt": "c8aa706a60df9df0"
+    },
+    "schemaVersion": 1,
+    "seeds": [
+      1,
+      2,
+      3
+    ],
+    "timeStep": 0.1,
+    "warmupTime": 30.0
+  },
+  "name": "Preview study (medium, precomputed)",
+  "network": {
+    "document": {
+      "demand": [
+        {
+          "routeId": "R_east_north",
+          "vehicleMix": null,
+          "vehiclesPerHour": 60.0
+        },
+        {
+          "routeId": "R_east_south",
+          "vehicleMix": null,
+          "vehiclesPerHour": 60.0
+        },
+        {
+          "routeId": "R_east_west",
+          "vehicleMix": null,
+          "vehiclesPerHour": 180.0
+        },
+        {
+          "routeId": "R_north_east",
+          "vehicleMix": null,
+          "vehiclesPerHour": 60.0
+        },
+        {
+          "routeId": "R_north_south",
+          "vehicleMix": null,
+          "vehiclesPerHour": 180.0
+        },
+        {
+          "routeId": "R_north_west",
+          "vehicleMix": null,
+          "vehiclesPerHour": 60.0
+        },
+        {
+          "routeId": "R_south_east",
+          "vehicleMix": null,
+          "vehiclesPerHour": 60.0
+        },
+        {
+          "routeId": "R_south_north",
+          "vehicleMix": null,
+          "vehiclesPerHour": 180.0
+        },
+        {
+          "routeId": "R_south_west",
+          "vehicleMix": null,
+          "vehiclesPerHour": 60.0
+        },
+        {
+          "routeId": "R_west_east",
+          "vehicleMix": null,
+          "vehiclesPerHour": 180.0
+        },
+        {
+          "routeId": "R_west_north",
+          "vehicleMix": null,
+          "vehiclesPerHour": 60.0
+        },
+        {
+          "routeId": "R_west_south",
+          "vehicleMix": null,
+          "vehiclesPerHour": 60.0
+        }
+      ],
+      "description": "",
+      "edges": [
+        {
+          "direction": "oneway",
+          "from": {
+            "arm": null,
+            "node": "O_east"
+          },
+          "id": "IN_east",
+          "laneMetadata": null,
+          "laneWidth": null,
+          "lanes": 1,
+          "lengthMeters": 200.0,
+          "speedLimit": 13.89,
+          "to": {
+            "arm": "east",
+            "node": "J1"
+          }
+        },
+        {
+          "direction": "oneway",
+          "from": {
+            "arm": null,
+            "node": "O_north"
+          },
+          "id": "IN_north",
+          "laneMetadata": null,
+          "laneWidth": null,
+          "lanes": 1,
+          "lengthMeters": 200.0,
+          "speedLimit": 13.89,
+          "to": {
+            "arm": "north",
+            "node": "J1"
+          }
+        },
+        {
+          "direction": "oneway",
+          "from": {
+            "arm": null,
+            "node": "O_south"
+          },
+          "id": "IN_south",
+          "laneMetadata": null,
+          "laneWidth": null,
+          "lanes": 1,
+          "lengthMeters": 200.0,
+          "speedLimit": 13.89,
+          "to": {
+            "arm": "south",
+            "node": "J1"
+          }
+        },
+        {
+          "direction": "oneway",
+          "from": {
+            "arm": null,
+            "node": "O_west"
+          },
+          "id": "IN_west",
+          "laneMetadata": null,
+          "laneWidth": null,
+          "lanes": 1,
+          "lengthMeters": 200.0,
+          "speedLimit": 13.89,
+          "to": {
+            "arm": "west",
+            "node": "J1"
+          }
+        },
+        {
+          "direction": "oneway",
+          "from": {
+            "arm": "east",
+            "node": "J1"
+          },
+          "id": "OUT_east",
+          "laneMetadata": null,
+          "laneWidth": null,
+          "lanes": 1,
+          "lengthMeters": 200.0,
+          "speedLimit": 13.89,
+          "to": {
+            "arm": null,
+            "node": "D_east"
+          }
+        },
+        {
+          "direction": "oneway",
+          "from": {
+            "arm": "north",
+            "node": "J1"
+          },
+          "id": "OUT_north",
+          "laneMetadata": null,
+          "laneWidth": null,
+          "lanes": 1,
+          "lengthMeters": 200.0,
+          "speedLimit": 13.89,
+          "to": {
+            "arm": null,
+            "node": "D_north"
+          }
+        },
+        {
+          "direction": "oneway",
+          "from": {
+            "arm": "south",
+            "node": "J1"
+          },
+          "id": "OUT_south",
+          "laneMetadata": null,
+          "laneWidth": null,
+          "lanes": 1,
+          "lengthMeters": 200.0,
+          "speedLimit": 13.89,
+          "to": {
+            "arm": null,
+            "node": "D_south"
+          }
+        },
+        {
+          "direction": "oneway",
+          "from": {
+            "arm": "west",
+            "node": "J1"
+          },
+          "id": "OUT_west",
+          "laneMetadata": null,
+          "laneWidth": null,
+          "lanes": 1,
+          "lengthMeters": 200.0,
+          "speedLimit": 13.89,
+          "to": {
+            "arm": null,
+            "node": "D_west"
+          }
+        }
+      ],
+      "format": "urbanflow-network",
+      "name": "Demo junction (single-junction network)",
+      "nodes": [
+        {
+          "id": "D_east",
+          "junctionType": null,
+          "kind": "destination",
+          "scenario": null
+        },
+        {
+          "id": "D_north",
+          "junctionType": null,
+          "kind": "destination",
+          "scenario": null
+        },
+        {
+          "id": "D_south",
+          "junctionType": null,
+          "kind": "destination",
+          "scenario": null
+        },
+        {
+          "id": "D_west",
+          "junctionType": null,
+          "kind": "destination",
+          "scenario": null
+        },
+        {
+          "id": "J1",
+          "junctionType": null,
+          "kind": "junction",
+          "scenario": {
+            "advanced": null,
+            "approaches": {
+              "east": {
+                "bearing": null,
+                "laneUse": null,
+                "laneWidth": null,
+                "lanes": 1,
+                "length": 200.0,
+                "roundaboutLaneUse": null,
+                "turning": {
+                  "left": 0.2,
+                  "right": 0.2,
+                  "straight": 0.6,
+                  "uturn": null
+                },
+                "vehicleMix": null,
+                "vehiclesPerHour": 300.0
+              },
+              "north": {
+                "bearing": null,
+                "laneUse": null,
+                "laneWidth": null,
+                "lanes": 1,
+                "length": 200.0,
+                "roundaboutLaneUse": null,
+                "turning": {
+                  "left": 0.2,
+                  "right": 0.2,
+                  "straight": 0.6,
+                  "uturn": null
+                },
+                "vehicleMix": null,
+                "vehiclesPerHour": 300.0
+              },
+              "south": {
+                "bearing": null,
+                "laneUse": null,
+                "laneWidth": null,
+                "lanes": 1,
+                "length": 200.0,
+                "roundaboutLaneUse": null,
+                "turning": {
+                  "left": 0.2,
+                  "right": 0.2,
+                  "straight": 0.6,
+                  "uturn": null
+                },
+                "vehicleMix": null,
+                "vehiclesPerHour": 300.0
+              },
+              "west": {
+                "bearing": null,
+                "laneUse": null,
+                "laneWidth": null,
+                "lanes": 1,
+                "length": 200.0,
+                "roundaboutLaneUse": null,
+                "turning": {
+                  "left": 0.2,
+                  "right": 0.2,
+                  "straight": 0.6,
+                  "uturn": null
+                },
+                "vehicleMix": null,
+                "vehiclesPerHour": 300.0
+              }
+            },
+            "description": "",
+            "format": "urbanflow-scenario",
+            "junction": {
+              "type": "fixed_time_signal"
+            },
+            "name": "Demo junction",
+            "preset": null,
+            "roads": {
+              "laneChanging": true,
+              "laneWidth": 3.5,
+              "speedLimit": 13.89
+            },
+            "roundabout": {
+              "circulatingLanes": null,
+              "circulatingSpeed": 8.0,
+              "criticalGap": 4.0,
+              "entrySpeed": 5.0,
+              "followUpTime": 2.5,
+              "innerRadius": 10.0,
+              "outerRadius": 20.0
+            },
+            "signal": {
+              "adaptive": {
+                "demandThreshold": 1,
+                "detectionDistance": 30.0,
+                "extensionStep": 2.5,
+                "maxGreen": 50.0,
+                "minGreen": 10.0
+              },
+              "allRedTime": 2.0,
+              "ewGreenTime": null,
+              "greenTime": 30.0,
+              "nsGreenTime": null,
+              "yellowTime": 4.0
+            },
+            "simulation": {
+              "arrivalPattern": "poisson",
+              "duration": 300.0,
+              "seed": 5,
+              "timeStep": 0.1,
+              "warmup": 30.0
+            },
+            "vehicles": {
+              "mix": null,
+              "types": null
+            },
+            "version": 1
+          }
+        },
+        {
+          "id": "O_east",
+          "junctionType": null,
+          "kind": "origin",
+          "scenario": null
+        },
+        {
+          "id": "O_north",
+          "junctionType": null,
+          "kind": "origin",
+          "scenario": null
+        },
+        {
+          "id": "O_south",
+          "junctionType": null,
+          "kind": "origin",
+          "scenario": null
+        },
+        {
+          "id": "O_west",
+          "junctionType": null,
+          "kind": "origin",
+          "scenario": null
+        }
+      ],
+      "routes": [
+        {
+          "destination": "D_north",
+          "id": "R_east_north",
+          "origin": "O_east",
+          "path": [
+            "IN_east",
+            "OUT_north"
+          ]
+        },
+        {
+          "destination": "D_south",
+          "id": "R_east_south",
+          "origin": "O_east",
+          "path": [
+            "IN_east",
+            "OUT_south"
+          ]
+        },
+        {
+          "destination": "D_west",
+          "id": "R_east_west",
+          "origin": "O_east",
+          "path": [
+            "IN_east",
+            "OUT_west"
+          ]
+        },
+        {
+          "destination": "D_east",
+          "id": "R_north_east",
+          "origin": "O_north",
+          "path": [
+            "IN_north",
+            "OUT_east"
+          ]
+        },
+        {
+          "destination": "D_south",
+          "id": "R_north_south",
+          "origin": "O_north",
+          "path": [
+            "IN_north",
+            "OUT_south"
+          ]
+        },
+        {
+          "destination": "D_west",
+          "id": "R_north_west",
+          "origin": "O_north",
+          "path": [
+            "IN_north",
+            "OUT_west"
+          ]
+        },
+        {
+          "destination": "D_east",
+          "id": "R_south_east",
+          "origin": "O_south",
+          "path": [
+            "IN_south",
+            "OUT_east"
+          ]
+        },
+        {
+          "destination": "D_north",
+          "id": "R_south_north",
+          "origin": "O_south",
+          "path": [
+            "IN_south",
+            "OUT_north"
+          ]
+        },
+        {
+          "destination": "D_west",
+          "id": "R_south_west",
+          "origin": "O_south",
+          "path": [
+            "IN_south",
+            "OUT_west"
+          ]
+        },
+        {
+          "destination": "D_east",
+          "id": "R_west_east",
+          "origin": "O_west",
+          "path": [
+            "IN_west",
+            "OUT_east"
+          ]
+        },
+        {
+          "destination": "D_north",
+          "id": "R_west_north",
+          "origin": "O_west",
+          "path": [
+            "IN_west",
+            "OUT_north"
+          ]
+        },
+        {
+          "destination": "D_south",
+          "id": "R_west_south",
+          "origin": "O_west",
+          "path": [
+            "IN_west",
+            "OUT_south"
+          ]
+        }
+      ],
+      "simulation": {
+        "duration": 300.0,
+        "seed": 5,
+        "seeds": 1,
+        "warmup": 30.0
+      },
+      "version": 1
+    },
+    "edgeCount": 8,
+    "executed": "one junction (the scenario); no inter-junction coupling",
+    "executionModel": "one-way-coupled-sequential",
+    "fingerprint": "a9754f446bdb4fd8",
+    "junctionNode": "J1",
+    "limitations": [
+      "Edges carry flow, not vehicles: no queue spillback between junctions.",
+      "Edge travel time is free-flow (length / speed limit); no platoon dispersion.",
+      "Junctions are coupled one way, upstream to downstream; cyclic networks are rejected.",
+      "Route demand sets each arm's volume and turning shares; the single-junction engine is not modified."
+    ],
+    "nodeCount": 9,
+    "origin": "derived_from_scenario",
+    "plan": {
+      "edges": [
+        {
+          "demandVph": 300.0,
+          "freeFlowSeconds": 14.399,
+          "from": {
+            "arm": null,
+            "node": "O_east"
+          },
+          "id": "IN_east",
+          "laneMetadata": [],
+          "lanes": 1,
+          "lengthMeters": 200.0,
+          "speedLimit": 13.89,
+          "to": {
+            "arm": "east",
+            "node": "J1"
+          }
+        },
+        {
+          "demandVph": 300.0,
+          "freeFlowSeconds": 14.399,
+          "from": {
+            "arm": null,
+            "node": "O_north"
+          },
+          "id": "IN_north",
+          "laneMetadata": [],
+          "lanes": 1,
+          "lengthMeters": 200.0,
+          "speedLimit": 13.89,
+          "to": {
+            "arm": "north",
+            "node": "J1"
+          }
+        },
+        {
+          "demandVph": 300.0,
+          "freeFlowSeconds": 14.399,
+          "from": {
+            "arm": null,
+            "node": "O_south"
+          },
+          "id": "IN_south",
+          "laneMetadata": [],
+          "lanes": 1,
+          "lengthMeters": 200.0,
+          "speedLimit": 13.89,
+          "to": {
+            "arm": "south",
+            "node": "J1"
+          }
+        },
+        {
+          "demandVph": 300.0,
+          "freeFlowSeconds": 14.399,
+          "from": {
+            "arm": null,
+            "node": "O_west"
+          },
+          "id": "IN_west",
+          "laneMetadata": [],
+          "lanes": 1,
+          "lengthMeters": 200.0,
+          "speedLimit": 13.89,
+          "to": {
+            "arm": "west",
+            "node": "J1"
+          }
+        },
+        {
+          "demandVph": 300.0,
+          "freeFlowSeconds": 14.399,
+          "from": {
+            "arm": "east",
+            "node": "J1"
+          },
+          "id": "OUT_east",
+          "laneMetadata": [],
+          "lanes": 1,
+          "lengthMeters": 200.0,
+          "speedLimit": 13.89,
+          "to": {
+            "arm": null,
+            "node": "D_east"
+          }
+        },
+        {
+          "demandVph": 300.0,
+          "freeFlowSeconds": 14.399,
+          "from": {
+            "arm": "north",
+            "node": "J1"
+          },
+          "id": "OUT_north",
+          "laneMetadata": [],
+          "lanes": 1,
+          "lengthMeters": 200.0,
+          "speedLimit": 13.89,
+          "to": {
+            "arm": null,
+            "node": "D_north"
+          }
+        },
+        {
+          "demandVph": 300.0,
+          "freeFlowSeconds": 14.399,
+          "from": {
+            "arm": "south",
+            "node": "J1"
+          },
+          "id": "OUT_south",
+          "laneMetadata": [],
+          "lanes": 1,
+          "lengthMeters": 200.0,
+          "speedLimit": 13.89,
+          "to": {
+            "arm": null,
+            "node": "D_south"
+          }
+        },
+        {
+          "demandVph": 300.0,
+          "freeFlowSeconds": 14.399,
+          "from": {
+            "arm": "west",
+            "node": "J1"
+          },
+          "id": "OUT_west",
+          "laneMetadata": [],
+          "lanes": 1,
+          "lengthMeters": 200.0,
+          "speedLimit": 13.89,
+          "to": {
+            "arm": null,
+            "node": "D_west"
+          }
+        }
+      ],
+      "nodes": [
+        {
+          "id": "O_east",
+          "junctionType": null,
+          "kind": "origin"
+        },
+        {
+          "id": "O_north",
+          "junctionType": null,
+          "kind": "origin"
+        },
+        {
+          "id": "O_south",
+          "junctionType": null,
+          "kind": "origin"
+        },
+        {
+          "id": "O_west",
+          "junctionType": null,
+          "kind": "origin"
+        },
+        {
+          "id": "J1",
+          "inflowByArm": {
+            "east": 300.0,
+            "north": 300.0,
+            "south": 300.0,
+            "west": 300.0
+          },
+          "junctionType": "fixed_time_signal",
+          "kind": "junction",
+          "scenarioFingerprint": "c8aa706a60df9df0",
+          "turningByArm": {
+            "east": {
+              "left": 0.2,
+              "right": 0.2,
+              "straight": 0.6
+            },
+            "north": {
+              "left": 0.2,
+              "right": 0.2,
+              "straight": 0.6
+            },
+            "south": {
+              "left": 0.2,
+              "right": 0.2,
+              "straight": 0.6
+            },
+            "west": {
+              "left": 0.2,
+              "right": 0.2,
+              "straight": 0.6
+            }
+          },
+          "upstream": {
+            "east": {
+              "edge": "IN_east",
+              "fromArm": null,
+              "fromKind": "origin",
+              "fromNode": "O_east"
+            },
+            "north": {
+              "edge": "IN_north",
+              "fromArm": null,
+              "fromKind": "origin",
+              "fromNode": "O_north"
+            },
+            "south": {
+              "edge": "IN_south",
+              "fromArm": null,
+              "fromKind": "origin",
+              "fromNode": "O_south"
+            },
+            "west": {
+              "edge": "IN_west",
+              "fromArm": null,
+              "fromKind": "origin",
+              "fromNode": "O_west"
+            }
+          }
+        },
+        {
+          "id": "D_east",
+          "junctionType": null,
+          "kind": "destination"
+        },
+        {
+          "id": "D_north",
+          "junctionType": null,
+          "kind": "destination"
+        },
+        {
+          "id": "D_south",
+          "junctionType": null,
+          "kind": "destination"
+        },
+        {
+          "id": "D_west",
+          "junctionType": null,
+          "kind": "destination"
+        }
+      ],
+      "order": [
+        "O_east",
+        "O_north",
+        "O_south",
+        "O_west",
+        "J1",
+        "D_east",
+        "D_north",
+        "D_south",
+        "D_west"
+      ],
+      "routes": [
+        {
+          "demandVph": 60.0,
+          "destination": "D_north",
+          "freeFlowSeconds": 28.798,
+          "id": "R_east_north",
+          "origin": "O_east",
+          "passages": [
+            {
+              "edgeIn": "IN_east",
+              "edgeOut": "OUT_north",
+              "entryArm": "east",
+              "exitArm": "north",
+              "movement": "right",
+              "node": "J1"
+            }
+          ],
+          "path": [
+            "IN_east",
+            "OUT_north"
+          ]
+        },
+        {
+          "demandVph": 60.0,
+          "destination": "D_south",
+          "freeFlowSeconds": 28.798,
+          "id": "R_east_south",
+          "origin": "O_east",
+          "passages": [
+            {
+              "edgeIn": "IN_east",
+              "edgeOut": "OUT_south",
+              "entryArm": "east",
+              "exitArm": "south",
+              "movement": "left",
+              "node": "J1"
+            }
+          ],
+          "path": [
+            "IN_east",
+            "OUT_south"
+          ]
+        },
+        {
+          "demandVph": 180.0,
+          "destination": "D_west",
+          "freeFlowSeconds": 28.798,
+          "id": "R_east_west",
+          "origin": "O_east",
+          "passages": [
+            {
+              "edgeIn": "IN_east",
+              "edgeOut": "OUT_west",
+              "entryArm": "east",
+              "exitArm": "west",
+              "movement": "straight",
+              "node": "J1"
+            }
+          ],
+          "path": [
+            "IN_east",
+            "OUT_west"
+          ]
+        },
+        {
+          "demandVph": 60.0,
+          "destination": "D_east",
+          "freeFlowSeconds": 28.798,
+          "id": "R_north_east",
+          "origin": "O_north",
+          "passages": [
+            {
+              "edgeIn": "IN_north",
+              "edgeOut": "OUT_east",
+              "entryArm": "north",
+              "exitArm": "east",
+              "movement": "left",
+              "node": "J1"
+            }
+          ],
+          "path": [
+            "IN_north",
+            "OUT_east"
+          ]
+        },
+        {
+          "demandVph": 180.0,
+          "destination": "D_south",
+          "freeFlowSeconds": 28.798,
+          "id": "R_north_south",
+          "origin": "O_north",
+          "passages": [
+            {
+              "edgeIn": "IN_north",
+              "edgeOut": "OUT_south",
+              "entryArm": "north",
+              "exitArm": "south",
+              "movement": "straight",
+              "node": "J1"
+            }
+          ],
+          "path": [
+            "IN_north",
+            "OUT_south"
+          ]
+        },
+        {
+          "demandVph": 60.0,
+          "destination": "D_west",
+          "freeFlowSeconds": 28.798,
+          "id": "R_north_west",
+          "origin": "O_north",
+          "passages": [
+            {
+              "edgeIn": "IN_north",
+              "edgeOut": "OUT_west",
+              "entryArm": "north",
+              "exitArm": "west",
+              "movement": "right",
+              "node": "J1"
+            }
+          ],
+          "path": [
+            "IN_north",
+            "OUT_west"
+          ]
+        },
+        {
+          "demandVph": 60.0,
+          "destination": "D_east",
+          "freeFlowSeconds": 28.798,
+          "id": "R_south_east",
+          "origin": "O_south",
+          "passages": [
+            {
+              "edgeIn": "IN_south",
+              "edgeOut": "OUT_east",
+              "entryArm": "south",
+              "exitArm": "east",
+              "movement": "right",
+              "node": "J1"
+            }
+          ],
+          "path": [
+            "IN_south",
+            "OUT_east"
+          ]
+        },
+        {
+          "demandVph": 180.0,
+          "destination": "D_north",
+          "freeFlowSeconds": 28.798,
+          "id": "R_south_north",
+          "origin": "O_south",
+          "passages": [
+            {
+              "edgeIn": "IN_south",
+              "edgeOut": "OUT_north",
+              "entryArm": "south",
+              "exitArm": "north",
+              "movement": "straight",
+              "node": "J1"
+            }
+          ],
+          "path": [
+            "IN_south",
+            "OUT_north"
+          ]
+        },
+        {
+          "demandVph": 60.0,
+          "destination": "D_west",
+          "freeFlowSeconds": 28.798,
+          "id": "R_south_west",
+          "origin": "O_south",
+          "passages": [
+            {
+              "edgeIn": "IN_south",
+              "edgeOut": "OUT_west",
+              "entryArm": "south",
+              "exitArm": "west",
+              "movement": "left",
+              "node": "J1"
+            }
+          ],
+          "path": [
+            "IN_south",
+            "OUT_west"
+          ]
+        },
+        {
+          "demandVph": 180.0,
+          "destination": "D_east",
+          "freeFlowSeconds": 28.798,
+          "id": "R_west_east",
+          "origin": "O_west",
+          "passages": [
+            {
+              "edgeIn": "IN_west",
+              "edgeOut": "OUT_east",
+              "entryArm": "west",
+              "exitArm": "east",
+              "movement": "straight",
+              "node": "J1"
+            }
+          ],
+          "path": [
+            "IN_west",
+            "OUT_east"
+          ]
+        },
+        {
+          "demandVph": 60.0,
+          "destination": "D_north",
+          "freeFlowSeconds": 28.798,
+          "id": "R_west_north",
+          "origin": "O_west",
+          "passages": [
+            {
+              "edgeIn": "IN_west",
+              "edgeOut": "OUT_north",
+              "entryArm": "west",
+              "exitArm": "north",
+              "movement": "left",
+              "node": "J1"
+            }
+          ],
+          "path": [
+            "IN_west",
+            "OUT_north"
+          ]
+        },
+        {
+          "demandVph": 60.0,
+          "destination": "D_south",
+          "freeFlowSeconds": 28.798,
+          "id": "R_west_south",
+          "origin": "O_west",
+          "passages": [
+            {
+              "edgeIn": "IN_west",
+              "edgeOut": "OUT_south",
+              "entryArm": "west",
+              "exitArm": "south",
+              "movement": "right",
+              "node": "J1"
+            }
+          ],
+          "path": [
+            "IN_west",
+            "OUT_south"
+          ]
+        }
+      ]
+    },
+    "routeCount": 12,
+    "status": "representation_only"
+  },
+  "objective": "compare control options across three demand levels",
+  "reliability": {
+    "baseSeed": 1,
+    "confidenceLevel": 0.95,
+    "flags": [
+      {
+        "code": "small_sample",
+        "message": "3 repetitions: indicative only; 5+ recommended.",
+        "severity": "caution"
+      },
+      {
+        "alternativeId": "adaptive",
+        "code": "high_variability",
+        "demandScale": 0.8,
+        "message": "Mean delay varies strongly across seeds (CV 0.32).",
+        "path": "results[3].reliability.delayAcrossSeeds",
+        "severity": "caution"
+      }
+    ],
+    "repetitions": 3,
+    "sampleAdequacy": "small",
+    "seeds": [
+      1,
+      2,
+      3
+    ]
+  },
+  "report": {
+    "exports": [
+      "json",
+      "md",
+      "csv"
+    ],
+    "scenarioFingerprint": "c8aa706a60df9df0",
+    "sections": [
+      {
+        "blocks": [
+          {
+            "text": "3 alternative(s) were compared for scenario 'Demo junction' (fingerprint c8aa706a60df9df0) at demand scale(s) x0.8, x1, x1.2 over 3 repetition(s). 28 finding(s) follow. This report presents evidence for this scenario only and does not name a universally better option.",
+            "type": "text"
+          },
+          {
+            "items": [
+              "Adaptive showed an inconclusive difference in mean delay compared with Fixed-time at x0.8 demand (3 seeds could not separate them).",
+              "Adaptive served a similar number of vehicles compared with Fixed-time at x0.8 demand.",
+              "Adaptive had similar average queues compared with Fixed-time at x0.8 demand.",
+              "Adaptive had similar safety indicators (simulated collisions) compared with Fixed-time at x0.8 demand.",
+              "Adaptive showed an inconclusive difference in mean delay compared with Fixed-time at x1 demand (3 seeds could not separate them).",
+              "Adaptive served more vehicles than Fixed-time at x1 demand (+6.33 vehicles vs baseline, CI 1.16 to 11.5).",
+              "Adaptive showed an inconclusive difference in average queue length compared with Fixed-time at x1 demand (3 seeds could not separate them).",
+              "Adaptive had similar safety indicators (simulated collisions) compared with Fixed-time at x1 demand."
+            ],
+            "type": "list"
+          }
+        ],
+        "id": "executive-summary",
+        "title": "Executive summary"
+      },
+      {
+        "blocks": [
+          {
+            "caption": "Arms",
+            "columns": [
+              "Arm",
+              "Lanes",
+              "Length (m)",
+              "Vehicles/h",
+              "Turning"
+            ],
+            "rows": [
+              [
+                "north",
+                1,
+                200.0,
+                300.0,
+                "{\"left\": 0.2, \"right\": 0.2, \"straight\": 0.6}"
+              ],
+              [
+                "south",
+                1,
+                200.0,
+                300.0,
+                "{\"left\": 0.2, \"right\": 0.2, \"straight\": 0.6}"
+              ],
+              [
+                "east",
+                1,
+                200.0,
+                300.0,
+                "{\"left\": 0.2, \"right\": 0.2, \"straight\": 0.6}"
+              ],
+              [
+                "west",
+                1,
+                200.0,
+                300.0,
+                "{\"left\": 0.2, \"right\": 0.2, \"straight\": 0.6}"
+              ]
+            ],
+            "type": "table"
+          },
+          {
+            "text": "Vehicle mix: {\"car\": 1.0} (default passenger-car population). Duration 300s, warm-up 30s.",
+            "type": "text"
+          }
+        ],
+        "id": "scenario",
+        "title": "Scenario"
+      },
+      {
+        "blocks": [
+          {
+            "caption": "",
+            "columns": [
+              "Id",
+              "Label",
+              "Strategy",
+              "Baseline",
+              "Changes from scenario",
+              "Fingerprint"
+            ],
+            "rows": [
+              [
+                "base",
+                "Fixed-time",
+                "Fixed-time signal",
+                "yes",
+                "none",
+                "c8aa706a60df9df0"
+              ],
+              [
+                "adaptive",
+                "Adaptive",
+                "Adaptive signal",
+                "no",
+                "none",
+                "c8aa706a60df9df0"
+              ],
+              [
+                "rbt",
+                "Roundabout",
+                "Roundabout",
+                "no",
+                "none",
+                "c8aa706a60df9df0"
+              ]
+            ],
+            "type": "table"
+          }
+        ],
+        "id": "alternatives",
+        "title": "Alternatives"
+      },
+      {
+        "blocks": [
+          {
+            "text": "Each alternative is simulated under identical seeds, so per-seed differences against the baseline are paired. Intervals are two-sided Student-t at 95%. Paired per-seed differences in mean delay (first strategy minus second), Student-t interval on the mean difference. 'lower'/'higher' needs the interval to exclude zero and the means to differ by more than the tie tolerance; 'tie' means within the tolerance; otherwise 'inconclusive'. No multiple-comparison correction.",
+            "type": "text"
+          }
+        ],
+        "id": "methodology",
+        "title": "Methodology"
+      },
+      {
+        "blocks": [
+          {
+            "caption": "Performance indicators",
+            "columns": [
+              "Alternative",
+              "Demand scale",
+              "Indicator",
+              "Mean",
+              "Std",
+              "CI",
+              "n"
+            ],
+            "rows": [
+              [
+                "Fixed-time",
+                0.8,
+                "Mean delay",
+                21.58,
+                4.61,
+                "10.13 to 33.03",
+                3
+              ],
+              [
+                "Fixed-time",
+                0.8,
+                "Mean wait time",
+                13.28,
+                3.7,
+                "4.1 to 22.46",
+                3
+              ],
+              [
+                "Fixed-time",
+                0.8,
+                "Vehicles served",
+                59.67,
+                3.21,
+                "51.68 to 67.66",
+                3
+              ],
+              [
+                "Fixed-time",
+                0.8,
+                "Mean queue length",
+                1.1,
+                0.6,
+                "-0.38 to 2.58",
+                3
+              ],
+              [
+                "Fixed-time",
+                0.8,
+                "Max queue length",
+                7.0,
+                2.65,
+                "0.43 to 13.57",
+                3
+              ],
+              [
+                "Fixed-time",
+                0.8,
+                "Stops per vehicle",
+                0.58,
+                0.11,
+                "0.31 to 0.85",
+                3
+              ],
+              [
+                "Fixed-time",
+                1.0,
+                "Mean delay",
+                27.87,
+                7.9,
+                "8.25 to 47.49",
+                3
+              ],
+              [
+                "Fixed-time",
+                1.0,
+                "Mean wait time",
+                18.06,
+                6.57,
+                "1.74 to 34.38",
+                3
+              ],
+              [
+                "Fixed-time",
+                1.0,
+                "Vehicles served",
+                70.67,
+                4.73,
+                "58.93 to 82.41",
+                3
+              ],
+              [
+                "Fixed-time",
+                1.0,
+                "Mean queue length",
+                2.11,
+                0.95,
+                "-0.26 to 4.48",
+                3
+              ],
+              [
+                "Fixed-time",
+                1.0,
+                "Max queue length",
+                13.0,
+                2.65,
+                "6.43 to 19.57",
+                3
+              ],
+              [
+                "Fixed-time",
+                1.0,
+                "Stops per vehicle",
+                0.7,
+                0.06,
+                "0.56 to 0.84",
+                3
+              ],
+              [
+                "Fixed-time",
+                1.2,
+                "Mean delay",
+                35.82,
+                6.66,
+                "19.28 to 52.36",
+                3
+              ],
+              [
+                "Fixed-time",
+                1.2,
+                "Mean wait time",
+                24.72,
+                5.55,
+                "10.93 to 38.51",
+                3
+              ],
+              [
+                "Fixed-time",
+                1.2,
+                "Vehicles served",
+                79.67,
+                3.21,
+                "71.68 to 87.66",
+                3
+              ],
+              [
+                "Fixed-time",
+                1.2,
+                "Mean queue length",
+                3.26,
+                1.07,
+                "0.59 to 5.93",
+                3
+              ],
+              [
+                "Fixed-time",
+                1.2,
+                "Max queue length",
+                15.33,
+                3.51,
+                "6.61 to 24.05",
+                3
+              ],
+              [
+                "Fixed-time",
+                1.2,
+                "Stops per vehicle",
+                0.85,
+                0.08,
+                "0.65 to 1.05",
+                3
+              ],
+              [
+                "Adaptive",
+                0.8,
+                "Mean delay",
+                17.93,
+                5.79,
+                "3.55 to 32.31",
+                3
+              ],
+              [
+                "Adaptive",
+                0.8,
+                "Mean wait time",
+                10.06,
+                4.21,
+                "-0.39 to 20.51",
+                3
+              ],
+              [
+                "Adaptive",
+                0.8,
+                "Vehicles served",
+                62.67,
+                5.69,
+                "48.54 to 76.8",
+                3
+              ],
+              [
+                "Adaptive",
+                0.8,
+                "Mean queue length",
+                0.75,
+                0.31,
+                "-0.03 to 1.53",
+                3
+              ],
+              [
+                "Adaptive",
+                0.8,
+                "Max queue length",
+                6.33,
+                2.08,
+                "1.16 to 11.5",
+                3
+              ],
+              [
+                "Adaptive",
+                0.8,
+                "Stops per vehicle",
+                0.56,
+                0.14,
+                "0.21 to 0.91",
+                3
+              ],
+              [
+                "Adaptive",
+                1.0,
+                "Mean delay",
+                22.04,
+                3.97,
+                "12.19 to 31.89",
+                3
+              ],
+              [
+                "Adaptive",
+                1.0,
+                "Mean wait time",
+                12.44,
+                2.46,
+                "6.33 to 18.55",
+                3
+              ],
+              [
+                "Adaptive",
+                1.0,
+                "Vehicles served",
+                77.0,
+                2.65,
+                "70.43 to 83.57",
+                3
+              ],
+              [
+                "Adaptive",
+                1.0,
+                "Mean queue length",
+                1.3,
+                0.65,
+                "-0.31 to 2.91",
+                3
+              ],
+              [
+                "Adaptive",
+                1.0,
+                "Max queue length",
+                9.0,
+                3.61,
+                "0.04 to 17.96",
+                3
+              ],
+              [
+                "Adaptive",
+                1.0,
+                "Stops per vehicle",
+                0.62,
+                0.06,
+                "0.48 to 0.76",
+                3
+              ],
+              [
+                "Adaptive",
+                1.2,
+                "Mean delay",
+                32.4,
+                3.64,
+                "23.36 to 41.44",
+                3
+              ],
+              [
+                "Adaptive",
+                1.2,
+                "Mean wait time",
+                21.94,
+                2.13,
+                "16.65 to 27.23",
+                3
+              ],
+              [
+                "Adaptive",
+                1.2,
+                "Vehicles served",
+                82.0,
+                8.0,
+                "62.13 to 101.87",
+                3
+              ],
+              [
+                "Adaptive",
+                1.2,
+                "Mean queue length",
+                2.98,
+                0.49,
+                "1.77 to 4.19",
+                3
+              ],
+              [
+                "Adaptive",
+                1.2,
+                "Max queue length",
+                17.33,
+                5.86,
+                "2.77 to 31.89",
+                3
+              ],
+              [
+                "Adaptive",
+                1.2,
+                "Stops per vehicle",
+                0.64,
+                0.16,
+                "0.23 to 1.05",
+                3
+              ],
+              [
+                "Roundabout",
+                0.8,
+                "Mean delay",
+                15.99,
+                1.07,
+                "13.33 to 18.65",
+                3
+              ],
+              [
+                "Roundabout",
+                0.8,
+                "Mean wait time",
+                2.34,
+                0.28,
+                "1.64 to 3.04",
+                3
+              ],
+              [
+                "Roundabout",
+                0.8,
+                "Vehicles served",
+                65.33,
+                6.81,
+                "48.42 to 82.24",
+                3
+              ],
+              [
+                "Roundabout",
+                0.8,
+                "Mean queue length",
+                0.14,
+                0.03,
+                "0.08 to 0.2",
+                3
+              ],
+              [
+                "Roundabout",
+                0.8,
+                "Max queue length",
+                3.67,
+                0.58,
+                "2.24 to 5.1",
+                3
+              ],
+              [
+                "Roundabout",
+                0.8,
+                "Stops per vehicle",
+                0.4,
+                0.03,
+                "0.32 to 0.48",
+                3
+              ],
+              [
+                "Roundabout",
+                1.0,
+                "Mean delay",
+                20.73,
+                4.7,
+                "9.06 to 32.4",
+                3
+              ],
+              [
+                "Roundabout",
+                1.0,
+                "Mean wait time",
+                4.76,
+                2.29,
+                "-0.93 to 10.45",
+                3
+              ],
+              [
+                "Roundabout",
+                1.0,
+                "Vehicles served",
+                78.0,
+                3.46,
+                "69.39 to 86.61",
+                3
+              ],
+              [
+                "Roundabout",
+                1.0,
+                "Mean queue length",
+                0.46,
+                0.28,
+                "-0.23 to 1.15",
+                3
+              ],
+              [
+                "Roundabout",
+                1.0,
+                "Max queue length",
+                6.0,
+                2.0,
+                "1.03 to 10.97",
+                3
+              ],
+              [
+                "Roundabout",
+                1.0,
+                "Stops per vehicle",
+                0.66,
+                0.21,
+                "0.15 to 1.17",
+                3
+              ],
+              [
+                "Roundabout",
+                1.2,
+                "Mean delay",
+                27.78,
+                6.01,
+                "12.85 to 42.71",
+                3
+              ],
+              [
+                "Roundabout",
+                1.2,
+                "Mean wait time",
+                7.63,
+                3.21,
+                "-0.34 to 15.6",
+                3
+              ],
+              [
+                "Roundabout",
+                1.2,
+                "Vehicles served",
+                90.0,
+                1.73,
+                "85.7 to 94.3",
+                3
+              ],
+              [
+                "Roundabout",
+                1.2,
+                "Mean queue length",
+                1.0,
+                0.37,
+                "0.08 to 1.92",
+                3
+              ],
+              [
+                "Roundabout",
+                1.2,
+                "Max queue length",
+                10.33,
+                2.08,
+                "5.16 to 15.5",
+                3
+              ],
+              [
+                "Roundabout",
+                1.2,
+                "Stops per vehicle",
+                0.94,
+                0.34,
+                "0.09 to 1.79",
+                3
+              ]
+            ],
+            "type": "table"
+          }
+        ],
+        "id": "performance",
+        "title": "Performance"
+      },
+      {
+        "blocks": [
+          {
+            "caption": "Safety indicators",
+            "columns": [
+              "Alternative",
+              "Demand scale",
+              "Indicator",
+              "Mean",
+              "Std",
+              "CI",
+              "n"
+            ],
+            "rows": [
+              [
+                "Fixed-time",
+                0.8,
+                "Collisions",
+                0.0,
+                0.0,
+                "0 to 0",
+                3
+              ],
+              [
+                "Fixed-time",
+                1.0,
+                "Collisions",
+                0.0,
+                0.0,
+                "0 to 0",
+                3
+              ],
+              [
+                "Fixed-time",
+                1.2,
+                "Collisions",
+                0.0,
+                0.0,
+                "0 to 0",
+                3
+              ],
+              [
+                "Adaptive",
+                0.8,
+                "Collisions",
+                0.0,
+                0.0,
+                "0 to 0",
+                3
+              ],
+              [
+                "Adaptive",
+                1.0,
+                "Collisions",
+                0.0,
+                0.0,
+                "0 to 0",
+                3
+              ],
+              [
+                "Adaptive",
+                1.2,
+                "Collisions",
+                0.0,
+                0.0,
+                "0 to 0",
+                3
+              ],
+              [
+                "Roundabout",
+                0.8,
+                "Collisions",
+                0.0,
+                0.0,
+                "0 to 0",
+                3
+              ],
+              [
+                "Roundabout",
+                1.0,
+                "Collisions",
+                0.0,
+                0.0,
+                "0 to 0",
+                3
+              ],
+              [
+                "Roundabout",
+                1.2,
+                "Collisions",
+                0.0,
+                0.0,
+                "0 to 0",
+                3
+              ]
+            ],
+            "type": "table"
+          },
+          {
+            "text": "Exploratory: simulated collisions/conflicts are rare-event proxies, not validated crash predictions.",
+            "type": "text"
+          }
+        ],
+        "id": "safety",
+        "title": "Safety indicators (exploratory)"
+      },
+      {
+        "blocks": [
+          {
+            "caption": "Environmental proxies",
+            "columns": [
+              "Alternative",
+              "Demand scale",
+              "Indicator",
+              "Mean",
+              "Std",
+              "CI",
+              "n"
+            ],
+            "rows": [
+              [
+                "Fixed-time",
+                0.8,
+                "Stops per vehicle (stop-and-go proxy)",
+                0.58,
+                0.11,
+                "0.31 to 0.85",
+                3
+              ],
+              [
+                "Fixed-time",
+                0.8,
+                "Mean delay (idling-exposure proxy)",
+                21.58,
+                4.61,
+                "10.13 to 33.03",
+                3
+              ],
+              [
+                "Fixed-time",
+                1.0,
+                "Stops per vehicle (stop-and-go proxy)",
+                0.7,
+                0.06,
+                "0.56 to 0.84",
+                3
+              ],
+              [
+                "Fixed-time",
+                1.0,
+                "Mean delay (idling-exposure proxy)",
+                27.87,
+                7.9,
+                "8.25 to 47.49",
+                3
+              ],
+              [
+                "Fixed-time",
+                1.2,
+                "Stops per vehicle (stop-and-go proxy)",
+                0.85,
+                0.08,
+                "0.65 to 1.05",
+                3
+              ],
+              [
+                "Fixed-time",
+                1.2,
+                "Mean delay (idling-exposure proxy)",
+                35.82,
+                6.66,
+                "19.28 to 52.36",
+                3
+              ],
+              [
+                "Adaptive",
+                0.8,
+                "Stops per vehicle (stop-and-go proxy)",
+                0.56,
+                0.14,
+                "0.21 to 0.91",
+                3
+              ],
+              [
+                "Adaptive",
+                0.8,
+                "Mean delay (idling-exposure proxy)",
+                17.93,
+                5.79,
+                "3.55 to 32.31",
+                3
+              ],
+              [
+                "Adaptive",
+                1.0,
+                "Stops per vehicle (stop-and-go proxy)",
+                0.62,
+                0.06,
+                "0.48 to 0.76",
+                3
+              ],
+              [
+                "Adaptive",
+                1.0,
+                "Mean delay (idling-exposure proxy)",
+                22.04,
+                3.97,
+                "12.19 to 31.89",
+                3
+              ],
+              [
+                "Adaptive",
+                1.2,
+                "Stops per vehicle (stop-and-go proxy)",
+                0.64,
+                0.16,
+                "0.23 to 1.05",
+                3
+              ],
+              [
+                "Adaptive",
+                1.2,
+                "Mean delay (idling-exposure proxy)",
+                32.4,
+                3.64,
+                "23.36 to 41.44",
+                3
+              ],
+              [
+                "Roundabout",
+                0.8,
+                "Stops per vehicle (stop-and-go proxy)",
+                0.4,
+                0.03,
+                "0.32 to 0.48",
+                3
+              ],
+              [
+                "Roundabout",
+                0.8,
+                "Mean delay (idling-exposure proxy)",
+                15.99,
+                1.07,
+                "13.33 to 18.65",
+                3
+              ],
+              [
+                "Roundabout",
+                1.0,
+                "Stops per vehicle (stop-and-go proxy)",
+                0.66,
+                0.21,
+                "0.15 to 1.17",
+                3
+              ],
+              [
+                "Roundabout",
+                1.0,
+                "Mean delay (idling-exposure proxy)",
+                20.73,
+                4.7,
+                "9.06 to 32.4",
+                3
+              ],
+              [
+                "Roundabout",
+                1.2,
+                "Stops per vehicle (stop-and-go proxy)",
+                0.94,
+                0.34,
+                "0.09 to 1.79",
+                3
+              ],
+              [
+                "Roundabout",
+                1.2,
+                "Mean delay (idling-exposure proxy)",
+                27.78,
+                6.01,
+                "12.85 to 42.71",
+                3
+              ]
+            ],
+            "type": "table"
+          },
+          {
+            "text": "Proxies only (stop-and-go and idling exposure). No emissions or fuel model exists in this build.",
+            "type": "text"
+          },
+          {
+            "items": [
+              "Fuel consumption: No emissions model in this build",
+              "CO2 emissions: No emissions model in this build"
+            ],
+            "type": "list"
+          }
+        ],
+        "id": "environmental",
+        "title": "Environmental indicators (proxies)"
+      },
+      {
+        "blocks": [
+          {
+            "text": "3 repetition(s), seeds [1, 2, 3], sample adequacy: small.",
+            "type": "text"
+          },
+          {
+            "items": [
+              "3 repetitions: indicative only; 5+ recommended.",
+              "Mean delay varies strongly across seeds (CV 0.32)."
+            ],
+            "type": "list"
+          }
+        ],
+        "id": "reliability",
+        "title": "Reliability"
+      },
+      {
+        "blocks": [
+          {
+            "caption": "",
+            "columns": [
+              "Id",
+              "Kind",
+              "Statement",
+              "Confidence"
+            ],
+            "rows": [
+              [
+                "F1",
+                "delay",
+                "Adaptive showed an inconclusive difference in mean delay compared with Fixed-time at x0.8 demand (3 seeds could not separate them).",
+                "low"
+              ],
+              [
+                "F2",
+                "throughput",
+                "Adaptive served a similar number of vehicles compared with Fixed-time at x0.8 demand.",
+                "moderate"
+              ],
+              [
+                "F3",
+                "queue",
+                "Adaptive had similar average queues compared with Fixed-time at x0.8 demand.",
+                "moderate"
+              ],
+              [
+                "F4",
+                "safety",
+                "Adaptive had similar safety indicators (simulated collisions) compared with Fixed-time at x0.8 demand.",
+                "moderate"
+              ],
+              [
+                "F5",
+                "delay",
+                "Adaptive showed an inconclusive difference in mean delay compared with Fixed-time at x1 demand (3 seeds could not separate them).",
+                "low"
+              ],
+              [
+                "F6",
+                "throughput",
+                "Adaptive served more vehicles than Fixed-time at x1 demand (+6.33 vehicles vs baseline, CI 1.16 to 11.5).",
+                "moderate"
+              ],
+              [
+                "F7",
+                "queue",
+                "Adaptive showed an inconclusive difference in average queue length compared with Fixed-time at x1 demand (3 seeds could not separate them).",
+                "low"
+              ],
+              [
+                "F8",
+                "safety",
+                "Adaptive had similar safety indicators (simulated collisions) compared with Fixed-time at x1 demand.",
+                "moderate"
+              ],
+              [
+                "F9",
+                "delay",
+                "Adaptive showed an inconclusive difference in mean delay compared with Fixed-time at x1.2 demand (3 seeds could not separate them).",
+                "low"
+              ],
+              [
+                "F10",
+                "throughput",
+                "Adaptive served a similar number of vehicles compared with Fixed-time at x1.2 demand.",
+                "moderate"
+              ],
+              [
+                "F11",
+                "queue",
+                "Adaptive had similar average queues compared with Fixed-time at x1.2 demand.",
+                "moderate"
+              ],
+              [
+                "F12",
+                "safety",
+                "Adaptive had similar safety indicators (simulated collisions) compared with Fixed-time at x1.2 demand.",
+                "moderate"
+              ],
+              [
+                "F13",
+                "delay",
+                "Roundabout showed an inconclusive difference in mean delay compared with Fixed-time at x0.8 demand (3 seeds could not separate them).",
+                "low"
+              ],
+              [
+                "F14",
+                "throughput",
+                "Roundabout showed an inconclusive difference in vehicles served compared with Fixed-time at x0.8 demand (3 seeds could not separate them).",
+                "low"
+              ],
+              [
+                "F15",
+                "queue",
+                "Roundabout showed an inconclusive difference in average queue length compared with Fixed-time at x0.8 demand (3 seeds could not separate them).",
+                "low"
+              ],
+              [
+                "F16",
+                "safety",
+                "Roundabout had similar safety indicators (simulated collisions) compared with Fixed-time at x0.8 demand.",
+                "moderate"
+              ],
+              [
+                "F17",
+                "delay",
+                "Roundabout showed an inconclusive difference in mean delay compared with Fixed-time at x1 demand (3 seeds could not separate them).",
+                "low"
+              ],
+              [
+                "F18",
+                "throughput",
+                "Roundabout served more vehicles than Fixed-time at x1 demand (+7.33 vehicles vs baseline, CI 3.54 to 11.13).",
+                "moderate"
+              ],
+              [
+                "F19",
+                "queue",
+                "Roundabout showed an inconclusive difference in average queue length compared with Fixed-time at x1 demand (3 seeds could not separate them).",
+                "low"
+              ],
+              [
+                "F20",
+                "safety",
+                "Roundabout had similar safety indicators (simulated collisions) compared with Fixed-time at x1 demand.",
+                "moderate"
+              ],
+              [
+                "F21",
+                "delay",
+                "Roundabout showed an inconclusive difference in mean delay compared with Fixed-time at x1.2 demand (3 seeds could not separate them).",
+                "low"
+              ],
+              [
+                "F22",
+                "throughput",
+                "Roundabout served more vehicles than Fixed-time at x1.2 demand (+10.33 vehicles vs baseline, CI 2.74 to 17.92).",
+                "moderate"
+              ],
+              [
+                "F23",
+                "queue",
+                "Roundabout had shorter average queues than Fixed-time at x1.2 demand (-2.27 vehicles vs baseline, CI -4.02 to -0.52).",
+                "moderate"
+              ],
+              [
+                "F24",
+                "safety",
+                "Roundabout had similar safety indicators (simulated collisions) compared with Fixed-time at x1.2 demand.",
+                "moderate"
+              ],
+              [
+                "F25",
+                "demand_sensitivity",
+                "The result for Adaptive on vehicles served depends on demand (x0.8 demand: tie; x1 demand: better; x1.2 demand: tie). It should not be read as holding outside the tested demand levels.",
+                "moderate"
+              ],
+              [
+                "F26",
+                "demand_sensitivity",
+                "The result for Roundabout on vehicles served depends on demand (x0.8 demand: inconclusive; x1 demand: better; x1.2 demand: better). It should not be read as holding outside the tested demand levels.",
+                "moderate"
+              ],
+              [
+                "F27",
+                "reliability",
+                "3 repetitions were run; intervals are wide and readings should be treated as indicative.",
+                "moderate"
+              ],
+              [
+                "F28",
+                "note",
+                "No emissions or fuel model is available; environmental indicators are stop-and-go and idling proxies only, and no environmental claim is made.",
+                "high"
+              ]
+            ],
+            "type": "table"
+          }
+        ],
+        "id": "findings",
+        "title": "Findings"
+      },
+      {
+        "blocks": [
+          {
+            "items": [
+              "Results describe this scenario and these demand levels; they do not transfer to other junctions or conditions.",
+              "Readings are per metric and per demand scale; there is no overall winner.",
+              "Several metrics, alternatives and scales are read without multiple-comparison correction.",
+              "Safety indicators are exploratory rare-event proxies, not crash predictions.",
+              "Environmental indicators are stop-and-go/idling proxies; no emissions model exists.",
+              "No field data calibration is attached to this study.",
+              "Network model: the scenario is represented as a single-junction network; multi-junction execution is not part of this study."
+            ],
+            "type": "list"
+          }
+        ],
+        "id": "limitations",
+        "title": "Limitations"
+      },
+      {
+        "blocks": [
+          {
+            "caption": "",
+            "columns": [
+              "Item",
+              "Value"
+            ],
+            "rows": [
+              [
+                "Git commit",
+                "886742fed0ccd464d74c9e331b9ce5dcac537e25"
+              ],
+              [
+                "Python",
+                "3.14.7"
+              ],
+              [
+                "Input fingerprint",
+                "706f276ec287209b"
+              ],
+              [
+                "Scenario fingerprint",
+                "c8aa706a60df9df0"
+              ],
+              [
+                "Result fingerprint",
+                "b0ea6c688d52ee48"
+              ],
+              [
+                "Calibration run",
+                "not provided"
+              ],
+              [
+                "Observations fingerprint",
+                "not provided"
+              ],
+              [
+                "Network fingerprint",
+                "a9754f446bdb4fd8"
+              ],
+              [
+                "Seeds",
+                "1, 2, 3"
+              ],
+              [
+                "Time step (s)",
+                0.1
+              ],
+              [
+                "Engine model",
+                "UrbanFlow V1.5 core"
+              ]
+            ],
+            "type": "table"
+          }
+        ],
+        "id": "reproducibility",
+        "title": "Reproducibility"
+      }
+    ],
+    "title": "Planning report: Preview study (medium, precomputed)"
+  },
+  "results": [
+    {
+      "alternativeId": "base",
+      "demandScale": 0.8,
+      "demandVph": 960,
+      "environmental": {
+        "note": "Proxies only (stop-and-go and idling exposure). No emissions or fuel model exists in this build.",
+        "status": "proxy",
+        "unavailable": [
+          {
+            "key": "fuelConsumption",
+            "label": "Fuel consumption",
+            "reason": "No emissions model in this build"
+          },
+          {
+            "key": "co2Emissions",
+            "label": "CO2 emissions",
+            "reason": "No emissions model in this build"
+          }
+        ],
+        "values": {
+          "averageDelay": {
+            "ciHalfWidth": 11.45,
+            "ciHigh": 33.03,
+            "ciLow": 10.13,
+            "direction": "lower_is_better",
+            "label": "Mean delay (idling-exposure proxy)",
+            "max": 26.9,
+            "mean": 21.58,
+            "min": 18.82,
+            "n": 3,
+            "std": 4.61,
+            "unit": "s/vehicle"
+          },
+          "averageStopsPerVehicle": {
+            "ciHalfWidth": 0.27,
+            "ciHigh": 0.85,
+            "ciLow": 0.31,
+            "direction": "lower_is_better",
+            "label": "Stops per vehicle (stop-and-go proxy)",
+            "max": 0.7,
+            "mean": 0.58,
+            "min": 0.48,
+            "n": 3,
+            "std": 0.11,
+            "unit": "stops"
+          }
+        }
+      },
+      "perApproach": {
+        "east": {
+          "averageDelay": 30.08,
+          "averageQueueLength": 1.37,
+          "exited": 13.67,
+          "maxQueueLength": 9.0
+        },
+        "north": {
+          "averageDelay": 12.34,
+          "averageQueueLength": 1.2,
+          "exited": 12.33,
+          "maxQueueLength": 9.0
+        },
+        "south": {
+          "averageDelay": 24.8,
+          "averageQueueLength": 1.28,
+          "exited": 16.67,
+          "maxQueueLength": 8.0
+        },
+        "west": {
+          "averageDelay": 15.66,
+          "averageQueueLength": 0.56,
+          "exited": 17.0,
+          "maxQueueLength": 3.0
+        }
+      },
+      "perVehicleType": {
+        "car": {
+          "averageDelay": 21.577,
+          "exited": 59.667,
+          "share": 1.0
+        }
+      },
+      "performance": {
+        "status": "available",
+        "unavailable": [],
+        "values": {
+          "averageDelay": {
+            "ciHalfWidth": 11.45,
+            "ciHigh": 33.03,
+            "ciLow": 10.13,
+            "direction": "lower_is_better",
+            "label": "Mean delay",
+            "max": 26.9,
+            "mean": 21.58,
+            "min": 18.82,
+            "n": 3,
+            "std": 4.61,
+            "unit": "s/vehicle"
+          },
+          "averageQueueLength": {
+            "ciHalfWidth": 1.48,
+            "ciHigh": 2.58,
+            "ciLow": -0.38,
+            "direction": "lower_is_better",
+            "label": "Mean queue length",
+            "max": 1.79,
+            "mean": 1.1,
+            "min": 0.74,
+            "n": 3,
+            "std": 0.6,
+            "unit": "vehicles"
+          },
+          "averageStopsPerVehicle": {
+            "ciHalfWidth": 0.27,
+            "ciHigh": 0.85,
+            "ciLow": 0.31,
+            "direction": "lower_is_better",
+            "label": "Stops per vehicle",
+            "max": 0.7,
+            "mean": 0.58,
+            "min": 0.48,
+            "n": 3,
+            "std": 0.11,
+            "unit": "stops"
+          },
+          "averageWaitTime": {
+            "ciHalfWidth": 9.18,
+            "ciHigh": 22.46,
+            "ciLow": 4.1,
+            "direction": "lower_is_better",
+            "label": "Mean wait time",
+            "max": 17.55,
+            "mean": 13.28,
+            "min": 11.03,
+            "n": 3,
+            "std": 3.7,
+            "unit": "s/vehicle"
+          },
+          "maxQueueLength": {
+            "ciHalfWidth": 6.57,
+            "ciHigh": 13.57,
+            "ciLow": 0.43,
+            "direction": "lower_is_better",
+            "label": "Max queue length",
+            "max": 9.0,
+            "mean": 7.0,
+            "min": 4.0,
+            "n": 3,
+            "std": 2.65,
+            "unit": "vehicles"
+          },
+          "throughput": {
+            "ciHalfWidth": 7.99,
+            "ciHigh": 67.66,
+            "ciLow": 51.68,
+            "direction": "higher_is_better",
+            "label": "Vehicles served",
+            "max": 62.0,
+            "mean": 59.67,
+            "min": 56.0,
+            "n": 3,
+            "std": 3.21,
+            "unit": "vehicles"
+          }
+        }
+      },
+      "reliability": {
+        "delayAcrossSeeds": {
+          "ciHigh": 33.03,
+          "ciLow": 10.13,
+          "coefficientOfVariation": 0.214,
+          "mean": 21.58,
+          "std": 4.61
+        },
+        "status": "available",
+        "unavailable": [],
+        "values": {
+          "travelTimeReliability": {
+            "ciHalfWidth": 0.3,
+            "ciHigh": 2.07,
+            "ciLow": 1.47,
+            "direction": "neutral",
+            "label": "Travel-time reliability",
+            "max": 1.9,
+            "mean": 1.77,
+            "min": 1.68,
+            "n": 3,
+            "std": 0.12,
+            "unit": "index"
+          }
+        }
+      },
+      "safety": {
+        "note": "Exploratory: simulated collisions/conflicts are rare-event proxies, not validated crash predictions.",
+        "status": "exploratory",
+        "unavailable": [
+          {
+            "key": "minTTC",
+            "label": "Minimum time-to-collision",
+            "reason": "not reported by the comparison output"
+          },
+          {
+            "key": "ttcEventCount",
+            "label": "Time-to-collision events",
+            "reason": "not reported by the comparison output"
+          }
+        ],
+        "values": {
+          "collisionCount": {
+            "ciHalfWidth": 0.0,
+            "ciHigh": 0.0,
+            "ciLow": 0.0,
+            "direction": "lower_is_better",
+            "label": "Collisions",
+            "max": 0.0,
+            "mean": 0.0,
+            "min": 0.0,
+            "n": 3,
+            "std": 0.0,
+            "unit": "count"
+          }
+        }
+      },
+      "seriesBySeed": {
+        "averageDelay": [
+          19.01,
+          26.9,
+          18.82
+        ],
+        "averageQueueLength": [
+          0.74,
+          1.79,
+          0.78
+        ],
+        "collisionCount": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "throughput": [
+          62.0,
+          61.0,
+          56.0
+        ]
+      },
+      "signalTiming": {
+        "averageGreenDuration": {
+          "mean": 30.0,
+          "std": 0.0
+        },
+        "greenUtilisation": {
+          "mean": 0.78,
+          "std": 0.06
+        },
+        "phaseChanges": {
+          "mean": 8.0,
+          "std": 0.0
+        },
+        "unusedGreenSeconds": {
+          "mean": 47.9,
+          "std": 13.83
+        }
+      },
+      "vehicleLimitReached": false
+    },
+    {
+      "alternativeId": "base",
+      "demandScale": 1.0,
+      "demandVph": 1200,
+      "environmental": {
+        "note": "Proxies only (stop-and-go and idling exposure). No emissions or fuel model exists in this build.",
+        "status": "proxy",
+        "unavailable": [
+          {
+            "key": "fuelConsumption",
+            "label": "Fuel consumption",
+            "reason": "No emissions model in this build"
+          },
+          {
+            "key": "co2Emissions",
+            "label": "CO2 emissions",
+            "reason": "No emissions model in this build"
+          }
+        ],
+        "values": {
+          "averageDelay": {
+            "ciHalfWidth": 19.62,
+            "ciHigh": 47.49,
+            "ciLow": 8.25,
+            "direction": "lower_is_better",
+            "label": "Mean delay (idling-exposure proxy)",
+            "max": 36.48,
+            "mean": 27.87,
+            "min": 20.96,
+            "n": 3,
+            "std": 7.9,
+            "unit": "s/vehicle"
+          },
+          "averageStopsPerVehicle": {
+            "ciHalfWidth": 0.14,
+            "ciHigh": 0.84,
+            "ciLow": 0.56,
+            "direction": "lower_is_better",
+            "label": "Stops per vehicle (stop-and-go proxy)",
+            "max": 0.75,
+            "mean": 0.7,
+            "min": 0.64,
+            "n": 3,
+            "std": 0.06,
+            "unit": "stops"
+          }
+        }
+      },
+      "perApproach": {
+        "east": {
+          "averageDelay": 24.12,
+          "averageQueueLength": 2.19,
+          "exited": 13.33,
+          "maxQueueLength": 15.0
+        },
+        "north": {
+          "averageDelay": 31.4,
+          "averageQueueLength": 1.76,
+          "exited": 17.33,
+          "maxQueueLength": 8.0
+        },
+        "south": {
+          "averageDelay": 40.43,
+          "averageQueueLength": 3.58,
+          "exited": 17.0,
+          "maxQueueLength": 14.0
+        },
+        "west": {
+          "averageDelay": 18.7,
+          "averageQueueLength": 0.89,
+          "exited": 23.0,
+          "maxQueueLength": 6.0
+        }
+      },
+      "perVehicleType": {
+        "car": {
+          "averageDelay": 27.867,
+          "exited": 70.667,
+          "share": 1.0
+        }
+      },
+      "performance": {
+        "status": "available",
+        "unavailable": [],
+        "values": {
+          "averageDelay": {
+            "ciHalfWidth": 19.62,
+            "ciHigh": 47.49,
+            "ciLow": 8.25,
+            "direction": "lower_is_better",
+            "label": "Mean delay",
+            "max": 36.48,
+            "mean": 27.87,
+            "min": 20.96,
+            "n": 3,
+            "std": 7.9,
+            "unit": "s/vehicle"
+          },
+          "averageQueueLength": {
+            "ciHalfWidth": 2.37,
+            "ciHigh": 4.48,
+            "ciLow": -0.26,
+            "direction": "lower_is_better",
+            "label": "Mean queue length",
+            "max": 3.19,
+            "mean": 2.11,
+            "min": 1.39,
+            "n": 3,
+            "std": 0.95,
+            "unit": "vehicles"
+          },
+          "averageStopsPerVehicle": {
+            "ciHalfWidth": 0.14,
+            "ciHigh": 0.84,
+            "ciLow": 0.56,
+            "direction": "lower_is_better",
+            "label": "Stops per vehicle",
+            "max": 0.75,
+            "mean": 0.7,
+            "min": 0.64,
+            "n": 3,
+            "std": 0.06,
+            "unit": "stops"
+          },
+          "averageWaitTime": {
+            "ciHalfWidth": 16.32,
+            "ciHigh": 34.38,
+            "ciLow": 1.74,
+            "direction": "lower_is_better",
+            "label": "Mean wait time",
+            "max": 25.18,
+            "mean": 18.06,
+            "min": 12.23,
+            "n": 3,
+            "std": 6.57,
+            "unit": "s/vehicle"
+          },
+          "maxQueueLength": {
+            "ciHalfWidth": 6.57,
+            "ciHigh": 19.57,
+            "ciLow": 6.43,
+            "direction": "lower_is_better",
+            "label": "Max queue length",
+            "max": 15.0,
+            "mean": 13.0,
+            "min": 10.0,
+            "n": 3,
+            "std": 2.65,
+            "unit": "vehicles"
+          },
+          "throughput": {
+            "ciHalfWidth": 11.74,
+            "ciHigh": 82.41,
+            "ciLow": 58.93,
+            "direction": "higher_is_better",
+            "label": "Vehicles served",
+            "max": 76.0,
+            "mean": 70.67,
+            "min": 67.0,
+            "n": 3,
+            "std": 4.73,
+            "unit": "vehicles"
+          }
+        }
+      },
+      "reliability": {
+        "delayAcrossSeeds": {
+          "ciHigh": 47.49,
+          "ciLow": 8.25,
+          "coefficientOfVariation": 0.283,
+          "mean": 27.87,
+          "std": 7.9
+        },
+        "status": "available",
+        "unavailable": [],
+        "values": {
+          "travelTimeReliability": {
+            "ciHalfWidth": 0.78,
+            "ciHigh": 2.5,
+            "ciLow": 0.94,
+            "direction": "neutral",
+            "label": "Travel-time reliability",
+            "max": 2.05,
+            "mean": 1.72,
+            "min": 1.41,
+            "n": 3,
+            "std": 0.32,
+            "unit": "index"
+          }
+        }
+      },
+      "safety": {
+        "note": "Exploratory: simulated collisions/conflicts are rare-event proxies, not validated crash predictions.",
+        "status": "exploratory",
+        "unavailable": [
+          {
+            "key": "minTTC",
+            "label": "Minimum time-to-collision",
+            "reason": "not reported by the comparison output"
+          },
+          {
+            "key": "ttcEventCount",
+            "label": "Time-to-collision events",
+            "reason": "not reported by the comparison output"
+          }
+        ],
+        "values": {
+          "collisionCount": {
+            "ciHalfWidth": 0.0,
+            "ciHigh": 0.0,
+            "ciLow": 0.0,
+            "direction": "lower_is_better",
+            "label": "Collisions",
+            "max": 0.0,
+            "mean": 0.0,
+            "min": 0.0,
+            "n": 3,
+            "std": 0.0,
+            "unit": "count"
+          }
+        }
+      },
+      "seriesBySeed": {
+        "averageDelay": [
+          20.96,
+          36.48,
+          26.16
+        ],
+        "averageQueueLength": [
+          1.39,
+          3.19,
+          1.74
+        ],
+        "collisionCount": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "throughput": [
+          69.0,
+          76.0,
+          67.0
+        ]
+      },
+      "signalTiming": {
+        "averageGreenDuration": {
+          "mean": 30.0,
+          "std": 0.0
+        },
+        "greenUtilisation": {
+          "mean": 0.86,
+          "std": 0.06
+        },
+        "phaseChanges": {
+          "mean": 8.0,
+          "std": 0.0
+        },
+        "unusedGreenSeconds": {
+          "mean": 30.2,
+          "std": 13.87
+        }
+      },
+      "vehicleLimitReached": false
+    },
+    {
+      "alternativeId": "base",
+      "demandScale": 1.2,
+      "demandVph": 1440,
+      "environmental": {
+        "note": "Proxies only (stop-and-go and idling exposure). No emissions or fuel model exists in this build.",
+        "status": "proxy",
+        "unavailable": [
+          {
+            "key": "fuelConsumption",
+            "label": "Fuel consumption",
+            "reason": "No emissions model in this build"
+          },
+          {
+            "key": "co2Emissions",
+            "label": "CO2 emissions",
+            "reason": "No emissions model in this build"
+          }
+        ],
+        "values": {
+          "averageDelay": {
+            "ciHalfWidth": 16.54,
+            "ciHigh": 52.36,
+            "ciLow": 19.28,
+            "direction": "lower_is_better",
+            "label": "Mean delay (idling-exposure proxy)",
+            "max": 40.72,
+            "mean": 35.82,
+            "min": 28.24,
+            "n": 3,
+            "std": 6.66,
+            "unit": "s/vehicle"
+          },
+          "averageStopsPerVehicle": {
+            "ciHalfWidth": 0.2,
+            "ciHigh": 1.05,
+            "ciLow": 0.65,
+            "direction": "lower_is_better",
+            "label": "Stops per vehicle (stop-and-go proxy)",
+            "max": 0.91,
+            "mean": 0.85,
+            "min": 0.76,
+            "n": 3,
+            "std": 0.08,
+            "unit": "stops"
+          }
+        }
+      },
+      "perApproach": {
+        "east": {
+          "averageDelay": 53.22,
+          "averageQueueLength": 3.39,
+          "exited": 16.33,
+          "maxQueueLength": 15.0
+        },
+        "north": {
+          "averageDelay": 27.28,
+          "averageQueueLength": 2.25,
+          "exited": 21.33,
+          "maxQueueLength": 15.0
+        },
+        "south": {
+          "averageDelay": 41.37,
+          "averageQueueLength": 4.59,
+          "exited": 19.67,
+          "maxQueueLength": 14.0
+        },
+        "west": {
+          "averageDelay": 31.0,
+          "averageQueueLength": 2.83,
+          "exited": 22.33,
+          "maxQueueLength": 19.0
+        }
+      },
+      "perVehicleType": {
+        "car": {
+          "averageDelay": 35.82,
+          "exited": 79.667,
+          "share": 1.0
+        }
+      },
+      "performance": {
+        "status": "available",
+        "unavailable": [],
+        "values": {
+          "averageDelay": {
+            "ciHalfWidth": 16.54,
+            "ciHigh": 52.36,
+            "ciLow": 19.28,
+            "direction": "lower_is_better",
+            "label": "Mean delay",
+            "max": 40.72,
+            "mean": 35.82,
+            "min": 28.24,
+            "n": 3,
+            "std": 6.66,
+            "unit": "s/vehicle"
+          },
+          "averageQueueLength": {
+            "ciHalfWidth": 2.67,
+            "ciHigh": 5.93,
+            "ciLow": 0.59,
+            "direction": "lower_is_better",
+            "label": "Mean queue length",
+            "max": 4.45,
+            "mean": 3.26,
+            "min": 2.36,
+            "n": 3,
+            "std": 1.07,
+            "unit": "vehicles"
+          },
+          "averageStopsPerVehicle": {
+            "ciHalfWidth": 0.2,
+            "ciHigh": 1.05,
+            "ciLow": 0.65,
+            "direction": "lower_is_better",
+            "label": "Stops per vehicle",
+            "max": 0.91,
+            "mean": 0.85,
+            "min": 0.76,
+            "n": 3,
+            "std": 0.08,
+            "unit": "stops"
+          },
+          "averageWaitTime": {
+            "ciHalfWidth": 13.79,
+            "ciHigh": 38.51,
+            "ciLow": 10.93,
+            "direction": "lower_is_better",
+            "label": "Mean wait time",
+            "max": 29.69,
+            "mean": 24.72,
+            "min": 18.73,
+            "n": 3,
+            "std": 5.55,
+            "unit": "s/vehicle"
+          },
+          "maxQueueLength": {
+            "ciHalfWidth": 8.72,
+            "ciHigh": 24.05,
+            "ciLow": 6.61,
+            "direction": "lower_is_better",
+            "label": "Max queue length",
+            "max": 19.0,
+            "mean": 15.33,
+            "min": 12.0,
+            "n": 3,
+            "std": 3.51,
+            "unit": "vehicles"
+          },
+          "throughput": {
+            "ciHalfWidth": 7.99,
+            "ciHigh": 87.66,
+            "ciLow": 71.68,
+            "direction": "higher_is_better",
+            "label": "Vehicles served",
+            "max": 82.0,
+            "mean": 79.67,
+            "min": 76.0,
+            "n": 3,
+            "std": 3.21,
+            "unit": "vehicles"
+          }
+        }
+      },
+      "reliability": {
+        "delayAcrossSeeds": {
+          "ciHigh": 52.36,
+          "ciLow": 19.28,
+          "coefficientOfVariation": 0.186,
+          "mean": 35.82,
+          "std": 6.66
+        },
+        "status": "available",
+        "unavailable": [],
+        "values": {
+          "travelTimeReliability": {
+            "ciHalfWidth": 0.84,
+            "ciHigh": 2.61,
+            "ciLow": 0.93,
+            "direction": "neutral",
+            "label": "Travel-time reliability",
+            "max": 2.12,
+            "mean": 1.77,
+            "min": 1.44,
+            "n": 3,
+            "std": 0.34,
+            "unit": "index"
+          }
+        }
+      },
+      "safety": {
+        "note": "Exploratory: simulated collisions/conflicts are rare-event proxies, not validated crash predictions.",
+        "status": "exploratory",
+        "unavailable": [
+          {
+            "key": "minTTC",
+            "label": "Minimum time-to-collision",
+            "reason": "not reported by the comparison output"
+          },
+          {
+            "key": "ttcEventCount",
+            "label": "Time-to-collision events",
+            "reason": "not reported by the comparison output"
+          }
+        ],
+        "values": {
+          "collisionCount": {
+            "ciHalfWidth": 0.0,
+            "ciHigh": 0.0,
+            "ciLow": 0.0,
+            "direction": "lower_is_better",
+            "label": "Collisions",
+            "max": 0.0,
+            "mean": 0.0,
+            "min": 0.0,
+            "n": 3,
+            "std": 0.0,
+            "unit": "count"
+          }
+        }
+      },
+      "seriesBySeed": {
+        "averageDelay": [
+          38.5,
+          40.72,
+          28.24
+        ],
+        "averageQueueLength": [
+          2.98,
+          4.45,
+          2.36
+        ],
+        "collisionCount": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "throughput": [
+          76.0,
+          81.0,
+          82.0
+        ]
+      },
+      "signalTiming": {
+        "averageGreenDuration": {
+          "mean": 30.0,
+          "std": 0.0
+        },
+        "greenUtilisation": {
+          "mean": 0.93,
+          "std": 0.07
+        },
+        "phaseChanges": {
+          "mean": 8.0,
+          "std": 0.0
+        },
+        "unusedGreenSeconds": {
+          "mean": 14.47,
+          "std": 15.51
+        }
+      },
+      "vehicleLimitReached": false
+    },
+    {
+      "alternativeId": "adaptive",
+      "demandScale": 0.8,
+      "demandVph": 960,
+      "environmental": {
+        "note": "Proxies only (stop-and-go and idling exposure). No emissions or fuel model exists in this build.",
+        "status": "proxy",
+        "unavailable": [
+          {
+            "key": "fuelConsumption",
+            "label": "Fuel consumption",
+            "reason": "No emissions model in this build"
+          },
+          {
+            "key": "co2Emissions",
+            "label": "CO2 emissions",
+            "reason": "No emissions model in this build"
+          }
+        ],
+        "values": {
+          "averageDelay": {
+            "ciHalfWidth": 14.38,
+            "ciHigh": 32.31,
+            "ciLow": 3.55,
+            "direction": "lower_is_better",
+            "label": "Mean delay (idling-exposure proxy)",
+            "max": 24.32,
+            "mean": 17.93,
+            "min": 13.03,
+            "n": 3,
+            "std": 5.79,
+            "unit": "s/vehicle"
+          },
+          "averageStopsPerVehicle": {
+            "ciHalfWidth": 0.35,
+            "ciHigh": 0.91,
+            "ciLow": 0.21,
+            "direction": "lower_is_better",
+            "label": "Stops per vehicle (stop-and-go proxy)",
+            "max": 0.71,
+            "mean": 0.56,
+            "min": 0.43,
+            "n": 3,
+            "std": 0.14,
+            "unit": "stops"
+          }
+        }
+      },
+      "perApproach": {
+        "east": {
+          "averageDelay": 13.98,
+          "averageQueueLength": 0.46,
+          "exited": 14.33,
+          "maxQueueLength": 5.0
+        },
+        "north": {
+          "averageDelay": 27.67,
+          "averageQueueLength": 1.3,
+          "exited": 14.0,
+          "maxQueueLength": 8.0
+        },
+        "south": {
+          "averageDelay": 15.82,
+          "averageQueueLength": 0.65,
+          "exited": 19.0,
+          "maxQueueLength": 5.0
+        },
+        "west": {
+          "averageDelay": 17.28,
+          "averageQueueLength": 0.58,
+          "exited": 15.33,
+          "maxQueueLength": 4.0
+        }
+      },
+      "perVehicleType": {
+        "car": {
+          "averageDelay": 17.93,
+          "exited": 62.667,
+          "share": 1.0
+        }
+      },
+      "performance": {
+        "status": "available",
+        "unavailable": [],
+        "values": {
+          "averageDelay": {
+            "ciHalfWidth": 14.38,
+            "ciHigh": 32.31,
+            "ciLow": 3.55,
+            "direction": "lower_is_better",
+            "label": "Mean delay",
+            "max": 24.32,
+            "mean": 17.93,
+            "min": 13.03,
+            "n": 3,
+            "std": 5.79,
+            "unit": "s/vehicle"
+          },
+          "averageQueueLength": {
+            "ciHalfWidth": 0.78,
+            "ciHigh": 1.53,
+            "ciLow": -0.03,
+            "direction": "lower_is_better",
+            "label": "Mean queue length",
+            "max": 1.1,
+            "mean": 0.75,
+            "min": 0.49,
+            "n": 3,
+            "std": 0.31,
+            "unit": "vehicles"
+          },
+          "averageStopsPerVehicle": {
+            "ciHalfWidth": 0.35,
+            "ciHigh": 0.91,
+            "ciLow": 0.21,
+            "direction": "lower_is_better",
+            "label": "Stops per vehicle",
+            "max": 0.71,
+            "mean": 0.56,
+            "min": 0.43,
+            "n": 3,
+            "std": 0.14,
+            "unit": "stops"
+          },
+          "averageWaitTime": {
+            "ciHalfWidth": 10.45,
+            "ciHigh": 20.51,
+            "ciLow": -0.39,
+            "direction": "lower_is_better",
+            "label": "Mean wait time",
+            "max": 14.87,
+            "mean": 10.06,
+            "min": 7.04,
+            "n": 3,
+            "std": 4.21,
+            "unit": "s/vehicle"
+          },
+          "maxQueueLength": {
+            "ciHalfWidth": 5.17,
+            "ciHigh": 11.5,
+            "ciLow": 1.16,
+            "direction": "lower_is_better",
+            "label": "Max queue length",
+            "max": 8.0,
+            "mean": 6.33,
+            "min": 4.0,
+            "n": 3,
+            "std": 2.08,
+            "unit": "vehicles"
+          },
+          "throughput": {
+            "ciHalfWidth": 14.13,
+            "ciHigh": 76.8,
+            "ciLow": 48.54,
+            "direction": "higher_is_better",
+            "label": "Vehicles served",
+            "max": 69.0,
+            "mean": 62.67,
+            "min": 58.0,
+            "n": 3,
+            "std": 5.69,
+            "unit": "vehicles"
+          }
+        }
+      },
+      "reliability": {
+        "delayAcrossSeeds": {
+          "ciHigh": 32.31,
+          "ciLow": 3.55,
+          "coefficientOfVariation": 0.323,
+          "mean": 17.93,
+          "std": 5.79
+        },
+        "status": "available",
+        "unavailable": [],
+        "values": {
+          "travelTimeReliability": {
+            "ciHalfWidth": 0.4,
+            "ciHigh": 2.15,
+            "ciLow": 1.35,
+            "direction": "neutral",
+            "label": "Travel-time reliability",
+            "max": 1.89,
+            "mean": 1.75,
+            "min": 1.57,
+            "n": 3,
+            "std": 0.16,
+            "unit": "index"
+          }
+        }
+      },
+      "safety": {
+        "note": "Exploratory: simulated collisions/conflicts are rare-event proxies, not validated crash predictions.",
+        "status": "exploratory",
+        "unavailable": [
+          {
+            "key": "minTTC",
+            "label": "Minimum time-to-collision",
+            "reason": "not reported by the comparison output"
+          },
+          {
+            "key": "ttcEventCount",
+            "label": "Time-to-collision events",
+            "reason": "not reported by the comparison output"
+          }
+        ],
+        "values": {
+          "collisionCount": {
+            "ciHalfWidth": 0.0,
+            "ciHigh": 0.0,
+            "ciLow": 0.0,
+            "direction": "lower_is_better",
+            "label": "Collisions",
+            "max": 0.0,
+            "mean": 0.0,
+            "min": 0.0,
+            "n": 3,
+            "std": 0.0,
+            "unit": "count"
+          }
+        }
+      },
+      "seriesBySeed": {
+        "averageDelay": [
+          16.44,
+          24.32,
+          13.03
+        ],
+        "averageQueueLength": [
+          0.49,
+          1.1,
+          0.66
+        ],
+        "collisionCount": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "throughput": [
+          61.0,
+          69.0,
+          58.0
+        ]
+      },
+      "signalTiming": {
+        "averageGreenDuration": {
+          "mean": 20.47,
+          "std": 2.46
+        },
+        "greenUtilisation": {
+          "mean": 0.86,
+          "std": 0.05
+        },
+        "phaseChanges": {
+          "mean": 10.0,
+          "std": 1.73
+        },
+        "unusedGreenSeconds": {
+          "mean": 28.1,
+          "std": 10.3
+        }
+      },
+      "vehicleLimitReached": false
+    },
+    {
+      "alternativeId": "adaptive",
+      "demandScale": 1.0,
+      "demandVph": 1200,
+      "environmental": {
+        "note": "Proxies only (stop-and-go and idling exposure). No emissions or fuel model exists in this build.",
+        "status": "proxy",
+        "unavailable": [
+          {
+            "key": "fuelConsumption",
+            "label": "Fuel consumption",
+            "reason": "No emissions model in this build"
+          },
+          {
+            "key": "co2Emissions",
+            "label": "CO2 emissions",
+            "reason": "No emissions model in this build"
+          }
+        ],
+        "values": {
+          "averageDelay": {
+            "ciHalfWidth": 9.85,
+            "ciHigh": 31.89,
+            "ciLow": 12.19,
+            "direction": "lower_is_better",
+            "label": "Mean delay (idling-exposure proxy)",
+            "max": 25.59,
+            "mean": 22.04,
+            "min": 17.76,
+            "n": 3,
+            "std": 3.97,
+            "unit": "s/vehicle"
+          },
+          "averageStopsPerVehicle": {
+            "ciHalfWidth": 0.14,
+            "ciHigh": 0.76,
+            "ciLow": 0.48,
+            "direction": "lower_is_better",
+            "label": "Stops per vehicle (stop-and-go proxy)",
+            "max": 0.68,
+            "mean": 0.62,
+            "min": 0.57,
+            "n": 3,
+            "std": 0.06,
+            "unit": "stops"
+          }
+        }
+      },
+      "perApproach": {
+        "east": {
+          "averageDelay": 14.15,
+          "averageQueueLength": 1.45,
+          "exited": 13.67,
+          "maxQueueLength": 13.0
+        },
+        "north": {
+          "averageDelay": 20.53,
+          "averageQueueLength": 1.05,
+          "exited": 18.0,
+          "maxQueueLength": 6.0
+        },
+        "south": {
+          "averageDelay": 24.23,
+          "averageQueueLength": 1.44,
+          "exited": 23.0,
+          "maxQueueLength": 7.0
+        },
+        "west": {
+          "averageDelay": 26.39,
+          "averageQueueLength": 1.29,
+          "exited": 22.33,
+          "maxQueueLength": 8.0
+        }
+      },
+      "perVehicleType": {
+        "car": {
+          "averageDelay": 22.04,
+          "exited": 77.0,
+          "share": 1.0
+        }
+      },
+      "performance": {
+        "status": "available",
+        "unavailable": [],
+        "values": {
+          "averageDelay": {
+            "ciHalfWidth": 9.85,
+            "ciHigh": 31.89,
+            "ciLow": 12.19,
+            "direction": "lower_is_better",
+            "label": "Mean delay",
+            "max": 25.59,
+            "mean": 22.04,
+            "min": 17.76,
+            "n": 3,
+            "std": 3.97,
+            "unit": "s/vehicle"
+          },
+          "averageQueueLength": {
+            "ciHalfWidth": 1.61,
+            "ciHigh": 2.91,
+            "ciLow": -0.31,
+            "direction": "lower_is_better",
+            "label": "Mean queue length",
+            "max": 2.04,
+            "mean": 1.3,
+            "min": 0.82,
+            "n": 3,
+            "std": 0.65,
+            "unit": "vehicles"
+          },
+          "averageStopsPerVehicle": {
+            "ciHalfWidth": 0.14,
+            "ciHigh": 0.76,
+            "ciLow": 0.48,
+            "direction": "lower_is_better",
+            "label": "Stops per vehicle",
+            "max": 0.68,
+            "mean": 0.62,
+            "min": 0.57,
+            "n": 3,
+            "std": 0.06,
+            "unit": "stops"
+          },
+          "averageWaitTime": {
+            "ciHalfWidth": 6.11,
+            "ciHigh": 18.55,
+            "ciLow": 6.33,
+            "direction": "lower_is_better",
+            "label": "Mean wait time",
+            "max": 14.81,
+            "mean": 12.44,
+            "min": 9.9,
+            "n": 3,
+            "std": 2.46,
+            "unit": "s/vehicle"
+          },
+          "maxQueueLength": {
+            "ciHalfWidth": 8.96,
+            "ciHigh": 17.96,
+            "ciLow": 0.04,
+            "direction": "lower_is_better",
+            "label": "Max queue length",
+            "max": 13.0,
+            "mean": 9.0,
+            "min": 6.0,
+            "n": 3,
+            "std": 3.61,
+            "unit": "vehicles"
+          },
+          "throughput": {
+            "ciHalfWidth": 6.57,
+            "ciHigh": 83.57,
+            "ciLow": 70.43,
+            "direction": "higher_is_better",
+            "label": "Vehicles served",
+            "max": 80.0,
+            "mean": 77.0,
+            "min": 75.0,
+            "n": 3,
+            "std": 2.65,
+            "unit": "vehicles"
+          }
+        }
+      },
+      "reliability": {
+        "delayAcrossSeeds": {
+          "ciHigh": 31.89,
+          "ciLow": 12.19,
+          "coefficientOfVariation": 0.18,
+          "mean": 22.04,
+          "std": 3.97
+        },
+        "status": "available",
+        "unavailable": [],
+        "values": {
+          "travelTimeReliability": {
+            "ciHalfWidth": 0.61,
+            "ciHigh": 2.45,
+            "ciLow": 1.23,
+            "direction": "neutral",
+            "label": "Travel-time reliability",
+            "max": 2.03,
+            "mean": 1.84,
+            "min": 1.56,
+            "n": 3,
+            "std": 0.25,
+            "unit": "index"
+          }
+        }
+      },
+      "safety": {
+        "note": "Exploratory: simulated collisions/conflicts are rare-event proxies, not validated crash predictions.",
+        "status": "exploratory",
+        "unavailable": [
+          {
+            "key": "minTTC",
+            "label": "Minimum time-to-collision",
+            "reason": "not reported by the comparison output"
+          },
+          {
+            "key": "ttcEventCount",
+            "label": "Time-to-collision events",
+            "reason": "not reported by the comparison output"
+          }
+        ],
+        "values": {
+          "collisionCount": {
+            "ciHalfWidth": 0.0,
+            "ciHigh": 0.0,
+            "ciLow": 0.0,
+            "direction": "lower_is_better",
+            "label": "Collisions",
+            "max": 0.0,
+            "mean": 0.0,
+            "min": 0.0,
+            "n": 3,
+            "std": 0.0,
+            "unit": "count"
+          }
+        }
+      },
+      "seriesBySeed": {
+        "averageDelay": [
+          22.77,
+          25.59,
+          17.76
+        ],
+        "averageQueueLength": [
+          1.05,
+          2.04,
+          0.82
+        ],
+        "collisionCount": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "throughput": [
+          76.0,
+          80.0,
+          75.0
+        ]
+      },
+      "signalTiming": {
+        "averageGreenDuration": {
+          "mean": 23.85,
+          "std": 2.42
+        },
+        "greenUtilisation": {
+          "mean": 0.92,
+          "std": 0.03
+        },
+        "phaseChanges": {
+          "mean": 8.33,
+          "std": 0.58
+        },
+        "unusedGreenSeconds": {
+          "mean": 16.53,
+          "std": 7.34
+        }
+      },
+      "vehicleLimitReached": false
+    },
+    {
+      "alternativeId": "adaptive",
+      "demandScale": 1.2,
+      "demandVph": 1440,
+      "environmental": {
+        "note": "Proxies only (stop-and-go and idling exposure). No emissions or fuel model exists in this build.",
+        "status": "proxy",
+        "unavailable": [
+          {
+            "key": "fuelConsumption",
+            "label": "Fuel consumption",
+            "reason": "No emissions model in this build"
+          },
+          {
+            "key": "co2Emissions",
+            "label": "CO2 emissions",
+            "reason": "No emissions model in this build"
+          }
+        ],
+        "values": {
+          "averageDelay": {
+            "ciHalfWidth": 9.04,
+            "ciHigh": 41.44,
+            "ciLow": 23.36,
+            "direction": "lower_is_better",
+            "label": "Mean delay (idling-exposure proxy)",
+            "max": 36.6,
+            "mean": 32.4,
+            "min": 30.22,
+            "n": 3,
+            "std": 3.64,
+            "unit": "s/vehicle"
+          },
+          "averageStopsPerVehicle": {
+            "ciHalfWidth": 0.41,
+            "ciHigh": 1.05,
+            "ciLow": 0.23,
+            "direction": "lower_is_better",
+            "label": "Stops per vehicle (stop-and-go proxy)",
+            "max": 0.78,
+            "mean": 0.64,
+            "min": 0.46,
+            "n": 3,
+            "std": 0.16,
+            "unit": "stops"
+          }
+        }
+      },
+      "perApproach": {
+        "east": {
+          "averageDelay": 30.65,
+          "averageQueueLength": 2.35,
+          "exited": 18.0,
+          "maxQueueLength": 15.0
+        },
+        "north": {
+          "averageDelay": 24.0,
+          "averageQueueLength": 2.19,
+          "exited": 21.0,
+          "maxQueueLength": 12.0
+        },
+        "south": {
+          "averageDelay": 54.49,
+          "averageQueueLength": 5.34,
+          "exited": 18.0,
+          "maxQueueLength": 24.0
+        },
+        "west": {
+          "averageDelay": 24.05,
+          "averageQueueLength": 2.04,
+          "exited": 25.0,
+          "maxQueueLength": 10.0
+        }
+      },
+      "perVehicleType": {
+        "car": {
+          "averageDelay": 32.4,
+          "exited": 82.0,
+          "share": 1.0
+        }
+      },
+      "performance": {
+        "status": "available",
+        "unavailable": [],
+        "values": {
+          "averageDelay": {
+            "ciHalfWidth": 9.04,
+            "ciHigh": 41.44,
+            "ciLow": 23.36,
+            "direction": "lower_is_better",
+            "label": "Mean delay",
+            "max": 36.6,
+            "mean": 32.4,
+            "min": 30.22,
+            "n": 3,
+            "std": 3.64,
+            "unit": "s/vehicle"
+          },
+          "averageQueueLength": {
+            "ciHalfWidth": 1.21,
+            "ciHigh": 4.19,
+            "ciLow": 1.77,
+            "direction": "lower_is_better",
+            "label": "Mean queue length",
+            "max": 3.44,
+            "mean": 2.98,
+            "min": 2.47,
+            "n": 3,
+            "std": 0.49,
+            "unit": "vehicles"
+          },
+          "averageStopsPerVehicle": {
+            "ciHalfWidth": 0.41,
+            "ciHigh": 1.05,
+            "ciLow": 0.23,
+            "direction": "lower_is_better",
+            "label": "Stops per vehicle",
+            "max": 0.78,
+            "mean": 0.64,
+            "min": 0.46,
+            "n": 3,
+            "std": 0.16,
+            "unit": "stops"
+          },
+          "averageWaitTime": {
+            "ciHalfWidth": 5.29,
+            "ciHigh": 27.23,
+            "ciLow": 16.65,
+            "direction": "lower_is_better",
+            "label": "Mean wait time",
+            "max": 24.28,
+            "mean": 21.94,
+            "min": 20.11,
+            "n": 3,
+            "std": 2.13,
+            "unit": "s/vehicle"
+          },
+          "maxQueueLength": {
+            "ciHalfWidth": 14.56,
+            "ciHigh": 31.89,
+            "ciLow": 2.77,
+            "direction": "lower_is_better",
+            "label": "Max queue length",
+            "max": 24.0,
+            "mean": 17.33,
+            "min": 13.0,
+            "n": 3,
+            "std": 5.86,
+            "unit": "vehicles"
+          },
+          "throughput": {
+            "ciHalfWidth": 19.87,
+            "ciHigh": 101.87,
+            "ciLow": 62.13,
+            "direction": "higher_is_better",
+            "label": "Vehicles served",
+            "max": 90.0,
+            "mean": 82.0,
+            "min": 74.0,
+            "n": 3,
+            "std": 8.0,
+            "unit": "vehicles"
+          }
+        }
+      },
+      "reliability": {
+        "delayAcrossSeeds": {
+          "ciHigh": 41.44,
+          "ciLow": 23.36,
+          "coefficientOfVariation": 0.112,
+          "mean": 32.4,
+          "std": 3.64
+        },
+        "status": "available",
+        "unavailable": [],
+        "values": {
+          "travelTimeReliability": {
+            "ciHalfWidth": 2.41,
+            "ciHigh": 5.04,
+            "ciLow": 0.22,
+            "direction": "neutral",
+            "label": "Travel-time reliability",
+            "max": 3.72,
+            "mean": 2.63,
+            "min": 1.86,
+            "n": 3,
+            "std": 0.97,
+            "unit": "index"
+          }
+        }
+      },
+      "safety": {
+        "note": "Exploratory: simulated collisions/conflicts are rare-event proxies, not validated crash predictions.",
+        "status": "exploratory",
+        "unavailable": [
+          {
+            "key": "minTTC",
+            "label": "Minimum time-to-collision",
+            "reason": "not reported by the comparison output"
+          },
+          {
+            "key": "ttcEventCount",
+            "label": "Time-to-collision events",
+            "reason": "not reported by the comparison output"
+          }
+        ],
+        "values": {
+          "collisionCount": {
+            "ciHalfWidth": 0.0,
+            "ciHigh": 0.0,
+            "ciLow": 0.0,
+            "direction": "lower_is_better",
+            "label": "Collisions",
+            "max": 0.0,
+            "mean": 0.0,
+            "min": 0.0,
+            "n": 3,
+            "std": 0.0,
+            "unit": "count"
+          }
+        }
+      },
+      "seriesBySeed": {
+        "averageDelay": [
+          30.38,
+          36.6,
+          30.22
+        ],
+        "averageQueueLength": [
+          3.04,
+          3.44,
+          2.47
+        ],
+        "collisionCount": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "throughput": [
+          74.0,
+          90.0,
+          82.0
+        ]
+      },
+      "signalTiming": {
+        "averageGreenDuration": {
+          "mean": 33.04,
+          "std": 5.36
+        },
+        "greenUtilisation": {
+          "mean": 0.97,
+          "std": 0.02
+        },
+        "phaseChanges": {
+          "mean": 6.67,
+          "std": 0.58
+        },
+        "unusedGreenSeconds": {
+          "mean": 7.2,
+          "std": 5.21
+        }
+      },
+      "vehicleLimitReached": false
+    },
+    {
+      "alternativeId": "rbt",
+      "demandScale": 0.8,
+      "demandVph": 960,
+      "environmental": {
+        "note": "Proxies only (stop-and-go and idling exposure). No emissions or fuel model exists in this build.",
+        "status": "proxy",
+        "unavailable": [
+          {
+            "key": "fuelConsumption",
+            "label": "Fuel consumption",
+            "reason": "No emissions model in this build"
+          },
+          {
+            "key": "co2Emissions",
+            "label": "CO2 emissions",
+            "reason": "No emissions model in this build"
+          }
+        ],
+        "values": {
+          "averageDelay": {
+            "ciHalfWidth": 2.66,
+            "ciHigh": 18.65,
+            "ciLow": 13.33,
+            "direction": "lower_is_better",
+            "label": "Mean delay (idling-exposure proxy)",
+            "max": 16.99,
+            "mean": 15.99,
+            "min": 14.86,
+            "n": 3,
+            "std": 1.07,
+            "unit": "s/vehicle"
+          },
+          "averageStopsPerVehicle": {
+            "ciHalfWidth": 0.08,
+            "ciHigh": 0.48,
+            "ciLow": 0.32,
+            "direction": "lower_is_better",
+            "label": "Stops per vehicle (stop-and-go proxy)",
+            "max": 0.43,
+            "mean": 0.4,
+            "min": 0.37,
+            "n": 3,
+            "std": 0.03,
+            "unit": "stops"
+          }
+        }
+      },
+      "perApproach": {
+        "east": {
+          "averageDelay": 17.23,
+          "averageQueueLength": 0.16,
+          "exited": 14.67,
+          "maxQueueLength": 3.0
+        },
+        "north": {
+          "averageDelay": 15.46,
+          "averageQueueLength": 0.11,
+          "exited": 16.0,
+          "maxQueueLength": 3.0
+        },
+        "south": {
+          "averageDelay": 16.42,
+          "averageQueueLength": 0.2,
+          "exited": 18.33,
+          "maxQueueLength": 4.0
+        },
+        "west": {
+          "averageDelay": 14.15,
+          "averageQueueLength": 0.11,
+          "exited": 16.33,
+          "maxQueueLength": 2.0
+        }
+      },
+      "perVehicleType": {
+        "car": {
+          "averageDelay": 15.993,
+          "exited": 65.333,
+          "share": 1.0
+        }
+      },
+      "performance": {
+        "status": "available",
+        "unavailable": [],
+        "values": {
+          "averageDelay": {
+            "ciHalfWidth": 2.66,
+            "ciHigh": 18.65,
+            "ciLow": 13.33,
+            "direction": "lower_is_better",
+            "label": "Mean delay",
+            "max": 16.99,
+            "mean": 15.99,
+            "min": 14.86,
+            "n": 3,
+            "std": 1.07,
+            "unit": "s/vehicle"
+          },
+          "averageQueueLength": {
+            "ciHalfWidth": 0.06,
+            "ciHigh": 0.2,
+            "ciLow": 0.08,
+            "direction": "lower_is_better",
+            "label": "Mean queue length",
+            "max": 0.17,
+            "mean": 0.14,
+            "min": 0.12,
+            "n": 3,
+            "std": 0.03,
+            "unit": "vehicles"
+          },
+          "averageStopsPerVehicle": {
+            "ciHalfWidth": 0.08,
+            "ciHigh": 0.48,
+            "ciLow": 0.32,
+            "direction": "lower_is_better",
+            "label": "Stops per vehicle",
+            "max": 0.43,
+            "mean": 0.4,
+            "min": 0.37,
+            "n": 3,
+            "std": 0.03,
+            "unit": "stops"
+          },
+          "averageWaitTime": {
+            "ciHalfWidth": 0.7,
+            "ciHigh": 3.04,
+            "ciLow": 1.64,
+            "direction": "lower_is_better",
+            "label": "Mean wait time",
+            "max": 2.55,
+            "mean": 2.34,
+            "min": 2.02,
+            "n": 3,
+            "std": 0.28,
+            "unit": "s/vehicle"
+          },
+          "maxQueueLength": {
+            "ciHalfWidth": 1.43,
+            "ciHigh": 5.1,
+            "ciLow": 2.24,
+            "direction": "lower_is_better",
+            "label": "Max queue length",
+            "max": 4.0,
+            "mean": 3.67,
+            "min": 3.0,
+            "n": 3,
+            "std": 0.58,
+            "unit": "vehicles"
+          },
+          "throughput": {
+            "ciHalfWidth": 16.91,
+            "ciHigh": 82.24,
+            "ciLow": 48.42,
+            "direction": "higher_is_better",
+            "label": "Vehicles served",
+            "max": 73.0,
+            "mean": 65.33,
+            "min": 60.0,
+            "n": 3,
+            "std": 6.81,
+            "unit": "vehicles"
+          }
+        }
+      },
+      "reliability": {
+        "delayAcrossSeeds": {
+          "ciHigh": 18.65,
+          "ciLow": 13.33,
+          "coefficientOfVariation": 0.067,
+          "mean": 15.99,
+          "std": 1.07
+        },
+        "status": "available",
+        "unavailable": [],
+        "values": {
+          "travelTimeReliability": {
+            "ciHalfWidth": 0.07,
+            "ciHigh": 1.42,
+            "ciLow": 1.28,
+            "direction": "neutral",
+            "label": "Travel-time reliability",
+            "max": 1.38,
+            "mean": 1.35,
+            "min": 1.32,
+            "n": 3,
+            "std": 0.03,
+            "unit": "index"
+          }
+        }
+      },
+      "safety": {
+        "note": "Exploratory: simulated collisions/conflicts are rare-event proxies, not validated crash predictions.",
+        "status": "exploratory",
+        "unavailable": [
+          {
+            "key": "minTTC",
+            "label": "Minimum time-to-collision",
+            "reason": "not reported by the comparison output"
+          },
+          {
+            "key": "ttcEventCount",
+            "label": "Time-to-collision events",
+            "reason": "not reported by the comparison output"
+          }
+        ],
+        "values": {
+          "collisionCount": {
+            "ciHalfWidth": 0.0,
+            "ciHigh": 0.0,
+            "ciLow": 0.0,
+            "direction": "lower_is_better",
+            "label": "Collisions",
+            "max": 0.0,
+            "mean": 0.0,
+            "min": 0.0,
+            "n": 3,
+            "std": 0.0,
+            "unit": "count"
+          }
+        }
+      },
+      "seriesBySeed": {
+        "averageDelay": [
+          16.13,
+          16.99,
+          14.86
+        ],
+        "averageQueueLength": [
+          0.14,
+          0.17,
+          0.12
+        ],
+        "collisionCount": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "throughput": [
+          63.0,
+          73.0,
+          60.0
+        ]
+      },
+      "signalTiming": null,
+      "vehicleLimitReached": false
+    },
+    {
+      "alternativeId": "rbt",
+      "demandScale": 1.0,
+      "demandVph": 1200,
+      "environmental": {
+        "note": "Proxies only (stop-and-go and idling exposure). No emissions or fuel model exists in this build.",
+        "status": "proxy",
+        "unavailable": [
+          {
+            "key": "fuelConsumption",
+            "label": "Fuel consumption",
+            "reason": "No emissions model in this build"
+          },
+          {
+            "key": "co2Emissions",
+            "label": "CO2 emissions",
+            "reason": "No emissions model in this build"
+          }
+        ],
+        "values": {
+          "averageDelay": {
+            "ciHalfWidth": 11.67,
+            "ciHigh": 32.4,
+            "ciLow": 9.06,
+            "direction": "lower_is_better",
+            "label": "Mean delay (idling-exposure proxy)",
+            "max": 26.12,
+            "mean": 20.73,
+            "min": 17.51,
+            "n": 3,
+            "std": 4.7,
+            "unit": "s/vehicle"
+          },
+          "averageStopsPerVehicle": {
+            "ciHalfWidth": 0.51,
+            "ciHigh": 1.17,
+            "ciLow": 0.15,
+            "direction": "lower_is_better",
+            "label": "Stops per vehicle (stop-and-go proxy)",
+            "max": 0.9,
+            "mean": 0.66,
+            "min": 0.54,
+            "n": 3,
+            "std": 0.21,
+            "unit": "stops"
+          }
+        }
+      },
+      "perApproach": {
+        "east": {
+          "averageDelay": 20.15,
+          "averageQueueLength": 0.34,
+          "exited": 16.67,
+          "maxQueueLength": 5.0
+        },
+        "north": {
+          "averageDelay": 18.84,
+          "averageQueueLength": 0.33,
+          "exited": 18.67,
+          "maxQueueLength": 5.0
+        },
+        "south": {
+          "averageDelay": 20.17,
+          "averageQueueLength": 0.49,
+          "exited": 22.67,
+          "maxQueueLength": 6.0
+        },
+        "west": {
+          "averageDelay": 23.44,
+          "averageQueueLength": 0.67,
+          "exited": 20.0,
+          "maxQueueLength": 8.0
+        }
+      },
+      "perVehicleType": {
+        "car": {
+          "averageDelay": 20.73,
+          "exited": 78.0,
+          "share": 1.0
+        }
+      },
+      "performance": {
+        "status": "available",
+        "unavailable": [],
+        "values": {
+          "averageDelay": {
+            "ciHalfWidth": 11.67,
+            "ciHigh": 32.4,
+            "ciLow": 9.06,
+            "direction": "lower_is_better",
+            "label": "Mean delay",
+            "max": 26.12,
+            "mean": 20.73,
+            "min": 17.51,
+            "n": 3,
+            "std": 4.7,
+            "unit": "s/vehicle"
+          },
+          "averageQueueLength": {
+            "ciHalfWidth": 0.69,
+            "ciHigh": 1.15,
+            "ciLow": -0.23,
+            "direction": "lower_is_better",
+            "label": "Mean queue length",
+            "max": 0.78,
+            "mean": 0.46,
+            "min": 0.27,
+            "n": 3,
+            "std": 0.28,
+            "unit": "vehicles"
+          },
+          "averageStopsPerVehicle": {
+            "ciHalfWidth": 0.51,
+            "ciHigh": 1.17,
+            "ciLow": 0.15,
+            "direction": "lower_is_better",
+            "label": "Stops per vehicle",
+            "max": 0.9,
+            "mean": 0.66,
+            "min": 0.54,
+            "n": 3,
+            "std": 0.21,
+            "unit": "stops"
+          },
+          "averageWaitTime": {
+            "ciHalfWidth": 5.69,
+            "ciHigh": 10.45,
+            "ciLow": -0.93,
+            "direction": "lower_is_better",
+            "label": "Mean wait time",
+            "max": 7.4,
+            "mean": 4.76,
+            "min": 3.3,
+            "n": 3,
+            "std": 2.29,
+            "unit": "s/vehicle"
+          },
+          "maxQueueLength": {
+            "ciHalfWidth": 4.97,
+            "ciHigh": 10.97,
+            "ciLow": 1.03,
+            "direction": "lower_is_better",
+            "label": "Max queue length",
+            "max": 8.0,
+            "mean": 6.0,
+            "min": 4.0,
+            "n": 3,
+            "std": 2.0,
+            "unit": "vehicles"
+          },
+          "throughput": {
+            "ciHalfWidth": 8.61,
+            "ciHigh": 86.61,
+            "ciLow": 69.39,
+            "direction": "higher_is_better",
+            "label": "Vehicles served",
+            "max": 82.0,
+            "mean": 78.0,
+            "min": 76.0,
+            "n": 3,
+            "std": 3.46,
+            "unit": "vehicles"
+          }
+        }
+      },
+      "reliability": {
+        "delayAcrossSeeds": {
+          "ciHigh": 32.4,
+          "ciLow": 9.06,
+          "coefficientOfVariation": 0.227,
+          "mean": 20.73,
+          "std": 4.7
+        },
+        "status": "available",
+        "unavailable": [],
+        "values": {
+          "travelTimeReliability": {
+            "ciHalfWidth": 0.63,
+            "ciHigh": 2.16,
+            "ciLow": 0.9,
+            "direction": "neutral",
+            "label": "Travel-time reliability",
+            "max": 1.81,
+            "mean": 1.53,
+            "min": 1.32,
+            "n": 3,
+            "std": 0.25,
+            "unit": "index"
+          }
+        }
+      },
+      "safety": {
+        "note": "Exploratory: simulated collisions/conflicts are rare-event proxies, not validated crash predictions.",
+        "status": "exploratory",
+        "unavailable": [
+          {
+            "key": "minTTC",
+            "label": "Minimum time-to-collision",
+            "reason": "not reported by the comparison output"
+          },
+          {
+            "key": "ttcEventCount",
+            "label": "Time-to-collision events",
+            "reason": "not reported by the comparison output"
+          }
+        ],
+        "values": {
+          "collisionCount": {
+            "ciHalfWidth": 0.0,
+            "ciHigh": 0.0,
+            "ciLow": 0.0,
+            "direction": "lower_is_better",
+            "label": "Collisions",
+            "max": 0.0,
+            "mean": 0.0,
+            "min": 0.0,
+            "n": 3,
+            "std": 0.0,
+            "unit": "count"
+          }
+        }
+      },
+      "seriesBySeed": {
+        "averageDelay": [
+          18.56,
+          26.12,
+          17.51
+        ],
+        "averageQueueLength": [
+          0.33,
+          0.78,
+          0.27
+        ],
+        "collisionCount": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "throughput": [
+          76.0,
+          82.0,
+          76.0
+        ]
+      },
+      "signalTiming": null,
+      "vehicleLimitReached": false
+    },
+    {
+      "alternativeId": "rbt",
+      "demandScale": 1.2,
+      "demandVph": 1440,
+      "environmental": {
+        "note": "Proxies only (stop-and-go and idling exposure). No emissions or fuel model exists in this build.",
+        "status": "proxy",
+        "unavailable": [
+          {
+            "key": "fuelConsumption",
+            "label": "Fuel consumption",
+            "reason": "No emissions model in this build"
+          },
+          {
+            "key": "co2Emissions",
+            "label": "CO2 emissions",
+            "reason": "No emissions model in this build"
+          }
+        ],
+        "values": {
+          "averageDelay": {
+            "ciHalfWidth": 14.93,
+            "ciHigh": 42.71,
+            "ciLow": 12.85,
+            "direction": "lower_is_better",
+            "label": "Mean delay (idling-exposure proxy)",
+            "max": 34.72,
+            "mean": 27.78,
+            "min": 24.13,
+            "n": 3,
+            "std": 6.01,
+            "unit": "s/vehicle"
+          },
+          "averageStopsPerVehicle": {
+            "ciHalfWidth": 0.85,
+            "ciHigh": 1.79,
+            "ciLow": 0.09,
+            "direction": "lower_is_better",
+            "label": "Stops per vehicle (stop-and-go proxy)",
+            "max": 1.33,
+            "mean": 0.94,
+            "min": 0.69,
+            "n": 3,
+            "std": 0.34,
+            "unit": "stops"
+          }
+        }
+      },
+      "perApproach": {
+        "east": {
+          "averageDelay": 24.35,
+          "averageQueueLength": 0.67,
+          "exited": 19.33,
+          "maxQueueLength": 6.0
+        },
+        "north": {
+          "averageDelay": 23.92,
+          "averageQueueLength": 1.11,
+          "exited": 21.33,
+          "maxQueueLength": 10.0
+        },
+        "south": {
+          "averageDelay": 31.0,
+          "averageQueueLength": 1.28,
+          "exited": 24.67,
+          "maxQueueLength": 12.0
+        },
+        "west": {
+          "averageDelay": 30.11,
+          "averageQueueLength": 0.94,
+          "exited": 24.67,
+          "maxQueueLength": 11.0
+        }
+      },
+      "perVehicleType": {
+        "car": {
+          "averageDelay": 27.783,
+          "exited": 90.0,
+          "share": 1.0
+        }
+      },
+      "performance": {
+        "status": "available",
+        "unavailable": [],
+        "values": {
+          "averageDelay": {
+            "ciHalfWidth": 14.93,
+            "ciHigh": 42.71,
+            "ciLow": 12.85,
+            "direction": "lower_is_better",
+            "label": "Mean delay",
+            "max": 34.72,
+            "mean": 27.78,
+            "min": 24.13,
+            "n": 3,
+            "std": 6.01,
+            "unit": "s/vehicle"
+          },
+          "averageQueueLength": {
+            "ciHalfWidth": 0.92,
+            "ciHigh": 1.92,
+            "ciLow": 0.08,
+            "direction": "lower_is_better",
+            "label": "Mean queue length",
+            "max": 1.42,
+            "mean": 1.0,
+            "min": 0.72,
+            "n": 3,
+            "std": 0.37,
+            "unit": "vehicles"
+          },
+          "averageStopsPerVehicle": {
+            "ciHalfWidth": 0.85,
+            "ciHigh": 1.79,
+            "ciLow": 0.09,
+            "direction": "lower_is_better",
+            "label": "Stops per vehicle",
+            "max": 1.33,
+            "mean": 0.94,
+            "min": 0.69,
+            "n": 3,
+            "std": 0.34,
+            "unit": "stops"
+          },
+          "averageWaitTime": {
+            "ciHalfWidth": 7.97,
+            "ciHigh": 15.6,
+            "ciLow": -0.34,
+            "direction": "lower_is_better",
+            "label": "Mean wait time",
+            "max": 11.34,
+            "mean": 7.63,
+            "min": 5.75,
+            "n": 3,
+            "std": 3.21,
+            "unit": "s/vehicle"
+          },
+          "maxQueueLength": {
+            "ciHalfWidth": 5.17,
+            "ciHigh": 15.5,
+            "ciLow": 5.16,
+            "direction": "lower_is_better",
+            "label": "Max queue length",
+            "max": 12.0,
+            "mean": 10.33,
+            "min": 8.0,
+            "n": 3,
+            "std": 2.08,
+            "unit": "vehicles"
+          },
+          "throughput": {
+            "ciHalfWidth": 4.3,
+            "ciHigh": 94.3,
+            "ciLow": 85.7,
+            "direction": "higher_is_better",
+            "label": "Vehicles served",
+            "max": 92.0,
+            "mean": 90.0,
+            "min": 89.0,
+            "n": 3,
+            "std": 1.73,
+            "unit": "vehicles"
+          }
+        }
+      },
+      "reliability": {
+        "delayAcrossSeeds": {
+          "ciHigh": 42.71,
+          "ciLow": 12.85,
+          "coefficientOfVariation": 0.216,
+          "mean": 27.78,
+          "std": 6.01
+        },
+        "status": "available",
+        "unavailable": [],
+        "values": {
+          "travelTimeReliability": {
+            "ciHalfWidth": 0.37,
+            "ciHigh": 2.01,
+            "ciLow": 1.27,
+            "direction": "neutral",
+            "label": "Travel-time reliability",
+            "max": 1.81,
+            "mean": 1.64,
+            "min": 1.52,
+            "n": 3,
+            "std": 0.15,
+            "unit": "index"
+          }
+        }
+      },
+      "safety": {
+        "note": "Exploratory: simulated collisions/conflicts are rare-event proxies, not validated crash predictions.",
+        "status": "exploratory",
+        "unavailable": [
+          {
+            "key": "minTTC",
+            "label": "Minimum time-to-collision",
+            "reason": "not reported by the comparison output"
+          },
+          {
+            "key": "ttcEventCount",
+            "label": "Time-to-collision events",
+            "reason": "not reported by the comparison output"
+          }
+        ],
+        "values": {
+          "collisionCount": {
+            "ciHalfWidth": 0.0,
+            "ciHigh": 0.0,
+            "ciLow": 0.0,
+            "direction": "lower_is_better",
+            "label": "Collisions",
+            "max": 0.0,
+            "mean": 0.0,
+            "min": 0.0,
+            "n": 3,
+            "std": 0.0,
+            "unit": "count"
+          }
+        }
+      },
+      "seriesBySeed": {
+        "averageDelay": [
+          24.5,
+          34.72,
+          24.13
+        ],
+        "averageQueueLength": [
+          0.85,
+          1.42,
+          0.72
+        ],
+        "collisionCount": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "throughput": [
+          89.0,
+          92.0,
+          89.0
+        ]
+      },
+      "signalTiming": null,
+      "vehicleLimitReached": false
+    }
+  ],
+  "scenario": {
+    "control": {
+      "baselineJunctionType": "fixed_time_signal"
+    },
+    "demand": {
+      "baseVehiclesPerHour": 1200.0,
+      "growthLabel": null,
+      "scales": [
+        0.8,
+        1.0,
+        1.2
+      ]
+    },
+    "fingerprint": "c8aa706a60df9df0",
+    "geometry": {
+      "armCount": 4,
+      "arms": {
+        "east": {
+          "bearing": null,
+          "laneWidth": null,
+          "lanes": 1,
+          "length": 200.0,
+          "turning": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          },
+          "vehiclesPerHour": 300.0
+        },
+        "north": {
+          "bearing": null,
+          "laneWidth": null,
+          "lanes": 1,
+          "length": 200.0,
+          "turning": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          },
+          "vehiclesPerHour": 300.0
+        },
+        "south": {
+          "bearing": null,
+          "laneWidth": null,
+          "lanes": 1,
+          "length": 200.0,
+          "turning": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          },
+          "vehiclesPerHour": 300.0
+        },
+        "west": {
+          "bearing": null,
+          "laneWidth": null,
+          "lanes": 1,
+          "length": 200.0,
+          "turning": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          },
+          "vehiclesPerHour": 300.0
+        }
+      },
+      "roads": {
+        "laneChanging": true,
+        "laneWidth": 3.5,
+        "speedLimit": 13.89
+      }
+    },
+    "id": "scn_c8aa706a60df9df0",
+    "name": "Demo junction",
+    "simulation": {
+      "duration": 300.0,
+      "timeStep": 0.1,
+      "warmup": 30.0
+    },
+    "traffic": {
+      "arrivalPattern": "poisson",
+      "totalVehiclesPerHour": 1200.0
+    },
+    "vehicleMix": {
+      "car": 1.0
+    },
+    "vehicleMixDefaulted": true
+  },
+  "summary": {
+    "alternatives": 3,
+    "baseline": "base",
+    "findings": 28,
+    "recommendationBasis": "None. This study reports evidence for this scenario and these demand levels only; it does not rank or recommend a control.",
+    "scales": [
+      0.8,
+      1.0,
+      1.2
+    ],
+    "seeds": 3
+  },
+  "validity": {
+    "caveats": [],
+    "engineCapacityCalibration": {
+      "adaptive": {
+        "calibrated": true,
+        "lanesPerApproach": {
+          "east": 1,
+          "north": 1,
+          "south": 1,
+          "west": 1
+        },
+        "mixedTraffic": false,
+        "note": "Calibrated comparison: one lane per approach, the configuration both geometries are validated for."
+      },
+      "base": {
+        "calibrated": true,
+        "lanesPerApproach": {
+          "east": 1,
+          "north": 1,
+          "south": 1,
+          "west": 1
+        },
+        "mixedTraffic": false,
+        "note": "Calibrated comparison: one lane per approach, the configuration both geometries are validated for."
+      },
+      "rbt": {
+        "calibrated": true,
+        "lanesPerApproach": {
+          "east": 1,
+          "north": 1,
+          "south": 1,
+          "west": 1
+        },
+        "mixedTraffic": false,
+        "note": "Calibrated comparison: one lane per approach, the configuration both geometries are validated for."
+      }
+    },
+    "exploratory": true,
+    "fieldCalibration": "not_provided",
+    "fieldCalibrationDetail": null,
+    "vehicleLimitReached": false
+  },
+  "version": 1
+}
