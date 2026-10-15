@@ -261,6 +261,7 @@
           "items": {
             "$ref": "#/$defs/AlternativeSpec"
           },
+          "maxItems": 64,
           "type": "array"
         },
         {
@@ -273,6 +274,7 @@
     "baseline": {
       "anyOf": [
         {
+          "maxLength": 32,
           "type": "string"
         },
         {

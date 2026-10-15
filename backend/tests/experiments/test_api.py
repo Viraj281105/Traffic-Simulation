@@ -285,16 +285,18 @@ def test_too_many_runs_is_422_naming_the_quota(client):
     assert "maxRunsPerExperiment" in " ".join(response.json()["detail"]["errors"])
 
 
-def test_too_much_simulated_time_is_422_naming_the_quota(client):
+def test_too_much_simulated_work_is_422_naming_the_quota(client):
     body = experiment()
     body["scenario"] = {
         **body["scenario"],
         "simulation": {"duration": 3600, "warmup": 30, "seed": 1},
     }
-    body["uncertainty"].update(conditions=100, replications=2)  # 400 runs x 3600 s
+    body["uncertainty"].update(
+        conditions=100, replications=2
+    )  # 400 runs x 36 000 steps
     response = client.post("/api/v3/experiments", json=body, headers=as_user(ALICE))
     assert response.status_code == 422
-    assert "maxSimulatedSecondsPerExperiment" in " ".join(
+    assert "maxSimulationStepsPerExperiment" in " ".join(
         response.json()["detail"]["errors"]
     )
 
@@ -384,14 +386,18 @@ def test_stored_experiments_per_user_are_capped_until_one_is_deleted(
 # --- failure --------------------------------------------------------------------------------------
 
 
-def test_a_crashing_executor_marks_the_experiment_failed_and_says_why(make_service):
+def test_a_crashing_executor_marks_the_experiment_failed_without_leaking_internals(
+    make_service,
+):
     client = build_client(make_service(FakeExecutor(raises=True)))
     failed = wait_for(client, submit(client)["id"])
-    assert failed["status"] == "failed" and "exploded" in failed["error"]
+    # an unexpected error shows its type only; its message (which may hold paths) stays in the server log
+    assert failed["status"] == "failed" and "RuntimeError" in failed["error"]
+    assert "exploded" not in failed["error"]
     response = client.get(
         f"/api/v3/experiments/{failed['id']}/result", headers=as_user(ALICE)
     )
-    assert response.status_code == 409 and "exploded" in response.json()["detail"]
+    assert response.status_code == 409 and "RuntimeError" in response.json()["detail"]
     # a failed experiment can be deleted, and the slot is free
     assert (
         client.delete(

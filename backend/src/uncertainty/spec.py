@@ -39,6 +39,11 @@ Basis = Literal["assumed", "observed", "user"]
 # win/tie/loss has one direction (strategy section 5.3: one pre-declared indicator, no shopping).
 PrimaryIndicator = Literal["averageDelay", "medianDelay", "p95Delay"]
 
+# A scale factor outside this range is not a perturbation of a junction but a different junction (or a
+# numeric accident); it only produces conditions that are all excluded.
+SCALE_MIN = 0.05
+SCALE_MAX = 10.0
+
 # Smallest share of a distribution that must fall inside the factor bounds.
 _MIN_BOUNDED_MASS = 1e-3
 
@@ -110,6 +115,11 @@ class Factor(_Strict):
         if self.kind in _SCALE_KINDS and low <= 0:
             raise ValueError(
                 f"factor '{self.id}': a scale factor needs a positive lower bound"
+            )
+        if self.kind in _SCALE_KINDS and (low < SCALE_MIN or high > SCALE_MAX):
+            raise ValueError(
+                f"factor '{self.id}': a scale factor must stay within "
+                f"[{SCALE_MIN}, {SCALE_MAX}]"
             )
         if self.kind in _SHIFT_KINDS and not (-1.0 <= low and high <= 1.0):
             raise ValueError(

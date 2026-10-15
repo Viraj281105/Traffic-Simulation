@@ -14,6 +14,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from src.planning.models import AlternativeSpec
 from src.uncertainty.spec import UncertaintySpec
 
+from .limits import MAX_ALTERNATIVES_PARSED
+
 EXPERIMENT_FORMAT = "urbanflow-experiment"
 EXPERIMENT_VERSION = 1
 RESULT_FORMAT = "urbanflow-experiment-result"
@@ -29,9 +31,12 @@ class ExperimentRequest(BaseModel):
     # An ``urbanflow-scenario`` document (the base junction and its traffic).
     scenario: Dict[str, Any]
     # Omitted: the three built-in strategies on the unchanged scenario, fixed-time first.
-    alternatives: Optional[List[AlternativeSpec]] = None
+    alternatives: Optional[List[AlternativeSpec]] = Field(
+        None, max_length=MAX_ALTERNATIVES_PARSED
+    )
     # The alternative every other is compared with. Omitted: the first.
-    baseline: Optional[str] = None
+    # An alternative id (1-32 characters); bounded because it is echoed back in error messages.
+    baseline: Optional[str] = Field(None, max_length=32)
     uncertainty: UncertaintySpec
 
 

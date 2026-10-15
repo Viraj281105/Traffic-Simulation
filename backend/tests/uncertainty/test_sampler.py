@@ -132,8 +132,12 @@ def test_values_respect_bounds():
 
 
 def test_uniform_stratified_sample_covers_the_range_evenly():
-    spec = _spec(n=100, factors=[_factor("demand", bounds=(0.0 + 1e-9, 1.0))])
-    values = sorted(c.values["demand"] for c in sample_conditions(spec))
+    # a shift factor, so the unit interval [0, 1] is a legal range (scale factors start at 0.05)
+    spec = _spec(
+        n=100,
+        factors=[_factor("shift", "turning_shift", bounds=(0.0, 1.0))],
+    )
+    values = sorted(c.values["shift"] for c in sample_conditions(spec))
     # one point per 1% stratum: the k-th smallest value lies in its own stratum
     for k, v in enumerate(values):
         assert k / 100 <= v <= (k + 1) / 100 + 1e-6

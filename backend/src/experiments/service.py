@@ -14,6 +14,7 @@ from __future__ import annotations
 import datetime as _dt
 import json
 import logging
+import math
 import threading
 import uuid
 from dataclasses import dataclass, field
@@ -25,6 +26,7 @@ from src.core.provenance import GIT_COMMIT_HASH, PYTHON_VERSION
 from src.core.scenario import (
     STRATEGIES,
     ScenarioDocument,
+    compile_scenario,
     parse_scenario,
     scenario_fingerprint,
 )
@@ -37,8 +39,9 @@ from src.planning.alternatives import (
 from src.planning.models import fingerprint_of
 from src.study.jobs import JobRegistry, TooManyJobsError
 from src.study.runner import Progress
-from src.uncertainty.apply import preflight
+from src.uncertainty.apply import FactorApplicationError, preflight
 from src.uncertainty.runner import (
+    EnsembleRefusedError,
     RunAlternative,
     TaskExecutor,
     run_experiment,
@@ -90,6 +93,20 @@ INTERRUPTED_ERROR = (
     "Interrupted by a server restart before it finished; submit the experiment again."
 )
 MAX_ERROR_CHARS = 300
+
+
+# Exceptions whose message is ours and written for the user. Anything else (an engine or operating-system
+# error) may carry file paths or internals, so the user sees its type only and the server log has the rest.
+_USER_FACING_ERRORS = (EnsembleRefusedError, FactorApplicationError)
+
+
+def _public_error(exc: Exception) -> str:
+    if isinstance(exc, _USER_FACING_ERRORS):
+        return (str(exc) or type(exc).__name__)[:MAX_ERROR_CHARS]
+    return (
+        f"The experiment failed while running ({type(exc).__name__}). "
+        "The server log has the details."
+    )
 
 
 def ensure_table(conn: Any) -> None:
@@ -150,11 +167,56 @@ def _quota_error(quota: str, message: str) -> str:
     return f"quota {limits.QUOTA_NAMES[quota]}: {message}"
 
 
+def _nested_deeper_than(value: Any, limit: int) -> bool:
+    """Whether a JSON value nests more than ``limit`` levels. Iterative, so a hostile document cannot
+    exhaust the stack of the check itself."""
+    stack = [(value, 1)]
+    while stack:
+        item, depth = stack.pop()
+        if depth > limit:
+            return True
+        if isinstance(item, dict):
+            stack.extend((child, depth + 1) for child in item.values())
+        elif isinstance(item, list):
+            stack.extend((child, depth + 1) for child in item)
+    return False
+
+
+def _simulation_steps(prepared: "Prepared", base: ScenarioDocument) -> int:
+    """Engine steps the whole experiment needs: for every alternative, steps per run (the scenario's
+    duration over the *compiled* time step, which ``advanced`` may change) times conditions times
+    replications."""
+    assert prepared.counts is not None
+    per_cell = 0
+    for alt in prepared.alternatives:
+        if alt.document is None:
+            continue
+        try:
+            step = float(
+                compile_scenario(alt.document, alt.spec.strategy)["simulation"][
+                    "timeStep"
+                ]
+            )
+        except (ValueError, KeyError, TypeError):
+            step = alt.document.simulation.timeStep
+        per_cell += math.ceil(base.simulation.duration / step)
+    return per_cell * prepared.counts["conditions"] * prepared.counts["replications"]
+
+
 def prepare(payload: Any) -> Prepared:
-    """Validate a request without simulating anything."""
+    """Validate a request without simulating anything.
+
+    Everything that costs CPU is bounded before it runs: the document's depth first, then the number of
+    alternatives, and only then the per-alternative validation.
+    """
     out = Prepared()
     if not isinstance(payload, dict):
         out.errors.append("An experiment must be a JSON object")
+        return out
+    if _nested_deeper_than(payload, limits.MAX_DOCUMENT_DEPTH):
+        out.errors.append(
+            f"The document is nested more than {limits.MAX_DOCUMENT_DEPTH} levels deep"
+        )
         return out
     try:
         request = ExperimentRequest.model_validate(payload)
@@ -169,6 +231,17 @@ def prepare(payload: Any) -> Prepared:
         return out
     out.base = base
 
+    given = len(request.alternatives or [])
+    if given > limits.MAX_ALTERNATIVES:
+        # Refused before any alternative is resolved: each one costs a full scenario validation.
+        out.errors.append(
+            _quota_error(
+                "alternatives",
+                f"{given} alternatives given, at most {limits.MAX_ALTERNATIVES} allowed",
+            )
+        )
+        return out
+
     source = (
         InlineAlternatives(request.alternatives)
         if request.alternatives
@@ -181,13 +254,6 @@ def prepare(payload: Any) -> Prepared:
         out.errors.append("alternative ids must be unique")
     if len(resolved) < 2:
         out.errors.append("an experiment needs at least two alternatives")
-    if len(resolved) > limits.MAX_ALTERNATIVES:
-        out.errors.append(
-            _quota_error(
-                "alternatives",
-                f"{len(resolved)} alternatives given, at most {limits.MAX_ALTERNATIVES} allowed",
-            )
-        )
     for r in resolved:
         out.errors.extend(r.errors)
         out.warnings.extend(r.warnings)
@@ -220,14 +286,15 @@ def prepare(payload: Any) -> Prepared:
                     f"{out.counts['totalRuns']} runs, at most {limits.MAX_RUNS_PER_EXPERIMENT} allowed",
                 )
             )
-        seconds = out.counts["totalRuns"] * base.simulation.duration
-        if seconds > limits.MAX_SIMULATED_SECONDS_PER_EXPERIMENT:
+        steps = _simulation_steps(out, base)
+        if steps > limits.MAX_SIMULATION_STEPS_PER_EXPERIMENT:
             out.errors.append(
                 _quota_error(
-                    "simulatedSecondsPerExperiment",
-                    f"{out.counts['totalRuns']} runs of {base.simulation.duration:g} s = "
-                    f"{seconds:g} simulated seconds, at most "
-                    f"{limits.MAX_SIMULATED_SECONDS_PER_EXPERIMENT:g} allowed",
+                    "simulationStepsPerExperiment",
+                    f"{out.counts['totalRuns']} runs of {base.simulation.duration:g} s need "
+                    f"{steps:,} engine steps, at most "
+                    f"{limits.MAX_SIMULATION_STEPS_PER_EXPERIMENT:,} allowed "
+                    "(steps = duration / time step; a smaller time step costs more)",
                 )
             )
     return out
@@ -549,7 +616,7 @@ class ExperimentService:
             record["status"] = "completed"
         except Exception as exc:
             logger.exception("Experiment %s failed", record["id"])
-            record["error"] = (str(exc) or type(exc).__name__)[:MAX_ERROR_CHARS]
+            record["error"] = _public_error(exc)
             record["status"] = "failed"
         finally:
             self._progress.pop(record["id"], None)
