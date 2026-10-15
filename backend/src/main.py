@@ -74,6 +74,7 @@ from src.database.db import (  # noqa: F401
     init_db,
 )
 from src.database.replay_dao import ReplayDAO
+from src.experiments.router import create_router as build_experiments_router
 from src.history.reproduce import engine_metrics
 from src.history.router import build_router as build_history_router
 from src.metrics.collector import MetricCollector
@@ -219,6 +220,15 @@ app.include_router(
         admin_dependency=get_current_user_is_admin,
         dependencies=[Depends(require_api_key)],
         run_dependencies=[Depends(compute_slot)],
+    )
+)
+
+# V3.0 /api/v3 (src/experiments/router.py): Robustness Lab experiments and capabilities.
+# Same guards as /api/v2 (API key AND a signed-in user); every resource is private to its owner.
+app.include_router(
+    build_experiments_router(
+        user_dependency=get_current_user_id,
+        dependencies=[Depends(require_api_key)],
     )
 )
 

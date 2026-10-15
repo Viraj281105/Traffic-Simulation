@@ -1,0 +1,318 @@
+{
+  "$defs": {
+    "AlternativeSpec": {
+      "additionalProperties": false,
+      "description": "One option under study: a control strategy plus an optional change.\n\n``patch`` is a JSON merge-patch (RFC 7386) over a copy of the study's\nscenario document; the patched copy is re-validated by ``ScenarioDocument``\n(unknown fields are rejected) and by ``validate_scenario``.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "maxLength": 120,
+          "title": "Label",
+          "type": "string"
+        },
+        "patch": {
+          "additionalProperties": true,
+          "title": "Patch",
+          "type": "object"
+        },
+        "strategy": {
+          "title": "Strategy",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "strategy"
+      ],
+      "title": "AlternativeSpec",
+      "type": "object"
+    },
+    "Distribution": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "uniform",
+            "triangular",
+            "truncated_normal",
+            "lognormal"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "mean": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mean"
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mode"
+        },
+        "mu": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mu"
+        },
+        "sd": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sd"
+        },
+        "sigma": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sigma"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "Distribution",
+      "type": "object"
+    },
+    "Factor": {
+      "additionalProperties": false,
+      "properties": {
+        "basis": {
+          "default": "assumed",
+          "enum": [
+            "assumed",
+            "observed",
+            "user"
+          ],
+          "title": "Basis",
+          "type": "string"
+        },
+        "bounds": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "title": "Bounds",
+          "type": "array"
+        },
+        "distribution": {
+          "$ref": "#/$defs/Distribution"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,31}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "demand_scale",
+            "turning_shift",
+            "mix_shift",
+            "headway_scale",
+            "desired_speed_scale",
+            "max_acceleration_scale"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "rationale": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Rationale",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "distribution",
+        "bounds"
+      ],
+      "title": "Factor",
+      "type": "object"
+    },
+    "UncertaintySpec": {
+      "additionalProperties": false,
+      "properties": {
+        "conditions": {
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Conditions",
+          "type": "integer"
+        },
+        "factors": {
+          "items": {
+            "$ref": "#/$defs/Factor"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Factors",
+          "type": "array"
+        },
+        "format": {
+          "const": "urbanflow-uncertainty-spec",
+          "default": "urbanflow-uncertainty-spec",
+          "title": "Format",
+          "type": "string"
+        },
+        "name": {
+          "default": "Uncertainty specification",
+          "maxLength": 120,
+          "title": "Name",
+          "type": "string"
+        },
+        "primaryIndicator": {
+          "default": "averageDelay",
+          "enum": [
+            "averageDelay",
+            "medianDelay",
+            "p95Delay"
+          ],
+          "title": "Primaryindicator",
+          "type": "string"
+        },
+        "replications": {
+          "default": 2,
+          "maximum": 10,
+          "minimum": 1,
+          "title": "Replications",
+          "type": "integer"
+        },
+        "seed": {
+          "maximum": 2147483647,
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "tieTolerance": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tietolerance"
+        },
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "factors",
+        "conditions",
+        "seed"
+      ],
+      "title": "UncertaintySpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "alternatives": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/AlternativeSpec"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Alternatives"
+    },
+    "baseline": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Baseline"
+    },
+    "format": {
+      "const": "urbanflow-experiment",
+      "default": "urbanflow-experiment",
+      "title": "Format",
+      "type": "string"
+    },
+    "name": {
+      "default": "Robustness experiment",
+      "maxLength": 120,
+      "title": "Name",
+      "type": "string"
+    },
+    "scenario": {
+      "additionalProperties": true,
+      "title": "Scenario",
+      "type": "object"
+    },
+    "uncertainty": {
+      "$ref": "#/$defs/UncertaintySpec"
+    },
+    "version": {
+      "const": 1,
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "scenario",
+    "uncertainty"
+  ],
+  "title": "ExperimentRequest",
+  "type": "object"
+}
