@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import ValidationError
 
+from src.core.limits import MAX_DOCUMENT_DEPTH, nested_deeper_than, too_deep_message
 from src.planning.models import PlanningStudy
 from src.planning.report import export
 from src.planning.runner import (
@@ -103,8 +104,13 @@ class StudyProgress(Progress):
 
 
 def parse_study(payload: Any) -> Tuple[Optional[PlanningStudy], List[str]]:
+    """Parse a study. Raises :class:`PlanningError` (HTTP 422 on every route, ``validate`` included) for a
+    document nested too deeply to walk safely: the merge and validation of free-form sections (a patch,
+    ``advanced``) recurse, and ~3000 levels used to overflow the stack and answer 500."""
     if not isinstance(payload, dict):
         return None, ["A planning study must be a JSON object"]
+    if nested_deeper_than(payload, MAX_DOCUMENT_DEPTH):
+        raise PlanningError([too_deep_message(MAX_DOCUMENT_DEPTH)])
     try:
         return PlanningStudy.model_validate(payload), []
     except ValidationError as err:

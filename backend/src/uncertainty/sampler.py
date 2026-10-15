@@ -23,6 +23,9 @@ from .spec import Distribution, Factor, UncertaintySpec
 
 _STD = NormalDist()
 _EDGE = 1e-12  # keep probabilities strictly inside (0, 1)
+# Sampled values are rounded so that fingerprints never depend on float formatting
+# (e.g. 1.4400000000000002), then clamped back into the factor bounds.
+VALUE_DECIMALS = 6
 
 
 @dataclass(frozen=True)
@@ -91,7 +94,7 @@ def _sample_factor(
     strata: List[int] = []
     for stratum in order:
         u = (stratum + rng.random()) / n
-        value = inverse_cdf(factor.distribution, low, high, u)
+        value = round(inverse_cdf(factor.distribution, low, high, u), VALUE_DECIMALS)
         values.append(min(max(value, low), high))
         strata.append(stratum)
     return values, strata

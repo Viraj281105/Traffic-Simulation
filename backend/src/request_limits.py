@@ -43,7 +43,11 @@ ASGIApp = Callable[[Scope, Receive, Send], Awaitable[None]]
 MAX_V2_BODY_BYTES = 1024 * 1024
 
 # Stateless compute that is cheap per request but takes arbitrary documents.
-LIMITED_PREFIXES: Sequence[str] = ("/api/v2/networks", "/api/v2/planning/validate")
+LIMITED_PREFIXES: Sequence[str] = (
+    "/api/v2/networks",
+    "/api/v2/planning/validate",
+    "/api/v3/experiments",
+)
 
 
 class _TooLarge(HTTPException):

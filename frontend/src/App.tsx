@@ -64,6 +64,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { UrbanFlowLockup } from "./components/ui/UrbanFlowLogo";
 import { PageTransition } from "./components/ui/PageTransition";
+import { useExitTransition } from "./components/ui/motion";
 import { StatusState } from "./components/ui/StatusState";
 import { useNavIndicator } from "./components/ui/useNavIndicator";
 import { UrbanFlowLoader } from "./components/ui/Loader";
@@ -135,6 +136,11 @@ const ThreeWayStudyPage = lazy(() =>
 const AdminPanel = lazy(() =>
   import("./components/AdminPanel").then((m) => ({ default: m.AdminPanel })),
 );
+const ExperimentPage = lazy(() =>
+  import("./components/experiments/ExperimentPage").then((m) => ({
+    default: m.ExperimentPage,
+  })),
+);
 const PlannerPage = lazy(() =>
   import("./components/planner/PlannerPage").then((m) => ({
     default: m.PlannerPage,
@@ -173,6 +179,15 @@ export function App() {
   }
   if (route.kind === "compare") {
     return <Dashboard viewMode="history" page={{ kind: "compare" }} />;
+  }
+  // Robustness Lab experiments belong to the Plan section.
+  if (route.kind === "experiment") {
+    return (
+      <Dashboard
+        viewMode="planner"
+        page={{ kind: "experiment", experimentId: route.experimentId }}
+      />
+    );
   }
   return <Dashboard viewMode={route.view} />;
 }
@@ -251,7 +266,10 @@ function configFromReplay(
   };
 }
 
-type HistoryPage = { kind: "run"; runId: string } | { kind: "compare" };
+type HistoryPage =
+  | { kind: "run"; runId: string }
+  | { kind: "compare" }
+  | { kind: "experiment"; experimentId: string };
 
 function Dashboard({
   viewMode: routedView,
@@ -794,6 +812,7 @@ function Dashboard({
     viewMode === "comparative" ? stage : "",
     page?.kind ?? "",
     page?.kind === "run" ? page.runId : "",
+    page?.kind === "experiment" ? page.experimentId : "",
   ].join(":");
 
   const comparisonMaps = (
@@ -1175,7 +1194,14 @@ function Dashboard({
           className="app-main full-screen page-scroll"
         >
           <Suspense fallback={viewLoading}>
-            <PlannerPage />
+            {page?.kind === "experiment" ? (
+              <ExperimentPage
+                key={page.experimentId}
+                experimentId={page.experimentId}
+              />
+            ) : (
+              <PlannerPage />
+            )}
           </Suspense>
         </PageTransition>
       ) : viewMode === "admin" ? (
@@ -1428,30 +1454,34 @@ function LoginDialog({
   onClose: () => void;
   onLogin: () => void;
 }) {
+  // The dialog fades out before it unmounts (ui/motion.ts).
+  const { overlay, panel, close } = useExitTransition(onClose);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") close();
     };
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
     };
-  }, [onClose]);
+  }, [close]);
 
   return (
     <div
+      ref={overlay}
       className="uf-dialog-overlay login-overlay"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) close();
       }}
     >
       <div
+        ref={panel}
         className="uf-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="login-title"
       >
-        <Login onLogin={onLogin} onClose={onClose} />
+        <Login onLogin={onLogin} onClose={close} />
       </div>
     </div>
   );

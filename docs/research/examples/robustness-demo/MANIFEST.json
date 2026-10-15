@@ -1,0 +1,14 @@
+{
+  "what": "Precomputed V3.0 Robustness Lab demo result (fallback; not a live run)",
+  "generatedAt": "2026-10-15T14:26:42+0530",
+  "gitCommit": "ca09d3d2d404b9bada6ecf38a65da40c0d8ae8b5",
+  "pythonVersion": "3.14.7",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "backend": "http://localhost:8001",
+  "specFingerprint": "a1064d25dfcc0941",
+  "resultFingerprint": "52b7b3d275d0e8ca",
+  "wallSeconds": 203.65,
+  "workers": 8,
+  "rerunReproducedFingerprint": true,
+  "note": "Exact replay needs the same commit, Python minor version, dependency pins and CPU class."
+}

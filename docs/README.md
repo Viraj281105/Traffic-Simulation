@@ -61,6 +61,8 @@ flowchart TB
 | [research/metrics-reference.md](research/metrics-reference.md) | Current | Every metric with definition, unit, calculation, interpretation, limits, use |
 | [research/reproducibility.md](research/reproducibility.md) | Current | Determinism, provenance, re-running runs and studies |
 | [research/validation.md](research/validation.md) | Current | Validated · measured · assumed · known limitations · future work |
+| [research/uncertainty.md](research/uncertainty.md) | Current (V3.0 W1) | Robustness Lab: does a comparison survive declared uncertainty? Method, eligibility, what it does not claim; [worked example](research/examples/robustness-demo/README.md) |
+| [engineering/v3-w1-security-review.md](engineering/v3-w1-security-review.md) | Current (V3.0 W1) | Security review of `/api/v3`: findings, fixes, residual risks |
 | [reports/comparative_report.md](reports/comparative_report.md) | Record | Measured signal-vs-roundabout comparison (revision 2026-09-25b) |
 | [reports/v1-known-limitations.md](reports/v1-known-limitations.md) | Record | Per-item limitation audit with measurements |
 | [bug-fix-report.md](bug-fix-report.md) | Record | Bug-fix and calibration pass with regression evidence |

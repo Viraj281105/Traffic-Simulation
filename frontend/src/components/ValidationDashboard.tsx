@@ -196,17 +196,23 @@ const CustomChartTooltip: React.FC<CustomTooltipProps> = ({
     <div className="validation-chart-tooltip">
       <div className="tooltip-seed-title">Seed #{label}</div>
       <div className="tooltip-metric-rows">
-        <div className="tooltip-row">
-          <span className="tooltip-dot" style={{ background: SIGNAL_COLOR }} />
-          <span className="tooltip-name">Signal:</span>
-          <span className="tooltip-val">
+        <div className="validation-tooltip-row">
+          <span
+            className="validation-tooltip-dot"
+            style={{ background: SIGNAL_COLOR }}
+          />
+          <span className="validation-tooltip-name">Signal:</span>
+          <span className="validation-tooltip-val">
             {sigVal.toFixed(2)} {unit}
           </span>
         </div>
-        <div className="tooltip-row">
-          <span className="tooltip-dot" style={{ background: ROUND_COLOR }} />
-          <span className="tooltip-name">Roundabout:</span>
-          <span className="tooltip-val">
+        <div className="validation-tooltip-row">
+          <span
+            className="validation-tooltip-dot"
+            style={{ background: ROUND_COLOR }}
+          />
+          <span className="validation-tooltip-name">Roundabout:</span>
+          <span className="validation-tooltip-val">
             {rndVal.toFixed(2)} {unit}
           </span>
         </div>
@@ -496,34 +502,35 @@ export const ValidationDashboard: React.FC = () => {
     <div className="validation-dashboard">
       {/* ── Top Executive Header Row ────────────────────────────── */}
       <div className="validation-header-row">
-        <div className="header-title-group">
-          <div className="header-badge-row">
-            <h2>
-              <Microscope size={14} aria-hidden="true" className="uf-glyph" />{" "}
-              Statistical Validation Studio
-            </h2>
-            <span className="header-mini-chip">Monte Carlo Engine</span>
-            <span className="header-confidence-chip">
+        <div className="uf-dash-head">
+          <p className="guided-eyebrow">Research lab</p>
+          <h1 className="uf-dash-head__title">
+            <Microscope size={22} aria-hidden="true" className="uf-glyph" />
+            Statistical Validation Studio
+          </h1>
+          <div className="uf-dash-head__tags">
+            <span className="uf-tag">Monte Carlo engine</span>
+            <span className="uf-tag is-positive">
               Next run: {Math.round(confidenceLevel * 100)}% confidence (α ={" "}
               {alpha})
             </span>
           </div>
-          <p className="header-subtitle">
+          <p className="uf-dash-head__lead">
             Stochastic paired-seed simulation evaluating Fixed-Time Signal vs.
             Modern Roundabout under identical randomized traffic arrivals using
             Welch’s two-sample t-test and Cohen’s d effect sizes.
           </p>
-          <p className="header-subtitle">
+          <p className="uf-dash-head__lead">
             This study uses its own configurable scenario (set under Advanced
             Config). To check a comparison you ran in Compare, use “How reliable
             is this?” on its results page — it repeats that exact scenario.
           </p>
         </div>
 
-        <div className="header-actions">
+        <div className="validation-header-actions">
           {/* Inline Seeds & Duration selector in the same line as heading */}
-          <div className="header-inline-controls">
-            <div className="inline-param">
+          <div className="validation-header-inline-controls">
+            <div className="validation-inline-param">
               <label htmlFor="validation-seeds">Seeds</label>
               <input
                 id="validation-seeds"
@@ -537,9 +544,9 @@ export const ValidationDashboard: React.FC = () => {
                 title="Seeds (N): 2–30"
               />
             </div>
-            <div className="inline-param">
+            <div className="validation-inline-param">
               <label htmlFor="validation-duration">Duration</label>
-              <div className="inline-unit-wrap">
+              <div className="validation-inline-unit-wrap">
                 <input
                   id="validation-duration"
                   type="number"
@@ -557,7 +564,7 @@ export const ValidationDashboard: React.FC = () => {
             </div>
             <button
               type="button"
-              className="header-run-btn"
+              className="validation-header-run-btn"
               onClick={runValidation}
               disabled={isRunning}
               title="Execute Monte Carlo validation"
@@ -569,7 +576,7 @@ export const ValidationDashboard: React.FC = () => {
           {/* Config Settings Button named strictly 'Advanced Config' */}
           <button
             type="button"
-            className={`header-tool-btn ${showConfigPanel ? "active" : ""}`}
+            className={`validation-header-tool-btn ${showConfigPanel ? "active" : ""}`}
             onClick={() => {
               setShowConfigPanel((v) => !v);
             }}
@@ -582,7 +589,7 @@ export const ValidationDashboard: React.FC = () => {
           {/* Theory / Methodology Button */}
           <button
             type="button"
-            className={`header-tool-btn ${showMethodologyDrawer ? "active" : ""}`}
+            className={`validation-header-tool-btn ${showMethodologyDrawer ? "active" : ""}`}
             onClick={() => {
               setShowMethodologyDrawer((v) => !v);
             }}
@@ -595,7 +602,7 @@ export const ValidationDashboard: React.FC = () => {
           {result && (
             <button
               type="button"
-              className="export-csv-btn"
+              className="validation-export-csv-btn"
               onClick={exportValidationCSV}
               title="Download stochastic seed dataset as CSV"
             >
@@ -666,7 +673,7 @@ export const ValidationDashboard: React.FC = () => {
       {/* ── Rich Advanced Configuration Drawer ─────────────────────── */}
       {showConfigPanel && (
         <div className="validation-advanced-drawer">
-          <div className="advanced-drawer-header">
+          <div className="validation-advanced-drawer-header">
             <div className="advanced-title-group">
               <h4>
                 <Settings2 size={14} aria-hidden="true" className="uf-glyph" />{" "}
@@ -685,9 +692,9 @@ export const ValidationDashboard: React.FC = () => {
             />
           </div>
 
-          <div className="advanced-config-grid">
+          <div className="validation-advanced-config-grid">
             {/* Section 1: Traffic Demand & Arrival Dynamics */}
-            <div className="advanced-card">
+            <div className="validation-advanced-card">
               <div className="adv-card-header">
                 <span className="adv-icon">
                   <Car size={14} aria-hidden="true" className="uf-glyph" />
@@ -765,7 +772,7 @@ export const ValidationDashboard: React.FC = () => {
             </div>
 
             {/* Section 2: Physical Discretization & Boundaries */}
-            <div className="advanced-card">
+            <div className="validation-advanced-card">
               <div className="adv-card-header">
                 <span className="adv-icon">
                   <Timer size={14} aria-hidden="true" className="uf-glyph" />
@@ -868,7 +875,7 @@ export const ValidationDashboard: React.FC = () => {
             </div>
 
             {/* Section 3: Statistical Rigor & Hypothesis Testing */}
-            <div className="advanced-card">
+            <div className="validation-advanced-card">
               <div className="adv-card-header">
                 <span className="adv-icon">
                   <BookOpen size={14} aria-hidden="true" className="uf-glyph" />
@@ -986,7 +993,7 @@ export const ValidationDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="advanced-drawer-footer">
+          <div className="validation-advanced-drawer-footer">
             <div className="adv-foot-summary">
               <span>Active Config:</span>
               <span className="foot-chip">
@@ -1296,7 +1303,7 @@ export const ValidationDashboard: React.FC = () => {
                         <div className="stat-title-group">
                           <h4>{METRIC_LABELS[key]}</h4>
                           <span
-                            className="delta-pill"
+                            className="validation-delta-pill"
                             title="Roundabout mean relative to signal mean: descriptive, not better or worse"
                           >
                             {deltaPct > 0
@@ -1398,12 +1405,12 @@ export const ValidationDashboard: React.FC = () => {
                   </div>
 
                   {/* Metric Switcher Pills */}
-                  <div className="chart-metric-pills">
+                  <div className="validation-chart-metric-pills">
                     {METRIC_KEYS.map((k) => (
                       <button
                         key={k}
                         type="button"
-                        className={`metric-pill-btn ${chartMetric === k ? "active" : ""}`}
+                        className={`validation-metric-pill-btn ${chartMetric === k ? "active" : ""}`}
                         onClick={() => {
                           setChartMetric(k);
                         }}
@@ -1520,7 +1527,7 @@ export const ValidationDashboard: React.FC = () => {
                 </button>
               </div>
 
-              <div className="table-scroll-container">
+              <div className="validation-table-scroll-container">
                 <table>
                   <thead>
                     <tr>

@@ -479,10 +479,13 @@ const CustomTooltip = ({
           }
 
           return (
-            <div key={p.name} className="tooltip-row">
-              <span className="tooltip-dot" style={{ background: p.color }} />
-              <span className="tooltip-name">{p.name}:</span>
-              <span className="tooltip-val" style={{ color: p.color }}>
+            <div key={p.name} className="volume-tooltip-row">
+              <span
+                className="volume-tooltip-dot"
+                style={{ background: p.color }}
+              />
+              <span className="volume-tooltip-name">{p.name}:</span>
+              <span className="volume-tooltip-val" style={{ color: p.color }}>
                 {p.value.toFixed(2)}
                 {unit}
                 {extraInfo && (
@@ -842,28 +845,29 @@ export const VolumeAnalysisDashboard: React.FC = () => {
     <div className="volume-dashboard">
       {/* ── Top Executive Header ───────────────────────── */}
       <div className="volume-header-row">
-        <div className="header-title-group">
-          <div className="header-badge-row">
-            <h2>
-              <ChartSpline size={14} aria-hidden="true" className="uf-glyph" />{" "}
-              Traffic Volume & Capacity Analysis
-            </h2>
-            <span className="header-mini-chip">Capacity Studio</span>
-            <span className="header-version-chip">HCM 6th Ed.</span>
+        <div className="uf-dash-head">
+          <p className="guided-eyebrow">Research lab</p>
+          <h1 className="uf-dash-head__title">
+            <ChartSpline size={22} aria-hidden="true" className="uf-glyph" />
+            Traffic Volume & Capacity Analysis
+          </h1>
+          <div className="uf-dash-head__tags">
+            <span className="uf-tag">Capacity studio</span>
+            <span className="uf-tag">HCM 6th Ed.</span>
           </div>
-          <p className="header-subtitle">
+          <p className="uf-dash-head__lead">
             Systematic sensitivity study comparing Fixed-Time Signals vs. Modern
             Roundabouts across demand tiers. Uses its own study scenario (set
             under Advanced Config), one seed per tier.
           </p>
         </div>
 
-        <div className="header-actions">
+        <div className="volume-header-actions">
           {/* Inline Duration & Seed controls in line with the heading */}
-          <div className="header-inline-controls">
-            <div className="inline-param">
+          <div className="volume-header-inline-controls">
+            <div className="volume-inline-param">
               <label>Duration</label>
-              <div className="inline-unit-wrap">
+              <div className="volume-inline-unit-wrap">
                 <input
                   type="number"
                   min={10}
@@ -879,7 +883,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="inline-param">
+            <div className="volume-inline-param">
               <label>Seed</label>
               <div className="inline-seed-wrap">
                 <input
@@ -906,7 +910,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
 
             <button
               type="button"
-              className="header-run-btn"
+              className="volume-header-run-btn"
               onClick={runSweep}
               disabled={isRunning}
               title="Execute capacity volume sweep"
@@ -918,7 +922,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
           {/* Button strictly named 'Advanced Config' */}
           <button
             type="button"
-            className={`header-tool-btn ${showAdvancedDrawer ? "active" : ""}`}
+            className={`volume-header-tool-btn ${showAdvancedDrawer ? "active" : ""}`}
             onClick={() => {
               setShowAdvancedDrawer((prev) => !prev);
               setShowHistoryDrawer(false);
@@ -932,7 +936,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
           {/* Saved Sweeps button */}
           <button
             type="button"
-            className={`header-tool-btn ${showHistoryDrawer ? "active" : ""}`}
+            className={`volume-header-tool-btn ${showHistoryDrawer ? "active" : ""}`}
             onClick={() => {
               setShowHistoryDrawer((prev) => !prev);
               setShowAdvancedDrawer(false);
@@ -946,7 +950,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
           {activeSession && (
             <button
               type="button"
-              className="export-csv-btn"
+              className="volume-export-csv-btn"
               onClick={exportCSV}
               title="Download study dataset as CSV"
             >
@@ -960,7 +964,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
       {/* ── Advanced Configuration Drawer ── */}
       {showAdvancedDrawer && (
         <div className="volume-advanced-drawer">
-          <div className="advanced-drawer-header">
+          <div className="volume-advanced-drawer-header">
             <div>
               <h3>
                 <Settings2 size={14} aria-hidden="true" className="uf-glyph" />{" "}
@@ -979,9 +983,9 @@ export const VolumeAnalysisDashboard: React.FC = () => {
             />
           </div>
 
-          <div className="advanced-config-grid">
+          <div className="volume-advanced-config-grid">
             {/* Card 1: Traffic Demand Spectrum & Rates */}
-            <div className="advanced-card">
+            <div className="volume-advanced-card">
               <div className="advanced-card-header">
                 <span className="card-badge">01</span>
                 <div>
@@ -1068,7 +1072,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
             </div>
 
             {/* Card 2: Simulation Physics & Road Geometry */}
-            <div className="advanced-card">
+            <div className="volume-advanced-card">
               <div className="advanced-card-header">
                 <span className="card-badge">02</span>
                 <div>
@@ -1177,7 +1181,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
             </div>
 
             {/* Card 3: Intersection Lanes & Fleet Speed */}
-            <div className="advanced-card">
+            <div className="volume-advanced-card">
               <div className="advanced-card-header">
                 <span className="card-badge">03</span>
                 <div>
@@ -1295,7 +1299,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="advanced-drawer-footer">
+          <div className="volume-advanced-drawer-footer">
             <div className="drawer-footprint-chip">
               Active Parameters:{" "}
               <strong>{ratesConfig.rates.length} Rates</strong> ·{" "}
@@ -1781,10 +1785,10 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                 </div>
 
                 <div className="chart-studio-controls">
-                  <div className="chart-metric-pills">
+                  <div className="volume-chart-metric-pills">
                     <button
                       type="button"
-                      className={`metric-pill-btn ${metricView === "delay" ? "active" : ""}`}
+                      className={`volume-metric-pill-btn ${metricView === "delay" ? "active" : ""}`}
                       onClick={() => {
                         setMetricView("delay");
                       }}
@@ -1798,7 +1802,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      className={`metric-pill-btn ${metricView === "throughput" ? "active" : ""}`}
+                      className={`volume-metric-pill-btn ${metricView === "throughput" ? "active" : ""}`}
                       onClick={() => {
                         setMetricView("throughput");
                       }}
@@ -1808,7 +1812,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      className={`metric-pill-btn ${metricView === "queue" ? "active" : ""}`}
+                      className={`volume-metric-pill-btn ${metricView === "queue" ? "active" : ""}`}
                       onClick={() => {
                         setMetricView("queue");
                       }}
@@ -1822,7 +1826,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      className={`metric-pill-btn ${metricView === "all" ? "active" : ""}`}
+                      className={`volume-metric-pill-btn ${metricView === "all" ? "active" : ""}`}
                       onClick={() => {
                         setMetricView("all");
                       }}
@@ -2498,7 +2502,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                 </div>
               </div>
 
-              <div className="table-scroll-container">
+              <div className="volume-table-scroll-container">
                 <table className="modern-telemetry-table">
                   <thead>
                     <tr>
@@ -2719,7 +2723,7 @@ export const VolumeAnalysisDashboard: React.FC = () => {
                           {/* Delta */}
                           <td>
                             <span
-                              className="delta-pill"
+                              className="volume-delta-pill"
                               style={{
                                 color:
                                   run.delayDeltaPercent > 0

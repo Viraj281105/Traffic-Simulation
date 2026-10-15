@@ -6,9 +6,11 @@
   flex-direction: column;
   gap: 18px;
   width: 100%;
+  /* Wider than other workspaces: the run table carries ten columns and its
+     actions, and should not need a sideways scroll on a laptop. */
   max-width: 1440px;
   margin: 0 auto;
-  padding: 32px 28px 56px;
+  padding: 36px 24px 72px;
   color: var(--text-primary);
   min-height: 0;
 }
@@ -18,18 +20,19 @@
 }
 
 .history-header h1 {
-  margin: 0 0 8px;
-  font-size: clamp(24px, 2.6vw, 30px);
+  margin: 6px 0 10px;
+  font-size: clamp(26px, 3vw, 34px);
+  line-height: 1.15;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--text-primary);
 }
 
-.history-header p {
+.history-header p:not(.guided-eyebrow) {
   margin: 0;
-  max-width: 76ch;
+  max-width: var(--measure);
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.55;
 }
 

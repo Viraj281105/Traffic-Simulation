@@ -1,0 +1,238 @@
+/* Robustness Lab experiment page. The Plan section's evidence look (see
+   planner/Planner.css), on the theme tokens and the workspace primitives
+   (styles/workspace.css: .uf-table, .uf-progress, .uf-link). */
+
+.experiment-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-sizing: border-box;
+  /* A flex item of the dashboard's main area: without these it grows to the
+     width of its widest table instead of the screen. */
+  width: 100%;
+  min-width: 0;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 36px 24px 72px;
+  color: var(--color-text);
+  line-height: 1.55;
+}
+.experiment-page > * {
+  animation: uf-rise-in 420ms var(--ease-emphasized) both;
+}
+.experiment-page > :nth-child(2) {
+  animation-delay: 40ms;
+}
+.experiment-page > :nth-child(n + 3) {
+  animation-delay: 80ms;
+}
+
+.experiment-back-link {
+  align-self: flex-start;
+  font-size: 13.5px;
+}
+
+.experiment-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.experiment-header h1 {
+  margin: 4px 0 6px;
+  font-size: clamp(26px, 3vw, 34px);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+.experiment-header > p:not(.guided-eyebrow) {
+  max-width: var(--measure);
+  color: var(--color-text-2);
+  font-size: 15px;
+}
+
+.experiment-meta,
+.experiment-muted {
+  color: var(--color-text-2);
+}
+.experiment-muted {
+  margin: 0;
+  font-size: 13px;
+}
+.experiment-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 0;
+  font-size: 13.5px;
+  overflow-wrap: anywhere;
+}
+.experiment-meta code {
+  font-size: 12.5px;
+}
+
+.experiment-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 22px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-raised);
+  color: var(--color-text-2);
+}
+
+/* Job state, in words; the tone only groups like with like. */
+.experiment-chip {
+  --badge-tone: var(--color-text-2);
+}
+.experiment-chip.is-running {
+  --badge-tone: var(--color-success);
+}
+.experiment-chip.is-queued {
+  --badge-tone: var(--color-info);
+}
+.experiment-chip.is-failed {
+  --badge-tone: var(--color-danger);
+}
+
+.experiment-result {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.experiment-header,
+.experiment-result,
+.experiment-block,
+.experiment-banner {
+  min-width: 0;
+}
+
+.experiment-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 22px 22px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-raised);
+}
+.experiment-block > p {
+  margin: 0;
+}
+
+/* "Read this first": the validity callout. */
+.experiment-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px;
+  border: 1px solid color-mix(in srgb, var(--color-warning) 32%, transparent);
+  border-left: 3px solid var(--color-warning);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-warning) 7%, var(--color-surface));
+  font-size: 13.5px;
+}
+.experiment-banner p {
+  margin: 0;
+}
+.experiment-banner ul {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding-left: 1.15em;
+  color: var(--color-text-2);
+}
+
+.experiment-block h2,
+.experiment-banner h2 {
+  margin: 0;
+  font-size: 16.5px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.experiment-validity {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.experiment-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px 20px;
+  margin: 0;
+}
+.experiment-facts--wide {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+.experiment-facts dt {
+  font-size: 11.5px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-3);
+}
+.experiment-facts dd {
+  margin: 3px 0 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.experiment-class {
+  margin: 0;
+  font-weight: 600;
+}
+
+.experiment-criteria {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.experiment-criteria li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  font-size: 13.5px;
+}
+.experiment-criterion-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  color: var(--color-text-2);
+}
+
+.experiment-table tbody th,
+.experiment-table tbody td {
+  vertical-align: top;
+}
+
+.experiment-ci {
+  display: block;
+  color: var(--color-text-3);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .experiment-page {
+    padding: 22px 16px 56px;
+  }
+  .experiment-block {
+    padding: 16px;
+  }
+}

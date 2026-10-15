@@ -161,6 +161,7 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
   return (
     <div className="history-dashboard">
       <header className="history-header">
+        <p className="guided-eyebrow">Saved</p>
         <h1>Saved runs</h1>
         <p>
           Runs saved from the simulation views, each with its run ID, seed and
