@@ -68,6 +68,14 @@ server {
         try_files /app.html =404;
     }
 
+    # Robustness Lab experiment pages: /app/experiments/<experimentId>. The id
+    # pattern matches RUN_ID_PATTERN in frontend/src/routing.ts. An unknown
+    # but well-formed id is served the dashboard, which shows its own "not
+    # found" state from the API's 404; a malformed id falls through to the 404.
+    location ~ "^/app/experiments/[A-Za-z0-9_-]{1,128}/?$" {
+        try_files /app.html =404;
+    }
+
     # Bare /app (and the legacy /app.html) load the dashboard, which redirects
     # client-side to its default view.
     location ~ ^/app/?$ {

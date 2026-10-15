@@ -35,6 +35,10 @@ Refused once, at submission, before any run (`preflight`, implemented in `backen
 * The base scenario's `advanced` section sets inputs that a **document-level** factor writes, so the deep merge would silently override the factor: `advanced.traffic` demand keys (`arrivalRate`, `directionalSplit`, `totalVehicles`, `approaches`) against `demand_scale`; `advanced.traffic.approaches` against `turning_shift` and `mix_shift`; `advanced.vehicleGeneration.vehicleMix` against `mix_shift`. The three IDM-style factors are not affected: they read the effective values (including any `advanced` override) and write the scaled result back into `advanced`.
 * Each factor kind may appear once per specification (factors are global in v1; two of one kind would compound ambiguously).
 
+Counted per condition from the run outcomes (found by looking at the first real experiment in the browser):
+
+* `no_completed_vehicles`: no vehicle finished its trip after warm-up. The collector reports a delay of `0.0` for an empty sample, which is not a measurement; scored as a tie it would make every alternative look identical. Such a condition is excluded for every alternative. `POST /api/v3/experiments/validate` warns when fewer than 60 s are measured after warm-up (a 30 s scenario at 200 veh/h per arm finishes no trip at all; 60 s at 600 veh/h per arm finishes 6 to 10).
+
 Reserved but not yet produced: `timeout` (simulations run a fixed number of ticks, so a run cannot hang) and `deadlock` (the engine exposes no deadlock flag). The analysis accepts both reasons so they can be added without a contract change.
 
 ## Spike evidence (2026-10-15)

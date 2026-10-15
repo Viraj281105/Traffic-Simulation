@@ -135,6 +135,11 @@ const ThreeWayStudyPage = lazy(() =>
 const AdminPanel = lazy(() =>
   import("./components/AdminPanel").then((m) => ({ default: m.AdminPanel })),
 );
+const ExperimentPage = lazy(() =>
+  import("./components/experiments/ExperimentPage").then((m) => ({
+    default: m.ExperimentPage,
+  })),
+);
 const PlannerPage = lazy(() =>
   import("./components/planner/PlannerPage").then((m) => ({
     default: m.PlannerPage,
@@ -173,6 +178,15 @@ export function App() {
   }
   if (route.kind === "compare") {
     return <Dashboard viewMode="history" page={{ kind: "compare" }} />;
+  }
+  // Robustness Lab experiments belong to the Plan section.
+  if (route.kind === "experiment") {
+    return (
+      <Dashboard
+        viewMode="planner"
+        page={{ kind: "experiment", experimentId: route.experimentId }}
+      />
+    );
   }
   return <Dashboard viewMode={route.view} />;
 }
@@ -251,7 +265,10 @@ function configFromReplay(
   };
 }
 
-type HistoryPage = { kind: "run"; runId: string } | { kind: "compare" };
+type HistoryPage =
+  | { kind: "run"; runId: string }
+  | { kind: "compare" }
+  | { kind: "experiment"; experimentId: string };
 
 function Dashboard({
   viewMode: routedView,
@@ -794,6 +811,7 @@ function Dashboard({
     viewMode === "comparative" ? stage : "",
     page?.kind ?? "",
     page?.kind === "run" ? page.runId : "",
+    page?.kind === "experiment" ? page.experimentId : "",
   ].join(":");
 
   const comparisonMaps = (
@@ -1175,7 +1193,14 @@ function Dashboard({
           className="app-main full-screen page-scroll"
         >
           <Suspense fallback={viewLoading}>
-            <PlannerPage />
+            {page?.kind === "experiment" ? (
+              <ExperimentPage
+                key={page.experimentId}
+                experimentId={page.experimentId}
+              />
+            ) : (
+              <PlannerPage />
+            )}
           </Suspense>
         </PageTransition>
       ) : viewMode === "admin" ? (

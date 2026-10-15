@@ -11,6 +11,8 @@ Failures never abort the ensemble and are never repaired:
 * the perturbed scenario fails validation        -> condition excluded, reason ``validation_failed``;
 * a simulation raises                            -> ``run_failed``;
 * a run hits the vehicle limit                   -> ``vehicle_limit``;
+* no vehicle finished its trip after warm-up     -> ``no_completed_vehicles``: the engine reports a
+  delay of 0.0 for an empty sample, which is not a measurement and must never be compared;
 * the primary indicator is missing or not finite -> ``non_finite``.
 
 A condition is excluded for **every** alternative if any of its runs is unusable (pairing is preserved).
@@ -99,12 +101,32 @@ def _indicator(result: Dict[str, Any], name: str) -> float:
     return float(value)
 
 
+def _nothing_completed(result: Dict[str, Any]) -> bool:
+    """True when the run reports that no vehicle finished its trip after warm-up.
+
+    The delay indicators are then undefined, but the collector reports 0.0 for them. A run without a
+    ``throughput`` figure (a stub) is given the benefit of the doubt; every real run has one.
+    """
+    throughput = (result.get("metrics") or {}).get("throughput")
+    return (
+        isinstance(throughput, (int, float))
+        and not isinstance(throughput, bool)
+        and throughput < 1
+    )
+
+
 def _limit_reached(result: Dict[str, Any]) -> bool:
     return bool((result.get("metrics") or {}).get("vehicleLimitReached"))
 
 
 # When a condition has several problems, the first listed is the one reported.
-_PRECEDENCE = ("validation_failed", "run_failed", "vehicle_limit", "non_finite")
+_PRECEDENCE = (
+    "validation_failed",
+    "run_failed",
+    "vehicle_limit",
+    "no_completed_vehicles",
+    "non_finite",
+)
 
 
 def _note_failure(failures: Dict[int, str], index: int, reason: str) -> None:
@@ -208,6 +230,8 @@ def run_ensemble(
         per_alt.append(value)
         if _limit_reached(result):
             _note_failure(failures, index, "vehicle_limit")
+        if _nothing_completed(result):
+            _note_failure(failures, index, "no_completed_vehicles")
         if not math.isfinite(value):
             _note_failure(failures, index, "non_finite")
 

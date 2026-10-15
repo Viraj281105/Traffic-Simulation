@@ -39,6 +39,11 @@ const DASHBOARD_ENTRY_PATHS = new Set(["/app", "/app.html"]);
 export const RUNS_PREFIX = "/app/runs/";
 export const COMPARE_ROUTE = "/app/compare";
 
+/** Robustness Lab experiment pages (V3.0): /app/experiments/<experimentId>.
+ *  Mirrored by the nginx and Vite fallbacks like the run pages. They belong
+ *  to the Plan section of the dashboard. */
+export const EXPERIMENTS_PREFIX = "/app/experiments/";
+
 /** Same rule as the backend's run-id validation (main.py _RUN_ID_PATTERN). */
 export const RUN_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 
@@ -47,6 +52,10 @@ export const MAX_COMPARE_RUNS = 6;
 
 export function runPath(runId: string): string {
   return RUNS_PREFIX + encodeURIComponent(runId);
+}
+
+export function experimentPath(experimentId: string): string {
+  return EXPERIMENTS_PREFIX + encodeURIComponent(experimentId);
 }
 
 export function comparePath(runIds: string[]): string {
@@ -68,6 +77,7 @@ export function parseCompareRuns(search: string): string[] {
 export type Route =
   | { kind: "view"; view: RoutedView }
   | { kind: "run"; runId: string }
+  | { kind: "experiment"; experimentId: string }
   | { kind: "compare" }
   | { kind: "redirect"; to: string }
   | { kind: "notFound"; path: string };
@@ -92,6 +102,12 @@ export function resolveRoute(pathname: string): Route {
   if (path.startsWith(RUNS_PREFIX)) {
     const runId = path.slice(RUNS_PREFIX.length);
     if (RUN_ID_PATTERN.test(runId)) return { kind: "run", runId };
+  }
+  if (path.startsWith(EXPERIMENTS_PREFIX)) {
+    const experimentId = path.slice(EXPERIMENTS_PREFIX.length);
+    if (RUN_ID_PATTERN.test(experimentId)) {
+      return { kind: "experiment", experimentId };
+    }
   }
   return { kind: "notFound", path: pathname };
 }

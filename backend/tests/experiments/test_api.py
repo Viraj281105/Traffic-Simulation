@@ -434,9 +434,9 @@ def test_real_engine_end_to_end_through_the_api(tmp_path, monkeypatch):
             {"id": "second", "strategy": "fixed_time"},
         ]
     )
-    body["scenario"]["simulation"] = {"duration": 25, "warmup": 5, "seed": 3}
+    body["scenario"]["simulation"] = {"duration": 60, "warmup": 5, "seed": 3}
     body["scenario"]["approaches"] = {
-        d: {**a, "vehiclesPerHour": 200}
+        d: {**a, "vehiclesPerHour": 600}
         for d, a in body["scenario"]["approaches"].items()
     }
     body["uncertainty"].update(conditions=3, replications=1)
@@ -451,3 +451,21 @@ def test_real_engine_end_to_end_through_the_api(tmp_path, monkeypatch):
     assert comparison["tie"]["count"] == 3
     assert comparison["difference"]["mean"]["value"] == 0.0
     assert result["execution"]["runsExecuted"] == 6
+
+
+def test_a_short_measured_window_is_warned_about_before_submission(client):
+    short = experiment()
+    short["scenario"]["simulation"] = {"duration": 30, "warmup": 5, "seed": 3}
+    check = client.post(
+        "/api/v3/experiments/validate", json=short, headers=as_user(ALICE)
+    ).json()
+    assert check["valid"] is True
+    assert any("25 s are measured" in w and "excluded" in w for w in check["warnings"])
+    long_enough = experiment()
+    long_enough["scenario"]["simulation"] = {"duration": 90, "warmup": 10, "seed": 3}
+    ok = client.post(
+        "/api/v3/experiments/validate", json=long_enough, headers=as_user(ALICE)
+    ).json()
+    assert not any(
+        "measured after warm-up" in w for w in ok["warnings"]
+    )  # 80 s measured

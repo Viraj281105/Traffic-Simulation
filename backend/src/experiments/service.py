@@ -83,6 +83,9 @@ _INDEX = (
     "ON uf_experiments (user_id, created_at)"
 )
 
+# Below this many measured seconds (duration minus warm-up) a run may finish no trip at all.
+MIN_MEASURED_SECONDS_WARNING = 60.0
+
 INTERRUPTED_ERROR = (
     "Interrupted by a server restart before it finished; submit the experiment again."
 )
@@ -193,6 +196,14 @@ def prepare(payload: Any) -> Prepared:
                 f"{r.id}: {e}"
                 for e in preflight(r.document, request.uncertainty.factors)
             )
+
+    measured = base.simulation.duration - base.simulation.warmup
+    if measured < MIN_MEASURED_SECONDS_WARNING:
+        out.warnings.append(
+            f"Only {measured:g} s are measured after warm-up. Few vehicles may finish a trip in "
+            "that time, and a condition in which none does is excluded (its delay is undefined); "
+            f"{MIN_MEASURED_SECONDS_WARNING:g} s or more is advisable."
+        )
 
     out.baseline = request.baseline or (resolved[0].id if resolved else None)
     if out.baseline is not None and out.baseline not in ids:

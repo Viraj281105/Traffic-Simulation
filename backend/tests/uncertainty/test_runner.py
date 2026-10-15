@@ -75,9 +75,10 @@ def _alts(doc=None):
 class FakeExecutor:
     """Returns canned metrics and records the tasks it was given."""
 
-    def __init__(self, delay=None, fail=(), limit=(), missing=()):
+    def __init__(self, delay=None, fail=(), limit=(), missing=(), empty=()):
         self.delay = delay or (lambda cfg: 40.0 + 100.0 * cfg["traffic"]["arrivalRate"])
         self.fail, self.limit, self.missing = set(fail), set(limit), set(missing)
+        self.empty = set(empty)  # runs in which no vehicle finished its trip
         self.tasks: List[Any] = []
 
     def __call__(self, tasks, progress=None):
@@ -92,7 +93,12 @@ class FakeExecutor:
             metrics: Dict[str, Any] = {
                 "averageDelay": delay,
                 "vehicleLimitReached": any(tag in task.label for tag in self.limit),
+                "throughput": 0 if any(tag in task.label for tag in self.empty) else 25,
             }
+            if any(tag in task.label for tag in self.empty):
+                metrics["averageDelay"] = (
+                    0.0  # what the collector reports for an empty sample
+                )
             if any(tag in task.label for tag in self.missing):
                 metrics["averageDelay"] = None
             out.append({"metrics": metrics})
@@ -181,6 +187,26 @@ def test_vehicle_limit_and_missing_indicator_are_excluded_with_their_reasons():
     )
     run = run_ensemble(_spec(), _alts(), executor=fake)
     assert _reasons(run) == {2: "vehicle_limit", 5: "non_finite"}
+
+
+def test_a_run_in_which_no_vehicle_finished_is_excluded_not_scored_as_zero_delay():
+    fake = FakeExecutor(empty=("condition 4 · rep 1 · round",))
+    run = run_ensemble(_spec(), _alts(), executor=fake)
+    assert _reasons(run) == {4: "no_completed_vehicles"}
+    assert (
+        run.conditions[4].outcomes == {}
+    )  # excluded for every alternative, pairing preserved
+
+
+def test_a_stub_without_a_throughput_figure_is_not_treated_as_empty():
+    class NoThroughput(FakeExecutor):
+        def __call__(self, tasks, progress=None):
+            out = super().__call__(tasks, progress)
+            for r in out:
+                r["metrics"].pop("throughput")
+            return out
+
+    assert _reasons(run_ensemble(_spec(n=4), _alts(), executor=NoThroughput())) == {}
 
 
 def test_when_a_condition_has_several_problems_the_most_fundamental_is_reported():
@@ -322,25 +348,28 @@ def test_nan_never_reaches_the_analysis():
 def test_real_ensemble_two_identical_alternatives_tie_exactly_and_repeat_exactly():
     """Same strategy twice under common random numbers must give identical outcomes in every condition,
     so every comparison is a tie with difference exactly 0; and rerunning gives the same fingerprint."""
-    doc = _doc(vph=200.0, duration=30, warmup=5)
+    doc = _doc(vph=600.0, duration=60, warmup=5)
     alts = [
         RunAlternative("first", "fixed_time", doc),
         RunAlternative("second", "fixed_time", doc),
     ]
-    spec = _spec(n=4, reps=1)
+    spec = _spec(n=3, reps=1)
     one = run_experiment(spec, alts, "first")
     two = run_experiment(spec, alts, "first")
     assert one["resultFingerprint"] == two["resultFingerprint"]
     analysis = one["analysis"]
-    assert analysis["counts"]["validConditions"] == 4
+    assert analysis["counts"]["validConditions"] == 3
     comparison = analysis["alternatives"]["second"]["comparison"]
-    assert comparison["tie"]["count"] == 4
+    assert comparison["tie"]["count"] == 3
     assert comparison["difference"]["mean"]["value"] == 0.0
-    assert one["execution"]["runsExecuted"] == 8
+    assert (
+        analysis["alternatives"]["first"]["meanOutcome"] > 0
+    )  # real delays, not an empty sample
+    assert one["execution"]["runsExecuted"] == 6
 
 
 def test_real_ensemble_compares_a_signal_with_a_roundabout():
-    doc = _doc(vph=200.0, duration=30, warmup=5)
+    doc = _doc(vph=600.0, duration=60, warmup=5)
     alts = [
         RunAlternative("signal", "fixed_time", doc),
         RunAlternative("round", "roundabout", doc),
@@ -349,3 +378,19 @@ def test_real_ensemble_compares_a_signal_with_a_roundabout():
     assert out["analysis"]["counts"]["validConditions"] == 3
     block = out["analysis"]["alternatives"]["round"]["comparison"]
     assert sum(block[k]["count"] for k in ("win", "tie", "loss")) == 3
+
+
+def test_real_ensemble_too_short_for_any_vehicle_to_finish_is_excluded_and_says_so():
+    """30 s at 200 veh/h per arm: nothing completes after warm-up, and the engine reports delay 0.0. That
+    is not a measurement; every condition must be excluded with its reason, never compared as a tie."""
+    doc = _doc(vph=200.0, duration=30, warmup=5)
+    alts = [
+        RunAlternative("signal", "fixed_time", doc),
+        RunAlternative("round", "roundabout", doc),
+    ]
+    out = run_experiment(_spec(n=3, reps=1), alts, "signal")
+    analysis = out["analysis"]
+    assert analysis["counts"]["validConditions"] == 0
+    assert analysis["exclusions"]["byReason"] == {"no_completed_vehicles": 3}
+    assert analysis["eligibility"]["class"] == "exploratory"
+    assert analysis["alternatives"]["round"]["comparison"] is None

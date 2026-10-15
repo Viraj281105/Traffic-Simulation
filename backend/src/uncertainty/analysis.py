@@ -74,6 +74,7 @@ EXCLUSION_REASONS = (
     "timeout",
     "vehicle_limit",
     "deadlock",
+    "no_completed_vehicles",  # no vehicle finished its trip after warm-up: the delay is undefined
     "non_finite",
     "missing_run",
 )
