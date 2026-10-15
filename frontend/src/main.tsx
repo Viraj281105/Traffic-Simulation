@@ -4,6 +4,7 @@ import { App } from "./App";
 import { AppRouteLoader } from "./components/ui/RouteLoader";
 import "./styles/tokens.css";
 import "./styles/components.css";
+import "./styles/workspace.css";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

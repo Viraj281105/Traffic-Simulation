@@ -1,0 +1,630 @@
+/*
+ * Workspace primitives for the dashboard (app.html only): fields, toggle
+ * chips, panels, callouts, data tables, progress and budget meters, button
+ * sizes, entrances and disclosures. Built only from styles/tokens.css; pages
+ * compose these rather than restyling native controls one by one.
+ */
+
+/* ── Smooth-height container (ui/SmoothHeight.tsx) ──────────────── */
+.uf-smooth-inner {
+  display: flow-root;
+}
+
+/* ── Buttons: sizes and the quiet variant ──────────────────────────────── */
+.pb-btn.pb-sm {
+  padding: 5px 11px;
+  font-size: 12.5px;
+  gap: 6px;
+  box-shadow: none;
+}
+.pb-btn.pb-sm:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+.pb-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--color-text-2);
+  box-shadow: none;
+}
+.pb-ghost:hover:not(:disabled) {
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
+  color: var(--color-text);
+  box-shadow: none;
+  transform: none;
+}
+.pb-btn.pb-block {
+  width: 100%;
+}
+.pb-btn.pb-tall {
+  padding: 11px 18px;
+  font-size: 14px;
+  border-radius: var(--radius-md);
+}
+.pb-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+/* Press feedback is instant; the release eases back. */
+.pb-btn:active:not(:disabled) {
+  transition-duration: var(--dur-instant);
+}
+
+/* Inline busy indicator for a button or a status line. */
+.uf-spinner {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, currentColor 28%, transparent);
+  border-top-color: currentColor;
+  animation: uf-spin 700ms linear infinite;
+}
+@keyframes uf-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* No rotation: a gently breathing dot still says "working". */
+  .uf-spinner {
+    border-top-color: color-mix(in srgb, currentColor 28%, transparent);
+    background: color-mix(in srgb, currentColor 35%, transparent);
+    animation: uf-loader-breathe 1.2s ease-in-out infinite alternate !important;
+    animation-duration: 1.2s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+
+/* ── Fields ────────────────────────────────────────────────────────────── */
+.uf-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.uf-label {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--color-text-2);
+  padding: 0;
+}
+.uf-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-text-3);
+}
+.uf-input,
+.uf-select {
+  height: 36px;
+  width: 100%;
+  min-width: 0;
+  padding: 0 11px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 13.5px;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+.uf-input::placeholder {
+  color: var(--color-text-3);
+}
+.uf-input:hover:not(:disabled),
+.uf-select:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--color-text) 34%, transparent);
+}
+.uf-input:focus-visible,
+.uf-select:focus-visible {
+  outline: none;
+  border-color: var(--color-focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-focus) 22%, transparent);
+}
+.uf-input:disabled,
+.uf-select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.uf-input[type="number"] {
+  font-variant-numeric: tabular-nums;
+}
+.uf-select {
+  appearance: none;
+  padding-right: 32px;
+  cursor: pointer;
+  /* Chevron drawn in the text colour so it follows the theme. */
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-text-2) 50%),
+    linear-gradient(135deg, var(--color-text-2) 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) 50%,
+    calc(100% - 11px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+.uf-select option {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+/* Toggle chips: a real checkbox (keyboard, screen readers, forms) drawn as a
+   pill. The input stays in the accessibility tree, only visually hidden. */
+.uf-chip-check {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text-2);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+.uf-chip-check input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  margin: 0;
+  cursor: inherit;
+}
+.uf-chip-check::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  opacity: 0.6;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-base) var(--ease-spring),
+    opacity var(--dur-fast) var(--ease-out);
+}
+.uf-chip-check:hover {
+  color: var(--color-text);
+  border-color: color-mix(in srgb, var(--color-text) 34%, transparent);
+}
+.uf-chip-check:active {
+  transform: scale(0.97);
+  transition-duration: var(--dur-instant);
+}
+.uf-chip-check:has(input:checked) {
+  background: var(--brand-green-soft);
+  border-color: color-mix(in srgb, var(--color-primary) 60%, transparent);
+  color: var(--brand-green-ink);
+}
+.uf-chip-check:has(input:checked)::before {
+  background: currentColor;
+  opacity: 1;
+  transform: scale(1.15);
+}
+.uf-chip-check:has(input:focus-visible) {
+  box-shadow: var(--focus-ring);
+}
+.uf-chip-check:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+/* Checked but locked (e.g. the last remaining choice): still selected, so it
+   keeps full strength; only the cursor says it cannot be cleared. */
+.uf-chip-check:has(input:checked:disabled) {
+  opacity: 1;
+}
+.uf-chip-check:has(input:disabled):active {
+  transform: none;
+}
+.uf-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ── Panels ────────────────────────────────────────────────────────────── */
+.uf-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: 20px 22px 22px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-raised);
+}
+.uf-panel__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.uf-panel__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 16.5px;
+  font-weight: 650;
+  line-height: 1.3;
+  color: var(--color-text);
+}
+.uf-panel__desc {
+  margin: 4px 0 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--color-text-2);
+  max-width: var(--measure);
+}
+.uf-panel--inset {
+  background: var(--color-surface-2);
+  box-shadow: none;
+}
+@media (max-width: 640px) {
+  .uf-panel {
+    padding: 16px;
+  }
+}
+
+/* A small uppercase label above a group. */
+.uf-subhead {
+  margin: 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-3);
+}
+
+/* Lists inside panels and callouts: the global reset removes list padding,
+   which left markers hanging outside their cards. */
+.uf-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding-left: 1.15em;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--color-text-2);
+}
+.uf-list li::marker {
+  color: var(--color-text-3);
+}
+
+/* ── Callouts: validity notes, errors, outcomes ────────────────────────── */
+.uf-callout {
+  --callout-tone: var(--color-info);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 12px;
+  align-items: start;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--callout-tone) 30%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--callout-tone) 7%, var(--color-surface));
+  color: var(--color-text);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.uf-callout > svg {
+  margin-top: 2px;
+  color: var(--callout-tone);
+}
+.uf-callout__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.uf-callout__title {
+  margin: 0;
+  font-weight: 650;
+}
+.uf-callout__body p {
+  margin: 0;
+}
+.uf-callout--warning {
+  --callout-tone: var(--color-warning);
+}
+.uf-callout--danger {
+  --callout-tone: var(--color-danger);
+}
+.uf-callout--success {
+  --callout-tone: var(--color-success);
+}
+.uf-callout code {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+/* ── Data tables ───────────────────────────────────────────────────────── */
+/* The wrapper scrolls sideways on narrow screens instead of pushing the page
+   wider; the table keeps its natural column widths. */
+.uf-table-wrap {
+  /* Positioned, so absolutely positioned content inside (an .sr-only column
+     label) is clipped by this scroller instead of widening the page. */
+  position: relative;
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.uf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.uf-table caption {
+  padding: 12px 14px 10px;
+  text-align: left;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--color-text-3);
+}
+.uf-table thead th {
+  padding: 9px 14px;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  color: var(--color-text-3);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: left;
+  white-space: nowrap;
+}
+.uf-table tbody th,
+.uf-table tbody td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: middle;
+  color: var(--color-text);
+}
+.uf-table tbody th {
+  font-weight: 600;
+}
+.uf-table tbody:last-child tr:last-child > * {
+  border-bottom: 0;
+}
+.uf-table tbody tr {
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.uf-table tbody tr:hover {
+  background: color-mix(in srgb, var(--color-surface-2) 65%, transparent);
+}
+.uf-table .is-num {
+  text-align: right;
+  white-space: nowrap;
+}
+.uf-table thead th.is-num {
+  text-align: right;
+}
+
+/* ── Progress ──────────────────────────────────────────────────────────── */
+/* A native <progress> (its value stays readable to assistive technology),
+   drawn in the theme. Without a value it is indeterminate: a sweep that
+   says "working" without pretending to know how far along it is. */
+.uf-progress {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 6px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-3);
+  color: var(--brand-green);
+  overflow: hidden;
+}
+.uf-progress::-webkit-progress-bar {
+  background: var(--color-surface-3);
+  border-radius: var(--radius-pill);
+}
+.uf-progress::-webkit-progress-value {
+  background: var(--brand-green);
+  border-radius: var(--radius-pill);
+  transition: width var(--dur-slow) var(--ease-emphasized);
+}
+.uf-progress::-moz-progress-bar {
+  background: var(--brand-green);
+  border-radius: var(--radius-pill);
+}
+.uf-progress:indeterminate {
+  background:
+    linear-gradient(90deg, transparent, var(--brand-green), transparent) 0 0 /
+      40% 100% no-repeat,
+    var(--color-surface-3);
+  animation: uf-progress-sweep 1.4s var(--ease-in-out) infinite;
+}
+.uf-progress:indeterminate::-webkit-progress-bar {
+  background: transparent;
+}
+.uf-progress:indeterminate::-moz-progress-bar {
+  background: transparent;
+}
+@keyframes uf-progress-sweep {
+  from {
+    background-position:
+      -60% 0,
+      0 0;
+  }
+  to {
+    background-position:
+      160% 0,
+      0 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .uf-progress:indeterminate {
+    background: color-mix(
+      in srgb,
+      var(--brand-green) 35%,
+      var(--color-surface-3)
+    );
+    animation: none !important;
+  }
+}
+
+/* A budget meter (used / allowed). The tone shifts near the limit; the
+   number beside it always says the same in words. */
+.uf-meter {
+  --meter-tone: var(--brand-green);
+  position: relative;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-3);
+  overflow: hidden;
+}
+.uf-meter > span {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--meter-tone);
+  transform-origin: left center;
+  transform: scaleX(var(--meter, 0));
+  transition:
+    transform var(--dur-slow) var(--ease-emphasized),
+    background-color var(--dur-base) var(--ease-out);
+}
+.uf-meter.is-high {
+  --meter-tone: var(--color-warning);
+}
+.uf-meter.is-over {
+  --meter-tone: var(--color-danger);
+}
+
+/* ── Entrances ─────────────────────────────────────────────────────────── */
+/* Content that appears because state changed (a result, an outcome). Keyed
+   in React so it replays on each change; it is interactive at once. */
+.uf-reveal {
+  animation: uf-rise-in var(--dur-slow) var(--ease-emphasized) both;
+}
+.uf-fade {
+  animation: uf-fade-in var(--dur-base) var(--ease-out) both;
+}
+
+/* ── Disclosures ───────────────────────────────────────────────────────── */
+/* Every <details> in the dashboard opens and closes with a height ease where
+   the browser can animate to auto; elsewhere it toggles instantly. */
+@supports (interpolate-size: allow-keywords) {
+  .app {
+    interpolate-size: allow-keywords;
+  }
+  .app details::details-content {
+    block-size: 0;
+    overflow-y: clip;
+    transition:
+      block-size var(--dur-base) var(--ease-emphasized),
+      content-visibility var(--dur-base) allow-discrete;
+  }
+  .app details[open]::details-content {
+    block-size: auto;
+  }
+}
+.app summary:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+/* ── In-app text links ─────────────────────────────────────────────────── */
+.uf-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 3px;
+  transition: text-decoration-color var(--dur-fast) var(--ease-out);
+}
+.uf-link:hover {
+  text-decoration-color: currentColor;
+}
+.uf-link svg {
+  transition: transform var(--dur-base) var(--ease-out);
+}
+.uf-link:hover svg.is-back {
+  transform: translateX(-2px);
+}
+
+/* ── Dashboard header (research tools with their own toolbar) ──────────── */
+/* The guided page header's type scale, a little tighter, for full-width
+   tools whose controls sit beside the title. */
+.uf-dash-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 520px;
+}
+.uf-dash-head__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: clamp(24px, 2.4vw, 30px);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+.uf-dash-head__title .uf-glyph {
+  flex-shrink: 0;
+  color: var(--brand-green-ink);
+}
+.uf-dash-head__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.uf-dash-head__lead {
+  margin: 0;
+  max-width: 78ch;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--color-text-2);
+}
+
+/* A quiet descriptive tag (not a status). */
+.uf-tag {
+  --tag-tone: var(--color-text-2);
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  border: 1px solid color-mix(in srgb, var(--tag-tone) 26%, transparent);
+  background: color-mix(in srgb, var(--tag-tone) 8%, transparent);
+  color: var(--tag-tone);
+  font-size: 11.5px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.uf-tag.is-positive {
+  --tag-tone: var(--color-success);
+}

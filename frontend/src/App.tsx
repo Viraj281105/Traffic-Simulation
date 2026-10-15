@@ -64,6 +64,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { UrbanFlowLockup } from "./components/ui/UrbanFlowLogo";
 import { PageTransition } from "./components/ui/PageTransition";
+import { useExitTransition } from "./components/ui/motion";
 import { StatusState } from "./components/ui/StatusState";
 import { useNavIndicator } from "./components/ui/useNavIndicator";
 import { UrbanFlowLoader } from "./components/ui/Loader";
@@ -1453,30 +1454,34 @@ function LoginDialog({
   onClose: () => void;
   onLogin: () => void;
 }) {
+  // The dialog fades out before it unmounts (ui/motion.ts).
+  const { overlay, panel, close } = useExitTransition(onClose);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") close();
     };
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
     };
-  }, [onClose]);
+  }, [close]);
 
   return (
     <div
+      ref={overlay}
       className="uf-dialog-overlay login-overlay"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) close();
       }}
     >
       <div
+        ref={panel}
         className="uf-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="login-title"
       >
-        <Login onLogin={onLogin} onClose={onClose} />
+        <Login onLogin={onLogin} onClose={close} />
       </div>
     </div>
   );
