@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ArrowLeft } from "lucide-react";
 import "./Experiments.css";
 import {
   ExperimentsApiError,
@@ -28,13 +29,14 @@ type LoadState =
 function BackToPlanner() {
   return (
     <a
-      className="experiment-back-link"
+      className="uf-link experiment-back-link"
       href={VIEW_ROUTES.planner}
       onClick={(event) => {
         followLink(event, VIEW_ROUTES.planner);
       }}
     >
-      ← Planner
+      <ArrowLeft size={15} className="is-back" aria-hidden="true" />
+      Planner
     </a>
   );
 }
@@ -131,6 +133,7 @@ export function ExperimentPage({
       <div className="experiment-page">
         <BackToPlanner />
         <header className="experiment-header">
+          <p className="guided-eyebrow">Robustness Lab</p>
           <h1>Experiment not found</h1>
           <p>
             No experiment of yours has the ID <code>{experimentId}</code>. It
@@ -153,7 +156,7 @@ export function ExperimentPage({
           actions={
             <button
               type="button"
-              className="experiment-retry"
+              className="pb-btn pb-secondary experiment-retry"
               onClick={() => {
                 setState({ kind: "loading" });
                 setAttempt((n) => n + 1);
@@ -174,9 +177,10 @@ export function ExperimentPage({
     <div className="experiment-page">
       <BackToPlanner />
       <header className="experiment-header">
+        <p className="guided-eyebrow">Robustness Lab</p>
         <h1>{status.name}</h1>
         <p className="experiment-meta">
-          <span className={`experiment-chip is-${status.status}`}>
+          <span className={`uf-badge experiment-chip is-${status.status}`}>
             {STATE_WORD[status.status]}
           </span>{" "}
           Submitted <Created value={status.createdAt} />
@@ -208,6 +212,7 @@ export function ExperimentPage({
           ) : null}
           {status.progress && status.progress.total > 0 ? (
             <progress
+              className="uf-progress"
               value={status.progress.completed}
               max={status.progress.total}
               aria-label="Simulations finished"

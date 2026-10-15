@@ -153,64 +153,66 @@ export function ExperimentResultView({ result }: { result: ExperimentResult }) {
         <h2 id="exp-compare-title">
           Comparison with the baseline ({label(a.baseline)})
         </h2>
-        <table className="experiment-table">
-          <caption>
-            Share of the {valid.toString()} valid conditions in which each
-            alternative has a lower (better), similar (tie) or higher (worse){" "}
-            {indicator} than the baseline. A tie is a result, and it counts in
-            every share. These are descriptive comparisons, not a ranking and
-            not a test of significance.
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">Alternative</th>
-              <th scope="col">Better (win)</th>
-              <th scope="col">About the same (tie)</th>
-              <th scope="col">Worse (loss)</th>
-              <th scope="col">Mean difference</th>
-              <th scope="col">Median difference</th>
-            </tr>
-          </thead>
-          <tbody>
-            {others.map(([id, alt]: [string, AlternativeAnalysis]) =>
-              alt.comparison ? (
-                <tr key={id}>
-                  <th scope="row">{label(id)}</th>
-                  <td>
-                    <Share value={alt.comparison.win} of={valid} />
-                  </td>
-                  <td>
-                    <Share value={alt.comparison.tie} of={valid} />
-                  </td>
-                  <td>
-                    <Share value={alt.comparison.loss} of={valid} />
-                  </td>
-                  <td>
-                    {seconds(alt.comparison.difference.mean.value)}
-                    <span className="experiment-ci">
-                      {" "}
-                      95 % interval{" "}
-                      {secondsInterval(alt.comparison.difference.mean.ci)}
-                    </span>
-                  </td>
-                  <td>
-                    {seconds(alt.comparison.difference.median.value)}
-                    <span className="experiment-ci">
-                      {" "}
-                      95 % interval{" "}
-                      {secondsInterval(alt.comparison.difference.median.ci)}
-                    </span>
-                  </td>
-                </tr>
-              ) : (
-                <tr key={id}>
-                  <th scope="row">{label(id)}</th>
-                  <td colSpan={5}>{NO_COMPARISON}</td>
-                </tr>
-              ),
-            )}
-          </tbody>
-        </table>
+        <div className="uf-table-wrap">
+          <table className="uf-table experiment-table">
+            <caption>
+              Share of the {valid.toString()} valid conditions in which each
+              alternative has a lower (better), similar (tie) or higher (worse){" "}
+              {indicator} than the baseline. A tie is a result, and it counts in
+              every share. These are descriptive comparisons, not a ranking and
+              not a test of significance.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Alternative</th>
+                <th scope="col">Better (win)</th>
+                <th scope="col">About the same (tie)</th>
+                <th scope="col">Worse (loss)</th>
+                <th scope="col">Mean difference</th>
+                <th scope="col">Median difference</th>
+              </tr>
+            </thead>
+            <tbody>
+              {others.map(([id, alt]: [string, AlternativeAnalysis]) =>
+                alt.comparison ? (
+                  <tr key={id}>
+                    <th scope="row">{label(id)}</th>
+                    <td>
+                      <Share value={alt.comparison.win} of={valid} />
+                    </td>
+                    <td>
+                      <Share value={alt.comparison.tie} of={valid} />
+                    </td>
+                    <td>
+                      <Share value={alt.comparison.loss} of={valid} />
+                    </td>
+                    <td>
+                      {seconds(alt.comparison.difference.mean.value)}
+                      <span className="experiment-ci">
+                        {" "}
+                        95 % interval{" "}
+                        {secondsInterval(alt.comparison.difference.mean.ci)}
+                      </span>
+                    </td>
+                    <td>
+                      {seconds(alt.comparison.difference.median.value)}
+                      <span className="experiment-ci">
+                        {" "}
+                        95 % interval{" "}
+                        {secondsInterval(alt.comparison.difference.median.ci)}
+                      </span>
+                    </td>
+                  </tr>
+                ) : (
+                  <tr key={id}>
+                    <th scope="row">{label(id)}</th>
+                    <td colSpan={5}>{NO_COMPARISON}</td>
+                  </tr>
+                ),
+              )}
+            </tbody>
+          </table>
+        </div>
         <p className="experiment-muted">
           Difference = the alternative minus the baseline, in seconds; negative
           means the alternative had less {indicator}. The intervals treat the
@@ -221,41 +223,43 @@ export function ExperimentResultView({ result }: { result: ExperimentResult }) {
 
       <section className="experiment-block" aria-labelledby="exp-regret-title">
         <h2 id="exp-regret-title">Regret and preference share</h2>
-        <table className="experiment-table">
-          <caption>
-            Regret is how much worse an alternative is than the best alternative
-            in the same condition (never negative). Preference share is the
-            share of conditions in which an alternative is within the tie
-            tolerance of the best. Shares are not ranked and can add up to more
-            than 100 %. Both depend on which alternatives were compared:{" "}
-            {all.map(([id]) => label(id)).join(", ")}.
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">Alternative</th>
-              <th scope="col">Mean {indicator}</th>
-              <th scope="col">Mean regret</th>
-              <th scope="col">95th-percentile regret</th>
-              <th scope="col">Largest regret in this sample</th>
-              <th scope="col">Preference share</th>
-            </tr>
-          </thead>
-          <tbody>
-            {all.map(([id, alt]) => (
-              <tr key={id}>
-                <th scope="row">
-                  {label(id)}
-                  {alt.isBaseline ? " (baseline)" : ""}
-                </th>
-                <td>{seconds(alt.meanOutcome)}</td>
-                <td>{seconds(alt.regret?.mean)}</td>
-                <td>{seconds(alt.regret?.p95)}</td>
-                <td>{seconds(alt.regret?.sampleMax)}</td>
-                <td>{percent(alt.preferenceShare)}</td>
+        <div className="uf-table-wrap">
+          <table className="uf-table experiment-table">
+            <caption>
+              Regret is how much worse an alternative is than the best
+              alternative in the same condition (never negative). Preference
+              share is the share of conditions in which an alternative is within
+              the tie tolerance of the best. Shares are not ranked and can add
+              up to more than 100 %. Both depend on which alternatives were
+              compared: {all.map(([id]) => label(id)).join(", ")}.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Alternative</th>
+                <th scope="col">Mean {indicator}</th>
+                <th scope="col">Mean regret</th>
+                <th scope="col">95th-percentile regret</th>
+                <th scope="col">Largest regret in this sample</th>
+                <th scope="col">Preference share</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {all.map(([id, alt]) => (
+                <tr key={id}>
+                  <th scope="row">
+                    {label(id)}
+                    {alt.isBaseline ? " (baseline)" : ""}
+                  </th>
+                  <td>{seconds(alt.meanOutcome)}</td>
+                  <td>{seconds(alt.regret?.mean)}</td>
+                  <td>{seconds(alt.regret?.p95)}</td>
+                  <td>{seconds(alt.regret?.sampleMax)}</td>
+                  <td>{percent(alt.preferenceShare)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section
@@ -263,33 +267,35 @@ export function ExperimentResultView({ result }: { result: ExperimentResult }) {
         aria-labelledby="exp-assumptions-title"
       >
         <h2 id="exp-assumptions-title">Assumptions behind these numbers</h2>
-        <table className="experiment-table">
-          <caption>
-            Each factor was drawn from the range shown, with conditions spread
-            evenly across it. Unless the basis says otherwise, the range is the
-            analyst's assumption, not a measurement.
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">Factor</th>
-              <th scope="col">Distribution</th>
-              <th scope="col">Range</th>
-              <th scope="col">Basis</th>
-              <th scope="col">Why</th>
-            </tr>
-          </thead>
-          <tbody>
-            {result.assumptions.map((s) => (
-              <tr key={s.id}>
-                <th scope="row">{factorLabel(s.kind)}</th>
-                <td>{distributionText(s)}</td>
-                <td>{boundsText(s.bounds)}</td>
-                <td>{BASIS_TEXT[s.basis]}</td>
-                <td>{s.rationale || "—"}</td>
+        <div className="uf-table-wrap">
+          <table className="uf-table experiment-table">
+            <caption>
+              Each factor was drawn from the range shown, with conditions spread
+              evenly across it. Unless the basis says otherwise, the range is
+              the analyst's assumption, not a measurement.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Factor</th>
+                <th scope="col">Distribution</th>
+                <th scope="col">Range</th>
+                <th scope="col">Basis</th>
+                <th scope="col">Why</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {result.assumptions.map((s) => (
+                <tr key={s.id}>
+                  <th scope="row">{factorLabel(s.kind)}</th>
+                  <td>{distributionText(s)}</td>
+                  <td>{boundsText(s.bounds)}</td>
+                  <td>{BASIS_TEXT[s.basis]}</td>
+                  <td>{s.rationale || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section
