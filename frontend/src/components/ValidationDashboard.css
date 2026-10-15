@@ -1,15 +1,17 @@
 /* ── Statistical Validation Dashboard (UrbanFlow Theme) ─────────────────── */
 
+/* Flows inside the page's own scroll (main.page-scroll), like every other
+   page, rather than scrolling in a box of its own. */
 .validation-dashboard {
-  flex: 1;
+  flex: 1 0 auto;
   width: 100%;
+  max-width: var(--content-wide);
+  margin: 0 auto;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 24px 28px 48px;
-  height: 100%;
-  overflow-y: auto;
+  gap: 20px;
+  padding: 36px 24px 72px;
   /* Transparent: the app shell supplies the ambient background. */
   background: transparent;
   color: var(--color-text);
@@ -27,88 +29,15 @@
 
 .validation-header-row {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px;
-  padding-bottom: 4px;
+  gap: 16px 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-border);
 }
 
-.header-title-group h2 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-  background: linear-gradient(90deg, var(--color-accent), var(--color-accent));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.header-subtitle {
-  margin: 4px 0 0;
-  font-size: 12.5px;
-  color: var(--text-secondary);
-  max-width: 880px;
-  line-height: 1.4;
-  gap: 14px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid hsl(var(--border) / 0.5);
-}
-
-.header-title-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.header-badge-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.header-badge-row h2 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: -0.4px;
-  color: hsl(var(--foreground));
-}
-
-.header-mini-chip {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.7px;
-  padding: 3px 8px;
-  border-radius: 4px;
-  background: hsl(var(--primary) / 0.15);
-  color: hsl(var(--primary));
-  border: 1px solid hsl(var(--primary) / 0.3);
-}
-
-.header-confidence-chip {
-  font-size: 10.5px;
-  font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--color-success) 12%, transparent);
-  color: var(--color-success);
-  border: 1px solid color-mix(in srgb, var(--color-success) 28%, transparent);
-}
-
-.header-subtitle {
-  margin: 2px 0 0;
-  font-size: 12.5px;
-  color: hsl(var(--muted-foreground));
-  max-width: 860px;
-  line-height: 1.45;
-}
-
-.header-actions {
+.validation-header-actions {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -117,7 +46,7 @@
 
 /* ── Inline Seeds & Duration Controls in Header Row ──────────────────────── */
 
-.header-inline-controls {
+.validation-header-inline-controls {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -128,13 +57,13 @@
   box-shadow: var(--shadow-sm);
 }
 
-.inline-param {
+.validation-inline-param {
   display: flex;
   align-items: center;
   gap: 5px;
 }
 
-.inline-param label {
+.validation-inline-param label {
   font-size: 11px;
   color: var(--text-secondary);
   font-weight: 600;
@@ -144,7 +73,7 @@
   letter-spacing: 0.4px;
 }
 
-.inline-param input {
+.validation-inline-param input {
   background: hsl(var(--background) / 0.9);
   border: 1px solid hsl(var(--border));
   border-radius: 5px;
@@ -157,29 +86,29 @@
   transition: all 0.15s;
 }
 
-.inline-param input:focus {
+.validation-inline-param input:focus {
   outline: none;
   border-color: hsl(var(--primary));
   box-shadow: 0 0 0 2px hsl(var(--primary) / 0.25);
 }
 
-.inline-unit-wrap {
+.validation-inline-unit-wrap {
   display: flex;
   align-items: center;
   gap: 3px;
 }
 
-.inline-unit-wrap input {
+.validation-inline-unit-wrap input {
   width: 50px;
 }
 
-.inline-unit-wrap span {
+.validation-inline-unit-wrap span {
   font-size: 11px;
   font-weight: 600;
   color: hsl(var(--muted-foreground));
 }
 
-.header-run-btn {
+.validation-header-run-btn {
   background: var(--color-primary);
   color: var(--color-on-primary);
   border: none;
@@ -193,18 +122,18 @@
   box-shadow: 0 2px 6px hsl(var(--primary) / 0.35);
 }
 
-.header-run-btn:hover:not(:disabled) {
+.validation-header-run-btn:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: 0 3px 10px hsl(var(--primary) / 0.45);
 }
 
-.header-run-btn:disabled {
+.validation-header-run-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
   transform: none;
 }
 
-.header-tool-btn {
+.validation-header-tool-btn {
   background: hsl(var(--muted) / 0.6);
   border: 1px solid hsl(var(--border) / 0.7);
   color: hsl(var(--foreground));
@@ -219,20 +148,20 @@
   gap: 6px;
 }
 
-.header-tool-btn:hover {
+.validation-header-tool-btn:hover {
   background: hsl(var(--primary) / 0.15);
   border-color: hsl(var(--primary) / 0.4);
   color: hsl(var(--primary));
 }
 
-.header-tool-btn.active {
+.validation-header-tool-btn.active {
   background: hsl(var(--primary) / 0.2);
   border-color: hsl(var(--primary));
   color: hsl(var(--primary));
   box-shadow: 0 0 10px hsl(var(--primary) / 0.2);
 }
 
-.export-csv-btn {
+.validation-export-csv-btn {
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
   color: hsl(var(--foreground));
@@ -248,7 +177,7 @@
   box-shadow: var(--shadow-sm);
 }
 
-.export-csv-btn:hover {
+.validation-export-csv-btn:hover {
   background: hsl(var(--muted));
   border-color: hsl(var(--primary) / 0.5);
   color: hsl(var(--primary));
@@ -266,10 +195,10 @@
   flex-direction: column;
   gap: 14px;
   box-shadow: var(--shadow-md);
-  animation: slideDown 0.22s ease-out;
+  animation: validation-slide-down 0.22s ease-out;
 }
 
-@keyframes slideDown {
+@keyframes validation-slide-down {
   from {
     opacity: 0;
     transform: translateY(-8px);
@@ -396,9 +325,9 @@
   color: var(--color-warning);
 }
 
-.effect-note {
-  font-size: 10px !important;
-  color: hsl(var(--muted-foreground) / 0.8) !important;
+.methodology-card .effect-note {
+  font-size: 10px;
+  color: hsl(var(--muted-foreground) / 0.8);
 }
 
 /* ── Rich Advanced Configuration Drawer ───────────────────────────────────── */
@@ -413,10 +342,10 @@
   flex-direction: column;
   gap: 16px;
   box-shadow: var(--shadow-md);
-  animation: slideDown 0.22s ease-out;
+  animation: validation-slide-down 0.22s ease-out;
 }
 
-.advanced-drawer-header {
+.validation-advanced-drawer-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -432,13 +361,13 @@
   color: hsl(var(--foreground));
 }
 
-.advanced-config-grid {
+.validation-advanced-config-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 16px;
 }
 
-.advanced-card {
+.validation-advanced-card {
   background: hsl(var(--background) / 0.6);
   border: 1px solid hsl(var(--border) / 0.6);
   border-radius: 9px;
@@ -602,7 +531,7 @@
   margin-top: auto;
 }
 
-.advanced-drawer-footer {
+.validation-advanced-drawer-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1024,7 +953,7 @@
   color: hsl(var(--foreground));
 }
 
-.delta-pill {
+.validation-delta-pill {
   font-size: 11px;
   font-weight: 800;
   padding: 1px 6px;
@@ -1203,7 +1132,7 @@
   color: hsl(var(--muted-foreground));
 }
 
-.chart-metric-pills {
+.validation-chart-metric-pills {
   display: flex;
   background: hsl(var(--background) / 0.6);
   border: 1px solid hsl(var(--border) / 0.6);
@@ -1212,7 +1141,7 @@
   gap: 4px;
 }
 
-.metric-pill-btn {
+.validation-metric-pill-btn {
   background: transparent;
   border: none;
   border-radius: 5px;
@@ -1224,11 +1153,11 @@
   transition: all 0.15s;
 }
 
-.metric-pill-btn:hover {
+.validation-metric-pill-btn:hover {
   color: hsl(var(--foreground));
 }
 
-.metric-pill-btn.active {
+.validation-metric-pill-btn.active {
   background: hsl(var(--primary));
   color: hsl(var(--primary-foreground));
 }
@@ -1264,25 +1193,25 @@
   gap: 4px;
 }
 
-.tooltip-row {
+.validation-tooltip-row {
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 11px;
 }
 
-.tooltip-dot {
+.validation-tooltip-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
 }
 
-.tooltip-name {
+.validation-tooltip-name {
   color: hsl(var(--muted-foreground));
   flex: 1;
 }
 
-.tooltip-val {
+.validation-tooltip-val {
   font-weight: 700;
   color: hsl(var(--foreground));
   font-family: var(--font-mono);
@@ -1382,7 +1311,7 @@
   color: hsl(var(--primary));
 }
 
-.table-scroll-container {
+.validation-table-scroll-container {
   overflow-x: auto;
   border-radius: 7px;
   border: 1px solid hsl(var(--border) / 0.6);
@@ -1498,9 +1427,9 @@
   letter-spacing: 0.3px;
 }
 
-.proof-sub {
-  font-size: 11.5px !important;
-  color: hsl(var(--muted-foreground)) !important;
+.proof-card .proof-sub {
+  font-size: 11.5px;
+  color: hsl(var(--muted-foreground));
 }
 
 .effect-scale-pills {
@@ -1516,61 +1445,49 @@
   color: var(--color-text);
 }
 
-.light .header-badge-row h2 {
-  color: var(--color-text);
-}
-
-.light .header-subtitle {
-  color: var(--color-text-2);
-}
-
-.light .header-inline-controls {
+.light .validation-header-inline-controls {
   background: var(--color-surface);
   border-color: var(--color-border-strong);
 }
 
-.light .inline-param label {
+.light .validation-inline-param label {
   color: var(--color-text-2);
 }
 
-.light .inline-param input {
+.light .validation-inline-param input {
   background: var(--color-surface-2);
   border-color: var(--color-border-strong);
   color: var(--color-text);
 }
 
-.light .inline-unit-wrap span {
-  color: var(--color-text-3);
-}
-
-.light .header-tool-btn,
+.light .validation-header-tool-btn,
 .light .methodology-toggle-btn {
   background: var(--color-surface);
   border-color: var(--color-border-strong);
   color: var(--color-text);
 }
 
-.light .header-tool-btn:hover,
+.light .validation-header-tool-btn:hover,
 .light .methodology-toggle-btn:hover {
   background: color-mix(in srgb, var(--color-accent) 10%, transparent);
   border-color: var(--color-accent);
   color: var(--color-accent);
 }
 
-.light .header-tool-btn.active,
+.light .validation-header-tool-btn.active,
 .light .methodology-toggle-btn.active {
   background: var(--color-accent);
   color: #fff;
   border-color: var(--color-accent);
 }
 
-.light .export-csv-btn {
+.light .validation-export-csv-btn {
   background: var(--color-surface);
   border-color: var(--color-border-strong);
   color: var(--color-text);
 }
 
-.light .export-csv-btn:hover {
+.light .validation-export-csv-btn:hover {
   background: var(--color-surface-2);
   border-color: var(--color-accent);
   color: var(--color-accent);
@@ -1590,10 +1507,10 @@
 
 .light .advanced-title-group h4,
 .light .adv-card-header h5 {
-  color: var(--color-text) !important;
+  color: var(--color-text);
 }
 
-.light .advanced-card {
+.light .validation-advanced-card {
   background: var(--color-surface-2);
   border-color: var(--color-border);
 }
@@ -1666,7 +1583,7 @@
 .light .seed-chart-titles h4,
 .light .table-header-titles h4,
 .light .proof-card h4 {
-  color: var(--color-text) !important;
+  color: var(--color-text);
 }
 
 .light .preflight-card {
@@ -1689,72 +1606,21 @@
   color: var(--color-text-2);
 }
 
-.light .preflight-time {
-  color: var(--color-text-3);
-}
-
 /* Same hues as the dark-theme badges, in shades that read on white. */
-.light .header-confidence-chip {
-  color: var(--color-success);
-}
-
-.light .preflight-badge.quick {
-  color: var(--color-accent);
-}
-
-.light .preflight-badge.rigor {
-  color: var(--color-warning);
-}
-
 .light .method-tag.null {
   color: var(--color-text-2);
-}
-
-.light .method-tag.alt {
-  color: var(--color-success);
 }
 
 .light .method-tag.effect {
   color: var(--color-warning);
 }
 
-.light .scale-pill.sm {
-  color: var(--color-accent);
-}
-
-.light .scale-pill.med {
-  color: var(--color-accent);
-}
-
-.light .scale-pill.lg {
-  color: var(--color-warning);
-}
-
 .light .effect-note {
-  color: hsl(var(--muted-foreground)) !important;
-}
-
-.light .win-rate-pill,
-.light .seed-winner-rnd {
-  color: var(--color-success);
-}
-
-.light .seed-winner-sig {
-  color: var(--color-accent);
-}
-
-.light .sig-pill.active,
-.light .tooltip-delta-val.positive {
-  color: var(--color-success);
+  color: hsl(var(--muted-foreground));
 }
 
 .light .sig-status-badge.significant {
   color: var(--series-signal-ink);
-}
-
-.light .validation-error,
-.light .tooltip-delta-val.negative {
-  color: var(--color-danger);
 }
 
 /* These take their colour inline from the chart series constants, so darken
@@ -1807,20 +1673,20 @@
   color: var(--color-text);
 }
 
-.light .chart-metric-pills {
+.light .validation-chart-metric-pills {
   background: var(--color-surface-2);
   border-color: var(--color-border);
 }
 
-.light .metric-pill-btn {
+.light .validation-metric-pill-btn {
   color: var(--color-text-2);
 }
 
-.light .metric-pill-btn:hover {
+.light .validation-metric-pill-btn:hover {
   color: var(--color-text);
 }
 
-.light .metric-pill-btn.active {
+.light .validation-metric-pill-btn.active {
   background: var(--color-accent);
   color: #fff;
 }
@@ -1835,7 +1701,7 @@
   color: var(--color-text);
 }
 
-.light .tooltip-val {
+.light .validation-tooltip-val {
   color: var(--color-text);
 }
 
@@ -1942,7 +1808,7 @@ button.preflight-card:focus-visible {
 }
 
 .integrity-violations {
-  margin-top: 6px !important;
+  margin-top: 6px;
   font-family: var(--font-mono);
   font-size: 11px;
 }
@@ -1965,21 +1831,6 @@ button.preflight-card:focus-visible {
 
 /* ── Shared UrbanFlow page language (both themes) ─────────────────────── */
 /* Page titles: solid, tight, the same in both research tools. */
-.validation-dashboard .header-title-group h2,
-.validation-dashboard .header-badge-row h2 {
-  background: none;
-  -webkit-text-fill-color: currentColor;
-  color: var(--color-text);
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-.validation-dashboard .header-title-group h2 .uf-glyph,
-.validation-dashboard .header-badge-row h2 .uf-glyph {
-  width: 20px;
-  height: 20px;
-  color: var(--brand-green-ink);
-}
 /* Empty states share the .uf-state icon tile (styles/components.css). */
 .validation-dashboard .empty-icon-halo {
   display: grid;
