@@ -231,7 +231,9 @@ def print_report(result: dict) -> None:
 
 
 def sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    """SHA-256 of a file with line endings normalised to LF, so a pack that was zipped, emailed or opened
+    in an editor that rewrites line endings still verifies; any other change still does not."""
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
 
 
 def save(folder: Path, experiment: dict, result: dict, verified, base: str) -> None:

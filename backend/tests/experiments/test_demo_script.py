@@ -96,3 +96,25 @@ def test_offline_without_a_pack_fails_clearly(demo, tmp_path):
     with pytest.raises(SystemExit) as stop:
         demo.offline(tmp_path / "nothing-here")
     assert stop.value.code == 1
+
+
+def test_offline_accepts_a_copy_whose_line_endings_were_rewritten(
+    demo, make_service, tmp_path, capsys
+):
+    result = _result(make_service, demo)
+    demo.save(tmp_path, demo.EXPERIMENT, result, True, "http://test")
+    for name in ("experiment.json", "result.json", "MANIFEST.json"):
+        path = tmp_path / name
+        # as a Windows editor or a zip tool might
+        path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
+    capsys.readouterr()
+    demo.offline(tmp_path)
+    assert "checksums verified" in capsys.readouterr().out
+
+
+def test_the_committed_example_pack_verifies(demo, capsys):
+    pack = SCRIPT.parents[1] / "docs" / "research" / "examples" / "robustness-demo"
+    demo.offline(pack)
+    out = capsys.readouterr().out
+    assert "checksums verified" in out and "OK (offline)" in out
+    assert "reproduced the fingerprint: True" in out
