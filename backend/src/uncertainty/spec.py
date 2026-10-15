@@ -4,14 +4,16 @@ Strict pydantic models (``extra="forbid"``, camelCase) describing *which* inputs
 distribution is an **assumption of the analyst** unless ``basis`` says otherwise (strategy section 5.1);
 an assumed factor must carry a rationale. The specification is fingerprinted before any run.
 
-Design prototype only: no runner, no analysis, no HTTP exposure. The limits below are proposals from the
-V3.0 strategy and are not yet approved.
+No runner and no HTTP exposure here (W1 later work packages). ADR-015 is Accepted; the numeric limits
+below (factors, conditions, replications) are the strategy's starting values and may be tuned.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import math
+from statistics import NormalDist
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -33,6 +35,12 @@ FactorKind = Literal[
 ]
 DistributionKind = Literal["uniform", "triangular", "truncated_normal", "lognormal"]
 Basis = Literal["assumed", "observed", "user"]
+# Primary indicators the analysis may compare. All are delays in seconds where lower is better, so
+# win/tie/loss has one direction (strategy section 5.3: one pre-declared indicator, no shopping).
+PrimaryIndicator = Literal["averageDelay", "medianDelay", "p95Delay"]
+
+# Smallest share of a distribution that must fall inside the factor bounds.
+_MIN_BOUNDED_MASS = 1e-3
 
 _SCALE_KINDS = {
     "demand_scale",
@@ -47,6 +55,17 @@ class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+# Parameters each distribution kind uses; a parameter that does not belong to the kind is rejected
+# rather than ignored (an ignored parameter would look like an assumption that is not being made).
+_DISTRIBUTION_PARAMS = {
+    "uniform": set(),
+    "triangular": {"mode"},
+    "truncated_normal": {"mean", "sd"},
+    "lognormal": {"mu", "sigma"},
+}
+_ALL_PARAMS = {"mode", "mean", "sd", "mu", "sigma"}
+
+
 class Distribution(_Strict):
     kind: DistributionKind
     mode: Optional[float] = None  # triangular
@@ -56,6 +75,21 @@ class Distribution(_Strict):
         None  # lognormal, parameters of the underlying normal (log space)
     )
     sigma: Optional[float] = Field(None, gt=0)  # lognormal
+
+    @model_validator(mode="after")
+    def _params_match_kind(self) -> "Distribution":
+        given = {name for name in _ALL_PARAMS if getattr(self, name) is not None}
+        needed = _DISTRIBUTION_PARAMS[self.kind]
+        missing = sorted(needed - given)
+        if missing:
+            raise ValueError(f"{self.kind} needs {', '.join(missing)}")
+        extra = sorted(given - needed)
+        if extra:
+            raise ValueError(f"{self.kind} does not use {', '.join(extra)}; remove it")
+        for name in given:
+            if not math.isfinite(getattr(self, name)):
+                raise ValueError(f"{name} must be a finite number")
+        return self
 
 
 class Factor(_Strict):
@@ -69,6 +103,8 @@ class Factor(_Strict):
     @model_validator(mode="after")
     def _check(self) -> "Factor":
         low, high = self.bounds
+        if not all(math.isfinite(b) for b in self.bounds):
+            raise ValueError(f"factor '{self.id}': bounds must be finite numbers")
         if not low < high:
             raise ValueError(f"factor '{self.id}': bounds must satisfy low < high")
         if self.kind in _SCALE_KINDS and low <= 0:
@@ -85,23 +121,32 @@ class Factor(_Strict):
             )
         d = self.distribution
         if d.kind == "triangular":
-            if d.mode is None or not low <= d.mode <= high:
+            assert d.mode is not None  # guaranteed by Distribution
+            if not low <= d.mode <= high:
                 raise ValueError(
                     f"factor '{self.id}': triangular needs a mode within the bounds"
                 )
         elif d.kind == "truncated_normal":
-            if d.mean is None or d.sd is None:
-                raise ValueError(
-                    f"factor '{self.id}': truncated_normal needs mean and sd"
-                )
+            assert d.mean is not None and d.sd is not None
+            self._need_mass(NormalDist(d.mean, d.sd).cdf, low, high)
         elif d.kind == "lognormal":
-            if d.mu is None or d.sigma is None:
-                raise ValueError(f"factor '{self.id}': lognormal needs mu and sigma")
+            assert d.mu is not None and d.sigma is not None
             if low <= 0:
                 raise ValueError(
                     f"factor '{self.id}': lognormal needs a positive lower bound"
                 )
+            self._need_mass(
+                NormalDist(d.mu, d.sigma).cdf, math.log(low), math.log(high)
+            )
         return self
+
+    def _need_mass(self, cdf: Any, low: float, high: float) -> None:
+        """The bounds must hold enough probability for truncated sampling to mean anything."""
+        if cdf(high) - cdf(low) < _MIN_BOUNDED_MASS:
+            raise ValueError(
+                f"factor '{self.id}': the bounds hold almost none of the distribution's "
+                "probability; move the bounds or the distribution parameters"
+            )
 
 
 class UncertaintySpec(_Strict):
@@ -114,10 +159,10 @@ class UncertaintySpec(_Strict):
         2, ge=1, le=MAX_REPLICATIONS
     )  # r engine seeds per condition
     seed: int = Field(..., ge=0, le=2**31 - 1)  # sampling and engine-seed base
-    primaryIndicator: str = Field("averageDelay", max_length=64)
-    tieTolerance: Optional[float] = Field(
-        None, ge=0
-    )  # None: use the study's existing tolerance
+    primaryIndicator: PrimaryIndicator = "averageDelay"
+    # Tie tolerance tau, in the indicator's unit (seconds). None: the study's existing two-part rule
+    # (study/tolerances.py: within 1 s or within 5 % of the larger value).
+    tieTolerance: Optional[float] = Field(None, ge=0, allow_inf_nan=False)
 
     @model_validator(mode="after")
     def _unique_factor_ids(self) -> "UncertaintySpec":
@@ -132,6 +177,22 @@ def canonical_json(value: Any) -> str:
 
 
 def fingerprint(spec: UncertaintySpec) -> str:
-    """16-hex SHA-256 of the canonical specification (same width as the other fingerprints)."""
-    payload: Dict[str, Any] = spec.model_dump(mode="json")
+    """16-hex SHA-256 of what the specification computes (same width as the other fingerprints).
+
+    The display ``name`` is left out, as the scenario fingerprint leaves out a scenario's name: two
+    specifications that differ only in their label describe the same experiment.
+    """
+    payload: Dict[str, Any] = spec.model_dump(mode="json", exclude={"name"})
     return hashlib.sha256(canonical_json(payload).encode()).hexdigest()[:16]
+
+
+def run_counts(spec: UncertaintySpec, alternatives: int) -> Dict[str, int]:
+    """Conditions, replications and total runs, always reported separately (strategy section 5.2)."""
+    if alternatives < 1:
+        raise ValueError("an experiment needs at least one alternative")
+    return {
+        "conditions": spec.conditions,
+        "alternatives": alternatives,
+        "replications": spec.replications,
+        "totalRuns": spec.conditions * alternatives * spec.replications,
+    }
