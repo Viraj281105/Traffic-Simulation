@@ -59,7 +59,11 @@ EXPERIMENT = {
     "alternatives": [
         {"id": "fixed", "label": "Fixed-time signal", "strategy": "fixed_time"},
         {"id": "adaptive", "label": "Adaptive signal", "strategy": "adaptive"},
-        {"id": "roundabout", "label": "Conventional roundabout", "strategy": "roundabout"},
+        {
+            "id": "roundabout",
+            "label": "Conventional roundabout",
+            "strategy": "roundabout",
+        },
     ],
     "baseline": "fixed",
     "uncertainty": {
@@ -129,7 +133,9 @@ class Api:
         except urllib.error.HTTPError as err:
             fail(f"{method} {path}: HTTP {err.code} {err.read().decode()[:600]}")
         except urllib.error.URLError as err:
-            fail(f"cannot reach {self.base} ({err.reason}); start the backend, or use --offline")
+            fail(
+                f"cannot reach {self.base} ({err.reason}); start the backend, or use --offline"
+            )
 
 
 def fail(message: str) -> None:
@@ -160,7 +166,9 @@ def print_report(result: dict) -> None:
     labels = {x["id"]: x["label"] or x["id"] for x in result["alternatives"]}
     counts = a["counts"]
     print(f"\n  Real-world validity: {a['realWorldValidity']}")
-    print("  Every input range is an assumption; the simulation is not calibrated to observed traffic.")
+    print(
+        "  Every input range is an assumption; the simulation is not calibrated to observed traffic."
+    )
     print(
         f"\n  {counts['conditions']} conditions x {counts['alternatives']} alternatives x "
         f"{counts['replications']} replications = {counts['totalRuns']} runs; "
@@ -175,8 +183,12 @@ def print_report(result: dict) -> None:
         mark = {True: "met", False: "NOT MET", None: "not assessed"}[c["passed"]]
         print(f"    - {c['id']:15s} {mark:13s} {c['detail']}")
     base = labels[a["baseline"]]
-    print(f"\n  Against the baseline ({base}); lower {a['primaryIndicator']} is better.")
-    print(f"  {'alternative':26s} {'better':>8s} {'tie':>8s} {'worse':>8s}   mean difference (95% interval)")
+    print(
+        f"\n  Against the baseline ({base}); lower {a['primaryIndicator']} is better."
+    )
+    print(
+        f"  {'alternative':26s} {'better':>8s} {'tie':>8s} {'worse':>8s}   mean difference (95% interval)"
+    )
     for alt_id, alt in a["alternatives"].items():
         comparison = alt.get("comparison")
         if alt["isBaseline"] or not comparison:
@@ -190,8 +202,12 @@ def print_report(result: dict) -> None:
         )
         for key in ("win", "tie", "loss"):
             lo, hi = comparison[key]["ci"]
-            print(f"      {key:5s} {comparison[key]['count']:3d} of {counts['validConditions']}  95% interval {pct(lo)} to {pct(hi)}")
-    print(f"\n  {'alternative':26s} {'mean regret':>12s} {'p95 regret':>11s} {'pref. share':>12s}")
+            print(
+                f"      {key:5s} {comparison[key]['count']:3d} of {counts['validConditions']}  95% interval {pct(lo)} to {pct(hi)}"
+            )
+    print(
+        f"\n  {'alternative':26s} {'mean regret':>12s} {'p95 regret':>11s} {'pref. share':>12s}"
+    )
     for alt_id, alt in a["alternatives"].items():
         regret = alt.get("regret") or {}
         print(
@@ -206,7 +222,9 @@ def print_report(result: dict) -> None:
         f"\n  Provenance: commit {prov['gitCommit'][:12]}, Python {prov['pythonVersion']}, "
         f"spec {result['specFingerprint']}, result {result['resultFingerprint']}"
     )
-    print("  Win/tie/loss are descriptive comparisons, not a ranking; nothing here names a winner.")
+    print(
+        "  Win/tie/loss are descriptive comparisons, not a ranking; nothing here names a winner."
+    )
 
 
 # ── saving and the offline fallback ─────────────────────────────────────────
@@ -238,7 +256,9 @@ def save(folder: Path, experiment: dict, result: dict, verified, base: str) -> N
         "rerunReproducedFingerprint": verified,
         "note": "Exact replay needs the same commit, Python minor version, dependency pins and CPU class.",
     }
-    (folder / "MANIFEST.json").write_bytes((json.dumps(manifest, indent=2) + "\n").encode())
+    (folder / "MANIFEST.json").write_bytes(
+        (json.dumps(manifest, indent=2) + "\n").encode()
+    )
     lines = [f"{sha256(folder / n)}  {n}" for n in (*FILES, "MANIFEST.json")]
     (folder / "SHA256SUMS").write_bytes(("\n".join(lines) + "\n").encode())
     print(f"    saved to {folder}")
@@ -255,10 +275,14 @@ def offline(folder: Path) -> None:
     manifest = json.loads((folder / "MANIFEST.json").read_text())
     result = json.loads((folder / "result.json").read_text())
     print("OFFLINE: showing a precomputed result, not a live run.")
-    print(f"  generated {manifest['generatedAt']} at commit {manifest['gitCommit'][:12]} "
-          f"on {manifest['platform']}; checksums verified")
-    print(f"  the live run took {manifest['wallSeconds']} s on {manifest['workers']} workers; "
-          f"re-run reproduced the fingerprint: {manifest['rerunReproducedFingerprint']}")
+    print(
+        f"  generated {manifest['generatedAt']} at commit {manifest['gitCommit'][:12]} "
+        f"on {manifest['platform']}; checksums verified"
+    )
+    print(
+        f"  the live run took {manifest['wallSeconds']} s on {manifest['workers']} workers; "
+        f"re-run reproduced the fingerprint: {manifest['rerunReproducedFingerprint']}"
+    )
     print_report(result)
     print("\nOK (offline)")
 
@@ -294,16 +318,20 @@ def live(base: str, verify: bool, save_to: Path | None) -> None:
     on = [k for k, v in capabilities["features"].items() if v]
     print(f"    API v{capabilities['apiVersion']}, available: {', '.join(on)}")
     quotas = capabilities["quotas"]
-    print(f"    quotas: {quotas['maxRunsPerExperiment']} runs, "
-          f"{quotas['maxSimulationStepsPerExperiment']:,} engine steps per experiment")
+    print(
+        f"    quotas: {quotas['maxRunsPerExperiment']} runs, "
+        f"{quotas['maxSimulationStepsPerExperiment']:,} engine steps per experiment"
+    )
 
     step(2, "Check the experiment without running it")
     check = api.call("POST", "/api/v3/experiments/validate", EXPERIMENT)
     if not check["valid"]:
         fail("; ".join(check["errors"]))
     c = check["counts"]
-    print(f"    valid: {c['conditions']} conditions x {c['alternatives']} alternatives x "
-          f"{c['replications']} replications = {c['totalRuns']} runs")
+    print(
+        f"    valid: {c['conditions']} conditions x {c['alternatives']} alternatives x "
+        f"{c['replications']} replications = {c['totalRuns']} runs"
+    )
     for warning in check["warnings"]:
         print(f"    warning: {warning}")
 
@@ -320,7 +348,9 @@ def live(base: str, verify: bool, save_to: Path | None) -> None:
         step(5, "Run it again: the same inputs and seed must give the same fingerprint")
         again = run_experiment(api)
         verified = again["resultFingerprint"] == result["resultFingerprint"]
-        print(f"    reproduced: {verified} ({result['resultFingerprint']} vs {again['resultFingerprint']})")
+        print(
+            f"    reproduced: {verified} ({result['resultFingerprint']} vs {again['resultFingerprint']})"
+        )
         if not verified:
             fail("the second run did not reproduce the result fingerprint")
 
@@ -331,11 +361,24 @@ def live(base: str, verify: bool, save_to: Path | None) -> None:
 
 
 def main() -> None:
+    # The report contains an em dash ("None — assumptions only"); a Windows console defaults to a code
+    # page that cannot print it.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
+        except (AttributeError, ValueError):
+            pass
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("base", nargs="?", default="http://localhost:8000")
-    parser.add_argument("--verify", action="store_true", help="submit twice and compare fingerprints")
-    parser.add_argument("--save", type=Path, metavar="DIR", help="write the fallback files to DIR")
-    parser.add_argument("--offline", type=Path, metavar="DIR", help="print a saved result; no backend")
+    parser.add_argument(
+        "--verify", action="store_true", help="submit twice and compare fingerprints"
+    )
+    parser.add_argument(
+        "--save", type=Path, metavar="DIR", help="write the fallback files to DIR"
+    )
+    parser.add_argument(
+        "--offline", type=Path, metavar="DIR", help="print a saved result; no backend"
+    )
     args = parser.parse_args()
     if args.offline:
         offline(args.offline)
