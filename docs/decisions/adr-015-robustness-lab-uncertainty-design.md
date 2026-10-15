@@ -2,11 +2,11 @@
 
 ## Status
 
-**Proposed** — draft for the G-D design-approval review (task B0-2, [#173](https://github.com/Viraj281105/Traffic-Simulation/issues/173)). Depends on product-owner decision **D5** (statistical contract and manifest). Blocks W1 (#151, #152) if late.
+**Accepted** — the product owner passed the V3.0 design-approval gate G-D on 2026-10-14 (recorded on [#150](https://github.com/Viraj281105/Traffic-Simulation/issues/150)) and confirmed this ADR, including decision **D5** (statistical contract and manifest), on 2026-10-15 so that W1 (#151, #152) can begin. Drafted under task B0-2 ([#173](https://github.com/Viraj281105/Traffic-Simulation/issues/173)).
 
 ## Date
 
-2026-10-14 (draft)
+2026-10-14 (draft) · 2026-10-15 (accepted)
 
 ## Context
 
