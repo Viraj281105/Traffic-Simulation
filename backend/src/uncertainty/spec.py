@@ -169,6 +169,12 @@ class UncertaintySpec(_Strict):
         ids = [f.id for f in self.factors]
         if len(set(ids)) != len(ids):
             raise ValueError("factor ids must be unique")
+        kinds = [f.kind for f in self.factors]
+        repeated = sorted({k for k in kinds if kinds.count(k) > 1})
+        if repeated:
+            raise ValueError(
+                f"each factor kind may appear once (factors are global in v1): {repeated}"
+            )
         return self
 
 

@@ -553,6 +553,31 @@ def scenario_warnings(document: ScenarioDocument, strategies: List[str]) -> List
     return warnings
 
 
+_config_schema_validator: Any = None
+
+
+def _validate_against_config_schema(config: Dict[str, Any]) -> None:
+    """``jsonschema.validate(config, CONFIG_SCHEMA)`` without re-checking the schema on every call.
+
+    ``jsonschema.validate`` verifies the schema itself before each use, which dominates the cost of
+    validating many compiled configs (the Robustness Lab validates hundreds). This builds the validator
+    once and otherwise does exactly what ``jsonschema.validate`` does: the best-matching error is raised.
+    """
+    global _config_schema_validator
+    import jsonschema
+    from jsonschema.exceptions import best_match
+
+    from src.core.schema import CONFIG_SCHEMA
+
+    if _config_schema_validator is None:
+        cls = jsonschema.validators.validator_for(CONFIG_SCHEMA)
+        cls.check_schema(CONFIG_SCHEMA)
+        _config_schema_validator = cls(CONFIG_SCHEMA)
+    error = best_match(_config_schema_validator.iter_errors(config))
+    if error is not None:
+        raise error
+
+
 def validate_scenario(
     payload: Any, strategies: Optional[List[str]] = None
 ) -> Dict[str, Any]:
@@ -567,7 +592,6 @@ def validate_scenario(
     import jsonschema
 
     from src.core.config_validation import semantic_config_errors
-    from src.core.schema import CONFIG_SCHEMA
 
     document, errors = parse_scenario(payload)
     if document is None:
@@ -597,7 +621,7 @@ def validate_scenario(
             config = compile_scenario(document, strategy)
             found: List[str] = []
             try:
-                jsonschema.validate(instance=config, schema=CONFIG_SCHEMA)
+                _validate_against_config_schema(config)
             except jsonschema.ValidationError as err:
                 where = "/".join(str(p) for p in err.absolute_path)
                 found.append(f"{where}: {err.message}" if where else err.message)

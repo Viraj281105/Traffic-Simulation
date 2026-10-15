@@ -120,3 +120,8 @@ def test_sampled_values_are_rounded_and_inside_the_bounds():
         value = c.values["h"]
         assert value == round(value, 6)
         assert 0.7 <= value <= 1.4
+
+
+def test_each_factor_kind_may_appear_once():
+    with pytest.raises(ValidationError, match="once"):
+        _spec(factors=[_factor("a"), _factor("b")])  # two demand_scale factors

@@ -9,6 +9,14 @@ from .analysis import (
     classify,
     result_fingerprint,
 )
+from .apply import FactorApplicationError, apply_factors, preflight
+from .runner import (
+    EnsembleRefusedError,
+    EnsembleRun,
+    RunAlternative,
+    run_ensemble,
+    run_experiment,
+)
 from .sampler import Condition, derive_seed, inverse_cdf, sample_conditions
 from .spec import (
     SPEC_FORMAT,
@@ -23,17 +31,25 @@ from .spec import (
 __all__ = [
     "Condition",
     "ConditionResult",
+    "EnsembleRefusedError",
+    "EnsembleRun",
+    "FactorApplicationError",
+    "RunAlternative",
     "Distribution",
     "Factor",
     "SPEC_FORMAT",
     "SPEC_VERSION",
     "UncertaintySpec",
     "analyze",
+    "apply_factors",
     "classify",
     "derive_seed",
     "fingerprint",
     "inverse_cdf",
+    "preflight",
     "result_fingerprint",
+    "run_ensemble",
+    "run_experiment",
     "run_counts",
     "sample_conditions",
 ]

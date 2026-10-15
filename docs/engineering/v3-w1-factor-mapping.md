@@ -23,11 +23,19 @@ Every factor is **global** in v1: it acts on all arms and all vehicle classes id
 
 The three IDM-style factors write **absolute** values, computed from the base scenario's *effective* parameters, not from hard-coded defaults. The effective values are read from the engine's own resolution (`compile_scenario` → `resolve_vehicle_population`, `resolve_desired_speed_range`), so a base scenario that already overrides a class parameter is scaled from that override. Classes written are the union of the global mix and every arm mix; the scalar `vehicleGeneration` values cover the legacy single-car population and the reference car.
 
-### Rejections the runner must count
+### Rejections
 
-* The perturbed document fails `parse_scenario` / `validate_scenario` (e.g. demand above the arm limit, desired speed outside what the config contract allows).
+Counted per condition by the runner (reason `validation_failed`):
+
+* The perturbed document fails `parse_scenario` / `validate_scenario` for the alternative's strategy (e.g. demand above the 7200 veh/h arm limit, a desired speed outside what the config contract allows). Nothing is clipped or repaired.
+
+Refused once, at submission, before any run (`preflight`, implemented in `backend/src/uncertainty/apply.py`):
+
 * `mix_shift` requested but the base scenario declares no mix.
-* The base scenario's `advanced` already sets the same `vehicleGeneration` key the factor writes (the factor would be silently overridden by the deep merge). Reported by name; the experiment is refused at submission, not per condition.
+* The base scenario's `advanced` section sets inputs that a **document-level** factor writes, so the deep merge would silently override the factor: `advanced.traffic` demand keys (`arrivalRate`, `directionalSplit`, `totalVehicles`, `approaches`) against `demand_scale`; `advanced.traffic.approaches` against `turning_shift` and `mix_shift`; `advanced.vehicleGeneration.vehicleMix` against `mix_shift`. The three IDM-style factors are not affected: they read the effective values (including any `advanced` override) and write the scaled result back into `advanced`.
+* Each factor kind may appear once per specification (factors are global in v1; two of one kind would compound ambiguously).
+
+Reserved but not yet produced: `timeout` (simulations run a fixed number of ticks, so a run cannot hang) and `deadlock` (the engine exposes no deadlock flag). The analysis accepts both reasons so they can be added without a contract change.
 
 ## Spike evidence (2026-10-15)
 
@@ -56,7 +64,8 @@ Prototype run on the development machine (Python 3.14.7), base scenario: four si
 
 **Measured cost (unverified outside this machine):** about 12–17 s per 240 s run on one process (the spike ran 70 runs in about 20 minutes). A 24-condition × 3-alternative × 2-replication study is 144 runs, roughly 30–40 min on one process; the worker pool will divide that, but the figure stays *unverified* until measured with the pool.
 
-**Implementation notes for WP3**
+**Implementation notes (WP3, done)**
 
 * Round every applied value to 6 decimals (the spike produced `1.4400000000000002`), so fingerprints do not depend on float formatting.
-* `run_scenario_comparison` already runs every strategy on the same seed and supports `num_seeds=1, base_seed=<derived>`, but it runs one call per condition. For parallelism the runner should instead build `SimTask`s for all (condition, alternative, replication) and call `run_simulation_tasks` once.
+* The runner builds `SimTask`s for every (condition, alternative, replication) and submits them in one batch, through `run_simulation_tasks_isolated` (a failure-tolerant twin of `run_simulation_tasks` added to `study/runner.py`) so a crashing run is counted instead of aborting the ensemble.
+* Building hundreds of scenarios was dominated by `jsonschema.validate` re-checking the config schema on every call (about 95 % of the build time). `validate_scenario` now builds that validator once; results and error messages are unchanged (a test compares it with `jsonschema.validate`).

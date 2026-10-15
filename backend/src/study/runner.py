@@ -34,7 +34,7 @@ from concurrent.futures import Future, ProcessPoolExecutor
 from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
 
@@ -337,5 +337,72 @@ def run_simulation_tasks(
             for future in futures.values():
                 future.cancel()
             raise
+    finally:
+        pool.unroute(token)
+
+
+def run_simulation_tasks_isolated(
+    tasks: List[SimTask], progress: Optional[Progress] = None
+) -> List[Union[Dict[str, Any], Exception]]:
+    """Like :func:`run_simulation_tasks`, but one failing simulation does not abort the others.
+
+    Each element of the returned list (in task order) is the task's result, or the exception that task
+    raised. An ensemble that must count and exclude failed runs (the Robustness Lab) needs this; the
+    study and planning paths keep the all-or-nothing behaviour above.
+
+    A dead worker process (``BrokenProcessPool``) is not a failed simulation: every pending run of that
+    pool is lost, so the pool is discarded and the error is raised for the caller to treat as a failure
+    of the whole ensemble.
+    """
+    progress = progress or Progress()
+    progress.begin([t.label for t in tasks])
+    workers = study_workers()
+
+    if workers == 0:
+        outcomes: List[Union[Dict[str, Any], Exception]] = []
+        for i, t in enumerate(tasks):
+            try:
+                outcomes.append(
+                    simulate_geometry(
+                        t.config, t.geometry, t.duration, partial(progress.advance, i)
+                    )
+                )
+            except Exception as exc:  # noqa: BLE001 - reported per task, never swallowed
+                outcomes.append(exc)
+            progress.finish(i)
+        return outcomes
+
+    pool = _get_pool(workers)
+    token = uuid.uuid4().hex
+    pool.route(token, progress.advance)
+    try:
+        futures: Dict[int, Future[Dict[str, Any]]] = {}
+        for i in sorted(range(len(tasks)), key=lambda i: -tasks[i].cost):
+            t = tasks[i]
+            future = pool.executor.submit(
+                _run_in_worker, token, i, t.config, t.geometry, t.duration
+            )
+            future.add_done_callback(partial(_finished, progress, i))
+            futures[i] = future
+        results: List[Union[Dict[str, Any], Exception]] = []
+        try:
+            for i in range(len(tasks)):
+                error = futures[i].exception()
+                if isinstance(error, BrokenProcessPool):
+                    raise error
+                if error is None:
+                    results.append(futures[i].result())
+                elif isinstance(error, Exception):
+                    results.append(error)
+                else:
+                    raise error
+        except BrokenProcessPool:
+            _discard_pool(pool)
+            raise
+        except BaseException:
+            for future in futures.values():
+                future.cancel()
+            raise
+        return results
     finally:
         pool.unroute(token)
