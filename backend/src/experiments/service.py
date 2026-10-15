@@ -22,6 +22,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import ValidationError
 
+from src.core.limits import nested_deeper_than, too_deep_message
 from src.core.provenance import GIT_COMMIT_HASH, PYTHON_VERSION
 from src.core.scenario import (
     STRATEGIES,
@@ -167,21 +168,6 @@ def _quota_error(quota: str, message: str) -> str:
     return f"quota {limits.QUOTA_NAMES[quota]}: {message}"
 
 
-def _nested_deeper_than(value: Any, limit: int) -> bool:
-    """Whether a JSON value nests more than ``limit`` levels. Iterative, so a hostile document cannot
-    exhaust the stack of the check itself."""
-    stack = [(value, 1)]
-    while stack:
-        item, depth = stack.pop()
-        if depth > limit:
-            return True
-        if isinstance(item, dict):
-            stack.extend((child, depth + 1) for child in item.values())
-        elif isinstance(item, list):
-            stack.extend((child, depth + 1) for child in item)
-    return False
-
-
 def _simulation_steps(prepared: "Prepared", base: ScenarioDocument) -> int:
     """Engine steps the whole experiment needs: for every alternative, steps per run (the scenario's
     duration over the *compiled* time step, which ``advanced`` may change) times conditions times
@@ -213,10 +199,8 @@ def prepare(payload: Any) -> Prepared:
     if not isinstance(payload, dict):
         out.errors.append("An experiment must be a JSON object")
         return out
-    if _nested_deeper_than(payload, limits.MAX_DOCUMENT_DEPTH):
-        out.errors.append(
-            f"The document is nested more than {limits.MAX_DOCUMENT_DEPTH} levels deep"
-        )
+    if nested_deeper_than(payload, limits.MAX_DOCUMENT_DEPTH):
+        out.errors.append(too_deep_message(limits.MAX_DOCUMENT_DEPTH))
         return out
     try:
         request = ExperimentRequest.model_validate(payload)

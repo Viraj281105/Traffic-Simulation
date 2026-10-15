@@ -9,6 +9,7 @@ built on such a run can silently read truncated demand as full demand.
 """
 
 import math
+from typing import Any
 
 DEFAULT_TOTAL_VEHICLES: int = 200
 
@@ -46,3 +47,29 @@ def demand_vehicle_limit(arrival_rate: float, duration: float) -> int:
     expected = max(0.0, arrival_rate) * max(0.0, duration)
     derived = math.ceil(expected * DEMAND_LIMIT_HEADROOM) + DEMAND_LIMIT_MARGIN
     return int(min(MAX_TOTAL_VEHICLES, max(DEFAULT_TOTAL_VEHICLES, derived)))
+
+
+# Free-form sections of a request (a merge patch, a scenario's ``advanced`` section) are walked recursively
+# by the merge and by validation, so a document nested a few thousand levels deep overflows the stack and
+# used to answer HTTP 500. Real documents nest about 8 levels; this leaves ample room above that. Shared by
+# ``/api/v3/experiments`` and the frozen ``/api/v2/planning`` routes.
+MAX_DOCUMENT_DEPTH: int = 24
+
+
+def nested_deeper_than(value: Any, limit: int) -> bool:
+    """Whether a JSON value nests more than ``limit`` levels. Iterative, so a hostile document cannot
+    exhaust the stack of the check itself."""
+    stack = [(value, 1)]
+    while stack:
+        item, depth = stack.pop()
+        if depth > limit:
+            return True
+        if isinstance(item, dict):
+            stack.extend((child, depth + 1) for child in item.values())
+        elif isinstance(item, list):
+            stack.extend((child, depth + 1) for child in item)
+    return False
+
+
+def too_deep_message(limit: int = MAX_DOCUMENT_DEPTH) -> str:
+    return f"The document is nested more than {limit} levels deep"

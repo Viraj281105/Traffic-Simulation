@@ -61,7 +61,10 @@ def create_router(
         user: str = Depends(user_dep),
         admin: bool = Depends(admin_dep),
     ) -> Dict[str, Any]:
-        return svc.validate(user, payload, admin)
+        try:
+            return svc.validate(user, payload, admin)
+        except PlanningError as err:  # only a document too deep to walk safely
+            raise _unprocessable(err) from err
 
     @router.post("/run", dependencies=list(run_dependencies))
     def run(

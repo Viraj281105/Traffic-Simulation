@@ -9,6 +9,8 @@ one engine step per time step (core/limits.py), and the config contract allows a
 
 from __future__ import annotations
 
+from src.core.limits import MAX_DOCUMENT_DEPTH as _MAX_DOCUMENT_DEPTH
+
 # Experiments running or queued at once. Each fills the shared worker pool, so more would only queue.
 MAX_ACTIVE_EXPERIMENTS = 2
 MAX_ACTIVE_EXPERIMENTS_PER_USER = 1
@@ -25,7 +27,7 @@ MAX_SIMULATION_STEPS_PER_EXPERIMENT = (
 
 # Structure of a request document. Real documents nest about 8 levels (a scenario patch is the deepest);
 # anything much deeper is an attack on the parser or the merge, and is refused before any work is done.
-MAX_DOCUMENT_DEPTH = 24
+MAX_DOCUMENT_DEPTH = _MAX_DOCUMENT_DEPTH
 
 # Hard backstop on the alternatives list, checked while the request is parsed; the quota above is checked
 # first, by hand, so its message can name it.
