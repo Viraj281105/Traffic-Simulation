@@ -93,7 +93,7 @@ During initialization, data flows as follows:
 2. **Schema Output**: True/False (raises a validation error if invalid).
 3. **Configuration Sub-objects**:
    * `config["simulation"]["timeStep"]` (float) -> passed to [`Clock`](../../backend/src/core/clock.py)
-   * `config["simulation"]["duration"]` (float/int) -> passed to [`SimulationEngine`](../../backend/src/core/engine.py)
+   * `config["simulation"]["duration"]` (float/int) -> passed to [`SimulationEngine`](../../backend/src/engine/simulation_engine.py)
    * `config["geometry"]["intersectionType"]` (string) -> decides whether to instantiate a fixed-time signal controller or a roundabout controller.
    * `config` and `engine.network` -> passed to the Controller constructor.
 

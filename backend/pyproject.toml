@@ -39,4 +39,7 @@ pythonpath = ["."]
 # (see .github/workflows/ci.yml).
 markers = [
     "slow: full-strength simulation sweep (many seeds x lane counts x demand levels). Each case is a complete 120-240 s simulation, so these dominate wall time. Run with `pytest -m slow`.",
+    "unit: fast isolated unit test verifying a single component or function without external dependencies or heavy simulation.",
+    "integration: integration test checking interactions across modules, controllers, or database persistence.",
+    "architecture: architectural rule and boundary verification tests (e.g. dependency directions, CI matrix synchronization).",
 ]

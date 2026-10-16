@@ -173,7 +173,10 @@ def test_roundabout_has_lower_delay_than_signal_when_empty() -> None:
 # ── Lanes ─────────────────────────────────────────────────────────────────
 
 
-@pytest.mark.parametrize("kind", ["fixed_time_signal", "roundabout"])
+@pytest.mark.parametrize(
+    "kind",
+    ["fixed_time_signal", pytest.param("roundabout", marks=pytest.mark.slow)],
+)
 def test_more_lanes_serve_more_traffic_fast(kind: str) -> None:
     """2,880 veh/h is beyond 1-lane capacity for both controls; two lanes
     carry clearly more of it."""

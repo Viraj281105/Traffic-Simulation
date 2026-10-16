@@ -195,7 +195,14 @@ def test_every_shape_is_valid_for_every_strategy(shape: str) -> None:
     assert result["valid"], result["errors"]
 
 
-@pytest.mark.parametrize("strategy", STRATEGIES)
+@pytest.mark.parametrize(
+    "strategy",
+    [
+        "fixed_time",
+        pytest.param("adaptive", marks=pytest.mark.slow),
+        pytest.param("roundabout", marks=pytest.mark.slow),
+    ],
+)
 @pytest.mark.parametrize("shape", sorted(SHAPES))
 def test_real_world_junction_runs_safely(shape: str, strategy: str) -> None:
     doc = _document(shape)
@@ -215,6 +222,7 @@ def test_real_world_junction_runs_safely(shape: str, strategy: str) -> None:
     assert set(metrics["approachBreakdown"]) == present
 
 
+@pytest.mark.slow
 def test_uturns_are_made_under_every_strategy() -> None:
     for strategy in STRATEGIES:
         # Seed 4 draws six U-turners from the north in the first 400 s (seed

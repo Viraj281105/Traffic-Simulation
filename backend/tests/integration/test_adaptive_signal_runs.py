@@ -90,11 +90,18 @@ class _CheckedRun(_Run):
 SAFETY_CASES = [
     # (lanes, rate, seed, mix, lane changing)
     (1, 0.3, 3, None, True),
-    (1, 0.6, 21, HEAVY_MIX, True),
+    pytest.param(1, 0.6, 21, HEAVY_MIX, True, marks=pytest.mark.slow),
     (2, 0.8, 11, URBAN_MIX, True),
-    (2, 0.6, 5, None, False),
-    (3, 0.9, 7, URBAN_MIX, True),
-    ({"north": 2, "south": 2, "east": 1, "west": 1}, 0.7, 5, URBAN_MIX, True),
+    pytest.param(2, 0.6, 5, None, False, marks=pytest.mark.slow),
+    pytest.param(3, 0.9, 7, URBAN_MIX, True, marks=pytest.mark.slow),
+    pytest.param(
+        {"north": 2, "south": 2, "east": 1, "west": 1},
+        0.7,
+        5,
+        URBAN_MIX,
+        True,
+        marks=pytest.mark.slow,
+    ),
 ]
 
 
@@ -120,6 +127,7 @@ def test_adaptive_runs_are_safe_and_flow(
         assert pool.lane_change_count > 0
 
 
+@pytest.mark.slow
 def test_adaptive_one_direction_plan_with_protected_lefts_is_safe() -> None:
     config = _adaptive(2, 0.5, 9, 240)
     del config["controller"]["phaseSequence"]
@@ -162,6 +170,7 @@ def test_adaptive_differs_from_fixed_time_on_the_same_traffic() -> None:
     assert fixed.engine.spawner.spawned_count == adaptive.engine.spawner.spawned_count
 
 
+@pytest.mark.slow
 def test_green_time_is_measured_for_both_signals() -> None:
     fixed = _Run(_config("fixed_time_signal", 1, 0.3, 8, 240)).run()
     adaptive = _Run(_adaptive(1, 0.3, 8, 240)).run()

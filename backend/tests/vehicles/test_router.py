@@ -39,7 +39,7 @@ def test_find_leader_none_lane_or_invalid_route() -> None:
 
 
 def test_find_leader_virtual_obstacle() -> None:
-    from src.controllers.fixed_time_signal import VirtualObstacle
+    from src.vehicles.virtual_obstacle import VirtualObstacle
 
     lane = Lane("l_obs", 0.0, 0.0, 100.0, 0.0)
     lane.virtual_obstacle = VirtualObstacle(position=50.0)  # type: ignore[attr-defined]

@@ -126,6 +126,7 @@ def test_two_lane_ring_heavy_traffic_high_demand_is_safe_and_flows() -> None:
     assert result["zone_yields"] > 0, result
 
 
+@pytest.mark.slow
 def test_unequal_approaches_on_a_two_lane_ring() -> None:
     """A two-lane main road and a one-lane side road: exits merge."""
     lanes = {"north": 2, "south": 2, "east": 1, "west": 1}
@@ -135,6 +136,7 @@ def test_unequal_approaches_on_a_two_lane_ring() -> None:
     assert result["exited"] > 30, result
 
 
+@pytest.mark.slow
 def test_three_lane_approaches_merging_onto_two_ring_lanes() -> None:
     lanes = {"north": 3, "south": 3, "east": 2, "west": 2}
     result = _run(_scenario(lanes, 2400, MIXES["moto"], seed=5, duration=150))
@@ -143,6 +145,7 @@ def test_three_lane_approaches_merging_onto_two_ring_lanes() -> None:
     assert result["exited"] > 30, result
 
 
+@pytest.mark.slow
 def test_asymmetric_demand_on_a_two_lane_ring() -> None:
     split = {"north": 0.5, "south": 0.2, "east": 0.15, "west": 0.15}
     result = _run(_scenario(EVEN2, 2600, None, seed=3, duration=150, split=split))
@@ -150,6 +153,7 @@ def test_asymmetric_demand_on_a_two_lane_ring() -> None:
     assert result["standstill"] < 20.0, result
 
 
+@pytest.mark.slow
 def test_a_long_vehicle_queued_past_an_exit_stops_traffic_leaving_by_it() -> None:
     """Regression (found by the V1.4 validation matrix): a 10.6 m bus stood on
     the inner lane just past an exit, its tail over the start of that exit's

@@ -549,7 +549,17 @@ def test_single_lane_roundabout_is_collision_free() -> None:
     assert total == 0, f"single-lane roundabout produced {total} collisions"
 
 
-def test_free_flow_demand_is_collision_free() -> None:
+@pytest.mark.parametrize(
+    "seed",
+    [
+        1,
+        pytest.param(2, marks=pytest.mark.slow),
+        pytest.param(3, marks=pytest.mark.slow),
+        pytest.param(4, marks=pytest.mark.slow),
+        pytest.param(5, marks=pytest.mark.slow),
+    ],
+)
+def test_free_flow_demand_is_collision_free(seed: int) -> None:
     """Below saturation the roundabout must be entirely collision-free.
 
     This is the regime the model represents faithfully. The oversaturated
@@ -558,21 +568,18 @@ def test_free_flow_demand_is_collision_free() -> None:
     """
     config = copy.deepcopy(ROUNDABOUT_CONFIG)
     config["traffic"]["arrivalRate"] = 0.1
+    config["simulation"]["randomSeed"] = seed
+    clock = Clock(time_step=0.1)
+    engine = SimulationEngine(clock, duration=120, config=config)
+    controller = create_controller(config, engine.network)
+    engine.controller = controller
+    collector = MetricCollector(config)
+    engine.register_tick_callback(
+        build_tick_callback(controller, clock, engine, collector)
+    )
+    while engine.status.value.lower() != "completed":
+        engine.step()
 
-    total = 0
-    for seed in (1, 2, 3, 4, 5):
-        run_config = copy.deepcopy(config)
-        run_config["simulation"]["randomSeed"] = seed
-        clock = Clock(time_step=0.1)
-        engine = SimulationEngine(clock, duration=120, config=run_config)
-        controller = create_controller(run_config, engine.network)
-        engine.controller = controller
-        collector = MetricCollector(run_config)
-        engine.register_tick_callback(
-            build_tick_callback(controller, clock, engine, collector)
-        )
-        while engine.status.value.lower() != "completed":
-            engine.step()
-        total += engine.pool.collision_count
-
-    assert total == 0, f"free-flowing roundabout produced {total} collisions"
+    assert engine.pool.collision_count == 0, (
+        f"free-flowing roundabout produced {engine.pool.collision_count} collisions for seed {seed}"
+    )

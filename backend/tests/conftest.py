@@ -4,6 +4,7 @@ The autouse fixture here stops real-time engine threads that a test leaves
 running. See its docstring for why that is not merely tidiness.
 """
 
+from pathlib import Path
 from typing import Any, Iterator, List
 
 import pytest
@@ -85,6 +86,20 @@ def inline_study_runs(monkeypatch: pytest.MonkeyPatch) -> None:
     exercises the real process pool explicitly.
     """
     monkeypatch.setenv("STUDY_WORKERS", "0")
+
+
+@pytest.fixture(autouse=True)
+def isolate_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Isolate database operations to a fresh temporary sqlite file per test.
+
+    Prevents tests from mutating the repository's root simulation.db or
+    colliding during parallel runs or test reruns.
+    """
+    import src.database.db as db_mod
+
+    test_db = str(tmp_path / "test_sim.db")
+    monkeypatch.setenv("DB_PATH", test_db)
+    monkeypatch.setattr(db_mod, "DB_PATH", test_db)
 
 
 TEST_USER_ID = "test-user-sub"

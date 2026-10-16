@@ -314,6 +314,7 @@ def test_signal_collisions_stay_negligible_across_seeds() -> None:
     assert total <= 2, f"signal produced {total} collisions across seeds"
 
 
+@pytest.mark.slow
 def test_runs_stay_deterministic_for_a_fixed_seed() -> None:
     """Conflict resolution must not depend on iteration order."""
     _RUN_CACHE.pop((0.4, 1, 1), None)
