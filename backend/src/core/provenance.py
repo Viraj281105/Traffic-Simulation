@@ -1,7 +1,7 @@
 """Best-effort reproducibility provenance (git commit, Python runtime).
 
-Used to stamp headless reproduction runs (see main.py's
-``/reproduce`` endpoint) with the code version and interpreter that produced
+Used to stamp headless reproduction runs (see the run history's
+``/reproduce`` endpoint, src/history/router.py) with the code version and interpreter that produced
 them, so a divergent result can be told apart from an environment
 difference rather than a real non-determinism bug.
 

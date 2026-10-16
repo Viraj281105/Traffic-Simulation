@@ -25,7 +25,7 @@ flowchart TB
         R2["Study parameters: rates · seeds · confidence level · Δt"]
         R3["Environment: STUDY_WORKERS, DB_PATH, …"]
     end
-    L1 -->|"compiled by the backend<br/>_compile_dashboard_config()"| ENG["Engine configuration"]
+    L1 -->|"compiled by the backend<br/>compile_dashboard_config()"| ENG["Engine configuration"]
     L2 --> ENG
     L3 --> ENG
 ```
@@ -129,7 +129,7 @@ Opened from Step 1 ("Advanced settings — signal timing, driver behaviour, lane
 
 Optional V1.1/V1.2 fields, sent only when they differ from the defaults (so a cars-only body is byte-for-byte the V1.0 one): `"vehicleMix": {"car": 0.6, "suv": 0.2, "bus": 0.05, "truck": 0.05, "motorcycle": 0.1}` and `"laneChanging": false`; V1.3 adds `"signalControl": "adaptive"` with an optional `"adaptive": {...}` holding only the settings changed from the defaults. North/south and east/west lane counts must match each other. V1.4 adds `"scenario": {…}` — a scenario document from the builder — which, when present, defines the junction on its own (the flat fields are still sent so older readers can describe the run).
 
-The backend compiles it into a full engine configuration (`_compile_dashboard_config()` in `backend/src/main.py`) and validates the result against the same schema bounds and cross-field rules as the versioned API. The same compiler serves the reliability check, so "How reliable is this?" repeats *exactly* the scenario the user watched.
+The backend compiles it into a full engine configuration (`compile_dashboard_config()` in `backend/src/live/dashboard_config.py`) and validates the result against the same schema bounds and cross-field rules as the versioned API. The same compiler serves the reliability check, so "How reliable is this?" repeats *exactly* the scenario the user watched.
 
 ---
 

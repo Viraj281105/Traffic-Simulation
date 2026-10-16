@@ -13,7 +13,8 @@ from typing import Any, Dict, List
 import pytest
 from fastapi.testclient import TestClient
 
-import src.main as main
+import src.live.dashboard_config as dashboard_config
+import src.study.router as study_router
 from src.main import app
 
 client = TestClient(app)
@@ -58,7 +59,7 @@ def captured(monkeypatch) -> List[Dict[str, Any]]:
         )
         return {"numSeeds": num_seeds, "duration": duration}
 
-    monkeypatch.setattr(main, "run_statistical_validation", fake_validation)
+    monkeypatch.setattr(study_router, "run_statistical_validation", fake_validation)
     return calls
 
 
@@ -77,7 +78,7 @@ def test_scenario_runs_with_its_own_settings(captured) -> None:
     # Same warm-up the live comparison uses.
     assert (
         config["simulation"]["warmupTime"]
-        == main.DEFAULT_CONFIG["simulation"]["warmupTime"]
+        == dashboard_config.DEFAULT_CONFIG["simulation"]["warmupTime"]
     )
     assert config["roads"]["lanesPerApproach"] == {
         "north": 1,
@@ -91,7 +92,7 @@ def test_scenario_runs_with_its_own_settings(captured) -> None:
     assert config["controller"]["straightRightDuration"] == 20.0
     assert (
         config["controller"]["phaseSequence"]
-        == main.DEFAULT_CONFIG["controller"]["phaseSequence"]
+        == dashboard_config.DEFAULT_CONFIG["controller"]["phaseSequence"]
     )
     assert config["roundaboutController"] == {
         "criticalGap": 4.5,

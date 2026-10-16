@@ -75,12 +75,12 @@ def test_job_request_is_validated_before_starting() -> None:
 def test_failed_study_is_reported_not_lost(
     study_db: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from src import main
+    from src.study import router as study_router
 
     def broken(*_args: Any, **_kwargs: Any) -> Dict[str, Any]:
         raise RuntimeError("engine exploded")
 
-    monkeypatch.setattr(main, "run_volume_sweep_experiment", broken)
+    monkeypatch.setattr(study_router, "run_volume_sweep_experiment", broken)
     res = client.post("/api/v1/study/sweeps/jobs", json={"duration": 5.0})
     done = _wait(res.json()["jobId"])
     assert done["status"] == "failed"

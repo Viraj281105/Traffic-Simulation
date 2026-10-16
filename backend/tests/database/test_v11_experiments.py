@@ -12,7 +12,8 @@ import src.database.db as db_module
 from src.core.provenance import GIT_COMMIT_HASH
 from src.database.dao import SimulationRunDAO
 from src.database.db import get_db_connection, init_db
-from src.main import LIVE_SESSION_COOKIE, _live_sessions, app
+from src.live.sessions import LIVE_SESSION_COOKIE, live_sessions
+from src.main import app
 from src.study.volume_sweep import run_volume_sweep_experiment
 
 # Saved replays belong to the signed-in user (see conftest.signed_in_user).
@@ -49,7 +50,7 @@ def _save_live_run(client: TestClient, ticks: int, name: str = "Signal run") -> 
     assert (
         client.post("/api/simulation/config", json=DASHBOARD_CONFIG).status_code == 200
     )
-    engine = _live_sessions[client.cookies[LIVE_SESSION_COOKIE]].live_sim_data["engine"]
+    engine = live_sessions[client.cookies[LIVE_SESSION_COOKIE]].live_sim_data["engine"]
     for _ in range(ticks):
         engine.step()
     res = client.post(

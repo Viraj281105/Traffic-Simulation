@@ -1,6 +1,6 @@
 # 03 — Frontend Architecture
 
-> **Status:** Current · V1.0 · rewritten 2026-10-05 from the checked-in `frontend/src/` tree (the original Phase-0 version described planned `charts/`, `contexts/`, `layouts/`, `pages/` and `simulation/` folders that were never created)
+> **Status:** Current · V1.0 · rewritten 2026-10-05 from the checked-in `frontend/src/` tree (the original Phase-0 version described planned `charts/`, `contexts/`, `layouts/`, `pages/` and `simulation/` folders that were never created); dashboard shell split into hooks and `components/shell/` 2026-10-16
 > **Owner:** Khushi Kashyap (dashboard, canvas, charts, playback)
 > **See also:** [00 — System overview](00-system-overview.md) · [Product story](../product/README.md) · [User narrative & IA](../product/urbanflow-user-narrative.md)
 
@@ -15,13 +15,15 @@ frontend/
 ├── index.html · app.html           Two entry documents (landing, dashboard)
 ├── src/
 │   ├── landing/                    Landing page (App.tsx, Reveal animation, error boundary)
-│   ├── main.tsx · App.tsx          Dashboard entry and shell: sections, guided stage machine, views
+│   ├── main.tsx · App.tsx          Dashboard entry and view composition: guided stage machine, views
 │   ├── routing.ts                  URL ↔ view mapping (mirrored by nginx and the Vite fallback)
 │   ├── config.ts                   API/WS base URLs (VITE_API_URL / VITE_WS_URL or same origin)
 │   ├── auth/cognito.ts             Cognito sign-in; development bypass (dev server only)
 │   ├── components/
+│   │   ├── shell/                  App chrome: sections.ts (view → section), Navigation, LoginDialog,
+│   │   │                           NotFound, ConfigToggle
 │   │   ├── guided/                 The planner journey: ScenarioSetup, LiveGuide, ResultsReport,
-│   │   │                           ReliabilityCheck, StepNav, comparisonRun.ts
+│   │   │                           ReliabilityCheck, StepNav, ComparisonMaps, comparisonRun.ts
 │   │   ├── IntersectionMap.tsx     Canvas: signalised junction · RoundaboutMap.tsx: roundabout
 │   │   ├── IntersectionCanvas.tsx  Canvas: original single-vehicle view
 │   │   ├── mapGeometry.ts · mapEnvironment.ts · snapshotInterpolator.ts   Drawing helpers, smooth motion
@@ -31,19 +33,23 @@ frontend/
 │   │   ├── ConfigurationSidebar.tsx  Advanced settings and presets
 │   │   ├── PlaybackControls.tsx    Play / pause / start over; plain and technical modes
 │   │   ├── HistoryDashboard.tsx · RunPage.tsx · ComparePage.tsx · RunTags.tsx   Saved section
-│   │   ├── ResearchHub.tsx · VolumeAnalysisDashboard.tsx · ValidationDashboard.tsx · IntegrityCheck.tsx
+│   │   ├── ResearchHub.tsx · VolumeAnalysisDashboard.tsx (+ volumeSweepModel.ts: sweep payload, crossover,
+│   │   │                           chart rows) · ValidationDashboard.tsx · IntegrityCheck.tsx
 │   │   ├── ControlComparisonStudy.tsx (V1.3 three-way study, on /app/research) · AdaptiveSignalStatus.tsx (adaptive map overlay)
 │   │   ├── Login.tsx               Sign-in dialog
 │   │   └── ui/                     Shared UI: loaders, page transitions, status states, logo
 │   ├── hooks/                      useWebSocketSnapshot · useSimulationPolling · useLiveComparisonHistory ·
-│   │                               useStudyJob · useContainerSize
-│   ├── services/                   api.ts (REST) · websocket.ts (stream client) · liveSession.ts · studyJobs.ts
+│   │                               useStudyJob · useContainerSize · useAuthSession (sign-in, profile, admin) ·
+│   │                               useLiveConfigSync (dashboard config → backend) · useToast
+│   ├── services/                   api.ts (REST) · websocket.ts (stream client) · liveSession.ts · studyJobs.ts ·
+│   │                               v2/planning.ts · v3/experiments.ts — every request except the legacy
+│   │                               single-vehicle polling in useSimulationPolling
 │   ├── metrics/
 │   │   ├── catalog.ts              One description per metric: label, unit, precision, group, applicability
 │   │   └── plainLanguage.ts        Plain-language readings, similarity rule, grades, bands, "why", trust notes
 │   ├── types/                      config.ts (scenario, presets, dashboard body) · demand.ts · simulation.ts · scoring.ts
 │   ├── runs/savedRun.ts            Saved-run helpers
-│   ├── styles/ · theme/ · utils/   Design tokens, chart theme, time formatting
+│   ├── styles/ · theme/ · utils/   Design tokens, chart theme, light/dark mode (theme/mode.ts), time formatting
 │   └── test/                       Vitest + Testing Library suites
 ├── templates/default.conf.template nginx site (SPA fallback, proxy, API-key injection, auth gate)
 ├── vite.config.ts                  Dev proxy, history fallback, Vitest config
@@ -134,7 +140,7 @@ flowchart TB
 | --- | --- |
 | No client-side metrics | Live, saved and exported numbers must agree with the backend (ADR-005) |
 | Canvas for maps, Recharts for charts | Many vehicles redrawn every animation frame; declarative charts elsewhere |
-| No global state library | State lives in `App.tsx` and focused hooks; services are plain TypeScript |
+| No global state library | State lives in `App.tsx` and focused hooks (auth session, config sync, toast, theme); services are plain TypeScript and own the requests |
 | One URL per view | Refresh, bookmarks and back/forward work; nginx and Vite mirror the route list |
 | Dev auth bypass compiled out of production | `import.meta.env.DEV` is `false` in `vite build` (`devAuthBypass.test.ts`) |
 

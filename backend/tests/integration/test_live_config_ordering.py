@@ -13,7 +13,8 @@ from typing import Any, Dict
 
 from fastapi.testclient import TestClient
 
-import src.main as main
+import src.live.router as live_router
+import src.live.sessions as sessions
 from src.main import app
 
 SCENARIO: Dict[str, Any] = {
@@ -45,16 +46,18 @@ def test_a_stream_frame_mid_update_cannot_resurrect_the_old_scenario(
         == "ok"
     )
 
-    real_compile = main._compile_dashboard_config
+    real_compile = live_router.compile_dashboard_config
     captured: Dict[str, Any] = {}
 
     def compile_while_streaming(payload, seed_val):
         # A dual-stream frame lands while the update is in progress.
-        captured["session"] = main._current_session()
-        main.get_or_create_dual_orchestrator()
+        captured["session"] = sessions.current_session()
+        sessions.get_or_create_dual_orchestrator()
         return real_compile(payload, seed_val)
 
-    monkeypatch.setattr(main, "_compile_dashboard_config", compile_while_streaming)
+    monkeypatch.setattr(
+        live_router, "compile_dashboard_config", compile_while_streaming
+    )
     assert (
         client.post(
             "/api/simulation/config", json={**SCENARIO, "duration": 120}

@@ -590,7 +590,7 @@ def test_fixed_time_signal_ns_ew_duration_invalid_values_rejected_by_schema() ->
     schema/Pydantic layer, exercised here directly against CONFIG_SCHEMA."""
     import jsonschema
 
-    from src.main import CONFIG_SCHEMA
+    from src.core.schema import CONFIG_SCHEMA
 
     base_config = {
         "simulation": {"duration": 60, "timeStep": 0.1},

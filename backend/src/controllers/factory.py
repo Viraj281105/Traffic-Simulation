@@ -31,8 +31,8 @@ def create_controller(config: Dict[str, Any], network: RoadNetwork) -> BaseContr
 def derive_signals_state(controller: BaseController) -> Dict[Direction, str]:
     """Reads the current per-direction signal colors from a controller.
 
-    Shared by build_tick_callback below and the reproduction endpoint
-    (src/main.py) so both derive collector.update()'s signals_state the
+    Shared by build_tick_callback below and run reproduction
+    (src/history/reproduce.py) so both derive collector.update()'s signals_state the
     same way, from the controller's own current state after it has already
     been advanced for this tick — never by re-invoking controller.update().
     """

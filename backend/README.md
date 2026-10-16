@@ -18,8 +18,14 @@ A Python 3.11 **FastAPI** application containing UrbanFlow's discrete-time simul
 
 ```
 src/
-├── main.py           FastAPI app: routes, WebSockets, live sessions, errors, CORS, API key
+├── main.py           FastAPI app: middleware, error handler, DB init, mounts every router (no routes)
+├── api/              API key, error envelope, CORS/WebSocket origins, config → 400, /health /api/version /api/me
 ├── auth.py           Cognito token verification and the local-development bypass
+├── live/             Live dashboard: sessions, dashboard config compilation, /api/simulation/*, /ws/simulation/*
+├── simulations/      Versioned /api/v1/simulations: registry, lifecycle, reports, /ws/v1/stream
+├── replays/ suites/  /api/v1/replays and /api/suites
+├── history/          Stored runs: list, label, export, compare, reproduce
+├── calibration/ networks/ planning/ experiments/ uncertainty/   V1.8–V3.0 feature packages, each with its router
 ├── core/             engine, clock, configuration models and rules, limits, provenance
 ├── roads/            road network, lanes, approaches
 ├── vehicles/         vehicle, IDM, spawner, pool, router, speed profile
@@ -27,8 +33,8 @@ src/
 ├── intersection/     conflict manager (signal) and predictive conflict resolver
 ├── metrics/          MetricCollector, composite score, definitions/
 ├── snapshot/         snapshot builder and buffer, dual (lockstep) orchestrator
-├── study/            volume sweep, validation, worker pool, jobs, calibration, tolerances, reports
-└── database/         SQLite schema and migrations, run/sweep/replay DAOs
+├── study/            volume sweep, validation, worker pool, jobs, calibration, tolerances, reports, limits, router
+└── database/         SQLite schema and migrations, run/sweep/suite/replay/user DAOs
 ```
 
 ## Core model in one paragraph

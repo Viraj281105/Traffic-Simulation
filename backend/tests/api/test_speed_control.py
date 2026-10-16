@@ -30,9 +30,9 @@ def test_live_speed_within_bounds_is_applied() -> None:
     session_key = client.cookies.get("ts_session")
     assert session_key is not None
 
-    from src.main import _live_sessions
+    from src.live.sessions import live_sessions
 
-    engine = _live_sessions[session_key].live_sim_data["engine"]
+    engine = live_sessions[session_key].live_sim_data["engine"]
     assert engine.speed_multiplier == 4
 
 
@@ -40,17 +40,17 @@ def test_dual_speed_within_bounds_is_applied() -> None:
     response = client.post("/api/simulation/dual/speed", json={"multiplier": 2})
     assert response.status_code == 200
 
-    from src.main import _live_sessions
+    from src.live.sessions import live_sessions
 
     session_key = client.cookies.get("ts_session")
     assert session_key is not None
-    orchestrator = _live_sessions[session_key].dual_sim_orchestrator
+    orchestrator = live_sessions[session_key].dual_sim_orchestrator
     assert orchestrator is not None
     assert orchestrator.speed_multiplier == 2
 
 
 def test_rejected_speed_leaves_the_previous_multiplier() -> None:
-    from src.main import _live_sessions
+    from src.live.sessions import live_sessions
 
     assert (
         client.post("/api/simulation/speed", json={"multiplier": 2}).status_code == 200
@@ -61,5 +61,5 @@ def test_rejected_speed_leaves_the_previous_multiplier() -> None:
 
     session_key = client.cookies.get("ts_session")
     assert session_key is not None
-    engine = _live_sessions[session_key].live_sim_data["engine"]
+    engine = live_sessions[session_key].live_sim_data["engine"]
     assert engine.speed_multiplier == 2

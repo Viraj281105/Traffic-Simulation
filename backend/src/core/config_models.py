@@ -194,11 +194,11 @@ class ControllerSection(BaseModel):
     allRedTime: float = Field(2.0, ge=0, le=5)
     # Canonical aliases used internally by FixedTimeSignalController (see
     # its __init__) and by the legacy live-dashboard config path
-    # (backend/src/main.py DEFAULT_CONFIG / update_simulation_config).
+    # (src/live/dashboard_config.py DEFAULT_CONFIG / compile_dashboard_config).
     # Optional and unset by default so a config that only sets greenTime/
     # yellowTime/allRedTime behaves exactly as before; when one of these
     # IS provided, ScenarioConfiguration.model_dump(exclude_none=True)
-    # (see create_simulation_v2 in main.py) keeps it in the dict passed to
+    # (see create_simulation_v2 in src/simulations/router.py) keeps it in the dict passed to
     # the controller, instead of silently dropping it the way an
     # undeclared Pydantic field previously would have. See
     # FixedTimeSignalController.__init__ for the exact precedence between

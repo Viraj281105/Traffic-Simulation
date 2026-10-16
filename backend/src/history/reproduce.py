@@ -21,26 +21,13 @@ from src.core.enums import SimulationStatus
 from src.core.limits import MAX_SIMULATION_TICKS
 from src.core.provenance import GIT_COMMIT_HASH, PYTHON_VERSION
 from src.metrics.collector import MetricCollector
+from src.metrics.readout import engine_metrics
 from src.request_limits import MAX_STUDY_DURATION_SECONDS
 from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
 
 
 class ReproductionError(ValueError):
     """The stored run cannot be reproduced as recorded."""
-
-
-def engine_metrics(engine: SimulationEngine, collector: MetricCollector) -> Any:
-    """The collector's metrics for the engine's current state -- the same
-    call that produces every snapshot's "metrics" -- read under the engine
-    lock so a concurrent tick cannot interleave."""
-    with engine.lock:
-        return collector.get_metrics(
-            engine.clock.get_elapsed_time(),
-            engine.pool.active_vehicles,
-            engine.pool.exited_vehicles,
-            engine.spawner.spawned_count if engine.spawner else 0,
-            engine.pool.collision_count,
-        )
 
 
 # Tolerances for the determinism check (unchanged from the original

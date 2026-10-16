@@ -1,6 +1,6 @@
-"""The shared scenario-configuration JSON schema, for modules outside main.py.
+"""The shared scenario-configuration JSON schema: the one loader every module uses.
 
-Resolved exactly as main.py resolves it — relative to this package, for both
+Resolved relative to this package, for both
 the repository checkout (repo/shared) and the Docker image (/app/shared) —
 and loaded once. A missing schema is an error, never an empty schema: schema
 validation is a correctness boundary.

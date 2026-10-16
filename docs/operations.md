@@ -1,9 +1,9 @@
 # Operations Guide
 
-> **Status:** Current · V1.5 · detailed runtime behaviour of `backend/src/main.py` and the frontend services.
+> **Status:** Current · V1.5 · detailed runtime behaviour of the backend routes (mounted by `backend/src/main.py`; `live/`, `simulations/`, `study/`, `replays/`, `suites/`, `history/`) and the frontend services.
 > **Companions:** [API & WebSocket reference](api/README.md) (every route, inputs, outputs, errors) · [Deployment & operations](deployment/README.md) (architecture, verification, known issues) · [Reproducibility](research/reproducibility.md)
 
-This guide describes the behavior implemented by `backend/src/main.py` and the current frontend services. The interactive dashboard (guided comparison and single-strategy views) uses the live-session routes under `/api/simulation/*`; the versioned `/api/v1/*` routes are intended for programmatic runs and study analysis.
+This guide describes the behavior implemented by the backend routes (see [backend architecture](architecture/02-backend-architecture.md) for which package owns which) and the current frontend services. The interactive dashboard (guided comparison and single-strategy views) uses the live-session routes under `/api/simulation/*`; the versioned `/api/v1/*` routes are intended for programmatic runs and study analysis.
 
 ## Start a Versioned Simulation
 

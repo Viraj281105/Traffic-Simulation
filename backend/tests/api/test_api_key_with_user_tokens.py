@@ -13,8 +13,8 @@ from typing import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
+import src.api.security as security
 import src.database.db as db_module
-import src.main as main
 from src.auth import DEV_AUTH_TOKEN
 from src.database.db import init_db
 from src.main import app
@@ -44,7 +44,7 @@ REPLAY = {
 @pytest.fixture
 def client(tmp_path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     monkeypatch.setattr(db_module, "DB_PATH", str(tmp_path / "keyed.db"))
-    monkeypatch.setattr(main, "API_KEY", KEY)
+    monkeypatch.setattr(security, "API_KEY", KEY)
     monkeypatch.delenv("DEV_AUTH_BYPASS", raising=False)
     init_db()
     yield TestClient(app)

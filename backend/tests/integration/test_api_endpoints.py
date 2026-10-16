@@ -3,7 +3,8 @@ from typing import Any, Dict
 
 from fastapi.testclient import TestClient
 
-from src.main import _resolve_snapshot_interval, app
+from src.main import app
+from src.simulations.router import resolve_snapshot_interval
 
 client = TestClient(app)
 
@@ -151,22 +152,20 @@ def test_ws_snapshot_interval_honors_configured_frequency() -> None:
     schema-validated part of the config contract."""
     # Explicit frequency is honored.
     assert (
-        _resolve_snapshot_interval({"simulation": {"snapshotFrequency": 20.0}}) == 0.05
+        resolve_snapshot_interval({"simulation": {"snapshotFrequency": 20.0}}) == 0.05
     )
     # Missing field falls back to the documented 10Hz default.
-    assert _resolve_snapshot_interval({"simulation": {}}) == 0.1
-    assert _resolve_snapshot_interval({}) == 0.1
+    assert resolve_snapshot_interval({"simulation": {}}) == 0.1
+    assert resolve_snapshot_interval({}) == 0.1
     # Out-of-range / malformed values are clamped to the documented [1, 60]Hz
     # hard limits rather than raising or streaming at an absurd rate.
     assert (
-        _resolve_snapshot_interval({"simulation": {"snapshotFrequency": 1000.0}})
+        resolve_snapshot_interval({"simulation": {"snapshotFrequency": 1000.0}})
         == 1.0 / 60.0
     )
-    assert _resolve_snapshot_interval({"simulation": {"snapshotFrequency": 0.0}}) == 1.0
+    assert resolve_snapshot_interval({"simulation": {"snapshotFrequency": 0.0}}) == 1.0
     assert (
-        _resolve_snapshot_interval(
-            {"simulation": {"snapshotFrequency": "not-a-number"}}
-        )
+        resolve_snapshot_interval({"simulation": {"snapshotFrequency": "not-a-number"}})
         == 0.1
     )
 

@@ -1,9 +1,4 @@
-import {
-  useEffect,
-  useState,
-  type CSSProperties,
-  type ComponentType,
-} from "react";
+import { useEffect, type CSSProperties, type ComponentType } from "react";
 import {
   Activity,
   ArrowDownRight,
@@ -20,6 +15,7 @@ import {
 } from "lucide-react";
 import { UrbanFlowLockup } from "../components/ui/UrbanFlowLogo";
 import { RouteLoader } from "../components/ui/RouteLoader";
+import { useThemeMode } from "../theme/mode";
 
 declare global {
   interface Window {
@@ -127,19 +123,10 @@ const metricGroups = [
 import { Reveal } from "./components/Reveal";
 
 function App() {
-  const [isLight, setIsLight] = useState(
-    () => sessionStorage.getItem("signals-theme") !== "dark",
-  );
   useEffect(() => {
     document.title = "UrbanFlow — Signal or roundabout?";
-    document.documentElement.classList.toggle("light", isLight);
-    document.documentElement.classList.toggle("dark", !isLight);
-    sessionStorage.setItem("signals-theme", isLight ? "light" : "dark");
-  }, [isLight]);
-
-  const toggleTheme = () => {
-    setIsLight((current) => !current);
-  };
+  }, []);
+  const { isLight, toggleTheme } = useThemeMode();
 
   return (
     <main className="site-shell">

@@ -306,7 +306,7 @@ def run_statistical_validation(
         "vehicleGeneration": {
             "stopSpeedThreshold": 0.1,
             "waitSpeedThreshold": 0.5,
-            # Engine defaults: the calibrated study\'s vehicles (see main.py).
+            # Engine defaults: the calibrated study\'s vehicles (see live/dashboard_config.py).
         },
     }
 
@@ -503,7 +503,7 @@ def run_invariant_checks(
         "vehicleGeneration": {
             "stopSpeedThreshold": 0.1,
             "waitSpeedThreshold": 0.5,
-            # Engine defaults: the calibrated study\'s vehicles (see main.py).
+            # Engine defaults: the calibrated study\'s vehicles (see live/dashboard_config.py).
         },
     }
 

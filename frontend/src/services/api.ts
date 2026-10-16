@@ -116,6 +116,20 @@ export async function getSweep(id: string): Promise<unknown> {
   return get(`/api/v1/study/sweeps/${encodeURIComponent(id)}`);
 }
 
+/** Run the backend's model-integrity checks (POST
+ *  /api/v1/study/validate/repeatability, study/validation.py
+ *  run_invariant_checks). Sent without the user's token, as the check has
+ *  always been: it is a compute route guarded by the API key alone. */
+export async function runIntegrityChecks<T>(): Promise<T> {
+  const r = await fetch(`${BASE}/api/v1/study/validate/repeatability`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  if (!r.ok) throw new Error(`HTTP ${r.status.toString()}`);
+  return r.json() as Promise<T>;
+}
+
 /** Compact reproducibility record of a saved run
  *  (backend describe_reproducibility, include_payload=False). Fields a run
  *  never recorded — runs saved before provenance tracking — are null. */

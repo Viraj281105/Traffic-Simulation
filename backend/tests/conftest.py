@@ -13,12 +13,8 @@ from src.core.enums import SimulationStatus
 
 def _running_engines() -> List[Any]:
     """Every engine currently held by the app that is still stepping."""
-    from src.main import (
-        _live_sessions,
-        _live_sessions_lock,
-        simulations_db,
-        simulations_lock,
-    )
+    from src.live.sessions import live_sessions, live_sessions_lock
+    from src.simulations.registry import simulations_db, simulations_lock
 
     engines: List[Any] = []
 
@@ -28,8 +24,8 @@ def _running_engines() -> List[Any]:
             if engine is not None:
                 engines.append(engine)
 
-    with _live_sessions_lock:
-        for session in list(_live_sessions.values()):
+    with live_sessions_lock:
+        for session in list(live_sessions.values()):
             live = getattr(session, "live_sim_data", None)
             if isinstance(live, dict) and live.get("engine") is not None:
                 engines.append(live["engine"])

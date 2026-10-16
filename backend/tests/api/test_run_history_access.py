@@ -252,7 +252,7 @@ def test_suite_batch_runs_belong_to_the_suite_owner(
 ) -> None:
     """A private suite's batch results used to be stored with no owner, so
     anyone could list them with ?batch_id=<suite id>."""
-    from src.study import batch
+    from src.suites import router as suites_router
 
     captured: dict[str, Any] = {}
 
@@ -260,7 +260,7 @@ def test_suite_batch_runs_belong_to_the_suite_owner(
         captured.update(kwargs)
         return {"runIds": []}
 
-    monkeypatch.setattr(batch, "run_suite_batch_experiment", fake_batch)
+    monkeypatch.setattr(suites_router, "run_suite_batch_experiment", fake_batch)
     act_as("alice")
     suite_id = client.post(
         "/api/suites",
@@ -277,7 +277,7 @@ def test_suite_batch_runs_belong_to_the_suite_owner(
     assert res.status_code == 200
     import time
 
-    from src.main import jobs
+    from src.study.jobs import jobs
 
     job = jobs.get(res.json()["jobId"])
     assert job is not None

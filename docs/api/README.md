@@ -1,6 +1,6 @@
 # API & WebSocket Reference
 
-> **Status:** Current · V1.0–V2.0 · every route on this page is registered in `backend/src/main.py` (V1 routes verified 2026-10-05; the `/api/v2` list in §10 was taken from the app's OpenAPI document on 2026-10-12). Nothing here is planned or hypothetical.
+> **Status:** Current · V1.0–V2.0 · every route on this page is mounted by `backend/src/main.py` from the package that owns it (see [backend architecture](../architecture/02-backend-architecture.md)) (V1 routes verified 2026-10-05; the `/api/v2` list in §10 was taken from the app's OpenAPI document on 2026-10-12). Nothing here is planned or hypothetical.
 > **Interactive schema:** FastAPI serves OpenAPI docs at `/docs` on the backend (e.g. `http://localhost:8000/docs` in development).
 > **Narrative guide:** [Operations guide](../operations.md) explains behaviour in more depth (study jobs, provenance, access control).
 
