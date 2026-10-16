@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Literal, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.core.enums import Direction
-from src.core.scenario import ScenarioDocument, scenario_fingerprint
+from src.scenario.documents import ScenarioDocument, scenario_fingerprint
 
 NETWORK_FORMAT = "urbanflow-network"
 NETWORK_VERSION = 1

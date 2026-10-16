@@ -15,11 +15,11 @@ from typing import Any, Dict
 import pytest
 from fastapi.testclient import TestClient
 
-from src.auth import DEV_AUTH_TOKEN
-from src.core.scenario import parse_scenario, scenario_fingerprint
+from src.api.auth import DEV_AUTH_TOKEN
 from src.main import app
 from src.networks.from_scenario import scenario_to_network
 from src.networks.validate import parse_network, validate_network
+from src.scenario.documents import parse_scenario, scenario_fingerprint
 
 SCENARIO: Dict[str, Any] = {
     "format": "urbanflow-scenario",

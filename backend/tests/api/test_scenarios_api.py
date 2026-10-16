@@ -6,7 +6,8 @@ from typing import Any, Dict
 
 from fastapi.testclient import TestClient
 
-from src.main import _compile_dashboard_config, app
+from src.live.dashboard_config import compile_dashboard_config
+from src.main import app
 from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
 
 client = TestClient(app)
@@ -111,7 +112,7 @@ def test_an_unknown_strategy_is_rejected() -> None:
 
 
 def test_the_live_comparison_runs_both_designs_from_one_scenario() -> None:
-    config = _compile_dashboard_config(
+    config = compile_dashboard_config(
         {"intersectionType": "fixed_time_signal", "scenario": SCENARIO}, 1
     )
     orch = DualSimulationOrchestrator(config)

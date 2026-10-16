@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from src.core.enums import Direction, TurnIntent
 from src.core.limits import DEFAULT_TOTAL_VEHICLES
-from src.metrics.collector import resolve_speed_threshold
+from src.core.speed_thresholds import resolve_speed_threshold
 from src.roads.lane import Lane
 from src.roads.network import RoadNetwork
 from src.vehicles.speed_profile import resolve_desired_speed_range
@@ -59,7 +59,7 @@ class VehicleSpawner:
             )
             # Persist the resolved seed back into the shared config so it
             # can be captured/logged/persisted by callers (e.g. the run
-            # history and reproduce endpoints in main.py).
+            # history and reproduce endpoints in history/router.py).
             sim_cfg["randomSeed"] = self.random_seed
         self.rng: random.Random = random.Random(self.random_seed)
 

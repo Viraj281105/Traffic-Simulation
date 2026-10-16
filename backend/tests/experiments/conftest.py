@@ -15,7 +15,8 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.testclient import TestClient
 
 from src.experiments.router import create_router
-from src.experiments.service import ExperimentService, ExperimentStore
+from src.experiments.service import ExperimentService
+from src.experiments.store import ExperimentStore
 
 SCENARIO: Dict[str, Any] = {
     "format": "urbanflow-scenario",

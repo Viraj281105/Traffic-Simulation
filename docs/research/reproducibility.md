@@ -1,6 +1,6 @@
 # Reproducibility
 
-> **Status:** Current · V1.0 · verified against `backend/src/core/provenance.py`, `backend/src/main.py` (reproduce/export routes), `backend/src/study/` and `backend/tests/database/test_run_reproducibility.py`
+> **Status:** Current · V1.0 · verified against `backend/src/core/provenance.py`, `backend/src/history/` (reproduce/export routes), `backend/src/study/` and `backend/tests/database/test_run_reproducibility.py`
 > **Principle:** a result that cannot be re-run is an anecdote. UrbanFlow records everything needed to re-run any saved result and can check the re-run itself.
 
 ---
@@ -29,7 +29,7 @@ If all of these are the same, the result is the same. UrbanFlow records every on
 | Arrivals, splits, turns and vehicle properties depend only on the seed | Each engine owns a private `random.Random(seed)`; the global `random` module is never used during a run | `vehicles/spawner.py` |
 | A run without a seed is still reproducible | A seed is generated, logged, and written back into the configuration that gets persisted | `VehicleSpawner.__init__` |
 | Both strategies in a comparison see the same traffic | The orchestrator assigns the same seed to the signal and roundabout engines and steps them in lockstep | `snapshot/dual_orchestrator.py` |
-| Tick order is fixed | spawn → controller → physics → audit → metrics, under one lock | `core/engine.py` |
+| Tick order is fixed | spawn → controller → physics → audit → metrics, under one lock | `engine/simulation_engine.py` |
 | Parallel studies equal sequential studies | Every (tier or seed) × geometry is an independent seeded simulation; results are aggregated in the original order | `study/runner.py` |
 | Performance caches never change results | Lane geometry and coordinate caches are pure functions; a test compares whole trajectories with the uncached implementation | `tests/roads/test_lane_lookup_equivalence.py` |
 | Reset really resets | Clock, spawner, pool, conflict reservations, controller and collectors all return to their initial state | `SimulationEngine.reset()`, `tests/core/test_engine_reset.py` |

@@ -9,11 +9,12 @@ from fastapi.testclient import TestClient
 
 import src.database.db as db_module
 from src.core.clock import Clock
-from src.core.engine import SimulationEngine
 from src.core.provenance import GIT_COMMIT_HASH, PYTHON_VERSION
 from src.database.dao import SimulationRunDAO, describe_reproducibility
 from src.database.db import get_db_connection, init_db
-from src.main import LIVE_SESSION_COOKIE, _live_sessions, app
+from src.engine.simulation_engine import SimulationEngine
+from src.live.sessions import LIVE_SESSION_COOKIE, live_sessions
+from src.main import app
 
 # Saved replays belong to the signed-in user (see conftest.signed_in_user).
 pytestmark = pytest.mark.usefixtures("signed_in_user")
@@ -48,7 +49,7 @@ DASHBOARD_CONFIG = {
 
 
 def _session_for(client: TestClient):
-    return _live_sessions[client.cookies[LIVE_SESSION_COOKIE]]
+    return live_sessions[client.cookies[LIVE_SESSION_COOKIE]]
 
 
 def _configure_and_step_live(client: TestClient, ticks: int, **overrides):

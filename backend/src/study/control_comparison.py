@@ -128,13 +128,13 @@ def run_scenario_comparison(
     """A user's own scenario (V1.4), run under each strategy over seeds.
 
     Every strategy is compiled from the same scenario document
-    (core/scenario.py), so geometry, lanes, lane use, traffic, vehicle mix,
+    (scenario/documents.py), so geometry, lanes, lane use, traffic, vehicle mix,
     duration, warm-up and seed are identical by construction; only the
     control section differs. ``demand_scales`` optionally repeats the study
     with every approach's demand scaled (1.0 = as configured). Seeds run
     ``base_seed`` (default: the scenario's own seed) onwards.
     """
-    from src.core.scenario import (
+    from src.scenario.documents import (
         STRATEGY_TITLES,
         compile_scenario,
         scenario_fingerprint,

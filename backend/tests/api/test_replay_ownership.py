@@ -1,7 +1,7 @@
 """Saved replays belong to the user who saved them.
 
 The replay endpoints resolve the caller from a verified Cognito token
-(``src.auth``): without one they refuse, and a signed-in user cannot read or
+(``src.api.auth``): without one they refuse, and a signed-in user cannot read or
 delete another user's replay, nor see it in their list.
 """
 
@@ -11,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import src.database.db as db_module
-from src.auth import get_current_user_email, get_current_user_id
+from src.api.auth import get_current_user_email, get_current_user_id
 from src.database.db import init_db
 from src.main import app
 

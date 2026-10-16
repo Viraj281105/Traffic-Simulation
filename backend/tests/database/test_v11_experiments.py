@@ -12,7 +12,8 @@ import src.database.db as db_module
 from src.core.provenance import GIT_COMMIT_HASH
 from src.database.dao import SimulationRunDAO
 from src.database.db import get_db_connection, init_db
-from src.main import LIVE_SESSION_COOKIE, _live_sessions, app
+from src.live.sessions import LIVE_SESSION_COOKIE, live_sessions
+from src.main import app
 from src.study.volume_sweep import run_volume_sweep_experiment
 
 # Saved replays belong to the signed-in user (see conftest.signed_in_user).
@@ -49,7 +50,7 @@ def _save_live_run(client: TestClient, ticks: int, name: str = "Signal run") -> 
     assert (
         client.post("/api/simulation/config", json=DASHBOARD_CONFIG).status_code == 200
     )
-    engine = _live_sessions[client.cookies[LIVE_SESSION_COOKIE]].live_sim_data["engine"]
+    engine = live_sessions[client.cookies[LIVE_SESSION_COOKIE]].live_sim_data["engine"]
     for _ in range(ticks):
         engine.step()
     res = client.post(
@@ -179,7 +180,7 @@ def test_metadata_validation(test_db):
 def test_legacy_run_can_be_labelled(test_db):
     """A legacy run has no owner, so it is shared: anyone may read it, and
     only an admin may change its labels (src/history/router.py)."""
-    from src.auth import get_current_user_is_admin
+    from src.api.auth import get_current_user_is_admin
 
     _legacy_run()
     client = TestClient(app)

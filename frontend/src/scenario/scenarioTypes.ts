@@ -1,6 +1,6 @@
 /**
  * Scenario documents (V1.4): the portable, strategy-neutral description of a
- * junction and its traffic. Mirrors backend/src/core/scenario.py
+ * junction and its traffic. Mirrors backend/src/scenario/documents.py
  * (ScenarioDocument); the backend validates and compiles it once per control
  * strategy, so every strategy runs the same approaches, lanes, traffic,
  * vehicles, duration and seed.

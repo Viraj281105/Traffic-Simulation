@@ -13,12 +13,8 @@ from typing import Any
 import pytest
 
 import src.planning.service as service_module
-from src.planning.service import (
-    INTERRUPTED_ERROR,
-    PlanningService,
-    PlanningStore,
-    get_service,
-)
+from src.planning.service import PlanningService, get_service
+from src.planning.store import INTERRUPTED_ERROR, PlanningStore
 
 from .conftest import make_fake, study
 

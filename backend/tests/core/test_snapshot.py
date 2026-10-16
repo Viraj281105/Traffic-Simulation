@@ -2,11 +2,11 @@ import json
 import queue
 import threading
 
-from src.controllers.factory import build_tick_callback
 from src.controllers.fixed_time_signal import FixedTimeSignalController
 from src.core.clock import Clock
-from src.core.engine import SimulationEngine
 from src.core.enums import TurnIntent, VehicleState
+from src.engine.simulation_engine import SimulationEngine
+from src.engine.tick_callback import build_tick_callback
 from src.metrics.collector import MetricCollector
 from src.roads.lane import Lane
 from src.snapshot.buffer import SnapshotBuffer

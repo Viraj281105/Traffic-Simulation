@@ -23,7 +23,7 @@ import pytest
 from src.controllers.fixed_time_signal import FixedTimeSignalController
 from src.controllers.roundabout import RoundaboutController
 from src.core.clock import Clock
-from src.core.engine import SimulationEngine
+from src.engine.simulation_engine import SimulationEngine
 from src.metrics.collector import MetricCollector
 from src.roads.network import RoadNetwork
 from src.snapshot.builder import SnapshotBuilder

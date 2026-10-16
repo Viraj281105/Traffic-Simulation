@@ -12,11 +12,11 @@ from typing import Any, Dict
 import pytest
 from fastapi.testclient import TestClient
 
-from src.main import (
+from src.main import app
+from src.study.limits import (
     MAX_MONTE_CARLO_SEEDS,
     MAX_STUDY_DURATION_SECONDS,
     MAX_SWEEP_ARRIVAL_RATES,
-    app,
 )
 
 client = TestClient(app)

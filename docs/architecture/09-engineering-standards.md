@@ -86,7 +86,7 @@ from fastapi import FastAPI
 import numpy as np
 
 # 3. Local application imports
-from src.core.engine import SimulationEngine
+from src.engine.simulation_engine import SimulationEngine
 from src.vehicles.idm import IDMModel
 ```
 

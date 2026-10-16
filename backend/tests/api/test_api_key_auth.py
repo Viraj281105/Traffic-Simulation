@@ -18,7 +18,7 @@ from typing import Any, Dict, Iterator
 import pytest
 from fastapi.testclient import TestClient
 
-import src.main as main
+import src.api.security as security
 from src.main import app
 
 NGINX_TEMPLATE = (
@@ -44,13 +44,13 @@ def secured_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     patching the attribute is sufficient and monkeypatch restores it after the
     test.
 
-    Deliberately NOT importlib.reload(main): reloading rebinds the module's
-    globals (app, simulations_db, _live_sessions), while every other test module
+    Deliberately NOT importlib.reload(src.main): reloading rebinds the module's
+    globals (app, simulations_db, live_sessions), while every other test module
     still holds references to the originals imported at collection time. Those
     tests then assert against objects the live app no longer uses, and fail —
     which is exactly what happened when this fixture did reload the module.
     """
-    monkeypatch.setattr(main, "API_KEY", "test-secret-key")
+    monkeypatch.setattr(security, "API_KEY", "test-secret-key")
     yield TestClient(app)
 
 
@@ -125,7 +125,7 @@ def test_auth_is_disabled_when_no_key_is_configured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The local-development default must stay frictionless."""
-    monkeypatch.setattr(main, "API_KEY", "")
+    monkeypatch.setattr(security, "API_KEY", "")
 
     client = TestClient(app)
     response = client.post("/api/v1/simulations", json=_valid_config())

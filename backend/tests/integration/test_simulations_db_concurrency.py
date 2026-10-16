@@ -6,9 +6,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.core.enums import SimulationStatus
-from src.main import (
+from src.main import app
+from src.simulations.registry import (
     MAX_CONCURRENT_SIMULATIONS,
-    app,
     simulations_db,
     simulations_lock,
 )

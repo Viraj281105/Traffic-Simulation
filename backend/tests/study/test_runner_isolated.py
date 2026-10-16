@@ -6,8 +6,8 @@ import jsonschema
 import pytest
 
 from src.core.limits import demand_vehicle_limit
-from src.core.scenario import _validate_against_config_schema
 from src.core.schema import CONFIG_SCHEMA
+from src.scenario.documents import _validate_against_config_schema
 from src.study import runner
 from src.study.runner import (
     Progress,

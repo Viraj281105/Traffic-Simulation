@@ -17,7 +17,7 @@ export const userPool = new CognitoUserPool(poolData);
 // (`npm run dev`) behaves as if a local developer session exists: the
 // dashboard treats the visitor as signed in and API calls carry
 // DEV_AUTH_TOKEN, which the backend accepts only when it runs with
-// DEV_AUTH_BYPASS=1 (backend/src/auth.py).
+// DEV_AUTH_BYPASS=1 (backend/src/api/auth.py).
 //
 // Production is untouched: `import.meta.env.DEV` is the literal `false` in
 // `vite build`, so DEV_AUTH_BYPASS is `false` and every branch guarded by it

@@ -1,8 +1,7 @@
 """``/api/v1/study/history/runs``: stored simulation runs.
 
 Listing, reading, labelling, exporting, comparing and reproducing the runs in
-``simulation_runs``. Built by a factory so this package never imports
-``main`` (which mounts it): ``main`` passes its own ``require_api_key`` in.
+``simulation_runs``.
 
 Access (``src/access.py``): a run saved by a signed-in user belongs to them,
 and only they (or an admin) can see, label, export, compare or reproduce it;
@@ -17,26 +16,27 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
-from typing import Annotated, Any, Callable, Dict, Optional
+from typing import Annotated, Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from src.access import Caller, can_see
-from src.auth import (
+from src.api.auth import (
     get_current_user_id,
     get_current_user_is_admin,
     get_optional_user_id,
     get_optional_user_is_admin,
 )
+from src.api.request_limits import PageLimit, PageOffset, compute_slot
+from src.api.security import require_api_key
 from src.core.provenance import GIT_COMMIT_HASH, PYTHON_VERSION
 from src.database.dao import RunMetricsDAO, SimulationRunDAO, describe_reproducibility
 from src.database.db import ensure_db_initialized, get_db_connection
 from src.database.replay_dao import ReplayDAO
 from src.history.export import run_export_csv
 from src.history.reproduce import ReproductionError, reproduce_run
-from src.request_limits import PageLimit, PageOffset, compute_slot
 from src.study.tolerances import delays_are_tied
 
 PREFIX = "/api/v1/study/history/runs"
@@ -219,179 +219,181 @@ def compare_runs(
     }
 
 
-def build_router(require_api_key: Callable[..., Any]) -> APIRouter:
-    router = APIRouter(prefix=PREFIX, tags=["history"])
+router = APIRouter(prefix=PREFIX, tags=["history"])
 
-    @router.get("")
-    def list_simulation_runs_endpoint(
-        limit: PageLimit = 50,
-        offset: PageOffset = 0,
-        intersection_type: str | None = None,
-        seed: int | None = None,
-        batch_id: str | None = None,
-        caller: Caller = Depends(optional_caller),
-    ) -> list[Dict[str, Any]]:
-        """Past runs the caller can see, with their status, metrics and
-        filters: unowned runs, plus the caller's own (every run for an admin)."""
-        ensure_db_initialized()
-        with get_db_connection() as conn:
-            return SimulationRunDAO.list_runs(
-                conn,
-                limit=limit,
-                offset=offset,
-                intersection_type=intersection_type,
-                seed=seed,
-                batch_id=batch_id,
-                caller=caller,
-            )
 
-    @router.get("/{run_id}")
-    def get_simulation_run_endpoint(
-        run_id: str, caller: Caller = Depends(optional_caller)
-    ) -> Dict[str, Any]:
-        """Metadata and time-series metrics for one run."""
-        ensure_db_initialized()
-        with get_db_connection() as conn:
-            run = _visible_run(conn, run_id, caller)
-            metrics = RunMetricsDAO.get_all_for_run(conn, run_id)
-            return {"run": run, "metricsTimeline": metrics}
-
-    @router.get("/{run_id}/reproducibility")
-    def get_run_reproducibility_endpoint(
-        run_id: str, caller: Caller = Depends(optional_caller)
-    ) -> Dict[str, Any]:
-        """Everything needed to re-run a stored experiment exactly: its config
-        (seed pinned), seed, git commit, Python version, timing and summary
-        metrics, plus its name, notes and tags. Fields a run never recorded
-        (runs saved before V1.1) are null."""
-        _validate_run_id(run_id)
-        ensure_db_initialized()
-        with get_db_connection() as conn:
-            return _run_record(conn, _visible_run(conn, run_id, caller))
-
-    @router.patch("/{run_id}", dependencies=[Depends(require_api_key)])
-    def update_run_metadata_endpoint(
-        run_id: str,
-        payload: RunMetadataUpdate,
-        caller: Caller = Depends(signed_in_caller),
-    ) -> Dict[str, Any]:
-        """Renames a run and sets its notes/tags. Touches only these labels --
-        never the stored configuration, seed, provenance or metrics. Only the
-        run's owner (or an admin) may; an unowned run's labels need an admin."""
-        _validate_run_id(run_id)
-        provided = payload.model_fields_set
-        name: Optional[str] = None
-        if "name" in provided:
-            name = (payload.name or "").strip()
-            if not name:
-                raise HTTPException(status_code=400, detail="Run name cannot be empty")
-        notes = (payload.notes or "").strip() or None
-        tags = _clean_tags(payload.tags)
-        ensure_db_initialized()
-        with get_db_connection() as conn:
-            exists, owner = SimulationRunDAO.owner_of(conn, run_id)
-            if not exists or not can_see(owner, caller, unowned_public=True):
-                raise _not_found()
-            if not can_see(owner, caller, unowned_public=False):
-                # Readable by everyone, so nothing is hidden by saying so.
-                raise HTTPException(
-                    status_code=403,
-                    detail="Only an admin can change the labels of a shared run",
-                )
-            SimulationRunDAO.update_metadata(
-                conn,
-                run_id,
-                name=name,
-                notes=notes,
-                tags=tags,
-                set_name="name" in provided,
-                set_notes="notes" in provided,
-                set_tags="tags" in provided,
-            )
-            if name is not None:
-                # Keep the History list (saved_replays) showing the same name.
-                ReplayDAO.rename(conn, run_id, name)
-            return _run_record(conn, _visible_run(conn, run_id, caller))
-
-    @router.get("/{run_id}/export")
-    def export_run_endpoint(
-        run_id: str,
-        format: str = "json",  # noqa: A002
-        caller: Caller = Depends(optional_caller),
-    ) -> Any:
-        """Downloads one stored run as JSON or CSV: identity, name/notes/tags,
-        seed, provenance, timing, the exact stored configuration and its stored
-        metrics (raw backend keys and units; see the metric catalog for labels).
-        Values the run never recorded are null (JSON) or empty (CSV)."""
-        _validate_run_id(run_id)
-        fmt = format.lower()
-        if fmt not in ("json", "csv"):
-            raise HTTPException(
-                status_code=400, detail="format must be 'json' or 'csv'"
-            )
-        ensure_db_initialized()
-        with get_db_connection() as conn:
-            record = _run_record(conn, _visible_run(conn, run_id, caller))
-            timeline = RunMetricsDAO.get_all_for_run(conn, run_id)
-        filename = f"run_{run_id}.{fmt}"
-        headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
-        if fmt == "csv":
-            return StreamingResponse(
-                iter([run_export_csv(record)]),
-                media_type="text/csv; charset=utf-8",
-                headers=headers,
-            )
-        return JSONResponse(
-            content={
-                "exportFormat": "traffic-simulation-run",
-                "exportVersion": 1,
-                "exportedAt": datetime.now(timezone.utc).isoformat(),
-                # The server producing this file -- distinct from the run's own
-                # recorded provenance inside "run".
-                "exportedBy": {
-                    "gitCommitHash": GIT_COMMIT_HASH,
-                    "pythonVersion": PYTHON_VERSION,
-                },
-                "run": record,
-                "metricsTimeline": timeline,
-            },
-            headers=headers,
+@router.get("")
+def list_simulation_runs_endpoint(
+    limit: PageLimit = 50,
+    offset: PageOffset = 0,
+    intersection_type: str | None = None,
+    seed: int | None = None,
+    batch_id: str | None = None,
+    caller: Caller = Depends(optional_caller),
+) -> list[Dict[str, Any]]:
+    """Past runs the caller can see, with their status, metrics and
+    filters: unowned runs, plus the caller's own (every run for an admin)."""
+    ensure_db_initialized()
+    with get_db_connection() as conn:
+        return SimulationRunDAO.list_runs(
+            conn,
+            limit=limit,
+            offset=offset,
+            intersection_type=intersection_type,
+            seed=seed,
+            batch_id=batch_id,
+            caller=caller,
         )
 
-    @router.post("/compare")
-    def compare_runs_endpoint(
-        payload: RunComparisonRequest, caller: Caller = Depends(optional_caller)
-    ) -> Dict[str, Any]:
-        """Compares two stored runs side by side (see ``compare_runs``)."""
-        ensure_db_initialized()
-        with get_db_connection() as conn:
-            run_a = SimulationRunDAO.get_visible(conn, payload.runIdA, caller)
-            if run_a is None:
-                raise _not_found(payload.runIdA)
-            run_b = SimulationRunDAO.get_visible(conn, payload.runIdB, caller)
-            if run_b is None:
-                raise _not_found(payload.runIdB)
-        return compare_runs(run_a, run_b, payload.runIdA, payload.runIdB)
 
-    @router.post(
-        "/{run_id}/reproduce",
-        dependencies=[Depends(require_api_key), Depends(compute_slot)],
-    )
-    def reproduce_run_endpoint(
-        run_id: str, caller: Caller = Depends(optional_caller)
-    ) -> Dict[str, Any]:
-        """Re-executes a stored run headlessly and compares key metrics
-        (``src/history/reproduce.py``). Never modifies the stored run."""
-        ensure_db_initialized()
-        with get_db_connection() as conn:
-            run = SimulationRunDAO.get_visible(conn, run_id, caller)
-        if run is None:
+@router.get("/{run_id}")
+def get_simulation_run_endpoint(
+    run_id: str, caller: Caller = Depends(optional_caller)
+) -> Dict[str, Any]:
+    """Metadata and time-series metrics for one run."""
+    ensure_db_initialized()
+    with get_db_connection() as conn:
+        run = _visible_run(conn, run_id, caller)
+        metrics = RunMetricsDAO.get_all_for_run(conn, run_id)
+        return {"run": run, "metricsTimeline": metrics}
+
+
+@router.get("/{run_id}/reproducibility")
+def get_run_reproducibility_endpoint(
+    run_id: str, caller: Caller = Depends(optional_caller)
+) -> Dict[str, Any]:
+    """Everything needed to re-run a stored experiment exactly: its config
+    (seed pinned), seed, git commit, Python version, timing and summary
+    metrics, plus its name, notes and tags. Fields a run never recorded
+    (runs saved before V1.1) are null."""
+    _validate_run_id(run_id)
+    ensure_db_initialized()
+    with get_db_connection() as conn:
+        return _run_record(conn, _visible_run(conn, run_id, caller))
+
+
+@router.patch("/{run_id}", dependencies=[Depends(require_api_key)])
+def update_run_metadata_endpoint(
+    run_id: str,
+    payload: RunMetadataUpdate,
+    caller: Caller = Depends(signed_in_caller),
+) -> Dict[str, Any]:
+    """Renames a run and sets its notes/tags. Touches only these labels --
+    never the stored configuration, seed, provenance or metrics. Only the
+    run's owner (or an admin) may; an unowned run's labels need an admin."""
+    _validate_run_id(run_id)
+    provided = payload.model_fields_set
+    name: Optional[str] = None
+    if "name" in provided:
+        name = (payload.name or "").strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="Run name cannot be empty")
+    notes = (payload.notes or "").strip() or None
+    tags = _clean_tags(payload.tags)
+    ensure_db_initialized()
+    with get_db_connection() as conn:
+        exists, owner = SimulationRunDAO.owner_of(conn, run_id)
+        if not exists or not can_see(owner, caller, unowned_public=True):
+            raise _not_found()
+        if not can_see(owner, caller, unowned_public=False):
+            # Readable by everyone, so nothing is hidden by saying so.
             raise HTTPException(
-                status_code=404, detail=f"Simulation run '{run_id}' not found"
+                status_code=403,
+                detail="Only an admin can change the labels of a shared run",
             )
-        try:
-            return reproduce_run(run)
-        except ReproductionError as err:
-            raise HTTPException(status_code=400, detail=str(err)) from err
+        SimulationRunDAO.update_metadata(
+            conn,
+            run_id,
+            name=name,
+            notes=notes,
+            tags=tags,
+            set_name="name" in provided,
+            set_notes="notes" in provided,
+            set_tags="tags" in provided,
+        )
+        if name is not None:
+            # Keep the History list (saved_replays) showing the same name.
+            ReplayDAO.rename(conn, run_id, name)
+        return _run_record(conn, _visible_run(conn, run_id, caller))
 
-    return router
+
+@router.get("/{run_id}/export")
+def export_run_endpoint(
+    run_id: str,
+    format: str = "json",  # noqa: A002
+    caller: Caller = Depends(optional_caller),
+) -> Any:
+    """Downloads one stored run as JSON or CSV: identity, name/notes/tags,
+    seed, provenance, timing, the exact stored configuration and its stored
+    metrics (raw backend keys and units; see the metric catalog for labels).
+    Values the run never recorded are null (JSON) or empty (CSV)."""
+    _validate_run_id(run_id)
+    fmt = format.lower()
+    if fmt not in ("json", "csv"):
+        raise HTTPException(status_code=400, detail="format must be 'json' or 'csv'")
+    ensure_db_initialized()
+    with get_db_connection() as conn:
+        record = _run_record(conn, _visible_run(conn, run_id, caller))
+        timeline = RunMetricsDAO.get_all_for_run(conn, run_id)
+    filename = f"run_{run_id}.{fmt}"
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    if fmt == "csv":
+        return StreamingResponse(
+            iter([run_export_csv(record)]),
+            media_type="text/csv; charset=utf-8",
+            headers=headers,
+        )
+    return JSONResponse(
+        content={
+            "exportFormat": "traffic-simulation-run",
+            "exportVersion": 1,
+            "exportedAt": datetime.now(timezone.utc).isoformat(),
+            # The server producing this file -- distinct from the run's own
+            # recorded provenance inside "run".
+            "exportedBy": {
+                "gitCommitHash": GIT_COMMIT_HASH,
+                "pythonVersion": PYTHON_VERSION,
+            },
+            "run": record,
+            "metricsTimeline": timeline,
+        },
+        headers=headers,
+    )
+
+
+@router.post("/compare")
+def compare_runs_endpoint(
+    payload: RunComparisonRequest, caller: Caller = Depends(optional_caller)
+) -> Dict[str, Any]:
+    """Compares two stored runs side by side (see ``compare_runs``)."""
+    ensure_db_initialized()
+    with get_db_connection() as conn:
+        run_a = SimulationRunDAO.get_visible(conn, payload.runIdA, caller)
+        if run_a is None:
+            raise _not_found(payload.runIdA)
+        run_b = SimulationRunDAO.get_visible(conn, payload.runIdB, caller)
+        if run_b is None:
+            raise _not_found(payload.runIdB)
+    return compare_runs(run_a, run_b, payload.runIdA, payload.runIdB)
+
+
+@router.post(
+    "/{run_id}/reproduce",
+    dependencies=[Depends(require_api_key), Depends(compute_slot)],
+)
+def reproduce_run_endpoint(
+    run_id: str, caller: Caller = Depends(optional_caller)
+) -> Dict[str, Any]:
+    """Re-executes a stored run headlessly and compares key metrics
+    (``src/history/reproduce.py``). Never modifies the stored run."""
+    ensure_db_initialized()
+    with get_db_connection() as conn:
+        run = SimulationRunDAO.get_visible(conn, run_id, caller)
+    if run is None:
+        raise HTTPException(
+            status_code=404, detail=f"Simulation run '{run_id}' not found"
+        )
+    try:
+        return reproduce_run(run)
+    except ReproductionError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err

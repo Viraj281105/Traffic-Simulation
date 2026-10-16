@@ -431,7 +431,8 @@ def test_runs_that_fail_are_excluded_and_counted_not_fatal(make_service):
 
 def test_real_engine_end_to_end_through_the_api(tmp_path, monkeypatch):
     """Submit, run on the real engine, read the result: two identical alternatives must tie exactly."""
-    from src.experiments.service import ExperimentService, ExperimentStore
+    from src.experiments.service import ExperimentService
+    from src.experiments.store import ExperimentStore
 
     client = build_client(ExperimentService(store=ExperimentStore(persist=False)))
     body = experiment(

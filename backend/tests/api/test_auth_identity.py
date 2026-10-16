@@ -1,4 +1,4 @@
-"""Identity resolution in src/auth.py.
+"""Identity resolution in src/api/auth.py.
 
 * a verified token without a ``sub`` is refused (an empty id would match
   every unowned record in an owner comparison);
@@ -14,7 +14,7 @@ from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.testclient import TestClient
 
-import src.auth as auth
+import src.api.auth as auth
 from src.main import app
 
 

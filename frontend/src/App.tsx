@@ -1,15 +1,10 @@
-import {
-  Suspense,
-  lazy,
-  useState,
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useRef,
-} from "react";
-import type { ReactNode } from "react";
+import { Suspense, lazy, useState, useLayoutEffect } from "react";
 import { useWebSocketSnapshot } from "./hooks/useWebSocketSnapshot";
 import { useSimulationPolling } from "./hooks/useSimulationPolling";
+import { useAuthSession } from "./hooks/useAuthSession";
+import { useLiveConfigSync } from "./hooks/useLiveConfigSync";
+import { useToast } from "./hooks/useToast";
+import { useThemeMode } from "./theme/mode";
 import { IntersectionMap } from "./components/IntersectionMap";
 import { RoundaboutMap } from "./components/RoundaboutMap";
 import { AdaptiveSignalStatus } from "./components/AdaptiveSignalStatus";
@@ -29,6 +24,7 @@ import {
 } from "./components/guided/ScenarioSetup";
 import { LiveGuide } from "./components/guided/LiveGuide";
 import { ResultsReport } from "./components/guided/ResultsReport";
+import { ComparisonMaps } from "./components/guided/ComparisonMaps";
 import {
   contextsOf,
   sessionRunFrom,
@@ -36,37 +32,29 @@ import {
 } from "./components/guided/comparisonRun";
 import { StepNav, type GuidedStage } from "./components/guided/StepNav";
 import "./components/guided/Guided.css";
-import { Login } from "./components/Login";
+import { ConfigToggle } from "./components/shell/ConfigToggle";
+import { LoginDialog } from "./components/shell/LoginDialog";
+import { MainNav, ResearchNav } from "./components/shell/Navigation";
+import { NotFound } from "./components/shell/NotFound";
 import {
-  DEV_AUTH_BYPASS,
-  DEV_AUTH_PROFILE,
-  getCurrentUser,
-} from "./auth/cognito";
-import type {
-  CognitoUserSession,
-  CognitoUserAttribute,
-} from "amazon-cognito-identity-js";
+  SIMULATION_VIEWS,
+  SINGLE_VIEWS,
+  sectionOf,
+  type ViewMode,
+} from "./components/shell/sections";
+import { DEV_AUTH_BYPASS } from "./auth/cognito";
 import {
   Sun,
   Moon,
-  GitCompareArrows,
-  Bookmark,
-  FlaskConical,
-  ClipboardList,
   Settings2,
   Dices,
   LogIn,
   LogOut,
   CircleAlert,
   CircleCheck,
-  ShieldCheck,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import { UrbanFlowLockup } from "./components/ui/UrbanFlowLogo";
 import { PageTransition } from "./components/ui/PageTransition";
-import { useExitTransition } from "./components/ui/motion";
-import { StatusState } from "./components/ui/StatusState";
-import { useNavIndicator } from "./components/ui/useNavIndicator";
 import { UrbanFlowLoader } from "./components/ui/Loader";
 import type { SimulationConfigValues } from "./types/config";
 import {
@@ -76,7 +64,6 @@ import {
 } from "./types/config";
 import {
   saveReplay,
-  updateSimulationConfig,
   setSimulationSpeed,
   setDualSimulationSpeed,
   createSuite,
@@ -91,7 +78,6 @@ import type {
 } from "./types/simulation";
 import {
   VIEW_ROUTES,
-  followLink,
   navigate,
   resolveRoute,
   usePathname,
@@ -148,8 +134,6 @@ const PlannerPage = lazy(() =>
 );
 const viewLoading = <UrbanFlowLoader label="Loading…" />;
 
-type ViewMode = RoutedView | "single";
-
 /**
  * Router shell. The URL is the source of truth for which view is shown, so a
  * refresh, a direct link or back/forward all land on the same view. The
@@ -192,55 +176,6 @@ export function App() {
   return <Dashboard viewMode={route.view} />;
 }
 
-const SIMULATION_VIEWS: ReadonlySet<ViewMode> = new Set([
-  "signal",
-  "roundabout",
-  "comparative",
-  "single",
-]);
-
-/** Single-control views: specialist tools with the full live metric panel,
- *  display toggles and scenario settings in the header. */
-const SINGLE_VIEWS: ReadonlySet<ViewMode> = new Set([
-  "signal",
-  "roundabout",
-  "single",
-]);
-
-/** The three places in the product. Compare is the guided path everyone
- *  starts on; Saved holds kept comparisons; the Research lab gathers every
- *  specialist tool. */
-type Section = "compare" | "saved" | "plan" | "research" | "admin";
-
-const RESEARCH_VIEWS: ReadonlySet<ViewMode> = new Set([
-  "research",
-  "volume",
-  "validation",
-  "junction",
-  "threeWay",
-  "signal",
-  "roundabout",
-  "single",
-]);
-
-function sectionOf(view: ViewMode): Section {
-  if (view === "history") return "saved";
-  if (view === "admin") return "admin";
-  if (view === "planner") return "plan";
-  if (RESEARCH_VIEWS.has(view)) return "research";
-  return "compare";
-}
-
-const RESEARCH_TABS: { view: RoutedView; label: string }[] = [
-  { view: "research", label: "Overview" },
-  { view: "junction", label: "Your own junction" },
-  { view: "threeWay", label: "Three-way study" },
-  { view: "validation", label: "Statistical validation" },
-  { view: "volume", label: "Traffic-level sweep" },
-  { view: "signal", label: "Signal on its own" },
-  { view: "roundabout", label: "Roundabout on its own" },
-];
-
 const newSeed = () => Math.floor(Math.random() * 1000000) + 1;
 
 /** Restores the exact UI configuration a run was saved with, falling back to
@@ -282,126 +217,23 @@ function Dashboard({
   const setViewMode = (view: RoutedView) => {
     navigate(VIEW_ROUTES[view]);
   };
-  // The local dev server stands in a developer session (auth/cognito.ts);
-  // a production build always starts from Cognito.
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(
-    () => DEV_AUTH_BYPASS || !!getCurrentUser(),
-  );
-  const [showLogin, setShowLogin] = useState<boolean>(false);
-  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
-  const [userProfile, setUserProfile] = useState<{
-    name?: string;
-    email?: string;
-  } | null>(DEV_AUTH_BYPASS ? DEV_AUTH_PROFILE : null);
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    if (DEV_AUTH_BYPASS) return;
-    let active = true;
-    if (isAuthenticated) {
-      const user = getCurrentUser();
-      if (user) {
-        user.getSession(
-          (
-            err: Error | null | undefined,
-            session: CognitoUserSession | null | undefined,
-          ) => {
-            if (!err && session) {
-              user.getUserAttributes(
-                (
-                  attrErr: Error | undefined,
-                  attributes: CognitoUserAttribute[] | undefined,
-                ) => {
-                  if (!attrErr && attributes && active) {
-                    const profile: Record<string, string> = {};
-                    attributes.forEach((attr) => {
-                      profile[attr.getName()] = attr.getValue();
-                    });
-                    const emailStr = profile.email || "";
-                    const nameStr =
-                      profile.name || (emailStr ? emailStr.split("@")[0] : "");
-                    setUserProfile({ name: nameStr, email: emailStr });
-                  }
-                },
-              );
-              // Check admin status from backend
-              import("./services/api")
-                .then(({ get }) => {
-                  get<{ isAdmin: boolean }>("/api/me")
-                    .then((me) => {
-                      if (active) setIsAdmin(me.isAdmin);
-                    })
-                    .catch(() => {
-                      /* non-fatal */
-                    });
-                })
-                .catch(() => {});
-            }
-          },
-        );
-      }
-    } else {
-      // Defer state update to avoid synchronous state update inside effect
-      requestAnimationFrame(() => {
-        if (active) {
-          setUserProfile(null);
-          setIsAdmin(false);
-        }
-      });
-    }
-    return () => {
-      active = false;
-    };
-  }, [isAuthenticated]);
-
-  const requireAuth = (action: () => void) => {
-    if (isAuthenticated) {
-      action();
-    } else {
-      setPendingAction(() => action);
-      setShowLogin(true);
-    }
-  };
-
-  const handleLoginSuccess = () => {
-    setIsAuthenticated(true);
-    setShowLogin(false);
-    if (pendingAction) {
-      pendingAction();
-      setPendingAction(null);
-    }
-  };
+  const {
+    isAuthenticated,
+    userProfile,
+    isAdmin,
+    showLogin,
+    openLogin,
+    closeLogin,
+    requireAuth,
+    handleLoginSuccess,
+    signOut,
+  } = useAuthSession();
 
   const [activeReplay, setActiveReplay] = useState<SavedReplay | null>(null);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
-  const [toast, setToast] = useState<{
-    message: string;
-    tone: "success" | "error";
-  } | null>(null);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [isLight, setIsLight] = useState(
-    () => sessionStorage.getItem("signals-theme") !== "dark",
-  );
-
-  useEffect(() => {
-    document.documentElement.classList.toggle("light", isLight);
-    document.documentElement.classList.toggle("dark", !isLight);
-    sessionStorage.setItem("signals-theme", isLight ? "light" : "dark");
-  }, [isLight]);
-
-  const showToast = (
-    message: string,
-    tone: "success" | "error" = "success",
-  ) => {
-    setToast({ message, tone });
-    // A newer message restarts the timer instead of being cut short by the
-    // previous one's.
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => {
-      setToast(null);
-    }, 3000);
-  };
+  const { toast, showToast } = useToast();
+  const { isLight, toggleTheme } = useThemeMode();
 
   const mode = viewMode === "comparative" ? "dual" : "single";
   const {
@@ -446,26 +278,10 @@ function Dashboard({
     arrivalRate,
     duration,
     randomSeed,
-    greenDuration,
-    yellowDuration,
-    allRedDuration,
-    criticalGap,
-    followUpTime,
-    nsGreenDuration,
-    ewGreenDuration,
-    vehicleMix,
-    laneChanging,
     lanesEastWest,
     signalControl,
-    adaptive,
     scenario,
-    unstructuredTraffic,
-    aggressiveTwoWheelers,
   } = configValues;
-  // Object-valued: compared by content in the sync effect below.
-  const vehicleMixKey = JSON.stringify(vehicleMix ?? null);
-  const adaptiveKey = JSON.stringify(adaptive ?? null);
-  const scenarioKey = JSON.stringify(scenario ?? null);
   const armLanes = approachLanes(configValues);
 
   const randomizeSeed = () => {
@@ -473,93 +289,10 @@ function Dashboard({
     setConfigValues((prev) => ({ ...prev, randomSeed: newSeed() }));
   };
 
-  const intersectionSize = lanes * laneWidth * 2 + 4.0;
   const isDual = viewMode === "comparative";
   const isSimulationView = SIMULATION_VIEWS.has(viewMode);
 
-  // A guided "Run the comparison" changes the config and must start playing
-  // only once the backend holds it: a config update resets the simulation,
-  // so playing first would run (and then lose) the old scenario.
-  const syncVersion = useRef(0);
-  const playAfterSync = useRef(false);
-  const playRef = useRef(play);
-  useEffect(() => {
-    playRef.current = play;
-  });
-
-  // Sync config with backend on change
-  useEffect(() => {
-    const intersectionType =
-      viewMode === "roundabout" ? "roundabout" : "fixed_time_signal";
-    const version = ++syncVersion.current;
-    const timeoutId = setTimeout(() => {
-      updateSimulationConfig(
-        dashboardPayload(
-          {
-            lanes,
-            laneWidth,
-            arrivalRate,
-            duration,
-            randomSeed,
-            greenDuration,
-            yellowDuration,
-            allRedDuration,
-            criticalGap,
-            followUpTime,
-            nsGreenDuration,
-            ewGreenDuration,
-            vehicleMix: JSON.parse(vehicleMixKey) as typeof vehicleMix,
-            laneChanging,
-            lanesEastWest,
-            signalControl,
-            adaptive: JSON.parse(adaptiveKey) as typeof adaptive,
-            scenario: JSON.parse(scenarioKey) as typeof scenario,
-            unstructuredTraffic,
-            aggressiveTwoWheelers,
-          },
-          intersectionType,
-          viewMode === "signal",
-        ),
-      )
-        .then(() => {
-          if (version === syncVersion.current && playAfterSync.current) {
-            playAfterSync.current = false;
-            playRef.current().catch(() => {});
-          }
-        })
-        .catch((err: unknown) => {
-          playAfterSync.current = false;
-          console.error("Failed to update backend config:", err);
-        });
-    }, 50);
-
-    return () => {
-      clearTimeout(timeoutId);
-    };
-  }, [
-    viewMode,
-    lanes,
-    intersectionSize,
-    laneWidth,
-    arrivalRate,
-    duration,
-    randomSeed,
-    greenDuration,
-    yellowDuration,
-    allRedDuration,
-    criticalGap,
-    followUpTime,
-    nsGreenDuration,
-    ewGreenDuration,
-    vehicleMixKey,
-    laneChanging,
-    lanesEastWest,
-    signalControl,
-    adaptiveKey,
-    scenarioKey,
-    unstructuredTraffic,
-    aggressiveTwoWheelers,
-  ]);
+  const { playAfterSync } = useLiveConfigSync(viewMode, configValues, play);
 
   const handleApplyConfig = (newConfig: SimulationConfigValues) => {
     setActiveReplay(null);
@@ -628,7 +361,7 @@ function Dashboard({
       if (!isPlaying) play().catch(() => {});
       return;
     }
-    playAfterSync.current = true;
+    playAfterSync();
     setConfigValues(next);
   };
 
@@ -815,57 +548,6 @@ function Dashboard({
     page?.kind === "experiment" ? page.experimentId : "",
   ].join(":");
 
-  const comparisonMaps = (
-    <div className="comparison-maps-row">
-      <section className="comparison-column" aria-labelledby="col-signal-title">
-        <div className="column-header">
-          <h2 className="column-title" id="col-signal-title">
-            <span className="series-dot is-signal" aria-hidden="true" />
-            {signalControl === "adaptive"
-              ? "Traffic signal · responds to traffic"
-              : "Traffic signal"}
-          </h2>
-        </div>
-        <div className="canvas-wrapper">
-          <IntersectionMap
-            snapshot={dualSnapshot?.signal ?? null}
-            lanesNorth={armLanes.north}
-            lanesSouth={armLanes.south}
-            lanesEast={armLanes.east}
-            lanesWest={armLanes.west}
-            laneWidth={laneWidth}
-            showCrosswalks={true}
-            showStopLines={showStopLines}
-            debug={debug}
-          />
-          <VehicleLegend snapshot={dualSnapshot?.signal} />
-          <AdaptiveSignalStatus snapshot={dualSnapshot?.signal} />
-        </div>
-      </section>
-      <section
-        className="comparison-column"
-        aria-labelledby="col-roundabout-title"
-      >
-        <div className="column-header">
-          <h2 className="column-title" id="col-roundabout-title">
-            <span className="series-dot is-roundabout" aria-hidden="true" />
-            Roundabout
-          </h2>
-        </div>
-        <div className="canvas-wrapper">
-          <RoundaboutMap
-            snapshot={dualSnapshot?.roundabout ?? null}
-            laneWidth={laneWidth}
-            lanes={lanes}
-            showCrosswalks={false}
-            debug={debug}
-          />
-          <VehicleLegend snapshot={dualSnapshot?.roundabout} />
-        </div>
-      </section>
-    </div>
-  );
-
   return (
     <div className="app">
       {/* ── Header ────────────────────────────────────────────────────── */}
@@ -905,9 +587,7 @@ function Dashboard({
           <button
             className="theme-button"
             type="button"
-            onClick={() => {
-              setIsLight((c) => !c);
-            }}
+            onClick={toggleTheme}
             aria-label={
               isLight ? "Switch to dark mode" : "Switch to light mode"
             }
@@ -920,13 +600,7 @@ function Dashboard({
           </button>
 
           {!isAuthenticated ? (
-            <button
-              type="button"
-              className="header-signin"
-              onClick={() => {
-                setShowLogin(true);
-              }}
-            >
+            <button type="button" className="header-signin" onClick={openLogin}>
               <LogIn size={15} aria-hidden="true" />
               Sign In
             </button>
@@ -950,11 +624,7 @@ function Dashboard({
                 <button
                   type="button"
                   className="uf-icon-btn user-logout"
-                  onClick={() => {
-                    const user = getCurrentUser();
-                    if (user) user.signOut();
-                    setIsAuthenticated(false);
-                  }}
+                  onClick={signOut}
                   aria-label="Logout"
                   title="Logout"
                 >
@@ -1094,7 +764,15 @@ function Dashboard({
             <h1 className="sr-only">
               Watch the traffic signal and the roundabout run side by side
             </h1>
-            {comparisonMaps}
+            <ComparisonMaps
+              snapshot={dualSnapshot}
+              signalControl={signalControl}
+              armLanes={armLanes}
+              lanes={lanes}
+              laneWidth={laneWidth}
+              showStopLines={showStopLines}
+              debug={debug}
+            />
             <LiveGuide
               snapshot={dualSnapshot}
               durationSeconds={duration}
@@ -1318,251 +996,8 @@ function Dashboard({
       </div>
 
       {showLogin && (
-        <LoginDialog
-          onClose={() => {
-            setShowLogin(false);
-          }}
-          onLogin={handleLoginSuccess}
-        />
+        <LoginDialog onClose={closeLogin} onLogin={handleLoginSuccess} />
       )}
-    </div>
-  );
-}
-
-// ── Navigation ─────────────────────────────────────────────────────────────
-
-const MAIN_TABS: {
-  view: RoutedView;
-  section: Section;
-  label: string;
-  icon: LucideIcon;
-}[] = [
-  {
-    view: "comparative",
-    section: "compare",
-    label: "Compare",
-    icon: GitCompareArrows,
-  },
-  { view: "history", section: "saved", label: "Saved", icon: Bookmark },
-  { view: "planner", section: "plan", label: "Plan", icon: ClipboardList },
-  {
-    view: "research",
-    section: "research",
-    label: "Research lab",
-    icon: FlaskConical,
-  },
-];
-
-/** The sections, with a sliding indicator under the current one. The
- *  Research lab asks a signed-out visitor to sign in first. The Admin
- *  tab is only rendered for admin users. */
-function MainNav({
-  section,
-  requireAuth,
-  isAdmin,
-}: {
-  section: Section;
-  requireAuth: (action: () => void) => void;
-  isAdmin: boolean;
-}) {
-  const ref = useNavIndicator<HTMLElement>(section);
-  return (
-    <nav className="header-tabs" aria-label="Main" ref={ref}>
-      {MAIN_TABS.map((tab) => (
-        <ViewTab
-          key={tab.view}
-          view={tab.view}
-          current={section === tab.section}
-          icon={tab.icon}
-          onIntercept={
-            tab.section === "research" || tab.section === "plan"
-              ? (e, href) => {
-                  e.preventDefault();
-                  requireAuth(() => {
-                    navigate(href);
-                  });
-                }
-              : undefined
-          }
-        >
-          {tab.label}
-        </ViewTab>
-      ))}
-      {isAdmin && (
-        <ViewTab view="admin" current={section === "admin"} icon={ShieldCheck}>
-          Admin
-        </ViewTab>
-      )}
-    </nav>
-  );
-}
-
-function ResearchNav({ viewMode }: { viewMode: ViewMode }) {
-  const ref = useNavIndicator<HTMLElement>(viewMode);
-  return (
-    <nav className="sub-nav" aria-label="Research tools" ref={ref}>
-      {RESEARCH_TABS.map((tab) => (
-        <ViewTab key={tab.view} view={tab.view} current={tab.view === viewMode}>
-          {tab.label}
-        </ViewTab>
-      ))}
-    </nav>
-  );
-}
-
-/** Client-side navigation for a same-document link, leaving modified clicks
- *  (new tab/window) to the browser. */
-function ViewTab({
-  view,
-  current: isActive,
-  children,
-  icon: Icon,
-  onIntercept,
-}: {
-  view: RoutedView;
-  current: boolean;
-  children: ReactNode;
-  icon?: LucideIcon;
-  onIntercept?: (e: React.MouseEvent, href: string) => void;
-}) {
-  const href = VIEW_ROUTES[view];
-  return (
-    <a
-      href={href}
-      className={`tab-btn ${isActive ? "active" : ""}`}
-      aria-current={isActive ? "page" : undefined}
-      onClick={(event) => {
-        if (onIntercept) {
-          onIntercept(event, href);
-        } else {
-          followLink(event, href);
-        }
-      }}
-    >
-      {Icon && <Icon size={15} aria-hidden="true" className="tab-icon" />}
-      {children}
-    </a>
-  );
-}
-
-/** The sign-in form in the shared dialog frame: Escape or the backdrop
- *  closes it, focus starts in the form. */
-function LoginDialog({
-  onClose,
-  onLogin,
-}: {
-  onClose: () => void;
-  onLogin: () => void;
-}) {
-  // The dialog fades out before it unmounts (ui/motion.ts).
-  const { overlay, panel, close } = useExitTransition(onClose);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [close]);
-
-  return (
-    <div
-      ref={overlay}
-      className="uf-dialog-overlay login-overlay"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) close();
-      }}
-    >
-      <div
-        ref={panel}
-        className="uf-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="login-title"
-      >
-        <Login onLogin={onLogin} onClose={close} />
-      </div>
-    </div>
-  );
-}
-
-function NotFound({ path }: { path: string }) {
-  useEffect(() => {
-    const isLight = sessionStorage.getItem("signals-theme") !== "dark";
-    document.documentElement.classList.toggle("light", isLight);
-    document.documentElement.classList.toggle("dark", !isLight);
-  }, []);
-
-  const home = VIEW_ROUTES.comparative;
-  return (
-    <div className="app">
-      <header className="app-header">
-        <div className="header-left">
-          <a className="brand" href="/" data-testid="link-brand">
-            <UrbanFlowLockup size={30} />
-          </a>
-        </div>
-      </header>
-      <main className="app-main full-screen not-found" role="main">
-        <StatusState
-          tone="empty"
-          headingLevel={1}
-          title="Page not found"
-          actions={
-            <>
-              <a
-                href={home}
-                className="pb-btn pb-primary"
-                onClick={(event) => {
-                  followLink(event, home);
-                }}
-              >
-                Start a comparison
-              </a>
-              <a href="/" className="pb-btn pb-secondary">
-                Back to the landing page
-              </a>
-            </>
-          }
-        >
-          <p>
-            There is no page at <code>{path}</code>.
-          </p>
-        </StatusState>
-      </main>
-    </div>
-  );
-}
-
-// ── Config helpers ─────────────────────────────────────────────────────────
-
-function ConfigToggle({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  const id = useId();
-  return (
-    <div className="config-item config-toggle-item">
-      <span className="config-label" id={id}>
-        {label}
-      </span>
-      <button
-        type="button"
-        className={`toggle-btn ${value ? "toggle-on" : "toggle-off"}`}
-        aria-pressed={value}
-        aria-labelledby={id}
-        onClick={() => {
-          onChange(!value);
-        }}
-      >
-        {value ? "On" : "Off"}
-      </button>
     </div>
   );
 }

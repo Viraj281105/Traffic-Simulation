@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from src.experiments.service import prepare
+from src.experiments.preparation import prepare
 
 from .conftest import as_user, build_client, wait_for
 

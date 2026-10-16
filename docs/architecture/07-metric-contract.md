@@ -535,7 +535,7 @@ Returns `0.0` if fewer than 2 post-warmup ticks have elapsed. Rounded to 2 decim
 | **Units** | count (integer) |
 | **Direction** | Lower ↓ (0 is the only fully safe value) |
 | **Running?** | ✅ |
-| **Implementation** | `VehiclePool.collision_count` (pool.py), passed into `MetricCollector.get_metrics(..., collision_count=...)` by each caller (`backend/src/main.py`, `backend/src/snapshot/builder.py`, `backend/src/study/volume_sweep.py`) |
+| **Implementation** | `VehiclePool.collision_count` (pool.py), passed into `MetricCollector.get_metrics(..., collision_count=...)` by each caller (`backend/src/engine/readout.py`, `backend/src/simulations/registry.py`, `backend/src/snapshot/builder.py`, `backend/src/study/volume_sweep.py`) |
 
 **Definition:** the exact value of `VehiclePool.collision_count` at the moment `get_metrics()` is called — no additional transformation, rate, or normalization is applied. Always `0` for a simulation with no detected overlaps, including the zero-vehicle case, since the underlying counter starts at `0` and is only ever incremented.
 

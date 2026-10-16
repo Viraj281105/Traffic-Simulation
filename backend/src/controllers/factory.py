@@ -1,15 +1,12 @@
-"""Factory functions for creating simulation controllers and metric callbacks."""
+"""Choosing a controller for a configuration, and reading its signal state."""
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from src.controllers.adaptive_signal import AdaptiveSignalController, is_adaptive
 from src.controllers.base import BaseController
 from src.controllers.fixed_time_signal import FixedTimeSignalController
 from src.controllers.roundabout import RoundaboutController
-from src.core.clock import Clock
-from src.core.engine import SimulationEngine
 from src.core.enums import Direction
-from src.metrics.collector import MetricCollector
 from src.roads.network import RoadNetwork
 
 
@@ -31,8 +28,8 @@ def create_controller(config: Dict[str, Any], network: RoadNetwork) -> BaseContr
 def derive_signals_state(controller: BaseController) -> Dict[Direction, str]:
     """Reads the current per-direction signal colors from a controller.
 
-    Shared by build_tick_callback below and the reproduction endpoint
-    (src/main.py) so both derive collector.update()'s signals_state the
+    Shared by engine/tick_callback.py and run reproduction
+    (src/history/reproduce.py) so both derive collector.update()'s signals_state the
     same way, from the controller's own current state after it has already
     been advanced for this tick — never by re-invoking controller.update().
     """
@@ -48,48 +45,3 @@ def derive_signals_state(controller: BaseController) -> Dict[Direction, str]:
         for d in Direction:
             signals_state[d] = "green"
     return signals_state
-
-
-def build_tick_callback(
-    controller: BaseController,
-    clock: Clock,
-    engine: SimulationEngine,
-    collector: MetricCollector,
-    buffer: Optional[Any] = None,
-    builder: Optional[Any] = None,
-) -> Any:
-    """Builds a standardized tick callback to sync the controller and collector."""
-    # Let the engine reach this collector directly, so SimulationEngine.reset()
-    # can clear its accumulated run state instead of leaving the previous run's
-    # queue history and tick counts in place.
-    engine.register_collector(collector)
-
-    def tick_callback() -> None:
-        # PET (see metrics/definitions/safety_conflicts.py) is only
-        # geometrically valid for fixed_time_signal -- a roundabout's
-        # curved connection lanes make ConflictManager's straight-chord
-        # crossing points wrong, the same reason VehiclePool.update itself
-        # never uses conflict_manager for roundabout geometry. Mirror that
-        # gate here rather than passing it through unconditionally.
-        signal_conflict_manager = (
-            engine.conflict_manager
-            if isinstance(controller, FixedTimeSignalController)
-            else None
-        )
-        collector.update(
-            clock.get_elapsed_time(),
-            engine.pool.active_vehicles,
-            engine.pool.exited_vehicles,
-            derive_signals_state(controller),
-            conflict_manager=signal_conflict_manager,
-            signal_controller=(
-                controller
-                if isinstance(controller, FixedTimeSignalController)
-                else None
-            ),
-        )
-
-        if buffer is not None and builder is not None:
-            buffer.append(builder.build())
-
-    return tick_callback

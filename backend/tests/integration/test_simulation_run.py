@@ -2,7 +2,7 @@ from typing import Any, Dict
 
 from src.controllers.fixed_time_signal import FixedTimeSignalController
 from src.core.clock import Clock
-from src.core.engine import SimulationEngine
+from src.engine.simulation_engine import SimulationEngine
 from src.metrics.collector import MetricCollector
 
 

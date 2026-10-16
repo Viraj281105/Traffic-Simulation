@@ -27,7 +27,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
-from src.core.scenario import (
+from src.scenario.documents import (
     STRATEGIES,
     ScenarioDocument,
     compile_scenario,

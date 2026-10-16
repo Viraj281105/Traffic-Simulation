@@ -25,6 +25,8 @@ from typing import Any, Callable, Dict, Optional, Sequence
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
+from src.api.request_limits import MAX_V2_BODY_BYTES
+
 from . import limits
 from .models import ExperimentList, ExperimentStatus
 from .service import (
@@ -75,7 +77,7 @@ def create_router(
 
     @router.get("/capabilities")
     def capabilities(user: str = Depends(user_dep)) -> Dict[str, Any]:
-        return svc.capabilities()
+        return svc.capabilities(MAX_V2_BODY_BYTES)
 
     @router.post("/experiments/validate", openapi_extra=_REQUEST_BODY)
     def validate(

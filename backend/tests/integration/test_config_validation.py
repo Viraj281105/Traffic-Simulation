@@ -2,7 +2,8 @@ from typing import Any, Dict
 
 from fastapi.testclient import TestClient
 
-from src.main import app, simulations_db
+from src.main import app
+from src.simulations.registry import simulations_db
 
 client = TestClient(app)
 

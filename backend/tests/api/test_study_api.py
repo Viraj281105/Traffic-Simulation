@@ -10,7 +10,6 @@ def test_api_study_endpoints(tmp_path, monkeypatch) -> None:
     test_db = str(tmp_path / "test_api_study.db")
     monkeypatch.setattr("src.database.db.DB_PATH", test_db)
     monkeypatch.setattr("src.study.volume_sweep.DB_PATH", test_db)
-    monkeypatch.setattr("src.main.DB_PATH", test_db)
 
     init_db()
 

@@ -2,7 +2,6 @@ import math
 from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple
 
 from src.controllers.base import BaseController
-from src.controllers.virtual_obstacle import VirtualObstacle
 from src.core.enums import Direction, TurnIntent
 from src.roads.lane_config import (
     MAX_CIRCULATING_LANES,
@@ -18,6 +17,7 @@ from src.roads.network import (
 from src.vehicles.body import LONG_VEHICLE_THRESHOLD
 from src.vehicles.vehicle import Vehicle
 from src.vehicles.vehicle_types import long_vehicle_allowance
+from src.vehicles.virtual_obstacle import VirtualObstacle
 
 # Distance from the entry point (lane end) within which a vehicle is
 # considered "at the roundabout entry" for follow-up-time bookkeeping below.

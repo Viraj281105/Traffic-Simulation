@@ -9,8 +9,8 @@ from types import SimpleNamespace
 from typing import Any, Dict, List
 
 from src.core.clock import Clock
-from src.core.engine import SimulationEngine
-from src.metrics.deadlock_detector import DeadlockDetector
+from src.engine.deadlock_detector import DeadlockDetector
+from src.engine.simulation_engine import SimulationEngine
 from src.vehicles.idm import IntelligentDriverModel
 from src.vehicles.stochastic_idm import StochasticIDM
 

@@ -12,7 +12,7 @@ from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from src.core.scenario import Mix
+from src.scenario.documents import Mix
 
 OBSERVATIONS_FORMAT = "urbanflow-observations"
 CALIBRATION_RESULT_FORMAT = "urbanflow-calibration-result"

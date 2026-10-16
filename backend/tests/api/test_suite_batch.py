@@ -12,9 +12,10 @@ from typing import Any, Dict
 import pytest
 from fastapi.testclient import TestClient
 
-import src.main as main
-from src.auth import DEV_AUTH_TOKEN
-from src.main import MAX_BATCH_SIMULATIONS, app
+import src.api.security as security
+from src.api.auth import DEV_AUTH_TOKEN
+from src.main import app
+from src.study.limits import MAX_BATCH_SIMULATIONS
 
 # Suites belong to signed-in users; the development bypass token stands in
 # for a Cognito session (see test_dev_auth_bypass.py).
@@ -160,7 +161,7 @@ def test_batch_workload_outside_bounds_is_rejected(body: Dict[str, Any]) -> None
 
 
 def test_suite_writes_require_the_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(main, "API_KEY", "secret-key")
+    monkeypatch.setattr(security, "API_KEY", "secret-key")
     create = client.post(
         "/api/suites",
         json={"name": "x", "description": "", "run_ids": [], "config_variations": {}},

@@ -239,7 +239,7 @@ def test_saturated_entry_never_produces_same_lane_overlap() -> None:
     same-lane pairs, so this would otherwise go unreported)."""
     from src.controllers.factory import create_controller
     from src.core.clock import Clock
-    from src.core.engine import SimulationEngine
+    from src.engine.simulation_engine import SimulationEngine
 
     config = {
         "simulation": {"duration": 40, "timeStep": 0.1, "randomSeed": 2},

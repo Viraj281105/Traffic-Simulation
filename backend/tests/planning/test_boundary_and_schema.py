@@ -11,7 +11,7 @@ from src.planning.report import Report
 ROOT = Path(__file__).resolve().parents[3]
 PKG = ROOT / "backend" / "src" / "planning"
 ALLOWED = {
-    "src.core.scenario",
+    "src.scenario.documents",
     "src.core.provenance",
     "src.core.limits",
     "src.study.runner",
@@ -21,7 +21,7 @@ ALLOWED = {
     "src.study.calibration",
     "src.study.jobs",
     "src.database.db",
-    "src.auth",
+    "src.api.auth",
     # V2.0 integration: the attached V1.8 run and the V1.9 network model.
     "src.calibration",
     "src.calibration.models",  # schema export only

@@ -46,7 +46,8 @@ def _deep_study(where: str, depth: int) -> Dict[str, Any]:
 @pytest.mark.parametrize("route", ROUTES)
 @pytest.mark.parametrize("where", ["patch", "advanced"])
 def test_a_deeply_nested_study_is_a_422_with_a_message(client, route, where):
-    response = client.post(route, json=_deep_study(where, 3000))
+    # Depth 100 exceeds MAX_DOCUMENT_DEPTH (24) while remaining within Python's JSON serialization stack.
+    response = client.post(route, json=_deep_study(where, 100))
     assert response.status_code == 422, response.text[:300]
     assert (
         f"The document is nested more than {MAX_DOCUMENT_DEPTH} levels deep"
@@ -56,7 +57,7 @@ def test_a_deeply_nested_study_is_a_422_with_a_message(client, route, where):
 
 @pytest.mark.parametrize("route", ROUTES)
 def test_a_deep_study_error_uses_the_standard_envelope(client, route):
-    body = client.post(route, json=_deep_study("patch", 3000)).json()
+    body = client.post(route, json=_deep_study("patch", 100)).json()
     assert "error" in body or "detail" in body
     assert "nested more than" in str(body)
 

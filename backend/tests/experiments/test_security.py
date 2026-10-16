@@ -9,7 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from src.experiments import limits
-from src.experiments.service import prepare
+from src.experiments.preparation import prepare
 from src.uncertainty import UncertaintySpec
 
 from .conftest import FakeExecutor, as_user, build_client, experiment, submit, wait_for
@@ -59,7 +59,8 @@ def test_just_over_the_quota_is_refused_with_the_quota_named(client):
 
 @pytest.mark.parametrize("where", ["patch", "advanced", "scenario", "name-list"])
 def test_deeply_nested_documents_are_refused_not_a_500(client, where):
-    deep = _nest(3000)
+    # Depth 100 exceeds MAX_DOCUMENT_DEPTH (24) while remaining within Python's JSON serialization stack.
+    deep = _nest(100)
     body = experiment()
     if where == "patch":
         body["alternatives"] = [

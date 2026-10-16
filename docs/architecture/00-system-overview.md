@@ -21,7 +21,7 @@ flowchart TB
         P["Reverse proxy<br/>/api/ · /ws/ · /health"]
     end
 
-    subgraph API["backend container — FastAPI + Uvicorn :8000 (src/main.py)"]
+    subgraph API["backend container — FastAPI + Uvicorn :8000 (src/main.py mounts every router)"]
         R["REST routes<br/>/api/v1/* · /api/simulation/*"]
         W["WebSocket streams<br/>/ws/v1/stream · /ws/simulation/live · /ws/simulation/dual"]
         J["Study job manager<br/>study/jobs.py · ≤ 4 concurrent"]
@@ -29,7 +29,7 @@ flowchart TB
     end
 
     subgraph Core["Simulation core"]
-        E["SimulationEngine<br/>core/engine.py · fixed Δt"]
+        E["SimulationEngine<br/>engine/simulation_engine.py · fixed Δt"]
         DO["DualSimulationOrchestrator<br/>lockstep signal + roundabout"]
         C["Controllers<br/>FixedTimeSignal · Roundabout"]
         V["Vehicles<br/>Spawner · Pool · IDM · Router"]
@@ -71,7 +71,7 @@ flowchart TB
 | --- | --- | --- | --- |
 | Landing + dashboard | React 19, TypeScript, Vite, HTML5 Canvas, Recharts, Tailwind CSS | Narrative, guided comparison, plain-language results, Research Lab views, saved-run pages | `frontend/src/` |
 | Edge | nginx (unprivileged image) | Serves static bundles, SPA route fallback, proxies `/api/`, `/ws/`, `/health`; attaches the server-side API key; optional basic-auth gate | `frontend/templates/default.conf.template` |
-| API | FastAPI, Uvicorn, Pydantic, `jsonschema` | Validation, simulation lifecycle, live sessions, streaming, studies, history, replays, exports | `backend/src/main.py` |
+| API | FastAPI, Uvicorn, Pydantic, `jsonschema` | Validation, simulation lifecycle, live sessions, streaming, studies, history, replays, exports | `backend/src/main.py` (composition root) · `api/` · `live/` · `simulations/` · `study/router.py` · `replays/` · `suites/` · `history/` — see [02](02-backend-architecture.md) |
 | Simulation core | Pure Python | Discrete-time engine, IDM car-following, controllers, conflict management, metrics | `backend/src/core`, `vehicles`, `controllers`, `intersection`, `roads`, `metrics` |
 | Study layer | `concurrent.futures` worker processes | Sweeps, Monte Carlo validation, invariant checks, reports | `backend/src/study/` |
 | Persistence | SQLite (WAL, 5 s busy timeout, foreign keys) | Runs, per-tick metrics, sweeps, saved replays, configurations | `backend/src/database/` |
@@ -136,7 +136,7 @@ sequenceDiagram
     end
 ```
 
-The controller updates **before** vehicle physics, so a red signal or a refused gap affects the very same tick ("zero-latency" control response — `core/engine.py`).
+The controller updates **before** vehicle physics, so a red signal or a refused gap affects the very same tick ("zero-latency" control response — `engine/simulation_engine.py`).
 
 ---
 

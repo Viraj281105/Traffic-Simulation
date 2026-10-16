@@ -9,7 +9,8 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from src.core.config_models import ScenarioConfiguration
-from src.main import _compile_dashboard_config, app
+from src.live.dashboard_config import compile_dashboard_config
+from src.main import app
 from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
 
 client = TestClient(app)
@@ -37,16 +38,14 @@ SCENARIO: Dict[str, Any] = {
 
 
 def test_fixed_time_payload_is_unchanged() -> None:
-    plain = _compile_dashboard_config(dict(SCENARIO), 42)
-    explicit = _compile_dashboard_config(
-        {**SCENARIO, "signalControl": "fixed_time"}, 42
-    )
+    plain = compile_dashboard_config(dict(SCENARIO), 42)
+    explicit = compile_dashboard_config({**SCENARIO, "signalControl": "fixed_time"}, 42)
     assert "signalControl" not in plain["controller"]
     assert explicit == plain
 
 
 def test_adaptive_payload_compiles_to_the_signal_controller() -> None:
-    config = _compile_dashboard_config(
+    config = compile_dashboard_config(
         {**SCENARIO, "signalControl": "adaptive", "adaptive": {"maxGreen": 40}}, 42
     )
     ctrl = config["controller"]
@@ -59,7 +58,7 @@ def test_adaptive_payload_compiles_to_the_signal_controller() -> None:
 
 
 def test_roundabout_payload_ignores_signal_control() -> None:
-    config = _compile_dashboard_config(
+    config = compile_dashboard_config(
         {**SCENARIO, "intersectionType": "roundabout", "signalControl": "adaptive"}, 42
     )
     assert "signalControl" not in config["controller"]
@@ -89,13 +88,13 @@ def test_dashboard_payload_rejects_invalid_adaptive_settings(
     extra: Dict[str, Any], message: str
 ) -> None:
     with pytest.raises(HTTPException) as err:
-        _compile_dashboard_config({**SCENARIO, **extra}, 42)
+        compile_dashboard_config({**SCENARIO, **extra}, 42)
     assert err.value.status_code == 400
     assert message in str(err.value.detail)
 
 
 def test_dual_comparison_runs_the_adaptive_signal() -> None:
-    config = _compile_dashboard_config({**SCENARIO, "signalControl": "adaptive"}, 7)
+    config = compile_dashboard_config({**SCENARIO, "signalControl": "adaptive"}, 7)
     orch = DualSimulationOrchestrator(config)
     for _ in range(50):
         orch.step()

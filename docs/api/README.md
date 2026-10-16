@@ -1,6 +1,6 @@
 # API & WebSocket Reference
 
-> **Status:** Current · V1.0–V2.0 · every route on this page is registered in `backend/src/main.py` (V1 routes verified 2026-10-05; the `/api/v2` list in §10 was taken from the app's OpenAPI document on 2026-10-12). Nothing here is planned or hypothetical.
+> **Status:** Current · V1.0–V2.0 · every route on this page is mounted by `backend/src/main.py` from the package that owns it (see [backend architecture](../architecture/02-backend-architecture.md)) (V1 routes verified 2026-10-05; the `/api/v2` list in §10 was taken from the app's OpenAPI document on 2026-10-12). Nothing here is planned or hypothetical.
 > **Interactive schema:** FastAPI serves OpenAPI docs at `/docs` on the backend (e.g. `http://localhost:8000/docs` in development).
 > **Narrative guide:** [Operations guide](../operations.md) explains behaviour in more depth (study jobs, provenance, access control).
 
@@ -177,7 +177,7 @@ Jobs live in server memory: a restart drops unfinished jobs; finished jobs are k
 
 ### 6.2 Synchronous study routes (scripts, existing clients)
 
-These run whole simulations inside the request. **At most two run at once, and one per client**, across `sweeps/run`, `validate/monte-carlo`, `validate/repeatability`, `control-comparison/run`, `GET /api/v1/study/export`, `history/runs/{id}/reproduce`, `POST /api/v2/calibration/runs`, `POST /api/v2/planning/run` and `POST /api/v2/planning/{id}/reproduce`; a request that finds no slot is refused at once with **429** (`src/request_limits.py`). The background-job routes (§6.1) are the intended path for the app.
+These run whole simulations inside the request. **At most two run at once, and one per client**, across `sweeps/run`, `validate/monte-carlo`, `validate/repeatability`, `control-comparison/run`, `GET /api/v1/study/export`, `history/runs/{id}/reproduce`, `POST /api/v2/calibration/runs`, `POST /api/v2/planning/run` and `POST /api/v2/planning/{id}/reproduce`; a request that finds no slot is refused at once with **429** (`src/api/request_limits.py`). The background-job routes (§6.1) are the intended path for the app.
 
 | Method | Route | Body | Output |
 | --- | --- | --- | --- |
@@ -247,7 +247,7 @@ A suite's batch runs belong to the suite's owner (an admin running a legacy suit
 
 ## 8. WebSockets
 
-**Origin.** A handshake whose `Origin` is neither this site (same host name as the request's `Host`) nor one of `CORS_ORIGINS` is refused with close code **1008** before it is accepted; a client that sends no `Origin` (not a browser) is accepted (`src/ws_origin.py`).
+**Origin.** A handshake whose `Origin` is neither this site (same host name as the request's `Host`) nor one of `CORS_ORIGINS` is refused with close code **1008** before it is accepted; a client that sends no `Origin` (not a browser) is accepted (`src/api/ws_origin.py`).
 
 | Endpoint | Scope | Rate | Ends when | Client messages |
 | --- | --- | --- | --- | --- |

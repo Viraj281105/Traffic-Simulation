@@ -7,7 +7,8 @@ import src.database.db as db_module
 from src.core.enums import SimulationStatus
 from src.database.dao import SimulationRunDAO
 from src.database.db import get_db_connection, init_db
-from src.main import app, simulations_db
+from src.main import app
+from src.simulations.registry import simulations_db
 
 
 @pytest.fixture

@@ -3,7 +3,7 @@ import sqlite3
 import pytest
 from fastapi.testclient import TestClient
 
-from src.database.db import DB_PATH, init_db
+import src.database.db as db
 from src.database.replay_dao import ReplayDAO, _safe_json_loads
 from src.main import app
 
@@ -15,8 +15,8 @@ pytestmark = pytest.mark.usefixtures("signed_in_user")
 
 def test_replay_dao_crud() -> None:
     """Tests save, get, list_all, and delete operations of ReplayDAO."""
-    init_db()
-    conn = sqlite3.connect(DB_PATH)
+    db.init_db()
+    conn = sqlite3.connect(db.DB_PATH)
     conn.row_factory = sqlite3.Row
 
     try:
@@ -53,8 +53,8 @@ def test_replay_dao_crud() -> None:
 
 def test_replay_dao_edge_cases() -> None:
     """Tests name sanitization, pagination limits, and corrupted JSON resilience."""
-    init_db()
-    conn = sqlite3.connect(DB_PATH)
+    db.init_db()
+    conn = sqlite3.connect(db.DB_PATH)
     conn.row_factory = sqlite3.Row
 
     try:
