@@ -5,15 +5,15 @@ from typing import Any, Dict, Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
+from src.api.auth import get_current_user_email, get_current_user_id
+from src.api.request_limits import PageLimit, PageOffset
 from src.api.security import require_api_key
-from src.auth import get_current_user_email, get_current_user_id
 from src.core.provenance import build_run_provenance
 from src.database.dao import SimulationRunDAO, describe_reproducibility
 from src.database.db import ensure_db_initialized, get_db_connection
 from src.database.replay_dao import ReplayDAO
 from src.live.capture import capture_engine_run
 from src.live.sessions import find_live_session
-from src.request_limits import PageLimit, PageOffset
 
 router = APIRouter()
 

@@ -17,7 +17,6 @@ import math
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Tuple
 
-from src.controllers.virtual_obstacle import VirtualObstacle
 from src.core.enums import TurnIntent
 from src.roads.network import RoadNetwork
 from src.vehicles.body import (
@@ -27,6 +26,7 @@ from src.vehicles.body import (
     polygons_overlap,
 )
 from src.vehicles.vehicle import Vehicle
+from src.vehicles.virtual_obstacle import VirtualObstacle
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -537,7 +537,7 @@ def find_leader(
                 # exits) are NOT covered by Layer 1's same-lane-index
                 # restriction and are not handled by ConflictManager either
                 # (its straight-chord conflict points don't apply to curved
-                # circulating arcs — see vehicles/pool.py) — let this
+                # circulating arcs — see engine/vehicle_pool.py) — let this
                 # Euclidean proximity scan catch those cross-lane conflicts.
                 if a_is_conn and b_is_conn:
                     if idx_a is not None and idx_a == idx_b:

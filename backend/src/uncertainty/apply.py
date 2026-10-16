@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Mapping, Sequence, Set, Tuple
 
 from pydantic import ValidationError
 
-from src.core.scenario import ScenarioDocument, compile_scenario
+from src.scenario.documents import ScenarioDocument, compile_scenario
 from src.vehicles.speed_profile import resolve_desired_speed_range
 from src.vehicles.vehicle_types import (
     VEHICLE_CLASSES,

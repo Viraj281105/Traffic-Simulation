@@ -33,8 +33,21 @@ frontend/
 │   │   ├── ConfigurationSidebar.tsx  Advanced settings and presets
 │   │   ├── PlaybackControls.tsx    Play / pause / start over; plain and technical modes
 │   │   ├── HistoryDashboard.tsx · RunPage.tsx · ComparePage.tsx · RunTags.tsx   Saved section
-│   │   ├── ResearchHub.tsx · VolumeAnalysisDashboard.tsx (+ volumeSweepModel.ts: sweep payload, crossover,
-│   │   │                           chart rows) · ValidationDashboard.tsx · IntegrityCheck.tsx
+│   │   ├── ResearchHub.tsx · VolumeAnalysisDashboard.tsx (state, sweep job, layout) ·
+│   │   │                           ValidationDashboard.tsx (settings, study job, layout) · IntegrityCheck.tsx
+│   │   ├── volumeSweepModel.ts     Volume sweep data: payload parsing, crossover, chart rows, sweep config,
+│   │   │                           tier tallies, demand-explorer tier, CSV
+│   │   ├── volume/                 Volume sweep sections: SweepHeader, AdvancedConfigDrawer,
+│   │   │                           SavedSweepsDrawer, EmptySweepHero, SweepOverview (banners, KPIs),
+│   │   │                           DemandScrubber, CurvesTab · MatrixTab · InsightsTab, SweepTooltip,
+│   │   │                           levelOfService.ts (grade colours)
+│   │   ├── validation/             Monte Carlo studio sections: validationModel.ts (result types, run settings,
+│   │   │                           request config, per-seed tally, chart rows, CSV, effect-size labels),
+│   │   │                           AdvancedConfigDrawer, MethodologyDrawer, ValidationLaunchpad, VerdictBanner,
+│   │   │                           VisualComparisonTab (CIBar, SeedChartTooltip), SeedRunsTable, MethodologyTab
+│   │   ├── scenario/               Scenario builder and study: ScenarioBuilder (steps and state), builderOptions.ts,
+│   │   │                           fields, LaneArrowEditor, ApproachLanesCard, ApproachTrafficCard,
+│   │   │                           GeometrySettings, AdvancedSettings, JunctionPreview, MixEditor, ScenarioStudy
 │   │   ├── ControlComparisonStudy.tsx (V1.3 three-way study, on /app/research) · AdaptiveSignalStatus.tsx (adaptive map overlay)
 │   │   ├── Login.tsx               Sign-in dialog
 │   │   └── ui/                     Shared UI: loaders, page transitions, status states, logo
@@ -42,8 +55,8 @@ frontend/
 │   │                               useStudyJob · useContainerSize · useAuthSession (sign-in, profile, admin) ·
 │   │                               useLiveConfigSync (dashboard config → backend) · useToast
 │   ├── services/                   api.ts (REST) · websocket.ts (stream client) · liveSession.ts · studyJobs.ts ·
-│   │                               v2/planning.ts · v3/experiments.ts — every request except the legacy
-│   │                               single-vehicle polling in useSimulationPolling
+│   │                               singleVehicle.ts (legacy polling API) · v2/planning.ts · v3/experiments.ts —
+│   │                               the only modules that make requests
 │   ├── metrics/
 │   │   ├── catalog.ts              One description per metric: label, unit, precision, group, applicability
 │   │   └── plainLanguage.ts        Plain-language readings, similarity rule, grades, bands, "why", trust notes

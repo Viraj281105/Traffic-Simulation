@@ -9,12 +9,12 @@ from typing import Any, Dict
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from src.core.scenario import parse_scenario
 from src.networks.compile import compile_network, derive_node_scenarios
 from src.networks.execution import build_network_result
 from src.networks.from_scenario import scenario_to_network
 from src.networks.models import NetworkDocument, network_fingerprint
 from src.networks.validate import parse_network, validate_network
+from src.scenario.documents import parse_scenario
 
 router = APIRouter(prefix="/api/v2/networks", tags=["networks"])
 

@@ -27,9 +27,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import pytest
 
-from src.controllers.factory import build_tick_callback, create_controller
+from src.controllers.factory import create_controller
 from src.core.clock import Clock
-from src.core.engine import SimulationEngine
+from src.engine.simulation_engine import SimulationEngine
+from src.engine.tick_callback import build_tick_callback
 from src.metrics.collector import MetricCollector
 
 TIME_STEP = 0.1
@@ -85,7 +86,7 @@ def _simulate(rate: float, lanes: int, seed: int, duration: int) -> Dict[str, fl
     )
 
     # A collision logs a warning per event; a lock-up can log thousands.
-    logging.getLogger("src.vehicles.pool").setLevel(logging.ERROR)
+    logging.getLogger("src.engine.vehicle_pool").setLevel(logging.ERROR)
 
     window = int(60 / TIME_STEP)
     exited_by_tick: List[int] = []

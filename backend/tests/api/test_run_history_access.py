@@ -13,7 +13,7 @@ from typing import Any, Iterator, Optional
 import pytest
 from fastapi.testclient import TestClient
 
-from src.auth import (
+from src.api.auth import (
     get_current_user_id,
     get_current_user_is_admin,
     get_optional_user_id,
@@ -220,7 +220,7 @@ def test_compare_still_describes_two_comparable_runs(act_as: Any) -> None:
 def test_reproduce_refuses_an_unbounded_stored_run(act_as: Any) -> None:
     """A replay saved without a live engine stores the client's duration and
     time step; reproducing it must not start an unbounded synchronous run."""
-    from src.auth import get_current_user_email
+    from src.api.auth import get_current_user_email
 
     act_as("alice")
     app.dependency_overrides[get_current_user_email] = lambda: "alice@example.com"

@@ -9,11 +9,11 @@ from typing import List, Tuple
 import pytest
 from fastapi.testclient import TestClient
 
+import src.api.auth as auth
 import src.api.security as security
-import src.auth as auth
-from src.auth import DEV_AUTH_TOKEN
+from src.api.auth import DEV_AUTH_TOKEN
+from src.api.request_limits import MAX_V2_BODY_BYTES
 from src.main import app
-from src.request_limits import MAX_V2_BODY_BYTES
 
 KEY = "test-gate-key"
 

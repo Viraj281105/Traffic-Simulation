@@ -19,23 +19,27 @@ A Python 3.11 **FastAPI** application containing UrbanFlow's discrete-time simul
 ```
 src/
 ├── main.py           FastAPI app: middleware, error handler, DB init, mounts every router (no routes)
-├── api/              API key, error envelope, CORS/WebSocket origins, config → 400, /health /api/version /api/me
-├── auth.py           Cognito token verification and the local-development bypass
+├── api/              Cognito auth, API key, error envelope, CORS/WebSocket origins, request limits,
+│                     config → 400, /health /api/version /api/me
 ├── live/             Live dashboard: sessions, dashboard config compilation, /api/simulation/*, /ws/simulation/*
 ├── simulations/      Versioned /api/v1/simulations: registry, lifecycle, reports, /ws/v1/stream
 ├── replays/ suites/  /api/v1/replays and /api/suites
 ├── history/          Stored runs: list, label, export, compare, reproduce
 ├── calibration/ networks/ planning/ experiments/ uncertainty/   V1.8–V3.0 feature packages, each with its router
-├── core/             engine, clock, configuration models and rules, limits, provenance
-├── roads/            road network, lanes, approaches
-├── vehicles/         vehicle, IDM, spawner, pool, router, speed profile
-├── controllers/      BaseController, fixed-time signal, roundabout, virtual obstacles, factory
+├── core/             leaf kernel: enums, clock, limits, schema loader, config models, provenance
+├── roads/            road network, lanes, approaches, junction geometry
+├── vehicles/         vehicle, IDM, spawner, router, lane change, speed profile, virtual obstacles
 ├── intersection/     conflict manager (signal) and predictive conflict resolver
+├── controllers/      BaseController, fixed-time and adaptive signal, roundabout, controller factory
 ├── metrics/          MetricCollector, composite score, definitions/
+├── scenario/         scenario documents and the cross-field and lane rules
+├── engine/           SimulationEngine, vehicle pool, deadlock detector, tick callback, metrics readout
 ├── snapshot/         snapshot builder and buffer, dual (lockstep) orchestrator
 ├── study/            volume sweep, validation, worker pool, jobs, calibration, tolerances, reports, limits, router
 └── database/         SQLite schema and migrations, run/sweep/suite/replay/user DAOs
 ```
+
+The domain packages form a strict stack (`core` → `roads` → `vehicles` → `intersection` → `controllers` → `metrics` → `scenario`/`engine` → `snapshot`), enforced by `tests/test_architecture.py`; see [backend architecture](../docs/architecture/02-backend-architecture.md).
 
 ## Core model in one paragraph
 

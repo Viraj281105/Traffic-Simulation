@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from src.core.engine import SimulationEngine
+    from src.engine.simulation_engine import SimulationEngine
     from src.metrics.collector import MetricCollector
 
 

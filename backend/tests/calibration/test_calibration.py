@@ -26,8 +26,8 @@ from src.calibration.runner import (
     run_calibration,
     validate_calibration_request,
 )
-from src.core.scenario import parse_scenario, scenario_fingerprint
 from src.main import app
+from src.scenario.documents import parse_scenario, scenario_fingerprint
 
 SCENARIO: Dict[str, Any] = {
     "format": "urbanflow-scenario",

@@ -9,10 +9,10 @@ from fastapi.testclient import TestClient
 
 import src.database.db as db_module
 from src.core.clock import Clock
-from src.core.engine import SimulationEngine
 from src.core.provenance import GIT_COMMIT_HASH, PYTHON_VERSION
 from src.database.dao import SimulationRunDAO, describe_reproducibility
 from src.database.db import get_db_connection, init_db
+from src.engine.simulation_engine import SimulationEngine
 from src.live.sessions import LIVE_SESSION_COOKIE, live_sessions
 from src.main import app
 

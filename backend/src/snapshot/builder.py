@@ -2,8 +2,8 @@ import math
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from src.core.engine import SimulationEngine
 from src.core.enums import Direction, TurnIntent
+from src.engine.simulation_engine import SimulationEngine
 from src.metrics.collector import MetricCollector
 from src.vehicles.vehicle import Vehicle
 

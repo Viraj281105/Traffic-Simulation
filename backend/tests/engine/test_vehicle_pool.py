@@ -1,7 +1,7 @@
 from src.core.enums import Direction, TurnIntent, VehicleState
+from src.engine.vehicle_pool import VehiclePool
 from src.roads.lane import Lane
 from src.roads.network import RoadNetwork
-from src.vehicles.pool import VehiclePool
 from src.vehicles.vehicle import Vehicle
 
 

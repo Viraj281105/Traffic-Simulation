@@ -19,11 +19,12 @@ from typing import Any, Dict, Optional
 
 import pytest
 
-from src.controllers.factory import build_tick_callback, create_controller
+from src.controllers.factory import create_controller
 from src.core.clock import Clock
-from src.core.engine import SimulationEngine
-from src.core.scenario import compile_scenario, parse_scenario
+from src.engine.simulation_engine import SimulationEngine
+from src.engine.tick_callback import build_tick_callback
 from src.metrics.collector import MetricCollector
+from src.scenario.documents import compile_scenario, parse_scenario
 
 TURN = {"left": 0.2, "straight": 0.6, "right": 0.2}
 MIXES: Dict[str, Optional[Dict[str, float]]] = {
@@ -74,7 +75,7 @@ def _run(doc: Dict[str, Any]) -> Dict[str, float]:
     engine.register_tick_callback(
         build_tick_callback(controller, clock, engine, collector)
     )
-    logging.getLogger("src.vehicles.pool").setLevel(logging.ERROR)
+    logging.getLogger("src.engine.vehicle_pool").setLevel(logging.ERROR)
 
     last_exit: Optional[float] = None
     longest_gap = 0.0

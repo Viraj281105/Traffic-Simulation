@@ -7,7 +7,7 @@ allow_credentials=True (browsers reject that combination anyway, and it
 amounts to an unrestricted, credentialed CORS policy) — CORS_ORIGINS="*"
 instead explicitly disables credentials for that case.
 
-The same list decides WebSocket handshakes (src/ws_origin.py), and the two
+The same list decides WebSocket handshakes (src/api/ws_origin.py), and the two
 stream helpers every WebSocket route uses live here with it.
 """
 
@@ -16,7 +16,7 @@ import os
 
 from fastapi import WebSocket
 
-from src.ws_origin import origin_allowed
+from src.api.ws_origin import origin_allowed
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ else:
 
 async def refuse_foreign_origin(websocket: WebSocket) -> bool:
     """Close a handshake from another site's page before accepting it
-    (src/ws_origin.py); True when refused."""
+    (src/api/ws_origin.py); True when refused."""
     origin = websocket.headers.get("origin")
     if origin_allowed(origin, websocket.headers.get("host"), CORS_ORIGINS):
         return False

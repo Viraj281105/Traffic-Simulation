@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed** — implemented on `viraj-dev` on 2026-10-16 for review; not yet accepted.
+**Accepted** — approved by the product owner on 2026-10-16; implemented on `viraj-dev` in two steps (resource routers, then the domain layering).
 
 ## Date
 
@@ -18,12 +18,14 @@ Where should each backend responsibility live so that a contributor can find it,
 
 ## Decision
 
-1. **Four layers**: delivery (routes, `api/`), application (use cases such as `live/`, `simulations/registry.py`, `study/`), domain (the simulation: `core/ roads/ vehicles/ controllers/ intersection/ metrics/ snapshot/`) and infrastructure (`database/`, `access.py`). Imports point downward only; the rules and their few documented exceptions are in [02 — Backend architecture §2](../architecture/02-backend-architecture.md).
+1. **Four layers**: delivery (routes, `api/`), application (use cases such as `live/`, `simulations/registry.py`, `study/`), domain (the simulation: `core/ roads/ vehicles/ intersection/ controllers/ metrics/ scenario/ engine/ snapshot/`) and infrastructure (`database/`, `access.py`, each feature's `store.py`). Imports point downward only; the rules and their few documented exceptions are in [02 — Backend architecture §2](../architecture/02-backend-architecture.md).
 2. **`main.py` is only the composition root**: app, middleware, error handler, database initialisation and router mounting. Nothing imports it.
 3. **Each resource family owns its router** in the package that owns the behaviour: `live/`, `simulations/`, `study/router.py`, `replays/`, `suites/`, beside the existing `history/`, `planning/`, `experiments/`, `calibration/`, `networks/`.
 4. **Shared HTTP plumbing lives in `api/`**: `security.py` (API key), `errors.py` (envelope), `origins.py` (CORS/WebSocket origins), `validation.py` (configuration and scenario failures worded as 400s once), `meta.py`.
-5. **Routers hold no SQL.** Ownership and listing queries are DAO methods.
-6. **Behaviour is preserved exactly**: same routes, methods, status codes, dependencies, middleware order, error bodies and same-seed results (verified against the previous commit with a route-table and OpenAPI diff, a same-seed run comparison and the full test suite).
+5. **Routers hold no SQL.** Ownership and listing queries are DAO methods; a feature that keeps its own table (calibration, planning, experiments) does so in its `store.py`.
+6. **The simulation domain is a strict stack**: `core` (leaf kernel) → `roads` → `vehicles` → `intersection` → `controllers` → `metrics` → {`scenario`, `engine`} → `snapshot`. The engine runtime (`SimulationEngine`, the vehicle pool, the deadlock detector, the tick callback) moved to `engine/`; scenario documents and configuration rules moved from `core/` to `scenario/`; virtual obstacles moved to `vehicles/` and the speed-threshold rule to `core/`, removing every upward import. `tests/test_architecture.py` enforces the order and the rules in point 1.
+7. **All delivery modules live in `api/`** (`auth`, `request_limits`, `ws_origin` joined it), and application code never imports them; routers are module-level `APIRouter`s except where a factory injects a service for tests (planning, experiments).
+8. **Behaviour is preserved exactly**: same routes, methods, status codes, dependencies, middleware order, error bodies and same-seed results (verified against the previous commit with a route-table and OpenAPI diff, a same-seed run comparison and the full test suite).
 
 ## Alternatives Considered
 
@@ -35,17 +37,17 @@ Where should each backend responsibility live so that a contributor can find it,
 
 - More files, each smaller and with one owner.
 - Tests that patched module globals of `main.py` now patch the module that owns the name (for example `src.api.security.API_KEY`).
-- One generated OpenAPI component name changed (`src__main__ScenarioRequest` → `src__simulations__router__ScenarioRequest`); the request shape is unchanged and no client references the name.
+- Moved modules log under their new names, and one generated OpenAPI component name changed (`src__main__ScenarioRequest` → `src__simulations__router__ScenarioRequest`); the request shape is unchanged and no client references the name.
 
 ## Consequences
 
-- A new route goes in the owning package's router and is mounted in `main.py`; a new configuration rule goes in `core/`, and `api/validation.py` words its failure.
+- A new route goes in the owning package's router and is mounted in `main.py`; a new configuration rule goes in `scenario/`, and `api/validation.py` words its failure.
 - The dashboard payload compiler is shared by the live session, the reliability check and suite batches from one module.
 
 ## Future Considerations
 
-- Split `core/` into a leaf kernel (enums, clock, limits) and the engine/scenario compiler.
-- Converge the older factory-style routers (`build_router(require_api_key)`) on direct imports of `api/security.py`.
+- Several `collector.get_metrics(...)` call sites repeat `engine/readout.engine_metrics` without its lock; they run inside the tick or single-threaded and were left unchanged.
+- Logger names follow module paths, so moved modules log under their new names (for example `src.engine.vehicle_pool`).
 
 ## Related ADRs
 

@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from src.core.enums import Direction, TurnIntent
 from src.core.limits import DEFAULT_TOTAL_VEHICLES
-from src.metrics.collector import resolve_speed_threshold
+from src.core.speed_thresholds import resolve_speed_threshold
 from src.roads.lane import Lane
 from src.roads.network import RoadNetwork
 from src.vehicles.speed_profile import resolve_desired_speed_range

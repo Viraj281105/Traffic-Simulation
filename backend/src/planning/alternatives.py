@@ -12,7 +12,8 @@ import copy
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Protocol, Sequence
 
-from src.core.scenario import (
+from src.planning.models import AlternativeSpec
+from src.scenario.documents import (
     STRATEGIES,
     STRATEGY_TITLES,
     ScenarioDocument,
@@ -20,7 +21,6 @@ from src.core.scenario import (
     scenario_fingerprint,
     validate_scenario,
 )
-from src.planning.models import AlternativeSpec
 
 # Seeds, duration and warm-up must be common to all alternatives, otherwise
 # the per-seed pairing the comparison relies on is meaningless.

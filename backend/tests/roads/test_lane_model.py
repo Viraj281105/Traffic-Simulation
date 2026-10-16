@@ -4,7 +4,6 @@ from typing import Any, Dict
 
 import pytest
 
-from src.core.config_validation import semantic_config_errors
 from src.core.enums import Direction, TurnIntent
 from src.roads.network import (
     SIGNAL_STOP_LINE_SETBACK,
@@ -13,6 +12,7 @@ from src.roads.network import (
     lane_permitted_turns,
     resolve_lanes_per_approach,
 )
+from src.scenario.config_validation import semantic_config_errors
 
 L, S, R = TurnIntent.LEFT, TurnIntent.STRAIGHT, TurnIntent.RIGHT
 

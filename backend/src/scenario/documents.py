@@ -591,7 +591,7 @@ def validate_scenario(
     # Imported here: config_validation imports the controllers.
     import jsonschema
 
-    from src.core.config_validation import semantic_config_errors
+    from src.scenario.config_validation import semantic_config_errors
 
     document, errors = parse_scenario(payload)
     if document is None:
@@ -659,7 +659,6 @@ def resolved_design(config: Dict[str, Any]) -> Dict[str, Any]:
     """What the engine will build for a compiled config: each approach's lane
     use (lane 1 first) and, for a roundabout, its ring lane count and the
     ring lane and exit lane every permitted movement uses."""
-    from src.core.lane_validation import circulating_lanes_of, resolved_lane_use
     from src.roads.junction_geometry import (
         present_arms,
         resolve_junction_geometry,
@@ -677,6 +676,7 @@ def resolved_design(config: Dict[str, Any]) -> Dict[str, Any]:
         lane_counts,
         resolve_lanes_per_approach,
     )
+    from src.scenario.lane_validation import circulating_lanes_of, resolved_lane_use
     from src.vehicles.vehicle_types import design_vehicle_allowance
 
     use = resolved_lane_use(config) or {}

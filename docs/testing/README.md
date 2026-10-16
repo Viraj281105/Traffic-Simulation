@@ -56,12 +56,15 @@ mypy src/
 | `tests/controllers/` | Signal phase plans, asymmetric greens, offsets, roundabout gap acceptance, follow-up time, congestion hysteresis |
 | `tests/intersection/` | Conflict-point geometry and predictive conflict resolution (including lock-up cases) |
 | `tests/roads/` | Lane geometry; cached lookups equal to uncached trajectories |
-| `tests/core/` | Clock, engine lifecycle, reset, configuration models and cross-field rules, provenance, snapshots |
+| `tests/core/` | Clock, configuration models, provenance, snapshots, determinism |
+| `tests/engine/` | Engine lifecycle and reset, the vehicle pool |
+| `tests/scenario/` | Scenario documents, lane configuration, cross-field configuration rules |
 | `tests/metrics/` | Every metric definition, warm-up clipping, composite score rules, safety measures, vehicle limit |
 | `tests/study/` | Statistics (CI, Welch, Cohen's d), sweep verdict direction and crossover, report generation, CLI |
 | `tests/database/` | Persistence, run reproducibility, history/labels, sweep persistence batching |
 | `tests/api/` | Routes, API-key auth, development auth bypass, replay ownership, study jobs and limits, reliability scenario |
 | `tests/integration/` | Full runs, dual simulation, WebSocket integration, snapshot contract, config validation and ordering, live session limits, stress, DB concurrency |
+| `tests/test_architecture.py` | The backend's layer rules: the simulation domain is a strict import stack, uses no web or database library, nothing imports `main.py`, and SQL stays in `database/` and the feature stores |
 
 ### Slow simulation regression
 

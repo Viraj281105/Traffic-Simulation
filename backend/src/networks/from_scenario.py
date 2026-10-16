@@ -9,9 +9,9 @@ has the scenario's own fingerprint.
 
 from typing import Any, Dict, List
 
-from src.core.scenario import ScenarioDocument
 from src.networks.models import NETWORK_FORMAT, NETWORK_VERSION
 from src.networks.validate import movement_between
+from src.scenario.documents import ScenarioDocument
 
 JUNCTION_ID = "J1"
 

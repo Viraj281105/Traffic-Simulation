@@ -6,10 +6,10 @@ from typing import Any, Dict, Iterator
 import pytest
 from fastapi.testclient import TestClient
 
-from src.core.scenario import parse_scenario
+from src.api.request_limits import LIMITED_PREFIXES, MAX_V2_BODY_BYTES
 from src.main import app
 from src.networks.from_scenario import scenario_to_network
-from src.request_limits import LIMITED_PREFIXES, MAX_V2_BODY_BYTES
+from src.scenario.documents import parse_scenario
 
 client = TestClient(app)
 

@@ -307,9 +307,9 @@ def test_find_leader_roundabout_different_lane_index_not_matched() -> None:
 
 
 def _signal_route_with_yellow() -> tuple:  # type: ignore[type-arg]
-    from src.controllers.virtual_obstacle import VirtualObstacle
     from src.core.enums import Direction, TurnIntent
     from src.roads.network import RoadNetwork
+    from src.vehicles.virtual_obstacle import VirtualObstacle
 
     network = RoadNetwork()
     network.setup_default_intersection(200.0, 3.5, 1)
@@ -362,7 +362,7 @@ def test_saturated_signal_does_not_freeze_after_yellow_entries() -> None:
 
     from src.controllers.factory import create_controller
     from src.core.clock import Clock
-    from src.core.engine import SimulationEngine
+    from src.engine.simulation_engine import SimulationEngine
 
     config = {
         "simulation": {"duration": 240.0, "timeStep": 0.1, "randomSeed": 1},

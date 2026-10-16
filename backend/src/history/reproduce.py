@@ -16,14 +16,14 @@ from typing import Any, Dict, Optional
 from src.controllers.factory import create_controller, derive_signals_state
 from src.controllers.fixed_time_signal import FixedTimeSignalController
 from src.core.clock import Clock
-from src.core.engine import SimulationEngine
 from src.core.enums import SimulationStatus
 from src.core.limits import MAX_SIMULATION_TICKS
 from src.core.provenance import GIT_COMMIT_HASH, PYTHON_VERSION
+from src.engine.readout import engine_metrics
+from src.engine.simulation_engine import SimulationEngine
 from src.metrics.collector import MetricCollector
-from src.metrics.readout import engine_metrics
-from src.request_limits import MAX_STUDY_DURATION_SECONDS
 from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
+from src.study.limits import MAX_STUDY_DURATION_SECONDS
 
 
 class ReproductionError(ValueError):

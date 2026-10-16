@@ -5,11 +5,12 @@ import threading
 import time
 from typing import Any, Dict, Optional
 
-from src.controllers.factory import build_tick_callback, create_controller
+from src.controllers.factory import create_controller
 from src.core.clock import Clock
 from src.core.config_models import DEFAULT_PHASE_SEQUENCE
-from src.core.engine import SimulationEngine
 from src.core.enums import SimulationStatus
+from src.engine.simulation_engine import SimulationEngine
+from src.engine.tick_callback import build_tick_callback
 from src.metrics.collector import MetricCollector
 from src.snapshot.builder import SnapshotBuilder
 

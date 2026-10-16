@@ -5,7 +5,7 @@ import copy
 
 import pytest
 
-from src.core.scenario import (
+from src.scenario.documents import (
     ScenarioDocument,
     compile_scenario,
     scenario_fingerprint,

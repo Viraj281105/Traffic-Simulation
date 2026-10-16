@@ -13,13 +13,6 @@ import datetime as _dt
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from src.core.provenance import GIT_COMMIT_HASH, PYTHON_VERSION
-from src.core.scenario import (
-    STRATEGY_TITLES,
-    ScenarioDocument,
-    parse_scenario,
-    scenario_fingerprint,
-    total_vehicles_per_hour,
-)
 from src.planning import indicators as ind
 from src.planning import links
 from src.planning.alternatives import (
@@ -38,6 +31,13 @@ from src.planning.models import (
     fingerprint_of,
 )
 from src.planning.report import build_report
+from src.scenario.documents import (
+    STRATEGY_TITLES,
+    ScenarioDocument,
+    parse_scenario,
+    scenario_fingerprint,
+    total_vehicles_per_hour,
+)
 from src.study.runner import Progress
 
 ComparisonFn = Callable[..., Dict[str, Any]]

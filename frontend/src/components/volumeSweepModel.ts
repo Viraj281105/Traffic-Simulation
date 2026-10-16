@@ -2,8 +2,15 @@
  * The volume sweep as the dashboard reads it: the backend's sweep payload
  * (both the flat shape and the older one nested under `results`), offered
  * demand derived from each tier's arrival rate, the plain-language crossover
- * summary and the rows the charts plot. Pure data; no React.
+ * summary, the rows the charts plot, the sweep form's configuration and the
+ * per-tier tallies and CSV the views show. Pure data; no React.
  */
+import {
+  SPEED_LIMITS,
+  TIER_PRESETS,
+  sweepRates,
+  type TierPresetId,
+} from "../types/demand";
 import type { RunningMetrics } from "../types/simulation";
 
 export type SweepWinner = "signal" | "roundabout" | "tie" | "inconclusive";
@@ -294,4 +301,186 @@ export function buildChartData(session: SweepSession) {
       queueDeltaPercent: Number((run.queueDeltaPercent ?? 0).toFixed(1)),
     };
   });
+}
+
+export type SweepChartRow = ReturnType<typeof buildChartData>[number];
+
+// ── Sweep configuration ─────────────────────────────────────────────────────
+
+export type DemandTierPreset = "standard" | "dense" | "granular";
+export type SpeedProfileKey = keyof typeof SPEED_LIMITS;
+
+/** What the sweep form edits: duration and seed in the header, the rest in
+ *  the advanced drawer. */
+export interface SweepConfig {
+  duration: number;
+  randomSeed: number;
+  demandTierPreset: DemandTierPreset;
+  arrivalDistribution: "poisson" | "uniform";
+  warmupTime: number;
+  timeStep: number;
+  approachLength: number;
+  lanesCount: number;
+  speedProfileKey: SpeedProfileKey;
+}
+
+export const DEFAULT_SWEEP_CONFIG: SweepConfig = {
+  duration: 240,
+  randomSeed: 42,
+  demandTierPreset: "standard",
+  arrivalDistribution: "poisson",
+  warmupTime: 30.0,
+  timeStep: 0.1,
+  approachLength: 200.0,
+  lanesCount: 1,
+  speedProfileKey: "standard",
+};
+
+/** Demand tiers: the three presets, as shares of the capacity measured for
+ *  the chosen lane count (types/demand.ts), so they span free flow to
+ *  oversaturation at every lane count. */
+export function sweepTierRates(
+  preset: DemandTierPreset,
+  lanesCount: number,
+): { rates: number[]; detail: string } {
+  const id: TierPresetId =
+    preset === "dense"
+      ? "wide"
+      : preset === "granular"
+        ? "transition"
+        : "standard";
+  const tiers = TIER_PRESETS.find((t) => t.id === id) ?? TIER_PRESETS[0];
+  return { rates: sweepRates(tiers, lanesCount), detail: tiers.detail };
+}
+
+/** The study scenario the sweep job runs every tier on. */
+export function sweepCustomConfig(config: SweepConfig) {
+  return {
+    simulation: {
+      warmupTime: config.warmupTime,
+      timeStep: config.timeStep,
+      duration: config.duration,
+      randomSeed: config.randomSeed,
+    },
+    roads: {
+      approachLength: config.approachLength,
+      laneWidth: 3.5,
+      speedLimit: SPEED_LIMITS[config.speedProfileKey].metresPerSecond,
+      lanesPerApproach: {
+        north: config.lanesCount,
+        south: config.lanesCount,
+        east: config.lanesCount,
+        west: config.lanesCount,
+      },
+    },
+    traffic: {
+      arrivalDistribution: config.arrivalDistribution,
+    },
+  };
+}
+
+// ── Tier summaries ──────────────────────────────────────────────────────────
+
+export interface TierTally {
+  roundabout: number;
+  signal: number;
+  tie: number;
+  inconclusive: number;
+  /** Tiers where vehicle generation hit its per-run limit. */
+  capped: number;
+  total: number;
+}
+
+export function tierTally(runs: SweepRun[]): TierTally {
+  return {
+    roundabout: runs.filter((r) => r.winner === "roundabout").length,
+    signal: runs.filter((r) => r.winner === "signal").length,
+    tie: runs.filter((r) => r.winner === "tie").length,
+    inconclusive: runs.filter((r) => r.winner === "inconclusive").length,
+    capped: runs.filter((r) => r.vehicleLimitReached).length,
+    total: runs.length,
+  };
+}
+
+/** Tier with the largest absolute mean-delay difference (roundabout − signal). */
+export function largestDelayGap(
+  runs: SweepRun[],
+): { run: SweepRun; diff: number } | null {
+  return runs.reduce<{ run: SweepRun; diff: number } | null>((best, run) => {
+    const diff = run.roundabout.delay - run.signal.delay;
+    return !best || Math.abs(diff) > Math.abs(best.diff) ? { run, diff } : best;
+  }, null);
+}
+
+/** Where the demand explorer starts: the crossover if there is one, else the
+ *  middle tier. */
+export function defaultScrubberVolume(
+  session: SweepSession | null,
+  runs: SweepRun[],
+): number {
+  if (session?.curves.crossoverHourlyVolume) {
+    return session.curves.crossoverHourlyVolume;
+  }
+  if (runs.length > 0) {
+    const midIdx = Math.floor(runs.length / 2);
+    return runs[midIdx].hourlyVolumeVehPerHour;
+  }
+  return 1440;
+}
+
+/** The tier whose offered demand is nearest `volume` (first wins a tie). */
+export function closestRun(runs: SweepRun[], volume: number): SweepRun | null {
+  if (runs.length === 0) return null;
+  let closest = runs[0];
+  let minDiff = Math.abs(closest.hourlyVolumeVehPerHour - volume);
+  for (const run of runs) {
+    const diff = Math.abs(run.hourlyVolumeVehPerHour - volume);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closest = run;
+    }
+  }
+  return closest;
+}
+
+/** Scale for the matrix's delay bars: the largest delay on either side, at
+ *  least 10 s. */
+export function maxTierDelay(runs: SweepRun[]): number {
+  if (runs.length === 0) return 60;
+  return Math.max(
+    ...runs.map((r) => Math.max(r.signal.delay, r.roundabout.delay)),
+    10,
+  );
+}
+
+// ── CSV export ──────────────────────────────────────────────────────────────
+
+export function sweepCsv(runs: SweepRun[]): string {
+  const headers = [
+    "Arrival Rate (veh/s)",
+    "Hourly Volume (veh/h)",
+    "Signal Delay (s)",
+    "Roundabout Delay (s)",
+    "Delay Delta (%)",
+    "Signal Throughput (veh)",
+    "Roundabout Throughput (veh)",
+    "Signal Queue (veh)",
+    "Roundabout Queue (veh)",
+    "Lower mean delay (tie / inconclusive shown as such)",
+  ];
+
+  const rows = runs.map((r) => [
+    r.arrivalRate.toFixed(2),
+    r.hourlyVolumeVehPerHour.toString(),
+    r.signal.delay.toFixed(2),
+    r.roundabout.delay.toFixed(2),
+    r.delayDeltaPercent.toFixed(1),
+    r.signal.throughput.toString(),
+    r.roundabout.throughput.toString(),
+    r.signal.queue.toFixed(1),
+    r.roundabout.queue.toFixed(1),
+    r.winner,
+  ]);
+
+  return [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
 }

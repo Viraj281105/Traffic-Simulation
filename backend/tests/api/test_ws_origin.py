@@ -1,4 +1,4 @@
-"""WebSocket handshakes from other sites' pages are refused (src/ws_origin.py).
+"""WebSocket handshakes from other sites' pages are refused (src/api/ws_origin.py).
 
 CORS does not cover WebSockets and the browser sends the visitor's cookies,
 so without this a page on another site could open /ws/simulation/live and
@@ -11,8 +11,8 @@ import pytest
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
+from src.api.ws_origin import origin_allowed
 from src.main import app
-from src.ws_origin import origin_allowed
 
 DEV = ["http://localhost:5173", "http://127.0.0.1:5173"]
 

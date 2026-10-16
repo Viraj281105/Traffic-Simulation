@@ -13,13 +13,14 @@ import time
 import uuid
 from typing import Any, Dict
 
-from src.controllers.factory import build_tick_callback, create_controller
+from src.controllers.factory import create_controller
 from src.core.clock import Clock
-from src.core.engine import SimulationEngine
 from src.core.enums import SimulationStatus
 from src.core.provenance import build_run_provenance
 from src.database.dao import SimulationRunDAO
 from src.database.db import get_db_connection
+from src.engine.simulation_engine import SimulationEngine
+from src.engine.tick_callback import build_tick_callback
 from src.metrics.collector import MetricCollector
 from src.snapshot.buffer import SnapshotBuffer
 from src.snapshot.builder import SnapshotBuilder

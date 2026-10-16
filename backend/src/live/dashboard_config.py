@@ -17,10 +17,14 @@ import jsonschema
 from fastapi import HTTPException
 
 from src.api.validation import valid_scenario_or_400
-from src.core.config_validation import semantic_config_errors
 from src.core.limits import demand_vehicle_limit
-from src.core.scenario import JUNCTION_STRATEGY, compile_live_comparison, parse_scenario
 from src.core.schema import CONFIG_SCHEMA
+from src.scenario.config_validation import semantic_config_errors
+from src.scenario.documents import (
+    JUNCTION_STRATEGY,
+    compile_live_comparison,
+    parse_scenario,
+)
 
 DEFAULT_CONFIG: Dict[str, Any] = {
     "simulation": {

@@ -3,10 +3,10 @@
 import copy
 from typing import Any, Dict, Optional
 
-from src.core.engine import SimulationEngine
+from src.engine.readout import engine_metrics
+from src.engine.simulation_engine import SimulationEngine
 from src.live.sessions import LiveSession
 from src.metrics.collector import MetricCollector
-from src.metrics.readout import engine_metrics
 
 
 def capture_engine_run(

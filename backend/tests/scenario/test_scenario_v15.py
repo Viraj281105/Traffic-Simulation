@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 
 import pytest
 
-from src.core.scenario import (
+from src.scenario.documents import (
     compile_scenario,
     parse_scenario,
     scenario_fingerprint,
@@ -366,7 +366,7 @@ def test_overlapping_roundabout_mouths_are_rejected_for_the_roundabout_only() ->
 
 
 def test_engine_configs_describing_a_missing_arm_are_rejected() -> None:
-    from src.core.config_validation import semantic_config_errors
+    from src.scenario.config_validation import semantic_config_errors
 
     document, _ = parse_scenario(t_junction())
     assert document is not None

@@ -18,12 +18,13 @@ from typing import Any, Dict
 import jsonschema
 import pytest
 
-from src.controllers.factory import build_tick_callback, create_controller
+from src.controllers.factory import create_controller
 from src.core.clock import Clock
-from src.core.engine import SimulationEngine
 from src.core.enums import TurnIntent
-from src.core.scenario import compile_scenario, parse_scenario, validate_scenario
+from src.engine.simulation_engine import SimulationEngine
+from src.engine.tick_callback import build_tick_callback
 from src.metrics.collector import MetricCollector
+from src.scenario.documents import compile_scenario, parse_scenario, validate_scenario
 from src.snapshot.builder import SnapshotBuilder
 
 STRATEGIES = ["fixed_time", "adaptive", "roundabout"]
@@ -158,7 +159,7 @@ class _Run:
                 self.controller, self.clock, self.engine, self.collector
             )
         )
-        logging.getLogger("src.vehicles.pool").setLevel(logging.ERROR)
+        logging.getLogger("src.engine.vehicle_pool").setLevel(logging.ERROR)
 
     def run(self) -> "_Run":
         while self.engine.status.value.lower() != "completed":

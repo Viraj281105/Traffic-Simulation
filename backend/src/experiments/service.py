@@ -12,35 +12,20 @@ queue: an experiment a previous process was still running is reported as failed 
 from __future__ import annotations
 
 import datetime as _dt
-import json
 import logging
-import math
 import threading
 import uuid
-from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from pydantic import ValidationError
-
-from src.core.limits import nested_deeper_than, too_deep_message
 from src.core.provenance import GIT_COMMIT_HASH, PYTHON_VERSION
-from src.core.scenario import (
+from src.planning.models import fingerprint_of
+from src.scenario.documents import (
     STRATEGIES,
-    ScenarioDocument,
-    compile_scenario,
-    parse_scenario,
     scenario_fingerprint,
 )
-from src.planning.alternatives import (
-    DefaultStrategyAlternatives,
-    InlineAlternatives,
-    ResolvedAlternative,
-    resolve_all,
-)
-from src.planning.models import fingerprint_of
 from src.study.jobs import JobRegistry, TooManyJobsError
 from src.study.runner import Progress
-from src.uncertainty.apply import FactorApplicationError, preflight
+from src.uncertainty.apply import FactorApplicationError
 from src.uncertainty.runner import (
     EnsembleRefusedError,
     RunAlternative,
@@ -52,7 +37,6 @@ from src.uncertainty.spec import (
     FactorKind,
     PrimaryIndicator,
     fingerprint,
-    run_counts,
 )
 
 from . import limits
@@ -61,38 +45,12 @@ from .models import (
     EXPERIMENT_VERSION,
     RESULT_FORMAT,
     RESULT_VERSION,
-    ExperimentRequest,
 )
 
 logger = logging.getLogger(__name__)
+from .preparation import Prepared, prepare
+from .store import ExperimentStore
 
-_TABLE = """
-CREATE TABLE IF NOT EXISTS uf_experiments (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    name TEXT,
-    schema_version INTEGER,
-    request_json TEXT,
-    summary_json TEXT,
-    result_json TEXT,
-    spec_fingerprint TEXT,
-    result_fingerprint TEXT,
-    created_at TEXT,
-    status TEXT,
-    error TEXT
-)
-"""
-_INDEX = (
-    "CREATE INDEX IF NOT EXISTS idx_uf_experiments_user "
-    "ON uf_experiments (user_id, created_at)"
-)
-
-# Below this many measured seconds (duration minus warm-up) a run may finish no trip at all.
-MIN_MEASURED_SECONDS_WARNING = 60.0
-
-INTERRUPTED_ERROR = (
-    "Interrupted by a server restart before it finished; submit the experiment again."
-)
 MAX_ERROR_CHARS = 300
 
 
@@ -108,14 +66,6 @@ def _public_error(exc: Exception) -> str:
         f"The experiment failed while running ({type(exc).__name__}). "
         "The server log has the details."
     )
-
-
-def ensure_table(conn: Any) -> None:
-    """Create the table and its index. Additive and idempotent (inline migration, as in database/db.py):
-    it never alters or drops anything that already exists."""
-    conn.execute(_TABLE)
-    conn.execute(_INDEX)
-    conn.commit()
 
 
 class NotFound(LookupError):  # noqa: N818
@@ -140,335 +90,6 @@ class QuotaExceeded(RuntimeError):  # noqa: N818
 
 class ConflictError(RuntimeError):
     """The request is valid but not possible in the experiment's current state (HTTP 409)."""
-
-
-@dataclass
-class Prepared:
-    request: Optional[ExperimentRequest] = None
-    base: Optional[ScenarioDocument] = None
-    alternatives: List[ResolvedAlternative] = field(default_factory=list)
-    baseline: Optional[str] = None
-    counts: Optional[Dict[str, int]] = None
-    errors: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
-
-    @property
-    def valid(self) -> bool:
-        return not self.errors
-
-
-def _pydantic_errors(err: ValidationError) -> List[str]:
-    return [
-        f"{'.'.join(str(p) for p in e.get('loc', ()))}: {e.get('msg', 'invalid')}"
-        for e in err.errors()
-    ]
-
-
-def _quota_error(quota: str, message: str) -> str:
-    return f"quota {limits.QUOTA_NAMES[quota]}: {message}"
-
-
-def _simulation_steps(prepared: "Prepared", base: ScenarioDocument) -> int:
-    """Engine steps the whole experiment needs: for every alternative, steps per run (the scenario's
-    duration over the *compiled* time step, which ``advanced`` may change) times conditions times
-    replications."""
-    assert prepared.counts is not None
-    per_cell = 0
-    for alt in prepared.alternatives:
-        if alt.document is None:
-            continue
-        try:
-            step = float(
-                compile_scenario(alt.document, alt.spec.strategy)["simulation"][
-                    "timeStep"
-                ]
-            )
-        except (ValueError, KeyError, TypeError):
-            step = alt.document.simulation.timeStep
-        per_cell += math.ceil(base.simulation.duration / step)
-    return per_cell * prepared.counts["conditions"] * prepared.counts["replications"]
-
-
-def prepare(payload: Any) -> Prepared:
-    """Validate a request without simulating anything.
-
-    Everything that costs CPU is bounded before it runs: the document's depth first, then the number of
-    alternatives, and only then the per-alternative validation.
-    """
-    out = Prepared()
-    if not isinstance(payload, dict):
-        out.errors.append("An experiment must be a JSON object")
-        return out
-    if nested_deeper_than(payload, limits.MAX_DOCUMENT_DEPTH):
-        out.errors.append(too_deep_message(limits.MAX_DOCUMENT_DEPTH))
-        return out
-    try:
-        request = ExperimentRequest.model_validate(payload)
-    except ValidationError as err:
-        out.errors.extend(_pydantic_errors(err))
-        return out
-    out.request = request
-
-    base, scenario_errors = parse_scenario(request.scenario)
-    if base is None:
-        out.errors.extend(f"scenario: {e}" for e in scenario_errors)
-        return out
-    out.base = base
-
-    given = len(request.alternatives or [])
-    if given > limits.MAX_ALTERNATIVES:
-        # Refused before any alternative is resolved: each one costs a full scenario validation.
-        out.errors.append(
-            _quota_error(
-                "alternatives",
-                f"{given} alternatives given, at most {limits.MAX_ALTERNATIVES} allowed",
-            )
-        )
-        return out
-
-    source = (
-        InlineAlternatives(request.alternatives)
-        if request.alternatives
-        else DefaultStrategyAlternatives()
-    )
-    resolved = resolve_all(base, source)
-    out.alternatives = resolved
-    ids = [r.id for r in resolved]
-    if len(set(ids)) != len(ids):
-        out.errors.append("alternative ids must be unique")
-    if len(resolved) < 2:
-        out.errors.append("an experiment needs at least two alternatives")
-    for r in resolved:
-        out.errors.extend(r.errors)
-        out.warnings.extend(r.warnings)
-        if r.document is not None:
-            out.errors.extend(
-                f"{r.id}: {e}"
-                for e in preflight(r.document, request.uncertainty.factors)
-            )
-
-    measured = base.simulation.duration - base.simulation.warmup
-    if measured < MIN_MEASURED_SECONDS_WARNING:
-        out.warnings.append(
-            f"Only {measured:g} s are measured after warm-up. Few vehicles may finish a trip in "
-            "that time, and a condition in which none does is excluded (its delay is undefined); "
-            f"{MIN_MEASURED_SECONDS_WARNING:g} s or more is advisable."
-        )
-
-    out.baseline = request.baseline or (resolved[0].id if resolved else None)
-    if out.baseline is not None and out.baseline not in ids:
-        out.errors.append(f"baseline {out.baseline!r} is not one of the alternatives")
-
-    if len(resolved) >= 2:
-        out.counts = run_counts(request.uncertainty, len(resolved))
-        if out.counts["totalRuns"] > limits.MAX_RUNS_PER_EXPERIMENT:
-            out.errors.append(
-                _quota_error(
-                    "runsPerExperiment",
-                    f"{out.counts['conditions']} conditions x {out.counts['alternatives']} "
-                    f"alternatives x {out.counts['replications']} replications = "
-                    f"{out.counts['totalRuns']} runs, at most {limits.MAX_RUNS_PER_EXPERIMENT} allowed",
-                )
-            )
-        steps = _simulation_steps(out, base)
-        if steps > limits.MAX_SIMULATION_STEPS_PER_EXPERIMENT:
-            out.errors.append(
-                _quota_error(
-                    "simulationStepsPerExperiment",
-                    f"{out.counts['totalRuns']} runs of {base.simulation.duration:g} s need "
-                    f"{steps:,} engine steps, at most "
-                    f"{limits.MAX_SIMULATION_STEPS_PER_EXPERIMENT:,} allowed "
-                    "(steps = duration / time step; a smaller time step costs more)",
-                )
-            )
-    return out
-
-
-class ExperimentStore:
-    """In-memory records keyed by id, mirrored to SQLite when available."""
-
-    def __init__(self, persist: bool = True) -> None:
-        self._records: Dict[str, Dict[str, Any]] = {}
-        self._lock = threading.Lock()
-        self._persist = persist
-
-    # ---- in-memory ------------------------------------------------------
-    def put(self, record: Dict[str, Any]) -> None:
-        with self._lock:
-            self._records[record["id"]] = record
-        self._save(record)
-
-    def get(self, user_id: str, experiment_id: str) -> Optional[Dict[str, Any]]:
-        with self._lock:
-            rec = self._records.get(experiment_id)
-        if rec is None:
-            rec = self._load(experiment_id)
-        if rec is None or rec["userId"] != user_id:
-            return None  # another user's experiment is indistinguishable from none
-        return rec
-
-    def active(self, user_id: Optional[str] = None) -> int:
-        with self._lock:
-            return sum(
-                1
-                for r in self._records.values()
-                if r["status"] in ("queued", "running")
-                and (user_id is None or r["userId"] == user_id)
-            )
-
-    def count_stored(self, user_id: str) -> int:
-        with self._lock:
-            in_memory = {
-                r["id"] for r in self._records.values() if r["userId"] == user_id
-            }
-        if not self._persist:
-            return len(in_memory)
-        try:
-            from src.database.db import get_db_connection
-
-            with get_db_connection() as conn:
-                ensure_table(conn)
-                ids = {
-                    row[0]
-                    for row in conn.execute(
-                        "SELECT id FROM uf_experiments WHERE user_id = ?", (user_id,)
-                    )
-                }
-            return len(ids | in_memory)
-        except Exception:
-            return len(in_memory)
-
-    def list_for_user(
-        self, user_id: str, limit: int, offset: int
-    ) -> List[Dict[str, Any]]:
-        """Summaries (no result), newest first. Memory wins over disk for the same id."""
-        found: Dict[str, Dict[str, Any]] = {}
-        if self._persist:
-            try:
-                from src.database.db import get_db_connection
-
-                with get_db_connection() as conn:
-                    ensure_table(conn)
-                    for row in conn.execute(
-                        "SELECT id, name, status, error, created_at, summary_json, "
-                        "spec_fingerprint, result_fingerprint FROM uf_experiments "
-                        "WHERE user_id = ?",
-                        (user_id,),
-                    ):
-                        found[row["id"]] = {
-                            "id": row["id"],
-                            "userId": user_id,
-                            "name": row["name"],
-                            "status": row["status"] or "completed",
-                            "error": row["error"],
-                            "createdAt": row["created_at"],
-                            "summary": json.loads(row["summary_json"] or "{}"),
-                            "specFingerprint": row["spec_fingerprint"],
-                            "resultFingerprint": row["result_fingerprint"],
-                        }
-            except Exception:
-                logger.warning("Could not list stored experiments", exc_info=True)
-        with self._lock:
-            for rec in self._records.values():
-                if rec["userId"] == user_id:
-                    found[rec["id"]] = rec
-        ordered = sorted(found.values(), key=lambda r: r["createdAt"], reverse=True)
-        return ordered[offset : offset + limit]
-
-    def delete(self, experiment_id: str) -> None:
-        """Remove an experiment everywhere. A failure is raised: a delete that silently left the data on
-        disk would be a false promise."""
-        with self._lock:
-            self._records.pop(experiment_id, None)
-        if not self._persist:
-            return
-        from src.database.db import get_db_connection
-
-        with get_db_connection() as conn:
-            ensure_table(conn)
-            conn.execute("DELETE FROM uf_experiments WHERE id = ?", (experiment_id,))
-            conn.commit()
-
-    def mark_interrupted(self) -> int:
-        """Mark every experiment a previous process left queued or running as failed. Call once, before
-        this process starts any job."""
-        if not self._persist:
-            return 0
-        from src.database.db import get_db_connection
-
-        with get_db_connection() as conn:
-            ensure_table(conn)
-            cursor = conn.execute(
-                "UPDATE uf_experiments SET status = 'failed', error = ? "
-                "WHERE status IN ('queued', 'running')",
-                (INTERRUPTED_ERROR,),
-            )
-            conn.commit()
-            return int(cursor.rowcount)
-
-    # ---- sqlite ---------------------------------------------------------
-    def _save(self, rec: Dict[str, Any]) -> None:
-        if not self._persist:
-            return
-        try:
-            from src.database.db import get_db_connection
-
-            result = rec.get("result")
-            with get_db_connection() as conn:
-                ensure_table(conn)
-                conn.execute(
-                    "INSERT OR REPLACE INTO uf_experiments (id, user_id, name, schema_version, "
-                    "request_json, summary_json, result_json, spec_fingerprint, "
-                    "result_fingerprint, created_at, status, error) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                    (
-                        rec["id"],
-                        rec["userId"],
-                        rec["name"],
-                        EXPERIMENT_VERSION,
-                        json.dumps(rec["request"]),
-                        json.dumps(rec["summary"]),
-                        None if result is None else json.dumps(result),
-                        rec["specFingerprint"],
-                        None if result is None else result["resultFingerprint"],
-                        rec["createdAt"],
-                        rec["status"],
-                        rec.get("error"),
-                    ),
-                )
-                conn.commit()
-        except Exception:  # persistence must never fail an experiment
-            logger.warning("Could not persist experiment %s", rec["id"], exc_info=True)
-
-    def _load(self, experiment_id: str) -> Optional[Dict[str, Any]]:
-        if not self._persist:
-            return None
-        try:
-            from src.database.db import get_db_connection
-
-            with get_db_connection() as conn:
-                ensure_table(conn)
-                row = conn.execute(
-                    "SELECT * FROM uf_experiments WHERE id = ?", (experiment_id,)
-                ).fetchone()
-            if row is None:
-                return None
-            return {
-                "id": row["id"],
-                "userId": row["user_id"],
-                "name": row["name"],
-                "status": row["status"] or "completed",
-                "request": json.loads(row["request_json"]),
-                "summary": json.loads(row["summary_json"] or "{}"),
-                "result": None
-                if row["result_json"] is None
-                else json.loads(row["result_json"]),
-                "specFingerprint": row["spec_fingerprint"],
-                "error": row["error"],
-                "createdAt": row["created_at"],
-            }
-        except Exception:
-            return None
 
 
 class ExperimentService:
@@ -737,9 +358,10 @@ class ExperimentService:
 
     # ---- capabilities ---------------------------------------------------
     @staticmethod
-    def capabilities() -> Dict[str, Any]:
-        """What this server offers. A client shows a capability only when it is listed here as true."""
-        from src.request_limits import MAX_V2_BODY_BYTES
+    def capabilities(max_request_body_bytes: int) -> Dict[str, Any]:
+        """What this server offers. A client shows a capability only when it is listed here as true.
+
+        ``max_request_body_bytes`` is the delivery layer's body-size cap, reported as is."""
         from src.uncertainty import spec as uspec
 
         def literal_values(alias: Any) -> List[str]:
@@ -774,7 +396,7 @@ class ExperimentService:
                 "maxReplications": uspec.MAX_REPLICATIONS,
             },
             "quotas": limits.quotas(),
-            "limits": {"maxRequestBodyBytes": MAX_V2_BODY_BYTES},
+            "limits": {"maxRequestBodyBytes": max_request_body_bytes},
         }
 
 

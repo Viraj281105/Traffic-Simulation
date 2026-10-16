@@ -3,12 +3,8 @@
 import sqlite3
 
 from src.database import db
-from src.experiments.service import (
-    INTERRUPTED_ERROR,
-    ExperimentService,
-    ExperimentStore,
-    ensure_table,
-)
+from src.experiments.service import ExperimentService
+from src.experiments.store import INTERRUPTED_ERROR, ExperimentStore, ensure_table
 
 from .conftest import as_user, build_client, submit, wait_for
 

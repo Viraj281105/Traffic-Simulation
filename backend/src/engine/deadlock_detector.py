@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from src.core.clock import Clock
-from src.vehicles.pool import VehiclePool
+from src.engine.vehicle_pool import VehiclePool
 
 logger = logging.getLogger(__name__)
 

@@ -1,4 +1,4 @@
-"""The local development auth bypass (src/auth.py DEV_AUTH_BYPASS).
+"""The local development auth bypass (src/api/auth.py DEV_AUTH_BYPASS).
 
 The Vite dev server sends a fixed development marker as its bearer token
 until Cognito is connected. The backend accepts it only when started with
@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import src.database.db as db_module
-from src.auth import DEV_AUTH_CLAIMS, DEV_AUTH_TOKEN
+from src.api.auth import DEV_AUTH_CLAIMS, DEV_AUTH_TOKEN
 from src.database.db import init_db
 from src.main import app
 

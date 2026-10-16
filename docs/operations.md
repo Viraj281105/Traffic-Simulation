@@ -248,11 +248,11 @@ accepts only RS256-signed user-pool tokens.
 
 | Limit | Value | Where |
 | --- | --- | --- |
-| Concurrent synchronous simulations (sync study routes, the study report export, run reproduction, calibration `POST /runs`, planning `POST /run` and `/{id}/reproduce`) | 2 in total and **1 per client**; further requests get 429 at once | `src/request_limits.py` `MAX_SYNC_COMPUTE_REQUESTS`, `MAX_SYNC_COMPUTE_PER_CLIENT` |
+| Concurrent synchronous simulations (sync study routes, the study report export, run reproduction, calibration `POST /runs`, planning `POST /run` and `/{id}/reproduce`) | 2 in total and **1 per client**; further requests get 429 at once | `src/api/request_limits.py` `MAX_SYNC_COMPUTE_REQUESTS`, `MAX_SYNC_COMPUTE_PER_CLIENT` |
 | Background study jobs / planning jobs | 4 / 2 | `src/study/jobs.py`, `src/planning/service.py` |
 | Steps per run (`duration / timeStep`) | 72,000 (validator and engine) | `src/core/limits.py` `MAX_SIMULATION_TICKS` |
-| Simulated duration | 3600 s | schema, `src/request_limits.py` |
-| Request body | 1 MiB on `/api/v2/networks/*`, `/api/v2/planning/validate` (app); nginx's default 1 MiB on every proxied request | `src/request_limits.py`, nginx |
+| Simulated duration | 3600 s | schema, `src/study/limits.py` |
+| Request body | 1 MiB on `/api/v2/networks/*`, `/api/v2/planning/validate` (app); nginx's default 1 MiB on every proxied request | `src/api/request_limits.py`, nginx |
 
 These are per backend process; the stack runs one. A *client* is the
 address nginx passes in `X-Real-IP` (nginx overwrites whatever the browser
@@ -273,7 +273,7 @@ refused (close code 1008): CORS does not cover WebSockets and the browser
 would send the visitor's live-session cookie. Same-site pages (the `Host` the
 browser connected to; ports are not compared because nginx forwards `Host`
 without one), the origins in `CORS_ORIGINS`, and clients that send no
-`Origin` (scripts) are accepted (`src/ws_origin.py`). Serving the app under a
+`Origin` (scripts) are accepted (`src/api/ws_origin.py`). Serving the app under a
 second hostname needs that origin added to `CORS_ORIGINS`.
 
 `DEV_AUTH_BYPASS=1` (only in `docker-compose.dev.yml`) accepts the local

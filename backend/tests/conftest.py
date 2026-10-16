@@ -96,13 +96,13 @@ def signed_in_user() -> Iterator[str]:
     """Authenticate API requests as one Cognito user.
 
     Saved replays belong to the signed-in user: their endpoints resolve the
-    user from a verified Cognito token (``src.auth``). Tests have no Cognito
+    user from a verified Cognito token (``src.api.auth``). Tests have no Cognito
     pool to issue one, so this overrides the identity dependencies with a
     fixed, non-admin user, the standard FastAPI way to test a protected route. Token
     verification itself is left in place for every test that does not ask
     for this fixture, so the unauthenticated behaviour stays covered.
     """
-    from src.auth import (
+    from src.api.auth import (
         get_current_user_email,
         get_current_user_id,
         get_current_user_is_admin,

@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 
 import src.api.security as security
 import src.database.db as db_module
-from src.auth import DEV_AUTH_TOKEN
+from src.api.auth import DEV_AUTH_TOKEN
 from src.database.db import init_db
 from src.main import app
 

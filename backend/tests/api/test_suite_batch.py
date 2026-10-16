@@ -13,7 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import src.api.security as security
-from src.auth import DEV_AUTH_TOKEN
+from src.api.auth import DEV_AUTH_TOKEN
 from src.main import app
 from src.study.limits import MAX_BATCH_SIMULATIONS
 

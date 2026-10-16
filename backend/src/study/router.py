@@ -14,19 +14,17 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, model_validator
 
-from src.api.security import require_api_key
-from src.core.config_validation import semantic_config_errors
-from src.core.scenario import STRATEGIES, parse_scenario, validate_scenario
-from src.database.dao import SweepSessionDAO
-from src.database.db import ensure_db_initialized, get_db_connection
-from src.live.dashboard_config import compile_dashboard_config
-from src.request_limits import (
-    MAX_STUDY_DURATION_SECONDS,
-    MIN_STUDY_DURATION_SECONDS,
+from src.api.request_limits import (
     PageLimit,
     PageOffset,
     compute_slot,
 )
+from src.api.security import require_api_key
+from src.database.dao import SweepSessionDAO
+from src.database.db import ensure_db_initialized, get_db_connection
+from src.live.dashboard_config import compile_dashboard_config
+from src.scenario.config_validation import semantic_config_errors
+from src.scenario.documents import STRATEGIES, parse_scenario, validate_scenario
 from src.study.control_comparison import (
     run_control_comparison,
     run_scenario_comparison,
@@ -36,7 +34,9 @@ from src.study.limits import (
     MAX_CONTROL_COMPARISON_DURATION_SECONDS,
     MAX_CONTROL_COMPARISON_SEEDS,
     MAX_MONTE_CARLO_SEEDS,
+    MAX_STUDY_DURATION_SECONDS,
     MAX_SWEEP_ARRIVAL_RATES,
+    MIN_STUDY_DURATION_SECONDS,
     StudyArrivalRate,
     check_study_time_step,
 )

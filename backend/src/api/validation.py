@@ -2,8 +2,8 @@
 
 The rules themselves belong to the domain: the shared JSON schema
 (``core/schema.py``), the cross-field rules it cannot express
-(``core/config_validation.py``) and the scenario-document checks
-(``core/scenario.py``). This module only decides how a failure reads to an
+(``scenario/config_validation.py``) and the scenario-document checks
+(``scenario/documents.py``). This module only decides how a failure reads to an
 HTTP client, so every route that accepts an engine configuration or a
 scenario document rejects it with the same message.
 """
@@ -13,9 +13,9 @@ from typing import Any, Dict, Optional
 import jsonschema
 from fastapi import HTTPException
 
-from src.core.config_validation import semantic_config_errors
-from src.core.scenario import parse_scenario, validate_scenario
 from src.core.schema import CONFIG_SCHEMA
+from src.scenario.config_validation import semantic_config_errors
+from src.scenario.documents import parse_scenario, validate_scenario
 
 
 def config_schema_error(config: Dict[str, Any]) -> Optional[str]:

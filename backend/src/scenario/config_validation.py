@@ -21,11 +21,11 @@ from src.controllers.adaptive_signal import (
     adaptive_plan_errors,
     resolve_adaptive_settings,
 )
-from src.core.lane_validation import lane_configuration_errors
 from src.core.limits import MAX_SIMULATION_TICKS
 from src.roads.junction_geometry import present_arms
 from src.roads.lane_config import shortest_approach_length
 from src.roads.network import lane_counts, resolve_lanes_per_approach
+from src.scenario.lane_validation import lane_configuration_errors
 from src.vehicles.vehicle_types import vehicle_mix_errors
 
 # §5: "Must sum to 1.0 (±0.01 tolerance)".

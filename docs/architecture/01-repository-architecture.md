@@ -27,12 +27,13 @@ Neither developer should ever need to inspect the other's implementation directo
 ```
 Traffic-Simulation/                 (product name: UrbanFlow)
 ├── backend/                        Simulation engine, metrics, studies, API, persistence
-│   ├── src/                        main.py (composition root) · api/ (HTTP plumbing) · auth.py
-│   │                               delivery + application: live/ simulations/ study/ replays/ suites/ history/
+│   ├── src/                        main.py (composition root) · api/ (auth, API key, errors, limits)
+│   │                               application: live/ simulations/ study/ replays/ suites/ history/
 │   │                               calibration/ networks/ planning/ experiments/ uncertainty/
-│   │                               simulation domain: core/ roads/ vehicles/ controllers/ intersection/
-│   │                               metrics/ snapshot/ · persistence: database/ access.py
-│   ├── tests/                      pytest suite mirroring src/ (+ api/, integration/)
+│   │                               simulation domain (strict stack): core/ roads/ vehicles/ intersection/
+│   │                               controllers/ metrics/ scenario/ engine/ snapshot/
+│   │                               persistence: database/ access.py (+ each feature's store.py)
+│   ├── tests/                      pytest suite mirroring src/ (+ api/, integration/, test_architecture.py)
 │   ├── Dockerfile · docker-entrypoint.py · pyproject.toml · requirements.txt · README.md
 ├── frontend/                       Landing page + dashboard (React 19, TypeScript, Vite)
 │   ├── src/                        landing/ components/ (guided/, analytics/, ui/) hooks/ services/

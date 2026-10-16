@@ -50,7 +50,7 @@ MOTORCYCLE = "motorcycle"
 #: (the order is part of the seeded random stream, so it must never change).
 VEHICLE_CLASSES: Tuple[str, ...] = (CAR, SUV, BUS, TRUCK, MOTORCYCLE)
 
-# Same tolerance as the other sum-to-one rules (core/config_validation.py).
+# Same tolerance as the other sum-to-one rules (scenario/config_validation.py).
 MIX_SUM_TOLERANCE: float = 0.01
 
 # The longest vehicle the V1.0 geometry constants were sized for (the legacy

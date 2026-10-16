@@ -8,7 +8,7 @@ from typing import Any, Dict, List
 
 import pytest
 
-from src.core.scenario import ScenarioDocument
+from src.scenario.documents import ScenarioDocument
 from src.uncertainty import UncertaintySpec, result_fingerprint, sample_conditions
 from src.uncertainty.runner import (
     EnsembleRefusedError,

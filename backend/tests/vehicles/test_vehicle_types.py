@@ -4,7 +4,7 @@ from typing import Any, Dict
 
 import pytest
 
-from src.core.config_validation import semantic_config_errors
+from src.scenario.config_validation import semantic_config_errors
 from src.vehicles.vehicle_types import (
     BUS,
     CAR,

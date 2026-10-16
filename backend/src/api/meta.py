@@ -5,7 +5,7 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from src.auth import get_verified_claims
+from src.api.auth import get_verified_claims
 from src.core.provenance import GIT_COMMIT_HASH, PYTHON_VERSION
 from src.database.dao import UserDAO
 from src.database.db import get_db_connection

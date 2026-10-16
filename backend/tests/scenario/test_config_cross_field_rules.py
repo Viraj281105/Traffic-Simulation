@@ -11,8 +11,8 @@ from typing import Any, Dict
 import pytest
 from fastapi.testclient import TestClient
 
-from src.core.config_validation import semantic_config_errors
 from src.main import app
+from src.scenario.config_validation import semantic_config_errors
 
 client = TestClient(app)
 

@@ -4,8 +4,8 @@ import pytest
 
 try:
     from src.core.clock import Clock
-    from src.core.engine import SimulationEngine
     from src.core.enums import SimulationStatus
+    from src.engine.simulation_engine import SimulationEngine
 except ImportError:
     pytest.skip("Engine module is not implemented yet", allow_module_level=True)
 
@@ -205,7 +205,7 @@ def test_stop_racing_the_next_tick_is_not_reported_as_an_error(
     COMPLETED. The loop used to release its lock between the RUNNING check and
     step(), so step() then raised on the COMPLETED engine and the loop flipped
     it to ERROR — and fired the ERROR status callback for a clean stop."""
-    import src.core.engine as engine_module
+    import src.engine.simulation_engine as engine_module
 
     engine = SimulationEngine(Clock(0.1), duration=1000.0)
     seen: list[SimulationStatus] = []

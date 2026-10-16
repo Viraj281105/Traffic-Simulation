@@ -14,11 +14,12 @@ from typing import Any, Callable, Dict, List, Optional
 from src.core.clock import Clock
 from src.core.enums import SimulationStatus
 from src.core.limits import MAX_SIMULATION_TICKS
+from src.engine.deadlock_detector import DeadlockDetector
+from src.engine.vehicle_pool import VehiclePool
 from src.intersection.conflict_manager import (
     ConflictManager,
     conflict_clearance_for,
 )
-from src.metrics.deadlock_detector import DeadlockDetector
 from src.roads.junction_geometry import (
     configured_arms,
     configured_bearings,
@@ -31,7 +32,6 @@ from src.roads.network import (
     resolve_lanes_per_approach,
 )
 from src.vehicles.idm import IntelligentDriverModel
-from src.vehicles.pool import VehiclePool
 from src.vehicles.spawner import VehicleSpawner
 from src.vehicles.stochastic_idm import StochasticIDM
 from src.vehicles.vehicle_types import design_vehicle_allowance, has_vehicle_mix

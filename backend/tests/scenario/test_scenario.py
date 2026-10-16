@@ -1,4 +1,4 @@
-"""V1.4 scenario documents (core/scenario.py) and lane-configuration validation."""
+"""V1.4 scenario documents (scenario/documents.py) and lane-configuration validation."""
 
 import copy
 import json
@@ -7,8 +7,8 @@ from typing import Any, Dict
 
 import pytest
 
-from src.core.config_validation import semantic_config_errors
-from src.core.scenario import (
+from src.scenario.config_validation import semantic_config_errors
+from src.scenario.documents import (
     STRATEGIES,
     compile_scenario,
     parse_scenario,

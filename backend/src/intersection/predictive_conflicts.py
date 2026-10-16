@@ -10,7 +10,7 @@ roundabout, whose connection lanes are long curved arcs: a chord between the
 endpoints of a 270-degree left-turn arc cuts straight across the middle of the
 roundabout, producing crossings that do not exist and missing the ones that
 do. For that reason the roundabout path deliberately runs with no
-ConflictManager at all (see :mod:`src.vehicles.pool`), which left only the
+ConflictManager at all (see :mod:`src.engine.vehicle_pool`), which left only the
 reactive 2.5 m emergency-proximity scan in :func:`src.vehicles.router.find_leader`
 standing between circulating vehicles and each other.
 
@@ -900,6 +900,6 @@ def apply_predictive_constraint(
     if braking_distance is None or braking_distance >= gap:
         return leader, gap
 
-    from src.controllers.virtual_obstacle import VirtualObstacle
+    from src.vehicles.virtual_obstacle import VirtualObstacle
 
     return VirtualObstacle(position=0.0, speed=0.0, length=0.0), braking_distance

@@ -157,11 +157,6 @@ MAX_PAGE_SIZE = 500
 PageLimit = Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)]
 PageOffset = Annotated[int, Query(ge=0)]
 
-# The longest simulated duration any study or scenario may ask for; it matches
-# SimulationSection.duration's own ceiling.
-MAX_STUDY_DURATION_SECONDS = 3600.0
-MIN_STUDY_DURATION_SECONDS = 1.0
-
 
 # ── Synchronous compute gate ──────────────────────────────────────────────
 # Several endpoints run whole simulations inside the request (the synchronous

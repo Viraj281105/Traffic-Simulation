@@ -9,6 +9,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import jwk, jwt
 from jose.utils import base64url_decode
 
+from src.database.dao import UserDAO
 from src.database.db import get_db_connection
 
 security = HTTPBearer()
@@ -16,10 +17,9 @@ security = HTTPBearer()
 optional_security = HTTPBearer(auto_error=False)
 
 # Load from .env if variables are not set
-# Load from .env if variables are not set
 try:
     env_path = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "..", "backend", ".env")
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "backend", ".env")
     )
     if not os.path.exists(env_path):
         env_path = ".env"
@@ -200,18 +200,7 @@ def upsert_user(claims: Dict[str, Any]) -> None:
 
     try:
         with get_db_connection() as conn:
-            conn.execute(
-                """
-                INSERT INTO users (sub, email, username, first_seen, last_seen)
-                VALUES (:sub, :email, :username, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                ON CONFLICT(sub) DO UPDATE SET
-                    email    = excluded.email,
-                    username = excluded.username,
-                    last_seen = CURRENT_TIMESTAMP
-                """,
-                {"sub": sub, "email": email, "username": username},
-            )
-            conn.commit()
+            UserDAO.upsert(conn, sub, email, username)
     except Exception:
         logging.getLogger(__name__).warning("upsert_user failed", exc_info=True)
 

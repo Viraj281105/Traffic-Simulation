@@ -3,20 +3,15 @@ import type {
   PollingState,
   SingleVehicleResponse,
   SimulationLifecycle,
-  ControlResponse,
-  SimulationStatusResponse,
 } from "../types/simulation";
-import { API_BASE_URL } from "../config";
-import { ensureLiveSession } from "../services/liveSession";
+import {
+  getSingleVehicle,
+  getSingleVehicleStatus,
+  resetSingleVehicle,
+  startSingleVehicle,
+  stopSingleVehicle,
+} from "../services/singleVehicle";
 
-const API_BASE = `${API_BASE_URL}/api/simulation`;
-
-/** fetch for the live API, sent inside the browser's backend session so it
- *  cannot start a competing one (see liveSession.ts). */
-async function liveFetch(url: string, init?: RequestInit): Promise<Response> {
-  await ensureLiveSession();
-  return fetch(url, init);
-}
 const POLL_INTERVAL_MS = 100; // Poll every 100ms for 10 Hz simulation
 
 /**
@@ -39,13 +34,7 @@ export function useSimulationPolling(): PollingState & {
   // Poll the single-vehicle endpoint
   const pollVehicleState = async () => {
     try {
-      const response = await liveFetch(`${API_BASE}/single-vehicle`);
-      if (!response.ok) {
-        throw new Error(
-          `HTTP ${response.status.toString()}: ${response.statusText}`,
-        );
-      }
-      const data = (await response.json()) as SingleVehicleResponse;
+      const data = await getSingleVehicle();
       setVehicle(data);
       setStatus(data.simulation_status);
       setError(null);
@@ -66,13 +55,7 @@ export function useSimulationPolling(): PollingState & {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await liveFetch(`${API_BASE}/start`, { method: "POST" });
-      if (!response.ok) {
-        throw new Error(
-          `Failed to start simulation: HTTP ${response.status.toString()}`,
-        );
-      }
-      const data = (await response.json()) as ControlResponse;
+      const data = await startSingleVehicle();
       setStatus(data.status);
 
       // Begin polling
@@ -102,13 +85,7 @@ export function useSimulationPolling(): PollingState & {
         clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;
       }
-      const response = await liveFetch(`${API_BASE}/stop`, { method: "POST" });
-      if (!response.ok) {
-        throw new Error(
-          `Failed to stop simulation: HTTP ${response.status.toString()}`,
-        );
-      }
-      const data = (await response.json()) as ControlResponse;
+      const data = await stopSingleVehicle();
       setStatus(data.status);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
@@ -125,13 +102,7 @@ export function useSimulationPolling(): PollingState & {
         clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;
       }
-      const response = await liveFetch(`${API_BASE}/reset`, { method: "POST" });
-      if (!response.ok) {
-        throw new Error(
-          `Failed to reset simulation: HTTP ${response.status.toString()}`,
-        );
-      }
-      const data = (await response.json()) as ControlResponse;
+      const data = await resetSingleVehicle();
       setStatus(data.status);
       setVehicle(null);
       setIsLoading(false);
@@ -147,11 +118,7 @@ export function useSimulationPolling(): PollingState & {
 
     const fetchInitialStatus = async () => {
       try {
-        const response = await liveFetch(`${API_BASE}/status`);
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status.toString()}`);
-        }
-        const data = (await response.json()) as SimulationStatusResponse;
+        const data = await getSingleVehicleStatus();
         if (active) {
           setStatus(data.status);
           setError(null);

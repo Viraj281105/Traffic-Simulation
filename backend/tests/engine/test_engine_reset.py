@@ -9,10 +9,11 @@ read after a reset therefore described a run that no longer existed.
 
 from typing import Any, Dict
 
-from src.controllers.factory import build_tick_callback, create_controller
+from src.controllers.factory import create_controller
 from src.core.clock import Clock
-from src.core.engine import SimulationEngine
 from src.core.enums import SimulationStatus
+from src.engine.simulation_engine import SimulationEngine
+from src.engine.tick_callback import build_tick_callback
 from src.metrics.collector import MetricCollector
 
 

@@ -9,9 +9,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, model_validator
 
+from src.api.auth import get_current_user_id, get_current_user_is_admin
 from src.api.security import require_api_key
 from src.api.validation import check_engine_config_or_400
-from src.auth import get_current_user_id, get_current_user_is_admin
 from src.database.dao import ScenarioSuiteDAO, SimulationRunDAO
 from src.database.db import ensure_db_initialized, get_db_connection
 from src.live.dashboard_config import compile_dashboard_config

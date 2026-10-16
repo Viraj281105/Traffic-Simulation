@@ -29,7 +29,7 @@ flowchart TB
     end
 
     subgraph Core["Simulation core"]
-        E["SimulationEngine<br/>core/engine.py · fixed Δt"]
+        E["SimulationEngine<br/>engine/simulation_engine.py · fixed Δt"]
         DO["DualSimulationOrchestrator<br/>lockstep signal + roundabout"]
         C["Controllers<br/>FixedTimeSignal · Roundabout"]
         V["Vehicles<br/>Spawner · Pool · IDM · Router"]
@@ -136,7 +136,7 @@ sequenceDiagram
     end
 ```
 
-The controller updates **before** vehicle physics, so a red signal or a refused gap affects the very same tick ("zero-latency" control response — `core/engine.py`).
+The controller updates **before** vehicle physics, so a red signal or a refused gap affects the very same tick ("zero-latency" control response — `engine/simulation_engine.py`).
 
 ---
 

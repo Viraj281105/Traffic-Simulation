@@ -8,14 +8,17 @@ deployment is a denial of service with no exploit required.
 
 The caps are set well above every legitimate use: the default sweep uses 8
 arrival rates at 60 s, and the documented study workflows stay inside these
-limits. ``MAX_STUDY_DURATION_SECONDS`` and ``MIN_STUDY_DURATION_SECONDS``
-(src/request_limits.py) match the ceiling SimulationSection.duration
-enforces everywhere else.
+limits.
 """
 
 from typing import Annotated, Any, Dict, Optional
 
 from pydantic import Field
+
+# The longest simulated duration any study or scenario may ask for; it matches
+# SimulationSection.duration's own ceiling.
+MAX_STUDY_DURATION_SECONDS = 3600.0
+MIN_STUDY_DURATION_SECONDS = 1.0
 
 MAX_SWEEP_ARRIVAL_RATES = 20
 MAX_MONTE_CARLO_SEEDS = 30

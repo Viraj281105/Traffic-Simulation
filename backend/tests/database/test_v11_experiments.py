@@ -180,7 +180,7 @@ def test_metadata_validation(test_db):
 def test_legacy_run_can_be_labelled(test_db):
     """A legacy run has no owner, so it is shared: anyone may read it, and
     only an admin may change its labels (src/history/router.py)."""
-    from src.auth import get_current_user_is_admin
+    from src.api.auth import get_current_user_is_admin
 
     _legacy_run()
     client = TestClient(app)

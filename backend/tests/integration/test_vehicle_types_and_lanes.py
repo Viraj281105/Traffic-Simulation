@@ -14,11 +14,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import pytest
 
-from src.controllers.factory import build_tick_callback, create_controller
+from src.controllers.factory import create_controller
 from src.core.clock import Clock
-from src.core.config_validation import semantic_config_errors
-from src.core.engine import SimulationEngine
+from src.engine.simulation_engine import SimulationEngine
+from src.engine.tick_callback import build_tick_callback
 from src.metrics.collector import MetricCollector
+from src.scenario.config_validation import semantic_config_errors
 from src.snapshot.builder import SnapshotBuilder
 
 PAIRED = ["ns_green", "ns_yellow", "all_red", "ew_green", "ew_yellow", "all_red"]

@@ -30,7 +30,7 @@ from src.calibration.rating import (
 )
 from src.calibration.simulate import simulate_once
 from src.core.provenance import GIT_COMMIT_HASH, PYTHON_VERSION
-from src.core.scenario import (
+from src.scenario.documents import (
     JUNCTION_STRATEGY,
     ScenarioDocument,
     Turning,

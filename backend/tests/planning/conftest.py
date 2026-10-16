@@ -6,8 +6,9 @@ from typing import Any, Callable, Dict, List, Optional
 
 import pytest
 
-from src.core.scenario import scenario_fingerprint
-from src.planning.service import PlanningService, PlanningStore
+from src.planning.service import PlanningService
+from src.planning.store import PlanningStore
+from src.scenario.documents import scenario_fingerprint
 from src.study.validation import _calculate_stats
 
 SCENARIO: Dict[str, Any] = {

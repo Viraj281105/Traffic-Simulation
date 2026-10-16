@@ -71,7 +71,7 @@ The full scope statement, with the reasoning for each limit, is in [Validation &
 
 ## 3. Time
 
-**IMPLEMENTATION** — `core/clock.py`, `core/engine.py`
+**IMPLEMENTATION** — `core/clock.py`, `engine/simulation_engine.py`
 
 | Item | Value | Source |
 | --- | --- | --- |
@@ -125,7 +125,7 @@ On a roundabout the number of circulating lanes is `geometry.circulatingLanes` (
 
 ### 4.4 Real-world junction geometry (V1.5)
 
-**IMPLEMENTATION** — `roads/junction_geometry.py` (geometry, rules), `roads/network.py` (lanes and paths), `core/lane_validation.py` (rejections)
+**IMPLEMENTATION** — `roads/junction_geometry.py` (geometry, rules), `roads/network.py` (lanes and paths), `scenario/lane_validation.py` (rejections)
 
 A scenario may describe a three-arm junction, arms on their real bearings, and arms with their own lane widths. The geometry is compiled **once, when the network is built** — scenario intent → validated scenario → arm geometry → lanes, paths and conflict points → simulation — and vehicle control never reads a bearing: it sees lanes and paths, exactly as before.
 

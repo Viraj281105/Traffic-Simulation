@@ -14,20 +14,20 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.api import meta
+from src.api.auth import get_current_user_id, get_current_user_is_admin
 from src.api.errors import http_exception_handler
 from src.api.origins import CORS_ALLOW_CREDENTIALS, CORS_ORIGINS
+from src.api.request_limits import BodySizeLimitMiddleware, compute_slot
 from src.api.security import require_api_key
-from src.auth import get_current_user_id, get_current_user_is_admin
-from src.calibration.api import build_router as build_calibration_router
+from src.calibration import api as calibration_api
 from src.database.db import init_db
 from src.experiments.router import create_router as build_experiments_router
-from src.history.router import build_router as build_history_router
+from src.history import router as history_router
 from src.live import router as live_router
 from src.live.sessions import live_session_middleware
 from src.networks.api import router as networks_router
 from src.planning.router import create_router as build_planning_router
 from src.replays import router as replays_router
-from src.request_limits import BodySizeLimitMiddleware, compute_slot
 from src.simulations import router as simulations_router
 from src.study import router as study_router
 from src.study.runner import shutdown_pool
@@ -57,7 +57,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# 1 MiB cap on the stateless /api/v2 compute endpoints (src/request_limits.py).
+# 1 MiB cap on the stateless /api/v2 compute endpoints (src/api/request_limits.py).
 app.add_middleware(BodySizeLimitMiddleware)
 # Resolves each /api/simulation/* request's live session (src/live/sessions.py).
 app.middleware("http")(live_session_middleware)
@@ -74,11 +74,7 @@ app.include_router(
 )
 
 # V1.8 /api/v2/calibration (src/calibration/api.py): runs belong to their creator.
-app.include_router(
-    build_calibration_router(
-        require_api_key, get_current_user_id, get_current_user_is_admin
-    )
-)
+app.include_router(calibration_api.router)
 
 # V2.0 /api/v2/planning (src/planning/router.py).
 app.include_router(
@@ -101,7 +97,7 @@ app.include_router(
 
 # V1.1 /api/v1/study/history/runs (src/history/router.py): stored runs; a
 # signed-in user's runs are theirs, unowned study runs stay public.
-app.include_router(build_history_router(require_api_key))
+app.include_router(history_router.router)
 
 # Initialize Database
 try:

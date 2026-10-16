@@ -9,7 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from src.experiments import limits
-from src.experiments.service import prepare
+from src.experiments.preparation import prepare
 from src.uncertainty import UncertaintySpec
 
 from .conftest import FakeExecutor, as_user, build_client, experiment, submit, wait_for

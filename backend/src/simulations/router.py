@@ -22,11 +22,11 @@ from src.api.validation import (
     valid_scenario_or_400,
 )
 from src.core.config_models import ScenarioConfiguration
-from src.core.config_validation import semantic_config_errors
 from src.core.enums import SimulationStatus
-from src.core.scenario import STRATEGIES, compile_scenario, validate_scenario
+from src.engine.readout import engine_metrics
 from src.metrics.collector import MetricCollector
-from src.metrics.readout import engine_metrics
+from src.scenario.config_validation import semantic_config_errors
+from src.scenario.documents import STRATEGIES, compile_scenario, validate_scenario
 from src.simulations.registry import (
     InvalidSimulationConfigError,
     SimulationLimitReachedError,
@@ -47,7 +47,7 @@ class ControlRequest(BaseModel):
 
 
 # Scenario documents (V1.4): a portable, strategy-neutral description of a
-# junction and its traffic (core/scenario.py), compiled into an engine
+# junction and its traffic (scenario/documents.py), compiled into an engine
 # configuration once per control strategy. These endpoints only read the
 # document; nothing is stored.
 class ScenarioRequest(BaseModel):
