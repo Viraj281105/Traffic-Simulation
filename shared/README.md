@@ -61,9 +61,7 @@ The snapshot's camelCase field names are what the backend actually emits; see th
 
 ## Schema Validation Workflow
 
-To check the schema files themselves, run the repository validator. It verifies that each JSON file is well-formed and has a `$schema` field; it does not validate arbitrary captured API messages.
-
-A Python-based validation utility is available to test schemas against mock samples:
+To check the schema files themselves, run the repository validator. It verifies that each top-level JSON file in `shared/schemas/` is well-formed JSON and has a `$schema` field; it does not validate arbitrary captured API messages or test against mock samples (payload validation is performed by the backend contract test suites).
 
 - Execution Script: [`scripts/validate_schemas.py`](../scripts/validate_schemas.py)
 - Command Line Run:

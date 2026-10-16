@@ -119,7 +119,7 @@ npm run build         # tsc && vite build
 
 | Check | Command | Protects |
 | --- | --- | --- |
-| Schema validator | `python scripts/validate_schemas.py` | Every file in `shared/schemas/` is valid JSON with `$schema` |
+| Schema validator | `python scripts/validate_schemas.py` | Every top-level schema file in `shared/schemas/*.json` is valid JSON with `$schema` |
 | Compose validation | `docker compose -f docker-compose.yml config` (and `-dev`) | Both stacks parse |
 | Image builds + smoke tests | `.github/workflows/docker.yml` | Backend image starts and answers `/health`; frontend image builds; the full Compose stack starts and is healthy through nginx |
 | Stack smoke test (local) | `.\start.ps1 -SmokeTest` | Pages, assets, `/health`, database, study workers, live WebSocket and image freshness on a running stack |

@@ -75,7 +75,7 @@ Every capability in UrbanFlow is grounded in the current codebase. Capabilities 
 | **Guided Planner Workflow** | Three-step comparison wizard; plain-language results with HCM-style delay grades; direction fairness bands; causal "Why did this happen?" explanations; one-click multi-seed reliability check. | [Planner Guide](docs/product/planner-guide.md) |
 | **Research Lab** | Demand-volume sweeps with automatic delay crossover bracketing; Monte Carlo statistical validation (Student-t confidence intervals, Welch's t-test for unequal variances, Cohen's d effect sizes); single-strategy engineering views. | [Research Validation](docs/research/validation.md) |
 | **Decision Support (V2.0)** | Multi-alternative junction studies (`/app/planner`, `/api/v2/planning`); paired common-seed evaluations; background compute jobs; structured report exports (JSON, Markdown, CSV); bit-identical reproduction checks. | [Decision Support Design](docs/product/decision-support.md) |
-| **Robustness Lab (V3.0 W1)** | Parameter uncertainty exploration (`/app/experiments`, `/api/v3/experiments`); multi-factor uncertainty sampling (demand, turning shares, vehicle mix, driver headway, critical gap); paired CRN ensemble runner; statistical contract with Wilson win/tie/loss intervals and bootstrap paired differences. | [Uncertainty & Robustness](docs/research/uncertainty.md) |
+| **Robustness Lab (V3.0 W1)** | Parameter uncertainty exploration (`/app/experiments/:id`, `/api/v3/experiments`); multi-factor uncertainty sampling (demand, turning shares, vehicle mix, driver headway, critical gap); paired CRN ensemble runner; statistical contract with Wilson win/tie/loss intervals and bootstrap paired differences. | [Uncertainty & Robustness](docs/research/uncertainty.md) |
 
 ### 2. Experimental or Limited Scope
 
@@ -258,7 +258,7 @@ Traffic-Simulation/
 │   └── README.md                  # Contract rules and validation guide
 ├── scripts/                       # Automation, study runners, deployment, and validation tools
 │   ├── run_full_study.py          # Headless study runner (volume sweep + Monte Carlo validation to CSV/JSON)
-│   ├── validate_schemas.py        # Validates shared JSON Schema files
+│   ├── validate_schemas.py        # Validates top-level shared JSON Schema files (config, snapshot, vehicle_state)
 │   ├── deploy-ec2.sh              # EC2 deployment automation script
 │   └── README.md                  # Scripts directory index and usage guide
 ├── docs/                          # Comprehensive technical and scientific documentation hub
@@ -401,7 +401,7 @@ python scripts/run_full_study.py --output-csv study_report.csv --output-json stu
 | `http://localhost/app/planner` | Decision Support Planner | V2.0 multi-alternative planning study workflow and report downloads. |
 | `http://localhost/app/research` | Research Lab Hub | Traffic volume sweeps, delay crossover explorer, Monte Carlo validation. |
 | `http://localhost/app/history` | Run History | Stored simulation runs, parameter comparisons, bit-level reproduction. |
-| `http://localhost/app/experiments` | Robustness Lab | V3.0 parameter uncertainty experiment viewer, eligibility checklist, intervals. |
+| `http://localhost/app/experiments/:id` | Robustness Lab | V3.0 parameter uncertainty experiment viewer, eligibility checklist, intervals. |
 | `http://localhost/health` | Health Check | Proxied to backend `/health`, returns `{"status":"healthy"}`. |
 | `http://localhost/api/version` | Backend Version | Returns running Git commit hash and Python runtime version. |
 | `http://localhost:8000/docs` | Interactive OpenAPI Docs | Swagger UI (available directly on backend port 8000 in native/dev mode). |
