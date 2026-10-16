@@ -82,12 +82,10 @@ Marked `@pytest.mark.slow`; excluded from the PR gate, run nightly (02:30 UTC) a
 | real-world-junctions | `tests/integration/test_real_world_junctions_v15.py` | V1.5 safety matrix (3–4 arms, bearings, U-turns) |
 | roundabout-multilane | `tests/integration/test_roundabout_multilane_v14.py` | V1.4 multi-lane ring: contacts and standstill |
 | vehicle-types-and-lanes | `tests/integration/test_vehicle_types_and_lanes.py` | Mixed classes and lanes |
+| roundabout-lane-capacity | `tests/integration/test_roundabout_lane_capacity.py` | Multi-lane roundabout capacity scaling across demand |
 | randomized-invariants | `tests/integration/test_randomized_invariants.py` | 48 random valid scenarios: conservation, speeds, greens, collisions, bit-identical rerun |
 
-The last six were in no CI job until the V2.0 release-gate audit (155 of then
-190 slow tests). `tests/test_ci_slow_matrix.py`, which runs in the ordinary PR
-job, now fails if any file with `@pytest.mark.slow` tests is missing from this
-matrix.
+The last seven were added to the CI matrix during the V2.0 release-gate audit. `tests/test_ci_slow_matrix.py`, which runs in the ordinary PR job, now fails if any file with `@pytest.mark.slow` tests is missing from this matrix.
 
 ---
 
@@ -138,7 +136,7 @@ flowchart LR
     P --> FE["Frontend CI<br/>ESLint · tsc · Prettier · Vitest"]
     V & BL & BT & FE --> G["build-and-test<br/>(aggregate gate)"]
     P --> DK["Docker Container CI<br/>compose config · image builds · full-stack smoke test"]
-    N["nightly 02:30 UTC / manual dispatch"] --> SL["Backend Slow Simulation Regression<br/>11 shards (every slow file)"]
+    N["nightly 02:30 UTC / manual dispatch"] --> SL["Backend Slow Simulation Regression<br/>12 shards (every slow file)"]
 ```
 
 A local pre-commit hook (`.husky/pre-commit`) runs the frontend linter.

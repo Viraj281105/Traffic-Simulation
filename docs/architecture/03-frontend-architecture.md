@@ -77,8 +77,11 @@ frontend/
 | --- | --- | --- |
 | `/` | Landing (separate document) | — |
 | `/app/comparative` | Guided comparison (default) | Compare |
+| `/app/planner` | Decision-support junction studies | Plan |
+| `/app/experiments/<id>` | V3.0 Robustness Lab parameter uncertainty experiment viewer | Plan |
 | `/app/history` · `/app/runs/<id>` · `/app/compare?runs=a,b,…` | Saved runs, run page, comparison of ≤ 6 runs | Saved |
 | `/app/research` · `/app/volume` · `/app/validation` · `/app/junction` · `/app/three-way` · `/app/signal` · `/app/roundabout` | Research Lab hub and tools | Research Lab |
+| `/app/admin` | User management and server configuration | Admin |
 | `/app`, `/app.html` | Redirect to `/app/comparative` | — |
 | anything else | Not-found page (nginx answers 404 with it) | — |
 
