@@ -169,6 +169,10 @@ jobs:
             path: tests/integration/test_randomized_invariants.py
           - name: roundabout-lane-capacity
             path: tests/integration/test_roundabout_lane_capacity.py
+          # V3.0 W2 (ADR-014 §7): the conventional roundabout's pre-seam
+          # golden fingerprints, full corpus (the fast cases run above).
+          - name: roundabout-golden
+            path: tests/controllers/test_roundabout_golden_fingerprints.py
     defaults:
       run:
         working-directory: backend

@@ -2,11 +2,11 @@
 
 ## Status
 
-**Proposed** — draft for the G-D design-approval review (task B0-2, [#173](https://github.com/Viraj281105/Traffic-Simulation/issues/173)). Depends on product-owner decision **D-SR1**. Must be accepted before any code in W2 (#163) or W3 (#162, #156).
+**Accepted** — the product owner passed the V3.0 design-approval gate G-D on 2026-10-14 (recorded on [#150](https://github.com/Viraj281105/Traffic-Simulation/issues/150)) and accepted this ADR, with decision **D-SR1** (`metered_entry` committed, `phased_priority` conditional/stretch), on 2026-10-19 so that W2 ([#163](https://github.com/Viraj281105/Traffic-Simulation/issues/163)) can begin. The W2 implementation plan is [`docs/engineering/v3-w2-signalised-roundabout-plan.md`](../engineering/v3-w2-signalised-roundabout-plan.md). Drafted under task B0-2 ([#173](https://github.com/Viraj281105/Traffic-Simulation/issues/173)).
 
 ## Date
 
-2026-10-14 (draft)
+2026-10-14 (draft) · 2026-10-19 (accepted)
 
 ## Context
 
