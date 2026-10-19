@@ -1,6 +1,6 @@
 # V3.0 W2 — Signalised roundabouts (`metered_entry`): implementation plan
 
-> **Status:** PLAN, 2026-10-19. The product owner accepted [ADR-014](../decisions/adr-014-strategy-registry-and-entry-gate-seam.md) (D-W2-0), approved the S1 decisions D-S1-1 … 3 (§4.1), and — after a source-grounded review of every option — approved D-W2-1 … D-W2-9 (§4), including two explicit deviations from the sources (D-W2-2, D-W2-7) and hazard H13. S1 is done (`d069980`, guard `7884a32`). The seam shape (§3.1) still awaits confirmation; S2 starts only after that and on the PO's go-ahead. Issue [#163](https://github.com/Viraj281105/Traffic-Simulation/issues/163). **No gate in §12 is passed by this document.**
+> **Status:** PLAN, 2026-10-19. The product owner accepted [ADR-014](../decisions/adr-014-strategy-registry-and-entry-gate-seam.md) (D-W2-0), approved the S1 decisions D-S1-1 … 3 (§4.1), and — after a source-grounded review of every option — approved D-W2-1 … D-W2-9 (§4), including two explicit deviations from the sources (D-W2-2, D-W2-7) and hazard H13. S1 is done (`d069980`, guard `7884a32`). The seam shape (§3.1) was approved by the PO before S2 started; S2 is implemented — see §13. Issue [#163](https://github.com/Viraj281105/Traffic-Simulation/issues/163). **No gate in §12 is passed by this document.**
 > **Normative sources (in order):** [`docs/ROADMAP.md`](../ROADMAP.md) §7 · [ADR-014](../decisions/adr-014-strategy-registry-and-entry-gate-seam.md) · [strategy §13.3](../roadmap/V3_PRODUCT_STRATEGY.md#133-signalised-roundabouts-committed-flagship) (D-SR1) · [sprint plan §3.3 and §4 (G-SR)](../roadmap/V3_WEEKLY_SPRINT_PLAN.md#33-w2--fri-6--thu-12-nov-signalised-roundabouts-flagship). This file is an engineering plan subordinate to them; it is not a second roadmap.
 > **Repository baseline:** `viraj-dev` at `e43bfec`, clean, level with `origin/viraj-dev` (checked 2026-10-19).
 
@@ -88,7 +88,7 @@ Labels used below: **[A]** approved requirement (source cited) · **[P]** engine
 
 ```python
 @dataclass(frozen=True)
-class GateDecision:          # [P] field shape; ADR fixes only the signature and reasons
+class GateDecision:          # [P] field shape; ADR-014 fixes only the signature (reasons: strategy §13.3, sprint §3.3)
     open: bool
     reason: Optional[Literal["red", "yellow", "ring_spillback_hold", "queue_cap"]] = None
 
@@ -99,7 +99,7 @@ class AlwaysOpen:            # stateless, draws no random numbers
     def allows(self, approach, lane, now): return OPEN   # module-level constant
 ```
 
-**Status:** this shape is a proposal awaiting confirmation at the S2 entry gate (§4).
+**Status:** this shape was approved by the PO at the S2 entry gate and is implemented in `controllers/entry_gate.py`. `reason` is `None` for an open decision.
 
 Consulted once per entry lane per tick, only when the roundabout's own rules would let the head proceed. With `AlwaysOpen` the result is always open, so no branch, float operation or random draw changes — the structural basis of SR-04 (the test is still required).
 
@@ -170,7 +170,7 @@ ADR-014 was accepted first (D-W2-0). D-W2-1 … D-W2-9 were approved on 2026-10-
 | **D-W2-9c** | Low-demand delay tolerance | 10 % at about 25 % of capacity, **reported as a finding, not a gate** | — | Aligned (strategy §13.3: "a finding, reported, not hidden if it fails"). Expected to be exceeded by a fixed-time meter |
 | **D-W2-9d** | Matrix and seeds | Seeds 1–8 × demand {low, medium, saturated} × four layouts (one-lane ring 4-arm, two-lane ring 4-arm, 3-arm, merging/multi-lane entry), each cell paired with a conventional run (192 runs, ≈ 20–50 min [U]). **Collisions: metered = 0 in every cell**; cells where the conventional baseline itself collides are reported | Seeds 1–4 (half the runtime) | Aligned, with the stated reading of "collision = 0" |
 
-**Still awaiting confirmation (S2 entry gate):** the seam shape of §3.1 — `GateDecision(open, reason)`, consulted only after the roundabout's own rules and before the committed-long-vehicle override, `AlwaysOpen` default. It was listed in the S2 entry gate but not in the approved register.
+**Approved at the S2 entry gate:** the seam shape of §3.1 — `GateDecision(open, reason)`, consulted only after the roundabout's own rules and before the committed-long-vehicle override, `AlwaysOpen` default.
 
 ### 4.1 S1 decisions (approved by the product owner, 2026-10-19)
 
@@ -335,3 +335,11 @@ Sprint total 4.25 ED [A]. Rollback: S2 is one revertible commit; S3–S9 add new
 * **Exits.** A vehicle is removed as soon as it passes the end of its last lane (`vehicles/vehicle.py`, `EXITED`). Probe on three conventional 180 s runs (1,800 ticks each): two-ring heavy-mix saturated — exit lanes never held a stopped vehicle, the ring had one in 297 ticks (max 2 at once); three-arm saturated — exits 0, ring 105 ticks (max 1); merging entry — exits 1 tick (1 vehicle), ring 9 ticks (max 1). Basis for D-W2-5.
 * **Deadlock.** `DeadlockDetector` runs only with `unstructuredTraffic` (never set by scenario documents), counts > 4 vehicles stopped > 5 s, and is unit-tested only with a fake pool. The repository's gridlock guards are discharge-based (`test_roundabout_lockup.py`: longest gap ≤ 30 s, ≥ 15 exits in the last minute; signal tests: `longest_stall < 70 s`). The former-lockup roundabout tests allow ≤ 1 collision for the conventional roundabout. Basis for D-W2-9a and D-W2-9d.
 * **Metrics.** Idle loss is computed for every geometry from `derive_signals_state` and is not used by planner or Robustness indicators; it feeds `masterEfficiencyScore`. Basis for D-W2-6.
+
+### S2 — entry-gate seam (2026-10-19)
+
+* **Scope.** `controllers/entry_gate.py` (new: `GateDecision`, `GateReason`, `OPEN`, `EntryGate`, `AlwaysOpen`) and one call site in `RoundaboutController.update`, plus the optional `entry_gate` constructor argument (default `AlwaysOpen`). Nothing else in `src/` changed; no fixture, golden pin or H12 test was modified.
+* **Order, confirmed in code.** existing yield rules → `if not should_yield and not entry_gate.allows(d, lane, time_in_current_state).open: should_yield = True` → committed-long-vehicle override → obstacle. The gate is not consulted at all when the existing rules already yield.
+* **Tests.** `backend/tests/controllers/test_entry_gate.py`: decision contract, `AlwaysOpen`, default wiring, closed/reopened gate, evaluation order (gate skipped when a rule already yields; closed gate cannot lift a yield; follow-up spacing), committed long vehicle not stranded by a gate that closes after the commitment. Moving the gate after the override fails the two committed-vehicle tests (checked, then reverted).
+* **Strategy registry — not in S2.** ADR-014 §1–§4 and the sprint plan place the strategy registry (descriptors, compatibility rules, fingerprint parity, `STRATEGIES` naming) in W3 (G-CS, #162); §11 lists S2 as `entry_gate.py` + `roundabout.py` only, and D-W2-1 leaves `STRATEGIES` unchanged. S2 therefore adds no registry; the registry tests requested alongside S2 belong to W3.
+* **H13** (wrapper exposes the inner roundabout's `vehicle_stop_limits`) stays scheduled in **S4** with its test, as §6 and §11 say; the wrapper does not exist yet.

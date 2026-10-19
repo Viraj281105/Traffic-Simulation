@@ -2,6 +2,7 @@ import math
 from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple
 
 from src.controllers.base import BaseController
+from src.controllers.entry_gate import AlwaysOpen, EntryGate
 from src.core.enums import Direction, TurnIntent
 from src.roads.lane_config import (
     MAX_CIRCULATING_LANES,
@@ -140,9 +141,18 @@ _TURN_BY_NAME: Dict[str, TurnIntent] = {t.value: t for t in TurnIntent}
 class RoundaboutController(BaseController):
     """Manages entry yielding logic and circulating traffic flow inside a roundabout intersection."""
 
-    def __init__(self, config: Dict[str, Any], network: RoadNetwork) -> None:
+    def __init__(
+        self,
+        config: Dict[str, Any],
+        network: RoadNetwork,
+        entry_gate: Optional[EntryGate] = None,
+    ) -> None:
         self.config: Dict[str, Any] = config
         self.network: RoadNetwork = network
+        # The one extension point for entry control (ADR-014); open by default.
+        self.entry_gate: EntryGate = (
+            entry_gate if entry_gate is not None else AlwaysOpen()
+        )
 
         ctrl_cfg = config.get("controller", {})
         self.inner_radius: float = ctrl_cfg.get("innerRadius", 10.0)
@@ -613,6 +623,17 @@ class RoundaboutController(BaseController):
                             d, approach, lane, active_vehicles
                         )
                         or self._keep_clear(lane, head, circulating_vehicles)
+                    ):
+                        should_yield = True
+
+                    # Entry gate (ADR-014): consulted only once the rules above
+                    # have said "go", so it can add a yield but never lift one;
+                    # the committed-long-vehicle override below still wins.
+                    if (
+                        not should_yield
+                        and not self.entry_gate.allows(
+                            d, lane, self.time_in_current_state
+                        ).open
                     ):
                         should_yield = True
 

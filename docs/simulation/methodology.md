@@ -358,6 +358,14 @@ V1.0–V1.3 had one ring per approach lane, kept every vehicle on its entry lane
 
 The turbo designation is safe but adds almost nothing over one lane: inner-lane entries then face the same conflicting flow as on a one-lane ring, so only right turns gain.
 
+#### 7.4.2 Entry-gate seam (V3.0 W2, step S2)
+
+**IMPLEMENTATION** — `controllers/entry_gate.py`, `controllers/roundabout.py` ([ADR-014](../decisions/adr-014-strategy-registry-and-entry-gate-seam.md))
+
+`RoundaboutController` takes an optional `entry_gate` (default `AlwaysOpen`). After the rules above (gap acceptance, follow-up time, long-vehicle mouth, earlier neighbour, merging entry, keep-clear) have let the head of an entry lane proceed, it asks `entry_gate.allows(approach, lane, now) -> GateDecision(open, reason)`. A closed gate sets the same give-way obstacle as any other yield; an open gate changes nothing. The gate is asked **before** the committed-long-vehicle override, so a long vehicle already across the line still completes its entry. A gate therefore only removes entry opportunities and never grants one. `reason` is one of `red`, `yellow`, `ring_spillback_hold`, `queue_cap`, or none when open.
+
+*Recorded reason for touching `roundabout.py` (ADR-014 §7):* this is the one call site the signalised-roundabout design needs to meter entries without duplicating the controller. With the default gate the conventional roundabout is unchanged: the golden-fingerprint tests (`tests/controllers/test_roundabout_golden_fingerprints.py`) pass against the pre-seam pins. The exact (bit-level) pins were run only on the pinned Windows / Python 3.14.7 environment; they skip elsewhere and CI checks the portable fingerprints (D-S1-1). No signal behaviour exists yet; no strategy consumes a non-default gate.
+
 ---
 
 ## 8. Warm-up
