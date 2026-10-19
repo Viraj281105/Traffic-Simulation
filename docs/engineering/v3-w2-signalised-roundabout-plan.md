@@ -1,10 +1,10 @@
 # V3.0 W2 — Signalised roundabouts (`metered_entry`): implementation plan
 
-> **Status:** PLAN, 2026-10-19. The product owner accepted [ADR-014](../decisions/adr-014-strategy-registry-and-entry-gate-seam.md) (D-W2-0) and approved "every recommended option for D-W2-0 to D-W2-9". The decision table (§4) was first written down in this document **after** that approval, so D-W2-1 … D-W2-9 are **awaiting reconfirmation** against §4 (the S1 decisions D-S1-1 … 3 in §4.1 are approved); no step that depends on them (S2 onward) starts before that. Issue [#163](https://github.com/Viraj281105/Traffic-Simulation/issues/163). **No gate in §12 is passed by this document.**
+> **Status:** PLAN, 2026-10-19. The product owner accepted [ADR-014](../decisions/adr-014-strategy-registry-and-entry-gate-seam.md) (D-W2-0), approved the S1 decisions D-S1-1 … 3 (§4.1), and — after a source-grounded review of every option — approved D-W2-1 … D-W2-9 (§4), including two explicit deviations from the sources (D-W2-2, D-W2-7) and hazard H13. S1 is done (`d069980`, guard `7884a32`). The seam shape (§3.1) still awaits confirmation; S2 starts only after that and on the PO's go-ahead. Issue [#163](https://github.com/Viraj281105/Traffic-Simulation/issues/163). **No gate in §12 is passed by this document.**
 > **Normative sources (in order):** [`docs/ROADMAP.md`](../ROADMAP.md) §7 · [ADR-014](../decisions/adr-014-strategy-registry-and-entry-gate-seam.md) · [strategy §13.3](../roadmap/V3_PRODUCT_STRATEGY.md#133-signalised-roundabouts-committed-flagship) (D-SR1) · [sprint plan §3.3 and §4 (G-SR)](../roadmap/V3_WEEKLY_SPRINT_PLAN.md#33-w2--fri-6--thu-12-nov-signalised-roundabouts-flagship). This file is an engineering plan subordinate to them; it is not a second roadmap.
 > **Repository baseline:** `viraj-dev` at `e43bfec`, clean, level with `origin/viraj-dev` (checked 2026-10-19).
 
-Labels used below: **[A]** approved requirement (source cited) · **[P]** engineering proposal, not part of the normative sources; those that depend on D-W2-1 … 9 (§4) are not approved until the PO confirms them · **[U]** unverified estimate/target.
+Labels used below: **[A]** approved requirement (source cited) · **[P]** engineering proposal, not part of the normative sources (those settled by §4 are approved there; the rest are confirmed at the step that needs them) · **[U]** unverified estimate/target.
 
 ---
 
@@ -22,25 +22,25 @@ Labels used below: **[A]** approved requirement (source cited) · **[P]** engine
 | SR-08 | Phase engine reuses the existing `Phase` structure | ADR-014 §5; strategy §13.3 | A | Import of `controllers.fixed_time_signal.Phase` |
 | SR-09 | Phase plan: entries grouped into phases; each phase has minimum green, yellow, all-red, maximum green | strategy §13.3 | A | Config model + validator tests |
 | SR-10 | Plan validated: every metered entry in ≥ 1 phase; no entry has zero green; cycle ≥ sum of minimums | strategy §13.3 | A | Validator unit tests, one rejecting test per rule |
-| SR-11 | Optional queue-aware spillback guard: hold red on an upstream entry when the ring/downstream exit queue exceeds a declared threshold | strategy §13.3 | A (concept) / P (measure, D-W2-5) | Unit + integration tests |
-| SR-12 | Optional per-entry queue cap shortens red for a long queue within bounds | strategy §13.3 | A (concept) / P (semantics, D-W2-4) | Unit + integration tests |
+| SR-11 | Optional queue-aware spillback guard: hold red on an upstream entry when the ring/downstream exit queue exceeds a declared threshold | strategy §13.3 | A (concept); measure approved (D-W2-5) | Unit + integration tests |
+| SR-12 | Optional per-entry queue cap shortens red for a long queue within bounds | strategy §13.3 | A (concept); semantics approved (D-W2-4) | Unit + integration tests |
 | SR-13 | Gate returns a decision with reason ∈ {`red`, `yellow`, `ring_spillback_hold`, `queue_cap`}; recorded as decision events in controller state | strategy §13.3; sprint §3.3 Minor; strategy §16 cand. 6 | A | Unit tests on events; snapshot contract test |
 | SR-14 | Bounds on all new inputs (green/yellow/all-red/cycle/queue thresholds) | sprint §3.3 Security | A (bounds exist) / P (values, §5.3) | Validator tests at each bound |
 | SR-15 | Phase-plan validator fuzz: **≥ 10,000** random plans, none crash, invalid ones rejected **with a code** | sprint §3.3 Security | A | Seeded fuzz test (fast CI) |
 | SR-16 | No new network surface | sprint §3.3 Security | A | OpenAPI route list unchanged (existing route-auth tests) |
-| SR-17 | Collision = 0 (`VehiclePool.collision_count`) across a seed × demand matrix; no increase over the baseline | strategy §13.3; sprint §3.3; G-SR | A (criterion) / P (matrix, §7) | Slow shard |
-| SR-18 | No deadlock | strategy §13.3; G-SR | A (criterion) / P (detector, D-W2-9) | Slow shard, discharge-based |
-| SR-19 | Starvation property: no metered entry waits longer than `maxRed + yellow + allRed` | strategy §13.3; sprint §3.3; G-SR | A (formula) / P (definition, D-W2-3) | Property test (fast) + slow runs |
-| SR-20 | Ring-blocking events not above the conventional baseline | strategy §13.3; G-SR | A (criterion) / P (event definition, D-W2-9) | Slow shard |
-| SR-21 | Low-demand mean delay vs conventional within a declared tolerance — **a reported finding, not hidden if it fails** | strategy §13.3 | A (finding, not a gate) / P (tolerance) | Baseline study report |
-| SR-22 | Layouts: 3-arm, 4-arm, ring lanes, multi-lane approaches | strategy §13.3; sprint §3.3 | A / **discrepancy D-W2-7** (ring lanes 1–2, not 1–3) | Slow shard |
+| SR-17 | Collision = 0 (`VehiclePool.collision_count`) across a seed × demand matrix; no increase over the baseline | strategy §13.3; sprint §3.3; G-SR | A (criterion); matrix and reading of "= 0" approved (D-W2-9d) | Slow shard |
+| SR-18 | No deadlock | strategy §13.3; G-SR | A (criterion); approach approved (D-W2-9a) | Slow shard: discharge criterion (gate) + ring-only extended detector (diagnostic, unit-tested) |
+| SR-19 | Starvation property: no metered entry waits longer than `maxRed + yellow + allRed` | strategy §13.3; sprint §3.3; G-SR | A (formula); definition approved (D-W2-3) | Property test (fast) + slow runs |
+| SR-20 | Ring-blocking events not above the conventional baseline | strategy §13.3; G-SR | A (criterion); event definition approved (D-W2-9b) | Slow shard |
+| SR-21 | Low-demand mean delay vs conventional within a declared tolerance — **a reported finding, not hidden if it fails** | strategy §13.3 | A (finding, not a gate); 10 % approved (D-W2-9c) | Baseline study report |
+| SR-22 | Layouts: 3-arm, 4-arm, ring lanes, multi-lane approaches | strategy §13.3; sprint §3.3 | A, with **approved deviation D-W2-7**: ring lanes 1–2, not 1–3 | Slow shard |
 | SR-23 | Baselines through the paired-comparison machinery: conventional roundabout, fixed-time and adaptive signalised intersection | strategy §13.3; sprint §3.3 Major | A | Baseline study through the planner (`AlternativeSpec.patch`) |
 | SR-24 | Runtime and memory per simulated second vs conventional; target **≤ 1.3×**, unverified | strategy §13.3; sprint §3.3 | A (measure) / U (target); G-SR needs it **recorded** | Benchmark script output |
 | SR-25 | Slow CI job added | sprint §3.3 Quality; strategy §13.3 | A | `ci.yml` matrix + `tests/test_ci_slow_matrix.py` |
 | SR-26 | `docs/simulation/signalised-roundabout.md`: movement/phase model, right-of-way modes, claims, limitations (no real-world calibration, no PET on curved paths) | sprint §3.3 Documentation; strategy §13.3 Limitations | A | Doc review |
 | SR-27 | Minimal entry-control selector in the scenario setup (frontend) | sprint §3.3 Minor | A | Vitest + axe |
 | SR-28 | Signal states on the canvas; demo with three strategies and the limitations banner; no `high`-aggression claim | sprint §3.3 Demo | A | Recorded demo |
-| SR-29 | Weekly gate: new tests green, existing suites green, schema/OpenAPI parity, axe clean on new screens, limitations paragraph, recorded demo | sprint §1.5 | A | Gate evidence (§11) |
+| SR-29 | Weekly gate: new tests green, existing suites green, schema/OpenAPI parity, axe clean on new screens, limitations paragraph, recorded demo | sprint §1.5 | A | Gate evidence (§12, §13) |
 | SR-30 | Schema changes additive; contract changes ship with a schema diff and a test feeding the new shape (incl. absence) to every consumer | sprint §1.3, §1.5; ADR-013 | A | Parity tests |
 | SR-31 | Pre-existing determinism/reproduction tests stay green and **unmodified** | sprint §1.5 | A | `git diff` on those files is empty |
 | SR-32 | Coverage floor 85 % retained | strategy §17; `backend/pyproject.toml` | A | Fast CI |
@@ -60,6 +60,9 @@ Labels used below: **[A]** approved requirement (source cited) · **[P]** engine
 | `controllers/factory.py` `create_controller` | Branch on `intersectionType` | `roundabout` + `controller.entryControl == "metered_entry"` → new controller; otherwise unchanged | Existing factory pattern (decision D8, decisions README) |
 | `factory.derive_signals_state` | `isinstance(FixedTimeSignalController)`, else all green | Metered controller exposes `signals_state()`; derive uses it when present (duck-typed), metered entries real colours, others green (D-W2-6) | Feeds `MetricCollector` (idle loss) and `history/reproduce.py` identically |
 | `snapshot/dual_orchestrator.py` `DualSimulationOrchestrator.__init__` (used by `study/runner.py` `simulate_geometry`, i.e. every planner and Robustness Lab run) | **Rebuilds** the roundabout `controller` section from a fixed key list (radii, `criticalGap`, `followUpTime`, speeds) | Carry `entryControl` and `entryMetering` across when the source sets them; absent ⇒ the identical dict as today (found 2026-10-19 during S1) | Without it a metered alternative would silently run as a conventional roundabout (hazard H12) |
+| `engine/vehicle_pool.py` `VehiclePool.update` (stopping limits) | Folds `getattr(engine.controller, "vehicle_stop_limits")` into each vehicle's braking — the roundabout's V1.4 exit-zone holds | None. `SignalisedRoundaboutController` must expose its inner roundabout's `vehicle_stop_limits` (and anything else the engine reads from `engine.controller`) — hazard **H13** | Otherwise two-lane exit-zone arbitration silently switches off under metering (found in the design review, 2026-10-19) |
+| `engine/tick_callback.py` | PET and signal-timing metrics only for `isinstance(controller, FixedTimeSignalController)` | None: the composed controller is not a subclass, so both stay off, as for the conventional roundabout | Verified in the design review |
+| `metrics/efficiency.py`, `frontend/src/metrics/catalog.ts` | Document idle loss as "signal-only … structurally 0 for a roundabout"; idle loss weighs −10 in `masterEfficiencyScore` | Texts updated: idle loss is also measured for metered roundabouts (D-W2-6); no formula change | A documented metric meaning changes |
 | `engine/vehicle_pool.py` `single_ring_roundabout` | Keyed on `intersectionType == "roundabout"` | None — the type stays `roundabout` (D-W2-1) | Avoids changing the predictive layer |
 | `vehicles/router.py` `commits_through_yellow` | Dilemma-zone rule for `is_yellow` obstacles | Reused by the gate to decide yellow commitment; the roundabout never receives an `is_yellow` obstacle | Keeps the long-vehicle latch (`_note_long_entries` needs `virtual_obstacle is None`) working |
 | `core/config_models.py` `ControllerSection` | Pydantic, unknown keys **ignored** on dump | Add `entryControl`, `entryMetering` | Otherwise `model_dump` would silently drop them |
@@ -69,8 +72,8 @@ Labels used below: **[A]** approved requirement (source cited) · **[P]** engine
 | `shared/schemas/v2/planning-study.schema.json`, `v3/experiment.schema.json` | Embed the document shape | Add the field | SR-30 |
 | `planning/alternatives.py` `DefaultStrategyAlternatives`; `STRATEGIES` | One alternative per strategy | **Unchanged** (D-W2-1): a metered alternative is `strategy: "roundabout"` + `patch` | Default studies and `/capabilities` unchanged |
 | `snapshot/builder.py` + `shared/schemas/snapshot.schema.json` controller | `type` ∈ {fixed_time_signal, roundabout}; no `additionalProperties: false` | Additive `entryControl`, `metering` object; `type` stays `roundabout` | Frontend roundabout paths unchanged |
-| `engine/deadlock_detector.py` | Runs only for unstructured traffic; flags > 4 vehicles stopped > 5 s | Not used for SR-18 (would flag every red queue) (D-W2-9) | — |
-| `roads/lane_config.py` `MAX_CIRCULATING_LANES = 2` | Three-lane rings rejected | None (D-W2-7) | — |
+| `engine/deadlock_detector.py` | Runs only for unstructured traffic (`traffic.unstructuredTraffic`); flags > 4 vehicles stopped > 5 s; diagnostic string in the snapshot | Extended for metered runs: counts only ring (connection-lane) vehicles, so approach queues — red or gap-acceptance — are never "deadlock"; unstructured and conventional runs unchanged (D-W2-9a) | Meets strategy §13.3 "detector extended" without misclassifying red queues |
+| `roads/lane_config.py` `MAX_CIRCULATING_LANES = 2`; `scenario/lane_validation.py` | Three-lane rings rejected (unvalidated middle-lane weave) | None (approved deviation D-W2-7) | Existing physics constraint kept |
 | `frontend/src/types/simulation.ts` `RoundaboutControllerState` | V1.4 fields | Optional `entryControl`, `metering` | Absent ⇒ conventional |
 | `frontend/src/components/RoundaboutMap.tsx` `drawEntryYieldSigns` | Yield signs and give-way lines | Signal head beside the yield sign on metered arms only | Conventional rendering untouched |
 | `frontend/src/components/IntersectionMap.tsx` `drawSignals` | Signal heads | Visual vocabulary reused (colour mapping, sizing) | Consistency |
@@ -96,6 +99,8 @@ class AlwaysOpen:            # stateless, draws no random numbers
     def allows(self, approach, lane, now): return OPEN   # module-level constant
 ```
 
+**Status:** this shape is a proposal awaiting confirmation at the S2 entry gate (§4).
+
 Consulted once per entry lane per tick, only when the roundabout's own rules would let the head proceed. With `AlwaysOpen` the result is always open, so no branch, float operation or random draw changes — the structural basis of SR-04 (the test is still required).
 
 ### 3.2 Control flow
@@ -118,7 +123,7 @@ flowchart TD
 
 ### 3.3 Signal semantics at the metering line
 
-* **Stop line = give-way line** (`lane.length`), D-W2-2. No geometry change.
+* **Stop line = give-way line** (`lane.length`), D-W2-2. No geometry change. **Approved deviation:** strategy §13.3 describes a signal at a stop line *before* the yield line; this model has one line, so there is no storage between a stop line and the give-way line. A configurable setback is the natural later extension and does not change the seam.
 * **Green:** gate open; the roundabout decides as today.
 * **Yellow:** the gate evaluates the head vehicle with `commits_through_yellow` against a virtual yellow line at `lane.length`. Committed ⇒ open, latched for that vehicle id until it leaves the lane (so red onset cannot brake it across the line); otherwise closed with reason `yellow`.
 * **Red / all-red:** closed, reason `red`. Unmetered arms: always open.
@@ -131,7 +136,7 @@ Cursor over `Phase` objects: for each plan phase, `green` (scheduled duration), 
 
 ### 3.5 Spillback guard (D-W2-5) and queue cap (D-W2-4)
 
-* **Guard:** for each metered arm, count ring vehicles with speed < 2.0 m/s (`_KEEP_CLEAR_SPEED`) in the ring sector from that entry to the next exit downstream. When that count is at or above `ringStoppedThreshold` while the arm would be green, keep it red (`ring_spillback_hold`), for at most `maxHold` seconds per cycle. Exit lanes are sinks today, so the exit queue is not measured in v1 (documented limitation).
+* **Guard (D-W2-5):** for each metered arm, count stopped vehicles (speed < 2.0 m/s, `_KEEP_CLEAR_SPEED`) in the ring sector from that entry to the next exit downstream **plus** on the first stretch of that exit lane. When the count is at or above `stoppedThreshold` while the arm would be green, keep it red (`ring_spillback_hold`), for at most `maxHold` seconds per cycle (D-W2-3). Vehicles leave the simulation at the end of their exit lane, so the exit term is ≈ 0 today (measured, §13); it is kept so the guard matches the source and stays correct if downstream blocking is ever modelled. The default threshold is set in S5 from a probe on metered runs (ring stops are rare: at most 2 at once in saturated conventional runs).
 * **Queue cap:** optional, off by default. When a red metered arm's standing queue reaches `vehicles` and the current green phase has run at least its `minGreen`, that green ends early (yellow, then all-red, then the next phase), and the event is recorded with reason `queue_cap`. The queue cap can only shorten red; it never extends a phase.
 * Interaction: the guard can only add red; the existing keep-clear, exit-zone and congestion taper rules are untouched. A red queue will latch the roundabout's own `_update_congestion` state. That is intended realism, documented, and visible only in metered mode.
 
@@ -145,20 +150,27 @@ No new random stream; the gate and guard read state only. The conventional path 
 
 ---
 
-## 4. Decisions (D-W2-0 accepted 2026-10-19; D-W2-1 … 9 awaiting reconfirmation)
+## 4. Decisions (approved by the product owner, 2026-10-19)
 
-| # | Decision | Recommended option | Alternatives |
-| --- | --- | --- | --- |
-| **D-W2-0** | ADR-014 status and D-SR1 | ADR-014 **Accepted** 2026-10-19; D-SR1 confirmed (`metered_entry` committed, `phased_priority` stretch) | — |
-| **D-W2-1** | How `metered_entry` is selected | `intersectionType` stays `roundabout`; engine field `controller.entryControl: "metered_entry"` + `controller.entryMetering`; document field `roundabout.entryControl`; **no new value in `STRATEGIES`**; comparisons use `strategy: "roundabout"` + `patch` | New strategy `signalised_roundabout` (would change the default planner alternatives and `/capabilities`; naming deferred to the W3 registry) |
-| **D-W2-2** | Metering stop-line position | Coincides with the give-way line | Upstream setback (new geometry, two stopping points, map changes) |
-| **D-W2-3** | Starvation definition | Measured as continuous **signal-denied** time on a metered arm with a vehicle at the line (gap-acceptance waits excluded: they are unbounded in the conventional roundabout too). `maxRed` = the arm's planned red + `maxHold`, so the guard cannot break the bound | Excluding hold time from the property; asserting only with the guard off |
-| **D-W2-4** | Queue-cap semantics | Optional, off by default; early end of the current green at its `minGreen` (§3.5) | Gate-local early green outside the plan; deferring to W3 |
-| **D-W2-5** | Spillback measure | Stopped ring vehicles in the downstream sector (§3.5); threshold in vehicles | Ring occupancy fraction; exit-lane queues |
-| **D-W2-6** | Signal colours reported to metrics | Real colours for metered arms, green for unmetered (idle-loss becomes meaningful for metered runs only) | All green, as for the conventional roundabout |
-| **D-W2-7** | Ring-lane range (sprint plan says 1–3) | **1–2 ring lanes** (code: `MAX_CIRCULATING_LANES = 2`, three-lane rings rejected since V1.4); approaches 1–3 lanes | Validating three-lane rings in W2 (out of scope, physics work) |
-| **D-W2-8** | Typed validation errors | Pure validator returns issues with stable `code` (`metering.*`); `validate_scenario` keeps its string lists, each message ending in `(code)` | A new structured error envelope |
-| **D-W2-9** | Test definitions not fixed by the sources | Deadlock = discharge-based lock-up criterion as in `tests/integration/test_roundabout_lockup.py` (not `DeadlockDetector`); ring-blocking event = onset of a ring vehicle stopped (< 0.1 m/s) ≥ 1 s on a connection lane; low-demand delay tolerance 10 %, **reported** (SR-21); matrix seeds 1–8 × demand {low, medium, saturated} | — |
+ADR-014 was accepted first (D-W2-0). D-W2-1 … D-W2-9 were approved on 2026-10-19 after a source-grounded review in which each was presented with its options, sources and consequences; D-W2-9 was split into four. **Deviations from the normative sources are marked and were approved explicitly.**
+
+| # | Decision | Approved option | Alternatives considered | Source alignment |
+| --- | --- | --- | --- | --- |
+| **D-W2-0** | ADR-014 status and D-SR1 | ADR-014 **Accepted**; D-SR1 (its decision §6: `metered_entry` committed, `phased_priority` stretch) | — | Aligned |
+| **D-W2-1** | How `metered_entry` is selected | `intersectionType` stays `roundabout`; engine fields `controller.entryControl: "metered_entry"` + `controller.entryMetering`; document field `roundabout.entryControl`; **no new value in `STRATEGIES`**; comparisons use `strategy: "roundabout"` + `patch` | New `STRATEGIES` value (changes every default planner study and `/capabilities`); new `intersectionType` (breaks the `== "roundabout"` geometry checks). Naming deferred to the W3 registry | Aligned (ADR-014 §5, strategy §13.5) |
+| **D-W2-2** | Metering stop-line position | **One line: the signal acts at the existing give-way line** (`lane.length`), with the yellow-commitment rule of §3.3 | Separate upstream stop line (per-vehicle stop limits, a between-line latch, a second queue, map changes; ≈ +0.5–1 ED [U]); configurable setback, default 0 (natural later extension) | **Deviation (approved):** strategy §13.3 describes a stop line *before* the yield line. Modelled as a simplification: no storage between the lines. Stated in §3.3, the limitations and `signalised-roundabout.md` |
+| **D-W2-3** | Starvation guarantee and guard hold budget | Measured as continuous **signal-denied** time on a metered arm with a vehicle at the line (gap-acceptance waits excluded — unbounded in the conventional roundabout too). `maxRed` = the arm's planned red + `maxHold`; the guard may add at most `maxHold` per cycle, so the bound holds by construction | Exclude hold intervals and report them; check only with the guard off; literal vehicle waiting time (fails for the conventional roundabout at saturation) | Aligned (defines the undefined `maxRed`) |
+| **D-W2-4** | Queue-cap semantics | Optional, off by default; when a red arm's queue reaches the cap, the current green ends early, never before its `minGreen` (§3.5). Only shortens red | Out-of-plan green for that arm; defer to W3 (a scope deviation); configuration only | Aligned |
+| **D-W2-5** | Spillback measure | **Combined count** of stopped vehicles (< 2.0 m/s) in the ring sector from the entry to the next exit **plus** the first stretch of that exit lane; one threshold in vehicles. Default threshold fixed in S5 from a probe on metered runs (proposal: 2) | Ring sector only (a wording deviation for no saving); ring occupancy fraction; exit-lane queue only | Aligned: covers "the ring or the downstream exit queue". The exit term is structurally ≈ 0 in today's engine (§13, design review) and is documented as such |
+| **D-W2-6** | Signal colours in snapshots, metrics and reproduction | Real colours (metered arms; unmetered arms green) to snapshots, `derive_signals_state`, the collector and run reproduction | All green; real colours in snapshots only (keeps idle loss "signal-only") | Aligned. **Changes a documented metric meaning**: idle loss and `masterEfficiencyScore` are documented as signal-only (`metrics/efficiency.py`, frontend metric catalog); those texts are updated (§10) |
+| **D-W2-7** | Ring-lane range | **1–2 ring lanes**; approaches 1–3 lanes (code: `MAX_CIRCULATING_LANES = 2`; `lane_validation.py` rejects three-lane rings — the middle-lane weave is unvalidated) | Validate three-lane rings in W2 (new physics: exit-zone arbitration assumes two lanes); read "1–3" as approach lanes (not claimed) | **Deviation (approved):** sprint plan §3.3 and strategy §13.3 say "1–3 ring lanes". G-SR's layout row is reworded (§12) |
+| **D-W2-8** | Validation error contract | Pure validator returns issues with stable `metering.*` codes; existing `errors: [string]` responses keep their shape, each message ending in `(code)` | Additive structured `issues` field (a contract/OpenAPI change; possible in W3); codes internal only | Aligned (sprint §3.3 "rejected with a code") |
+| **D-W2-9a** | Deadlock | **Gate:** discharge criterion — longest stall with vehicles present but none exiting ≤ the largest metered arm's `maxRed + yellow + allRed` + 30 s (the signal precedent, `longest_stall < 70 s`), and vehicles still exiting in the last minute. **Plus** `DeadlockDetector` extended for metered runs to count **only ring (connection-lane) vehicles**, as a diagnostic, with unit tests (a red queue is not flagged; a blocked ring is) | Discharge only (deviates from "detector extended"); the detector as-is (flags any five stopped vehicles, so every red queue) | Aligned (strategy §13.3 "existing deadlock detector extended") |
+| **D-W2-9b** | Ring-blocking event | Onset of a ring vehicle stopped (< 0.1 m/s) for ≥ 1 s on a connection lane; G-SR compares **totals over the paired matrix** (same seeds, metered vs conventional), per-cell values reported | Keep-clear refusals; time-integral of stopped ring vehicles | Aligned (definition missing in sources). No tolerance is added: the baseline is small, so a strict comparison may fail on few events and is then reported as a gate failure |
+| **D-W2-9c** | Low-demand delay tolerance | 10 % at about 25 % of capacity, **reported as a finding, not a gate** | — | Aligned (strategy §13.3: "a finding, reported, not hidden if it fails"). Expected to be exceeded by a fixed-time meter |
+| **D-W2-9d** | Matrix and seeds | Seeds 1–8 × demand {low, medium, saturated} × four layouts (one-lane ring 4-arm, two-lane ring 4-arm, 3-arm, merging/multi-lane entry), each cell paired with a conventional run (192 runs, ≈ 20–50 min [U]). **Collisions: metered = 0 in every cell**; cells where the conventional baseline itself collides are reported | Seeds 1–4 (half the runtime) | Aligned, with the stated reading of "collision = 0" |
+
+**Still awaiting confirmation (S2 entry gate):** the seam shape of §3.1 — `GateDecision(open, reason)`, consulted only after the roundabout's own rules and before the committed-long-vehicle override, `AlwaysOpen` default. It was listed in the S2 entry gate but not in the approved register.
 
 ### 4.1 S1 decisions (approved by the product owner, 2026-10-19)
 
@@ -187,7 +199,7 @@ No new random stream; the gate and guard read state only. The conventional path 
     "yellow": 3.0,
     "allRed": 2.0,
     "offset": 0.0,
-    "spillbackGuard": { "enabled": false, "ringStoppedThreshold": 3, "maxHold": 10 },
+    "spillbackGuard": { "enabled": false, "stoppedThreshold": 2, "maxHold": 10 },
     "queueCap": { "enabled": false, "vehicles": 8 }
   }
 }
@@ -210,7 +222,7 @@ Metered arms are the union of the phases' `entries`; every other present arm is 
 | `allRed` | 0 ≤ x ≤ 5 s | `allRedTime` |
 | `offset` | 0 ≤ x < cycle | `offset` (plus the cycle rule) |
 | phases | 1 … 4 | four compass slots |
-| `ringStoppedThreshold` | integer 1 … 20 | `demandThreshold` range |
+| `stoppedThreshold` | integer 1 … 20 (default set in S5) | `demandThreshold` range |
 | `maxHold` | 0 … 60 s | proposal |
 | `queueCap.vehicles` | integer 1 … 50 | proposal |
 
@@ -226,8 +238,8 @@ Absent `entryControl` ⇒ conventional roundabout, the same config dump and the 
 | --- | --- | --- | --- | --- |
 | H1 Entry conflict collision | Release while the ring is occupied | The gate only adds yields; gap acceptance is unchanged | Slow matrix: collisions = 0 and ≤ baseline | G-SR |
 | H2 Red overrun / stop across the line | Red onset at the line; a yellow runner braking late; a bus not latched | Stop line = give-way line; a yellow commitment latched in the gate; the committed long-entry override wins | Unit: committed vehicle never re-held; integration: no vehicle with speed 0 and front > 2.5 m past the line on red (cars), no collisions | Proposed safeguard |
-| H3 Ring spillback | Release into a stopped ring | Keep-clear unchanged + optional guard | Ring-blocking onsets ≤ baseline | G-SR |
-| H4 Deadlock | Holds forming a cycle | Gate holds depend only on clock and ring state, never on other gates; the guard is bounded by `maxHold` | Discharge criterion over the matrix | G-SR |
+| H3 Ring spillback | Release into a stopped ring | Keep-clear unchanged + optional guard | Ring-blocking onsets (D-W2-9b), matrix total ≤ conventional total | G-SR |
+| H4 Deadlock | Holds forming a cycle | Gate holds depend only on clock and ring state, never on other gates; the guard is bounded by `maxHold` | Discharge criterion over the matrix (D-W2-9a); ring-only extended detector as a diagnostic | G-SR |
 | H5 Starvation | Guard or plan keeps an arm red | D-W2-3 bound by construction | Property test on random valid plans (cursor only, ≥ 10,000) + max denied time in the slow runs ≤ bound | G-SR |
 | H6 Multi-lane / merging / 3-arm | Per-lane rules interacting with red | Per-arm colour; existing per-lane rules untouched | Layout cells in the matrix | G-SR (layouts) |
 | H7 Wrong signal reporting | Snapshot ≠ gate | One source: the gate state object feeds snapshot, events and `signals_state` | Unit + snapshot contract test | Proposed |
@@ -235,6 +247,7 @@ Absent `entryControl` ⇒ conventional roundabout, the same config dump and the 
 | H9 Nondeterminism | New random use, dict-order effects | No randomness; ordered iteration over `Direction` | Same seed ⇒ identical fingerprint, twice | G-SR (via SR-04) / proposed |
 | H10 Pathological plans | Crashes, zero green, NaN | Pure validator, 16 codes | Fuzz 10,000: no exception, every invalid plan carries a code | Sprint §3.3 Security |
 | H12 Metering silently dropped on the study path | `DualSimulationOrchestrator` rebuilds the roundabout controller section (confirmed 2026-10-19) | Carry the two fields across, read from `roundaboutController` falling back to `controller` exactly as the ring keys are (S4) | `tests/integration/test_study_path_entry_control.py`: two `xfail(strict=True)` tests become ordinary passing tests (marker removed with the fix, D-S1-2); the pin of the field-less section and the golden study-path cases stay green | Proposed safeguard |
+| H13 Exit-zone holds lost under composition | `VehiclePool` reads `vehicle_stop_limits` from `engine.controller`, which becomes the wrapper | The wrapper exposes the inner roundabout's `vehicle_stop_limits` (S4) | A metered two-lane run with an always-green plan has the same exit-zone hold count (`exitYieldEvents`) and trajectories as the conventional run of the same seed | Approved safeguard (H13) |
 | H11 Performance | Per-tick sector scans | Cached sector geometry; scan only metered arms | Benchmark recorded; target ≤ 1.3× [U] | G-SR (recorded) |
 
 ---
@@ -252,7 +265,9 @@ Absent `entryControl` ⇒ conventional roundabout, the same config dump and the 
 | Document/compile/fingerprint compatibility | extend `tests/scenario/test_scenario.py` (new tests only) | existing fixtures | fast | s |
 | Schema parity (config, snapshot, planning-study, experiment) | extend `tests/core/test_config_models.py`, `tests/integration/test_snapshot_contract.py`, `tests/planning/test_boundary_and_schema.py`, `tests/experiments/test_contract.py` | — | fast | s |
 | Integration smoke (metered 1-ring 4-arm, 2 seeds) | `tests/integration/test_signalised_roundabout.py` | `test_roundabout_lockup._simulate` pattern | fast | ~1 min |
-| Safety matrix (collision, discharge, starvation, ring-blocking vs baseline; 3-/4-arm; 1–2 rings; 1–3-lane approaches; mixed vehicles) | same file, `@pytest.mark.slow` | `_SEEDS` pattern of `test_roundabout_conflicts.py` | slow shard `signalised-roundabout` | 20–40 min |
+| Safety matrix (D-W2-9d: seeds 1–8 × low/medium/saturated × four layouts, each paired with a conventional run; collision = 0, discharge, starvation, ring-blocking totals vs baseline; mixed vehicles) | same file, `@pytest.mark.slow` | `_SEEDS` pattern of `test_roundabout_conflicts.py` | slow shard `signalised-roundabout` | 20–50 min [U] |
+| Extended deadlock detector (ring-only, metered runs): a red queue is not flagged, a blocked ring is; conventional and unstructured runs unchanged | `tests/engine/test_deadlock_detector_metered.py` | fake pool, as `tests/core/test_unstructured_traffic.py` | fast | s |
+| H13 pass-through: always-green metered run ≡ conventional exit-zone behaviour | in `tests/integration/test_signalised_roundabout.py` | golden harness | fast | ~20 s |
 | Benchmark | `scripts/benchmark_signalised_roundabout.py` | — | manual, recorded | ~5 min |
 | Frontend: signal heads, colour updates, conventional unchanged, absent state, selector, axe | `frontend/src/test/signalisedRoundabout.test.tsx` | `axe.ts`, `scenarioBuilder.test.tsx` patterns | frontend CI | s |
 
@@ -273,7 +288,7 @@ Snapshot `controller.metering` (current phase, colour, time remaining, cycle num
 
 ## 10. Documentation
 
-`docs/simulation/signalised-roundabout.md` (new; SR-26) · `docs/simulation/methodology.md` §7 (pointer + the recorded reason for touching `roundabout.py`) · `docs/simulation/configuration.md` and `docs/architecture/06-scenario-configuration-contract.md` (fields, bounds, codes, example) · snapshot contract notes · this plan's evidence section at the gate. `ROADMAP.md` status changes only after G-SR passes and with the PO's authorisation.
+`docs/simulation/signalised-roundabout.md` (new; SR-26; states the approved deviations D-W2-2 and D-W2-7 and the ≈ 0 exit term of D-W2-5) · `metrics/efficiency.py` docstring, the frontend metric catalog and the metric contract (idle loss is no longer "signal-only", D-W2-6) · `docs/simulation/methodology.md` §7 (pointer + the recorded reason for touching `roundabout.py`) · `docs/simulation/configuration.md` and `docs/architecture/06-scenario-configuration-contract.md` (fields, bounds, codes, example) · snapshot contract notes · this plan's evidence section at the gate. `ROADMAP.md` status changes only after G-SR passes and with the PO's authorisation.
 
 ## 11. Implementation sequence
 
@@ -282,10 +297,10 @@ Snapshot `controller.metering` (current phase, colour, time remaining, cycle num
 | S1 | Golden fingerprints recorded on the **unmodified** controller | test file + fixture + generator script | D-W2-0 | Fixture committed; test passes on unmodified code | part of "ADR + seam spike 0.5" |
 | S2 | Seam + `AlwaysOpen` in `roundabout.py` | `entry_gate.py`, `roundabout.py` | S1 | Golden test unchanged and green; seam tests | "seam + equivalence 0.5" |
 | S3 | Plan model, resolver, phase cursor | `entry_metering.py` | S2 | Cursor/timing/property tests | controller 1.25 (part) |
-| S4 | Controller, gate, yellow latch, events, factory, `signals_state`, study-path carry-over (H12, D-S1-2) | `signalised_roundabout.py`, `factory.py`, `snapshot/dual_orchestrator.py` | S3 | Unit + smoke tests; conventional golden still green; the two H12 `xfail` tests pass as ordinary tests (marker removed); a metered config verified to reach the controller on each orchestrator path: planner (`control_comparison`), Robustness Lab (`uncertainty/runner`), batch and volume sweep, validation (`study/validation.py`), calibration (`calibration/simulate.py`), dual reproduction (`history/reproduce._reproduce_dual`) and the live dual comparison (`live/sessions.py`) | controller (part) |
+| S4 | Controller, gate, yellow latch, events, factory, `signals_state`, study-path carry-over (H12, D-S1-2) | `signalised_roundabout.py`, `factory.py`, `snapshot/dual_orchestrator.py` | S3 | Unit + smoke tests; conventional golden still green; the two H12 `xfail` tests pass as ordinary tests (marker removed); the wrapper exposes the inner roundabout's `vehicle_stop_limits` (H13, with its test); a metered config verified to reach the controller on each orchestrator path: planner (`control_comparison`), Robustness Lab (`uncertainty/runner`), batch and volume sweep, validation (`study/validation.py`), calibration (`calibration/simulate.py`), dual reproduction (`history/reproduce._reproduce_dual`) and the live dual comparison (`live/sessions.py`) | controller (part) |
 | S5 | Spillback guard + queue cap | `entry_metering.py` | S4 | Unit tests; bound property holds | controller (part) |
 | S6 | Validation, config fields, document field, schemas, fuzz | config models/validation, documents, 4 schemas | S3 | Parity + fuzz green; old fingerprints unchanged | validation 0.5 + fuzz 0.25 |
-| S7 | Safety/regression matrix + slow shard | integration test, `ci.yml` | S4–S6 | Slow file green locally | regression 0.75 |
+| S7 | Safety/regression matrix + slow shard; ring-only deadlock-detector extension (D-W2-9a) | integration test, `engine/deadlock_detector.py`, `ci.yml` | S4–S6 | Slow file green locally | regression 0.75 |
 | S8 | Snapshot schema + frontend | builder schema, types, map, settings, tests | S4, S6 | Vitest/axe/build green | selector 0.25 |
 | S9 | Baseline study, benchmark, docs | script, docs | S7, S8 | Report + benchmark recorded | 0.25 |
 | S10 | Gate evidence | — | all | §12 checklist assembled | review |
@@ -294,9 +309,9 @@ Sprint total 4.25 ED [A]. Rollback: S2 is one revertible commit; S3–S9 add new
 
 ## 12. G-SR checklist (none passed)
 
-**Mandatory (sprint §3.3, §4; §1.5):** ☐ bit-identity (slow suite) · ☐ collision = 0 / ≤ baseline · ☐ no deadlock · ☐ starvation property · ☐ spillback ≤ baseline · ☐ benchmark recorded · ☐ demo recorded · ☐ decision on the W3 adaptive variant · ☐ fuzz ≥ 10,000 · ☐ existing suites green and unmodified · ☐ schema/OpenAPI parity · ☐ axe clean on new UI · ☐ limitations paragraph shipped.
-**Recommended safeguards:** H2 line-overrun check · H7 reporting consistency · repeated-run reproducibility of the metered mode.
-**Out of W2:** `phased_priority` · adaptive signalised roundabout (W3, conditional on G-SR) · registry naming (W3) · three-lane rings · exit-queue measurement · per-lane metering · upstream coordination.
+**Mandatory (sprint §3.3, §4; §1.5):** ☐ bit-identity (slow suite) · ☐ collision = 0 / ≤ baseline (D-W2-9d) · ☐ no deadlock (D-W2-9a) · ☐ layouts: 3-arm, 4-arm, **1–2 ring lanes** (approved deviation D-W2-7), multi-lane approaches · ☐ starvation property · ☐ spillback ≤ baseline · ☐ benchmark recorded · ☐ demo recorded · ☐ decision on the W3 adaptive variant · ☐ fuzz ≥ 10,000 · ☐ existing suites green and unmodified · ☐ schema/OpenAPI parity · ☐ axe clean on new UI · ☐ limitations paragraph shipped.
+**Recommended safeguards:** H2 line-overrun check · H7 reporting consistency · H13 exit-zone pass-through · repeated-run reproducibility of the metered mode. **Reported, not gated:** low-demand delay vs conventional (D-W2-9c).
+**Out of W2:** `phased_priority` · adaptive signalised roundabout (W3, conditional on G-SR) · registry naming (W3) · three-lane rings (D-W2-7) · an upstream stop line / setback (D-W2-2) · per-lane metering · upstream coordination.
 
 ## 13. Evidence log
 
@@ -313,3 +328,10 @@ Sprint total 4.25 ED [A]. Rollback: S2 is one revertible commit; S3–S9 add new
 * **Shard.** `roundabout-golden` in `backend-slow-tests`: `-m slow` selects 10 tests (5 slow cases × 2 pins), 87 s locally; the 15 fast tests run in `backend-test` (largest 13.7 s). `tests/test_ci_slow_matrix.py` did **not** recognise per-case `marks=pytest.mark.slow`, so it would have passed without the matrix entry; its scan now does (self-test added), and removing the entry was checked to fail it.
 * **Fast suite** (local, Windows / 3.14, `-m "not slow"`): 1529 collected, **1527 passed, 2 xfailed** (below), 0 failed, coverage 94.97 % (floor 85 %), ≈ 14 min. `ruff check`, `ruff format --check`, `mypy src/` clean.
 * **H12 confirmed.** `DualSimulationOrchestrator.__init__` rebuilds the roundabout `controller` from a fixed key list, dropping `entryControl`/`entryMetering`. Affected: every `SimTask` run via `study/runner.simulate_geometry` (planner via `control_comparison`, Robustness Lab via `uncertainty/runner`, batch, volume sweep, validation), `study/validation.py`, `calibration/simulate.py`, `history/reproduce._reproduce_dual` and the live dual comparison (`live/sessions.py`). Not affected: `/api/v1/simulations` and the single-run paths (`create_controller` on the config as given). Separately, `/api/simulation/new` drops unknown controller keys through `ControllerSection` (planned in S6). Recorded by `backend/tests/integration/test_study_path_entry_control.py`: two `xfail(strict=True)` tests and one pin of today's field-less roundabout section.
+
+### Design review (2026-10-19, read-only)
+
+* **Stop points.** One `virtual_obstacle` slot per lane (`vehicles/router.py` Layer 2), used by the roundabout at `lane.length`; per-vehicle limits come only from `engine.controller.vehicle_stop_limits` (`engine/vehicle_pool.py`). Basis for D-W2-2 and H13.
+* **Exits.** A vehicle is removed as soon as it passes the end of its last lane (`vehicles/vehicle.py`, `EXITED`). Probe on three conventional 180 s runs (1,800 ticks each): two-ring heavy-mix saturated — exit lanes never held a stopped vehicle, the ring had one in 297 ticks (max 2 at once); three-arm saturated — exits 0, ring 105 ticks (max 1); merging entry — exits 1 tick (1 vehicle), ring 9 ticks (max 1). Basis for D-W2-5.
+* **Deadlock.** `DeadlockDetector` runs only with `unstructuredTraffic` (never set by scenario documents), counts > 4 vehicles stopped > 5 s, and is unit-tested only with a fake pool. The repository's gridlock guards are discharge-based (`test_roundabout_lockup.py`: longest gap ≤ 30 s, ≥ 15 exits in the last minute; signal tests: `longest_stall < 70 s`). The former-lockup roundabout tests allow ≤ 1 collision for the conventional roundabout. Basis for D-W2-9a and D-W2-9d.
+* **Metrics.** Idle loss is computed for every geometry from `derive_signals_state` and is not used by planner or Robustness indicators; it feeds `masterEfficiencyScore`. Basis for D-W2-6.
