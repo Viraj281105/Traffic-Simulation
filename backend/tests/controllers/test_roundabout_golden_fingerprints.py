@@ -10,10 +10,12 @@ the full corpus in the ``roundabout-golden`` slow shard.
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any, Dict, List
 
 import pytest
 
+from src.planning.models import canonical_json
 from tests.controllers.roundabout_golden import (
     CORPUS,
     compile_case,
@@ -68,6 +70,34 @@ def test_conventional_roundabout_matches_its_portable_pin(
     assert _run(case)["portable"] == case["expected"], (
         f"{case['id']} ({case['path']} path) no longer reproduces the pre-seam "
         f"roundabout to 1 µm / 12 significant digits. {_DO_NOT_RERECORD}"
+    )
+
+
+# The baseline itself, pinned (2026-10-19). Re-recording (--record --force),
+# removing a case, hand-editing a pin or adding an environment changes the
+# fixture, so it fails here until this block is edited in the same diff —
+# which is where a reviewer sees that the baseline moved and asks for the
+# ADR-014 §7 reason. The digest is over the parsed fixture (canonical JSON),
+# so line endings cannot move it.
+BASELINE_COMMIT = "e43bfec"
+BASELINE_SOURCE_DIGEST = (
+    "693bf5f8f199d0efef1b82257af12775b8fecb446bdb4f412f9d65ac97414ad1"
+)
+BASELINE_FIXTURE_DIGEST = (
+    "274b293d65f9f773495466bacebcce8ddb5c68984cda7760754be3a2135745d8"
+)
+
+
+def test_the_baseline_fixture_is_the_one_recorded_from_e43bfec() -> None:
+    fixture = load_fixture()
+    assert fixture["recordedFrom"] == BASELINE_COMMIT
+    assert fixture["sourceDigest"] == BASELINE_SOURCE_DIGEST
+    found = hashlib.sha256(canonical_json(fixture).encode()).hexdigest()
+    assert found == BASELINE_FIXTURE_DIGEST, (
+        "tests/fixtures/roundabout_golden_fingerprints.json changed. If the "
+        "pre-seam baseline was deliberately re-recorded or extended, update "
+        "the BASELINE_* constants in this diff and record the reason "
+        f"(ADR-014 §7). {_DO_NOT_RERECORD}"
     )
 
 
