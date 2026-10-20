@@ -20,8 +20,8 @@ from typing import Any, Dict, List
 import jsonschema
 import pytest
 
+from src.controllers.factory import create_controller
 from src.controllers.fixed_time_signal import FixedTimeSignalController
-from src.controllers.roundabout import RoundaboutController
 from src.core.clock import Clock
 from src.engine.simulation_engine import SimulationEngine
 from src.metrics.collector import MetricCollector
@@ -61,10 +61,7 @@ def _build_snapshot(config: Dict[str, Any], steps: int = 40) -> Dict[str, Any]:
     engine = SimulationEngine(
         clock, duration=config["simulation"]["duration"], config=config
     )
-    if config["geometry"]["intersectionType"] == "roundabout":
-        controller: Any = RoundaboutController(config, engine.network)
-    else:
-        controller = FixedTimeSignalController(config, engine.network)
+    controller = create_controller(config, engine.network)
     engine.controller = controller
     collector = MetricCollector(config)
     builder = SnapshotBuilder("sim", "cfg", engine, collector, controller)
@@ -113,6 +110,47 @@ def test_roundabout_snapshot_matches_schema() -> None:
 
     jsonschema.validate(snapshot, SNAPSHOT_SCHEMA)
     assert snapshot["controller"]["type"] == "roundabout"
+
+
+def test_signalised_roundabout_snapshot_matches_schema() -> None:
+    config = _base_config()
+    config["geometry"] = {"intersectionType": "roundabout"}
+    config["controller"] = {
+        "innerRadius": 10.0,
+        "outerRadius": 20.0,
+        "entryControl": "metered_entry",
+        "entryMetering": {
+            "phases": [
+                {
+                    "entries": ["north", "south"],
+                    "green": 20,
+                    "minGreen": 8,
+                    "maxGreen": 40,
+                },
+                {
+                    "entries": ["east", "west"],
+                    "green": 20,
+                    "minGreen": 8,
+                    "maxGreen": 40,
+                },
+            ],
+            "yellow": 3.0,
+            "allRed": 2.0,
+            "spillbackGuard": {
+                "enabled": True,
+                "stoppedThreshold": 2,
+                "maxHold": 10.0,
+            },
+            "queueCap": {"enabled": True, "vehicles": 8},
+        },
+    }
+    snapshot = _build_snapshot(config)
+
+    jsonschema.validate(snapshot, SNAPSHOT_SCHEMA)
+    assert snapshot["controller"]["type"] == "roundabout"
+    assert snapshot["controller"]["entryControl"] == "metered_entry"
+    assert "metering" in snapshot["controller"]
+    assert snapshot["controller"]["metering"]["color"] in ("green", "yellow", "red")
 
 
 def _all_default_cycle_phase_names() -> List[str]:

@@ -232,3 +232,64 @@ def test_every_frontend_preset_is_valid_for_every_strategy() -> None:
     for preset in presets:
         result = validate_scenario(copy.deepcopy(preset["scenario"]), list(STRATEGIES))
         assert result["valid"], (preset["id"], result["errors"])
+
+
+def test_roundabout_scenario_with_metering_compiles_and_preserves_controller_fields() -> (
+    None
+):
+    doc = _doc()
+    doc["roundabout"]["entryControl"] = "metered_entry"
+    doc["roundabout"]["entryMetering"] = {
+        "phases": [
+            {
+                "entries": ["north", "south"],
+                "green": 20.0,
+                "minGreen": 8.0,
+                "maxGreen": 40.0,
+            },
+            {
+                "entries": ["east", "west"],
+                "green": 20.0,
+                "minGreen": 8.0,
+                "maxGreen": 40.0,
+            },
+        ],
+        "yellow": 3.0,
+        "allRed": 2.0,
+        "offset": 0.0,
+        "spillbackGuard": {"enabled": True, "stoppedThreshold": 2, "maxHold": 10.0},
+        "queueCap": {"enabled": True, "vehicles": 8},
+    }
+    parsed, errors = parse_scenario(doc)
+    assert parsed is not None, errors
+    compiled = compile_scenario(parsed, "roundabout")
+    assert compiled["controller"]["entryControl"] == "metered_entry"
+    assert "entryMetering" in compiled["controller"]
+    assert len(compiled["controller"]["entryMetering"]["phases"]) == 2
+    assert compiled["controller"]["entryMetering"]["spillbackGuard"]["enabled"] is True
+
+
+def test_unmetered_roundabout_fingerprint_parity() -> None:
+    doc_base = _doc()
+    doc_explicit = copy.deepcopy(doc_base)
+    doc_explicit["roundabout"]["entryControl"] = None
+    doc_explicit["roundabout"]["entryMetering"] = None
+
+    parsed_base, _ = parse_scenario(doc_base)
+    parsed_explicit, _ = parse_scenario(doc_explicit)
+    assert parsed_base is not None and parsed_explicit is not None
+    assert scenario_fingerprint(parsed_base) == scenario_fingerprint(parsed_explicit)
+
+
+def test_metered_roundabout_changes_fingerprint() -> None:
+    doc_base = _doc()
+    doc_metered = copy.deepcopy(doc_base)
+    doc_metered["roundabout"]["entryControl"] = "metered_entry"
+    doc_metered["roundabout"]["entryMetering"] = {
+        "phases": [{"entries": ["north"], "green": 25.0}],
+    }
+
+    parsed_base, _ = parse_scenario(doc_base)
+    parsed_metered, _ = parse_scenario(doc_metered)
+    assert parsed_base is not None and parsed_metered is not None
+    assert scenario_fingerprint(parsed_metered) != scenario_fingerprint(parsed_base)

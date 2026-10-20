@@ -13,7 +13,7 @@ from __future__ import annotations
 import math
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple
+from typing import Any, Dict, FrozenSet, Iterable, List, Optional, Set, Tuple
 
 from src.controllers.entry_gate import OPEN, GateDecision, GateReason
 from src.controllers.fixed_time_signal import Phase
@@ -39,6 +39,643 @@ METERING_BOUNDS: Dict[str, Tuple[float, float]] = {
     "maxHold": (0.0, 60.0),
     "queueCapVehicles": (1.0, 50.0),
 }
+
+METERING_ERROR_CODES: FrozenSet[str] = frozenset(
+    {
+        "metering.mode_unknown",
+        "metering.not_roundabout",
+        "metering.adaptive_conflict",
+        "metering.no_phases",
+        "metering.empty_phase",
+        "metering.unknown_entry",
+        "metering.missing_arm",
+        "metering.duplicate_in_phase",
+        "metering.zero_green",
+        "metering.green_below_min",
+        "metering.green_above_max",
+        "metering.min_above_max",
+        "metering.out_of_bounds",
+        "metering.offset_beyond_cycle",
+        "metering.unknown_field",
+        "metering.not_a_number",
+    }
+)
+
+
+@dataclass(frozen=True)
+class MeteringValidationIssue:
+    """A typed validation issue emitted by the entry metering validator (D-W2-8)."""
+
+    code: str
+    message: str
+    path: str
+
+
+def _is_finite_number(val: Any) -> bool:
+    return (
+        isinstance(val, (int, float))
+        and not isinstance(val, bool)
+        and math.isfinite(val)
+    )
+
+
+def validate_entry_metering(
+    config: Dict[str, Any],
+    arms: Optional[Iterable[Direction]] = None,
+) -> List[MeteringValidationIssue]:
+    """Pure validator returning stable metering.* issues (D-W2-8, Plan §5.2).
+
+    Never raises exceptions on malformed or unexpected input structures.
+    """
+    issues: List[MeteringValidationIssue] = []
+
+    if not isinstance(config, dict):
+        issues.append(
+            MeteringValidationIssue(
+                "metering.unknown_field",
+                f"configuration must be a dictionary, got {type(config).__name__}",
+                "config",
+            )
+        )
+        return issues
+
+    ctrl = (
+        config.get("controller") if isinstance(config.get("controller"), dict) else None
+    )
+
+    # Resolve entryControl
+    entry_control = None
+    if ctrl is not None and "entryControl" in ctrl:
+        entry_control = ctrl.get("entryControl")
+    elif "entryControl" in config:
+        entry_control = config.get("entryControl")
+
+    # Resolve entryMetering
+    metering_cfg = None
+    if ctrl is not None and "entryMetering" in ctrl:
+        metering_cfg = ctrl.get("entryMetering")
+    elif "entryMetering" in config:
+        metering_cfg = config.get("entryMetering")
+    elif "phases" in config:
+        # Caller passed the entryMetering section directly
+        metering_cfg = config
+        if entry_control is None:
+            entry_control = "metered_entry"
+
+    # If neither entryControl nor entryMetering is present, this is unmetered
+    if entry_control is None and metering_cfg is None:
+        return []
+
+    # Validate entryControl mode
+    if entry_control is not None:
+        if not isinstance(entry_control, str) or entry_control not in (
+            "metered_entry",
+            "none",
+        ):
+            issues.append(
+                MeteringValidationIssue(
+                    "metering.mode_unknown",
+                    f"controller.entryControl must be 'metered_entry' or 'none'; got {entry_control!r}",
+                    "controller.entryControl",
+                )
+            )
+            return issues
+        if entry_control == "none" and metering_cfg is None:
+            return []
+
+    # Validate intersectionType
+    geom = config.get("geometry")
+    if isinstance(geom, dict):
+        itype = geom.get("intersectionType")
+        if itype is not None and itype != "roundabout":
+            issues.append(
+                MeteringValidationIssue(
+                    "metering.not_roundabout",
+                    f"controller.entryControl 'metered_entry' requires geometry.intersectionType 'roundabout', got {itype!r}",
+                    "geometry.intersectionType",
+                )
+            )
+
+    # Validate signalControl conflict
+    sctrl = None
+    if ctrl is not None:
+        sctrl = ctrl.get("signalControl")
+    elif "signalControl" in config:
+        sctrl = config.get("signalControl")
+    if sctrl == "adaptive":
+        issues.append(
+            MeteringValidationIssue(
+                "metering.adaptive_conflict",
+                "controller.entryControl 'metered_entry' cannot be combined with controller.signalControl 'adaptive'",
+                "controller.signalControl",
+            )
+        )
+
+    # Validate entryMetering presence and shape
+    if metering_cfg is None:
+        issues.append(
+            MeteringValidationIssue(
+                "metering.no_phases",
+                "entryMetering configuration is required for metered_entry",
+                "controller.entryMetering",
+            )
+        )
+        return issues
+
+    if not isinstance(metering_cfg, dict):
+        issues.append(
+            MeteringValidationIssue(
+                "metering.unknown_field",
+                f"entryMetering must be an object, got {type(metering_cfg).__name__}",
+                "controller.entryMetering",
+            )
+        )
+        return issues
+
+    # Validate unknown fields in entryMetering
+    allowed_metering_fields = {
+        "phases",
+        "yellow",
+        "allRed",
+        "all_red",
+        "offset",
+        "spillbackGuard",
+        "queueCap",
+    }
+    for k in sorted(metering_cfg.keys()):
+        if k not in allowed_metering_fields:
+            issues.append(
+                MeteringValidationIssue(
+                    "metering.unknown_field",
+                    f"entryMetering has unknown field: {k!r}",
+                    f"controller.entryMetering.{k}",
+                )
+            )
+
+    # Validate phases
+    phases = metering_cfg.get("phases")
+    if phases is None or not isinstance(phases, list) or len(phases) == 0:
+        issues.append(
+            MeteringValidationIssue(
+                "metering.no_phases",
+                "entryMetering.phases must be a non-empty list of phases",
+                "controller.entryMetering.phases",
+            )
+        )
+    else:
+        if len(phases) > 4:
+            issues.append(
+                MeteringValidationIssue(
+                    "metering.out_of_bounds",
+                    f"entryMetering.phases has {len(phases)} phases; at most 4 phases are allowed",
+                    "controller.entryMetering.phases",
+                )
+            )
+
+        # Determine present arms
+        present_arm_set: Optional[Set[Direction]] = None
+        if arms is not None:
+            present_arm_set = set(arms)
+        elif (
+            isinstance(geom, dict) and "arms" in geom and isinstance(geom["arms"], list)
+        ):
+            try:
+                present_arm_set = {
+                    Direction(a.strip().lower())
+                    for a in geom["arms"]
+                    if isinstance(a, str)
+                }
+            except ValueError:
+                pass
+        elif isinstance(config.get("roads"), dict) and "approaches" in config["roads"]:
+            approaches = config["roads"]["approaches"]
+            if isinstance(approaches, list):
+                present_arm_set = set()
+                for item in approaches:
+                    if isinstance(item, dict) and "direction" in item:
+                        try:
+                            present_arm_set.add(
+                                Direction(str(item["direction"]).strip().lower())
+                            )
+                        except ValueError:
+                            pass
+
+        for p_idx, phase in enumerate(phases):
+            p_path = f"controller.entryMetering.phases[{p_idx}]"
+            if not isinstance(phase, dict):
+                issues.append(
+                    MeteringValidationIssue(
+                        "metering.unknown_field",
+                        f"phase at index {p_idx} must be an object, got {type(phase).__name__}",
+                        p_path,
+                    )
+                )
+                continue
+
+            allowed_phase_fields = {
+                "entries",
+                "green",
+                "minGreen",
+                "min_green",
+                "maxGreen",
+                "max_green",
+            }
+            for k in sorted(phase.keys()):
+                if k not in allowed_phase_fields:
+                    issues.append(
+                        MeteringValidationIssue(
+                            "metering.unknown_field",
+                            f"phase {p_idx} has unknown field: {k!r}",
+                            f"{p_path}.{k}",
+                        )
+                    )
+
+            # Entries validation
+            entries = phase.get("entries")
+            if (
+                entries is None
+                or not isinstance(entries, (list, tuple))
+                or len(entries) == 0
+            ):
+                issues.append(
+                    MeteringValidationIssue(
+                        "metering.empty_phase",
+                        f"phase {p_idx} must have a non-empty entries list",
+                        f"{p_path}.entries",
+                    )
+                )
+            else:
+                seen_entries: Set[Direction] = set()
+                for e_idx, e in enumerate(entries):
+                    e_path = f"{p_path}.entries[{e_idx}]"
+                    d: Optional[Direction] = None
+                    if isinstance(e, Direction):
+                        d = e
+                    elif isinstance(e, str):
+                        try:
+                            d = Direction(e.strip().lower())
+                        except ValueError:
+                            d = None
+                    if d is None:
+                        issues.append(
+                            MeteringValidationIssue(
+                                "metering.unknown_entry",
+                                f"phase {p_idx} entry {e!r} is not a valid compass direction",
+                                e_path,
+                            )
+                        )
+                    else:
+                        if present_arm_set is not None and d not in present_arm_set:
+                            issues.append(
+                                MeteringValidationIssue(
+                                    "metering.missing_arm",
+                                    f"phase {p_idx} entry '{d.value}' is not present at the junction",
+                                    e_path,
+                                )
+                            )
+                        if d in seen_entries:
+                            issues.append(
+                                MeteringValidationIssue(
+                                    "metering.duplicate_in_phase",
+                                    f"duplicate entry '{d.value}' in phase {p_idx}",
+                                    e_path,
+                                )
+                            )
+                        seen_entries.add(d)
+
+            # Green duration validation
+            green = phase.get("green")
+            green_val: Optional[float] = None
+            if green is None:
+                issues.append(
+                    MeteringValidationIssue(
+                        "metering.not_a_number",
+                        f"phase {p_idx} green is required and must be a number",
+                        f"{p_path}.green",
+                    )
+                )
+            elif not _is_finite_number(green):
+                issues.append(
+                    MeteringValidationIssue(
+                        "metering.not_a_number",
+                        f"phase {p_idx} green must be a finite number; got {green!r}",
+                        f"{p_path}.green",
+                    )
+                )
+            else:
+                green_val = float(green)
+                if green_val <= 0:
+                    issues.append(
+                        MeteringValidationIssue(
+                            "metering.zero_green",
+                            f"phase {p_idx} green must be positive; got {green_val:g}",
+                            f"{p_path}.green",
+                        )
+                    )
+                elif not (5.0 < green_val <= 120.0):
+                    issues.append(
+                        MeteringValidationIssue(
+                            "metering.out_of_bounds",
+                            f"phase {p_idx} green ({green_val:g}) must be in 5 < x <= 120 s",
+                            f"{p_path}.green",
+                        )
+                    )
+
+            # minGreen validation
+            min_green = phase.get("minGreen", phase.get("min_green"))
+            min_green_val: Optional[float] = None
+            if min_green is not None:
+                if not _is_finite_number(min_green):
+                    issues.append(
+                        MeteringValidationIssue(
+                            "metering.not_a_number",
+                            f"phase {p_idx} minGreen must be a finite number; got {min_green!r}",
+                            f"{p_path}.minGreen",
+                        )
+                    )
+                else:
+                    min_green_val = float(min_green)
+                    if not (5.0 <= min_green_val <= 60.0):
+                        issues.append(
+                            MeteringValidationIssue(
+                                "metering.out_of_bounds",
+                                f"phase {p_idx} minGreen ({min_green_val:g}) must be in 5 <= x <= 60 s",
+                                f"{p_path}.minGreen",
+                            )
+                        )
+
+            # maxGreen validation
+            max_green = phase.get("maxGreen", phase.get("max_green"))
+            max_green_val: Optional[float] = None
+            if max_green is not None:
+                if not _is_finite_number(max_green):
+                    issues.append(
+                        MeteringValidationIssue(
+                            "metering.not_a_number",
+                            f"phase {p_idx} maxGreen must be a finite number; got {max_green!r}",
+                            f"{p_path}.maxGreen",
+                        )
+                    )
+                else:
+                    max_green_val = float(max_green)
+                    if not (10.0 <= max_green_val <= 180.0):
+                        issues.append(
+                            MeteringValidationIssue(
+                                "metering.out_of_bounds",
+                                f"phase {p_idx} maxGreen ({max_green_val:g}) must be in 10 <= x <= 180 s",
+                                f"{p_path}.maxGreen",
+                            )
+                        )
+
+            # Green cross-checks
+            if min_green_val is not None and max_green_val is not None:
+                if min_green_val > max_green_val:
+                    issues.append(
+                        MeteringValidationIssue(
+                            "metering.min_above_max",
+                            f"phase {p_idx} minGreen ({min_green_val:g}) cannot exceed maxGreen ({max_green_val:g})",
+                            f"{p_path}.minGreen",
+                        )
+                    )
+            if green_val is not None and green_val > 0:
+                if min_green_val is not None and green_val < min_green_val:
+                    issues.append(
+                        MeteringValidationIssue(
+                            "metering.green_below_min",
+                            f"phase {p_idx} green ({green_val:g}) cannot be less than minGreen ({min_green_val:g})",
+                            f"{p_path}.green",
+                        )
+                    )
+                if max_green_val is not None and green_val > max_green_val:
+                    issues.append(
+                        MeteringValidationIssue(
+                            "metering.green_above_max",
+                            f"phase {p_idx} green ({green_val:g}) cannot exceed maxGreen ({max_green_val:g})",
+                            f"{p_path}.green",
+                        )
+                    )
+
+    # Yellow validation
+    yellow = metering_cfg.get("yellow")
+    yellow_val = 3.0
+    if yellow is not None:
+        if not _is_finite_number(yellow):
+            issues.append(
+                MeteringValidationIssue(
+                    "metering.not_a_number",
+                    f"entryMetering.yellow must be a finite number; got {yellow!r}",
+                    "controller.entryMetering.yellow",
+                )
+            )
+        else:
+            yellow_val = float(yellow)
+            if not (2.0 < yellow_val <= 8.0):
+                issues.append(
+                    MeteringValidationIssue(
+                        "metering.out_of_bounds",
+                        f"entryMetering.yellow ({yellow_val:g}) must be in 2 < x <= 8 s",
+                        "controller.entryMetering.yellow",
+                    )
+                )
+
+    # allRed validation
+    all_red = metering_cfg.get("allRed", metering_cfg.get("all_red"))
+    all_red_val = 2.0
+    if all_red is not None:
+        if not _is_finite_number(all_red):
+            issues.append(
+                MeteringValidationIssue(
+                    "metering.not_a_number",
+                    f"entryMetering.allRed must be a finite number; got {all_red!r}",
+                    "controller.entryMetering.allRed",
+                )
+            )
+        else:
+            all_red_val = float(all_red)
+            if not (0.0 <= all_red_val <= 5.0):
+                issues.append(
+                    MeteringValidationIssue(
+                        "metering.out_of_bounds",
+                        f"entryMetering.allRed ({all_red_val:g}) must be in 0 <= x <= 5 s",
+                        "controller.entryMetering.allRed",
+                    )
+                )
+
+    # Offset validation
+    offset = metering_cfg.get("offset")
+    offset_val = 0.0
+    if offset is not None:
+        if not _is_finite_number(offset):
+            issues.append(
+                MeteringValidationIssue(
+                    "metering.not_a_number",
+                    f"entryMetering.offset must be a finite number; got {offset!r}",
+                    "controller.entryMetering.offset",
+                )
+            )
+        else:
+            offset_val = float(offset)
+            if offset_val < 0.0:
+                issues.append(
+                    MeteringValidationIssue(
+                        "metering.out_of_bounds",
+                        f"entryMetering.offset ({offset_val:g}) cannot be negative",
+                        "controller.entryMetering.offset",
+                    )
+                )
+            else:
+                if isinstance(phases, list) and all(
+                    isinstance(p, dict)
+                    and _is_finite_number(p.get("green"))
+                    and float(p.get("green", 0)) > 0
+                    for p in phases
+                ):
+                    cycle_len = sum(
+                        float(p["green"]) + yellow_val + all_red_val for p in phases
+                    )
+                    if cycle_len > 0 and offset_val >= cycle_len:
+                        issues.append(
+                            MeteringValidationIssue(
+                                "metering.offset_beyond_cycle",
+                                f"entryMetering.offset ({offset_val:g} s) must be less than cycle duration ({cycle_len:g} s)",
+                                "controller.entryMetering.offset",
+                            )
+                        )
+
+    # Spillback guard validation
+    sg = metering_cfg.get("spillbackGuard")
+    if sg is not None:
+        if not isinstance(sg, dict):
+            issues.append(
+                MeteringValidationIssue(
+                    "metering.unknown_field",
+                    f"entryMetering.spillbackGuard must be an object, got {type(sg).__name__}",
+                    "controller.entryMetering.spillbackGuard",
+                )
+            )
+        else:
+            allowed_sg_fields = {"enabled", "stoppedThreshold", "maxHold"}
+            for k in sorted(sg.keys()):
+                if k not in allowed_sg_fields:
+                    issues.append(
+                        MeteringValidationIssue(
+                            "metering.unknown_field",
+                            f"spillbackGuard has unknown field: {k!r}",
+                            f"controller.entryMetering.spillbackGuard.{k}",
+                        )
+                    )
+            if "enabled" in sg and not isinstance(sg["enabled"], bool):
+                issues.append(
+                    MeteringValidationIssue(
+                        "metering.unknown_field",
+                        "spillbackGuard.enabled must be a boolean",
+                        "controller.entryMetering.spillbackGuard.enabled",
+                    )
+                )
+            if "stoppedThreshold" in sg:
+                st = sg["stoppedThreshold"]
+                if not _is_finite_number(st):
+                    issues.append(
+                        MeteringValidationIssue(
+                            "metering.not_a_number",
+                            f"spillbackGuard.stoppedThreshold must be a number; got {st!r}",
+                            "controller.entryMetering.spillbackGuard.stoppedThreshold",
+                        )
+                    )
+                elif st != int(st):
+                    issues.append(
+                        MeteringValidationIssue(
+                            "metering.out_of_bounds",
+                            f"spillbackGuard.stoppedThreshold must be a whole number; got {st:g}",
+                            "controller.entryMetering.spillbackGuard.stoppedThreshold",
+                        )
+                    )
+                elif not (1 <= int(st) <= 20):
+                    issues.append(
+                        MeteringValidationIssue(
+                            "metering.out_of_bounds",
+                            f"spillbackGuard.stoppedThreshold ({int(st)}) must be in 1..20",
+                            "controller.entryMetering.spillbackGuard.stoppedThreshold",
+                        )
+                    )
+            if "maxHold" in sg:
+                mh = sg["maxHold"]
+                if not _is_finite_number(mh):
+                    issues.append(
+                        MeteringValidationIssue(
+                            "metering.not_a_number",
+                            f"spillbackGuard.maxHold must be a number; got {mh!r}",
+                            "controller.entryMetering.spillbackGuard.maxHold",
+                        )
+                    )
+                elif not (0.0 <= float(mh) <= 60.0):
+                    issues.append(
+                        MeteringValidationIssue(
+                            "metering.out_of_bounds",
+                            f"spillbackGuard.maxHold ({float(mh):g}) must be in 0..60 s",
+                            "controller.entryMetering.spillbackGuard.maxHold",
+                        )
+                    )
+
+    # Queue cap validation
+    qc = metering_cfg.get("queueCap")
+    if qc is not None:
+        if not isinstance(qc, dict):
+            issues.append(
+                MeteringValidationIssue(
+                    "metering.unknown_field",
+                    f"entryMetering.queueCap must be an object, got {type(qc).__name__}",
+                    "controller.entryMetering.queueCap",
+                )
+            )
+        else:
+            allowed_qc_fields = {"enabled", "vehicles"}
+            for k in sorted(qc.keys()):
+                if k not in allowed_qc_fields:
+                    issues.append(
+                        MeteringValidationIssue(
+                            "metering.unknown_field",
+                            f"queueCap has unknown field: {k!r}",
+                            f"controller.entryMetering.queueCap.{k}",
+                        )
+                    )
+            if "enabled" in qc and not isinstance(qc["enabled"], bool):
+                issues.append(
+                    MeteringValidationIssue(
+                        "metering.unknown_field",
+                        "queueCap.enabled must be a boolean",
+                        "controller.entryMetering.queueCap.enabled",
+                    )
+                )
+            if "vehicles" in qc:
+                v = qc["vehicles"]
+                if not _is_finite_number(v):
+                    issues.append(
+                        MeteringValidationIssue(
+                            "metering.not_a_number",
+                            f"queueCap.vehicles must be a number; got {v!r}",
+                            "controller.entryMetering.queueCap.vehicles",
+                        )
+                    )
+                elif v != int(v):
+                    issues.append(
+                        MeteringValidationIssue(
+                            "metering.out_of_bounds",
+                            f"queueCap.vehicles must be a whole number; got {v:g}",
+                            "controller.entryMetering.queueCap.vehicles",
+                        )
+                    )
+                elif not (1 <= int(v) <= 50):
+                    issues.append(
+                        MeteringValidationIssue(
+                            "metering.out_of_bounds",
+                            f"queueCap.vehicles ({int(v)}) must be in 1..50",
+                            "controller.entryMetering.queueCap.vehicles",
+                        )
+                    )
+
+    return issues
+
 
 _ALL_TURNS: Tuple[TurnIntent, ...] = (
     TurnIntent.LEFT,

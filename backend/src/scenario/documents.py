@@ -66,6 +66,10 @@ Movement = Literal["uturn", "left", "straight", "right"]
 # earlier document keeps the fingerprint it always had.
 _V15_OPTIONAL_APPROACH_FIELDS = ("bearing", "laneWidth")
 
+# V3.0 W2 fields left out of a document's fingerprint while unset, so every
+# earlier document keeps the fingerprint it always had (Plan §5.4).
+_W2_OPTIONAL_ROUNDABOUT_FIELDS = ("entryControl", "entryMetering")
+
 
 class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -164,6 +168,33 @@ class SignalSpec(_Strict):
     )
 
 
+class MeteredPhaseSpec(_Strict):
+    entries: List[str]
+    green: float = Field(..., gt=5, le=120)
+    minGreen: Optional[float] = Field(None, ge=5, le=60)
+    maxGreen: Optional[float] = Field(None, ge=10, le=180)
+
+
+class SpillbackGuardSpec(_Strict):
+    enabled: bool = False
+    stoppedThreshold: int = Field(2, ge=1, le=20)
+    maxHold: float = Field(10.0, ge=0, le=60)
+
+
+class QueueCapSpec(_Strict):
+    enabled: bool = False
+    vehicles: int = Field(8, ge=1, le=50)
+
+
+class EntryMeteringSpec(_Strict):
+    phases: List[MeteredPhaseSpec] = Field(..., min_length=1, max_length=4)
+    yellow: float = Field(3.0, gt=2, le=8)
+    allRed: float = Field(2.0, ge=0, le=5)
+    offset: float = Field(0.0, ge=0)
+    spillbackGuard: Optional[SpillbackGuardSpec] = None
+    queueCap: Optional[QueueCapSpec] = None
+
+
 class RoundaboutSpec(_Strict):
     # Omitted: as many as the widest approach.
     circulatingLanes: Optional[int] = Field(None, ge=1, le=3)
@@ -173,6 +204,8 @@ class RoundaboutSpec(_Strict):
     followUpTime: float = Field(2.5, gt=0, le=10)
     entrySpeed: float = Field(5.0, gt=0, le=15)
     circulatingSpeed: float = Field(8.0, gt=0, le=15)
+    entryControl: Optional[Literal["metered_entry", "none"]] = None
+    entryMetering: Optional[EntryMeteringSpec] = None
 
 
 class SimulationSpec(_Strict):
@@ -231,6 +264,10 @@ def scenario_fingerprint(document: ScenarioDocument) -> str:
                 arm.pop(key, None)
         if arm["turning"].get("uturn") is None:
             arm["turning"].pop("uturn", None)
+    if "roundabout" in body and isinstance(body["roundabout"], dict):
+        for key in _W2_OPTIONAL_ROUNDABOUT_FIELDS:
+            if body["roundabout"].get(key) is None:
+                body["roundabout"].pop(key, None)
     canonical = json.dumps(body, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode()).hexdigest()[:16]
 
@@ -361,6 +398,12 @@ def compile_scenario(document: ScenarioDocument, strategy: str) -> Dict[str, Any
             "entrySpeed": rb.entrySpeed,
             "circulatingSpeed": rb.circulatingSpeed,
         }
+        if rb.entryControl is not None:
+            config["controller"]["entryControl"] = rb.entryControl
+        if rb.entryMetering is not None:
+            config["controller"]["entryMetering"] = rb.entryMetering.model_dump(
+                exclude_none=True
+            )
         if rb.circulatingLanes is not None:
             config["geometry"]["circulatingLanes"] = rb.circulatingLanes
     else:
