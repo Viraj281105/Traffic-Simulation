@@ -472,6 +472,14 @@ class MeteredEntryGate:
             "yellow": 0,
             "ring_spillback_hold": 0,
             "queue_cap": 0,
+            "yellow_commit": 0,
+            "spillback_exhausted": 0,
+            "entry_denials": 0,
+        }
+        self.denial_counts: Dict[str, int] = {
+            "red": 0,
+            "yellow": 0,
+            "ring_spillback_hold": 0,
         }
         self.recent_decisions: deque[Dict[str, Any]] = deque(maxlen=50)
 
@@ -482,6 +490,8 @@ class MeteredEntryGate:
         self._last_state.clear()
         for k in self.decision_counts:
             self.decision_counts[k] = 0
+        for k in self.denial_counts:
+            self.denial_counts[k] = 0
         self.recent_decisions.clear()
 
     def set_spillback_holds(self, held_arms: Set[Direction]) -> None:
@@ -502,6 +512,42 @@ class MeteredEntryGate:
                 "reason": "queue_cap",
                 "state": "triggered",
             }
+        )
+
+    def record_yellow_commit(self, arm: Direction, vehicle_id: str, now: float) -> None:
+        """Record a vehicle commitment through yellow."""
+        self.decision_counts["yellow_commit"] = (
+            self.decision_counts.get("yellow_commit", 0) + 1
+        )
+        self.recent_decisions.append(
+            {
+                "time": round(now, 2),
+                "arm": arm.value,
+                "reason": "yellow_commit",
+                "state": "committed",
+                "vehicle": vehicle_id,
+            }
+        )
+
+    def record_spillback_exhausted_event(self, arm: Direction, now: float) -> None:
+        """Record budget exhaustion for an arm under spillback guard."""
+        self.decision_counts["spillback_exhausted"] = (
+            self.decision_counts.get("spillback_exhausted", 0) + 1
+        )
+        self.recent_decisions.append(
+            {
+                "time": round(now, 2),
+                "arm": arm.value,
+                "reason": "spillback_exhausted",
+                "state": "released",
+            }
+        )
+
+    def record_entry_denial(self, arm: Direction, reason: GateReason) -> None:
+        """Record entry denial event count for an approach."""
+        self.denial_counts[reason] = self.denial_counts.get(reason, 0) + 1
+        self.decision_counts["entry_denials"] = (
+            self.decision_counts.get("entry_denials", 0) + 1
         )
 
     def update(self, now: float) -> None:
@@ -528,7 +574,7 @@ class MeteredEntryGate:
                         {
                             "time": round(now, 2),
                             "arm": d.value,
-                            "reason": None,
+                            "reason": "open",
                             "state": "open",
                         }
                     )
@@ -552,6 +598,7 @@ class MeteredEntryGate:
             return OPEN
 
         if approach in self._spillback_holds:
+            self.record_entry_denial(approach, "ring_spillback_hold")
             return GateDecision(open=False, reason="ring_spillback_hold")
 
         color = self.cursor.get_color(approach)
@@ -574,13 +621,16 @@ class MeteredEntryGate:
                 obs = VirtualObstacle(position=lane.length, is_yellow=True)
                 if commits_through_yellow(head, obs):
                     self._yellow_latched[head.vehicle_id] = lane.lane_id
+                    self.record_yellow_commit(approach, head.vehicle_id, now)
                     return OPEN
+            self.record_entry_denial(approach, "yellow")
             return GateDecision(open=False, reason="yellow")
 
         # Red / all-red
         if head is not None and head.vehicle_id in self._yellow_latched:
             return OPEN
 
+        self.record_entry_denial(approach, "red")
         return GateDecision(open=False, reason="red")
 
 
@@ -604,6 +654,12 @@ class SpillbackGuard:
         self.network = network
         self.config: SpillbackGuardConfig = plan.spillback_guard
         self.cycle_hold_time: Dict[Direction, float] = {d: 0.0 for d in Direction}
+        self.cumulative_hold_time: Dict[Direction, float] = {d: 0.0 for d in Direction}
+        self.hold_activations: Dict[Direction, int] = {d: 0 for d in Direction}
+        self.budget_exhaustions: Dict[Direction, int] = {d: 0 for d in Direction}
+        self.exhausted_this_tick: Set[Direction] = set()
+        self._currently_held: Set[Direction] = set()
+        self._exhausted_arms: Set[Direction] = set()
         self._last_cycle_number: int = 0
         self._sector_cache: Dict[Direction, Tuple[float, float, Direction]] = {}
         self._init_sectors()
@@ -658,9 +714,15 @@ class SpillbackGuard:
             return False
 
     def reset(self) -> None:
-        """Reset hold timers and cycle tracker."""
+        """Reset hold timers, cumulative accounting, and cycle tracker."""
         for d in Direction:
             self.cycle_hold_time[d] = 0.0
+            self.cumulative_hold_time[d] = 0.0
+            self.hold_activations[d] = 0
+            self.budget_exhaustions[d] = 0
+        self.exhausted_this_tick.clear()
+        self._currently_held.clear()
+        self._exhausted_arms.clear()
         self._last_cycle_number = 0
 
     def count_stopped_vehicles(
@@ -710,12 +772,15 @@ class SpillbackGuard:
         active_vehicles: List[Vehicle],
     ) -> Set[Direction]:
         """Update spillback state for all metered arms, returning the currently held set."""
+        self.exhausted_this_tick.clear()
         if not self.config.enabled:
+            self._currently_held.clear()
             return set()
 
         # Reset per-cycle hold budgets on cycle change
         if cursor.cycle_number != self._last_cycle_number:
             self._last_cycle_number = cursor.cycle_number
+            self._exhausted_arms.clear()
             for d in Direction:
                 self.cycle_hold_time[d] = 0.0
 
@@ -732,7 +797,17 @@ class SpillbackGuard:
                         held.add(d)
                         hold_dt = min(delta_time, remaining_budget)
                         self.cycle_hold_time[d] += hold_dt
+                        self.cumulative_hold_time[d] += hold_dt
+                        if d not in self._currently_held:
+                            self.hold_activations[d] += 1
+                    else:
+                        # Budget is exhausted for this arm while ring remains blocked
+                        if d not in self._exhausted_arms:
+                            self._exhausted_arms.add(d)
+                            self.budget_exhaustions[d] += 1
+                            self.exhausted_this_tick.add(d)
 
+        self._currently_held = set(held)
         return held
 
 
@@ -749,6 +824,12 @@ class QueueCap:
         self.plan = plan
         self.network = network
         self.config: QueueCapConfig = plan.queue_cap
+        self.triggers: Dict[Direction, int] = {d: 0 for d in Direction}
+
+    def reset(self) -> None:
+        """Reset trigger counters."""
+        for d in Direction:
+            self.triggers[d] = 0
 
     def count_standing_queue(self, approach: Direction) -> int:
         """Count stopped vehicles (< 2.0 m/s) queued on all incoming lanes of approach."""
@@ -787,6 +868,7 @@ class QueueCap:
                 if queue_len >= self.config.vehicles:
                     success = cursor.end_green_early()
                     if success:
+                        self.triggers[d] += 1
                         return d
 
         return None

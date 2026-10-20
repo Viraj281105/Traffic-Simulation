@@ -60,10 +60,11 @@ class SignalisedRoundaboutController(BaseController):
         )
 
     def reset(self) -> None:
-        """Reset cursor, gate, spillback guard, and the inner roundabout."""
+        """Reset cursor, gate, spillback guard, queue cap, and the inner roundabout."""
         self.cursor.reset()
         self.gate.reset()
         self.spillback_guard.reset()
+        self.queue_cap.reset()
         self.roundabout.reset()
 
     def update(self, delta_time: float, active_vehicles: List[Vehicle]) -> None:
@@ -81,6 +82,8 @@ class SignalisedRoundaboutController(BaseController):
             self.cursor, delta_time, active_vehicles
         )
         self.gate.set_spillback_holds(held_arms)
+        for arm in self.spillback_guard.exhausted_this_tick:
+            self.gate.record_spillback_exhausted_event(arm, now)
 
         # 3. Gate transition updates
         self.gate.update(now)
@@ -129,6 +132,28 @@ class SignalisedRoundaboutController(BaseController):
             ],
             "decisions": dict(self.gate.decision_counts),
             "recentDecisions": list(self.gate.recent_decisions),
+            "spillbackGuard": {
+                "enabled": self.spillback_guard.config.enabled,
+                "cumulativeHoldTime": {
+                    d.value: round(self.spillback_guard.cumulative_hold_time[d], 2)
+                    for d in self.plan.metered_entries
+                },
+                "activations": {
+                    d.value: self.spillback_guard.hold_activations[d]
+                    for d in self.plan.metered_entries
+                },
+                "budgetExhaustions": {
+                    d.value: self.spillback_guard.budget_exhaustions[d]
+                    for d in self.plan.metered_entries
+                },
+            },
+            "queueCap": {
+                "enabled": self.queue_cap.config.enabled,
+                "triggers": {
+                    d.value: self.queue_cap.triggers[d]
+                    for d in self.plan.metered_entries
+                },
+            },
         }
         return state
 

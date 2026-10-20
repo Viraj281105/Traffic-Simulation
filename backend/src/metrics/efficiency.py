@@ -9,9 +9,11 @@ def calculate_master_efficiency_score(metrics: Dict[str, Any]) -> Optional[float
     number summarising five measures with fixed weights.
 
     WHAT IT IS NOT VALID FOR: ranking a signal against a roundabout.
-    - ``idleOpportunityLoss`` is signal-only: it is structurally 0.0 for a
-      roundabout, so the roundabout always receives the full 10 points of that
-      term whatever it does.
+    - ``idleOpportunityLoss`` is signal-based: it is structurally 0.0 for a
+      conventional roundabout, so that roundabout always receives the full 10
+      points of that term whatever it does. For a signalised roundabout
+      (``metered_entry``), idle loss is measured from the metered signals state
+      (D-W2-6).
     - The throughput term is normalised against a fixed 120 veh/min ceiling, so
       at ordinary demand it mostly reflects how much traffic arrived.
     The API keeps returning it for same-geometry use; the frontend never puts
