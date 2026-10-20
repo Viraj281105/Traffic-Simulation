@@ -5,6 +5,7 @@ import ast
 import json
 from pathlib import Path
 
+from src.planning.export_schemas import MODELS
 from src.planning.models import PlanningStudy
 from src.planning.report import Report
 
@@ -54,7 +55,7 @@ def test_planning_imports_only_the_allowed_surface() -> None:
 
 
 def test_checked_in_schemas_match_models() -> None:
-    for name, model in (("planning-study", PlanningStudy), ("planning-report", Report)):
+    for name, model in MODELS:
         path = ROOT / "shared" / "schemas" / "v2" / f"{name}.schema.json"
         assert (
             json.loads(path.read_text(encoding="utf-8")) == model.model_json_schema()

@@ -371,6 +371,67 @@
       "title": "EdgeSpec",
       "type": "object"
     },
+    "EntryMeteringSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "phases": {
+          "items": {
+            "$ref": "#/$defs/MeteredPhaseSpec"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "title": "Phases",
+          "type": "array"
+        },
+        "yellow": {
+          "default": 3.0,
+          "exclusiveMinimum": 2,
+          "maximum": 8,
+          "title": "Yellow",
+          "type": "number"
+        },
+        "allRed": {
+          "default": 2.0,
+          "maximum": 5,
+          "minimum": 0,
+          "title": "Allred",
+          "type": "number"
+        },
+        "offset": {
+          "default": 0.0,
+          "minimum": 0,
+          "title": "Offset",
+          "type": "number"
+        },
+        "spillbackGuard": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpillbackGuardSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "queueCap": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QueueCapSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "phases"
+      ],
+      "title": "EntryMeteringSpec",
+      "type": "object"
+    },
     "JunctionSpec": {
       "additionalProperties": false,
       "properties": {
@@ -440,6 +501,58 @@
         "index"
       ],
       "title": "LaneSpec",
+      "type": "object"
+    },
+    "MeteredPhaseSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "entries": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Entries",
+          "type": "array"
+        },
+        "green": {
+          "exclusiveMinimum": 5,
+          "maximum": 120,
+          "title": "Green",
+          "type": "number"
+        },
+        "minGreen": {
+          "anyOf": [
+            {
+              "maximum": 60,
+              "minimum": 5,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mingreen"
+        },
+        "maxGreen": {
+          "anyOf": [
+            {
+              "maximum": 180,
+              "minimum": 10,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maxgreen"
+        }
+      },
+      "required": [
+        "entries",
+        "green"
+      ],
+      "title": "MeteredPhaseSpec",
       "type": "object"
     },
     "Mix": {
@@ -574,6 +687,25 @@
       "title": "NodeSpec",
       "type": "object"
     },
+    "QueueCapSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "vehicles": {
+          "default": 8,
+          "maximum": 50,
+          "minimum": 1,
+          "title": "Vehicles",
+          "type": "integer"
+        }
+      },
+      "title": "QueueCapSpec",
+      "type": "object"
+    },
     "RoadSpec": {
       "additionalProperties": false,
       "properties": {
@@ -658,6 +790,33 @@
           "maximum": 15,
           "title": "Circulatingspeed",
           "type": "number"
+        },
+        "entryControl": {
+          "anyOf": [
+            {
+              "enum": [
+                "metered_entry",
+                "none"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entrycontrol"
+        },
+        "entryMetering": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntryMeteringSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "title": "RoundaboutSpec",
@@ -900,6 +1059,32 @@
         }
       },
       "title": "SimulationSpec",
+      "type": "object"
+    },
+    "SpillbackGuardSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "stoppedThreshold": {
+          "default": 2,
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Stoppedthreshold",
+          "type": "integer"
+        },
+        "maxHold": {
+          "default": 10.0,
+          "maximum": 60,
+          "minimum": 0,
+          "title": "Maxhold",
+          "type": "number"
+        }
+      },
+      "title": "SpillbackGuardSpec",
       "type": "object"
     },
     "Turning": {
