@@ -6,8 +6,6 @@ import json
 from pathlib import Path
 
 from src.planning.export_schemas import MODELS
-from src.planning.models import PlanningStudy
-from src.planning.report import Report
 
 ROOT = Path(__file__).resolve().parents[3]
 PKG = ROOT / "backend" / "src" / "planning"
