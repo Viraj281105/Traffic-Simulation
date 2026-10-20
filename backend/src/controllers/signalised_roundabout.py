@@ -1,17 +1,20 @@
-"""Signalised roundabout controller (V3.0 W2 S4).
+"""Signalised roundabout controller (V3.0 W2 S4/S5).
 
-Composes RoundaboutController with MeteringPhaseCursor and MeteredEntryGate
-(SR-01, SR-02, SR-06, SR-13; ADR-014; D-W2-1, D-W2-6).
+Composes RoundaboutController with MeteringPhaseCursor, MeteredEntryGate,
+SpillbackGuard, and QueueCap (SR-01, SR-02, SR-06, SR-11, SR-12, SR-13;
+ADR-014; D-W2-1, D-W2-3, D-W2-4, D-W2-5, D-W2-6).
 
 Composition design:
 - Does NOT subclass RoundaboutController (SR-01).
 - Owns an instance of RoundaboutController, injecting MeteredEntryGate as its
   entry_gate extension point.
 - Owns MeteringPhaseCursor, advancing it with the simulation timestep.
+- Owns SpillbackGuard, enforcing ring sector spillback holds bounded by maxHold.
+- Owns QueueCap, triggering early green termination while protecting minGreen.
 - Exposes vehicle_stop_limits from the inner roundabout, preserving two-lane
   exit-zone arbitration under composition (hazard H13).
 - Exposes signals_state() returning per-direction colors (metered arms real
-  colors, unmetered arms green per D-W2-6).
+  colors, unmetered arms green per D-W2-6; arms in spillback hold are red).
 """
 
 from __future__ import annotations
@@ -23,6 +26,8 @@ from src.controllers.entry_metering import (
     EntryMeteringPlan,
     MeteredEntryGate,
     MeteringPhaseCursor,
+    QueueCap,
+    SpillbackGuard,
     build_metering_plan,
 )
 from src.controllers.roundabout import RoundaboutController
@@ -35,7 +40,8 @@ class SignalisedRoundaboutController(BaseController):
     """Controls a signalised roundabout via composition over RoundaboutController.
 
     Owns a RoundaboutController and a MeteringPhaseCursor, connecting them
-    via MeteredEntryGate. Does not subclass RoundaboutController.
+    via MeteredEntryGate, SpillbackGuard, and QueueCap. Does not subclass
+    RoundaboutController.
     """
 
     def __init__(self, config: Dict[str, Any], network: RoadNetwork) -> None:
@@ -45,6 +51,8 @@ class SignalisedRoundaboutController(BaseController):
         self.plan: EntryMeteringPlan = build_metering_plan(config)
         self.cursor: MeteringPhaseCursor = MeteringPhaseCursor(self.plan)
         self.gate: MeteredEntryGate = MeteredEntryGate(self.cursor)
+        self.spillback_guard: SpillbackGuard = SpillbackGuard(self.plan, self.network)
+        self.queue_cap: QueueCap = QueueCap(self.plan, self.network)
 
         # The inner RoundaboutController is composed, receiving our metered gate
         self.roundabout: RoundaboutController = RoundaboutController(
@@ -52,21 +60,40 @@ class SignalisedRoundaboutController(BaseController):
         )
 
     def reset(self) -> None:
-        """Reset cursor, gate, and the inner roundabout."""
+        """Reset cursor, gate, spillback guard, and the inner roundabout."""
         self.cursor.reset()
         self.gate.reset()
+        self.spillback_guard.reset()
         self.roundabout.reset()
 
     def update(self, delta_time: float, active_vehicles: List[Vehicle]) -> None:
-        """Advance cursor, update gate transition events, and tick inner roundabout."""
+        """Advance cursor, evaluate queue cap & spillback guard, update gate events, and tick inner roundabout."""
         self.cursor.advance(delta_time)
         now = self.roundabout.time_in_current_state + delta_time
+
+        # 1. Queue cap check (D-W2-4): triggers early green termination if min_green satisfied
+        qc_arm = self.queue_cap.check_and_trigger(self.cursor, active_vehicles)
+        if qc_arm is not None:
+            self.gate.record_queue_cap_event(qc_arm, now)
+
+        # 2. Spillback guard check (D-W2-5, D-W2-3): holds green arms red when downstream ring blocked
+        held_arms = self.spillback_guard.update(
+            self.cursor, delta_time, active_vehicles
+        )
+        self.gate.set_spillback_holds(held_arms)
+
+        # 3. Gate transition updates
         self.gate.update(now)
+
+        # 4. Composed inner roundabout update
         self.roundabout.update(delta_time, active_vehicles)
 
     def signals_state(self) -> Dict[Direction, str]:
         """Current per-direction signal colours for MetricCollector and reproduction (D-W2-6)."""
-        return self.cursor.all_colors()
+        colors = self.cursor.all_colors()
+        for d in self.gate.spillback_holds:
+            colors[d] = "red"
+        return colors
 
     @property
     def vehicle_stop_limits(self) -> Dict[str, float]:
@@ -84,6 +111,7 @@ class SignalisedRoundaboutController(BaseController):
         """Return combined controller state formatted for snapshot schema."""
         state = self.roundabout.get_state()
         state["entryControl"] = "metered_entry"
+        signals = self.signals_state()
         state["metering"] = {
             "currentPhase": self.cursor.current_phase.name,
             "color": self.cursor.current_phase.color,
@@ -94,7 +122,7 @@ class SignalisedRoundaboutController(BaseController):
                 {
                     "direction": d.value,
                     "metered": self.cursor.is_metered(d),
-                    "color": self.cursor.get_color(d),
+                    "color": signals[d],
                     "reason": self.gate.get_arm_reason(d),
                 }
                 for d in Direction

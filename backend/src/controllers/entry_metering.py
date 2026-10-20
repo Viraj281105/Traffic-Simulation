@@ -10,6 +10,7 @@ zero randomness.
 
 from __future__ import annotations
 
+import math
 from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple
@@ -17,7 +18,10 @@ from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple
 from src.controllers.entry_gate import OPEN, GateDecision, GateReason
 from src.controllers.fixed_time_signal import Phase
 from src.core.enums import Direction, TurnIntent
+from src.roads.junction_geometry import SLOT_BEARING
+from src.roads.network import RoadNetwork
 from src.vehicles.router import commits_through_yellow
+from src.vehicles.vehicle import Vehicle
 from src.vehicles.virtual_obstacle import VirtualObstacle
 
 DEFAULT_YELLOW: float = 3.0
@@ -85,11 +89,19 @@ class MeteredPhaseSpec:
 
 @dataclass(frozen=True)
 class SpillbackGuardConfig:
-    """Downstream ring spillback guard parameters (SR-11, D-W2-5)."""
+    """Downstream ring spillback guard parameters (SR-11, D-W2-5, D-W2-3)."""
 
     enabled: bool = False
     stopped_threshold: int = 2
     max_hold: float = 10.0
+
+    def __post_init__(self) -> None:
+        if self.stopped_threshold < 1 or self.stopped_threshold > 20:
+            raise ValueError(
+                f"stopped_threshold must be in 1..20, got {self.stopped_threshold}"
+            )
+        if self.max_hold < 0.0 or self.max_hold > 60.0:
+            raise ValueError(f"max_hold must be in 0..60, got {self.max_hold}")
 
 
 @dataclass(frozen=True)
@@ -98,6 +110,10 @@ class QueueCapConfig:
 
     enabled: bool = False
     vehicles: int = 8
+
+    def __post_init__(self) -> None:
+        if self.vehicles < 1 or self.vehicles > 50:
+            raise ValueError(f"vehicles must be in 1..50, got {self.vehicles}")
 
 
 @dataclass(frozen=True)
@@ -439,6 +455,7 @@ class MeteredEntryGate:
     Controls vehicle entry release onto the roundabout. Red and yellow lights
     deny entry; on yellow, vehicles in the dilemma zone commit through yellow
     (commits_through_yellow) and are latched until they leave the approach lane.
+    Arms held by the spillback guard deny entry with reason 'ring_spillback_hold'.
     Unmetered entries are always open.
     """
 
@@ -446,6 +463,8 @@ class MeteredEntryGate:
         self.cursor: MeteringPhaseCursor = cursor
         # vehicle_id -> lane_id mapping for vehicles that committed through yellow
         self._yellow_latched: Dict[str, str] = {}
+        # Arms held in red by the spillback guard
+        self._spillback_holds: Set[Direction] = set()
         # Track gate state transitions per direction: direction -> reason (or None if open)
         self._last_state: Dict[Direction, Optional[GateReason]] = {}
         self.decision_counts: Dict[str, int] = {
@@ -459,10 +478,31 @@ class MeteredEntryGate:
     def reset(self) -> None:
         """Reset gate state, latched vehicles, and decision counters."""
         self._yellow_latched.clear()
+        self._spillback_holds.clear()
         self._last_state.clear()
         for k in self.decision_counts:
             self.decision_counts[k] = 0
         self.recent_decisions.clear()
+
+    def set_spillback_holds(self, held_arms: Set[Direction]) -> None:
+        """Set of arms currently held in red by the spillback guard."""
+        self._spillback_holds = set(held_arms)
+
+    @property
+    def spillback_holds(self) -> Set[Direction]:
+        return self._spillback_holds
+
+    def record_queue_cap_event(self, arm: Direction, now: float) -> None:
+        """Record an early-green termination triggered by queue-cap on arm."""
+        self.decision_counts["queue_cap"] = self.decision_counts.get("queue_cap", 0) + 1
+        self.recent_decisions.append(
+            {
+                "time": round(now, 2),
+                "arm": arm.value,
+                "reason": "queue_cap",
+                "state": "triggered",
+            }
+        )
 
     def update(self, now: float) -> None:
         """Update transition events and prune stale latches at simulation time `now`."""
@@ -497,6 +537,8 @@ class MeteredEntryGate:
         """Return the current gate closure reason for an approach, or None if open."""
         if approach not in self.cursor.plan.metered_entries:
             return None
+        if approach in self._spillback_holds:
+            return "ring_spillback_hold"
         color = self.cursor.get_color(approach)
         if color == "yellow":
             return "yellow"
@@ -508,6 +550,9 @@ class MeteredEntryGate:
         """Consulted once per entry lane per tick after the roundabout's yield rules."""
         if approach not in self.cursor.plan.metered_entries:
             return OPEN
+
+        if approach in self._spillback_holds:
+            return GateDecision(open=False, reason="ring_spillback_hold")
 
         color = self.cursor.get_color(approach)
         if color == "green":
@@ -537,3 +582,211 @@ class MeteredEntryGate:
             return OPEN
 
         return GateDecision(open=False, reason="red")
+
+
+_SPILLBACK_STOPPED_SPEED: float = 2.0  # (m/s) _KEEP_CLEAR_SPEED from D-W2-5
+_SPILLBACK_EXIT_STRETCH: float = 30.0  # (m) first stretch of exit lane
+_QUEUE_CAP_STOPPED_SPEED: float = 2.0  # (m/s) stopped threshold for standing queue
+
+
+class SpillbackGuard:
+    """Downstream ring and exit spillback guard (SR-11, D-W2-5, D-W2-3).
+
+    For each metered arm that would otherwise be green, counts stopped
+    vehicles (speed < 2.0 m/s) in the ring sector from that entry to the
+    next exit downstream, plus on the first stretch of that exit lane.
+    When the count >= stopped_threshold, holds the arm red (ring_spillback_hold)
+    for at most max_hold seconds per cycle.
+    """
+
+    def __init__(self, plan: EntryMeteringPlan, network: RoadNetwork) -> None:
+        self.plan = plan
+        self.network = network
+        self.config: SpillbackGuardConfig = plan.spillback_guard
+        self.cycle_hold_time: Dict[Direction, float] = {d: 0.0 for d in Direction}
+        self._last_cycle_number: int = 0
+        self._sector_cache: Dict[Direction, Tuple[float, float, Direction]] = {}
+        self._init_sectors()
+
+    def _init_sectors(self) -> None:
+        """Precompute and cache geometry for the downstream ring sector of each metered arm."""
+        present_dirs = [d for d in Direction if self._has_approach(d)]
+        if not present_dirs:
+            return
+
+        # Measure Cartesian angles (where x=East, y=North) for all present arms
+        arm_angles: Dict[Direction, float] = {}
+        if hasattr(self.network, "geometry") and getattr(
+            self.network.geometry, "arms", None
+        ):
+            for d in present_dirs:
+                if d in self.network.geometry.arms:
+                    ux, uy = self.network.geometry.arms[d].unit()
+                    arm_angles[d] = math.atan2(uy, ux)
+
+        if len(arm_angles) < len(present_dirs):
+            for d in present_dirs:
+                if d not in arm_angles:
+                    b_rad = math.radians(SLOT_BEARING.get(d, 0.0))
+                    # Compass bearing to Cartesian: x = sin(bearing), y = cos(bearing)
+                    arm_angles[d] = math.atan2(math.cos(b_rad), math.sin(b_rad))
+
+        for d in self.plan.metered_entries:
+            if d not in arm_angles:
+                continue
+            theta_entry = arm_angles[d]
+
+            # Find the next present downstream arm in counter-clockwise order
+            best_diff = float("inf")
+            next_exit = d
+            for other_d in arm_angles:
+                if other_d == d:
+                    continue
+                diff = (arm_angles[other_d] - theta_entry) % (2 * math.pi)
+                if diff > 1e-4 and diff < best_diff:
+                    best_diff = diff
+                    next_exit = other_d
+
+            sector_width = (arm_angles[next_exit] - theta_entry) % (2 * math.pi)
+            self._sector_cache[d] = (theta_entry, sector_width, next_exit)
+
+    def _has_approach(self, d: Direction) -> bool:
+        try:
+            self.network.get_incoming_approach(d)
+            return True
+        except KeyError:
+            return False
+
+    def reset(self) -> None:
+        """Reset hold timers and cycle tracker."""
+        for d in Direction:
+            self.cycle_hold_time[d] = 0.0
+        self._last_cycle_number = 0
+
+    def count_stopped_vehicles(
+        self, approach: Direction, active_vehicles: List[Vehicle]
+    ) -> int:
+        """Count stopped vehicles (< 2.0 m/s) in the downstream ring sector and exit lane."""
+        if approach not in self._sector_cache:
+            return 0
+        theta_entry, sector_width, next_exit = self._sector_cache[approach]
+        count = 0
+
+        # 1. Ring sector: circulating vehicles on connection lanes
+        for v in active_vehicles:
+            if v.lane is None:
+                continue
+            lane_id = v.lane.lane_id.lower()
+            if not lane_id.startswith("conn"):
+                continue
+            if v.speed >= _SPILLBACK_STOPPED_SPEED:
+                continue
+            cx, cy = v.coords
+            theta_v = math.atan2(cy, cx)
+            # Check if within sector counter-clockwise with a small tolerance for entry/exit mouths
+            angle = (theta_v - theta_entry + 0.1) % (2 * math.pi)
+            if angle <= sector_width + 0.2:
+                count += 1
+
+        # 2. First stretch of next exit lane
+        try:
+            outgoing = self.network.get_outgoing_approach(next_exit)
+            for lane in outgoing.get_lanes():
+                for v in lane.get_vehicles():
+                    if (
+                        v.speed < _SPILLBACK_STOPPED_SPEED
+                        and v.position <= _SPILLBACK_EXIT_STRETCH
+                    ):
+                        count += 1
+        except KeyError:
+            pass
+
+        return count
+
+    def update(
+        self,
+        cursor: MeteringPhaseCursor,
+        delta_time: float,
+        active_vehicles: List[Vehicle],
+    ) -> Set[Direction]:
+        """Update spillback state for all metered arms, returning the currently held set."""
+        if not self.config.enabled:
+            return set()
+
+        # Reset per-cycle hold budgets on cycle change
+        if cursor.cycle_number != self._last_cycle_number:
+            self._last_cycle_number = cursor.cycle_number
+            for d in Direction:
+                self.cycle_hold_time[d] = 0.0
+
+        held: Set[Direction] = set()
+        for d in self.plan.metered_entries:
+            # The guard only holds an arm that would otherwise be green
+            if cursor.get_color(d) == "green":
+                count = self.count_stopped_vehicles(d, active_vehicles)
+                if count >= self.config.stopped_threshold:
+                    remaining_budget = max(
+                        0.0, self.config.max_hold - self.cycle_hold_time[d]
+                    )
+                    if remaining_budget > 0.0:
+                        held.add(d)
+                        hold_dt = min(delta_time, remaining_budget)
+                        self.cycle_hold_time[d] += hold_dt
+
+        return held
+
+
+class QueueCap:
+    """Approach standing-queue cap for metered roundabouts (SR-12, D-W2-4).
+
+    Monitors standing queues on red metered approaches. When a standing queue
+    reaches the configured vehicle threshold and the active green phase has
+    run for at least its min_green, terminates green early (cursor.end_green_early).
+    Only shortens red; never extends a phase.
+    """
+
+    def __init__(self, plan: EntryMeteringPlan, network: RoadNetwork) -> None:
+        self.plan = plan
+        self.network = network
+        self.config: QueueCapConfig = plan.queue_cap
+
+    def count_standing_queue(self, approach: Direction) -> int:
+        """Count stopped vehicles (< 2.0 m/s) queued on all incoming lanes of approach."""
+        try:
+            incoming = self.network.get_incoming_approach(approach)
+            return sum(
+                1
+                for lane in incoming.get_lanes()
+                for v in lane.get_vehicles()
+                if v.speed < _QUEUE_CAP_STOPPED_SPEED
+            )
+        except KeyError:
+            return 0
+
+    def check_and_trigger(
+        self,
+        cursor: MeteringPhaseCursor,
+        active_vehicles: Optional[List[Vehicle]] = None,
+    ) -> Optional[Direction]:
+        """Check queue cap conditions; if met, terminate green early and return the arm."""
+        if not self.config.enabled:
+            return None
+
+        # Can only terminate an active green phase
+        if cursor.current_phase.color != "green":
+            return None
+
+        # Must have run at least min_green (minimum-green protection)
+        if cursor.time_in_current_state < cursor.current_spec.min_green - 1e-6:
+            return None
+
+        # Inspect red metered arms in deterministic order
+        for d in sorted(self.plan.metered_entries, key=lambda x: x.value):
+            if cursor.get_color(d) == "red":
+                queue_len = self.count_standing_queue(d)
+                if queue_len >= self.config.vehicles:
+                    success = cursor.end_green_early()
+                    if success:
+                        return d
+
+        return None
