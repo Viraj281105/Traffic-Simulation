@@ -20,8 +20,6 @@ from __future__ import annotations
 import copy
 from typing import Any, Dict
 
-import pytest
-
 from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
 from src.study.runner import simulate_geometry
 from tests.controllers.roundabout_golden import CORPUS, compile_case
@@ -53,7 +51,6 @@ def _config(*, metered: bool) -> Dict[str, Any]:
     return config
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason=_DROPPED)
 def test_orchestrator_passes_entry_control_to_the_roundabout() -> None:
     orch = DualSimulationOrchestrator(_config(metered=True))
     controller = orch.config_roundabout["controller"]
@@ -61,7 +58,6 @@ def test_orchestrator_passes_entry_control_to_the_roundabout() -> None:
     assert controller.get("entryMetering") == _METERING
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason=_DROPPED)
 def test_a_study_run_records_the_entry_control_it_ran_with() -> None:
     """What ``simulate_geometry`` stores as the run's own engine config."""
     ran = simulate_geometry(_config(metered=True), "roundabout", 2.0)["config"]

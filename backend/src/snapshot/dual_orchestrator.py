@@ -1,3 +1,4 @@
+import copy
 import json
 import logging
 import random
@@ -93,6 +94,17 @@ class DualSimulationOrchestrator:
             # The ring lane count is set where V1.4 reads it; the reserved,
             # inert V1.0 field would only contradict it.
             del self.config_roundabout["controller"]["circulatingLanes"]
+
+        # V3.0 W2 (H12): carry entryControl and entryMetering across when
+        # configured, reading from roundaboutController falling back to
+        # controller. An absent field leaves the section untouched.
+        for key in ("entryControl", "entryMetering"):
+            for section in (round_ctrl, source_ctrl):
+                if isinstance(section, dict) and section.get(key) is not None:
+                    self.config_roundabout["controller"][key] = copy.deepcopy(
+                        section[key]
+                    )
+                    break
 
         # Propagate random seed to align spawn sequences for fair comparison
         seed = config.get("simulation", {}).get("randomSeed")

@@ -10,11 +10,15 @@ zero randomness.
 
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Dict, FrozenSet, List, Set, Tuple
+from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple
 
+from src.controllers.entry_gate import OPEN, GateDecision, GateReason
 from src.controllers.fixed_time_signal import Phase
 from src.core.enums import Direction, TurnIntent
+from src.vehicles.router import commits_through_yellow
+from src.vehicles.virtual_obstacle import VirtualObstacle
 
 DEFAULT_YELLOW: float = 3.0
 DEFAULT_ALL_RED: float = 2.0
@@ -427,3 +431,109 @@ class MeteringPhaseCursor:
     def all_colors(self) -> Dict[Direction, str]:
         """Projected signal colours for all 4 compass directions."""
         return {d: self.get_color(d) for d in Direction}
+
+
+class MeteredEntryGate:
+    """EntryGate protocol implementation for metered roundabout entries (SR-02, SR-06, SR-13).
+
+    Controls vehicle entry release onto the roundabout. Red and yellow lights
+    deny entry; on yellow, vehicles in the dilemma zone commit through yellow
+    (commits_through_yellow) and are latched until they leave the approach lane.
+    Unmetered entries are always open.
+    """
+
+    def __init__(self, cursor: MeteringPhaseCursor) -> None:
+        self.cursor: MeteringPhaseCursor = cursor
+        # vehicle_id -> lane_id mapping for vehicles that committed through yellow
+        self._yellow_latched: Dict[str, str] = {}
+        # Track gate state transitions per direction: direction -> reason (or None if open)
+        self._last_state: Dict[Direction, Optional[GateReason]] = {}
+        self.decision_counts: Dict[str, int] = {
+            "red": 0,
+            "yellow": 0,
+            "ring_spillback_hold": 0,
+            "queue_cap": 0,
+        }
+        self.recent_decisions: deque[Dict[str, Any]] = deque(maxlen=50)
+
+    def reset(self) -> None:
+        """Reset gate state, latched vehicles, and decision counters."""
+        self._yellow_latched.clear()
+        self._last_state.clear()
+        for k in self.decision_counts:
+            self.decision_counts[k] = 0
+        self.recent_decisions.clear()
+
+    def update(self, now: float) -> None:
+        """Update transition events and prune stale latches at simulation time `now`."""
+        for d in self.cursor.plan.metered_entries:
+            reason = self.get_arm_reason(d)
+            prev_reason = self._last_state.get(d)
+            if reason != prev_reason:
+                self._last_state[d] = reason
+                if reason is not None:
+                    self.decision_counts[reason] = (
+                        self.decision_counts.get(reason, 0) + 1
+                    )
+                    self.recent_decisions.append(
+                        {
+                            "time": round(now, 2),
+                            "arm": d.value,
+                            "reason": reason,
+                            "state": "closed",
+                        }
+                    )
+                else:
+                    self.recent_decisions.append(
+                        {
+                            "time": round(now, 2),
+                            "arm": d.value,
+                            "reason": None,
+                            "state": "open",
+                        }
+                    )
+
+    def get_arm_reason(self, approach: Direction) -> Optional[GateReason]:
+        """Return the current gate closure reason for an approach, or None if open."""
+        if approach not in self.cursor.plan.metered_entries:
+            return None
+        color = self.cursor.get_color(approach)
+        if color == "yellow":
+            return "yellow"
+        if color == "red":
+            return "red"
+        return None
+
+    def allows(self, approach: Direction, lane: Any, now: float) -> GateDecision:
+        """Consulted once per entry lane per tick after the roundabout's yield rules."""
+        if approach not in self.cursor.plan.metered_entries:
+            return OPEN
+
+        color = self.cursor.get_color(approach)
+        if color == "green":
+            return OPEN
+
+        # Prune vehicles latched on this lane that have left it
+        lane_vehicles = lane.get_vehicles()
+        active_ids = {v.vehicle_id for v in lane_vehicles}
+        for vid in list(self._yellow_latched.keys()):
+            if self._yellow_latched[vid] == lane.lane_id and vid not in active_ids:
+                del self._yellow_latched[vid]
+
+        head = max(lane_vehicles, key=lambda hv: hv.position, default=None)
+
+        if color == "yellow":
+            if head is not None:
+                if head.vehicle_id in self._yellow_latched:
+                    return OPEN
+                obs = VirtualObstacle(position=lane.length, is_yellow=True)
+                if commits_through_yellow(head, obs):
+                    self._yellow_latched[head.vehicle_id] = lane.lane_id
+                    return OPEN
+            return GateDecision(open=False, reason="yellow")
+
+        # Red / all-red
+        if head is not None and head.vehicle_id in self._yellow_latched:
+            return OPEN
+
+        return GateDecision(open=False, reason="red")
