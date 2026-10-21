@@ -36,7 +36,7 @@
 | **B0** preview preparation | Mon 26 – Wed 28 Oct | 3 | 3.0 | 2.5 | 83 % | *None — not an implementation week* (preview prep; V2.0 + design only) |
 | *Thu 29 Oct — preview (no development)* | | — | — | — | — | |
 | **W1** | Fri 30 Oct – Thu 5 Nov | 5 | 5.0 | 4.25 | 85 % | **Robustness Lab vertical slice** |
-| **W2** | Fri 6 – Thu 12 Nov | 5 | 5.0 | 4.25 | 85 % | **Signalised roundabouts** |
+| **W2** | Fri 6 – Thu 12 Nov | 5 | 5.0 | 4.25 | 85 % | **Signalised roundabouts** (✅ Implemented 2026-10-21) |
 | **W3** | Fri 13 – Thu 19 Nov | 5 | 5.0 | 4.25 | 85 % | **Composable control strategies** (+ adaptive signalised roundabout, conditional) |
 | **W4** | Fri 20 – Thu 26 Nov | 5 | 5.0 | 4.25 | 85 % | **High-aggression behaviour experiments** · Thu 26 Nov: *interim presentation* |
 | **W5** | Fri 27 Nov – Thu 3 Dec | 5 | 5.0 | 4.25 | 85 % | **AI Traffic Experiment Copilot** |
@@ -307,7 +307,7 @@ Decision owner for every gate is the **PO** unless stated; the Engineer assemble
 | **G-PF** Preview freeze | Tue 27 Oct 12:00 | Preview acceptance checks (§5) pass for the chosen option; fallback assets generated | Acceptance run log; checksums | Next-lower option (§5.2) |
 | **G-PV** Preview go/no-go | Wed 28 Oct 17:00 | Two rehearsals ≤ 14 min, one cold-start and offline; benchmark recorded (B0-1); suites green on the preview commit; every claim in the register | Rehearsal notes; benchmark; checksums | Fallback ladder (presentation plan §2.6) |
 | **G-R1** Robustness slice | Thu 5 Nov | W1 gate (§3.2) | Test output; demo recording; re-forecast | W2 delayed one-for-one; re-forecast presented |
-| **G-SR** Signalised-roundabout safety | Thu 12 Nov | W2 gate (§3.3): bit-identity, collision, deadlock, starvation, spillback green | Slow-suite run; benchmark; demo | W3 spent on fixes; adaptive variant cancelled |
+| **G-SR** Signalised-roundabout safety | Thu 12 Nov | W2 gate (§3.3): bit-identity, collision, deadlock, starvation, spillback green | Slow-suite run; benchmark; demo | ✅ Technical criteria verified 2026-10-21; PO sign-off pending |
 | **G-CS** Composable strategies | Thu 19 Nov | W3 gate (§3.4) | Parity test; compat table | Registry limited to built-ins; documented |
 | **G-AG** Aggression default | Wed 25 Nov 17:00 | W4 gate (§3.5) | Matrix report; parity test | Default **not** merged; W4 not shown |
 | **G-INT** Interim presentation | Wed 25 Nov 17:00 | Presentation plan §3.3: every shown result from a gate-passed feature, in the claims register, with a tested fallback | Claims register; rehearsal note | Segment becomes design-only |
