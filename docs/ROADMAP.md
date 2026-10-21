@@ -332,7 +332,7 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 
 ## 7. V3.0 — Composable, AI-assisted traffic-control experimentation (IN DEVELOPMENT)
 
-> **Status: 🟢 IN DEVELOPMENT — design-approval gate G-D passed 2026-10-14 ([#150](https://github.com/Viraj281105/Traffic-Simulation/issues/150)); W1 Robustness Lab vertical slice implemented 2026-10-15; W2–W9 planned.** The V2.0 release gate (G-V2) **passed 2026-10-13**. Detail, contracts, acceptance criteria and gates: [V3 product strategy](roadmap/V3_PRODUCT_STRATEGY.md) · [weekly sprint plan](roadmap/V3_WEEKLY_SPRINT_PLAN.md) · [presentation plan](roadmap/V3_PRESENTATION_PLAN.md) · [V2.0 completion audit](roadmap/V2_COMPLETION_AUDIT.md). Tracking: GitHub umbrella issue #150.
+> **Status: 🟢 IN DEVELOPMENT — design-approval gate G-D passed 2026-10-14 ([#150](https://github.com/Viraj281105/Traffic-Simulation/issues/150)); W1 Robustness Lab vertical slice implemented 2026-10-15; W2 Signalised roundabouts implemented 2026-10-21 (G-SR technical criteria verified); W3–W9 planned.** The V2.0 release gate (G-V2) **passed 2026-10-13**. Detail, contracts, acceptance criteria and gates: [V3 product strategy](roadmap/V3_PRODUCT_STRATEGY.md) · [weekly sprint plan](roadmap/V3_WEEKLY_SPRINT_PLAN.md) · [presentation plan](roadmap/V3_PRESENTATION_PLAN.md) · [V2.0 completion audit](roadmap/V2_COMPLETION_AUDIT.md). Tracking: GitHub umbrella issue #150.
 
 **Direction.** Evolve UrbanFlow from an intersection simulator into a **composable, AI-assisted traffic-control experimentation platform** — *evidence, not a verdict*. Results are conditional on stated, assumed inputs; no AI output or simulation result is presented as proof that a strategy is universally superior.
 
@@ -341,7 +341,7 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 | Week | Major feature | Role | Funding |
 | --- | --- | --- | --- |
 | W1 · 30 Oct – 5 Nov 2026 | **Robustness Lab** vertical slice (uncertainty sampling, paired ensembles, statistical contract) — moved here from Future Scope FS-6 | Evidence engine | Committed (✅ Implemented 2026-10-15) |
-| W2 · 6 – 12 Nov | **Signalised roundabouts** (`metered_entry`: signals gate entries, the existing gap-acceptance logic stays in force) | Flagship simulation feature | Committed |
+| W2 · 6 – 12 Nov | **Signalised roundabouts** (`metered_entry`: signals gate entries, the existing gap-acceptance logic stays in force) | Flagship simulation feature | Committed (✅ Implemented 2026-10-21) |
 | W3 · 13 – 19 Nov | **Composable control strategies** (registry, compatibility validation, fingerprint parity) + adaptive signalised roundabout | Architecture | Committed; adaptive variant conditional |
 | W4 · 20 – 26 Nov | **High driver aggression** as the default for *new* scenarios (a new versioned profile; stored scenarios keep today's behaviour) · interim presentation 26 Nov | Declared model assumption | Committed |
 | W5 · 27 Nov – 3 Dec | **AI Traffic Experiment Copilot** (proposal-only, backend-validated, confirm-before-run, evidence-grounded summaries) | AI feature A | Committed; AI claim conditional on a provider decision |
