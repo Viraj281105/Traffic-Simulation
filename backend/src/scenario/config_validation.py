@@ -21,6 +21,7 @@ from src.controllers.adaptive_signal import (
     adaptive_plan_errors,
     resolve_adaptive_settings,
 )
+from src.controllers.entry_metering import validate_entry_metering
 from src.core.limits import MAX_SIMULATION_TICKS
 from src.roads.junction_geometry import present_arms
 from src.roads.lane_config import shortest_approach_length
@@ -140,6 +141,7 @@ def semantic_config_errors(config: Dict[str, Any]) -> List[str]:
     errors.extend(_lane_count_errors(config))
     errors.extend(lane_configuration_errors(config))
     errors.extend(_signal_control_errors(config))
+    errors.extend(_entry_control_errors(config))
 
     # NaN compares false against every bound, so it slips through each of the
     # schema's minimum/maximum checks; infinity passes any one-sided bound.
@@ -293,3 +295,13 @@ def _non_finite_paths(value: Any, path: str) -> List[str]:
         for i, child in enumerate(value):
             found.extend(_non_finite_paths(child, f"{path}[{i}]"))
     return found
+
+
+def _entry_control_errors(config: Dict[str, Any]) -> List[str]:
+    """Signalised roundabout entry metering validation (V3.0 W2, D-W2-8).
+
+    Emits stable metering.* issues ending in (<code>).
+    """
+    arms = present_arms(config)
+    issues = validate_entry_metering(config, arms=arms)
+    return [f"{issue.message} ({issue.code})" for issue in issues]

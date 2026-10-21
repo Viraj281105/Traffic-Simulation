@@ -1,0 +1,105 @@
+/* Metered roundabout status overlay (V3.0 W2 S8): glass panel overlay
+   positioned top-right, matching AdaptiveSignalStatus styling and tokens. */
+
+.metered-status {
+  position: absolute;
+  top: 52px;
+  right: 14px;
+  z-index: 2;
+  max-width: min(340px, calc(100% - 28px));
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(12px) saturate(var(--glass-saturate));
+  backdrop-filter: blur(12px) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight);
+  color: var(--color-text-2);
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+.metered-status p {
+  margin: 0;
+}
+
+.metered-status__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.metered-status__pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  animation: metered-pulse 1.6s ease-in-out infinite;
+}
+
+.metered-status__reason {
+  margin-top: 4px !important;
+  color: var(--color-text-2);
+}
+
+.metered-status__arms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.metered-status__arm {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-border);
+}
+
+.metered-status__arm.is-green {
+  border-color: rgba(34, 197, 94, 0.4);
+  color: #86efac;
+}
+
+.metered-status__arm.is-yellow {
+  border-color: rgba(234, 179, 8, 0.4);
+  color: #fde047;
+}
+
+.metered-status__arm.is-red {
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
+.metered-status__arm-dir {
+  font-weight: 700;
+}
+
+.metered-status__disclaimer {
+  margin-top: 6px !important;
+  font-size: 10px;
+  line-height: 1.3;
+  color: var(--color-text-3);
+  border-top: 1px solid var(--glass-border);
+  padding-top: 4px;
+}
+
+@keyframes metered-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+}

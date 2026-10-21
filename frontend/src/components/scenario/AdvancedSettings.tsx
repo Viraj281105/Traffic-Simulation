@@ -1,4 +1,5 @@
 import { type ScenarioDocument } from "../../scenario/scenarioTypes";
+import { defaultEntryMetering } from "../../scenario/scenarioModel";
 import { NumberField } from "./fields";
 
 export function AdvancedSettings({
@@ -10,6 +11,7 @@ export function AdvancedSettings({
 }) {
   const sig = value.signal;
   const rb = value.roundabout;
+  const isMetered = rb.entryControl === "metered_entry";
   return (
     <div className="sb-advanced-grid">
       <fieldset>
@@ -256,6 +258,191 @@ export function AdvancedSettings({
             });
           }}
         />
+      </fieldset>
+      <fieldset>
+        <legend>Roundabout entry control</legend>
+        <div className="sb-field">
+          <span className="sb-field-label">Control mode</span>
+          <div className="chip-row">
+            <button
+              type="button"
+              className={`chip${!isMetered ? " is-active" : ""}`}
+              aria-pressed={!isMetered}
+              onClick={() => {
+                update((d) => {
+                  delete d.roundabout.entryControl;
+                  delete d.roundabout.entryMetering;
+                });
+              }}
+            >
+              Uncontrolled (conventional)
+            </button>
+            <button
+              type="button"
+              className={`chip${isMetered ? " is-active" : ""}`}
+              aria-pressed={isMetered}
+              onClick={() => {
+                update((d) => {
+                  d.roundabout.entryControl = "metered_entry";
+                  d.roundabout.entryMetering =
+                    d.roundabout.entryMetering ?? defaultEntryMetering(d);
+                });
+              }}
+            >
+              Metered entry (signals)
+            </button>
+          </div>
+        </div>
+        {isMetered && rb.entryMetering && (
+          <>
+            {rb.entryMetering.phases.map((p, idx) => (
+              <NumberField
+                key={idx}
+                label={`Phase ${String(idx + 1)} (${p.entries.join("/")}) green`}
+                unit="s"
+                value={p.green}
+                min={6}
+                max={120}
+                step={1}
+                onChange={(v) => {
+                  update((d) => {
+                    if (d.roundabout.entryMetering?.phases[idx]) {
+                      d.roundabout.entryMetering.phases[idx].green = v;
+                    }
+                  });
+                }}
+              />
+            ))}
+            <NumberField
+              label="Yellow clearance"
+              unit="s"
+              value={rb.entryMetering.yellow}
+              min={2.5}
+              max={8}
+              step={0.5}
+              onChange={(v) => {
+                update((d) => {
+                  if (d.roundabout.entryMetering) {
+                    d.roundabout.entryMetering.yellow = v;
+                  }
+                });
+              }}
+            />
+            <NumberField
+              label="All-red clearance"
+              unit="s"
+              value={rb.entryMetering.allRed}
+              min={0}
+              max={5}
+              step={0.5}
+              onChange={(v) => {
+                update((d) => {
+                  if (d.roundabout.entryMetering) {
+                    d.roundabout.entryMetering.allRed = v;
+                  }
+                });
+              }}
+            />
+            <label className="sb-check">
+              <input
+                type="checkbox"
+                checked={rb.entryMetering.spillbackGuard?.enabled ?? false}
+                onChange={(e) => {
+                  update((d) => {
+                    if (d.roundabout.entryMetering) {
+                      d.roundabout.entryMetering.spillbackGuard = {
+                        enabled: e.target.checked,
+                        stoppedThreshold:
+                          d.roundabout.entryMetering.spillbackGuard
+                            ?.stoppedThreshold ?? 2,
+                        maxHold:
+                          d.roundabout.entryMetering.spillbackGuard?.maxHold ??
+                          10.0,
+                      };
+                    }
+                  });
+                }}
+              />
+              Downstream spillback guard (holds red on ring queue)
+            </label>
+            {rb.entryMetering.spillbackGuard?.enabled && (
+              <>
+                <NumberField
+                  label="Spillback stopped threshold"
+                  unit="veh"
+                  value={rb.entryMetering.spillbackGuard.stoppedThreshold ?? 2}
+                  min={1}
+                  max={20}
+                  step={1}
+                  onChange={(v) => {
+                    update((d) => {
+                      if (d.roundabout.entryMetering?.spillbackGuard) {
+                        d.roundabout.entryMetering.spillbackGuard.stoppedThreshold =
+                          Math.round(v);
+                      }
+                    });
+                  }}
+                />
+                <NumberField
+                  label="Spillback max hold per cycle"
+                  unit="s"
+                  value={rb.entryMetering.spillbackGuard.maxHold ?? 10.0}
+                  min={0}
+                  max={60}
+                  step={1}
+                  onChange={(v) => {
+                    update((d) => {
+                      if (d.roundabout.entryMetering?.spillbackGuard) {
+                        d.roundabout.entryMetering.spillbackGuard.maxHold = v;
+                      }
+                    });
+                  }}
+                />
+              </>
+            )}
+            <label className="sb-check">
+              <input
+                type="checkbox"
+                checked={rb.entryMetering.queueCap?.enabled ?? false}
+                onChange={(e) => {
+                  update((d) => {
+                    if (d.roundabout.entryMetering) {
+                      d.roundabout.entryMetering.queueCap = {
+                        enabled: e.target.checked,
+                        vehicles:
+                          d.roundabout.entryMetering.queueCap?.vehicles ?? 8,
+                      };
+                    }
+                  });
+                }}
+              />
+              Approach queue cap (shortens red for long queue)
+            </label>
+            {rb.entryMetering.queueCap?.enabled && (
+              <NumberField
+                label="Queue cap vehicles"
+                unit="veh"
+                value={rb.entryMetering.queueCap.vehicles ?? 8}
+                min={1}
+                max={50}
+                step={1}
+                onChange={(v) => {
+                  update((d) => {
+                    if (d.roundabout.entryMetering?.queueCap) {
+                      d.roundabout.entryMetering.queueCap.vehicles =
+                        Math.round(v);
+                    }
+                  });
+                }}
+              />
+            )}
+            <p className="config-hint" role="note">
+              Simulation assumption — signal timings are not calibrated to real
+              sites; no claim that signalised roundabouts are better or safer in
+              the real world.
+            </p>
+          </>
+        )}
       </fieldset>
       <fieldset>
         <legend>Roads</legend>

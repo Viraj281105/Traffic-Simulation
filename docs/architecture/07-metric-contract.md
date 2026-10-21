@@ -410,7 +410,7 @@ These metrics are genuinely emitted by `MetricCollector.get_metrics()` (see §9'
 | Attribute | Value |
 |-----------|-------|
 | **Output key** | `masterEfficiencyScore` |
-| **Description** | A fixed-weight composite of five measures. **Valid only for comparing runs of the same geometry on the same scenario.** It is not a signal-versus-roundabout score: `idleOpportunityLoss` is signal-only (a roundabout always receives the full idle term) and the throughput term is normalised against a fixed 120 veh/min ceiling, so it mostly reflects how much traffic arrived. The frontend never sets it side by side across geometries. |
+| **Description** | A fixed-weight composite of five measures. **Valid only for comparing runs of the same geometry on the same scenario.** It is not a signal-versus-roundabout score: `idleOpportunityLoss` is signal-only (a conventional roundabout always receives the full idle term; a metered roundabout is measured against its entry signals, V3.0 W2 D-W2-6) and the throughput term is normalised against a fixed 120 veh/min ceiling, so it mostly reflects how much traffic arrived. The frontend never sets it side by side across geometries. |
 | **Units** | dimensionless, 0.0–100.0 |
 | **Direction** | Higher ↑ within one geometry and scenario; not comparable across geometries |
 | **Running?** | ✅ (recomputed every `get_metrics()` call from that call's own other metric values); `null` until at least one vehicle has exited after warm-up |

@@ -8,6 +8,7 @@ import { useThemeMode } from "./theme/mode";
 import { IntersectionMap } from "./components/IntersectionMap";
 import { RoundaboutMap } from "./components/RoundaboutMap";
 import { AdaptiveSignalStatus } from "./components/AdaptiveSignalStatus";
+import { MeteredRoundaboutStatus } from "./components/MeteredRoundaboutStatus";
 import { VehicleLegend } from "./components/VehicleLegend";
 import { MetricsSidebar } from "./components/MetricsSidebar";
 import {
@@ -921,7 +922,9 @@ function Dashboard({
               />
             )}
             <VehicleLegend snapshot={singleSnapshot} />
-            {viewMode !== "roundabout" && (
+            {viewMode === "roundabout" ? (
+              <MeteredRoundaboutStatus snapshot={singleSnapshot} />
+            ) : (
               <AdaptiveSignalStatus snapshot={singleSnapshot} />
             )}
           </div>

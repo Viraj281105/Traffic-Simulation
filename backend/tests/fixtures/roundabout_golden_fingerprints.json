@@ -1,0 +1,1268 @@
+{
+  "cases": [
+    {
+      "config": {
+        "controller": {
+          "circulatingSpeed": 8.0,
+          "criticalGap": 4.0,
+          "entrySpeed": 5.0,
+          "followUpTime": 2.5,
+          "innerRadius": 10.0,
+          "outerRadius": 20.0
+        },
+        "geometry": {
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "roundabout"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 1,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 1,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "57166ae7410c8834",
+          "format": "urbanflow-scenario",
+          "name": "one-ring 4-arm cars medium",
+          "strategy": "roundabout",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 120.0,
+          "randomSeed": 1,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.3333333333333333,
+          "directionalSplit": {
+            "east": 0.25,
+            "north": 0.25,
+            "south": 0.25,
+            "west": 0.25
+          },
+          "totalVehicles": 200,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {}
+      },
+      "exact": {
+        "CPython-3.11.16-Linux-x86_64-glibc2.36": {
+          "metrics": "ecb9fcd576f445b95348afea1e83ae2f5daaf75d4347866d011629493ba800e7",
+          "snapshots": "2d13e774397c5cc79c8b9691fddf29b9605fad191097b22341c1455f38d464a8",
+          "trajectory": "9079b75cc7393278b9e4c09003f399f6872d34a465a1b075515d592901c05830"
+        },
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "ecb9fcd576f445b95348afea1e83ae2f5daaf75d4347866d011629493ba800e7",
+          "snapshots": "21db96364590e91829e2a702f9619e1a6a56756c3a160c9520a4b095f2ffc5a2",
+          "trajectory": "e55ead505ebacb95aef967596c7b5101d46555eb766b2701206604ddcee7ac36"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 18,
+        "metrics": "6c9766f6bef38bacb8e41b9a26f6745ed4cc419e2c52504ae37c619497dc0596",
+        "snapshots": "6a40706a86d5b1e19fbb096ff40ee66d954ec15cfec49afdc8364e82f6624488",
+        "ticks": 1200,
+        "trajectory": "de7aa2ff24092b1c2d55b617b61930d552ae0bbc75cf9213b244506d4f9338df"
+      },
+      "fast": true,
+      "id": "one-ring-4arm-cars-medium",
+      "path": "direct"
+    },
+    {
+      "config": {
+        "controller": {
+          "circulatingSpeed": 8.0,
+          "criticalGap": 4.0,
+          "entrySpeed": 5.0,
+          "followUpTime": 2.5,
+          "innerRadius": 10.0,
+          "outerRadius": 20.0
+        },
+        "geometry": {
+          "circulatingLanes": 2,
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "roundabout"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 2,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 2,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "1a8b7fd484b66640",
+          "format": "urbanflow-scenario",
+          "name": "two-ring 4-arm urban mix medium",
+          "strategy": "roundabout",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 120.0,
+          "randomSeed": 2,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.6111111111111112,
+          "directionalSplit": {
+            "east": 0.25,
+            "north": 0.25,
+            "south": 0.25,
+            "west": 0.25
+          },
+          "totalVehicles": 200,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {
+          "vehicleMix": {
+            "bus": 0.05,
+            "car": 0.7,
+            "motorcycle": 0.05,
+            "suv": 0.15,
+            "truck": 0.05
+          }
+        }
+      },
+      "exact": {
+        "CPython-3.11.16-Linux-x86_64-glibc2.36": {
+          "metrics": "21adb1ebfada5ad8ef4e46fa78aaa2607fa38949acb566ad4c048d91016489e3",
+          "snapshots": "bdc37cb6a908bddad56ace57b50f3b98fa7c9e5338821bbacc052ccc9f509e0f",
+          "trajectory": "74afd35fc1cd6ac1ea4a8d44ae33cd0a7d942538f99ea37b0f670515e550a15c"
+        },
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "cffc11f0bf92aeb3696c16536b37d4af812b869f90edcbaca8bc4a2203cb6d6f",
+          "snapshots": "ffeada726c3de1236058e43000e3f48e70fc16d233665f838f2d75d1020db366",
+          "trajectory": "a55ee749180d0ac2250d0d9fed316de5880a5677fc5f7b1155085e660160c354"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 33,
+        "metrics": "51343bc9e2ab812b4d7cd4389acc81d50c913118b4a835c6672f06e96703eb74",
+        "snapshots": "9274fc61597f7aba814dea208a797a44f3faa8695e65d8678cf32d5ba070de23",
+        "ticks": 1200,
+        "trajectory": "493a322d169c1616d59fa1f59406e3f8869882874c9b0085e9a64d2f2d74dabe"
+      },
+      "fast": true,
+      "id": "two-ring-4arm-urban-mix-medium",
+      "path": "direct"
+    },
+    {
+      "config": {
+        "controller": {
+          "circulatingSpeed": 8.0,
+          "criticalGap": 4.0,
+          "entrySpeed": 5.0,
+          "followUpTime": 2.5,
+          "innerRadius": 10.0,
+          "outerRadius": 20.0
+        },
+        "geometry": {
+          "arms": [
+            "north",
+            "south",
+            "east"
+          ],
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "roundabout"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 1,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 1,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "a3db8eaa8e9550c5",
+          "format": "urbanflow-scenario",
+          "name": "one-ring 3-arm low",
+          "strategy": "roundabout",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 120.0,
+          "randomSeed": 3,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.5,
+                "right": 0.0,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.0,
+                "right": 0.5,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.5,
+                "right": 0.5,
+                "straight": 0.0
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.125,
+          "directionalSplit": {
+            "east": 0.3333333333333333,
+            "north": 0.3333333333333333,
+            "south": 0.3333333333333333,
+            "west": 0.0
+          },
+          "totalVehicles": 200,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {}
+      },
+      "exact": {
+        "CPython-3.11.16-Linux-x86_64-glibc2.36": {
+          "metrics": "3407827f86fe23e5a88e52b8cebd24612fa2884f0b2c79c6b40b4905d6e99aca",
+          "snapshots": "6b60b9e28fe3e03add2750656e454c219dc01439bd1d7203235c9257a90077e7",
+          "trajectory": "4654d21b45f0d712f22a937a02d835c85026fda230ef76e24519779367373447"
+        },
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "3407827f86fe23e5a88e52b8cebd24612fa2884f0b2c79c6b40b4905d6e99aca",
+          "snapshots": "2bfbf0f4aeafc263d40836cbc3d4f1296e79d84dd1dbc6c81564c23192c71e51",
+          "trajectory": "96d2e72edcb2def5fa3b01aae0b97001d63d7232de34e0cb249c0b0a35d65e6f"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 15,
+        "metrics": "0c22c8c300eb9cf546c81d7cb88e3529bc23e63a7ce9a4a83808bd04639fe388",
+        "snapshots": "053e3f24e64b689568736050daf2159d1b77d11bcce35939d93f8dd4c651de81",
+        "ticks": 1200,
+        "trajectory": "11a34a962b3d057d8cdcea41861a2b15d9a839acdbc0ea0cb37e1ffab90da8ff"
+      },
+      "fast": true,
+      "id": "one-ring-3arm-low",
+      "path": "direct"
+    },
+    {
+      "config": {
+        "controller": {
+          "circulatingSpeed": 8.0,
+          "criticalGap": 4.0,
+          "entrySpeed": 5.0,
+          "followUpTime": 2.5,
+          "innerRadius": 10.0,
+          "outerRadius": 20.0
+        },
+        "geometry": {
+          "circulatingLanes": 2,
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "roundabout"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 2,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 2,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "0a6154239a448817",
+          "format": "urbanflow-scenario",
+          "name": "study path two-ring medium",
+          "strategy": "roundabout",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 120.0,
+          "randomSeed": 4,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.5555555555555556,
+          "directionalSplit": {
+            "east": 0.25,
+            "north": 0.25,
+            "south": 0.25,
+            "west": 0.25
+          },
+          "totalVehicles": 200,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {}
+      },
+      "exact": {
+        "CPython-3.11.16-Linux-x86_64-glibc2.36": {
+          "metrics": "a41ff286fb921b8a720beee24abd39fc07db65cb1ba4c1f7cb59e7021fdac773",
+          "snapshots": "e4bdfe20e83d2e86708205ce414aa1def41a9a07ea81938e7ca236ffa9d82a01",
+          "trajectory": "6c7f2295d843e05c3ae8159d68eb0b21319b72137ad444088b1ac77cebf62468"
+        },
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "04cbb93eb5821501f184a2cc1e5b7ed3c5525f06fb6ddef9e75ee84481fcc9dd",
+          "snapshots": "565c41da5e88887611c475a9569c1c62d8ff74151ec4b7b6516f090c892723bf",
+          "trajectory": "52bcb13abd3365339a6955f23cdc5eb4b0ad2a25510997703313d2f21ce774cf"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 27,
+        "metrics": "3c98cb78637ff419299aaf76c3b5ead675b1f2327b935030f043e41915163a89",
+        "snapshots": "b3afbd0d4d2ed6cb991c168d33454dea1263de337206711b68115d98b59ff3ba",
+        "ticks": 1200,
+        "trajectory": "4a9283f1d4b302904a93489eb1b3c8f5c32cccf041761f76be462427d3f22e3a"
+      },
+      "fast": true,
+      "id": "study-path-two-ring-medium",
+      "path": "study"
+    },
+    {
+      "config": {
+        "controller": {
+          "circulatingSpeed": 8.0,
+          "criticalGap": 4.0,
+          "entrySpeed": 5.0,
+          "followUpTime": 2.5,
+          "innerRadius": 10.0,
+          "outerRadius": 20.0
+        },
+        "geometry": {
+          "circulatingLanes": 1,
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "roundabout"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 2,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 2,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "927061ea0944bbee",
+          "format": "urbanflow-scenario",
+          "name": "two-lane approaches into a one-lane ring",
+          "strategy": "roundabout",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 180.0,
+          "randomSeed": 5,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.3888888888888889,
+          "directionalSplit": {
+            "east": 0.25,
+            "north": 0.25,
+            "south": 0.25,
+            "west": 0.25
+          },
+          "totalVehicles": 200,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {}
+      },
+      "exact": {
+        "CPython-3.11.16-Linux-x86_64-glibc2.36": {
+          "metrics": "976b72375910e2a64b3eb4d9e9be1667c28d2c7b77198348acb025cd030ebfaf",
+          "snapshots": "29792c3ec1200f8f0dbc40eb16a5c72e5811a26b48b5f60ea2d99577b354122c",
+          "trajectory": "ffa2b2a7b823a7482ea7cdb31f9844534849cd990d58d41a4c5a436b9d2354a6"
+        },
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "2990a6d59b47922656a8eb9026bc393777d21861e8c97bd35a5d73ca63a7c63c",
+          "snapshots": "b459d611c31f8e61f432c3713d3976d9d5da92255d50cf69b91e0f9dc1c22386",
+          "trajectory": "166202aa026542126e70fc8a9ee911868407e55026fce4cc30dacc5a7603ff28"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 46,
+        "metrics": "1495cf8ee4537abfbe23181acd0e14b023d561a2a715a18b4de53c2b097bd83a",
+        "snapshots": "a8d5d3dd4714fd8157f5725b2ca4a3c4ffa4ad0053b66feeaf5b10dd037a0495",
+        "ticks": 1800,
+        "trajectory": "7db859c4374fd38858a032d723c8bd06f63898b41c7f49c7e2a8112a8c3205d9"
+      },
+      "fast": false,
+      "id": "merging-entry-one-ring",
+      "path": "direct"
+    },
+    {
+      "config": {
+        "controller": {
+          "circulatingSpeed": 8.0,
+          "criticalGap": 4.0,
+          "entrySpeed": 5.0,
+          "followUpTime": 2.5,
+          "innerRadius": 10.0,
+          "outerRadius": 20.0
+        },
+        "geometry": {
+          "circulatingLanes": 2,
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "roundabout"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 2,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 2,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "5998577d69436ff8",
+          "format": "urbanflow-scenario",
+          "name": "two-ring heavy mix saturated",
+          "strategy": "roundabout",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 180.0,
+          "randomSeed": 6,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 1.1111111111111112,
+          "directionalSplit": {
+            "east": 0.25,
+            "north": 0.25,
+            "south": 0.25,
+            "west": 0.25
+          },
+          "totalVehicles": 350,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {
+          "vehicleMix": {
+            "bus": 0.15,
+            "car": 0.6,
+            "suv": 0.1,
+            "truck": 0.15
+          }
+        }
+      },
+      "exact": {
+        "CPython-3.11.16-Linux-x86_64-glibc2.36": {
+          "metrics": "23ec48b8bd64b80ee710a42f83f0f00d435d4e46d69aae00905239319163c8de",
+          "snapshots": "d9b465472ad30a669326b92a03355ae07d3b5ce5b0202189f8b2fd3c3ff8acc0",
+          "trajectory": "ab3755f6b1a61f5e21d30b207676bff04a28fe29bd3552da98bc08fe49392993"
+        },
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "2666fd50b807e01220d721d79140b3aa589c557d3dcbdd9cd8ba5eac13f44faf",
+          "snapshots": "bcc57cb0715f81e7533110ae89dbc607c8cea1076eebd7350098d931f48448cf",
+          "trajectory": "856ce663923e32657230e0f0d159746101aa8437f9658c4cc92f4dda24a873d5"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 44,
+        "metrics": "d3933e61d0f72b01eeccb8bdbb3a93a1e62192f2bcaf2ef6737665f7977925f6",
+        "snapshots": "2e26f5a15a4da8b691701e1d1b2aa7181cd4c4e3cdc0fdb515bf5205798b7010",
+        "ticks": 1800,
+        "trajectory": "0d10aed8090dbe6a2164b8484edf84221ebd0989c5414f9013e43e66697e2d90"
+      },
+      "fast": false,
+      "id": "two-ring-heavy-mix-saturated",
+      "path": "direct"
+    },
+    {
+      "config": {
+        "controller": {
+          "circulatingSpeed": 8.0,
+          "criticalGap": 4.0,
+          "entrySpeed": 5.0,
+          "followUpTime": 2.5,
+          "innerRadius": 10.0,
+          "outerRadius": 20.0
+        },
+        "geometry": {
+          "circulatingLanes": 2,
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "roundabout"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 3,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 3,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 2,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 3,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "3eae2d2aac51d453",
+          "format": "urbanflow-scenario",
+          "name": "three-lane approaches, uneven demand",
+          "strategy": "roundabout",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 180.0,
+          "randomSeed": 7,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.5555555555555556,
+          "directionalSplit": {
+            "east": 0.3,
+            "north": 0.45,
+            "south": 0.15,
+            "west": 0.1
+          },
+          "totalVehicles": 200,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {
+          "vehicleMix": {
+            "bus": 0.05,
+            "car": 0.7,
+            "motorcycle": 0.05,
+            "suv": 0.15,
+            "truck": 0.05
+          }
+        }
+      },
+      "exact": {
+        "CPython-3.11.16-Linux-x86_64-glibc2.36": {
+          "metrics": "1b3d2504a7bc690d472eed26cadd73e29eb54011e9c8a49fdc742a614fefb876",
+          "snapshots": "67f2cc9b8119cd3b293bb3f3cb03dc9226f755923cf3ae37484fac82aa7cb1d0",
+          "trajectory": "f645fbc05fb39a67b0a8ebf3c3db972883ddb5da62a57a47820bf1210958c0a6"
+        },
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "493882aa8b35a06f773bacaecf7616cbde4a73aa84f726d127c10650447879e0",
+          "snapshots": "f2ecf39aedbe6a83ee36586f40756297c459b0f1f5dc8b3211addac7f82043d6",
+          "trajectory": "6f0072f5a94d3ad1f4356a383c2d5880f7afc8f213396db6e5a0fde009048771"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 45,
+        "metrics": "6564e8123fd049685d348242eb6ddcf1655e13aaaaec665acc96d0f4f09f232f",
+        "snapshots": "de571ee02f36117f584b38b855da1f4d62b3d1fc03090e5df2ab1a432de6f207",
+        "ticks": 1800,
+        "trajectory": "af5eff0e3c41af306a752d611f25d8646c48a35f871def4c1b9af53eef36e361"
+      },
+      "fast": false,
+      "id": "three-lane-approaches-uneven",
+      "path": "direct"
+    },
+    {
+      "config": {
+        "controller": {
+          "circulatingSpeed": 8.0,
+          "criticalGap": 4.0,
+          "entrySpeed": 5.0,
+          "followUpTime": 2.5,
+          "innerRadius": 10.0,
+          "outerRadius": 20.0
+        },
+        "geometry": {
+          "circulatingLanes": 2,
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "roundabout"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "bearing": 10.0,
+              "direction": "north",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "bearing": 100.0,
+              "direction": "east",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 1,
+              "length": 150.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 2,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "8e17b3f70179b473",
+          "format": "urbanflow-scenario",
+          "name": "two-lane main road, one-lane side street, skewed arms",
+          "strategy": "roundabout",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 180.0,
+          "randomSeed": 8,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.5277777777777778,
+          "directionalSplit": {
+            "east": 0.13157894736842105,
+            "north": 0.3684210526315789,
+            "south": 0.3684210526315789,
+            "west": 0.13157894736842105
+          },
+          "totalVehicles": 200,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {}
+      },
+      "exact": {
+        "CPython-3.11.16-Linux-x86_64-glibc2.36": {
+          "metrics": "d7427c798ad2a9fb17d5065d5046aa875d6038b8f94dba655058b3742342739a",
+          "snapshots": "545e4035992d33879bc3229c05ce376b2f3140581bba0b68445912a837ef3220",
+          "trajectory": "770410541a150478db7ca46bdb307c3f2ad1f859bae850e58709a8c73c11d691"
+        },
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "74462c4e7a8f0067cce1d4e1b321fafe81b56f73eb605898af1b74f9c368fdfd",
+          "snapshots": "8ea019adc4a0c92437720c65c80ed0bdc1e6b1dd560e853a6caa240046d79e5c",
+          "trajectory": "ba200cfcd8955ce81bf85c038615d115658f8ee2407ebce2200905bfab1b0a28"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 58,
+        "metrics": "ab5853acee6434af71be820d4730748e738d3af6ee874201c9f551e8bb460715",
+        "snapshots": "a10f140183d567782f6e38693166420dde0702a3e5df2facea41bfefb08538d1",
+        "ticks": 1800,
+        "trajectory": "4df1f535fa98e3cdd1e5d9cb5e97e83a8dfd0cf142884a23b5008af21cbc3849"
+      },
+      "fast": false,
+      "id": "main-road-side-street-skewed",
+      "path": "direct"
+    },
+    {
+      "config": {
+        "controller": {
+          "circulatingSpeed": 8.0,
+          "criticalGap": 4.0,
+          "entrySpeed": 5.0,
+          "followUpTime": 2.5,
+          "innerRadius": 10.0,
+          "outerRadius": 20.0
+        },
+        "geometry": {
+          "arms": [
+            "north",
+            "east",
+            "west"
+          ],
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "roundabout"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 1,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 1,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "e29b18311b62eaf5",
+          "format": "urbanflow-scenario",
+          "name": "one-ring 3-arm saturated, study path",
+          "strategy": "roundabout",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 180.0,
+          "randomSeed": 9,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.5,
+                "right": 0.5,
+                "straight": 0.0
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.0,
+                "right": 0.5,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.5,
+                "right": 0.0,
+                "straight": 0.5
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.5833333333333334,
+          "directionalSplit": {
+            "east": 0.3333333333333333,
+            "north": 0.3333333333333333,
+            "south": 0.0,
+            "west": 0.3333333333333333
+          },
+          "totalVehicles": 208,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {
+          "vehicleMix": {
+            "bus": 0.05,
+            "car": 0.7,
+            "motorcycle": 0.05,
+            "suv": 0.15,
+            "truck": 0.05
+          }
+        }
+      },
+      "exact": {
+        "CPython-3.11.16-Linux-x86_64-glibc2.36": {
+          "metrics": "ae9b855ff79314269c344644de416b8bb6dd9738049cf0fac565a5d4867bdf6a",
+          "snapshots": "e75183bc5cd6e56fc01bfde5aba25882c758c26419c07b85728bc3b5e23a3540",
+          "trajectory": "dfec477ef220501590e225610be83b96e7edc7577f7b1ac0d62a41c222e1835a"
+        },
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "f54628678198680f84a5647a0018a1d5ac029fd2c5a3e707eb494d2eab9cd592",
+          "snapshots": "90d55a5b98b8a943f4cc7e1e4c2312bbd804d5c43ebaa5b7100839f28a0acca8",
+          "trajectory": "910198d63b4f59a5bb3e8fb2b07029e6978ff5a6875f86923b9372f6b70b298b"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 52,
+        "metrics": "e00ad5c0c0c8e5fb2ffdd27ee36be2fec116bc45435ea8a4f7be742c563e8cee",
+        "snapshots": "992fdabf0238c1008ed7b5d2aa97932bd0bbf5463bfcda73eca0145c405c4c0a",
+        "ticks": 1800,
+        "trajectory": "de695ee804654677535393c555d926c9092cb3a0dfca75d7b28ec65fa623fa9d"
+      },
+      "fast": false,
+      "id": "one-ring-3arm-saturated-study",
+      "path": "study"
+    }
+  ],
+  "description": "Conventional-roundabout fingerprints recorded from the controller before the ADR-014 EntryGate seam. See tests/controllers/roundabout_golden.py.",
+  "floatDigits": 12,
+  "format": "urbanflow-roundabout-golden",
+  "recordedFrom": "e43bfec",
+  "snapshotEvery": 10,
+  "sourceDigest": "693bf5f8f199d0efef1b82257af12775b8fecb446bdb4f412f9d65ac97414ad1",
+  "trajectoryDecimals": 6,
+  "version": 1
+}

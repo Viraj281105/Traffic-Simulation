@@ -101,7 +101,7 @@ jobs:
       - name: Install Testing Tools
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-cov
+          pip install pytest pytest-cov pytest-xdist
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       # `-m "not slow"` deselects the full-strength simulation sweeps only —
@@ -117,10 +117,17 @@ jobs:
       # --durations keeps the job's own cost visible in its log. The backend
       # suite reached 44 minutes here while taking well under a minute
       # locally, and nothing in the output said which tests were responsible.
+      #
+      # `-n auto --dist loadfile` spreads the suite over the runner's cores, one test FILE
+      # per worker at a time so each module's memoised simulation runs (_RUN_CACHE etc.)
+      # are still shared by the tests that use them. Measured locally (V3.0 W2, 12-core
+      # Windows machine, 4 workers): 1723 tests, 22 min 13 s serial -> 6 min 28 s, same
+      # tests, same 95.25 % coverage. The suite is dominated by ~25 genuine 15-80 s
+      # simulations, not by setup, so it parallelises across files rather than shrinking.
       - name: Run Backend Tests (fast suite)
         env:
           PYTHONPATH: .
-        run: pytest -m "not slow" --durations=25
+        run: pytest -m "not slow" -n auto --dist loadfile --durations=25
 
   # Not part of the PR/push gate: manual (workflow_dispatch) and nightly only.
   # Split by file because the two modules memoise their simulation runs
@@ -169,6 +176,14 @@ jobs:
             path: tests/integration/test_randomized_invariants.py
           - name: roundabout-lane-capacity
             path: tests/integration/test_roundabout_lane_capacity.py
+          # V3.0 W2 (ADR-014 §7): the conventional roundabout's pre-seam
+          # golden fingerprints, full corpus (the fast cases run above).
+          - name: roundabout-golden
+            path: tests/controllers/test_roundabout_golden_fingerprints.py
+          # V3.0 W2 S7 (SR-17, SR-18, SR-22, D-W2-9d): signalised roundabout
+          # safety matrix (seeds 1..8 x demand {low, medium, saturated} x 4 layouts).
+          - name: signalised-roundabout
+            path: tests/integration/test_signalised_roundabout.py
     defaults:
       run:
         working-directory: backend

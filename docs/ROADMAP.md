@@ -2,7 +2,7 @@
 
 > **This is the single authoritative roadmap.** It supersedes every earlier roadmap, deferred-features log and V1.1/V2/V3 plan in this repository (preserved in git history).
 > **Current version:** **V2.0 ✅ COMPLETE** — the V2.0 release gate (G-V2) passed on 2026-10-13 (gate commit `6b609ce`, CI green; production deployment left to the product owner, manual) · V1.6–V1.9 are delivered *partially*, as each milestone states · evidence: [V2.0 completion audit](roadmap/V2_COMPLETION_AUDIT.md) · **Last updated:** 2026-10-13 (release status; scope and planned dates unchanged)
-> **After V2.0:** [§7 V3.0](#7-v30--composable-ai-assisted-traffic-control-experimentation-planned-proposed) — composable, AI-assisted traffic-control experimentation (**PLANNED, proposed** — the V2.0 release gate has passed; implementation waits for the V3.0 design-approval gate, #150; detail in [`roadmap/`](roadmap/V3_PRODUCT_STRATEGY.md)). **Beyond that:** [Future Scope](future-scope/future_scope.md) — research frontiers only.
+> **After V2.0:** [§7 V3.0](#7-v30--composable-ai-assisted-traffic-control-experimentation-in-development) — composable, AI-assisted traffic-control experimentation (🟢 **IN DEVELOPMENT** — design-approval gate G-D passed 2026-10-14, recorded on [#150](https://github.com/Viraj281105/Traffic-Simulation/issues/150); W1 Robustness Lab vertical slice implemented 2026-10-15; W2–W9 planned; detail in [`roadmap/`](roadmap/V3_PRODUCT_STRATEGY.md)). **Beyond that:** [Future Scope](future-scope/future_scope.md) — research frontiers only.
 
 | Status | Meaning |
 | --- | --- |
@@ -330,17 +330,17 @@ Each milestone below lists its **goal**, its **scope** (authoritative), and the 
 
 ---
 
-## 7. V3.0 — Composable, AI-assisted traffic-control experimentation (PLANNED, proposed)
+## 7. V3.0 — Composable, AI-assisted traffic-control experimentation (IN DEVELOPMENT)
 
-> **Status: 🗓️ PLANNED — proposed, not approved, nothing implemented.** V3.0 implementation starts only after the V2.0 release gate (G-V2, **passed 2026-10-13**) and the V3.0 design-approval gate (G-D, not yet passed). All dates and effort figures are proposals pending product-owner approval. Detail, contracts, acceptance criteria and gates: [V3 product strategy](roadmap/V3_PRODUCT_STRATEGY.md) · [weekly sprint plan](roadmap/V3_WEEKLY_SPRINT_PLAN.md) · [presentation plan](roadmap/V3_PRESENTATION_PLAN.md) · [V2.0 completion audit](roadmap/V2_COMPLETION_AUDIT.md). Tracking: GitHub umbrella issue #150.
+> **Status: 🟢 IN DEVELOPMENT — design-approval gate G-D passed 2026-10-14 ([#150](https://github.com/Viraj281105/Traffic-Simulation/issues/150)); W1 Robustness Lab vertical slice implemented 2026-10-15; W2–W9 planned.** The V2.0 release gate (G-V2) **passed 2026-10-13**. Detail, contracts, acceptance criteria and gates: [V3 product strategy](roadmap/V3_PRODUCT_STRATEGY.md) · [weekly sprint plan](roadmap/V3_WEEKLY_SPRINT_PLAN.md) · [presentation plan](roadmap/V3_PRESENTATION_PLAN.md) · [V2.0 completion audit](roadmap/V2_COMPLETION_AUDIT.md). Tracking: GitHub umbrella issue #150.
 
 **Direction.** Evolve UrbanFlow from an intersection simulator into a **composable, AI-assisted traffic-control experimentation platform** — *evidence, not a verdict*. Results are conditional on stated, assumed inputs; no AI output or simulation result is presented as proof that a strategy is universally superior.
 
-**One major demonstrable feature per implementation week (proposed):**
+**One major demonstrable feature per implementation week:**
 
-| Week (proposed) | Major feature | Role | Funding |
+| Week | Major feature | Role | Funding |
 | --- | --- | --- | --- |
-| W1 · 30 Oct – 5 Nov 2026 | **Robustness Lab** vertical slice (uncertainty sampling, paired ensembles, statistical contract) — moved here from Future Scope FS-6 | Evidence engine | Committed |
+| W1 · 30 Oct – 5 Nov 2026 | **Robustness Lab** vertical slice (uncertainty sampling, paired ensembles, statistical contract) — moved here from Future Scope FS-6 | Evidence engine | Committed (✅ Implemented 2026-10-15) |
 | W2 · 6 – 12 Nov | **Signalised roundabouts** (`metered_entry`: signals gate entries, the existing gap-acceptance logic stays in force) | Flagship simulation feature | Committed |
 | W3 · 13 – 19 Nov | **Composable control strategies** (registry, compatibility validation, fingerprint parity) + adaptive signalised roundabout | Architecture | Committed; adaptive variant conditional |
 | W4 · 20 – 26 Nov | **High driver aggression** as the default for *new* scenarios (a new versioned profile; stored scenarios keep today's behaviour) · interim presentation 26 Nov | Declared model assumption | Committed |

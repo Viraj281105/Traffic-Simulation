@@ -17,6 +17,8 @@ import {
   SCENARIO_VERSION,
   type ApproachName,
   type ApproachSpec,
+  type EntryMeteringSpec,
+  type MeteredPhaseSpec,
   type Movement,
   type ScenarioDocument,
   type Strategy,
@@ -597,4 +599,37 @@ export function stopLineDistances(
     out[a] = need + SIGNAL_STOP_LINE_SETBACK;
   }
   return out;
+}
+
+/** V3.0 W2: Default 2-phase plan and clearance timings for metered roundabouts. */
+export function defaultEntryMetering(
+  docOrArms: ScenarioDocument | ApproachName[],
+): EntryMeteringSpec {
+  const armNames: string[] = Array.isArray(docOrArms)
+    ? docOrArms
+    : presentApproaches(docOrArms);
+  const ns = ["north", "south"].filter((a) =>
+    armNames.includes(a as ApproachName),
+  );
+  const ew = ["east", "west"].filter((a) =>
+    armNames.includes(a as ApproachName),
+  );
+  const phases: MeteredPhaseSpec[] = [];
+  if (ns.length > 0) {
+    phases.push({ entries: ns, green: 20 });
+  }
+  if (ew.length > 0) {
+    phases.push({ entries: ew, green: 20 });
+  }
+  if (phases.length === 0) {
+    phases.push({ entries: [...armNames], green: 20 });
+  }
+  return {
+    phases,
+    yellow: 3.0,
+    allRed: 2.0,
+    offset: 0.0,
+    spillbackGuard: { enabled: false, stoppedThreshold: 2, maxHold: 10.0 },
+    queueCap: { enabled: false, vehicles: 8 },
+  };
 }

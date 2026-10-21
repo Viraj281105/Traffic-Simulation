@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useContainerSize } from "../hooks/useContainerSize";
-import type { LiveSnapshot } from "../types/simulation";
+import type {
+  LiveSnapshot,
+  MeteringControllerState,
+} from "../types/simulation";
 import {
   ROUNDABOUT_SPLITTER_HALF_WIDTH,
   roundaboutCarriagewayEdge,
@@ -267,7 +270,12 @@ export const RoundaboutMap: React.FC<RoundaboutMapProps> = ({
         showCrosswalks,
         environment,
       );
-      drawEntryYieldSigns(ctx, toCanvas, giveWay, edges);
+      const metering =
+        controller.type === "roundabout" &&
+        controller.entryControl === "metered_entry"
+          ? controller.metering
+          : undefined;
+      drawEntryYieldSigns(ctx, toCanvas, giveWay, edges, scale, metering);
       drawLaneArrows(
         ctx,
         current.intersection.approaches,
@@ -413,12 +421,20 @@ function drawApproachMarkings(
   });
 }
 
+function signalColor(c: string): string {
+  if (c === "green") return "#22c55e";
+  if (c === "yellow") return "#eab308";
+  return "#ef4444";
+}
+
 function drawEntryYieldSigns(
   ctx: CanvasRenderingContext2D,
   toCanvas: (x: number, y: number) => [number, number],
   giveWay: number,
   /** Carriageway edge per arm, in ARM_ORDER (north, west, south, east). */
   edges: number[],
+  scale: number,
+  metering?: MeteringControllerState,
 ) {
   const [northEdge, westEdge, southEdge, eastEdge] = edges;
   const island = ROUNDABOUT_SPLITTER_HALF_WIDTH;
@@ -448,6 +464,37 @@ function drawEntryYieldSigns(
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
+
+    // V3.0 W2 S8: Signal head beside the yield sign on metered arms only (SR-28).
+    if (metering) {
+      const arm = metering.arms.find((a) => a.direction === direction);
+      if (arm && arm.metered) {
+        let sx = cx;
+        let sy = cy;
+        const offset = Math.max(14, scale * 2.2);
+        if (direction === "north") {
+          sx = cx - offset;
+        } else if (direction === "south") {
+          sx = cx + offset;
+        } else if (direction === "east") {
+          sy = cy + offset;
+        } else {
+          sy = cy - offset;
+        }
+
+        const w = Math.max(9, scale * 2.2);
+        const h = Math.max(16, scale * 4.0);
+        ctx.fillStyle = "#171b1f";
+        ctx.fillRect(sx - w / 2, sy - h / 2, w, h);
+        ctx.fillStyle = signalColor(arm.color);
+        ctx.shadowColor = ctx.fillStyle;
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(sx, sy, Math.max(3.5, scale * 0.8), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    }
   }
 
   // Give-way lines across each entry carriageway, where its lanes end and

@@ -1,6 +1,7 @@
 import { IntersectionMap } from "../IntersectionMap";
 import { RoundaboutMap } from "../RoundaboutMap";
 import { AdaptiveSignalStatus } from "../AdaptiveSignalStatus";
+import { MeteredRoundaboutStatus } from "../MeteredRoundaboutStatus";
 import { VehicleLegend } from "../VehicleLegend";
 import type { DualSnapshot } from "../../types/simulation";
 import type { SignalControl } from "../../types/config";
@@ -70,6 +71,7 @@ export function ComparisonMaps({
             debug={debug}
           />
           <VehicleLegend snapshot={snapshot?.roundabout} />
+          <MeteredRoundaboutStatus snapshot={snapshot?.roundabout} />
         </div>
       </section>
     </div>

@@ -149,8 +149,21 @@ class SimulationEngine:
             self.idm = idm_cls(**idm_kwargs)
 
             self.deadlock_detector: Optional[DeadlockDetector] = None
+            cfg_dict = self.config or {}
+            geom_section = cfg_dict.get("geometry")
+            ctrl_section = cfg_dict.get("controller")
+            is_metered = (
+                isinstance(geom_section, dict)
+                and geom_section.get("intersectionType") == "roundabout"
+                and isinstance(ctrl_section, dict)
+                and ctrl_section.get("entryControl") == "metered_entry"
+            )
             if is_unstructured:
-                detector = DeadlockDetector(self.clock, self.pool)
+                detector = DeadlockDetector(self.clock, self.pool, ring_only=is_metered)
+                self.deadlock_detector = detector
+                self.register_tick_callback(lambda: detector.tick(self.clock.time_step))
+            elif is_metered:
+                detector = DeadlockDetector(self.clock, self.pool, ring_only=True)
                 self.deadlock_detector = detector
                 self.register_tick_callback(lambda: detector.tick(self.clock.time_step))
 

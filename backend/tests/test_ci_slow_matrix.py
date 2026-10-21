@@ -12,14 +12,22 @@ from pathlib import Path
 
 BACKEND = Path(__file__).resolve().parents[1]
 WORKFLOW = BACKEND.parent / ".github" / "workflows" / "ci.yml"
-SLOW_MARK = re.compile(r"^\s*(@pytest\.mark\.slow|pytestmark\s*=.*slow)", re.M)
+# Decorator, module-level ``pytestmark`` and per-case ``marks=`` (pytest.param)
+# forms. The last was missed until 2026-10-19, when a file marking only some
+# parametrised cases slow would have passed this check with no matrix entry.
+SLOW_MARK = re.compile(
+    r"^\s*(@pytest\.mark\.slow|pytestmark\s*=.*slow)|marks\s*=[^\n]*pytest\.mark\.slow",
+    re.M,
+)
 
 
 def _files_with_slow_tests() -> set[str]:
     return {
         path.relative_to(BACKEND).as_posix()
         for path in (BACKEND / "tests").rglob("test_*.py")
-        if SLOW_MARK.search(path.read_text(encoding="utf-8"))
+        # This file holds no slow tests, only examples of the marker.
+        if path.resolve() != Path(__file__).resolve()
+        and SLOW_MARK.search(path.read_text(encoding="utf-8"))
     }
 
 
@@ -44,3 +52,14 @@ def test_every_slow_test_file_is_in_the_ci_slow_matrix() -> None:
 def test_the_slow_matrix_names_only_real_files() -> None:
     for path in _slow_matrix_paths():
         assert (BACKEND / path).is_file(), path
+
+
+def test_the_marker_scan_recognises_every_form_of_the_slow_mark() -> None:
+    for source in (
+        "@pytest.mark.slow\ndef test_x(): ...",
+        "pytestmark = [pytest.mark.slow]",
+        "pytest.param(1, marks=pytest.mark.slow)",
+        'pytest.param(c, marks=() if c["fast"] else (pytest.mark.slow,))',
+    ):
+        assert SLOW_MARK.search(source), source
+    assert not SLOW_MARK.search("pytest.param(1, marks=pytest.mark.unit)")

@@ -7,7 +7,7 @@
 
 ## 1. Why `shared/` Exists
 
-Only the three JSON files under `shared/schemas/` exist today; the `examples/` directories described in the original proposal were not created. The validator checks JSON syntax and `$schema` presence, while the backend actively validates versioned configuration payloads with `config.schema.json`.
+The repository contracts live under `shared/schemas/`: the core V1.0 schemas (`config.schema.json`, `snapshot.schema.json`, `vehicle_state.json`), V2.0 schemas (`v2/` for planning, calibration, and networks), and V3.0 schemas (`v3/` for experiments, uncertainty, and OpenAPI snapshots). The `examples/` directories described in the early phase-0 proposal were not created. The schema validator checks JSON syntax and `$schema` presence, while the backend actively validates versioned payloads against these schemas.
 
 The `shared/` directory is the **single source of truth** for all data contracts between the Backend and Frontend. It exists to solve one fundamental problem:
 

@@ -238,6 +238,74 @@
             }
           },
           "required": ["status", "decisions"]
+        },
+        "entryControl": {
+          "type": "string",
+          "enum": ["metered_entry", "none"],
+          "description": "V3.0 W2: roundabout entry control mode"
+        },
+        "metering": {
+          "type": "object",
+          "description": "V3.0 W2: live entry metering state for signalised roundabouts",
+          "properties": {
+            "currentPhase": { "type": "string" },
+            "color": { "type": "string", "enum": ["green", "yellow", "red"] },
+            "timeRemaining": { "type": "number", "minimum": 0 },
+            "cycleNumber": { "type": "integer", "minimum": 0 },
+            "cycleProgress": { "type": "number", "minimum": 0, "maximum": 1 },
+            "arms": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "direction": { "type": "string", "enum": ["north", "south", "east", "west"] },
+                  "metered": { "type": "boolean" },
+                  "color": { "type": "string", "enum": ["green", "yellow", "red"] },
+                  "reason": { "type": ["string", "null"] }
+                },
+                "required": ["direction", "metered", "color", "reason"]
+              }
+            },
+            "decisions": {
+              "type": "object",
+              "additionalProperties": { "type": "integer", "minimum": 0 }
+            },
+            "recentDecisions": {
+              "type": "array",
+              "items": { "type": "object" }
+            },
+            "spillbackGuard": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "cumulativeHoldTime": {
+                  "type": "object",
+                  "additionalProperties": { "type": "number", "minimum": 0 }
+                },
+                "activations": {
+                  "type": "object",
+                  "additionalProperties": { "type": "integer", "minimum": 0 }
+                },
+                "budgetExhaustions": {
+                  "type": "object",
+                  "additionalProperties": { "type": "integer", "minimum": 0 }
+                }
+              },
+              "required": ["enabled"]
+            },
+            "queueCap": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "triggers": {
+                  "type": "object",
+                  "additionalProperties": { "type": "integer", "minimum": 0 }
+                }
+              },
+              "required": ["enabled"]
+            }
+          },
+          "required": ["currentPhase", "color", "timeRemaining", "cycleNumber", "arms", "decisions"]
         }
       },
       "required": ["type", "timeInCurrentState"]
