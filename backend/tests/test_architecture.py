@@ -17,10 +17,12 @@ from typing import Dict, Iterator, Set, Tuple
 SRC = Path(__file__).resolve().parents[1] / "src"
 
 # Lower number = lower layer. A domain package may import only packages with
-# a strictly lower rank (and itself). scenario/ and engine/ share a rank: they
+# a strictly lower rank (and itself). core/ and strategies/ share rank 0 (leaf
+# packages with no domain dependencies). scenario/ and engine/ share a rank: they
 # are siblings that must not import each other.
 DOMAIN_RANK: Dict[str, int] = {
     "core": 0,
+    "strategies": 0,
     "roads": 1,
     "vehicles": 2,
     "intersection": 3,
