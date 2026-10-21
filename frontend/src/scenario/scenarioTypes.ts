@@ -45,6 +45,26 @@ export const STRATEGY_TITLE: Record<Strategy, string> = {
   adaptive: "Adaptive signal",
   roundabout: "Roundabout",
 };
+/** The roundabout as it is named when its entries carry signals. */
+export const METERED_ROUNDABOUT_TITLE = "Roundabout (metered entry)";
+
+/** The scenario's roundabout has signals on its entries (V3.0 W2). */
+export function isMeteredEntry(doc: {
+  roundabout: { entryControl?: "metered_entry" | "none" | null };
+}): boolean {
+  return doc.roundabout.entryControl === "metered_entry";
+}
+
+/** A strategy's display name for this scenario: a metered-entry roundabout is
+ *  not the conventional one, so the two must never share a name. */
+export function strategyTitle(
+  strategy: Strategy,
+  doc: Parameters<typeof isMeteredEntry>[0],
+): string {
+  return strategy === "roundabout" && isMeteredEntry(doc)
+    ? METERED_ROUNDABOUT_TITLE
+    : STRATEGY_TITLE[strategy];
+}
 export const JUNCTION_STRATEGY: Record<JunctionType, Strategy> = {
   fixed_time_signal: "fixed_time",
   adaptive_signal: "adaptive",

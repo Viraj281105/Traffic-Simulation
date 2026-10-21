@@ -1,5 +1,5 @@
 import { type ScenarioDocument } from "../../scenario/scenarioTypes";
-import { defaultEntryMetering } from "../../scenario/scenarioModel";
+import { setEntryControl } from "../../scenario/scenarioModel";
 import { NumberField } from "./fields";
 
 export function AdvancedSettings({
@@ -270,8 +270,7 @@ export function AdvancedSettings({
               aria-pressed={!isMetered}
               onClick={() => {
                 update((d) => {
-                  delete d.roundabout.entryControl;
-                  delete d.roundabout.entryMetering;
+                  setEntryControl(d, "conventional");
                 });
               }}
             >
@@ -283,9 +282,7 @@ export function AdvancedSettings({
               aria-pressed={isMetered}
               onClick={() => {
                 update((d) => {
-                  d.roundabout.entryControl = "metered_entry";
-                  d.roundabout.entryMetering =
-                    d.roundabout.entryMetering ?? defaultEntryMetering(d);
+                  setEntryControl(d, "metered_entry");
                 });
               }}
             >
@@ -295,6 +292,10 @@ export function AdvancedSettings({
         </div>
         {isMetered && rb.entryMetering && (
           <>
+            <p className="config-hint">
+              Each phase gives a green to the roads in parentheses while the
+              others wait at red. Roads in no phase are not metered.
+            </p>
             {rb.entryMetering.phases.map((p, idx) => (
               <NumberField
                 key={idx}

@@ -71,6 +71,7 @@ import {
   enqueueSuiteBatch,
 } from "./services/api";
 import { approachLanes } from "./scenario/scenarioModel";
+import { isMeteredEntry } from "./scenario/scenarioTypes";
 import { hasResults, sideSummary } from "./metrics/plainLanguage";
 import type {
   LiveSnapshot,
@@ -776,6 +777,7 @@ function Dashboard({
             />
             <LiveGuide
               snapshot={dualSnapshot}
+              meteredEntry={scenario ? isMeteredEntry(scenario) : false}
               durationSeconds={duration}
               connectionStatus={activeConnectionStatus}
               onSeeResults={() => {

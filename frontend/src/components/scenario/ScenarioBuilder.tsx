@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import {
   APPROACHES,
   OPPOSITE,
-  STRATEGY_TITLE,
+  strategyTitle,
   type ApproachName,
   type ApproachSpec,
   type ScenarioDocument,
@@ -34,6 +34,7 @@ import { ApproachLanesCard } from "./ApproachLanesCard";
 import { ApproachTrafficCard } from "./ApproachTrafficCard";
 import { GeometrySettings } from "./GeometrySettings";
 import { AdvancedSettings } from "./AdvancedSettings";
+import { EntryControlChoice } from "./EntryControlChoice";
 import "./ScenarioBuilder.css";
 
 /**
@@ -251,6 +252,10 @@ export function ScenarioBuilder({
               Real road angles and lane widths are under Advanced.
             </p>
           </div>
+          {(strategies.includes("roundabout") ||
+            value.junction.type === "roundabout") && (
+            <EntryControlChoice value={value} update={update} />
+          )}
         </section>
 
         {/* 2 · Roads & lanes ────────────────────────────────────────── */}
@@ -474,7 +479,8 @@ export function ScenarioBuilder({
           >
             <summary>
               <span className="q-number">6</span> Advanced — junction geometry,
-              signal timing, adaptive settings, roundabout design, roads
+              signal timing, adaptive settings, roundabout design, metered-entry
+              timing, roads
             </summary>
             {/* Rendered only while open: the guided steps stay quick. */}
             {advancedOpen && (
@@ -590,13 +596,17 @@ export function ScenarioBuilder({
               : validation.status === "unreachable"
                 ? "Cannot reach the simulator to check this scenario."
                 : ready
-                  ? `Ready to simulate as ${strategies.map((s) => STRATEGY_TITLE[s]).join(", ")}.`
+                  ? `Ready to simulate as ${strategies.map((s) => strategyTitle(s, value)).join(", ")}.`
                   : "This configuration cannot currently be simulated:"}
           </p>
           {serverErrors.length > 0 && (
             <ul className="sb-errors">
               {serverErrors.map((e) => (
-                <li key={e}>{e}</li>
+                <li key={e}>
+                  {e}
+                  {e.includes("(metering.missing_arm)") &&
+                    " Under “How do vehicles enter the roundabout?” in step 1, choose “Rebuild phases for the current roads”."}
+                </li>
               ))}
             </ul>
           )}

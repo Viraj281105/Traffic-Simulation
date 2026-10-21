@@ -52,6 +52,7 @@ flowchart TB
 | [product/planner-guide.md](product/planner-guide.md) | Current (V2.0) | Step-by-step planner guide for running junction studies at `/app/planner` |
 | [product/urbanflow-user-narrative.md](product/urbanflow-user-narrative.md) | Reference | Narrative, information architecture and plain-language strategy as implemented |
 | [product/urbanflow-evaluation-metrics.md](product/urbanflow-evaluation-metrics.md) | Reference | Full metric audit: formulas, charts, validity findings |
+| [product/ux-audit-v3-w2-followup.md](product/ux-audit-v3-w2-followup.md) | Record (2026-10-21) | UX audit of the scenario → run → results workflow and the small changes made for metered-entry roundabouts; deferred items |
 
 ### Simulation and research
 
@@ -110,7 +111,10 @@ flowchart TB
 | [roadmap/V3_PRODUCT_STRATEGY.md](roadmap/V3_PRODUCT_STRATEGY.md) | Proposed | V3.0 strategy: signalised roundabouts and composable strategies, high-aggression default, two AI features, Robustness Lab contract |
 | [roadmap/V3_WEEKLY_SPRINT_PLAN.md](roadmap/V3_WEEKLY_SPRINT_PLAN.md) | Proposed | Capacity model, one major feature per week, gates, GitHub issue map |
 | [roadmap/V3_PRESENTATION_PLAN.md](roadmap/V3_PRESENTATION_PLAN.md) | Proposed | Preview (29 Oct), interim (26 Nov) and final (7 Jan 2027) presentations |
-| [future-scope/future_scope.md](future-scope/future_scope.md) | **Authoritative** | Research frontiers beyond the roadmap |
+| [future-scope/future_scope.md](future-scope/future_scope.md) | **Authoritative** | Research frontiers beyond the roadmap (FS-1 … FS-13) |
+| [future-scope/next-generation-requirements.md](future-scope/next-generation-requirements.md) | Planning | Guided Scenario Builder, Visual City Studio, AI Traffic Analyst: users, journeys, requirements with stable IDs, MVPs, open questions |
+| [future-scope/next-generation-architecture.md](future-scope/next-generation-architecture.md) | Planning | Reusable capabilities, component boundaries, shared contracts, risks, ADR candidates |
+| [future-scope/next-generation-roadmap.md](future-scope/next-generation-roadmap.md) | Planning | Dependency-ordered phases, gates, parallel-work policy |
 | [future-scope/ui_ux_and_nextgen_innovations.md](future-scope/ui_ux_and_nextgen_innovations.md) | Archived | Early UI brainstorm, mapped to roadmap/future scope |
 | [project-management/](project-management/README.md) | Historical | Original milestone plan, labels, Kanban |
 | [issues/](issues/README.md) | Historical | Original atomic issue breakdown |

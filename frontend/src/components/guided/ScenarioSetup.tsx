@@ -30,7 +30,11 @@ import {
   sameScenario,
   scenarioFromConfigValues,
 } from "../../scenario/scenarioModel";
-import type { ScenarioDocument, Strategy } from "../../scenario/scenarioTypes";
+import {
+  isMeteredEntry,
+  type ScenarioDocument,
+  type Strategy,
+} from "../../scenario/scenarioTypes";
 
 /** A guided run; `isBatch` asks the parent for a batch experiment instead. */
 export type GuidedRunRequest = SimulationConfigValues & { isBatch?: boolean };
@@ -148,9 +152,15 @@ export function ScenarioSetup({
                     ? "signal that responds to traffic"
                     : "fixed-time signal"}
                 </strong>{" "}
-                and a <strong>roundabout</strong> on these roads with the same
-                traffic. Choose “Adaptive signal” to compare the responsive
-                signal instead; three-way studies are in the Research Lab.
+                and a{" "}
+                <strong>
+                  {isMeteredEntry(scenario)
+                    ? "metered-entry roundabout"
+                    : "roundabout"}
+                </strong>{" "}
+                on these roads with the same traffic. Choose “Adaptive signal”
+                to compare the responsive signal instead; three-way studies are
+                in the Research Lab.
               </>
             }
           />
@@ -160,8 +170,12 @@ export function ScenarioSetup({
               {signalStrategy === "adaptive"
                 ? "traffic signal that responds to traffic"
                 : "traffic signal"}{" "}
-              with a roundabout: <strong>{describeScenario(scenario)}</strong>{" "}
-              For {duration(scenario.simulation.duration)} of traffic, seed{" "}
+              with a{" "}
+              {isMeteredEntry(scenario)
+                ? "metered-entry roundabout"
+                : "roundabout"}
+              : <strong>{describeScenario(scenario)}</strong> For{" "}
+              {duration(scenario.simulation.duration)} of traffic, seed{" "}
               {scenario.simulation.seed}.
             </p>
             <button

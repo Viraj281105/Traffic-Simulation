@@ -15,7 +15,7 @@ export const JUNCTIONS: { id: JunctionType; title: string; body: string }[] = [
   {
     id: "roundabout",
     title: "Roundabout",
-    body: "No signal: drivers give way to circulating traffic and enter at gaps.",
+    body: "Drivers give way to circulating traffic and enter at gaps; signals on the entries are optional.",
   },
 ];
 

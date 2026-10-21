@@ -47,7 +47,8 @@ frontend/
 │   │   │                           VisualComparisonTab (CIBar, SeedChartTooltip), SeedRunsTable, MethodologyTab
 │   │   ├── scenario/               Scenario builder and study: ScenarioBuilder (steps and state), builderOptions.ts,
 │   │   │                           fields, LaneArrowEditor, ApproachLanesCard, ApproachTrafficCard,
-│   │   │                           GeometrySettings, AdvancedSettings, JunctionPreview, MixEditor, ScenarioStudy
+│   │   │                           GeometrySettings, AdvancedSettings, EntryControlChoice (roundabout entry control, step 1),
+│   │                           JunctionPreview, MixEditor, ScenarioStudy
 │   │   ├── ControlComparisonStudy.tsx (V1.3 three-way study, on /app/research) · AdaptiveSignalStatus.tsx (adaptive map overlay)
 │   │   ├── Login.tsx               Sign-in dialog
 │   │   └── ui/                     Shared UI: loaders, page transitions, status states, logo
