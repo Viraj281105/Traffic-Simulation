@@ -52,6 +52,11 @@ STRATEGY_TITLES = {
     "fixed_time": "Fixed-time signal",
     "adaptive": "Adaptive signal",
     "roundabout": "Roundabout",
+    "fixed_time_signal": "Fixed-Time Signal",
+    "adaptive_signal": "Adaptive (Actuated) Signal",
+    "conventional_roundabout": "Conventional Roundabout",
+    "metered_entry_roundabout": "Metered-Entry Roundabout",
+    "signalised_roundabout": "Metered-Entry Roundabout",
 }
 # The junction type a document names, as a strategy.
 JUNCTION_STRATEGY = {
@@ -301,7 +306,11 @@ def compile_scenario(document: ScenarioDocument, strategy: str) -> Dict[str, Any
     at all. Everything else is left to the engine contract's validation
     (``validate_scenario``), which reports it rather than adjusting it.
     """
-    if strategy not in STRATEGIES:
+    try:
+        from src.strategies.registry import get_strategy_registry
+
+        canonical_strategy = get_strategy_registry().resolve_id(strategy)
+    except (KeyError, TypeError, ValueError):
         raise ValueError(
             f"Unknown strategy {strategy!r}; expected one of {list(STRATEGIES)}"
         )
@@ -317,6 +326,8 @@ def compile_scenario(document: ScenarioDocument, strategy: str) -> Dict[str, Any
     sim = document.simulation
     rate = total_vph / 3600.0
 
+    is_roundabout = canonical_strategy in ("conventional_roundabout", "metered_entry_roundabout")
+
     road_items: List[Dict[str, Any]] = []
     traffic_items: List[Dict[str, Any]] = []
     for d, arm in arms.items():
@@ -325,7 +336,7 @@ def compile_scenario(document: ScenarioDocument, strategy: str) -> Dict[str, Any
             "lanes": arm.lanes,
             "length": arm.length,
         }
-        lane_use = arm.roundaboutLaneUse if strategy == "roundabout" else arm.laneUse
+        lane_use = arm.roundaboutLaneUse if is_roundabout else arm.laneUse
         if lane_use is not None:
             item["laneUse"] = [list(lane) for lane in lane_use]
         if arm.bearing is not None:
@@ -350,7 +361,7 @@ def compile_scenario(document: ScenarioDocument, strategy: str) -> Dict[str, Any
         },
         "geometry": {
             "intersectionType": (
-                "roundabout" if strategy == "roundabout" else "fixed_time_signal"
+                "roundabout" if is_roundabout else "fixed_time_signal"
             ),
             "intersectionCenter": {"x": 0.0, "y": 0.0},
         },
@@ -388,7 +399,7 @@ def compile_scenario(document: ScenarioDocument, strategy: str) -> Dict[str, Any
             document.vehicles.types
         )
 
-    if strategy == "roundabout":
+    if is_roundabout:
         rb = document.roundabout
         config["controller"] = {
             "innerRadius": rb.innerRadius,
@@ -400,6 +411,8 @@ def compile_scenario(document: ScenarioDocument, strategy: str) -> Dict[str, Any
         }
         if rb.entryControl is not None:
             config["controller"]["entryControl"] = rb.entryControl
+        elif canonical_strategy == "metered_entry_roundabout":
+            config["controller"]["entryControl"] = "metered_entry"
         if rb.entryMetering is not None:
             config["controller"]["entryMetering"] = rb.entryMetering.model_dump(
                 exclude_none=True
@@ -418,7 +431,7 @@ def compile_scenario(document: ScenarioDocument, strategy: str) -> Dict[str, Any
             ctrl["nsGreenDuration"] = sig.nsGreenTime
         if sig.ewGreenTime is not None:
             ctrl["ewGreenDuration"] = sig.ewGreenTime
-        if strategy == "adaptive":
+        if canonical_strategy == "adaptive_signal":
             ctrl["signalControl"] = "adaptive"
             ctrl["adaptive"] = sig.adaptive.model_dump()
         config["controller"] = ctrl

@@ -27,6 +27,14 @@ from src.strategies.registry import (
     get_strategy_registry,
     reset_strategy_registry,
 )
+from src.strategies.resolution import (
+    compute_strategy_instance_fingerprint,
+    extract_explicit_strategy,
+    infer_strategy_id_from_config,
+    resolve_strategy,
+    resolve_strategy_id,
+    resolve_strategy_parameters,
+)
 from src.strategies.validator import (
     COMPATIBILITY_ERROR_CODES,
     CompatibilityIssue,
@@ -68,5 +76,11 @@ __all__ = [
     "validate_layer_combination",
     "validate_scenario_strategy_compatibility",
     "check_scenario_strategy_compatibility",
+    "resolve_strategy",
+    "resolve_strategy_id",
+    "infer_strategy_id_from_config",
+    "extract_explicit_strategy",
+    "resolve_strategy_parameters",
+    "compute_strategy_instance_fingerprint",
 ]
 

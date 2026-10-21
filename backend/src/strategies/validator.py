@@ -42,6 +42,8 @@ COMPATIBILITY_ERROR_CODES: FrozenSet[str] = frozenset(
         "compat.adaptive_unsupported_policy",
         "compat.uncontrolled_cannot_be_cycle_aware",
         "compat.priority_overlay_unsupported",
+        "compat.unknown_strategy",
+        "compat.strategy_config_mismatch",
     }
 )
 
@@ -330,15 +332,106 @@ def validate_scenario_strategy_compatibility(
 
     Translates scenario configuration fields (geometry.intersectionType, controller.signalControl,
     controller.entryControl) into effective strategy descriptor layers and evaluates them.
-    Formally supersedes the legacy error 'adaptive applies to a signalised junction'.
+    Also validates explicit strategy declarations against registered strategies and structural layers
+    (W3-T3, ADR-014 §2, §4). Formally supersedes the legacy error 'adaptive applies to a signalised junction'.
     """
+    from src.strategies.registry import get_strategy_registry
+    from src.strategies.resolution import extract_explicit_strategy
+
+    issues: List[CompatibilityIssue] = []
+    registry = get_strategy_registry()
+
+    # 1. Inspect explicit strategy declaration if present
+    raw_strategy = extract_explicit_strategy(config)
+    canonical_strategy_id: Optional[str] = None
+    if raw_strategy is not None:
+        if not registry.has(raw_strategy):
+            issues.append(
+                CompatibilityIssue(
+                    code="compat.unknown_strategy",
+                    message=f"Unknown strategy '{raw_strategy}'",
+                    layers=("control_policy",),
+                    suggestion=(
+                        f"Choose a registered strategy from "
+                        f"{sorted(registry.list_ids() + list(registry.list_aliases().keys()))}."
+                    ),
+                )
+            )
+        else:
+            canonical_strategy_id = registry.resolve_id(raw_strategy)
+
     geom = config.get("geometry")
     geom_type = geom.get("intersectionType", "fixed_time_signal") if isinstance(geom, dict) else "fixed_time_signal"
+    if geom_type is None and isinstance(config.get("junction"), dict):
+        geom_type = config["junction"].get("type", "fixed_time_signal")
 
     ctrl = config.get("controller")
     ctrl_dict = ctrl if isinstance(ctrl, dict) else {}
     signal_control = ctrl_dict.get("signalControl", "fixed_time")
     entry_control = ctrl_dict.get("entryControl")
+    if entry_control is None and isinstance(config.get("roundabout"), dict):
+        entry_control = config["roundabout"].get("entryControl")
+
+    # 2. Check explicit strategy against structural configuration
+    if canonical_strategy_id is not None:
+        if canonical_strategy_id in ("fixed_time_signal", "adaptive_signal") and geom_type != "fixed_time_signal":
+            issues.append(
+                CompatibilityIssue(
+                    code="compat.strategy_config_mismatch",
+                    message=(
+                        f"Strategy '{raw_strategy}' requires 'fixed_time_signal' geometry, "
+                        f"got '{geom_type}'"
+                    ),
+                    layers=("geometry", "control_policy"),
+                    suggestion="Set geometry.intersectionType to 'fixed_time_signal' or change strategy.",
+                )
+            )
+        elif canonical_strategy_id in ("conventional_roundabout", "metered_entry_roundabout") and geom_type != "roundabout":
+            issues.append(
+                CompatibilityIssue(
+                    code="compat.strategy_config_mismatch",
+                    message=(
+                        f"Strategy '{raw_strategy}' requires 'roundabout' geometry, "
+                        f"got '{geom_type}'"
+                    ),
+                    layers=("geometry", "control_policy"),
+                    suggestion="Set geometry.intersectionType to 'roundabout' or change strategy.",
+                )
+            )
+
+        if canonical_strategy_id == "conventional_roundabout" and entry_control == "metered_entry":
+            issues.append(
+                CompatibilityIssue(
+                    code="compat.strategy_config_mismatch",
+                    message=(
+                        f"Strategy '{raw_strategy}' requires unmetered roundabout control; "
+                        f"incompatible with entryControl='metered_entry'"
+                    ),
+                    layers=("right_of_way", "control_policy"),
+                    suggestion="Omit entryControl or use strategy 'metered_entry_roundabout'.",
+                )
+            )
+        elif canonical_strategy_id == "metered_entry_roundabout" and entry_control != "metered_entry":
+            issues.append(
+                CompatibilityIssue(
+                    code="compat.strategy_config_mismatch",
+                    message=(
+                        f"Strategy '{raw_strategy}' requires entryControl='metered_entry' on roundabout controller, "
+                        f"got {entry_control!r}"
+                    ),
+                    layers=("right_of_way", "control_policy"),
+                    suggestion="Set controller.entryControl to 'metered_entry'.",
+                )
+            )
+        elif canonical_strategy_id == "fixed_time_signal" and signal_control == "adaptive":
+            issues.append(
+                CompatibilityIssue(
+                    code="compat.strategy_config_mismatch",
+                    message=f"Strategy '{raw_strategy}' conflicts with controller.signalControl='adaptive'",
+                    layers=("control_policy", "adaptation_logic"),
+                    suggestion="Remove controller.signalControl or use strategy 'adaptive_signal'.",
+                )
+            )
 
     # Map scenario configuration to architectural layers
     if geom_type == "roundabout":
@@ -357,9 +450,13 @@ def validate_scenario_strategy_compatibility(
         topo_type = "point_based_conflicts"
         circulating_lanes = None
 
-    adapt_logic = "gap_out_extension" if signal_control == "adaptive" else "none"
+    adapt_logic = (
+        "gap_out_extension"
+        if (signal_control == "adaptive" or canonical_strategy_id == "adaptive_signal")
+        else "none"
+    )
 
-    return validate_layer_combination(
+    layer_issues = validate_layer_combination(
         geometry={
             "intersection_type": geom_type,
             "min_arms": 3,
@@ -372,10 +469,15 @@ def validate_scenario_strategy_compatibility(
         adaptation_logic={"logic": adapt_logic, "deterministic": True},
         priority_overlay={"overlay": "none"},
     )
+    issues.extend(layer_issues)
+    return issues
 
 
 def check_scenario_strategy_compatibility(config: Dict[str, Any]) -> None:
     """Validate scenario strategy compatibility; raise StrategyCompatibilityError if invalid."""
+    from src.strategies.resolution import extract_explicit_strategy
+
     issues = validate_scenario_strategy_compatibility(config)
     if issues:
-        raise StrategyCompatibilityError(issues)
+        raw_strat = extract_explicit_strategy(config)
+        raise StrategyCompatibilityError(issues, strategy_id=raw_strat)
