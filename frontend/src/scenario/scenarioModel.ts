@@ -601,6 +601,54 @@ export function stopLineDistances(
   return out;
 }
 
+/** Switches a draft's roundabout between conventional and metered entry.
+ *  Choosing conventional removes both metering fields, so a conventional
+ *  roundabout never carries metering settings and serialises as before;
+ *  choosing metered keeps any plan already there. */
+export function setEntryControl(
+  draft: ScenarioDocument,
+  mode: "conventional" | "metered_entry",
+): void {
+  if (mode === "conventional") {
+    delete draft.roundabout.entryControl;
+    delete draft.roundabout.entryMetering;
+    return;
+  }
+  draft.roundabout.entryControl = "metered_entry";
+  draft.roundabout.entryMetering =
+    draft.roundabout.entryMetering ?? defaultEntryMetering(draft);
+}
+
+/** Rebuilds a metered roundabout's phases for the roads the junction has now
+ *  (north–south, then east–west), keeping its yellow, all-red, offset, guard
+ *  and queue cap. Greens return to the default; this runs only when asked. */
+export function rebuildEntryMeteringPhases(draft: ScenarioDocument): void {
+  const fresh = defaultEntryMetering(draft);
+  const current = draft.roundabout.entryMetering;
+  draft.roundabout.entryMetering = current
+    ? { ...current, phases: fresh.phases }
+    : fresh;
+}
+
+/** Which roads a metered plan signals. Roads in no phase are not metered and
+ *  enter as at a conventional roundabout; phase entries naming a road the
+ *  junction no longer has are `missing` (the backend rejects those). */
+export function meteringCoverage(doc: ScenarioDocument): {
+  metered: ApproachName[];
+  unmetered: ApproachName[];
+  missing: string[];
+} {
+  const present = presentApproaches(doc);
+  const named = new Set(
+    (doc.roundabout.entryMetering?.phases ?? []).flatMap((p) => p.entries),
+  );
+  return {
+    metered: present.filter((a) => named.has(a)),
+    unmetered: present.filter((a) => !named.has(a)),
+    missing: [...named].filter((e) => !present.includes(e as ApproachName)),
+  };
+}
+
 /** V3.0 W2: Default 2-phase plan and clearance timings for metered roundabouts. */
 export function defaultEntryMetering(
   docOrArms: ScenarioDocument | ApproachName[],

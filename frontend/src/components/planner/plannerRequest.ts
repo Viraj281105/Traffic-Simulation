@@ -1,5 +1,10 @@
 /** The planning-study request the planner page sends (planning/models.py). */
-import type { ScenarioDocument, Strategy } from "../../scenario/scenarioTypes";
+import {
+  METERED_ROUNDABOUT_TITLE,
+  isMeteredEntry,
+  type ScenarioDocument,
+  type Strategy,
+} from "../../scenario/scenarioTypes";
 import type { PlanningStudyRequest } from "../../services/v2/planning";
 
 export interface AlternativeRow {
@@ -34,7 +39,13 @@ export function buildStudyRequest(input: {
     alternatives: input.alternatives.map((a, i) => ({
       id: ids[i],
       strategy: a.strategy,
-      ...(a.label.trim() ? { label: a.label.trim() } : {}),
+      // A metered-entry roundabout is named as such in the study's findings
+      // and exports; every other alternative keeps the server's own title.
+      ...(a.label.trim()
+        ? { label: a.label.trim() }
+        : a.strategy === "roundabout" && isMeteredEntry(input.scenario)
+          ? { label: METERED_ROUNDABOUT_TITLE }
+          : {}),
     })),
     demand: { scales: [...input.scales].sort((a, b) => a - b) },
     repetitions: { seeds: input.seeds },

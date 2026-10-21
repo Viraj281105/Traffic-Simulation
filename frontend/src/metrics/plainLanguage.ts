@@ -326,6 +326,8 @@ export interface ScenarioFacts {
   greenEw: number;
   cycleSeconds: number;
   criticalGap: number;
+  /** V3.0 W2: the roundabout has signals on its entries (absent: it has none). */
+  meteredEntry?: boolean;
   /** V1.3: the signal responds to traffic (null/absent: fixed timetable). */
   adaptive?: {
     minGreen: number;
@@ -386,7 +388,9 @@ export function explanations(
   );
   out.push({
     title: "How the roundabout decides who goes",
-    body: `Nobody gets a red light at the roundabout. Drivers give way to traffic already circling and go when they see a gap of at least ${seconds(facts.criticalGap, 1)}. When traffic is light, most drivers barely stop; as it gets busier, gaps become rarer and queues build at the entries.`,
+    body: facts.meteredEntry
+      ? `This roundabout has signals on its entries. A red can hold a driver back, but a green never sends one in: drivers still give way to traffic already circling and go only when they see a gap of at least ${seconds(facts.criticalGap, 1)}. Nothing inside the ring is signalled. The signal timings are an assumption of this simulation, not measured at a real site.`
+      : `Nobody gets a red light at the roundabout. Drivers give way to traffic already circling and go when they see a gap of at least ${seconds(facts.criticalGap, 1)}. When traffic is light, most drivers barely stop; as it gets busier, gaps become rarer and queues build at the entries.`,
   });
 
   if (s.idleGreenPct !== null && s.idleGreenPct >= 5) {

@@ -28,12 +28,15 @@ function contextOf(s: LiveSnapshot | undefined, side: Side) {
  *  toggle away and replaces this view when chosen. */
 export function LiveGuide({
   snapshot,
+  meteredEntry = false,
   durationSeconds,
   connectionStatus,
   onSeeResults,
   detailedPanel,
 }: {
   snapshot: DualSnapshot | null;
+  /** The scenario signals the roundabout entries (known before any snapshot). */
+  meteredEntry?: boolean;
   durationSeconds: number;
   connectionStatus: ConnectionStatus;
   onSeeResults: () => void;
@@ -54,6 +57,10 @@ export function LiveGuide({
   const ready = hasResults(s, r);
   const progress = Math.min(100, (elapsed / durationSeconds) * 100);
   const adaptive = adaptiveStateOf(sig?.controller) !== null;
+  const meteredRoundabout =
+    meteredEntry ||
+    (rnd?.controller.type === "roundabout" &&
+      rnd.controller.entryControl === "metered_entry");
 
   const toggle = (
     <button
@@ -211,8 +218,10 @@ export function LiveGuide({
               </li>
             )}
             <li>
-              <strong>Roundabout:</strong> drivers slow at each entry and wait
-              for a gap in the circling traffic; nobody waits for a light.
+              <strong>Roundabout:</strong>{" "}
+              {meteredRoundabout
+                ? "drivers wait at each entry for a gap in the circling traffic, and also for a green on the entry signals; a green never forces a driver in."
+                : "drivers slow at each entry and wait for a gap in the circling traffic; nobody waits for a light."}
             </li>
           </ul>
         </div>

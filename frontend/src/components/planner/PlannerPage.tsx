@@ -28,7 +28,7 @@ import { useScenarioValidation } from "../scenario/useScenarioValidation";
 import { DEFAULT_SCENARIO, cloneScenario } from "../../scenario/scenarioModel";
 import {
   STRATEGIES,
-  STRATEGY_TITLE,
+  strategyTitle,
   type ScenarioDocument,
   type Strategy,
 } from "../../scenario/scenarioTypes";
@@ -289,7 +289,9 @@ function StudySetup({ onCheck }: { onCheck: (check: Check) => void }) {
   const titleById = new Map(
     request.alternatives.map((a, i) => [
       a.id,
-      alternatives[i]?.label.trim() || STRATEGY_TITLE[a.strategy] || a.id,
+      alternatives[i]?.label.trim() ||
+        strategyTitle(a.strategy, scenario) ||
+        a.id,
     ]),
   );
 
@@ -421,7 +423,7 @@ function StudySetup({ onCheck }: { onCheck: (check: Check) => void }) {
                           >
                             {STRATEGIES.map((s) => (
                               <option key={s} value={s}>
-                                {STRATEGY_TITLE[s]}
+                                {strategyTitle(s, scenario)}
                               </option>
                             ))}
                           </select>
@@ -431,7 +433,7 @@ function StudySetup({ onCheck }: { onCheck: (check: Check) => void }) {
                             className="uf-input"
                             type="text"
                             aria-label={`Label for ${who}`}
-                            placeholder={STRATEGY_TITLE[alt.strategy]}
+                            placeholder={strategyTitle(alt.strategy, scenario)}
                             value={alt.label}
                             maxLength={120}
                             onChange={(e) => {

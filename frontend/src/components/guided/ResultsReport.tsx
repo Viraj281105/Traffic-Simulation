@@ -47,6 +47,7 @@ import type { MetricDef } from "../../metrics/catalog";
 import { VehicleClassResults } from "./VehicleClassResults";
 import { ApproachResults } from "./ApproachResults";
 import { describeRoads, ringLanes } from "../../scenario/scenarioModel";
+import { isMeteredEntry } from "../../scenario/scenarioTypes";
 import { describeMix, hasMixedTraffic } from "../../vehicles/vehicleClasses";
 import { signalControlLabel } from "../../signals/signalControl";
 
@@ -536,6 +537,9 @@ export function ResultsReport({
                 greenEw: config.ewGreenDuration ?? config.greenDuration,
                 cycleSeconds: signalCycleSeconds(config),
                 criticalGap: config.criticalGap,
+                meteredEntry: config.scenario
+                  ? isMeteredEntry(config.scenario)
+                  : false,
                 adaptive: isAdaptive(config) ? adaptiveSettings(config) : null,
               }).map((e) => (
                 <div className="why-item" key={e.title}>
@@ -783,6 +787,24 @@ export function ResultsReport({
                   : "Two circulating lanes (left turns inner, right turns outer; exits taken in turn)"}
                 , critical gap t_c = {config.criticalGap.toFixed(1)} s,
                 follow-up t_f = {config.followUpTime.toFixed(1)} s
+                {config.scenario &&
+                  isMeteredEntry(config.scenario) &&
+                  config.scenario.roundabout.entryMetering && (
+                    <>
+                      ; metered entry (signals on the entries):{" "}
+                      {config.scenario.roundabout.entryMetering.phases
+                        .map(
+                          (p) =>
+                            `${p.entries.join(" and ")} ${String(p.green)} s green`,
+                        )
+                        .join(", then ")}
+                      ; yellow{" "}
+                      {String(config.scenario.roundabout.entryMetering.yellow)}{" "}
+                      s, all-red{" "}
+                      {String(config.scenario.roundabout.entryMetering.allRed)}{" "}
+                      s
+                    </>
+                  )}
               </dd>
             </div>
             {config.scenario && (
