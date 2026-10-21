@@ -307,10 +307,30 @@ Snapshot `controller.metering` (current phase, colour, time remaining, cycle num
 
 Sprint total 4.25 ED [A]. Rollback: S2 is one revertible commit; S3–S9 add new modules and are inert until `entryControl` is set.
 
-## 12. G-SR checklist (none passed)
+## 12. G-SR checklist (evidence assembled 2026-10-21; the gate decision is the product owner's)
 
-**Mandatory (sprint §3.3, §4; §1.5):** ☐ bit-identity (slow suite) · ☐ collision = 0 / ≤ baseline (D-W2-9d) · ☐ no deadlock (D-W2-9a) · ☐ layouts: 3-arm, 4-arm, **1–2 ring lanes** (approved deviation D-W2-7), multi-lane approaches · ☐ starvation property · ☐ spillback ≤ baseline · ☐ benchmark recorded · ☐ demo recorded · ☐ decision on the W3 adaptive variant · ☐ fuzz ≥ 10,000 · ☐ existing suites green and unmodified · ☐ schema/OpenAPI parity · ☐ axe clean on new UI · ☐ limitations paragraph shipped.
-**Recommended safeguards:** H2 line-overrun check · H7 reporting consistency · H13 exit-zone pass-through · repeated-run reproducibility of the metered mode. **Reported, not gated:** low-demand delay vs conventional (D-W2-9c).
+Status key: **PASS** direct evidence (§13, "Final integration") · **NOT RUN** required verification not performed · **OPEN** needs a product-owner action. No item is FAIL or BLOCKED.
+
+**Mandatory (sprint §3.3, §4; §1.5):**
+
+| Item | Status | Evidence |
+| --- | --- | --- |
+| Bit-identity (slow suite) | PASS | Golden fingerprints, 25/25 on Windows / CPython 3.14.7 incl. the exact raw-bit pins (15 fast + 10 slow); portable pins run in CI. Exact pins on the Linux / 3.11 Docker image were last run at S1 and **not re-run** after the later commits; the source of `roundabout.py` has not changed since S2 |
+| Collision = 0 / ≤ baseline (D-W2-9d) | PASS | 0 collisions in 288 matrix runs (metered, metered + protections, conventional) |
+| No deadlock (D-W2-9a) | PASS | Discharge criterion in every cell (longest stall 56.6 s ≤ 70 s; ≥ 2 exits in the closing minute); the ring-only detector reported nothing in 288 runs and is unit-tested |
+| Layouts: 3-arm, 4-arm, **1–2 ring lanes** (D-W2-7), multi-lane approaches | PASS | The four matrix layouts |
+| Starvation property | PASS | Property test on 10,000 valid plans + longest denial 30.0 s ≤ 40 s bound in all metered runs (guard on: 30.0 s) |
+| Spillback ≤ baseline | PASS | Ring-blocking onsets 93 metered (99 with guard + cap) vs 145 conventional, strict comparison (the `+ 5` slack in the slow test was removed) |
+| Benchmark recorded | PASS | §13 and `signalised-roundabout.md` §5.4; worst ratio 1.17 (1.07 same traffic) vs the unverified 1.3 target |
+| Demo recorded | **NOT RUN** | A screen recording of "one scenario, three strategies" has not been made; the baseline study (`docs/research/examples/signalised-roundabout-baseline/`) supplies its data |
+| Decision on the W3 adaptive variant | **OPEN** | Product-owner decision; the evidence above and the low-demand finding below are the inputs |
+| Fuzz ≥ 10,000 | PASS | `test_fuzz_entry_metering_validator_10000_plans` |
+| Existing suites green and unmodified | PASS | Fast suite 1723 passed, 0 failed; existing tests only extended (five files, additions; `test_snapshot_contract.py` builds its controller through `create_controller` instead of by class so the metered shape is covered) |
+| Schema / OpenAPI parity | PASS | Parity tests in the fast suite; `scripts/validate_schemas.py` |
+| axe clean on new UI | PASS | `signalisedRoundabout.test.tsx` (axe) within 451 frontend tests |
+| Limitations paragraph shipped | PASS | UI banner and `signalised-roundabout.md` §4, §6 |
+
+**Recommended safeguards:** H2 line-overrun check **PASS** (`test_h2_nongreen_entries_are_only_yellow_committed_vehicles`; see the latch note below) · H7 reporting consistency PASS · H13 exit-zone pass-through PASS · repeated-run reproducibility PASS. **Reported, not gated:** low-demand delay vs conventional — the 10 % tolerance is **exceeded** (+10.0 s, +80 % at ≈ 25 % of capacity; D-W2-9c).
 **Out of W2:** `phased_priority` · adaptive signalised roundabout (W3, conditional on G-SR) · registry naming (W3) · three-lane rings (D-W2-7) · an upstream stop line / setback (D-W2-2) · per-lane metering · upstream coordination.
 
 ## 13. Evidence log
@@ -343,3 +363,18 @@ Sprint total 4.25 ED [A]. Rollback: S2 is one revertible commit; S3–S9 add new
 * **Tests.** `backend/tests/controllers/test_entry_gate.py`: decision contract, `AlwaysOpen`, default wiring, closed/reopened gate, evaluation order (gate skipped when a rule already yields; closed gate cannot lift a yield; follow-up spacing), committed long vehicle not stranded by a gate that closes after the commitment. Moving the gate after the override fails the two committed-vehicle tests (checked, then reverted).
 * **Strategy registry — not in S2.** ADR-014 §1–§4 and the sprint plan place the strategy registry (descriptors, compatibility rules, fingerprint parity, `STRATEGIES` naming) in W3 (G-CS, #162); §11 lists S2 as `entry_gate.py` + `roundabout.py` only, and D-W2-1 leaves `STRATEGIES` unchanged. S2 therefore adds no registry; the registry tests requested alongside S2 belong to W3.
 * **H13** (wrapper exposes the inner roundabout's `vehicle_stop_limits`) stays scheduled in **S4** with its test, as §6 and §11 say; the wrapper does not exist yet.
+
+### Final integration, hardening and G-SR evidence (2026-10-21)
+
+* **Audit.** The whole of S1–S8 was re-read across module boundaries (cursor, gate, guard, cap, composition wrapper, factory, orchestrator carry-over, deadlock detector, config models, scenario documents, validators, snapshot, frontend). Existing behaviour was not reopened without a concrete defect.
+* **Defects found and fixed, each with a regression test.**
+  1. `MeteringPhaseCursor.advance(inf)` never returned and `advance(nan)` left the clock NaN for good. It now raises `ValueError` and leaves the state untouched (`test_cursor_rejects_non_finite_steps`).
+  2. `build_metering_plan` accepted NaN/infinity (cycle `nan`/`inf`), booleans and strings as numbers (`float(True)`, `float("20")`), `bool("false")` as an enabled guard, and non-object `spillbackGuard`/`queueCap` (an `AttributeError`, not the `ValueError` that `register_simulation` converts to a 4xx). Every API path validates first, so this was defence in depth; it now matches the validator (`test_build_plan_rejects_non_finite_and_mistyped_values`, 18 cases).
+  3. The live view's "Queue cap active" explanation was unreachable: the controller reports the cap as an event, never as an arm reason, and the test fed a state the backend cannot produce. It now reads the recent-decision events (`meteredRoundaboutUtils.ts`; tests use events copied from the controller).
+  4. The slow ring-blocking test allowed `+ 5` over the baseline, contradicting D-W2-9b ("no tolerance"); it is strict now (93 ≤ 145 holds).
+* **Coverage added where the matrix was blind.** The prescribed matrix leaves the spillback guard and queue cap off, so neither ran inside a real simulation. `test_protections_enabled_run_keeps_the_safety_bounds` runs both on (the cap fires; collisions, discharge, starvation unchanged) and the evidence matrix adds a protections row (315 cap triggers, 24 guard activations over 96 runs). `test_cursor_has_no_timing_drift_over_a_long_run` pins the phase to exact tick arithmetic over 300,000 ticks (never early, at most one tick late per boundary, no accumulation).
+* **H2 finding (not changed).** Every entry made on yellow or red is by a vehicle the gate latched as committed through yellow (0 exceptions in 288 runs). But a latched vehicle that then waits for a ring gap keeps the latch, so it can enter during all-red and, rarely, up to ~10 s into the opposing green (measured, 16 saturated runs). Gap acceptance still applies and no collision occurred. The approved design (§3.3) says "latched until it leaves the lane"; bounding the latch to the clearance interval is a behavioural change left to the product owner.
+* **Verification run (Windows 11, CPython 3.14.7).** Fast backend suite (`-m "not slow"`, coverage on): 1723 passed, 378 deselected, coverage 95.25 % (floor 85 %), 22 min 13 s. Slow shards `roundabout-golden` + `signalised-roundabout`: 107 passed, 24 min 35 s. `ruff check`, `ruff format --check`, `mypy src/` clean. Frontend: 451 vitest tests (38 files), eslint, prettier, `tsc`, build, all pass. Schema validator passes.
+* **Evidence files** (`docs/research/examples/signalised-roundabout-baseline/`): `study.json`, `result.json`, `report.md`, `SHA256SUMS` (baseline study, `scripts/w2_baseline_study.py`), `safety_matrix.json` (`scripts/w2_safety_matrix.py`), `benchmark.json` (`scripts/benchmark_signalised_roundabout.py`). Numbers and caveats: [signalised-roundabout.md §5](../simulation/signalised-roundabout.md#5-evidence-g-sr).
+* **Not done / not verified.** No demo recording. Exact bit-level golden pins were not re-run on the Linux / 3.11 image since S1. The `Backend Slow Simulation Regression` job has not been dispatched on GitHub for this commit (it ran locally: the matrix shard 97/97, the golden shard 10/10). `ROADMAP.md` status is untouched, per §10.
+* **CI runtime (mandatory checks unchanged; the speed-up is optional).** The last PR run at `b790167` spent 21 min 17 s in the fast-suite step (the push run ≈ 16 min; the 16–22 min spread is runner variance on the same tests). Its own `--durations` output shows the cause: 25 tests of 15–80 s each, genuine full simulations (determinism replays that run twice, multi-lane heavy-traffic runs, ensembles), add up to ≈ 760 s of ≈ 1,280 s; there is no fixture or setup cost to remove and no redundant run that can go without weakening an assertion. The suite is serial. Run locally with `pytest-xdist` (`-n 4 --dist loadfile`, one file per worker so the per-module simulation caches keep working) the same 1723 tests pass in 6 min 28 s instead of 22 min 13 s with identical 95.25 % coverage (and 6 min 55 s with coverage on), so `ci.yml` now installs `pytest-xdist` and runs `-n auto --dist loadfile`. Not yet confirmed on GitHub's runners; revert that one line if CI shows any isolation problem. The slow shards are not parallelised within a file (their module-level `_RUN_CACHE` is what keeps them fast).

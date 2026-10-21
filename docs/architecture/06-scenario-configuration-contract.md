@@ -514,7 +514,7 @@ The configuration above is what the engine runs, and it mixes the junction with 
 | `roads` | `laneWidth`, `speedLimit`, `laneChanging` | `roads.laneWidth`, `roads.speedLimit`, `roads.laneChange.enabled` |
 | `vehicles` | `mix` (omit for the calibrated cars-only population), `types` | `vehicleGeneration.vehicleMix`, `vehicleTypes` |
 | `signal` | `greenTime`, `nsGreenTime`, `ewGreenTime`, `yellowTime`, `allRedTime`, `adaptive{…}` | the signal `controller` block (paired plan), plus `signalControl: "adaptive"` and `adaptive` for the adaptive strategy |
-| `roundabout` | `circulatingLanes` (1–2, omit for automatic), `innerRadius`, `outerRadius`, `criticalGap`, `followUpTime`, `entrySpeed`, `circulatingSpeed` | `geometry.circulatingLanes` and the roundabout `controller` block |
+| `roundabout` | `circulatingLanes` (1–2, omit for automatic), `innerRadius`, `outerRadius`, `criticalGap`, `followUpTime`, `entrySpeed`, `circulatingSpeed`; **V3.0 W2** optional `entryControl` (`metered_entry`) and `entryMetering` (phase plan, yellow, all-red, offset, spillback guard, queue cap — [bounds and error codes](../simulation/signalised-roundabout.md#2-configuration)). Omitted ⇒ conventional roundabout and an unchanged fingerprint | `geometry.circulatingLanes` and the roundabout `controller` block (`controller.entryControl`, `controller.entryMetering`) |
 | `simulation` | `duration`, `warmup`, `seed`, `arrivalPattern` (`poisson` \| `uniform`), `timeStep` | `simulation.*`, `traffic.arrivalDistribution`; `traffic.totalVehicles` sized to the demand |
 | `advanced` | any engine sections (research use) | deep-merged into every compiled configuration, then validated with it |
 

@@ -90,8 +90,14 @@ def _make_scenario_doc(
     metered: bool,
     duration: float = 90.0,
     always_green: bool = False,
+    protections: bool = False,
 ) -> Dict[str, Any]:
-    """Construct an urbanflow-scenario document for the prescribed layouts and demands."""
+    """Construct an urbanflow-scenario document for the prescribed layouts and demands.
+
+    ``protections`` switches the optional spillback guard and queue cap on (a queue cap of
+    3 vehicles so it actually fires at these demands); the prescribed matrix leaves both
+    off, which is what leaves them unexercised end to end without a run that sets it.
+    """
     vph_map = {
         "1ring_4arm": {"low": 150, "medium": 350, "saturated": 700},
         "2ring_4arm": {"low": 200, "medium": 500, "saturated": 1000},
@@ -202,17 +208,20 @@ def _make_scenario_doc(
                 "yellow": 3.0,
                 "allRed": 2.0,
                 "spillbackGuard": {
-                    "enabled": False,
+                    "enabled": protections,
                     "stoppedThreshold": 2,
                     "maxHold": 10.0,
                 },
-                "queueCap": {"enabled": False, "vehicles": 8},
+                "queueCap": {
+                    "enabled": protections,
+                    "vehicles": 3 if protections else 8,
+                },
             }
 
     return doc
 
 
-_RunKey = Tuple[str, str, int, bool, float, bool]
+_RunKey = Tuple[str, str, int, bool, float, bool, bool]
 _CACHE: Dict[_RunKey, Dict[str, Any]] = {}
 
 
@@ -223,14 +232,17 @@ def _simulate(
     metered: bool,
     duration: float = 90.0,
     always_green: bool = False,
+    protections: bool = False,
 ) -> Dict[str, Any]:
     """Execute a single simulation run and return performance and safety metrics."""
-    key: _RunKey = (layout, demand, seed, metered, duration, always_green)
+    key: _RunKey = (layout, demand, seed, metered, duration, always_green, protections)
     cached = _CACHE.get(key)
     if cached is not None:
         return cached
 
-    doc = _make_scenario_doc(layout, demand, seed, metered, duration, always_green)
+    doc = _make_scenario_doc(
+        layout, demand, seed, metered, duration, always_green, protections
+    )
     parsed, errs = parse_scenario(doc)
     assert not errs, f"Scenario parse error for {key}: {errs}"
     config = compile_scenario(parsed, "roundabout")
@@ -269,9 +281,36 @@ def _simulate(
         starvation_bound = 70.0
         stall_bound = 70.0
 
+    # H2 line-overrun check: every vehicle that leaves a metered approach lane while its
+    # arm shows yellow or red must be one the gate latched as committed through yellow.
+    arm_lanes: Dict[Direction, set[int]] = {}
+    if metered and hasattr(controller, "gate"):
+        for arm in controller.plan.metered_entries:
+            incoming = engine.network.get_incoming_approach(arm)
+            arm_lanes[arm] = {id(ln) for ln in incoming.get_lanes()}
+    previous_lane: Dict[str, int] = {}
+    nongreen_entries = 0
+    uncommitted_nongreen_entries = 0
+
     ticks = int(round(duration / TIME_STEP))
     for tick in range(ticks):
+        latched_before = set(controller.gate._yellow_latched) if arm_lanes else set()
         engine.step()
+        if arm_lanes:
+            latched = latched_before | set(controller.gate._yellow_latched)
+            colors = controller.signals_state()
+            for v in engine.pool.active_vehicles:
+                lane_now = id(v.lane)
+                lane_before = previous_lane.get(v.vehicle_id)
+                previous_lane[v.vehicle_id] = lane_now
+                if lane_before is None:
+                    continue
+                for arm, lane_ids in arm_lanes.items():
+                    if lane_before in lane_ids and lane_now not in lane_ids:
+                        if colors[arm] != "green":
+                            nongreen_entries += 1
+                            if v.vehicle_id not in latched:
+                                uncommitted_nongreen_entries += 1
         now_exits = len(engine.pool.exited_vehicles)
         exited_by_tick.append(now_exits)
 
@@ -314,6 +353,18 @@ def _simulate(
         "starvation_bound": starvation_bound,
         "stall_bound": stall_bound,
         "ring_blocking_onsets": ring_tracker.total_onsets,
+        "nongreen_entries": nongreen_entries,
+        "uncommitted_nongreen_entries": uncommitted_nongreen_entries,
+        "queue_cap_triggers": (
+            sum(controller.queue_cap.triggers.values())
+            if metered and hasattr(controller, "queue_cap")
+            else 0
+        ),
+        "spillback_activations": (
+            sum(controller.spillback_guard.hold_activations.values())
+            if metered and hasattr(controller, "spillback_guard")
+            else 0
+        ),
         "deadlock_insight": (
             engine.deadlock_detector.get_insight()
             if engine.deadlock_detector is not None
@@ -427,6 +478,47 @@ def test_metered_roundabout_deterministic_reproduction() -> None:
     assert metrics1["collisionCount"] == metrics2["collisionCount"]
 
 
+@pytest.mark.parametrize(
+    ("layout", "seed"), [("1ring_4arm", 1), ("1ring_4arm", 2), ("merging_entry", 1)]
+)
+def test_h2_nongreen_entries_are_only_yellow_committed_vehicles(
+    layout: str, seed: int
+) -> None:
+    """H2: the signal never lets an uncommitted vehicle into the ring on yellow or red.
+
+    The only vehicles that cross the give-way line of a metered arm while it is not green
+    are the ones the gate latched as committed through yellow (they cannot be re-held
+    without braking across the line).  Saturated demand so that queues are standing at
+    every red onset and the check has something to bite on.
+    """
+    res = _simulate(layout, "saturated", seed, metered=True, duration=90.0)
+    assert res["collisions"] == 0.0
+    assert res["nongreen_entries"] > 0, "scenario never exercised a non-green entry"
+    assert res["uncommitted_nongreen_entries"] == 0, res
+
+
+@pytest.mark.parametrize(
+    ("layout", "seed"), [("1ring_4arm", 1), ("1ring_4arm", 2), ("2ring_4arm", 1)]
+)
+def test_protections_enabled_run_keeps_the_safety_bounds(
+    layout: str, seed: int
+) -> None:
+    """SR-11 / SR-12 end to end: guard and queue cap on, same bounds as the bare plan.
+
+    The prescribed matrix leaves both optional protections off, so without this run
+    nothing exercises them inside a real simulation.  The queue cap must actually fire,
+    and neither protection may break collision-freedom, the discharge criterion or the
+    starvation bound (the guard adds at most maxHold, which the bound already includes).
+    """
+    res = _simulate(layout, "saturated", seed, metered=True, protections=True)
+    assert res["collisions"] == 0.0, res
+    assert res["queue_cap_triggers"] > 0, "queue cap never fired; test is vacuous"
+    assert res["longest_stall"] <= res["stall_bound"], res
+    assert res["exited_last_minute"] > 0, res
+    assert res["max_denied_time"] <= res["starvation_bound"] + 1.0, res
+    assert res["uncommitted_nongreen_entries"] == 0, res
+
+
 # ==============================================================================
 # SLOW SAFETY MATRIX (D-W2-9d, SR-17, SR-18, SR-19, SR-20, SR-22)
 # ==============================================================================
@@ -482,8 +574,9 @@ def test_matrix_aggregate_ring_blocking_totals() -> None:
                 total_metered_onsets += m["ring_blocking_onsets"]
                 total_conv_onsets += c["ring_blocking_onsets"]
 
-    # G-SR compares totals over the paired matrix
-    assert total_metered_onsets <= total_conv_onsets + 5, (
+    # G-SR compares totals over the paired matrix.  D-W2-9b adds no tolerance: measured
+    # 2026-10-21 the metered total is 93 against 145 conventional, so none is needed.
+    assert total_metered_onsets <= total_conv_onsets, (
         f"Metered ring-blocking total ({total_metered_onsets}) exceeded conventional "
         f"baseline total ({total_conv_onsets})"
     )

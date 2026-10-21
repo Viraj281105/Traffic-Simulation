@@ -59,6 +59,7 @@ flowchart TB
 | --- | --- | --- |
 | [simulation/methodology.md](simulation/methodology.md) | Current | What is modelled and how; assumptions register; controlled comparison |
 | [simulation/configuration.md](simulation/configuration.md) | Current | Planner, advanced and research configuration; environment variables |
+| [simulation/signalised-roundabout.md](simulation/signalised-roundabout.md) | Current | V3.0 W2 metered-entry (signalised) roundabout: model, configuration, claims, limits, G-SR evidence |
 | [research/metrics-reference.md](research/metrics-reference.md) | Current | Every metric with definition, unit, calculation, interpretation, limits, use |
 | [research/reproducibility.md](research/reproducibility.md) | Current | Determinism, provenance, re-running runs and studies |
 | [research/validation.md](research/validation.md) | Current | Validated · measured · assumed · known limitations · future work |

@@ -501,3 +501,93 @@ def test_starvation_property_10000_valid_plans() -> None:
                 assert max_observed_non_green[d] <= bound + 1.5, (
                     f"Observed non-green {max_observed_non_green[d]} exceeded bound {bound} for entry {d}"
                 )
+
+
+# ---------------------------------------------------------------------------
+# Hardening: non-finite and mistyped values (W2 final integration review)
+# ---------------------------------------------------------------------------
+
+_NAN = float("nan")
+_INF = float("inf")
+
+
+@pytest.mark.parametrize("bad_dt", [_NAN, _INF, -_INF])
+def test_cursor_rejects_non_finite_steps(bad_dt: float) -> None:
+    """NaN used to poison the clock for good and +inf never left the advance loop."""
+    cursor = MeteringPhaseCursor(build_metering_plan(_BASIC_CONFIG))
+    cursor.advance(3.0)
+    with pytest.raises(ValueError, match="non-negative and finite"):
+        cursor.advance(bad_dt)
+    _assert_close(cursor.time_in_current_state, 3.0)
+
+
+def _phase(**over: Any) -> Dict[str, Any]:
+    return {"entries": ["north"], "green": 20, **over}
+
+
+@pytest.mark.parametrize(
+    "bad_cfg",
+    [
+        {"phases": [_phase(green=_NAN)]},
+        {"phases": [_phase(green=_INF, maxGreen=_INF)]},
+        {"phases": [_phase(green=True)]},
+        {"phases": [_phase(green="20")]},
+        {"phases": [_phase(minGreen=_NAN)]},
+        {"phases": [_phase(maxGreen=_NAN)]},
+        {"phases": [_phase()], "yellow": _NAN},
+        {"phases": [_phase()], "yellow": _INF},
+        {"phases": [_phase()], "allRed": _NAN},
+        {"phases": [_phase()], "offset": _NAN},
+        {"phases": [_phase()], "offset": _INF},
+        {"phases": [_phase()], "spillbackGuard": {"maxHold": _NAN}},
+        {"phases": [_phase()], "spillbackGuard": {"stoppedThreshold": "3"}},
+        {"phases": [_phase()], "spillbackGuard": {"enabled": "false"}},
+        {"phases": [_phase()], "spillbackGuard": [1]},
+        {"phases": [_phase()], "queueCap": {"vehicles": 2.7}},
+        {"phases": [_phase()], "queueCap": {"enabled": 1}},
+        {"phases": [_phase()], "queueCap": "on"},
+    ],
+)
+def test_build_plan_rejects_non_finite_and_mistyped_values(
+    bad_cfg: Dict[str, Any],
+) -> None:
+    """Direct construction must refuse what the validator refuses.
+
+    ``float(True)``, ``float("20")`` and ``bool("false")`` all succeed, NaN passes every
+    ordered comparison and infinity makes the cycle infinite: each used to build a plan
+    whose cursor could never leave its first phase (or enabled a guard configured off).
+    """
+    with pytest.raises(ValueError):
+        build_metering_plan(bad_cfg)
+
+
+def test_cursor_has_no_timing_drift_over_a_long_run() -> None:
+    """Carry-over arithmetic never lets a boundary move by more than one tick.
+
+    300,000 ticks of 0.1 s (30,000 s, about 667 cycles of 45 s) with an offset that is
+    not a multiple of the step.  Summing 0.1 can land a hair under a boundary, so the
+    cursor may switch one tick late (the FixedTimeSignalController behaviour it mirrors),
+    but the surplus is subtracted, not kept: it must never be early, never more than one
+    tick late, late at most once per boundary crossed, and the cycle count must match
+    exact arithmetic at the end.
+    """
+    plan = build_metering_plan({**_BASIC_CONFIG, "offset": 7.3})
+    cursor = MeteringPhaseCursor(plan)
+    n = len(plan.phases)
+    bounds: List[float] = []
+    acc = 0.0
+    for p in plan.phases:
+        acc += p.duration
+        bounds.append(acc)
+    offset = plan.offset % plan.cycle_duration
+    late = 0
+    for i in range(1, 300_001):
+        cursor.advance(0.1)
+        pos = (offset + i * 0.1) % plan.cycle_duration
+        expected = next(k for k, b in enumerate(bounds) if pos < b - 1e-9)
+        if cursor.current_phase_idx != expected:
+            assert cursor.current_phase_idx == (expected - 1) % n, (i, expected)
+            late += 1
+    boundaries_crossed = int(30_000.0 / plan.cycle_duration * n) + 1
+    assert late <= boundaries_crossed
+    assert cursor.cycle_number == int((offset + 30_000.0) // plan.cycle_duration)

@@ -809,6 +809,42 @@ def _parse_direction(val: Any) -> Direction:
     raise ValueError(f"cannot parse {val!r} as Direction")
 
 
+def _plan_number(raw: Any, name: str) -> float:
+    """A finite real number (not a bool or a string) or ValueError.
+
+    ``float()`` alone accepts ``True``, ``"20"``, ``nan`` and ``inf``; NaN passes every
+    ``<`` / ``>`` check and infinity makes the cycle length infinite, so either would
+    build a plan the cursor can never leave.  The validator rejects these first on every
+    API path; this keeps the direct constructor safe too.
+    """
+    if not _is_finite_number(raw):
+        raise ValueError(f"{name} must be a finite number, got {raw!r}")
+    return float(raw)
+
+
+def _plan_flag(raw: Any, name: str) -> bool:
+    """A real boolean: ``bool("false")`` would be ``True``."""
+    if not isinstance(raw, bool):
+        raise ValueError(f"{name} must be true or false, got {raw!r}")
+    return raw
+
+
+def _plan_section(cfg: Dict[str, Any], key: str) -> Dict[str, Any]:
+    raw = cfg.get(key)
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError(f"{key} must be an object, got {type(raw).__name__}")
+    return raw
+
+
+def _plan_integer(raw: Any, name: str) -> int:
+    value = _plan_number(raw, name)
+    if not value.is_integer():
+        raise ValueError(f"{name} must be a whole number, got {raw!r}")
+    return int(value)
+
+
 def build_metering_plan(config: Dict[str, Any]) -> EntryMeteringPlan:
     """Build an EntryMeteringPlan from raw dictionary configuration.
 
@@ -830,18 +866,18 @@ def build_metering_plan(config: Dict[str, Any]) -> EntryMeteringPlan:
     if not isinstance(raw_phases, list) or not raw_phases:
         raise ValueError("entryMetering must define a non-empty list of phases")
 
-    yellow = float(cfg.get("yellow", DEFAULT_YELLOW))
+    yellow = _plan_number(cfg.get("yellow", DEFAULT_YELLOW), "yellow")
     if yellow < 0:
         raise ValueError(f"yellow duration cannot be negative, got {yellow}")
 
     all_red_val = cfg.get("allRed")
     if all_red_val is None:
         all_red_val = cfg.get("all_red", DEFAULT_ALL_RED)
-    all_red = float(all_red_val)
+    all_red = _plan_number(all_red_val, "allRed")
     if all_red < 0:
         raise ValueError(f"allRed duration cannot be negative, got {all_red}")
 
-    offset = float(cfg.get("offset", DEFAULT_OFFSET))
+    offset = _plan_number(cfg.get("offset", DEFAULT_OFFSET), "offset")
     if offset < 0:
         raise ValueError(f"offset cannot be negative, got {offset}")
 
@@ -862,18 +898,22 @@ def build_metering_plan(config: Dict[str, Any]) -> EntryMeteringPlan:
             seen_in_phase.add(d)
             entries_list.append(d)
 
-        green = float(p.get("green", 0))
+        green = _plan_number(p.get("green", 0), f"phase {p_idx} green")
         if green <= 0:
             raise ValueError(f"phase {p_idx} green must be positive, got {green}")
 
         min_green_val = p.get("minGreen", p.get("min_green"))
         min_green = (
-            float(min_green_val) if min_green_val is not None else min(green, 8.0)
+            _plan_number(min_green_val, f"phase {p_idx} minGreen")
+            if min_green_val is not None
+            else min(green, 8.0)
         )
 
         max_green_val = p.get("maxGreen", p.get("max_green"))
         max_green = (
-            float(max_green_val) if max_green_val is not None else max(green, 40.0)
+            _plan_number(max_green_val, f"phase {p_idx} maxGreen")
+            if max_green_val is not None
+            else max(green, 40.0)
         )
 
         specs.append(
@@ -933,18 +973,20 @@ def build_metering_plan(config: Dict[str, Any]) -> EntryMeteringPlan:
     metered_entries = frozenset(d for spec in specs for d in spec.entries)
 
     # Spillback guard config
-    sg_raw = cfg.get("spillbackGuard") or {}
+    sg_raw = _plan_section(cfg, "spillbackGuard")
     spillback_guard = SpillbackGuardConfig(
-        enabled=bool(sg_raw.get("enabled", False)),
-        stopped_threshold=int(sg_raw.get("stoppedThreshold", 2)),
-        max_hold=float(sg_raw.get("maxHold", 10.0)),
+        enabled=_plan_flag(sg_raw.get("enabled", False), "spillbackGuard.enabled"),
+        stopped_threshold=_plan_integer(
+            sg_raw.get("stoppedThreshold", 2), "spillbackGuard.stoppedThreshold"
+        ),
+        max_hold=_plan_number(sg_raw.get("maxHold", 10.0), "spillbackGuard.maxHold"),
     )
 
     # Queue cap config
-    qc_raw = cfg.get("queueCap") or {}
+    qc_raw = _plan_section(cfg, "queueCap")
     queue_cap = QueueCapConfig(
-        enabled=bool(qc_raw.get("enabled", False)),
-        vehicles=int(qc_raw.get("vehicles", 8)),
+        enabled=_plan_flag(qc_raw.get("enabled", False), "queueCap.enabled"),
+        vehicles=_plan_integer(qc_raw.get("vehicles", 8), "queueCap.vehicles"),
     )
 
     return EntryMeteringPlan(
@@ -1006,8 +1048,12 @@ class MeteringPhaseCursor:
 
     def advance(self, delta_time: float) -> None:
         """Advance cursor by delta_time."""
-        if delta_time < 0:
-            raise ValueError(f"delta_time must be non-negative, got {delta_time}")
+        # NaN would poison the clock for good and infinity would never leave the
+        # loop below, so neither is a step.
+        if not math.isfinite(delta_time) or delta_time < 0:
+            raise ValueError(
+                f"delta_time must be non-negative and finite, got {delta_time}"
+            )
         if delta_time == 0:
             return
         self.time_in_current_state += delta_time

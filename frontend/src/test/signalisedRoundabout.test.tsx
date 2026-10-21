@@ -369,22 +369,49 @@ describe("SR-28: MeteredRoundaboutStatus overlay", () => {
       ),
     ).toContain("Spillback guard active: holding red on E");
 
-    // Queue cap on South
-    const queueCap = makeMeteredSnapshot({
-      arms: [
-        {
-          direction: "south",
-          metered: true,
-          color: "red",
-          reason: "queue_cap",
-        },
+    // Queue cap: the controller emits an event, never an arm reason, then runs the
+    // normal yellow clearance (events copied from SignalisedRoundaboutController).
+    const capped = makeMeteredSnapshot({
+      color: "yellow",
+      recentDecisions: [
+        { time: 10.1, arm: "east", reason: "open", state: "open" },
+        { time: 31.4, arm: "south", reason: "queue_cap", state: "triggered" },
+        { time: 31.4, arm: "north", reason: "yellow", state: "closed" },
       ],
     });
     expect(
       meteringHoldReasonText(
-        (queueCap.controller as RoundaboutControllerState).metering!,
+        (capped.controller as RoundaboutControllerState).metering!,
       ),
-    ).toContain("Queue cap active: red ended early on S");
+    ).toContain("green ended early because the standing queue on S");
+
+    // ...and stops being the explanation once the next green has opened.
+    const reopened = makeMeteredSnapshot({
+      color: "green",
+      recentDecisions: [
+        { time: 31.4, arm: "south", reason: "queue_cap", state: "triggered" },
+        { time: 36.4, arm: "east", reason: "open", state: "open" },
+      ],
+    });
+    expect(
+      meteringHoldReasonText(
+        (reopened.controller as RoundaboutControllerState).metering!,
+      ),
+    ).toBe("Phase running on scheduled green.");
+
+    // A cap from an earlier cycle does not explain a later clearance.
+    const stale = makeMeteredSnapshot({
+      color: "yellow",
+      recentDecisions: [
+        { time: 31.4, arm: "south", reason: "queue_cap", state: "triggered" },
+        { time: 36.4, arm: "east", reason: "open", state: "open" },
+      ],
+    });
+    expect(
+      meteringHoldReasonText(
+        (stale.controller as RoundaboutControllerState).metering!,
+      ),
+    ).toContain("Yellow change interval");
 
     // Yellow change interval
     const yellow = makeMeteredSnapshot({ color: "yellow" });
