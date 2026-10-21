@@ -133,3 +133,40 @@ The frontend Scenario Builder, Planner, and Research Lab present the resolved st
 * **Parameter Provenance:** Tracks whether parameters match descriptor defaults or have been customized by the user, providing a transparent breakdown of values (e.g. green times, yellow/red clearances, critical headways, detector setbacks).
 * **Compatibility Surfacing:** Conflicting layers are visually highlighted with amber caution borders and alert badges when invalid combinations (e.g. `compat.adaptive_unsupported_policy`, `compat.signal_requires_signal_geometry`) occur, displaying machine-readable codes alongside actionable suggestions.
 
+---
+
+## 8. Strategy Robustness, Security Invariants & Limitations (ADR-014, W3-T5)
+
+The composable strategy architecture enforces strict boundary conditions, security invariants, and failure-containment guarantees across both backend and frontend environments:
+
+### Robustness & Security Invariants
+
+1. **Strict Descriptor Schema & Boundary Validation:**
+   - All descriptors and layer models enforce Pydantic strictness (`extra="forbid"`), preventing prototype poisoning or unauthorized payload properties.
+   - Identifier patterns are strictly constrained (`^[a-z0-9_]+$`).
+   - Parameter bounds enforce invariant ordering (`min_value <= max_value`) and default containment (`min_value <= default_value <= max_value`).
+   - Geometry bounds enforce 3–4 approaches (`min_arms <= max_arms`).
+
+2. **Registry Isolation & Safe Custom Compositions (ADR-014 §3):**
+   - Registration strictly requires concrete `StrategyDescriptor` instances. Unvalidated client dicts, JSON strings, or arbitrary objects are rejected with `TypeError`.
+   - Re-registration of existing identifiers is strictly forbidden (`ValueError`).
+   - Cyclic alias definitions (e.g. $A \to B \to A$) are detected and blocked at registration time and guarded during resolution.
+   - Custom descriptors registered in isolated `StrategyRegistry` instances never leak into the global singleton registry (`get_strategy_registry()`).
+
+3. **Pre-Simulation Initialization Guards & Database Isolation:**
+   - Pre-simulation guards (`check_scenario_strategy_compatibility` and `resolve_strategy_parameters`) run before any simulation engine, road network, or controller is instantiated.
+   - Parameter values outside descriptor bounds (e.g. green duration $< 5\,\text{s}$ or $> 120\,\text{s}$) trigger `InvalidSimulationConfigError` immediately.
+   - Failed initializations produce zero state changes in `simulations_db`: no leaked simulation IDs, no orphan worker threads, and no partial database records.
+
+4. **Backward-Compatible Error Diagnostics:**
+   - All 16 diagnostic codes (`compat.*`) provide stable, machine-readable keys, clear human-readable messages, and actionable remediation suggestions.
+   - Legacy configuration validation (`semantic_config_errors`) and scenario document validation (`validate_scenario`) seamlessly support both canonical strategy identifiers and legacy aliases.
+
+### Documented Scope Boundaries & Remaining Limitations
+
+* **Phased Priority Roundabouts:** Suspending circulating priority (`phased_priority` mode) remains strictly **deferred/stretch** under ADR-014 D-SR1, as it requires a separate movement-conflict contract and circulating queue ring-clearance proof.
+* **Priority Overlay (Layer 6):** Emergency preemption and transit priority are architectural placeholders reserved for Future Scope **FS-1**. All current descriptors enforce `overlay: "none"`.
+* **Visual Drag-and-Drop Composer:** Strategy configuration is authored through high-level scenario parameters; direct canvas drag-and-drop layer assembly remains explicitly **deferred**.
+* **Adaptive Signalised Roundabout (W3-T6):** Green extension on metered roundabout entries remains **conditional on PO signoff of Gate G-SR**.
+
+

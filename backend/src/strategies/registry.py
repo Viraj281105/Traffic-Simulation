@@ -72,7 +72,9 @@ class StrategyRegistry:
                 )
 
         self._strategies[descriptor.id] = descriptor
-        logger.debug("Registered strategy descriptor: %s (%s)", descriptor.id, descriptor.name)
+        logger.debug(
+            "Registered strategy descriptor: %s (%s)", descriptor.id, descriptor.name
+        )
 
     def register_alias(self, alias: str, canonical_id: str) -> None:
         """Map a legacy or shorthand alias to a canonical strategy id."""
@@ -82,12 +84,26 @@ class StrategyRegistry:
             raise KeyError(
                 f"Cannot alias '{alias}' to unknown strategy '{canonical_id}'."
             )
+
+        # Detect cyclic alias chains immediately
+        current = canonical_id
+        visited = {alias}
+        while current in self._aliases:
+            if current in visited:
+                raise ValueError(
+                    f"Cyclic alias detected for strategy '{alias}' -> '{canonical_id}'."
+                )
+            visited.add(current)
+            current = self._aliases[current]
+
         self._aliases[alias] = canonical_id
 
     def resolve_id(self, alias_or_id: str) -> str:
         """Resolve a strategy identifier or alias to its canonical strategy ID."""
         if not isinstance(alias_or_id, str):
-            raise TypeError(f"Strategy ID must be a string, got {type(alias_or_id).__name__}.")
+            raise TypeError(
+                f"Strategy ID must be a string, got {type(alias_or_id).__name__}."
+            )
 
         current = alias_or_id
         visited = set()
@@ -98,7 +114,9 @@ class StrategyRegistry:
             current = self._aliases[current]
 
         if current not in self._strategies:
-            available = sorted(list(self._strategies.keys()) + list(self._aliases.keys()))
+            available = sorted(
+                list(self._strategies.keys()) + list(self._aliases.keys())
+            )
             raise KeyError(
                 f"Unknown strategy '{alias_or_id}'. Registered options: {available}."
             )

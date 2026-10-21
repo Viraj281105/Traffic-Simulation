@@ -65,7 +65,9 @@ class TestStrategyDescriptorModel:
 
     def test_fingerprint_mismatch_validation(self) -> None:
         """validate_self must raise ValueError if declared fingerprint does not match computed."""
-        tampered = FIXED_TIME_SIGNAL.model_copy(update={"fingerprint": "0123456789abcdef"})
+        tampered = FIXED_TIME_SIGNAL.model_copy(
+            update={"fingerprint": "0123456789abcdef"}
+        )
         with pytest.raises(ValueError, match="fingerprint mismatch"):
             tampered.validate_self()
 
@@ -118,7 +120,10 @@ class TestStrategyDescriptorModel:
             control_policy=ControlPolicy(policy="fixed_time_phase_plan"),
             adaptation_logic=AdaptationLogic(logic="none"),
         )
-        with pytest.raises(ValueError, match="roundabout geometry requires 'yield_to_ring' or 'signal_over_yield'"):
+        with pytest.raises(
+            ValueError,
+            match="roundabout geometry requires 'yield_to_ring' or 'signal_over_yield'",
+        ):
             desc.validate_self()
 
     def test_reject_roundabout_without_circulating_lanes(self) -> None:
@@ -136,7 +141,10 @@ class TestStrategyDescriptorModel:
             control_policy=ControlPolicy(policy="uncontrolled"),
             adaptation_logic=AdaptationLogic(logic="none"),
         )
-        with pytest.raises(ValueError, match="roundabout geometry requires circulating_lanes definition"):
+        with pytest.raises(
+            ValueError,
+            match="roundabout geometry requires circulating_lanes definition",
+        ):
             desc.validate_self()
 
     def test_reject_signal_over_yield_without_metering_policy(self) -> None:
@@ -154,7 +162,9 @@ class TestStrategyDescriptorModel:
             control_policy=ControlPolicy(policy="uncontrolled"),
             adaptation_logic=AdaptationLogic(logic="none"),
         )
-        with pytest.raises(ValueError, match="'signal_over_yield' rule requires 'metering' policy"):
+        with pytest.raises(
+            ValueError, match="'signal_over_yield' rule requires 'metering' policy"
+        ):
             desc.validate_self()
 
     def test_reject_gap_out_on_uncontrolled(self) -> None:
@@ -172,7 +182,10 @@ class TestStrategyDescriptorModel:
             control_policy=ControlPolicy(policy="uncontrolled"),
             adaptation_logic=AdaptationLogic(logic="gap_out_extension"),
         )
-        with pytest.raises(ValueError, match="'gap_out_extension' logic requires a phase plan or metering policy"):
+        with pytest.raises(
+            ValueError,
+            match="'gap_out_extension' logic requires a phase plan or metering policy",
+        ):
             desc.validate_self()
 
     def test_schema_file_matches_model(self) -> None:

@@ -143,6 +143,7 @@ def semantic_config_errors(config: Dict[str, Any]) -> List[str]:
     errors.extend(lane_configuration_errors(config))
     errors.extend(_signal_control_errors(config))
     errors.extend(_entry_control_errors(config))
+    errors.extend(_strategy_compatibility_errors(config))
 
     # NaN compares false against every bound, so it slips through each of the
     # schema's minimum/maximum checks; infinity passes any one-sided bound.
@@ -151,6 +152,18 @@ def semantic_config_errors(config: Dict[str, Any]) -> List[str]:
     )
 
     return errors
+
+
+def _strategy_compatibility_errors(config: Dict[str, Any]) -> List[str]:
+    """Validate explicit strategy declarations against compatibility rules (W3-T5, ADR-014)."""
+    from src.strategies.resolution import extract_explicit_strategy
+    from src.strategies.validator import validate_scenario_strategy_compatibility
+
+    raw_strategy = extract_explicit_strategy(config)
+    if raw_strategy is None:
+        return []
+    issues = validate_scenario_strategy_compatibility(config)
+    return [issue.formatted_message() for issue in issues]
 
 
 def _lane_count_errors(config: Dict[str, Any]) -> List[str]:
@@ -221,7 +234,11 @@ def _signal_control_errors(config: Dict[str, Any]) -> List[str]:
         # with the strategy registry compatibility validator diagnostic (ADR-014 §2, W3-T2).
         compat_issues = validate_scenario_strategy_compatibility(config)
         adaptive_issue = next(
-            (issue for issue in compat_issues if issue.code == "compat.adaptive_unsupported_policy"),
+            (
+                issue
+                for issue in compat_issues
+                if issue.code == "compat.adaptive_unsupported_policy"
+            ),
             None,
         )
         if adaptive_issue is not None:

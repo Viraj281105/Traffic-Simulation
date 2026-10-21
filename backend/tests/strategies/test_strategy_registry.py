@@ -47,7 +47,9 @@ class TestStrategyRegistry:
         assert registry.resolve_id("fixed_time") == "fixed_time_signal"
         assert registry.resolve_id("adaptive") == "adaptive_signal"
         assert registry.resolve_id("roundabout") == "conventional_roundabout"
-        assert registry.resolve_id("signalised_roundabout") == "metered_entry_roundabout"
+        assert (
+            registry.resolve_id("signalised_roundabout") == "metered_entry_roundabout"
+        )
 
         assert registry.get("fixed_time") == FIXED_TIME_SIGNAL
         assert registry.get("adaptive") == ADAPTIVE_SIGNAL
@@ -98,7 +100,9 @@ class TestStrategyRegistry:
     def test_reject_corrupt_fingerprint_registration(self) -> None:
         """Registering a descriptor with a mismatched fingerprint must fail."""
         empty_registry = StrategyRegistry(load_builtins=False)
-        corrupted = FIXED_TIME_SIGNAL.model_copy(update={"fingerprint": "badc0ffeedeadbeef"})
+        corrupted = FIXED_TIME_SIGNAL.model_copy(
+            update={"fingerprint": "badc0ffeedeadbeef"}
+        )
         with pytest.raises(ValueError, match="fingerprint mismatch"):
             empty_registry.register(corrupted)
 

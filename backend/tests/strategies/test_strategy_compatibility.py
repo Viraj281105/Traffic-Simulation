@@ -54,15 +54,22 @@ class TestCompatibilityRuleRejections:
     def test_rule_signal_requires_signal_geometry(self) -> None:
         """Right-of-way 'signal' cannot be used with roundabout geometry."""
         issues = validate_layer_combination(
-            geometry=GeometryConstraint(intersection_type="roundabout", circulating_lanes=[1]),
+            geometry=GeometryConstraint(
+                intersection_type="roundabout", circulating_lanes=[1]
+            ),
             movement_topology=MovementTopology(topology_type="zone_based_conflicts"),
             right_of_way=RightOfWay(rule="signal"),
             control_policy=ControlPolicy(policy="fixed_time_phase_plan"),
             adaptation_logic=AdaptationLogic(logic="none"),
         )
         assert "compat.signal_requires_signal_geometry" in _codes(issues)
-        issue = next(i for i in issues if i.code == "compat.signal_requires_signal_geometry")
-        assert "Signal right-of-way ('signal') requires 'fixed_time_signal' geometry" in issue.message
+        issue = next(
+            i for i in issues if i.code == "compat.signal_requires_signal_geometry"
+        )
+        assert (
+            "Signal right-of-way ('signal') requires 'fixed_time_signal' geometry"
+            in issue.message
+        )
         assert issue.suggestion is not None
         assert "Use 'fixed_time_signal' geometry" in issue.suggestion
         assert issue.layers == ("geometry", "right_of_way")
@@ -103,7 +110,9 @@ class TestCompatibilityRuleRejections:
             adaptation_logic={"logic": "none"},
         )
         assert "compat.phased_priority_unsupported" in _codes(issues)
-        issue = next(i for i in issues if i.code == "compat.phased_priority_unsupported")
+        issue = next(
+            i for i in issues if i.code == "compat.phased_priority_unsupported"
+        )
         assert "not implemented in V3.0" in issue.message
         assert issue.suggestion is not None
         assert "metered_entry" in issue.suggestion
@@ -118,20 +127,29 @@ class TestCompatibilityRuleRejections:
             adaptation_logic=AdaptationLogic(logic="none"),
         )
         assert "compat.signal_requires_point_topology" in _codes(issues)
-        issue = next(i for i in issues if i.code == "compat.signal_requires_point_topology")
-        assert "fixed_time_signal requires 'point_based_conflicts' topology" in issue.message
+        issue = next(
+            i for i in issues if i.code == "compat.signal_requires_point_topology"
+        )
+        assert (
+            "fixed_time_signal requires 'point_based_conflicts' topology"
+            in issue.message
+        )
 
     def test_rule_roundabout_requires_zone_topology(self) -> None:
         """Roundabout geometry requires zone-based conflict topology."""
         issues = validate_layer_combination(
-            geometry=GeometryConstraint(intersection_type="roundabout", circulating_lanes=[1]),
+            geometry=GeometryConstraint(
+                intersection_type="roundabout", circulating_lanes=[1]
+            ),
             movement_topology=MovementTopology(topology_type="point_based_conflicts"),
             right_of_way=RightOfWay(rule="yield_to_ring"),
             control_policy=ControlPolicy(policy="uncontrolled"),
             adaptation_logic=AdaptationLogic(logic="none"),
         )
         assert "compat.roundabout_requires_zone_topology" in _codes(issues)
-        issue = next(i for i in issues if i.code == "compat.roundabout_requires_zone_topology")
+        issue = next(
+            i for i in issues if i.code == "compat.roundabout_requires_zone_topology"
+        )
         assert "roundabout requires 'zone_based_conflicts' topology" in issue.message
 
     def test_rule_roundabout_requires_circulating_lanes(self) -> None:
@@ -158,7 +176,10 @@ class TestCompatibilityRuleRejections:
     def test_rule_signal_forbids_circulating_lanes(self) -> None:
         """Signal geometry cannot define circulating lanes."""
         issues = validate_layer_combination(
-            geometry={"intersection_type": "fixed_time_signal", "circulating_lanes": [1, 2]},
+            geometry={
+                "intersection_type": "fixed_time_signal",
+                "circulating_lanes": [1, 2],
+            },
             movement_topology={"topology_type": "point_based_conflicts"},
             right_of_way={"rule": "signal"},
             control_policy={"policy": "fixed_time_phase_plan"},
@@ -169,7 +190,11 @@ class TestCompatibilityRuleRejections:
     def test_rule_arms_range_invalid(self) -> None:
         """min_arms cannot exceed max_arms."""
         issues = validate_layer_combination(
-            geometry={"intersection_type": "fixed_time_signal", "min_arms": 4, "max_arms": 3},
+            geometry={
+                "intersection_type": "fixed_time_signal",
+                "min_arms": 4,
+                "max_arms": 3,
+            },
             movement_topology={"topology_type": "point_based_conflicts"},
             right_of_way={"rule": "signal"},
             control_policy={"policy": "fixed_time_phase_plan"},
@@ -191,7 +216,9 @@ class TestCompatibilityRuleRejections:
     def test_rule_yield_to_ring_requires_uncontrolled(self) -> None:
         """'yield_to_ring' right-of-way cannot run with a phase plan or metering."""
         issues = validate_layer_combination(
-            geometry=GeometryConstraint(intersection_type="roundabout", circulating_lanes=[1]),
+            geometry=GeometryConstraint(
+                intersection_type="roundabout", circulating_lanes=[1]
+            ),
             movement_topology=MovementTopology(topology_type="zone_based_conflicts"),
             right_of_way=RightOfWay(rule="yield_to_ring"),
             control_policy=ControlPolicy(policy="fixed_time_phase_plan"),
@@ -202,7 +229,9 @@ class TestCompatibilityRuleRejections:
     def test_rule_signal_over_yield_requires_metering(self) -> None:
         """'signal_over_yield' right-of-way requires 'metering' control policy."""
         issues = validate_layer_combination(
-            geometry=GeometryConstraint(intersection_type="roundabout", circulating_lanes=[1]),
+            geometry=GeometryConstraint(
+                intersection_type="roundabout", circulating_lanes=[1]
+            ),
             movement_topology=MovementTopology(topology_type="zone_based_conflicts"),
             right_of_way=RightOfWay(rule="signal_over_yield"),
             control_policy=ControlPolicy(policy="uncontrolled"),
@@ -213,21 +242,27 @@ class TestCompatibilityRuleRejections:
     def test_rule_adaptive_unsupported_policy(self) -> None:
         """'gap_out_extension' logic is rejected when control policy is uncontrolled."""
         issues = validate_layer_combination(
-            geometry=GeometryConstraint(intersection_type="roundabout", circulating_lanes=[1]),
+            geometry=GeometryConstraint(
+                intersection_type="roundabout", circulating_lanes=[1]
+            ),
             movement_topology=MovementTopology(topology_type="zone_based_conflicts"),
             right_of_way=RightOfWay(rule="yield_to_ring"),
             control_policy=ControlPolicy(policy="uncontrolled"),
             adaptation_logic=AdaptationLogic(logic="gap_out_extension"),
         )
         assert "compat.adaptive_unsupported_policy" in _codes(issues)
-        issue = next(i for i in issues if i.code == "compat.adaptive_unsupported_policy")
+        issue = next(
+            i for i in issues if i.code == "compat.adaptive_unsupported_policy"
+        )
         assert "requires a phase plan or metering policy" in issue.message
         assert issue.suggestion is not None
 
     def test_rule_uncontrolled_cannot_be_cycle_aware(self) -> None:
         """Uncontrolled policy cannot declare cycle_aware=True."""
         issues = validate_layer_combination(
-            geometry=GeometryConstraint(intersection_type="roundabout", circulating_lanes=[1]),
+            geometry=GeometryConstraint(
+                intersection_type="roundabout", circulating_lanes=[1]
+            ),
             movement_topology=MovementTopology(topology_type="zone_based_conflicts"),
             right_of_way=RightOfWay(rule="yield_to_ring"),
             control_policy=ControlPolicy(policy="uncontrolled", cycle_aware=True),
@@ -246,7 +281,9 @@ class TestCompatibilityRuleRejections:
             priority_overlay=PriorityOverlay(overlay="emergency_preemption"),
         )
         assert "compat.priority_overlay_unsupported" in _codes(issues)
-        issue = next(i for i in issues if i.code == "compat.priority_overlay_unsupported")
+        issue = next(
+            i for i in issues if i.code == "compat.priority_overlay_unsupported"
+        )
         assert "reserved for future scope FS-1" in issue.message
 
 
@@ -257,7 +294,9 @@ class TestValidCombinations:
         """All 4 standard built-ins must have zero compatibility issues."""
         for builtin in BUILTIN_STRATEGIES:
             issues = validate_strategy_compatibility(builtin)
-            assert issues == [], f"Built-in '{builtin.id}' had compatibility issues: {issues}"
+            assert issues == [], (
+                f"Built-in '{builtin.id}' had compatibility issues: {issues}"
+            )
             # check_strategy_compatibility does not raise
             check_strategy_compatibility(builtin)
 
@@ -280,10 +319,16 @@ class TestValidCombinations:
             name="Custom 3-arm Signal",
             status="experimental",
             description="A valid 3-arm fixed time signal junction.",
-            geometry=GeometryConstraint(intersection_type="fixed_time_signal", min_arms=3, max_arms=3),
-            movement_topology=MovementTopology(topology_type="point_based_conflicts", supports_uturns=False),
+            geometry=GeometryConstraint(
+                intersection_type="fixed_time_signal", min_arms=3, max_arms=3
+            ),
+            movement_topology=MovementTopology(
+                topology_type="point_based_conflicts", supports_uturns=False
+            ),
             right_of_way=RightOfWay(rule="signal"),
-            control_policy=ControlPolicy(policy="fixed_time_phase_plan", cycle_aware=True),
+            control_policy=ControlPolicy(
+                policy="fixed_time_phase_plan", cycle_aware=True
+            ),
             adaptation_logic=AdaptationLogic(logic="none"),
         )
         assert validate_strategy_compatibility(desc) == []
@@ -309,7 +354,10 @@ class TestStrategyCompatibilityErrorHandling:
         assert err.code == "compat.signal_requires_signal_geometry"
         assert len(err.issues) == 1
         err_str = str(err)
-        assert "Strategy 'test_strat': Test message (compat.signal_requires_signal_geometry)" in err_str
+        assert (
+            "Strategy 'test_strat': Test message (compat.signal_requires_signal_geometry)"
+            in err_str
+        )
         assert "Suggestion: Test suggestion" in err_str
 
     def test_check_strategy_compatibility_raises(self) -> None:
@@ -318,7 +366,9 @@ class TestStrategyCompatibilityErrorHandling:
             name="Broken Strategy",
             status="experimental",
             description="Contradictory layers for testing.",
-            geometry=GeometryConstraint(intersection_type="roundabout", circulating_lanes=[1]),
+            geometry=GeometryConstraint(
+                intersection_type="roundabout", circulating_lanes=[1]
+            ),
             movement_topology=MovementTopology(topology_type="zone_based_conflicts"),
             right_of_way=RightOfWay(rule="signal"),
             control_policy=ControlPolicy(policy="fixed_time_phase_plan"),
@@ -332,7 +382,9 @@ class TestStrategyCompatibilityErrorHandling:
     def test_all_declared_error_codes_are_registered(self) -> None:
         """All emitted codes must be present in COMPATIBILITY_ERROR_CODES."""
         assert "compat.signal_requires_signal_geometry" in COMPATIBILITY_ERROR_CODES
-        assert "compat.roundabout_yield_requires_roundabout" in COMPATIBILITY_ERROR_CODES
+        assert (
+            "compat.roundabout_yield_requires_roundabout" in COMPATIBILITY_ERROR_CODES
+        )
         assert "compat.phased_priority_unsupported" in COMPATIBILITY_ERROR_CODES
         assert "compat.adaptive_unsupported_policy" in COMPATIBILITY_ERROR_CODES
         assert len(COMPATIBILITY_ERROR_CODES) >= 14
@@ -385,7 +437,9 @@ class TestLegacyAdaptiveReplacementAndPreSimulationGuard:
         assert validate_scenario_strategy_compatibility(valid_metered_rb) == []
         check_scenario_strategy_compatibility(valid_metered_rb)
 
-    def test_register_simulation_rejects_incompatible_strategy_before_initialization(self) -> None:
+    def test_register_simulation_rejects_incompatible_strategy_before_initialization(
+        self,
+    ) -> None:
         """register_simulation aborts before engine initialization on incompatible strategy combinations."""
         incompatible_config: Dict[str, Any] = {
             "simulation": {"duration": 60, "timeStep": 0.1},

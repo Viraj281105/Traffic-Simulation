@@ -84,7 +84,12 @@ def _base_signal_config() -> Dict[str, Any]:
         },
         "traffic": {
             "arrivalRate": 0.5,
-            "directionalSplit": {"north": 0.25, "south": 0.25, "east": 0.25, "west": 0.25},
+            "directionalSplit": {
+                "north": 0.25,
+                "south": 0.25,
+                "east": 0.25,
+                "west": 0.25,
+            },
             "turnProbabilities": {"left": 0.2, "straight": 0.6, "right": 0.2},
         },
         "controller": {
@@ -111,7 +116,12 @@ def _base_roundabout_config() -> Dict[str, Any]:
         },
         "traffic": {
             "arrivalRate": 0.5,
-            "directionalSplit": {"north": 0.25, "south": 0.25, "east": 0.25, "west": 0.25},
+            "directionalSplit": {
+                "north": 0.25,
+                "south": 0.25,
+                "east": 0.25,
+                "west": 0.25,
+            },
             "turnProbabilities": {"left": 0.2, "straight": 0.6, "right": 0.2},
         },
         "controller": {
@@ -242,7 +252,9 @@ class TestContractViolationsAndDiagnostics:
         cfg_metered["strategy"] = "metered_entry_roundabout"
         issues_m = validate_scenario_strategy_compatibility(cfg_metered)
         assert "compat.strategy_config_mismatch" in [i.code for i in issues_m]
-        issue_m = next(i for i in issues_m if i.code == "compat.strategy_config_mismatch")
+        issue_m = next(
+            i for i in issues_m if i.code == "compat.strategy_config_mismatch"
+        )
         assert "requires entryControl='metered_entry'" in issue_m.message
 
         # fixed_time_signal with signalControl='adaptive'
@@ -326,8 +338,16 @@ class TestConfigurationEquivalenceAndSimulationBitIdentity:
         res_alias = self._simulate(cfg_alias)
         res_canon = self._simulate(cfg_canonical)
 
-        assert res_impl["metrics_json"] == res_alias["metrics_json"] == res_canon["metrics_json"]
-        assert res_impl["trajectory_json"] == res_alias["trajectory_json"] == res_canon["trajectory_json"]
+        assert (
+            res_impl["metrics_json"]
+            == res_alias["metrics_json"]
+            == res_canon["metrics_json"]
+        )
+        assert (
+            res_impl["trajectory_json"]
+            == res_alias["trajectory_json"]
+            == res_canon["trajectory_json"]
+        )
 
     def test_adaptive_signal_equivalence(self) -> None:
         """Adaptive signal: implicit and canonical ID run bit-identically."""
@@ -343,16 +363,30 @@ class TestConfigurationEquivalenceAndSimulationBitIdentity:
 
         clock = Clock(time_step=0.1)
         eng = SimulationEngine(clock, duration=10, config=cfg_implicit)
-        assert isinstance(create_controller(cfg_implicit, eng.network), AdaptiveSignalController)
-        assert isinstance(create_controller(cfg_alias, eng.network), AdaptiveSignalController)
-        assert isinstance(create_controller(cfg_canonical, eng.network), AdaptiveSignalController)
+        assert isinstance(
+            create_controller(cfg_implicit, eng.network), AdaptiveSignalController
+        )
+        assert isinstance(
+            create_controller(cfg_alias, eng.network), AdaptiveSignalController
+        )
+        assert isinstance(
+            create_controller(cfg_canonical, eng.network), AdaptiveSignalController
+        )
 
         res_impl = self._simulate(cfg_implicit)
         res_alias = self._simulate(cfg_alias)
         res_canon = self._simulate(cfg_canonical)
 
-        assert res_impl["metrics_json"] == res_alias["metrics_json"] == res_canon["metrics_json"]
-        assert res_impl["trajectory_json"] == res_alias["trajectory_json"] == res_canon["trajectory_json"]
+        assert (
+            res_impl["metrics_json"]
+            == res_alias["metrics_json"]
+            == res_canon["metrics_json"]
+        )
+        assert (
+            res_impl["trajectory_json"]
+            == res_alias["trajectory_json"]
+            == res_canon["trajectory_json"]
+        )
 
     def test_conventional_roundabout_equivalence(self) -> None:
         """Conventional roundabout: implicit, alias, and canonical ID run bit-identically."""
@@ -366,16 +400,30 @@ class TestConfigurationEquivalenceAndSimulationBitIdentity:
 
         clock = Clock(time_step=0.1)
         eng = SimulationEngine(clock, duration=10, config=cfg_implicit)
-        assert isinstance(create_controller(cfg_implicit, eng.network), RoundaboutController)
-        assert isinstance(create_controller(cfg_alias, eng.network), RoundaboutController)
-        assert isinstance(create_controller(cfg_canonical, eng.network), RoundaboutController)
+        assert isinstance(
+            create_controller(cfg_implicit, eng.network), RoundaboutController
+        )
+        assert isinstance(
+            create_controller(cfg_alias, eng.network), RoundaboutController
+        )
+        assert isinstance(
+            create_controller(cfg_canonical, eng.network), RoundaboutController
+        )
 
         res_impl = self._simulate(cfg_implicit)
         res_alias = self._simulate(cfg_alias)
         res_canon = self._simulate(cfg_canonical)
 
-        assert res_impl["metrics_json"] == res_alias["metrics_json"] == res_canon["metrics_json"]
-        assert res_impl["trajectory_json"] == res_alias["trajectory_json"] == res_canon["trajectory_json"]
+        assert (
+            res_impl["metrics_json"]
+            == res_alias["metrics_json"]
+            == res_canon["metrics_json"]
+        )
+        assert (
+            res_impl["trajectory_json"]
+            == res_alias["trajectory_json"]
+            == res_canon["trajectory_json"]
+        )
 
     def test_metered_entry_roundabout_equivalence(self) -> None:
         """Metered roundabout: implicit, alias, and canonical ID run bit-identically."""
@@ -395,16 +443,31 @@ class TestConfigurationEquivalenceAndSimulationBitIdentity:
 
         clock = Clock(time_step=0.1)
         eng = SimulationEngine(clock, duration=10, config=cfg_implicit)
-        assert isinstance(create_controller(cfg_implicit, eng.network), SignalisedRoundaboutController)
-        assert isinstance(create_controller(cfg_alias, eng.network), SignalisedRoundaboutController)
-        assert isinstance(create_controller(cfg_canonical, eng.network), SignalisedRoundaboutController)
+        assert isinstance(
+            create_controller(cfg_implicit, eng.network), SignalisedRoundaboutController
+        )
+        assert isinstance(
+            create_controller(cfg_alias, eng.network), SignalisedRoundaboutController
+        )
+        assert isinstance(
+            create_controller(cfg_canonical, eng.network),
+            SignalisedRoundaboutController,
+        )
 
         res_impl = self._simulate(cfg_implicit)
         res_alias = self._simulate(cfg_alias)
         res_canon = self._simulate(cfg_canonical)
 
-        assert res_impl["metrics_json"] == res_alias["metrics_json"] == res_canon["metrics_json"]
-        assert res_impl["trajectory_json"] == res_alias["trajectory_json"] == res_canon["trajectory_json"]
+        assert (
+            res_impl["metrics_json"]
+            == res_alias["metrics_json"]
+            == res_canon["metrics_json"]
+        )
+        assert (
+            res_impl["trajectory_json"]
+            == res_alias["trajectory_json"]
+            == res_canon["trajectory_json"]
+        )
 
 
 class TestFixtureParityAndScenarioCompilation:
@@ -432,7 +495,13 @@ class TestFixtureParityAndScenarioCompilation:
             assert cfg_canonical["scenario"]["fingerprint"] == fp_base
 
             # Physical simulation configuration sections must be identical
-            for section in ("simulation", "geometry", "roads", "traffic", "vehicleGeneration"):
+            for section in (
+                "simulation",
+                "geometry",
+                "roads",
+                "traffic",
+                "vehicleGeneration",
+            ):
                 assert cfg_legacy[section] == cfg_canonical[section]
 
             # Controller parameters must be identical
@@ -461,7 +530,9 @@ class TestStrategyInstanceFingerprinting:
         assert fp_param != fp_base
 
         # Changed descriptor changes fingerprint
-        fp_desc = compute_strategy_instance_fingerprint(ADAPTIVE_SIGNAL, {"cycle_time": 60.0})
+        fp_desc = compute_strategy_instance_fingerprint(
+            ADAPTIVE_SIGNAL, {"cycle_time": 60.0}
+        )
         assert fp_desc != fp_base
 
     def test_resolve_parameters_from_config(self) -> None:

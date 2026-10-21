@@ -326,7 +326,10 @@ def compile_scenario(document: ScenarioDocument, strategy: str) -> Dict[str, Any
     sim = document.simulation
     rate = total_vph / 3600.0
 
-    is_roundabout = canonical_strategy in ("conventional_roundabout", "metered_entry_roundabout")
+    is_roundabout = canonical_strategy in (
+        "conventional_roundabout",
+        "metered_entry_roundabout",
+    )
 
     road_items: List[Dict[str, Any]] = []
     traffic_items: List[Dict[str, Any]] = []
@@ -659,12 +662,22 @@ def validate_scenario(
             "byStrategy": {},
         }
     wanted = list(strategies or [JUNCTION_STRATEGY[document.junction.type]])
-    unknown = [s for s in wanted if s not in STRATEGIES]
+    from src.strategies.registry import get_strategy_registry
+
+    strategy_registry = get_strategy_registry()
+    unknown = [s for s in wanted if not (strategy_registry.has(s) or s in STRATEGIES)]
     if unknown:
+        available_strats = sorted(
+            set(
+                strategy_registry.list_ids()
+                + list(STRATEGIES)
+                + list(strategy_registry.list_aliases().keys())
+            )
+        )
         return {
             "valid": False,
             "errors": [
-                f"Unknown strategies {unknown}; expected some of {list(STRATEGIES)}"
+                f"Unknown strategies {unknown}; expected some of {available_strats}"
             ],
             "warnings": [],
             "strategies": wanted,

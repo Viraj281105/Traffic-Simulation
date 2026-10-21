@@ -170,17 +170,31 @@ flowchart LR
      * `frontend/src/test/strategySummary.test.tsx`: 13 comprehensive unit/integration tests covering 6-layer breakdown, parameter provenance (defaults vs customized), candidate switching, live reactive updates in ScenarioBuilder, server validation error integration, and axe-core accessibility auditing (0 violations).
      * Vitest suite: 482/482 tests passed across 40 test files in full frontend test sweep.
      * Static checks: `tsc --noEmit`, ESLint, and Prettier checks passed with 0 errors/warnings.
-5. **W3-T5: Robustness Lab Completion A (Preference-Flip & Sensitivity)**
+5. **W3-T5: Strategy Robustness & Regression**
    * **Classification:** **Committed Core Scope** [V].
-   * **Authoritative Basis:** Sprint Plan §3.4; V3 Strategy §5.5.
-   * **Scope:** One-factor preference-flip detection and Spearman rank correlation sensitivity analysis.
-   * **Dependencies:** Pure mathematical analysis module; reuses V3 W1 uncertainty foundations; no dependency on G-SR.
+   * **Authoritative Basis:** Sprint Plan §3.4; V3 Strategy §13.6; ADR-014 §2, §3, §4.
+   * **Implementation Status:** **IMPLEMENTED & VERIFIED** [V] (Comprehensive robustness and edge-case verification across descriptor boundaries, registry security isolation, custom compositions, initialization failure guards, database isolation, diagnostic codes, and golden fingerprint determinism).
+   * **Scope & Invariants:**
+     - Descriptor boundary validation: `extra="forbid"`, parameter bound ordering invariants, default containment, and geometry arm bounds.
+     - Registry security: Rejection of untrusted raw payloads (`TypeError`), re-registration guards, cyclic alias prevention, and clean isolation of custom compositions.
+     - Simulation initialization guards: `register_simulation` parameter bounds enforcement, fast pre-construction failure, and total isolation of `simulations_db` (zero leaked runs or orphan threads).
+     - Backward compatibility: Stable diagnostic codes (`compat.*`), actionable suggestions, and dual support for canonical strategy IDs and legacy aliases in `validate_scenario` and `semantic_config_errors`.
+   * **Verification Evidence:**
+     - `backend/tests/strategies/test_strategy_robustness.py`: 26 dedicated edge-case and regression tests across descriptor bounds, registry security, initialization guards, determinism, and scenario validation.
+     - Full backend regression suite: 241 passed (strategies, controllers, golden fingerprints, and scenarios) with zero regressions.
+     - Static checks: Ruff and Mypy (strict mode) passed with zero errors across all source and test files.
+     - Frontend test suite: 482/482 passed with zero errors; TypeScript type-check and ESLint clean.
 6. **W3-T6: (CONDITIONAL) Adaptive Signalised Roundabout**
    * **Classification:** **Conditional Scope (Gated on G-SR)** [V].
    * **Authoritative Basis:** Sprint Plan §3.4; V3 Strategy §13.4; Issue #164.
    * **Budget:** 1.5 ED.
    * **Purpose:** Provides demand-responsive green extensions on metered roundabouts, directly addressing the low-demand fixed-metering penalty (+80% delay) observed in W2.
-   * **Gating:** Requires formal PO sign-off on Gate G-SR. If dropped, the 1.5 ED reverts to contingency buffer.
+   * **Gating:** Requires formal PO sign-off on Gate G-SR and explicit PO confirmation to allocate 1.5 ED.
+   * **Authorization Status:** **BLOCKED & UNMET** [V].
+     - Technical criteria of W2 metered entry are verified (288/288 runs collision-free, bit-identical `AlwaysOpen` gate, deadlock-free, bounded starvation).
+     - Formal Product Owner sign-off on Gate G-SR remains **OPEN / PENDING** (Sprint Plan §4 line 310; Plan §2 line 100).
+     - Explicit PO budget authorization allocating 1.5 ED to Adaptive-SR has not been issued.
+     - Per Sprint Plan §3.4 and ADR-014 governance invariants: implementation of W3-T6 is withheld until formal PO sign-off is recorded. The 1.5 ED capacity remains in contingency buffer.
 
 ---
 
@@ -194,7 +208,7 @@ flowchart LR
 | **W3-T2** | Compatibility Validator | **NO** | **NO** | W3-T1 | **YES** [V] | Core Authorization |
 | **W3-T3** | Fingerprint Parity & Contracts | **NO** | **NO** | W3-T1, W3-T2, ADR-013 | **YES** [V] | Core Authorization |
 | **W3-T4** | Read-Only Strategy Summary UI | **NO** | **NO** | W3-T1, W3-T3 | **YES** [V] | Core Authorization |
-| **W3-T5** | Robustness Completion A | **NO** | **NO** | V3 W1 Uncertainty Engine | **YES** [V] | Core Authorization |
+| **W3-T5** | Strategy Robustness & Regression | **NO** | **NO** | W3-T1–T4 | **YES** [V] | Core Authorization |
 | **W3-T6** | Adaptive Signalised Roundabout | **NO** | **YES** [V] | G-SR Approval, W3-T1–T3, #164 | **NO** | **YES (Explicit Gate)** |
 
 #### Direct Answers to Key Inquiries

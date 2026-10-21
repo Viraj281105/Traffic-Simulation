@@ -653,7 +653,7 @@ export function evaluateStrategyCompatibility(
   // 1. Arms count check
   if (arms.length < 3 || arms.length > 4) {
     issues.push({
-      code: "compat.arms_out_of_bounds",
+      code: "compat.arms_range_invalid",
       message: `Junction has ${String(arms.length)} arms; strategy supports 3 or 4 arms only.`,
       layerIndex: 1,
       suggestion: "Enable 3 or 4 approaches in step 1.",
@@ -706,7 +706,7 @@ export function evaluateStrategyCompatibility(
     const rings = ringLanes(doc);
     if (rings < 1 || rings > 2) {
       issues.push({
-        code: "compat.circulating_lanes_out_of_bounds",
+        code: "compat.roundabout_requires_circulating_lanes",
         message: `Circulating ring has ${String(rings)} lanes; only 1 or 2 circulating lanes are supported.`,
         layerIndex: 1,
         suggestion: "Set circulating lanes to 1 or 2 in Advanced settings.",

@@ -79,7 +79,11 @@ class StrategyCompatibilityError(ValueError):
         self.issues = list(issues)
         self.strategy_id = strategy_id
         self.code = self.issues[0].code if self.issues else "compat.unknown"
-        prefix = f"Strategy '{strategy_id}': " if strategy_id else "Strategy compatibility violation: "
+        prefix = (
+            f"Strategy '{strategy_id}': "
+            if strategy_id
+            else "Strategy compatibility violation: "
+        )
         detail = "; ".join(issue.formatted_message() for issue in self.issues)
         super().__init__(f"{prefix}{detail}")
 
@@ -126,11 +130,7 @@ def validate_layer_combination(
     overlay = _get_val(priority_overlay, "overlay", "none")
 
     # --- Rule: Geometry Arm Range Sanity ---
-    if (
-        isinstance(min_arms, int)
-        and isinstance(max_arms, int)
-        and min_arms > max_arms
-    ):
+    if isinstance(min_arms, int) and isinstance(max_arms, int) and min_arms > max_arms:
         issues.append(
             CompatibilityIssue(
                 code="compat.arms_range_invalid",
@@ -361,7 +361,11 @@ def validate_scenario_strategy_compatibility(
             canonical_strategy_id = registry.resolve_id(raw_strategy)
 
     geom = config.get("geometry")
-    geom_type = geom.get("intersectionType", "fixed_time_signal") if isinstance(geom, dict) else "fixed_time_signal"
+    geom_type = (
+        geom.get("intersectionType", "fixed_time_signal")
+        if isinstance(geom, dict)
+        else "fixed_time_signal"
+    )
     if geom_type is None and isinstance(config.get("junction"), dict):
         geom_type = config["junction"].get("type", "fixed_time_signal")
 
@@ -374,7 +378,10 @@ def validate_scenario_strategy_compatibility(
 
     # 2. Check explicit strategy against structural configuration
     if canonical_strategy_id is not None:
-        if canonical_strategy_id in ("fixed_time_signal", "adaptive_signal") and geom_type != "fixed_time_signal":
+        if (
+            canonical_strategy_id in ("fixed_time_signal", "adaptive_signal")
+            and geom_type != "fixed_time_signal"
+        ):
             issues.append(
                 CompatibilityIssue(
                     code="compat.strategy_config_mismatch",
@@ -386,7 +393,11 @@ def validate_scenario_strategy_compatibility(
                     suggestion="Set geometry.intersectionType to 'fixed_time_signal' or change strategy.",
                 )
             )
-        elif canonical_strategy_id in ("conventional_roundabout", "metered_entry_roundabout") and geom_type != "roundabout":
+        elif (
+            canonical_strategy_id
+            in ("conventional_roundabout", "metered_entry_roundabout")
+            and geom_type != "roundabout"
+        ):
             issues.append(
                 CompatibilityIssue(
                     code="compat.strategy_config_mismatch",
@@ -399,7 +410,10 @@ def validate_scenario_strategy_compatibility(
                 )
             )
 
-        if canonical_strategy_id == "conventional_roundabout" and entry_control == "metered_entry":
+        if (
+            canonical_strategy_id == "conventional_roundabout"
+            and entry_control == "metered_entry"
+        ):
             issues.append(
                 CompatibilityIssue(
                     code="compat.strategy_config_mismatch",
@@ -411,7 +425,10 @@ def validate_scenario_strategy_compatibility(
                     suggestion="Omit entryControl or use strategy 'metered_entry_roundabout'.",
                 )
             )
-        elif canonical_strategy_id == "metered_entry_roundabout" and entry_control != "metered_entry":
+        elif (
+            canonical_strategy_id == "metered_entry_roundabout"
+            and entry_control != "metered_entry"
+        ):
             issues.append(
                 CompatibilityIssue(
                     code="compat.strategy_config_mismatch",
@@ -423,7 +440,10 @@ def validate_scenario_strategy_compatibility(
                     suggestion="Set controller.entryControl to 'metered_entry'.",
                 )
             )
-        elif canonical_strategy_id == "fixed_time_signal" and signal_control == "adaptive":
+        elif (
+            canonical_strategy_id == "fixed_time_signal"
+            and signal_control == "adaptive"
+        ):
             issues.append(
                 CompatibilityIssue(
                     code="compat.strategy_config_mismatch",
@@ -465,7 +485,10 @@ def validate_scenario_strategy_compatibility(
         },
         movement_topology={"topology_type": topo_type, "supports_uturns": True},
         right_of_way={"rule": row_rule},
-        control_policy={"policy": policy, "cycle_aware": (policy == "fixed_time_phase_plan")},
+        control_policy={
+            "policy": policy,
+            "cycle_aware": (policy == "fixed_time_phase_plan"),
+        },
         adaptation_logic={"logic": adapt_logic, "deterministic": True},
         priority_overlay={"overlay": "none"},
     )

@@ -61,6 +61,13 @@ def extract_explicit_strategy(config: Any) -> Optional[str]:
                 )
                 if is_rb_geom != is_rb_strat:
                     return None
+            if scen_strat == "roundabout":
+                ctrl_entry = config.get("controller")
+                if (
+                    isinstance(ctrl_entry, dict)
+                    and ctrl_entry.get("entryControl") == "metered_entry"
+                ):
+                    return "metered_entry_roundabout"
             return scen_strat.strip()
 
     return None
@@ -163,15 +170,32 @@ def resolve_strategy_parameters(
 ) -> Dict[str, Any]:
     """Extract and validate strategy parameters against descriptor parameter bounds.
 
+    Supports both canonical snake_case (e.g. 'green_time') and legacy/scenario camelCase
+    (e.g. 'greenTime', controller.adaptive.minGreen).
     Returns a clean dictionary of parameter names to resolved values.
     """
     ctrl_raw = config.get("controller")
     ctrl: Dict[str, Any] = ctrl_raw if isinstance(ctrl_raw, dict) else {}
+    adapt_raw = ctrl.get("adaptive")
+    adapt: Dict[str, Any] = adapt_raw if isinstance(adapt_raw, dict) else {}
     resolved: Dict[str, Any] = {}
 
     for param_name, bound in descriptor.parameters.items():
-        if param_name in ctrl and ctrl[param_name] is not None:
-            val = ctrl[param_name]
+        camel_name = "".join(
+            word.capitalize() if i > 0 else word
+            for i, word in enumerate(param_name.split("_"))
+        )
+        val = None
+        for source in (ctrl, adapt, config):
+            if isinstance(source, dict):
+                if param_name in source and source[param_name] is not None:
+                    val = source[param_name]
+                    break
+                if camel_name in source and source[camel_name] is not None:
+                    val = source[camel_name]
+                    break
+
+        if val is not None:
             num_val = float(val) if isinstance(val, (int, float)) else val
             if isinstance(num_val, float):
                 if not (bound.min_value <= num_val <= bound.max_value):
@@ -195,7 +219,8 @@ def compute_strategy_instance_fingerprint(
     Combines descriptor ID, version, descriptor fingerprint, and canonical resolved parameters.
     """
     payload = {
-        "descriptor_fingerprint": descriptor.fingerprint or descriptor.compute_fingerprint(),
+        "descriptor_fingerprint": descriptor.fingerprint
+        or descriptor.compute_fingerprint(),
         "id": descriptor.id,
         "parameters": resolved_parameters or {},
         "version": descriptor.version,

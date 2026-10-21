@@ -19,7 +19,7 @@ import hashlib
 import json
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 STRATEGY_FORMAT: Literal["urbanflow-strategy"] = "urbanflow-strategy"
 STRATEGY_VERSION: Literal[1] = 1
@@ -40,6 +40,14 @@ class GeometryConstraint(_Strict):
     min_arms: int = Field(default=3, ge=3, le=4)
     max_arms: int = Field(default=4, ge=3, le=4)
     circulating_lanes: Optional[List[int]] = None
+
+    @model_validator(mode="after")
+    def _validate_arms_range(self) -> GeometryConstraint:
+        if self.min_arms > self.max_arms:
+            raise ValueError(
+                f"min_arms ({self.min_arms}) cannot be greater than max_arms ({self.max_arms})"
+            )
+        return self
 
 
 # --- Layer 2: Movement Topology ---
@@ -77,6 +85,19 @@ class ParameterBound(_Strict):
     default_value: Optional[float] = None
     unit: str
     description: str
+
+    @model_validator(mode="after")
+    def _validate_bounds(self) -> ParameterBound:
+        if self.min_value > self.max_value:
+            raise ValueError(
+                f"min_value ({self.min_value}) cannot exceed max_value ({self.max_value})"
+            )
+        if self.default_value is not None:
+            if not (self.min_value <= self.default_value <= self.max_value):
+                raise ValueError(
+                    f"default_value ({self.default_value}) must be within [{self.min_value}, {self.max_value}]"
+                )
+        return self
 
 
 # --- Complete Strategy Descriptor ---
@@ -129,4 +150,3 @@ class StrategyDescriptor(_Strict):
                 raise ValueError(
                     f"Strategy '{self.id}': fingerprint mismatch (declared '{self.fingerprint}' != computed '{expected}')."
                 )
-
