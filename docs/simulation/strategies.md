@@ -78,3 +78,58 @@ Every built-in passes internal self-check and layer compatibility validation on 
 
 * **No uploaded code:** The simulation engine accepts zero client-supplied executable strategies, scripts, or arbitrary dict registrations.
 * **Pull-request entry only:** New strategies enter the codebase solely through reviewed pull requests defining a valid `StrategyDescriptor` and passing `validate_strategy_compatibility`.
+
+---
+
+## 6. Strategy Resolution, Parity & Contracts (ADR-014 §4, W3-T3)
+
+### Strategy Resolution Contract
+
+The strategy resolution engine (`src/strategies/resolution.py`) provides an explicit, deterministic contract for mapping input representations to canonical `StrategyDescriptor` instances:
+
+1. **Resolution API (`resolve_strategy`)**:
+   - Canonical strategy ID (e.g. `"fixed_time_signal"`, `"metered_entry_roundabout"`).
+   - Legacy alias (e.g. `"fixed_time"`, `"roundabout"`, `"signalised_roundabout"`).
+   - Explicit `StrategyDescriptor` instance.
+   - Scenario document or engine configuration dict:
+     - Extracts explicit strategy from root (`strategy`), controller (`controller.strategy`), or scenario block (`scenario.strategy`).
+     - If explicit strategy is absent, infers canonical strategy from structural configuration (`geometry.intersectionType`, `controller.signalControl`, `controller.entryControl`).
+     - Validates that explicit strategy declarations match the physical layout (preventing contradictions like `strategy: "conventional_roundabout"` with signal geometry).
+
+2. **Validation & Pre-Simulation Guard**:
+   - `validate_scenario_strategy_compatibility` checks explicit strategies and structural layers, producing `compat.unknown_strategy` and `compat.strategy_config_mismatch` if invalid.
+   - `register_simulation` executes this validation before constructing any `SimulationEngine` or controller, guaranteeing that invalid configurations fail fast with machine-readable diagnostics.
+   - Active registry entries stamp `strategy_id` onto each simulation record.
+
+3. **Controller Factory Contract**:
+   - `create_controller(config, network)` resolves the configuration to its canonical `StrategyDescriptor` and instantiates the authoritative controller (`FixedTimeSignalController`, `AdaptiveSignalController`, `RoundaboutController`, or `SignalisedRoundaboutController`).
+
+### Configuration Equivalence & Fingerprint Parity
+
+* **Equivalent Configurations:** Configurations specifying a control mode via canonical strategy ID, legacy alias, or implicit geometry/controller settings resolve to identical controllers and execute with 100% bit-identical simulation results (metrics, vehicle states, and snapshot sequences).
+* **Fingerprint Invariant:** All pre-existing scenario fixture presets (`frontend/src/scenario/presets.json`) maintain 100% bit-identical scenario and result fingerprints.
+* **Golden Parity:** Pre-seam conventional roundabout golden fingerprints (`roundabout_golden_fingerprints.json`) are preserved 100% bit-identical.
+* **Strategy Instance Fingerprinting (ADR-014 §4):**
+  - `compute_strategy_instance_fingerprint(descriptor, resolved_parameters)` computes a 16-hex deterministic SHA-256 digest over the descriptor ID, version, descriptor fingerprint, and canonical resolved parameter bounds.
+
+---
+
+## 7. Strategy Summary UI & Strategy DNA Card (ADR-014, W3-T4)
+
+The frontend Scenario Builder, Planner, and Research Lab present the resolved strategy through the **Strategy DNA Card** (`StrategySummaryCard.tsx`):
+
+### 6-Layer DNA Representation
+
+1. **Geometry Constraint (Layer 1):** Validates and summarizes intersection type (`fixed_time_signal` vs `roundabout`), approach arm count (3–4), and circulating ring lanes (1–2).
+2. **Movement Topology (Layer 2):** Highlights conflict management topology (`point_based_conflicts` at orthogonal signals vs `zone_based_conflicts` across circular circulating segments) and U-turn support.
+3. **Right-of-Way Rule (Layer 3):** Details active priority mechanisms (`signal`, `yield_to_ring`, or `signal_over_yield` hybrid metering).
+4. **Control Policy (Layer 4):** Summarizes operational policy (`fixed_time_phase_plan`, `metering`, or `uncontrolled`) with cycle awareness and active phase counts.
+5. **Adaptation Logic (Layer 5):** Exposes detection logic (`none` vs actuated `gap_out_extension` with green bounds).
+6. **Priority Overlay (Layer 6):** Displays priority treatment (`none` standard FIFO; reserved for future emergency preemption).
+
+### Selection Status & Parameter Provenance
+
+* **Selected vs. Resolved Default:** Clearly distinguishes configurations explicitly chosen by the user (`User Selected` / `Preset Selected`) from candidate alternatives evaluated in comparative studies (`Comparison Alternative`).
+* **Parameter Provenance:** Tracks whether parameters match descriptor defaults or have been customized by the user, providing a transparent breakdown of values (e.g. green times, yellow/red clearances, critical headways, detector setbacks).
+* **Compatibility Surfacing:** Conflicting layers are visually highlighted with amber caution borders and alert badges when invalid combinations (e.g. `compat.adaptive_unsupported_policy`, `compat.signal_requires_signal_geometry`) occur, displaying machine-readable codes alongside actionable suggestions.
+

@@ -152,13 +152,24 @@ flowchart LR
 3. **W3-T3: Fingerprint Parity & Shared Contracts**
    * **Classification:** **Committed Core Scope** [V].
    * **Authoritative Basis:** ADR-014 §4; Sprint Plan §3.4; ADR-013 §2, §6, §7.
+   * **Implementation Status:** **IMPLEMENTED & VERIFIED** [V] (Pure strategy resolution contracts in `src/strategies/resolution.py`, authoritative resolution in `create_controller`, `register_simulation`, and scenario compilation; bit-identical determinism and golden fingerprints preserved).
    * **Fingerprint Invariant:** Every pre-existing fixture scenario produces 100% bit-identical scenario and result fingerprints before and after registry integration.
+   * **Verification Evidence:**
+     * `tests/strategies/test_strategy_parity_contracts.py`: Comprehensive coverage of resolution contracts, contract violations (`compat.unknown_strategy`, `compat.strategy_config_mismatch`), configuration equivalence (canonical vs legacy alias vs implicit), and strategy instance fingerprinting.
+     * `tests/controllers/test_roundabout_golden_fingerprints.py`: 16/16 golden fingerprints pass bit-identically with 0 collisions and 0 deviations.
+     * Full test pass: 205 passed across strategy, scenario, and golden fingerprint suites.
+     * Static checks: Ruff and Mypy passed with zero errors across all touched and new files.
    * **Shared Schema:** Additive JSON Schema `shared/schemas/v3/strategy-descriptor.schema.json` under `shared/schemas/v3/`. No top-level document type is introduced (`urbanflow-scenario` v1 remains the authoritative scenario document).
 4. **W3-T4: Read-Only Strategy Summary UI ("Strategy DNA Card")**
    * **Classification:** **Committed Core Scope** [V].
    * **Authoritative Basis:** Sprint Plan §3.4; V3 Strategy §13.6.
+   * **Implementation Status:** **IMPLEMENTED & VERIFIED** [V] (Strategy DNA Card `StrategySummaryCard.tsx`, domain model `strategySummaryModel.ts`, layer breakdown, selection provenance tracking, multi-candidate tabs, and live scenario builder integration).
    * **Scope Boundary:** Strictly a read-only presentation card summarizing the 6 descriptor layers in Scenario Builder, Planner, and Research Lab.
    * **Deferred Boundary:** A visual drag-and-drop strategy composer (Candidate 2) is explicitly **deferred**; W3-T4 introduces no canvas editing or drag-and-drop mechanics.
+   * **Verification Evidence:**
+     * `frontend/src/test/strategySummary.test.tsx`: 13 comprehensive unit/integration tests covering 6-layer breakdown, parameter provenance (defaults vs customized), candidate switching, live reactive updates in ScenarioBuilder, server validation error integration, and axe-core accessibility auditing (0 violations).
+     * Vitest suite: 482/482 tests passed across 40 test files in full frontend test sweep.
+     * Static checks: `tsc --noEmit`, ESLint, and Prettier checks passed with 0 errors/warnings.
 5. **W3-T5: Robustness Lab Completion A (Preference-Flip & Sensitivity)**
    * **Classification:** **Committed Core Scope** [V].
    * **Authoritative Basis:** Sprint Plan §3.4; V3 Strategy §5.5.
