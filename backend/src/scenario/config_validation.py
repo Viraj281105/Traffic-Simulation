@@ -27,6 +27,7 @@ from src.roads.junction_geometry import present_arms
 from src.roads.lane_config import shortest_approach_length
 from src.roads.network import lane_counts, resolve_lanes_per_approach
 from src.scenario.lane_validation import lane_configuration_errors
+from src.strategies.validator import validate_scenario_strategy_compatibility
 from src.vehicles.vehicle_types import vehicle_mix_errors
 
 # §5: "Must sum to 1.0 (±0.01 tolerance)".
@@ -142,6 +143,7 @@ def semantic_config_errors(config: Dict[str, Any]) -> List[str]:
     errors.extend(lane_configuration_errors(config))
     errors.extend(_signal_control_errors(config))
     errors.extend(_entry_control_errors(config))
+    errors.extend(_strategy_compatibility_errors(config))
 
     # NaN compares false against every bound, so it slips through each of the
     # schema's minimum/maximum checks; infinity passes any one-sided bound.
@@ -150,6 +152,18 @@ def semantic_config_errors(config: Dict[str, Any]) -> List[str]:
     )
 
     return errors
+
+
+def _strategy_compatibility_errors(config: Dict[str, Any]) -> List[str]:
+    """Validate explicit strategy declarations against compatibility rules (W3-T5, ADR-014)."""
+    from src.strategies.resolution import extract_explicit_strategy
+    from src.strategies.validator import validate_scenario_strategy_compatibility
+
+    raw_strategy = extract_explicit_strategy(config)
+    if raw_strategy is None:
+        return []
+    issues = validate_scenario_strategy_compatibility(config)
+    return [issue.formatted_message() for issue in issues]
 
 
 def _lane_count_errors(config: Dict[str, Any]) -> List[str]:
@@ -216,10 +230,28 @@ def _signal_control_errors(config: Dict[str, Any]) -> List[str]:
         return errors
     geom = _section(config, "geometry").get("intersectionType", "fixed_time_signal")
     if geom == "roundabout":
-        errors.append(
-            "controller.signalControl 'adaptive' applies to a signalised junction, "
-            "not a roundabout"
+        # Formally replaces the legacy error "adaptive applies to a signalised junction"
+        # with the strategy registry compatibility validator diagnostic (ADR-014 §2, W3-T2).
+        compat_issues = validate_scenario_strategy_compatibility(config)
+        adaptive_issue = next(
+            (
+                issue
+                for issue in compat_issues
+                if issue.code == "compat.adaptive_unsupported_policy"
+            ),
+            None,
         )
+        if adaptive_issue is not None:
+            errors.append(
+                f"controller.signalControl 'adaptive' requires a signalised junction; "
+                f"incompatible with unmetered roundabout control policy 'uncontrolled' "
+                f"({adaptive_issue.code})"
+            )
+        else:
+            errors.append(
+                "controller.signalControl 'adaptive' requires a signalised junction, "
+                "not an unmetered roundabout (compat.adaptive_unsupported_policy)"
+            )
         return errors
     if adaptive_cfg is not None and not isinstance(adaptive_cfg, dict):
         errors.append("controller.adaptive must be an object")

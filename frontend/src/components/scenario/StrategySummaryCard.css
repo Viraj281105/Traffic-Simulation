@@ -1,0 +1,410 @@
+/* Strategy Summary UI / Strategy DNA Card (V3.0 W3, ADR-014, W3-T4).
+   Styled using shared tokens from styles/tokens.css. */
+
+.strategy-dna-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  padding: 16px;
+  box-shadow: var(--shadow-raised);
+}
+
+.strategy-dna-card.has-conflict {
+  border-color: color-mix(
+    in srgb,
+    var(--color-warning) 50%,
+    var(--color-border)
+  );
+}
+
+/* Header */
+.strategy-dna-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.strategy-dna-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.strategy-dna-title {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.strategy-dna-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  background: var(--brand-green-soft);
+  color: var(--brand-green-ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.strategy-badges-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.strategy-badge-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  color: var(--color-text-2);
+}
+
+.strategy-badge-pill.is-status {
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-success) 35%, transparent);
+  color: var(--color-success);
+}
+
+.strategy-badge-pill.is-selected {
+  background: var(--brand-green-soft);
+  border-color: color-mix(in srgb, var(--brand-green-ink) 35%, transparent);
+  color: var(--brand-green-ink);
+}
+
+.strategy-badge-pill.is-default {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  color: var(--color-accent);
+}
+
+.strategy-fingerprint {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-2);
+  color: var(--color-text-3);
+  border: 1px solid var(--color-border);
+}
+
+.strategy-name-banner {
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.strategy-name-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.strategy-desc-text {
+  font-size: 11.5px;
+  color: var(--color-text-2);
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* Strategy tabs for comparative contexts */
+.strategy-tabs-nav {
+  display: flex;
+  gap: 4px;
+  padding: 2px;
+  background: var(--color-surface-2);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
+}
+
+.strategy-tab-btn {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  padding: 4px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-text-2);
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease-out);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.strategy-tab-btn:hover {
+  color: var(--color-text);
+}
+
+.strategy-tab-btn.is-active {
+  background: var(--brand-navy-2);
+  color: var(--color-text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* 6-Layer DNA list */
+.strategy-layers-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.strategy-layers-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-3);
+  padding: 0 2px;
+}
+
+.strategy-layers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.strategy-layer-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  transition: border-color var(--dur-fast);
+}
+
+.strategy-layer-row.has-conflict {
+  border-color: var(--color-warning);
+  background: color-mix(
+    in srgb,
+    var(--color-warning) 8%,
+    var(--color-surface-2)
+  );
+}
+
+.strategy-layer-num {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-3);
+  color: var(--color-text-2);
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.strategy-layer-row.has-conflict .strategy-layer-num {
+  background: var(--color-warning);
+  color: var(--color-bg);
+}
+
+.strategy-layer-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.strategy-layer-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.strategy-layer-title {
+  font-size: 11.5px;
+  font-weight: 650;
+  color: var(--color-text);
+}
+
+.strategy-layer-applied {
+  font-size: 11.5px;
+  color: var(--brand-green-ink);
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.strategy-layer-contract {
+  font-size: 10.5px;
+  color: var(--color-text-3);
+}
+
+.strategy-layer-conflict {
+  font-size: 11px;
+  color: var(--color-warning);
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+/* Provenance & Parameters */
+.strategy-provenance-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+}
+
+.strategy-provenance-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11.5px;
+}
+
+.strategy-provenance-status {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.strategy-provenance-status.is-custom {
+  color: var(--color-accent);
+}
+
+.strategy-params-details {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.strategy-params-details summary {
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-accent);
+  user-select: none;
+}
+
+.strategy-params-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.strategy-param-item {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 6px;
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-3);
+  font-size: 10.5px;
+}
+
+.strategy-param-name {
+  color: var(--color-text-3);
+  font-weight: 500;
+}
+
+.strategy-param-val {
+  color: var(--color-text);
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.strategy-param-val.is-custom {
+  color: var(--color-accent);
+}
+
+/* Compatibility Alert Box */
+.strategy-compat-alert {
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: color-mix(
+    in srgb,
+    var(--color-warning) 12%,
+    var(--color-surface)
+  );
+  border: 1px solid
+    color-mix(in srgb, var(--color-warning) 40%, var(--color-border));
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.strategy-compat-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-warning);
+  margin: 0;
+}
+
+.strategy-compat-message {
+  font-size: 11.5px;
+  color: var(--color-text);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.strategy-compat-suggestion {
+  font-size: 11px;
+  color: var(--color-text-2);
+  margin: 0;
+}
+
+.strategy-compat-code {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-warning);
+}
+
+/* Limitations / Not-Modelled */
+.strategy-limitations {
+  margin: 0;
+  padding: 0;
+}
+
+.strategy-limitations summary {
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-3);
+  user-select: none;
+}
+
+.strategy-limitations-list {
+  margin: 6px 0 0 16px;
+  padding: 0;
+  font-size: 11px;
+  color: var(--color-text-3);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}

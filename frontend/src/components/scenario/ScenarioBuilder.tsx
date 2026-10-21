@@ -35,6 +35,7 @@ import { ApproachTrafficCard } from "./ApproachTrafficCard";
 import { GeometrySettings } from "./GeometrySettings";
 import { AdvancedSettings } from "./AdvancedSettings";
 import { EntryControlChoice } from "./EntryControlChoice";
+import { StrategySummaryCard } from "./StrategySummaryCard";
 import "./ScenarioBuilder.css";
 
 /**
@@ -585,6 +586,12 @@ export function ScenarioBuilder({
           )}
         </div>
 
+        <StrategySummaryCard
+          scenario={value}
+          strategies={strategies}
+          serverErrors={serverErrors}
+        />
+
         <div
           className={`sb-card sb-status ${ready ? "is-ready" : serverErrors.length || issues.length ? "is-blocked" : ""}`}
           role="status"
@@ -606,6 +613,13 @@ export function ScenarioBuilder({
                   {e}
                   {e.includes("(metering.missing_arm)") &&
                     " Under “How do vehicles enter the roundabout?” in step 1, choose “Rebuild phases for the current roads”."}
+                  {e.includes("(compat.adaptive_unsupported_policy)") &&
+                    " Adaptive control requires a signalised junction or a fixed-time plan; change junction type or configure roundabout metering."}
+                  {e.includes("(compat.signal_requires_signal_geometry)") &&
+                    " Change junction type to a signalised junction in step 1."}
+                  {e.includes(
+                    "(compat.roundabout_yield_requires_roundabout)",
+                  ) && " Change junction type to Roundabout in step 1."}
                 </li>
               ))}
             </ul>

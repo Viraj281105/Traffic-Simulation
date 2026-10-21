@@ -16,7 +16,7 @@ The backend has four layers. Each package belongs to one of them and imports onl
 | --- | --- | --- |
 | **Delivery** (HTTP, WebSocket) | Routes, request models, auth and API-key wiring, error envelope, origin policy, request limits, translating failures into status codes | `main.py` (composition root) · `api/` · every `router.py` / `api.py` inside a feature package |
 | **Application** (use cases) | Live sessions, the versioned simulation registry, studies and their jobs, planning, experiments, calibration, uncertainty, run history and reproduction | `live/` · `simulations/registry.py` · `study/` · `planning/` · `experiments/` · `calibration/` · `uncertainty/` · `networks/` · `history/` (reproduce, export) · `replays/` · `suites/` |
-| **Domain** (simulation) | The traffic model: geometry, vehicles, conflicts, controllers, metrics, the engine, configuration and scenario rules, snapshots | `core/` · `roads/` · `vehicles/` · `intersection/` · `controllers/` · `metrics/` · `scenario/` · `engine/` · `snapshot/` |
+| **Domain** (simulation) | The traffic model: geometry, vehicles, conflicts, controllers, metrics, the engine, configuration and scenario rules, strategies and registry, snapshots | `core/` · `strategies/` · `roads/` · `vehicles/` · `intersection/` · `controllers/` · `metrics/` · `scenario/` · `engine/` · `snapshot/` |
 | **Infrastructure** | SQLite connection, schema, migrations, DAOs, the ownership rule, CSV safety; each feature's own table in its `store.py` | `database/` · `access.py` · `csv_safety.py` · `calibration/store.py` · `planning/store.py` · `experiments/store.py` |
 
 ```
@@ -53,6 +53,7 @@ backend/src/
 ├── experiments/             V3.0 /api/v3: preparation.py (validate + cost bounds) · service.py · store.py · router.py
 ├── uncertainty/             V3.0 uncertainty spec, seeded sampler, analysis (pure computation)
 ├── core/                    Leaf kernel: enums, clock, limits, schema loader, config models, speed thresholds, provenance
+├── strategies/              Strategy descriptors, built-in registry, compatibility validator, resolution contracts (ADR-014)
 ├── roads/                   RoadNetwork, lanes, approaches, junction geometry, lane configuration
 ├── vehicles/                Vehicle, IDM, spawner, router (leader finding), lane change, speed profile, vehicle types,
 │                            virtual obstacles (zero-speed leaders at stop and give-way lines)
@@ -90,7 +91,9 @@ flowchart TB
         SNAP --> MET
         ENG --> MET["metrics/"]
         SCN["scenario/"] --> CTRL
+        SCN --> STRAT
         MET --> CTRL["controllers/"]
+        CTRL --> STRAT["strategies/"]
         CTRL --> INT["intersection/"]
         INT --> VEH["vehicles/"]
         VEH --> ROADS["roads/"]
@@ -106,7 +109,7 @@ flowchart TB
     API --> INF
 ```
 
-Inside the domain each package imports only packages below it: `core` → `roads` → `vehicles` → `intersection` → `controllers` → `metrics` → {`scenario`, `engine`} → `snapshot`. `scenario/` and `engine/` are siblings and never import each other: the engine runs a compiled configuration and knows nothing of scenario documents.
+Inside the domain each package imports only packages below it: {`core`, `strategies`} → `roads` → `vehicles` → `intersection` → `controllers` → `metrics` → {`scenario`, `engine`} → `snapshot`. `core/` and `strategies/` share rank 0 (leaf packages with no domain dependencies). `scenario/` and `engine/` are siblings and never import each other: the engine runs a compiled configuration and knows nothing of scenario documents.
 
 Rules, each checked by `backend/tests/test_architecture.py`:
 

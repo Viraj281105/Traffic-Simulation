@@ -24,6 +24,11 @@ from src.engine.tick_callback import build_tick_callback
 from src.metrics.collector import MetricCollector
 from src.snapshot.buffer import SnapshotBuffer
 from src.snapshot.builder import SnapshotBuilder
+from src.strategies.resolution import (
+    resolve_strategy,
+    resolve_strategy_parameters,
+)
+from src.strategies.validator import check_scenario_strategy_compatibility
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +147,9 @@ def register_simulation(config: Dict[str, Any]) -> Dict[str, Any]:
     config_id = str(uuid.uuid4())
 
     try:
+        check_scenario_strategy_compatibility(config)
+        strategy = resolve_strategy(config)
+        strategy_params = resolve_strategy_parameters(strategy, config)
         clock = Clock(time_step=config.get("simulation", {}).get("timeStep", 0.1))
         duration = config.get("simulation", {}).get("duration", 300)
         engine = SimulationEngine(clock, duration=duration, config=config)
@@ -197,6 +205,9 @@ def register_simulation(config: Dict[str, Any]) -> Dict[str, Any]:
         "collector": collector,
         "controller": controller,
         "config_id": config_id,
+        "strategy_id": strategy.id,
+        "strategy": strategy.id,
+        "strategy_parameters": strategy_params,
         "buffer": buffer,
         "created_at": created_at,
     }

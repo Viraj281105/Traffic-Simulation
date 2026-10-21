@@ -1,0 +1,299 @@
+{
+  "$defs": {
+    "AdaptationLogic": {
+      "additionalProperties": false,
+      "properties": {
+        "logic": {
+          "default": "none",
+          "enum": [
+            "none",
+            "gap_out_extension"
+          ],
+          "title": "Logic",
+          "type": "string"
+        },
+        "deterministic": {
+          "default": true,
+          "title": "Deterministic",
+          "type": "boolean"
+        }
+      },
+      "title": "AdaptationLogic",
+      "type": "object"
+    },
+    "ControlPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "policy": {
+          "enum": [
+            "fixed_time_phase_plan",
+            "metering",
+            "uncontrolled"
+          ],
+          "title": "Policy",
+          "type": "string"
+        },
+        "cycle_aware": {
+          "default": false,
+          "title": "Cycle Aware",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "policy"
+      ],
+      "title": "ControlPolicy",
+      "type": "object"
+    },
+    "GeometryConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "intersection_type": {
+          "enum": [
+            "fixed_time_signal",
+            "roundabout"
+          ],
+          "title": "Intersection Type",
+          "type": "string"
+        },
+        "min_arms": {
+          "default": 3,
+          "maximum": 4,
+          "minimum": 3,
+          "title": "Min Arms",
+          "type": "integer"
+        },
+        "max_arms": {
+          "default": 4,
+          "maximum": 4,
+          "minimum": 3,
+          "title": "Max Arms",
+          "type": "integer"
+        },
+        "circulating_lanes": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Circulating Lanes"
+        }
+      },
+      "required": [
+        "intersection_type"
+      ],
+      "title": "GeometryConstraint",
+      "type": "object"
+    },
+    "MovementTopology": {
+      "additionalProperties": false,
+      "properties": {
+        "topology_type": {
+          "enum": [
+            "point_based_conflicts",
+            "zone_based_conflicts"
+          ],
+          "title": "Topology Type",
+          "type": "string"
+        },
+        "supports_uturns": {
+          "default": true,
+          "title": "Supports Uturns",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "topology_type"
+      ],
+      "title": "MovementTopology",
+      "type": "object"
+    },
+    "ParameterBound": {
+      "additionalProperties": false,
+      "properties": {
+        "min_value": {
+          "title": "Min Value",
+          "type": "number"
+        },
+        "max_value": {
+          "title": "Max Value",
+          "type": "number"
+        },
+        "default_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default Value"
+        },
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "min_value",
+        "max_value",
+        "unit",
+        "description"
+      ],
+      "title": "ParameterBound",
+      "type": "object"
+    },
+    "PriorityOverlay": {
+      "additionalProperties": false,
+      "properties": {
+        "overlay": {
+          "default": "none",
+          "enum": [
+            "none",
+            "emergency_preemption"
+          ],
+          "title": "Overlay",
+          "type": "string"
+        }
+      },
+      "title": "PriorityOverlay",
+      "type": "object"
+    },
+    "RightOfWay": {
+      "additionalProperties": false,
+      "properties": {
+        "rule": {
+          "enum": [
+            "signal",
+            "yield_to_ring",
+            "signal_over_yield"
+          ],
+          "title": "Rule",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rule"
+      ],
+      "title": "RightOfWay",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "urbanflow-strategy",
+      "default": "urbanflow-strategy",
+      "title": "Format",
+      "type": "string"
+    },
+    "version": {
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "id": {
+      "minLength": 1,
+      "pattern": "^[a-z0-9_]+$",
+      "title": "Id",
+      "type": "string"
+    },
+    "name": {
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "status": {
+      "default": "stable",
+      "enum": [
+        "stable",
+        "experimental"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "description": {
+      "minLength": 10,
+      "title": "Description",
+      "type": "string"
+    },
+    "not_modelled": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Not Modelled",
+      "type": "array"
+    },
+    "geometry": {
+      "$ref": "#/$defs/GeometryConstraint"
+    },
+    "movement_topology": {
+      "$ref": "#/$defs/MovementTopology"
+    },
+    "right_of_way": {
+      "$ref": "#/$defs/RightOfWay"
+    },
+    "control_policy": {
+      "$ref": "#/$defs/ControlPolicy"
+    },
+    "adaptation_logic": {
+      "$ref": "#/$defs/AdaptationLogic"
+    },
+    "priority_overlay": {
+      "$ref": "#/$defs/PriorityOverlay"
+    },
+    "parameters": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ParameterBound"
+      },
+      "title": "Parameters",
+      "type": "object"
+    },
+    "invariants": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Invariants",
+      "type": "array"
+    },
+    "fingerprint": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fingerprint"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "description",
+    "geometry",
+    "movement_topology",
+    "right_of_way",
+    "control_policy",
+    "adaptation_logic"
+  ],
+  "title": "StrategyDescriptor",
+  "type": "object",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Layered strategy descriptor (urbanflow-strategy v1) -- V3.0 W3 (ADR-014)"
+}

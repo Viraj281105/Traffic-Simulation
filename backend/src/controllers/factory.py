@@ -2,35 +2,32 @@
 
 from typing import Any, Dict, cast
 
-from src.controllers.adaptive_signal import AdaptiveSignalController, is_adaptive
+from src.controllers.adaptive_signal import AdaptiveSignalController
 from src.controllers.base import BaseController
 from src.controllers.fixed_time_signal import FixedTimeSignalController
 from src.controllers.roundabout import RoundaboutController
 from src.core.enums import Direction
 from src.roads.network import RoadNetwork
+from src.strategies.resolution import resolve_strategy
 
 
 def create_controller(config: Dict[str, Any], network: RoadNetwork) -> BaseController:
-    """Creates a controller based on configuration geometry type.
+    """Creates a controller based on resolved strategy contract (ADR-014 §2, W3-T3).
 
-    A signalised junction runs the fixed-time plan unless
-    ``controller.signalControl`` is ``"adaptive"`` (V1.3), which times the
-    same plan's greens from detected demand.
+    Resolves the authoritative strategy descriptor for the configuration.
+    Equivalent strategy configurations (canonical ID, legacy alias, or implicit geometry/controller)
+    resolve to the identical controller.
     """
-    geom_type = config.get("geometry", {}).get("intersectionType", "fixed_time_signal")
-    if geom_type == "roundabout":
-        ctrl_cfg = config.get("controller") or {}
-        if (
-            isinstance(ctrl_cfg, dict)
-            and ctrl_cfg.get("entryControl") == "metered_entry"
-        ):
-            from src.controllers.signalised_roundabout import (
-                SignalisedRoundaboutController,
-            )
-
-            return SignalisedRoundaboutController(config, network)
+    strategy = resolve_strategy(config)
+    if strategy.id == "conventional_roundabout":
         return RoundaboutController(config, network)
-    if is_adaptive(config):
+    if strategy.id == "metered_entry_roundabout":
+        from src.controllers.signalised_roundabout import (
+            SignalisedRoundaboutController,
+        )
+
+        return SignalisedRoundaboutController(config, network)
+    if strategy.id == "adaptive_signal":
         return AdaptiveSignalController(config, network)
     return FixedTimeSignalController(config, network)
 

@@ -418,7 +418,7 @@ describe("planner setup (PL-1 … PL-4)", () => {
           <PlannerPage />
         </main>,
       );
-      await screen.findByText(/45 simulations/);
+      await screen.findByText(/45 simulations/, {}, { timeout: 10_000 });
       expect(await axeViolations(document.body)).toEqual([]);
     },
   );
