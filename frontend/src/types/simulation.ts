@@ -155,6 +155,42 @@ export interface RoundaboutControllerState {
   exitYieldEvents?: number;
   /** V1.4: vehicles that had to continue out through a late conflict. */
   forcedExitCommitments?: number;
+  /** V3.0 W2: roundabout entry control mode */
+  entryControl?: "metered_entry" | "none";
+  /** V3.0 W2: live entry metering state */
+  metering?: MeteringControllerState;
+}
+
+export interface MeteredArmState {
+  direction: SignalDirection;
+  metered: boolean;
+  color: "green" | "yellow" | "red";
+  reason: string | null;
+}
+
+export interface SpillbackGuardState {
+  enabled: boolean;
+  cumulativeHoldTime?: Record<string, number>;
+  activations?: Record<string, number>;
+  budgetExhaustions?: Record<string, number>;
+}
+
+export interface QueueCapState {
+  enabled: boolean;
+  triggers?: Record<string, number>;
+}
+
+export interface MeteringControllerState {
+  currentPhase: string;
+  color: "green" | "yellow" | "red";
+  timeRemaining: number;
+  cycleNumber: number;
+  cycleProgress?: number;
+  arms: MeteredArmState[];
+  decisions?: Record<string, number>;
+  recentDecisions?: Array<Record<string, unknown>>;
+  spillbackGuard?: SpillbackGuardState;
+  queueCap?: QueueCapState;
 }
 
 export type ControllerState =

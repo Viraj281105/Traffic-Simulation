@@ -20,7 +20,7 @@ NETWORK_VERSION = 1
 EXECUTION_MODEL = "one-way-coupled-sequential"
 
 ARMS = tuple(d.value for d in Direction)
-Movement = Literal["left", "straight", "right", "uturn"]
+Movement = Literal["uturn", "left", "straight", "right"]
 VEHICLE_CLASSES = ("car", "suv", "bus", "truck", "motorcycle")
 
 

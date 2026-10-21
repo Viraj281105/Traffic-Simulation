@@ -141,6 +141,35 @@ function ControllerState({ snapshot }: { snapshot: LiveSnapshot }) {
       </p>
     );
   }
+  if (c.entryControl === "metered_entry" && c.metering) {
+    const m = c.metering;
+    return (
+      <div className="controller-state">
+        <p>
+          Metered · phase <strong>{m.currentPhase.replace(/_/g, " ")}</strong> ·{" "}
+          {m.timeRemaining.toFixed(1)} s left · cycle {m.cycleNumber}
+        </p>
+        <p>
+          {m.arms
+            .filter((a) => a.metered)
+            .map(
+              (a) =>
+                `${DIR_LABEL[a.direction]}: ${a.color.toUpperCase()}${
+                  a.reason && a.reason !== "red" && a.reason !== "yellow"
+                    ? ` (${a.reason})`
+                    : ""
+                }`,
+            )
+            .join(" · ")}
+        </p>
+        <p>
+          <strong>{c.circulatingCount}</strong> circulating ·{" "}
+          <strong>{c.yieldingCount}</strong> yielding · critical gap{" "}
+          {c.gapAcceptance.toFixed(1)} s
+        </p>
+      </div>
+    );
+  }
   return (
     <p className="controller-state">
       <strong>{c.circulatingCount}</strong> circulating ·{" "}

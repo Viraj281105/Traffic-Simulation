@@ -379,7 +379,7 @@ export const METRICS: MetricDef[] = [
     scale: 100,
     group: "capacity",
     description:
-      "Share of post-warm-up ticks where a red approach had a queue while every green approach was empty. Signal-only.",
+      "Share of post-warm-up ticks where a red approach had a queue while every green approach was empty. Signal-only (also measured for metered roundabouts, D-W2-6).",
     postWarmup: true,
     appliesTo: ["fixed_time_signal"],
   },
@@ -484,7 +484,7 @@ export const METRICS: MetricDef[] = [
     decimals: 1,
     group: "diagnostic",
     description:
-      "Backend composite (reported as masterEfficiencyScore) of throughput rate, queued time, stops, fairness and idle loss with fixed weights. Only meaningful for comparing runs of the same layout and scenario. It is not a signal-versus-roundabout score: idle loss is signal-only (a roundabout always receives its full points) and the throughput term mostly reflects how much traffic arrived.",
+      "Backend composite (reported as masterEfficiencyScore) of throughput rate, queued time, stops, fairness and idle loss with fixed weights. Only meaningful for comparing runs of the same layout and scenario. It is not a signal-versus-roundabout score: idle loss is signal-only (a conventional roundabout always receives its full points; measured for metered roundabouts) and the throughput term mostly reflects how much traffic arrived.",
     postWarmup: true,
   },
 ];

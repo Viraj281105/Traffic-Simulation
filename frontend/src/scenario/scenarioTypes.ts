@@ -87,6 +87,33 @@ export interface AdaptiveSpec {
   demandThreshold: number;
 }
 
+export interface MeteredPhaseSpec {
+  entries: string[];
+  green: number;
+  minGreen?: number | null;
+  maxGreen?: number | null;
+}
+
+export interface SpillbackGuardSpec {
+  enabled: boolean;
+  stoppedThreshold?: number;
+  maxHold?: number;
+}
+
+export interface QueueCapSpec {
+  enabled: boolean;
+  vehicles?: number;
+}
+
+export interface EntryMeteringSpec {
+  phases: MeteredPhaseSpec[];
+  yellow: number;
+  allRed: number;
+  offset?: number;
+  spillbackGuard?: SpillbackGuardSpec | null;
+  queueCap?: QueueCapSpec | null;
+}
+
 export interface ScenarioDocument {
   format: typeof SCENARIO_FORMAT;
   version: typeof SCENARIO_VERSION;
@@ -116,6 +143,10 @@ export interface ScenarioDocument {
     followUpTime: number;
     entrySpeed: number;
     circulatingSpeed: number;
+    /** V3.0 W2: entry control mode. Omitted or "none" = conventional uncontrolled roundabout. */
+    entryControl?: "metered_entry" | "none" | null;
+    /** V3.0 W2: phase plan and optional guard/cap for metered entry. */
+    entryMetering?: EntryMeteringSpec | null;
   };
   simulation: {
     duration: number;
