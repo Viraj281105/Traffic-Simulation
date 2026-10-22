@@ -493,6 +493,30 @@ def validate_scenario_strategy_compatibility(
         priority_overlay={"overlay": "none"},
     )
     issues.extend(layer_issues)
+
+    # The layer rule accepts gap-out on a metering policy because the descriptor
+    # model anticipates an adaptive signalised roundabout, but no such controller
+    # exists in V3.0 (it is gated): the factory would silently drop the adaptive
+    # setting and run plain fixed-time metering.
+    if (
+        geom_type == "roundabout"
+        and policy == "metering"
+        and adapt_logic == "gap_out_extension"
+    ):
+        issues.append(
+            CompatibilityIssue(
+                code="compat.adaptive_unsupported_policy",
+                message=(
+                    "Adaptive gap-out extension is not available on a metered-entry "
+                    "roundabout in V3.0; metering follows its fixed-time phase plan"
+                ),
+                layers=("control_policy", "adaptation_logic"),
+                suggestion=(
+                    "Remove controller.signalControl 'adaptive', or use a signalised "
+                    "junction for adaptive control."
+                ),
+            )
+        )
     return issues
 
 

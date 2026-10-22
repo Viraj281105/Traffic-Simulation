@@ -7,6 +7,11 @@ Defines the four core built-in strategies:
 4. ``metered_entry_roundabout``: Hybrid roundabout with entry metering signals.
 
 Each descriptor is frozen with its computed 16-hex deterministic fingerprint.
+
+Parameter bounds that map onto a scenario config key (controller.yellowTime,
+controller.adaptive.minGreen, ...) must not be narrower than the config schema,
+or ``register_simulation`` would reject a schema-valid configuration; the
+contract is pinned by ``test_strategy_parameter_schema_parity``.
 """
 
 from __future__ import annotations
@@ -73,14 +78,14 @@ FIXED_TIME_SIGNAL = StrategyDescriptor(
             description="Green interval duration for vehicular phase.",
         ),
         "yellow_time": ParameterBound(
-            min_value=3.0,
-            max_value=6.0,
+            min_value=2.0,
+            max_value=8.0,
             default_value=3.0,
             unit="s",
             description="Yellow change interval duration.",
         ),
         "all_red_time": ParameterBound(
-            min_value=1.0,
+            min_value=0.0,
             max_value=5.0,
             default_value=2.0,
             unit="s",
@@ -130,15 +135,15 @@ ADAPTIVE_SIGNAL = StrategyDescriptor(
     parameters={
         "min_green": ParameterBound(
             min_value=5.0,
-            max_value=30.0,
+            max_value=60.0,
             default_value=10.0,
             unit="s",
             description="Minimum green interval duration before gap-out allowed.",
         ),
         "max_green": ParameterBound(
-            min_value=20.0,
-            max_value=120.0,
-            default_value=60.0,
+            min_value=10.0,
+            max_value=180.0,
+            default_value=50.0,
             unit="s",
             description="Maximum green interval duration before forced termination.",
         ),
@@ -151,20 +156,20 @@ ADAPTIVE_SIGNAL = StrategyDescriptor(
         ),
         "extension_step": ParameterBound(
             min_value=0.5,
-            max_value=3.0,
-            default_value=1.0,
+            max_value=10.0,
+            default_value=2.5,
             unit="s",
             description="Incremental green extension time per detected vehicle arrival.",
         ),
         "yellow_time": ParameterBound(
-            min_value=3.0,
-            max_value=6.0,
+            min_value=2.0,
+            max_value=8.0,
             default_value=3.0,
             unit="s",
             description="Yellow change interval duration.",
         ),
         "all_red_time": ParameterBound(
-            min_value=1.0,
+            min_value=0.0,
             max_value=5.0,
             default_value=2.0,
             unit="s",
