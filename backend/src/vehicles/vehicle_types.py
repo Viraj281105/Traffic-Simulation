@@ -367,6 +367,14 @@ def resolve_vehicle_population(
         if isinstance(overrides, Mapping):
             profile = _apply_overrides(profile, overrides)
 
+        # Imported here: driver_aggression imports this module.
+        from src.vehicles.driver_aggression import (
+            apply_aggression_to_profile,
+            resolve_aggression_name,
+        )
+
+        profile = apply_aggression_to_profile(profile, resolve_aggression_name(config))
+
         # Desired speed relative to the scenario's car range: with no
         # explicit desiredSpeed that is exactly factor x speed limit; with an
         # explicit one, every class keeps its speed ratio to the car.

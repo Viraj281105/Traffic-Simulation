@@ -89,6 +89,12 @@
         "aggressiveTwoWheelers": {
           "type": "boolean",
           "default": false
+        },
+        "driverAggression": {
+          "type": "string",
+          "enum": ["standard", "moderate", "high"],
+          "default": "standard",
+          "description": "Simulation driver aggression profile (V3.0 ADR-016). Applies calibrated multipliers to time headway, minimum gap, acceleration, and lane changing. Absent defaults to standard. Note: driver aggression — a simulation assumption, not a measurement of real-world driver behaviour."
         }
       }
     },

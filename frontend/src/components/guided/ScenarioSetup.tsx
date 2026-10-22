@@ -31,6 +31,9 @@ import {
   scenarioFromConfigValues,
 } from "../../scenario/scenarioModel";
 import {
+  DRIVER_AGGRESSION_DISCLAIMER,
+  DRIVER_AGGRESSION_INFO,
+  DRIVER_AGGRESSION_PROFILES,
   isMeteredEntry,
   type ScenarioDocument,
   type Strategy,
@@ -74,6 +77,8 @@ export function ScenarioSetup({
   const mixName = useId();
   const controlName = useId();
   const lengthName = useId();
+  const aggressionName = useId();
+  const aggressionHeadingId = useId();
 
   if (config !== prevConfig) {
     setPrevConfig(config);
@@ -435,49 +440,68 @@ export function ScenarioSetup({
               </label>
             </div>
             {draft.unstructuredTraffic && (
-              <label
-                className="checkbox-label"
-                style={{
-                  marginTop: "1rem",
-                  display: "flex",
-                  gap: "0.5rem",
-                  alignItems: "center",
-                  cursor: "pointer",
-                }}
-              >
+              <label className="q-toggle">
                 <input
                   type="checkbox"
                   checked={draft.aggressiveTwoWheelers}
                   onChange={(e) => {
                     set("aggressiveTwoWheelers", e.target.checked);
                   }}
-                  style={{
-                    width: "1.2rem",
-                    height: "1.2rem",
-                    accentColor: "#e5a910",
-                  }}
                 />
-                <div style={{ display: "flex", flexDirection: "column" }}>
-                  <span
-                    className="choice-title"
-                    style={{ fontSize: "1rem", marginBottom: "0.2rem" }}
-                  >
-                    Aggressive Two-Wheelers
+                <span className="q-toggle-text">
+                  <span className="choice-title">Aggressive two-wheelers</span>
+                  <span className="choice-desc">
+                    Scooters overtake and enter wherever they see space.
                   </span>
-                  <span className="choice-desc" style={{ fontSize: "0.85rem" }}>
-                    Scooters will aggressively overtake and enter wherever they
-                    see space.
-                  </span>
-                </div>
+                </span>
               </label>
             )}
+
+            <div
+              className="q-subsection"
+              role="radiogroup"
+              aria-labelledby={aggressionHeadingId}
+            >
+              <span className="q-subtitle" id={aggressionHeadingId}>
+                Driver aggression
+              </span>
+              <div className="choice-grid choice-grid--levels">
+                {DRIVER_AGGRESSION_PROFILES.map((profile) => {
+                  const info = DRIVER_AGGRESSION_INFO[profile];
+                  const isSelected =
+                    (draft.driverAggression ?? "standard") === profile;
+                  return (
+                    <label
+                      key={profile}
+                      className={`choice-card${isSelected ? " is-selected" : ""}`}
+                    >
+                      <input
+                        type="radio"
+                        name={aggressionName}
+                        checked={isSelected}
+                        onChange={() => {
+                          set("driverAggression", profile);
+                        }}
+                      />
+                      <span className="choice-title">{info.label}</span>
+                      <span className="choice-figure">{info.levers}</span>
+                      <span className="choice-desc">{info.summary}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="q-note is-assumption">
+                {DRIVER_AGGRESSION_DISCLAIMER}. T is the following headway, s₀
+                the gap to a stopped vehicle, a the launch acceleration.
+              </p>
+            </div>
           </fieldset>
 
           <fieldset className="guided-question">
             <legend>
               <span className="q-number">6</span> How long should we watch?
             </legend>
-            <div className="choice-grid three">
+            <div className="choice-grid choice-grid--levels">
               {RUN_LENGTHS.map((l) => (
                 <label
                   key={l.seconds}
@@ -576,8 +600,15 @@ export function ScenarioSetup({
                   ? "one lane"
                   : `${String(draft.lanes)} lanes`}
               </strong>{" "}
-              per approach, <strong>{describeMix(draft.vehicleMix)}</strong>,
-              for <strong>{duration(draft.duration)}</strong> of traffic.
+              per approach, <strong>{describeMix(draft.vehicleMix)}</strong>
+              {draft.driverAggression &&
+                draft.driverAggression !== "standard" && (
+                  <>
+                    ,{" "}
+                    <strong>{draft.driverAggression} driver aggression</strong>
+                  </>
+                )}
+              , for <strong>{duration(draft.duration)}</strong> of traffic.
             </p>
             <button
               type="button"

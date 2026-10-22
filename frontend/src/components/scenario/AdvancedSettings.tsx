@@ -1,4 +1,10 @@
-import { type ScenarioDocument } from "../../scenario/scenarioTypes";
+import { useId } from "react";
+import {
+  DRIVER_AGGRESSION_DISCLAIMER,
+  DRIVER_AGGRESSION_INFO,
+  DRIVER_AGGRESSION_PROFILES,
+  type ScenarioDocument,
+} from "../../scenario/scenarioTypes";
 import { setEntryControl } from "../../scenario/scenarioModel";
 import { NumberField } from "./fields";
 
@@ -12,6 +18,8 @@ export function AdvancedSettings({
   const sig = value.signal;
   const rb = value.roundabout;
   const isMetered = rb.entryControl === "metered_entry";
+  const aggression = value.traffic?.driverAggression ?? "standard";
+  const aggressionLabelId = useId();
   return (
     <div className="sb-advanced-grid">
       <fieldset>
@@ -485,6 +493,47 @@ export function AdvancedSettings({
           />
           Drivers change lanes on multi-lane approaches
         </label>
+      </fieldset>
+      <fieldset>
+        <legend>Driver aggression</legend>
+        <div className="sb-field">
+          <span className="sb-field-label" id={aggressionLabelId}>
+            Profile
+          </span>
+          <div
+            className="chip-row"
+            role="group"
+            aria-labelledby={aggressionLabelId}
+          >
+            {DRIVER_AGGRESSION_PROFILES.map((profile) => {
+              const isActive = aggression === profile;
+              return (
+                <button
+                  key={profile}
+                  type="button"
+                  className={`chip${isActive ? " is-active" : ""}`}
+                  aria-pressed={isActive}
+                  onClick={() => {
+                    update((d) => {
+                      d.traffic = { ...d.traffic, driverAggression: profile };
+                    });
+                  }}
+                >
+                  {DRIVER_AGGRESSION_INFO[profile].label}
+                </button>
+              );
+            })}
+          </div>
+          <span className="sb-unit">
+            {DRIVER_AGGRESSION_INFO[aggression].summary}
+          </span>
+          <span className="sb-figure">
+            {DRIVER_AGGRESSION_INFO[aggression].levers}
+          </span>
+        </div>
+        <p className="config-hint" role="note">
+          {DRIVER_AGGRESSION_DISCLAIMER}
+        </p>
       </fieldset>
     </div>
   );

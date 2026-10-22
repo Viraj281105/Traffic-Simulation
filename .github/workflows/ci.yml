@@ -184,6 +184,14 @@ jobs:
           # safety matrix (seeds 1..8 x demand {low, medium, saturated} x 4 layouts).
           - name: signalised-roundabout
             path: tests/integration/test_signalised_roundabout.py
+          # V3.0 W4 (strategy §14.4): driver-aggression 108-cell matrix at
+          # full strength (240 s per cell) — safety, liveness, measured levers.
+          - name: aggression-matrix
+            path: tests/vehicles/test_aggression_matrix.py
+          # V3.0 W4 audit: aggression regressions, incl. the single-lane
+          # signal gridlock fixed by ADR-019 (seeds that used to lock up).
+          - name: aggression-regressions
+            path: tests/vehicles/test_aggression_integration_regressions.py
     defaults:
       run:
         working-directory: backend

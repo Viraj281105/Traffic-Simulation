@@ -8,6 +8,11 @@ from src.core.limits import DEFAULT_TOTAL_VEHICLES
 from src.core.speed_thresholds import resolve_speed_threshold
 from src.roads.lane import Lane
 from src.roads.network import RoadNetwork
+from src.vehicles.driver_aggression import (
+    aggression_multipliers_for,
+    apply_aggression_to_speed_range,
+    resolve_aggression_name,
+)
 from src.vehicles.speed_profile import resolve_desired_speed_range
 from src.vehicles.vehicle import Vehicle
 from src.vehicles.vehicle_types import (
@@ -111,10 +116,17 @@ class VehicleSpawner:
         # Desired speed: explicit vehicleGeneration.desiredSpeed, otherwise
         # derived from roads.speedLimit (see speed_profile.py). It used to
         # default to 18-25 m/s whatever the speed limit said.
-        self.speed_min, self.speed_max = resolve_desired_speed_range(config)
+        # The legacy cars-only population takes the driver-aggression speed
+        # offset here; a mixed one takes it per class (resolve_vehicle_population).
+        self.speed_min, self.speed_max = apply_aggression_to_speed_range(
+            resolve_desired_speed_range(config), resolve_aggression_name(config)
+        )
 
         # Safety distance
-        self.minimum_gap: float = veh_gen_cfg.get("minimumGap", 2.0)
+        m = aggression_multipliers_for(config)
+        self.minimum_gap: float = (
+            float(veh_gen_cfg.get("minimumGap", 2.0)) * m["gap_mult"]
+        )
         # Deceleration a newly inserted vehicle is assumed to be able to use
         # to stop behind the vehicle it is inserted behind (see
         # _safe_insertion_speed). Same parameter, and same default, as the

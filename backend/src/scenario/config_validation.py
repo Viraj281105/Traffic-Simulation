@@ -110,6 +110,12 @@ def semantic_config_errors(config: Dict[str, Any]) -> List[str]:
             f"traffic.arrivalDistribution {distribution!r} is not implemented yet; "
             "use 'poisson' or 'uniform'"
         )
+    aggression = traffic.get("driverAggression")
+    if aggression is not None and aggression not in ("standard", "moderate", "high"):
+        errors.append(
+            f"traffic.driverAggression {aggression!r} is invalid; "
+            "expected 'standard', 'moderate', or 'high'"
+        )
 
     ctrl = _section(config, "controller")
     inner = ctrl.get("innerRadius")

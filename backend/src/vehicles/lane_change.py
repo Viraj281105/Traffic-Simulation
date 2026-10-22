@@ -35,6 +35,7 @@ from typing import Any, FrozenSet, List, Mapping, Optional, Sequence, Tuple
 
 from src.core.enums import Direction, TurnIntent
 from src.roads.lane import Lane
+from src.vehicles.driver_aggression import SAFE_DECELERATION, aggression_multipliers_for
 from src.vehicles.idm import IntelligentDriverModel
 from src.vehicles.vehicle import Vehicle
 from src.vehicles.vehicle_types import (
@@ -81,10 +82,14 @@ class LaneChangeSettings:
 
     enabled: bool = True
     acceleration_threshold: float = 0.2
-    safe_deceleration: float = 4.0
+    # Invariant: no driver-aggression profile changes it (ADR-016).
+    safe_deceleration: float = SAFE_DECELERATION
     # When set, overrides every vehicle class's own politeness factor.
     politeness: Optional[float] = None
     aggressive_two_wheelers: bool = False
+    # Politeness of a legacy vehicle (no class parameters): the car's,
+    # scaled by the driver-aggression profile.
+    default_politeness: float = DEFAULT_POLITENESS
 
 
 def resolve_lane_change_settings(config: Mapping[str, Any]) -> LaneChangeSettings:
@@ -96,20 +101,31 @@ def resolve_lane_change_settings(config: Mapping[str, Any]) -> LaneChangeSetting
         and traffic.get("unstructuredTraffic", False)
     )
 
-    if not isinstance(section, Mapping):
-        return LaneChangeSettings(aggressive_two_wheelers=aggressive)
+    # Driver aggression scales the defaults only; an explicit
+    # accelerationThreshold or politeness in roads.laneChange wins.
     defaults = LaneChangeSettings()
+    m = aggression_multipliers_for(config)
+    base_threshold = defaults.acceleration_threshold * m["threshold_mult"]
+    default_politeness = defaults.default_politeness * m["politeness_mult"]
+
+    if not isinstance(section, Mapping):
+        return LaneChangeSettings(
+            acceleration_threshold=base_threshold,
+            aggressive_two_wheelers=aggressive,
+            default_politeness=default_politeness,
+        )
     politeness = section.get("politeness")
     return LaneChangeSettings(
         enabled=bool(section.get("enabled", defaults.enabled)),
         acceleration_threshold=float(
-            section.get("accelerationThreshold", defaults.acceleration_threshold)
+            section.get("accelerationThreshold", base_threshold)
         ),
         safe_deceleration=float(
             section.get("safeDeceleration", defaults.safe_deceleration)
         ),
         politeness=float(politeness) if politeness is not None else None,
         aggressive_two_wheelers=aggressive,
+        default_politeness=default_politeness,
     )
 
 
@@ -167,7 +183,11 @@ class LaneChangeModel:
         if self.settings.politeness is not None:
             return self.settings.politeness
         params = vehicle.params
-        return params.profile.politeness if params is not None else DEFAULT_POLITENESS
+        return (
+            params.profile.politeness
+            if params is not None
+            else self.settings.default_politeness
+        )
 
     @staticmethod
     def manoeuvre_distance(vehicle: Vehicle) -> float:

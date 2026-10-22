@@ -641,7 +641,9 @@ class RoundaboutController(BaseController):
                         should_yield = False
 
                     if should_yield:
-                        lane.virtual_obstacle = VirtualObstacle(position=lane.length)
+                        lane.virtual_obstacle = VirtualObstacle(
+                            position=lane.length, stop_line=True
+                        )
                     else:
                         lane.virtual_obstacle = None
 

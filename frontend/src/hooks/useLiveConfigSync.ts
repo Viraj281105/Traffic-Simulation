@@ -45,6 +45,7 @@ export function useLiveConfigSync(
     scenario,
     unstructuredTraffic,
     aggressiveTwoWheelers,
+    driverAggression,
   } = configValues;
   // Object-valued: compared by content in the sync effect below.
   const vehicleMixKey = JSON.stringify(vehicleMix ?? null);
@@ -79,6 +80,7 @@ export function useLiveConfigSync(
             scenario: JSON.parse(scenarioKey) as typeof scenario,
             unstructuredTraffic,
             aggressiveTwoWheelers,
+            driverAggression,
           },
           intersectionType,
           viewMode === "signal",
@@ -121,6 +123,7 @@ export function useLiveConfigSync(
     scenarioKey,
     unstructuredTraffic,
     aggressiveTwoWheelers,
+    driverAggression,
   ]);
 
   return {

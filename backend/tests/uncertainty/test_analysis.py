@@ -159,6 +159,7 @@ def _uniform_conditions(n):
 
 
 def _two_alt(conditions, **kw):
+    kw.setdefault("seed", 1)
     return analyze(
         conditions,
         alternatives=["base", "A"],
@@ -166,7 +167,6 @@ def _two_alt(conditions, **kw):
         replications=2,
         factor_ids=["f"],
         tie_tolerance=1.0,
-        seed=1,
         **kw,
     )
 
@@ -222,22 +222,137 @@ def _criteria(out):
 
 @pytest.mark.parametrize(
     "n, expected",
-    [(29, "exploratory"), (30, "indicative"), (100, "indicative")],
+    [(29, "exploratory"), (30, "eligible"), (100, "eligible")],
 )
 def test_sample_size_classes(n, expected):
-    # Even 100 clean conditions stay "indicative": split-half stability is not computed yet.
+    # Clean conditions with N >= 30 satisfy all 5 criteria and promote to eligible.
     out = _two_alt(_uniform_conditions(n))
     assert out["eligibility"]["class"] == expected
 
 
-def test_stability_is_reported_as_not_assessed_so_nothing_is_eligible_yet():
-    out = _two_alt(_uniform_conditions(200))
-    assert _criteria(out)["stability"] is None
+def test_stability_passing_promotes_to_eligible():
+    out = _two_alt(_uniform_conditions(40))
+    criteria = _criteria(out)
+    assert criteria["precision"] is True
+    assert criteria["stability"] is True
+    assert criteria["replications"] is True
+    assert criteria["exclusions"] is True
+    assert criteria["predeclaration"] is True
+    assert out["eligibility"]["class"] == "eligible"
+    stab = out["stability"]
+    assert stab["passed"] is True
+    assert stab["splitsEvaluated"] == 20
+    assert stab["splitsPassed"] == 20
+    assert stab["threshold"] == 18
+    assert "20/20 random splits" in stab["detail"]
+
+
+def test_stability_failing_when_splits_diverge():
+    # 40 conditions where half win by 20 and half lose by 20:
+    # in random splits, the median D sign flips and proportions diverge, failing stability.
+    conds = [
+        ConditionResult(
+            i,
+            {"f": i},
+            {"base": [50.0, 50.0], "A": [30.0, 30.0] if i < 20 else [70.0, 70.0]},
+        )
+        for i in range(40)
+    ]
+    out = _two_alt(conds)
+    criteria = _criteria(out)
+    assert criteria["stability"] is False
+    assert out["stability"]["passed"] is False
+    assert out["stability"]["splitsPassed"] < 18
     assert out["eligibility"]["class"] == "indicative"
-    stability = next(
-        c for c in out["eligibility"]["criteria"] if c["id"] == "stability"
+
+
+def test_stability_insufficient_data():
+    # Fewer than 30 conditions: stability is not assessed (passed is None).
+    out_24 = _two_alt(_uniform_conditions(24))
+    assert out_24["eligibility"]["class"] == "exploratory"
+    assert out_24["stability"]["passed"] is None
+    assert _criteria(out_24)["stability"] is None
+    assert "fewer than 30 valid conditions" in out_24["stability"]["detail"]
+
+    # All conditions excluded: 0 valid conditions
+    all_excluded = [
+        ConditionResult(i, {"f": i}, {}, exclusion="run_failed") for i in range(12)
+    ]
+    out_0 = _two_alt(all_excluded)
+    assert out_0["stability"]["passed"] is None
+    assert "no valid conditions" in out_0["stability"]["detail"]
+
+
+def test_variance_decomposition_in_analysis_replicated_and_unreplicated():
+    # Replicated (r = 2) with known values:
+    # 2 conditions: c0 has base [10, 12] and A [20, 22]
+    # c1 has base [20, 22] and A [30, 32]
+    conds = [
+        ConditionResult(0, {"f": 0}, {"base": [10.0, 12.0], "A": [20.0, 22.0]}),
+        ConditionResult(1, {"f": 1}, {"base": [20.0, 22.0], "A": [30.0, 32.0]}),
+    ]
+    out = analyze(
+        conds,
+        alternatives=["base", "A"],
+        baseline="base",
+        replications=2,
+        factor_ids=["f"],
     )
-    assert "not computed" in stability["detail"]
+    v_base = out["alternatives"]["base"]["varianceSplit"]
+    assert v_base is not None
+    assert v_base["between"] == pytest.approx(100.0)
+    assert v_base["within"] == pytest.approx(4.0)
+    assert v_base["betweenShare"] == pytest.approx(100.0 / 104.0, abs=1e-5)
+    assert out["varianceSplit"]["base"] == v_base
+    assert out["varianceSplit"]["A"] == out["alternatives"]["A"]["varianceSplit"]
+
+    # Difference variance split:
+    # D for c0: [20-10, 22-12] = [10, 10]; D for c1: [30-20, 32-22] = [10, 10]
+    # D is constant 10 everywhere -> zero variance for difference
+    diff_v = out["alternatives"]["A"]["comparison"]["difference"]["varianceSplit"]
+    assert diff_v is not None
+    assert diff_v["total"] == 0.0
+    assert diff_v["betweenShare"] is None
+    assert diff_v["withinShare"] is None
+
+    # Unreplicated (r = 1): variance decomposition cannot be estimated
+    one_rep = [
+        ConditionResult(0, {"f": 0}, {"base": [10.0], "A": [20.0]}),
+        ConditionResult(1, {"f": 1}, {"base": [20.0], "A": [30.0]}),
+    ]
+    out_1 = analyze(
+        one_rep,
+        alternatives=["base", "A"],
+        baseline="base",
+        replications=1,
+        factor_ids=["f"],
+    )
+    assert out_1["varianceSplit"] is None
+    assert out_1["alternatives"]["base"]["varianceSplit"] is None
+    assert out_1["alternatives"]["A"]["varianceSplit"] is None
+    assert (
+        out_1["alternatives"]["A"]["comparison"]["difference"]["varianceSplit"] is None
+    )
+
+
+def test_variance_decomposition_degenerate_zero_variance_in_analysis():
+    # All outcomes identical across conditions and replications
+    conds = _uniform_conditions(30)
+    out = _two_alt(conds)
+    v_base = out["alternatives"]["base"]["varianceSplit"]
+    assert v_base is not None
+    assert v_base["total"] == 0.0
+    assert v_base["betweenShare"] is None
+    assert v_base["withinShare"] is None
+
+
+def test_stability_and_variance_deterministic():
+    conds = _uniform_conditions(35)
+    res1 = _two_alt(conds, seed=42)
+    res2 = _two_alt(copy.deepcopy(conds), seed=42)
+    assert res1["stability"] == res2["stability"]
+    assert res1["varianceSplit"] == res2["varianceSplit"]
+    assert result_fingerprint(res1) == result_fingerprint(res2)
 
 
 def test_precision_criterion_uses_the_wilson_half_width():
@@ -350,3 +465,31 @@ def test_bad_inputs_are_rejected():
         _two_alt(conds[1:])
     with pytest.raises(ValueError, match="no conditions"):
         _two_alt([])
+
+
+def test_stability_compares_the_class_of_the_median_d_not_its_sign():
+    # Every D is +-0.2 s, well inside tau = 1.0: every condition is a tie, so every half's median D
+    # is a tie too. Its sign flips between halves, which must not count as instability (section 5.7).
+    conds = [
+        ConditionResult(
+            i,
+            {"f": i},
+            {"base": [50.0, 50.0], "A": [50.2, 50.2] if i % 2 else [49.8, 49.8]},
+        )
+        for i in range(40)
+    ]
+    out = _two_alt(conds)
+    assert out["stability"]["splitsPassed"] == 20
+    assert out["stability"]["passed"] is True
+
+
+def test_median_d_class_uses_tau_and_only_the_absolute_default_tolerance():
+    from src.uncertainty.analysis import _difference_class
+
+    assert _difference_class(0.9, 1.0) == "tie"
+    assert _difference_class(-1.5, 1.0) == "win"
+    assert _difference_class(1.5, 1.0) == "loss"
+    # Default tolerance: the 1.0 s absolute part only (the 5 % relative part needs both outcomes).
+    assert _difference_class(1.0, None) == "tie"
+    assert _difference_class(-1.01, None) == "win"
+    assert _difference_class(1.01, None) == "loss"

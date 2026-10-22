@@ -55,6 +55,9 @@ class TrafficSection(BaseModel):
     approaches: Optional[List[TrafficApproachItem]] = None
     unstructuredTraffic: bool = Field(False)
     aggressiveTwoWheelers: bool = Field(False)
+    driverAggression: Optional[Literal["standard", "moderate", "high"]] = Field(
+        "standard"
+    )
 
 
 class IntersectionCenter(BaseModel):
