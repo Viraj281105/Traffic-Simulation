@@ -49,6 +49,10 @@ Contradictory or physically impossible layer combinations are rejected with stab
 | `compat.unknown_strategy` | Explicit strategy must be registered | `strategy` names neither a canonical ID nor a legacy alias | Choose a registered strategy from the list in the message. |
 | `compat.strategy_config_mismatch` | Explicit strategy must agree with the physical layout | e.g. `conventional_roundabout` on signal geometry, or `metered_entry_roundabout` without `entryControl: "metered_entry"` | Set the geometry / entry control to match, or change the strategy. |
 
+`COMPATIBILITY_CODE_LAYERS` (`strategies/validator.py`) maps every code to the layers it can implicate; it is the contract the Strategy DNA card uses to place a diagnostic on a layer (`COMPAT_CODE_LAYER_INDEX` in `strategySummaryModel.ts`). Tests sweep the validator's input space to prove emitted issues stay within their declared layers and that the frontend table covers exactly the backend codes.
+
+An explicit `strategy: adaptive` (or `adaptive_signal`) together with an explicit `controller.signalControl: "fixed_time"` is reported as `compat.strategy_config_mismatch`; the strategy would otherwise silently win. An absent `signalControl` is not a contradiction. Strategy inference and this validator read the junction through one helper (`extract_geometry_type`: `geometry.intersectionType`, then document-style `junction.type`).
+
 The adaptive rule is applied to scenario configurations as well as descriptors: `signalControl: "adaptive"` on **any** roundabout, metered or not, reports `compat.adaptive_unsupported_policy`, because no adaptive signalised roundabout exists until the gated W3-T6 (the descriptor rule alone would accept `gap_out_extension` on a `metering` policy).
 
 ---
@@ -149,7 +153,7 @@ The composable strategy architecture enforces strict boundary conditions, securi
    - All descriptors and layer models enforce Pydantic strictness (`extra="forbid"`), preventing prototype poisoning or unauthorized payload properties.
    - Identifier patterns are strictly constrained (`^[a-z0-9_]+$`).
    - Parameter bounds enforce invariant ordering (`min_value <= max_value`) and default containment (`min_value <= default_value <= max_value`).
-   - Geometry bounds enforce 3–4 approaches (`min_arms <= max_arms`).
+   - Geometry bounds enforce 3–4 approaches (`min_arms <= max_arms`); `circulating_lanes` entries must be unique integers in 1..2 (the engine's `MAX_CIRCULATING_LANES`; the config schema allows 3, but scenario validation rejects it as unsupported). An empty list is left to `compat.roundabout_requires_circulating_lanes`.
 
 2. **Registry Isolation & Safe Custom Compositions (ADR-014 §3):**
    - Registration strictly requires concrete `StrategyDescriptor` instances. Unvalidated client dicts, JSON strings, or arbitrary objects are rejected with `TypeError`.
@@ -162,12 +166,23 @@ The composable strategy architecture enforces strict boundary conditions, securi
 3. **Pre-Simulation Initialization Guards & Database Isolation:**
    - Pre-simulation guards (`check_scenario_strategy_compatibility` and `resolve_strategy_parameters`) run before any simulation engine, road network, or controller is instantiated.
    - Parameter values outside descriptor bounds (e.g. green duration $< 5\,\text{s}$ or $> 120\,\text{s}$) and non-numeric values trigger `InvalidSimulationConfigError` immediately.
+   - Roundabout descriptors list only tunables backed by a bounded config key: `critical_gap` (`controller.criticalGap`), `inner_radius` (`controller.innerRadius`), `metering_yellow` / `metering_all_red` (`controller.entryMetering.yellow` / `.allRed`). Values the engine derives (metering cycle, red) or fixes (entry setback) are not parameters, and unbounded keys (`followUpTime`, `entrySpeed`) are omitted so the guard can never reject a schema-valid value. `cycle_time` (fixed-time) and `passage_gap` (adaptive) remain as derived/informational descriptor knobs with no config key; a test pins that list.
+   - Descriptor defaults equal what the engine uses when a key is omitted (fixed-time green 30 s, yellow 4 s, all-red 2 s; the adaptive and roundabout controller defaults; metering yellow 3 s / all-red 2 s), so `strategy_parameters` records what the run actually used. `resolve_strategy_parameters` reads the controller's own keys in the controller's precedence (`straightRightDuration` > `greenTime` > `greenDuration`; `yellowDuration` > `yellowTime`; `allRedDuration` > `allRedTime`). The derived knobs `cycle_time` and `passage_gap` carry no default. Tests compare the defaults with the controllers themselves.
    - Descriptor bounds for parameters that map onto a config key (`controller.yellowTime`, `controller.allRedTime`, `controller.adaptive.*`) must cover the config schema's range, and adaptive defaults must equal the controller defaults; `test_strategy_integration_hardening.py` enforces this so the guard can never reject a schema-valid configuration.
    - Failed initializations produce zero state changes in `simulations_db`: no leaked simulation IDs, no orphan worker threads, and no partial database records.
 
 4. **Backward-Compatible Error Diagnostics:**
    - All 16 diagnostic codes (`compat.*`) provide stable, machine-readable keys, clear human-readable messages, and actionable remediation suggestions.
    - Legacy configuration validation (`semantic_config_errors`) and scenario document validation (`validate_scenario`) seamlessly support both canonical strategy identifiers and legacy aliases.
+
+### Descriptor Identity & Change Policy
+
+A built-in descriptor's identity is its fingerprint (id, version, layers, parameter bounds and defaults, text). Every parameter, bound, default or layer edit changes it, and strategy-instance fingerprints (`compute_strategy_instance_fingerprint`) change with it; the instance fingerprint always recomputes the descriptor fingerprint rather than trusting the stored field.
+
+* The four fingerprints are pinned in `tests/strategies/test_strategy_defaults_and_identity.py` and copied into `frontend/src/scenario/strategySummaryModel.ts`; a backend test fails if the frontend copy drifts from the registry.
+* **Before V3.0 ships**, changing a descriptor is allowed: update the pin and the frontend copy in the same commit. The descriptors have not been published, so no stored run depends on an earlier fingerprint (the registry entry's `strategy_parameters` is in-memory only).
+* **After V3.0 ships**, a semantic change to a built-in must bump its `version`, so a run's recorded identity never silently changes meaning.
+* The ring-lane limit (`MAX_CIRCULATING_LANES`) has one source, `src/strategies/limits.py`, which `roads/lane_config.py` re-exports; `strategies/` stays a leaf package.
 
 ### Documented Scope Boundaries & Remaining Limitations
 

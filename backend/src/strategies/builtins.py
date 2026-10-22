@@ -11,7 +11,12 @@ Each descriptor is frozen with its computed 16-hex deterministic fingerprint.
 Parameter bounds that map onto a scenario config key (controller.yellowTime,
 controller.adaptive.minGreen, ...) must not be narrower than the config schema,
 or ``register_simulation`` would reject a schema-valid configuration; the
-contract is pinned by ``test_strategy_parameter_schema_parity``.
+contract is pinned by ``test_strategy_integration_hardening``. Defaults must equal
+what the engine uses when a key is omitted (30/4/2 s fixed-time green/yellow/all-red,
+the adaptive and roundabout controller defaults), so a resolved parameter set is
+what the run actually used; derived knobs carry no default. The roundabout
+descriptors list only parameters backed by a bounded config key; values the
+engine derives (metering cycle, red) or fixes (entry setback) are not tunables.
 """
 
 from __future__ import annotations
@@ -66,21 +71,24 @@ FIXED_TIME_SIGNAL = StrategyDescriptor(
         "cycle_time": ParameterBound(
             min_value=30.0,
             max_value=180.0,
-            default_value=60.0,
+            default_value=None,
             unit="s",
-            description="Total signal cycle duration across all phases.",
+            description=(
+                "Total signal cycle duration across all phases. Derived from the "
+                "phase plan, so it has no config key and no default."
+            ),
         ),
         "green_time": ParameterBound(
             min_value=5.0,
             max_value=120.0,
-            default_value=25.0,
+            default_value=30.0,
             unit="s",
             description="Green interval duration for vehicular phase.",
         ),
         "yellow_time": ParameterBound(
             min_value=2.0,
             max_value=8.0,
-            default_value=3.0,
+            default_value=4.0,
             unit="s",
             description="Yellow change interval duration.",
         ),
@@ -150,9 +158,13 @@ ADAPTIVE_SIGNAL = StrategyDescriptor(
         "passage_gap": ParameterBound(
             min_value=1.5,
             max_value=5.0,
-            default_value=3.0,
+            default_value=None,
             unit="s",
-            description="Vehicle headway threshold terminating phase extension.",
+            description=(
+                "Vehicle headway threshold terminating phase extension. Informational: "
+                "the controller's passage time is extension_step, so this has no "
+                "config key and no default."
+            ),
         ),
         "extension_step": ParameterBound(
             min_value=0.5,
@@ -164,7 +176,7 @@ ADAPTIVE_SIGNAL = StrategyDescriptor(
         "yellow_time": ParameterBound(
             min_value=2.0,
             max_value=8.0,
-            default_value=3.0,
+            default_value=4.0,
             unit="s",
             description="Yellow change interval duration.",
         ),
@@ -217,26 +229,25 @@ CONVENTIONAL_ROUNDABOUT = StrategyDescriptor(
     ),
     priority_overlay=PriorityOverlay(overlay="none"),
     parameters={
-        "critical_headway": ParameterBound(
-            min_value=2.5,
-            max_value=6.0,
-            default_value=4.1,
+        "critical_gap": ParameterBound(
+            min_value=0.0,
+            max_value=10.0,
+            default_value=4.0,
             unit="s",
-            description="Minimum accepted time gap in circulating flow for entry.",
+            description=(
+                "Minimum accepted time gap in circulating flow for entry "
+                "(controller.criticalGap; the schema bound is exclusive of 0)."
+            ),
         ),
-        "follow_up_headway": ParameterBound(
-            min_value=1.5,
-            max_value=4.0,
-            default_value=2.6,
-            unit="s",
-            description="Time headway between queued vehicles entering into same gap.",
-        ),
-        "circulating_radius": ParameterBound(
-            min_value=10.0,
+        "inner_radius": ParameterBound(
+            min_value=5.0,
             max_value=50.0,
-            default_value=20.0,
+            default_value=10.0,
             unit="m",
-            description="Inner circulating carriageway radius.",
+            description=(
+                "Inner circulating carriageway radius "
+                "(controller.innerRadius; the schema bound is exclusive of 5)."
+            ),
         ),
     },
     invariants=[
@@ -280,40 +291,25 @@ METERED_ENTRY_ROUNDABOUT = StrategyDescriptor(
     ),
     priority_overlay=PriorityOverlay(overlay="none"),
     parameters={
-        "metering_cycle": ParameterBound(
-            min_value=15.0,
-            max_value=90.0,
-            default_value=30.0,
-            unit="s",
-            description="Entry signal metering cycle duration.",
-        ),
-        "metering_green": ParameterBound(
-            min_value=4.0,
-            max_value=60.0,
-            default_value=12.0,
-            unit="s",
-            description="Green interval permitting entry to the yield line.",
-        ),
         "metering_yellow": ParameterBound(
             min_value=2.0,
-            max_value=5.0,
+            max_value=8.0,
             default_value=3.0,
             unit="s",
-            description="Yellow change interval on metered entry approach.",
+            description=(
+                "Yellow change interval on metered entry approaches "
+                "(controller.entryMetering.yellow)."
+            ),
         ),
-        "metering_red": ParameterBound(
-            min_value=4.0,
-            max_value=60.0,
-            default_value=15.0,
+        "metering_all_red": ParameterBound(
+            min_value=0.0,
+            max_value=5.0,
+            default_value=2.0,
             unit="s",
-            description="Red interval holding entry vehicles upstream of yield line.",
-        ),
-        "setback_distance": ParameterBound(
-            min_value=15.0,
-            max_value=100.0,
-            default_value=30.0,
-            unit="m",
-            description="Distance from entry stopline to circulatory yield line.",
+            description=(
+                "All-red clearance between metering phases "
+                "(controller.entryMetering.allRed)."
+            ),
         ),
     },
     invariants=[

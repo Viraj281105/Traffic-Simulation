@@ -15,7 +15,7 @@ Explicit contracts for resolving, inferring, and fingerprinting strategy configu
 from __future__ import annotations
 
 import hashlib
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 from src.strategies.models import StrategyDescriptor, canonical_json
 from src.strategies.registry import StrategyRegistry, get_strategy_registry
@@ -73,6 +73,24 @@ def extract_explicit_strategy(config: Any) -> Optional[str]:
     return None
 
 
+def extract_geometry_type(config: Any) -> Optional[str]:
+    """The junction type a configuration declares, or None if it declares none.
+
+    ``geometry.intersectionType`` (engine configs) wins; scenario-document style
+    ``junction.type`` is the fallback. Shared by strategy inference and
+    compatibility validation so the two can never read different layouts.
+    """
+    if not isinstance(config, dict):
+        return None
+    geom = config.get("geometry")
+    geom_type = geom.get("intersectionType") if isinstance(geom, dict) else None
+    if geom_type is None:
+        junc = config.get("junction")
+        if isinstance(junc, dict):
+            geom_type = junc.get("type")
+    return geom_type if isinstance(geom_type, str) else None
+
+
 def infer_strategy_id_from_config(config: Any) -> str:
     """Infer the canonical strategy ID from the structural configuration layers.
 
@@ -85,12 +103,7 @@ def infer_strategy_id_from_config(config: Any) -> str:
     if not isinstance(config, dict):
         return "fixed_time_signal"
 
-    geom = config.get("geometry")
-    geom_type = geom.get("intersectionType") if isinstance(geom, dict) else None
-    if geom_type is None:
-        junc = config.get("junction")
-        if isinstance(junc, dict):
-            geom_type = junc.get("type")
+    geom_type = extract_geometry_type(config)
 
     ctrl = config.get("controller")
     ctrl_dict = ctrl if isinstance(ctrl, dict) else {}
@@ -164,6 +177,50 @@ def resolve_strategy_id(
     return resolve_strategy(source, registry=registry).id
 
 
+# Controller keys the engine accepts for a parameter, highest precedence first
+# (FixedTimeSignalController: the *Duration names win over the *Time aliases, and
+# straightRightDuration over greenTime over greenDuration).
+PARAMETER_CONTROLLER_KEYS: Dict[str, Tuple[str, ...]] = {
+    "green_time": ("straightRightDuration", "greenTime", "greenDuration"),
+    "yellow_time": ("yellowDuration", "yellowTime"),
+    "all_red_time": ("allRedDuration", "allRedTime"),
+}
+
+# Descriptor parameters whose config key is not the camelCase of their name:
+# parameter -> (controller sub-object, key).
+PARAMETER_CONFIG_ALIASES: Dict[str, Tuple[str, str]] = {
+    "metering_yellow": ("entryMetering", "yellow"),
+    "metering_all_red": ("entryMetering", "allRed"),
+}
+
+
+def _lookup_parameter(
+    param_name: str,
+    ctrl: Dict[str, Any],
+    adapt: Dict[str, Any],
+    config: Dict[str, Any],
+) -> Any:
+    """The configured value for a descriptor parameter, or None if unset."""
+    alias = PARAMETER_CONFIG_ALIASES.get(param_name)
+    if alias is not None:
+        sub = ctrl.get(alias[0])
+        return sub.get(alias[1]) if isinstance(sub, dict) else None
+
+    for key in PARAMETER_CONTROLLER_KEYS.get(param_name, ()):
+        if ctrl.get(key) is not None:
+            return ctrl[key]
+
+    camel_name = "".join(
+        word.capitalize() if i > 0 else word
+        for i, word in enumerate(param_name.split("_"))
+    )
+    for source in (ctrl, adapt, config):
+        for key in (param_name, camel_name):
+            if source.get(key) is not None:
+                return source[key]
+    return None
+
+
 def resolve_strategy_parameters(
     descriptor: StrategyDescriptor,
     config: Dict[str, Any],
@@ -181,19 +238,7 @@ def resolve_strategy_parameters(
     resolved: Dict[str, Any] = {}
 
     for param_name, bound in descriptor.parameters.items():
-        camel_name = "".join(
-            word.capitalize() if i > 0 else word
-            for i, word in enumerate(param_name.split("_"))
-        )
-        val = None
-        for source in (ctrl, adapt, config):
-            if isinstance(source, dict):
-                if param_name in source and source[param_name] is not None:
-                    val = source[param_name]
-                    break
-                if camel_name in source and source[camel_name] is not None:
-                    val = source[camel_name]
-                    break
+        val = _lookup_parameter(param_name, ctrl, adapt, config)
 
         if val is not None:
             if isinstance(val, bool) or not isinstance(val, (int, float)):
@@ -223,8 +268,9 @@ def compute_strategy_instance_fingerprint(
     Combines descriptor ID, version, descriptor fingerprint, and canonical resolved parameters.
     """
     payload = {
-        "descriptor_fingerprint": descriptor.fingerprint
-        or descriptor.compute_fingerprint(),
+        # Recomputed, never read from the stored field: a modified copy of a
+        # descriptor must not keep the identity of the one it was copied from.
+        "descriptor_fingerprint": descriptor.compute_fingerprint(),
         "id": descriptor.id,
         "parameters": resolved_parameters or {},
         "version": descriptor.version,

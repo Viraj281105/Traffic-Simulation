@@ -50,6 +50,7 @@ from __future__ import annotations
 from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Sequence, Tuple
 
 from src.core.enums import Direction, TurnIntent
+from src.strategies.limits import MAX_CIRCULATING_LANES as _MAX_CIRCULATING_LANES
 
 # The movements of V1.0-V1.4, which every default lane use is built from.
 # A U-turn (V1.5) is only ever where a scenario's lane use puts it.
@@ -108,8 +109,9 @@ MIN_CIRCULATING_LANE_WIDTH: float = 3.0
 # vehicle in the mix.
 CIRCULATING_LANE_SIDE_CLEARANCE: float = 0.5
 
-# Ring lanes the V1.4 lane designation supports (see the module docstring).
-MAX_CIRCULATING_LANES: int = 2
+# Ring lanes the V1.4 lane designation supports (see the module docstring); the
+# value lives in strategies/limits.py so the strategy descriptors share it.
+MAX_CIRCULATING_LANES: int = _MAX_CIRCULATING_LANES
 
 
 def target_direction(origin: Direction, turn: TurnIntent) -> Direction:
