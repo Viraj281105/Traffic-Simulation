@@ -70,10 +70,10 @@ describe("Strategy DNA model and layer resolution", () => {
     );
     expect(
       BUILTIN_STRATEGY_DESCRIPTORS.conventional_roundabout.fingerprint,
-    ).toBe("47c16f8b034aeaf1");
+    ).toBe("b622164ad2527a01");
     expect(
       BUILTIN_STRATEGY_DESCRIPTORS.metered_entry_roundabout.fingerprint,
-    ).toBe("70192eccdff31caf");
+    ).toBe("32511c2e97ffc1bb");
   });
 
   it("resolves the primary strategy ID correctly from document junction and entry control", () => {
@@ -190,6 +190,34 @@ describe("Strategy DNA model and layer resolution", () => {
     ).toBe(true);
   });
 
+  it("places server diagnostics on the layer the code names, not by keyword", () => {
+    const doc = scenarioFromPreset("typical-urban");
+    const layerOf = (code: string) =>
+      evaluateStrategyCompatibility("fixed_time_signal", doc, [
+        `Server says no (${code})`,
+      ]).find((i) => i.code === code)?.layerIndex;
+    expect(layerOf("compat.priority_overlay_unsupported")).toBe(6);
+    expect(layerOf("compat.phased_priority_unsupported")).toBe(3);
+    expect(layerOf("compat.signal_requires_point_topology")).toBe(2);
+    expect(layerOf("compat.unknown_strategy")).toBe(4);
+    // A code this build does not know still shows, on the first layer.
+    expect(layerOf("compat.future_rule")).toBe(1);
+  });
+
+  it("reports untouched roundabout parameters as defaults of the real controller", () => {
+    const doc = scenarioFromPreset("typical-urban");
+    doc.junction.type = "roundabout";
+    doc.roundabout.circulatingLanes = undefined;
+    const conventional = resolveParameterProvenance(
+      "conventional_roundabout",
+      doc,
+    );
+    expect(conventional.isAllDefault).toBe(true);
+    setEntryControl(doc, "metered_entry");
+    const metered = resolveParameterProvenance("metered_entry_roundabout", doc);
+    expect(metered.isAllDefault).toBe(true);
+  });
+
   it("reports untouched adaptive parameters as defaults of the real controller", () => {
     const doc = scenarioFromPreset("typical-urban");
     doc.signal.adaptive = { ...doc.signal.adaptive, ...ADAPTIVE_DEFAULTS };
@@ -230,7 +258,7 @@ describe("StrategySummaryCard rendering and live updates", () => {
     fireEvent.click(rbRadio);
 
     expect(screen.getByText("Conventional Roundabout")).toBeInTheDocument();
-    expect(screen.getByText("47c16f8b034aeaf1")).toBeInTheDocument();
+    expect(screen.getByText("b622164ad2527a01")).toBeInTheDocument();
     expect(
       screen.getAllByText(/Yield to ring \(offside priority\)/).length,
     ).toBeGreaterThanOrEqual(1);
@@ -247,8 +275,10 @@ describe("StrategySummaryCard rendering and live updates", () => {
     const meteredRadio = screen.getByLabelText(/Metered entry \(signals\)/);
     fireEvent.click(meteredRadio);
 
-    expect(screen.getByText("Metered-Entry Roundabout")).toBeInTheDocument();
-    expect(screen.getByText("70192eccdff31caf")).toBeInTheDocument();
+    expect(
+      screen.getByText("Metered-Entry Signalised Roundabout"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("32511c2e97ffc1bb")).toBeInTheDocument();
     expect(
       screen.getAllByText(
         /Signal over yield \(metered entries yield to circulating flow\)/,
@@ -275,7 +305,7 @@ describe("StrategySummaryCard rendering and live updates", () => {
     fireEvent.click(rbTab);
 
     // Active inspection card changes to Roundabout DNA
-    expect(screen.getByText("47c16f8b034aeaf1")).toBeInTheDocument();
+    expect(screen.getByText("b622164ad2527a01")).toBeInTheDocument();
     expect(screen.getByText("Comparison Alternative")).toBeInTheDocument();
   });
 

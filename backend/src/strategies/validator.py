@@ -26,26 +26,34 @@ if TYPE_CHECKING:
     from src.strategies.models import StrategyDescriptor
 
 # --- Machine-readable Diagnostic Codes ---
-COMPATIBILITY_ERROR_CODES: FrozenSet[str] = frozenset(
-    {
-        "compat.signal_requires_signal_geometry",
-        "compat.roundabout_yield_requires_roundabout",
-        "compat.phased_priority_unsupported",
-        "compat.signal_requires_point_topology",
-        "compat.roundabout_requires_zone_topology",
-        "compat.roundabout_requires_circulating_lanes",
-        "compat.signal_forbids_circulating_lanes",
-        "compat.arms_range_invalid",
-        "compat.signal_row_requires_phase_plan",
-        "compat.yield_to_ring_requires_uncontrolled",
-        "compat.signal_over_yield_requires_metering",
-        "compat.adaptive_unsupported_policy",
-        "compat.uncontrolled_cannot_be_cycle_aware",
-        "compat.priority_overlay_unsupported",
-        "compat.unknown_strategy",
-        "compat.strategy_config_mismatch",
-    }
-)
+# code -> the strategy layers it can implicate. This is the contract consumers
+# (the frontend Strategy DNA card) use to place a diagnostic on a layer; a test
+# sweeps the validator to prove every emitted issue stays within its entry.
+COMPATIBILITY_CODE_LAYERS: Dict[str, Tuple[str, ...]] = {
+    "compat.signal_requires_signal_geometry": ("geometry", "right_of_way"),
+    "compat.roundabout_yield_requires_roundabout": ("geometry", "right_of_way"),
+    "compat.phased_priority_unsupported": ("right_of_way",),
+    "compat.signal_requires_point_topology": ("geometry", "movement_topology"),
+    "compat.roundabout_requires_zone_topology": ("geometry", "movement_topology"),
+    "compat.roundabout_requires_circulating_lanes": ("geometry",),
+    "compat.signal_forbids_circulating_lanes": ("geometry",),
+    "compat.arms_range_invalid": ("geometry",),
+    "compat.signal_row_requires_phase_plan": ("right_of_way", "control_policy"),
+    "compat.yield_to_ring_requires_uncontrolled": ("right_of_way", "control_policy"),
+    "compat.signal_over_yield_requires_metering": ("right_of_way", "control_policy"),
+    "compat.adaptive_unsupported_policy": ("control_policy", "adaptation_logic"),
+    "compat.uncontrolled_cannot_be_cycle_aware": ("control_policy",),
+    "compat.priority_overlay_unsupported": ("priority_overlay",),
+    "compat.unknown_strategy": ("control_policy",),
+    "compat.strategy_config_mismatch": (
+        "geometry",
+        "right_of_way",
+        "control_policy",
+        "adaptation_logic",
+    ),
+}
+
+COMPATIBILITY_ERROR_CODES: FrozenSet[str] = frozenset(COMPATIBILITY_CODE_LAYERS)
 
 
 @dataclass(frozen=True)
@@ -336,7 +344,10 @@ def validate_scenario_strategy_compatibility(
     (W3-T3, ADR-014 §2, §4). Formally supersedes the legacy error 'adaptive applies to a signalised junction'.
     """
     from src.strategies.registry import get_strategy_registry
-    from src.strategies.resolution import extract_explicit_strategy
+    from src.strategies.resolution import (
+        extract_explicit_strategy,
+        extract_geometry_type,
+    )
 
     issues: List[CompatibilityIssue] = []
     registry = get_strategy_registry()
@@ -360,18 +371,21 @@ def validate_scenario_strategy_compatibility(
         else:
             canonical_strategy_id = registry.resolve_id(raw_strategy)
 
-    geom = config.get("geometry")
+    # Same reading of the layout as strategy inference (geometry, then the
+    # document-style junction.type); a document-style "adaptive_signal" junction
+    # is a signalised junction whose control is adaptive.
+    declared_geometry = extract_geometry_type(config)
+    adaptive_junction = declared_geometry == "adaptive_signal"
     geom_type = (
-        geom.get("intersectionType", "fixed_time_signal")
-        if isinstance(geom, dict)
-        else "fixed_time_signal"
+        "fixed_time_signal"
+        if declared_geometry in (None, "adaptive_signal")
+        else declared_geometry
     )
-    if geom_type is None and isinstance(config.get("junction"), dict):
-        geom_type = config["junction"].get("type", "fixed_time_signal")
 
     ctrl = config.get("controller")
     ctrl_dict = ctrl if isinstance(ctrl, dict) else {}
-    signal_control = ctrl_dict.get("signalControl", "fixed_time")
+    declared_signal_control = ctrl_dict.get("signalControl")
+    signal_control = declared_signal_control or "fixed_time"
     entry_control = ctrl_dict.get("entryControl")
     if entry_control is None and isinstance(config.get("roundabout"), dict):
         entry_control = config["roundabout"].get("entryControl")
@@ -441,6 +455,21 @@ def validate_scenario_strategy_compatibility(
                 )
             )
         elif (
+            canonical_strategy_id == "adaptive_signal"
+            and declared_signal_control == "fixed_time"
+        ):
+            # Only an explicit "fixed_time": an absent signalControl is not a
+            # contradiction (compiled adaptive scenarios set it, strategy-only
+            # configs may omit it).
+            issues.append(
+                CompatibilityIssue(
+                    code="compat.strategy_config_mismatch",
+                    message=f"Strategy '{raw_strategy}' conflicts with controller.signalControl='fixed_time'",
+                    layers=("control_policy", "adaptation_logic"),
+                    suggestion="Remove controller.signalControl or use strategy 'fixed_time_signal'.",
+                )
+            )
+        elif (
             canonical_strategy_id == "fixed_time_signal"
             and signal_control == "adaptive"
         ):
@@ -472,7 +501,11 @@ def validate_scenario_strategy_compatibility(
 
     adapt_logic = (
         "gap_out_extension"
-        if (signal_control == "adaptive" or canonical_strategy_id == "adaptive_signal")
+        if (
+            signal_control == "adaptive"
+            or canonical_strategy_id == "adaptive_signal"
+            or adaptive_junction
+        )
         else "none"
     )
 

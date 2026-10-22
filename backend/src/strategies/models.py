@@ -19,10 +19,14 @@ import hashlib
 import json
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 STRATEGY_FORMAT: Literal["urbanflow-strategy"] = "urbanflow-strategy"
 STRATEGY_VERSION: Literal[1] = 1
+
+# Most ring lanes the engine models (roads/lane_config.py MAX_CIRCULATING_LANES;
+# strategies/ is a leaf package, so the value is mirrored and a test pins it).
+MAX_CIRCULATING_LANES: int = 2
 
 
 def canonical_json(value: Any) -> str:
@@ -40,6 +44,28 @@ class GeometryConstraint(_Strict):
     min_arms: int = Field(default=3, ge=3, le=4)
     max_arms: int = Field(default=4, ge=3, le=4)
     circulating_lanes: Optional[List[int]] = None
+
+    @field_validator("circulating_lanes")
+    @classmethod
+    def _validate_circulating_lanes(
+        cls, lanes: Optional[List[int]]
+    ) -> Optional[List[int]]:
+        """Supported ring lane counts: unique integers in 1..MAX_CIRCULATING_LANES.
+
+        An empty list is left to the ``compat.roundabout_requires_circulating_lanes``
+        rule so it surfaces as a coded diagnostic.
+        """
+        if lanes is None:
+            return lanes
+        for count in lanes:
+            if not 1 <= count <= MAX_CIRCULATING_LANES:
+                raise ValueError(
+                    f"circulating_lanes entry {count} must be between 1 and "
+                    f"{MAX_CIRCULATING_LANES}"
+                )
+        if len(set(lanes)) != len(lanes):
+            raise ValueError(f"circulating_lanes {lanes} contains duplicates")
+        return lanes
 
     @model_validator(mode="after")
     def _validate_arms_range(self) -> GeometryConstraint:

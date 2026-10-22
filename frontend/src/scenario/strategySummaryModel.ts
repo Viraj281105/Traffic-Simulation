@@ -208,7 +208,7 @@ export const BUILTIN_STRATEGY_DESCRIPTORS: Record<
     status: "stable",
     description:
       "Self-governing circular junction operating on yield-at-entry (offside priority) without signal control, with continuous circulating flow.",
-    fingerprint: "47c16f8b034aeaf1",
+    fingerprint: "b622164ad2527a01",
     notModelled: [
       "Lane changes within circulating ring",
       "Pedestrian crosswalks on splitter islands",
@@ -251,11 +251,11 @@ export const BUILTIN_STRATEGY_DESCRIPTORS: Record<
   },
   metered_entry_roundabout: {
     id: "metered_entry_roundabout",
-    name: "Metered-Entry Roundabout",
+    name: "Metered-Entry Signalised Roundabout",
     status: "stable",
     description:
       "Hybrid roundabout where signals meter entry onto the circulating carriageway on designated approaches while circulating traffic retains offside priority.",
-    fingerprint: "70192eccdff31caf",
+    fingerprint: "32511c2e97ffc1bb",
     notModelled: [
       "Phased priority / signal-controlled circulation inside the ring",
       "Dynamic metering based on ring occupancy queues",
@@ -432,25 +432,25 @@ export function resolveParameterProvenance(
         name: "critical_gap",
         label: "Critical headway",
         unit: "s",
-        defaultValue: 4.1,
+        defaultValue: 4.0,
         currentValue: rb.criticalGap,
-        isDefault: Math.abs(rb.criticalGap - 4.1) < 0.001,
+        isDefault: Math.abs(rb.criticalGap - 4.0) < 0.001,
       },
       {
-        name: "follow_up_headway",
+        name: "follow_up_time",
         label: "Follow-up headway",
         unit: "s",
-        defaultValue: 2.6,
+        defaultValue: 2.5,
         currentValue: rb.followUpTime,
-        isDefault: Math.abs(rb.followUpTime - 2.6) < 0.001,
+        isDefault: Math.abs(rb.followUpTime - 2.5) < 0.001,
       },
       {
         name: "inner_radius",
         label: "Inner radius",
         unit: "m",
-        defaultValue: 20.0,
+        defaultValue: 10.0,
         currentValue: rb.innerRadius,
-        isDefault: rb.innerRadius === 20.0,
+        isDefault: rb.innerRadius === 10.0,
       },
       {
         name: "circulating_lanes",
@@ -463,7 +463,7 @@ export function resolveParameterProvenance(
     );
   } else {
     const m = doc.roundabout.entryMetering;
-    const g = m?.phases[0]?.green ?? 12.0;
+    const g = m?.phases[0]?.green ?? 20.0;
     const y = m?.yellow ?? 3.0;
     const r = m?.allRed ?? 2.0;
     params.push(
@@ -471,9 +471,9 @@ export function resolveParameterProvenance(
         name: "metering_green",
         label: "Metering green",
         unit: "s",
-        defaultValue: 12.0,
+        defaultValue: 20.0,
         currentValue: g,
-        isDefault: g === 12.0,
+        isDefault: g === 20.0,
       },
       {
         name: "metering_yellow",
@@ -640,6 +640,32 @@ export function resolveStrategyLayers(
 }
 
 /**
+ * The Strategy DNA layer (1-6: geometry, movement topology, right-of-way,
+ * control policy, adaptation logic, priority overlay) each backend `compat.*`
+ * code is shown on. Every entry must be a layer the backend lists for that code
+ * (COMPATIBILITY_CODE_LAYERS in strategies/validator.py); a backend test pins
+ * the key set and that containment. Unknown codes fall back to layer 1.
+ */
+export const COMPAT_CODE_LAYER_INDEX: Readonly<Record<string, number>> = {
+  "compat.signal_requires_signal_geometry": 1,
+  "compat.roundabout_yield_requires_roundabout": 1,
+  "compat.phased_priority_unsupported": 3,
+  "compat.signal_requires_point_topology": 2,
+  "compat.roundabout_requires_zone_topology": 2,
+  "compat.roundabout_requires_circulating_lanes": 1,
+  "compat.signal_forbids_circulating_lanes": 1,
+  "compat.arms_range_invalid": 1,
+  "compat.signal_row_requires_phase_plan": 4,
+  "compat.yield_to_ring_requires_uncontrolled": 4,
+  "compat.signal_over_yield_requires_metering": 4,
+  "compat.adaptive_unsupported_policy": 5,
+  "compat.uncontrolled_cannot_be_cycle_aware": 4,
+  "compat.priority_overlay_unsupported": 6,
+  "compat.unknown_strategy": 4,
+  "compat.strategy_config_mismatch": 1,
+};
+
+/**
  * Evaluates strategy compatibility against scenario configuration, integrating
  * any backend diagnostic codes (compat.*) if returned.
  */
@@ -721,22 +747,10 @@ export function evaluateStrategyCompatibility(
       if (existing) {
         existing.message = err;
       } else {
-        let layerIndex = 1;
-        if (code.includes("adaptive") || code.includes("adaptation")) {
-          layerIndex = 5;
-        } else if (
-          code.includes("policy") ||
-          code.includes("metering") ||
-          code.includes("uncontrolled")
-        ) {
-          layerIndex = 4;
-        } else if (code.includes("yield") || code.includes("signal")) {
-          layerIndex = 3;
-        }
         issues.push({
           code,
           message: err,
-          layerIndex,
+          layerIndex: COMPAT_CODE_LAYER_INDEX[code] ?? 1,
         });
       }
     }

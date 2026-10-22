@@ -33,7 +33,10 @@ from src.strategies.registry import (
     get_strategy_registry,
     reset_strategy_registry,
 )
-from src.strategies.resolution import resolve_strategy_parameters
+from src.strategies.resolution import (
+    PARAMETER_CONFIG_ALIASES,
+    resolve_strategy_parameters,
+)
 from src.strategies.validator import (
     COMPATIBILITY_ERROR_CODES,
     validate_scenario_strategy_compatibility,
@@ -83,14 +86,19 @@ def _schema_backed_parameters() -> Iterator[Tuple[str, str, str, Dict[str, Any]]
     schema = json.loads(CONFIG_SCHEMA_PATH.read_text(encoding="utf-8"))
     ctrl_props = schema["properties"]["controller"]["properties"]
     adaptive_props = ctrl_props["adaptive"]["properties"]
+    metering_props = ctrl_props["entryMetering"]["properties"]
     for desc in BUILTIN_STRATEGIES:
         for name in desc.parameters:
             camel = _camel(name)
-            for path, props in (
-                (f"controller.{camel}", ctrl_props),
-                (f"controller.adaptive.{camel}", adaptive_props),
-            ):
-                prop = props.get(camel)
+            candidates = [
+                (f"controller.{camel}", ctrl_props, camel),
+                (f"controller.adaptive.{camel}", adaptive_props, camel),
+            ]
+            if name in PARAMETER_CONFIG_ALIASES:
+                _, key = PARAMETER_CONFIG_ALIASES[name]
+                candidates = [(f"controller.entryMetering.{key}", metering_props, key)]
+            for path, props, key in candidates:
+                prop = props.get(key)
                 if prop is not None and (
                     "minimum" in prop or "exclusiveMinimum" in prop
                 ):
@@ -104,6 +112,30 @@ class TestParameterSchemaParity:
         # Guards the discovery logic itself: these are known to map onto the schema.
         assert ("fixed_time_signal", "yellow_time") in mapped
         assert ("adaptive_signal", "min_green") in mapped
+        assert ("conventional_roundabout", "critical_gap") in mapped
+        assert ("metered_entry_roundabout", "metering_yellow") in mapped
+
+    def test_every_roundabout_parameter_is_config_backed(self) -> None:
+        """Roundabout descriptors may only list tunables the config really has."""
+        mapped = {(sid, name) for sid, name, _, _ in _schema_backed_parameters()}
+        for sid in ("conventional_roundabout", "metered_entry_roundabout"):
+            declared = set(get_strategy_registry().get(sid).parameters)
+            assert declared
+            assert {n for s, n in mapped if s == sid} == declared
+
+    def test_unbacked_parameters_are_a_known_fixed_list(self) -> None:
+        """Signal descriptors keep two derived/informational knobs; nothing else."""
+        mapped = {(sid, name) for sid, name, _, _ in _schema_backed_parameters()}
+        unbacked = {
+            (d.id, n)
+            for d in BUILTIN_STRATEGIES
+            for n in d.parameters
+            if (d.id, n) not in mapped
+        }
+        assert unbacked == {
+            ("fixed_time_signal", "cycle_time"),
+            ("adaptive_signal", "passage_gap"),
+        }
 
     @pytest.mark.parametrize(
         "strategy_id,name,path,prop",
@@ -273,3 +305,36 @@ class TestFrontendBackendParity:
         assert not unknown, (
             f"frontend emits codes the backend does not define: {unknown}"
         )
+
+    def test_frontend_descriptor_names_and_status_match_registry(self) -> None:
+        rows = re.findall(
+            r'id: "([a-z_]+)",\s*name: "([^"]+)",\s*status: "([a-z]+)"',
+            _frontend_model_source(),
+        )
+        backend = {d.id: (d.name, d.status) for d in get_strategy_registry().list_all()}
+        assert {sid: (name, status) for sid, name, status in rows} == backend
+
+    def test_frontend_provenance_defaults_match_descriptor_defaults(self) -> None:
+        """A parameter the card and a descriptor both name must share its default."""
+        descriptor_defaults: Dict[str, set[float]] = {}
+        for desc in get_strategy_registry().list_all():
+            for name, bound in desc.parameters.items():
+                if bound.default_value is not None:
+                    descriptor_defaults.setdefault(name, set()).add(bound.default_value)
+        frontend = re.findall(
+            r'name: "([a-z_]+)",\s*label: "[^"]*",\s*unit: "[^"]*",\s*'
+            r"defaultValue: ([0-9.]+),",
+            _frontend_model_source(),
+        )
+        shared = [(n, float(v)) for n, v in frontend if n in descriptor_defaults]
+        assert {n for n, _ in shared} >= {
+            "green_time",
+            "yellow_time",
+            "all_red_time",
+            "critical_gap",
+            "inner_radius",
+            "metering_yellow",
+            "metering_all_red",
+        }
+        for name, default in shared:
+            assert descriptor_defaults[name] == {default}, name
