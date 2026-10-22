@@ -114,7 +114,17 @@ class VehicleSpawner:
         self.speed_min, self.speed_max = resolve_desired_speed_range(config)
 
         # Safety distance
-        self.minimum_gap: float = veh_gen_cfg.get("minimumGap", 2.0)
+        aggression = (
+            traffic_cfg.get("driverAggression", "standard")
+            if isinstance(traffic_cfg, dict)
+            else "standard"
+        )
+        from src.vehicles.driver_aggression import resolve_aggression_multipliers
+
+        m = resolve_aggression_multipliers(aggression)
+        self.minimum_gap: float = (
+            float(veh_gen_cfg.get("minimumGap", 2.0)) * m["gap_mult"]
+        )
         # Deceleration a newly inserted vehicle is assumed to be able to use
         # to stop behind the vehicle it is inserted behind (see
         # _safe_insertion_speed). Same parameter, and same default, as the

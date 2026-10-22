@@ -17,7 +17,9 @@ import {
   SCENARIO_VERSION,
   type ApproachName,
   type ApproachSpec,
+  type DriverAggression,
   type EntryMeteringSpec,
+  type JunctionType,
   type MeteredPhaseSpec,
   type Movement,
   type ScenarioDocument,
@@ -59,6 +61,21 @@ export function scenarioFromPreset(id: string): ScenarioDocument {
 export const DEFAULT_SCENARIO: ScenarioDocument =
   scenarioFromPreset("typical-urban");
 
+/** Creates a fresh custom scenario document at an authoring boundary, defaulting to "high" aggression per ADR-016. */
+export function newScenarioDocument(
+  name = "Custom scenario",
+  junctionType: JunctionType = "fixed_time_signal",
+  driverAggression: DriverAggression = "high",
+): ScenarioDocument {
+  const doc = cloneScenario(DEFAULT_SCENARIO);
+  doc.name = name;
+  doc.description = "";
+  doc.preset = null;
+  doc.junction.type = junctionType;
+  doc.traffic = { driverAggression };
+  return doc;
+}
+
 /** True when the document still equals the preset it names. */
 export function matchesPreset(doc: ScenarioDocument): boolean {
   const preset = doc.preset ? presetById(doc.preset) : undefined;
@@ -70,8 +87,16 @@ export function sameScenario(
   a: ScenarioDocument,
   b: ScenarioDocument,
 ): boolean {
-  const strip = (d: ScenarioDocument) =>
-    JSON.stringify({ ...d, name: "", description: "", preset: null });
+  const strip = (d: ScenarioDocument) => {
+    const aggression = d.traffic?.driverAggression ?? "standard";
+    return JSON.stringify({
+      ...d,
+      name: "",
+      description: "",
+      preset: null,
+      traffic: { ...(d.traffic ?? {}), driverAggression: aggression },
+    });
+  };
   return strip(a) === strip(b);
 }
 
@@ -480,6 +505,8 @@ export function configValuesFromScenario(
     laneChanging: doc.roads.laneChanging,
     signalControl: strategy === "adaptive" ? "adaptive" : undefined,
     adaptive: { ...doc.signal.adaptive },
+    driverAggression:
+      doc.traffic?.driverAggression ?? prev.driverAggression ?? "standard",
   };
 }
 
@@ -526,6 +553,12 @@ export function scenarioFromConfigValues(
   base.roundabout.followUpTime = config.followUpTime;
   base.simulation.duration = config.duration;
   base.simulation.seed = config.randomSeed;
+  if (config.driverAggression) {
+    base.traffic = {
+      ...(base.traffic ?? {}),
+      driverAggression: config.driverAggression,
+    };
+  }
   return base;
 }
 

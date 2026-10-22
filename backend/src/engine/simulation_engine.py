@@ -135,13 +135,23 @@ class SimulationEngine:
             veh_gen = self.config.get("vehicleGeneration", {})
             traffic_cfg = self.config.get("traffic", {})
             is_unstructured = traffic_cfg.get("unstructuredTraffic", False)
+            aggression = (
+                traffic_cfg.get("driverAggression", "standard")
+                if isinstance(traffic_cfg, dict)
+                else "standard"
+            )
+            from src.vehicles.driver_aggression import resolve_aggression_multipliers
 
-            idm_kwargs = {
-                "max_acceleration": veh_gen.get("maxAcceleration", 2.0),
-                "comfort_deceleration": veh_gen.get("comfortDeceleration", 3.0),
-                "desired_time_headway": veh_gen.get("desiredTimeHeadway", 1.5),
-                "minimum_gap": veh_gen.get("minimumGap", 2.0),
-                "idm_delta": veh_gen.get("idmDelta", 4.0),
+            m = resolve_aggression_multipliers(aggression)
+
+            idm_kwargs: Dict[str, Any] = {
+                "max_acceleration": float(veh_gen.get("maxAcceleration", 2.0))
+                * m["accel_mult"],
+                "comfort_deceleration": float(veh_gen.get("comfortDeceleration", 3.0)),
+                "desired_time_headway": float(veh_gen.get("desiredTimeHeadway", 1.5))
+                * m["headway_mult"],
+                "minimum_gap": float(veh_gen.get("minimumGap", 2.0)) * m["gap_mult"],
+                "idm_delta": float(veh_gen.get("idmDelta", 4.0)),
             }
             if is_unstructured:
                 idm_kwargs["rng"] = self.spawner.rng

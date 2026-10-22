@@ -42,6 +42,11 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from src.core.config_models import DEFAULT_PHASE_SEQUENCE
 from src.core.enums import Direction, TurnIntent
 from src.core.limits import demand_vehicle_limit
+from src.vehicles.driver_aggression import (
+    DRIVER_AGGRESSION_DISCLAIMER,
+    DRIVER_AGGRESSION_PROFILES,
+    DriverAggression,
+)
 
 SCENARIO_FORMAT = "urbanflow-scenario"
 SCENARIO_VERSION = 1
@@ -225,6 +230,10 @@ class JunctionSpec(_Strict):
     type: Literal["fixed_time_signal", "adaptive_signal", "roundabout"]
 
 
+class TrafficSpec(_Strict):
+    driverAggression: Optional[DriverAggression] = None
+
+
 class ScenarioDocument(_Strict):
     format: Literal["urbanflow-scenario"] = "urbanflow-scenario"
     version: Literal[1] = 1
@@ -245,6 +254,7 @@ class ScenarioDocument(_Strict):
     simulation: SimulationSpec = Field(
         default_factory=lambda: SimulationSpec.model_validate({})
     )
+    traffic: Optional[TrafficSpec] = None
     # Research use: extra engine sections merged into every compiled config
     # (vehicleGeneration IDM parameters, roads.laneChange, metrics), validated
     # with the rest of the compiled config.
@@ -273,6 +283,16 @@ def scenario_fingerprint(document: ScenarioDocument) -> str:
         for key in _W2_OPTIONAL_ROUNDABOUT_FIELDS:
             if body["roundabout"].get(key) is None:
                 body["roundabout"].pop(key, None)
+    if "traffic" in body:
+        if body["traffic"] is None:
+            body.pop("traffic", None)
+        elif isinstance(body["traffic"], dict):
+            # Absent or standard aggression must produce bit-identical fingerprint
+            # to legacy documents that have no traffic block.
+            if body["traffic"].get("driverAggression") == "standard":
+                body["traffic"].pop("driverAggression", None)
+            if not body["traffic"] or body["traffic"].get("driverAggression") is None:
+                body.pop("traffic", None)
     canonical = json.dumps(body, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode()).hexdigest()[:16]
 
@@ -391,6 +411,8 @@ def compile_scenario(document: ScenarioDocument, strategy: str) -> Dict[str, Any
         },
         "vehicleGeneration": {},
     }
+    if document.traffic and document.traffic.driverAggression is not None:
+        config["traffic"]["driverAggression"] = document.traffic.driverAggression
     if len(arms) < len(Direction):
         # V1.5: only the slots that have an arm.
         config["geometry"]["arms"] = [d.value for d in arms]
@@ -815,15 +837,58 @@ def resolved_design(config: Dict[str, Any]) -> Dict[str, Any]:
     return design
 
 
+def create_scenario(
+    name: str = "Custom scenario",
+    junction_type: Literal[
+        "fixed_time_signal", "adaptive_signal", "roundabout"
+    ] = "fixed_time_signal",
+    driver_aggression: Optional[DriverAggression] = "high",
+    approaches: Optional[Approaches] = None,
+    **kwargs: Any,
+) -> ScenarioDocument:
+    """Create a new scenario document at an authoring boundary.
+
+    Defaults to 'high' driver aggression per V3.0 ADR-016.
+    Explicit user selections are preserved.
+    """
+    if approaches is None:
+        approaches = Approaches.model_validate(
+            {
+                d: {"lanes": 1, "length": 200.0, "vehiclesPerHour": 300.0}
+                for d in ("north", "south", "east", "west")
+            }
+        )
+    traffic = (
+        TrafficSpec(driverAggression=driver_aggression)
+        if driver_aggression is not None
+        else None
+    )
+    doc_dict: Dict[str, Any] = {
+        "format": SCENARIO_FORMAT,
+        "version": SCENARIO_VERSION,
+        "name": name,
+        "junction": {"type": junction_type},
+        "approaches": approaches.model_dump(),
+        "traffic": traffic.model_dump() if traffic is not None else None,
+        **kwargs,
+    }
+    return ScenarioDocument.model_validate(doc_dict)
+
+
 __all__ = [
+    "DRIVER_AGGRESSION_DISCLAIMER",
+    "DRIVER_AGGRESSION_PROFILES",
+    "DriverAggression",
     "JUNCTION_STRATEGY",
     "SCENARIO_FORMAT",
     "SCENARIO_VERSION",
     "STRATEGIES",
     "STRATEGY_TITLES",
     "ScenarioDocument",
+    "TrafficSpec",
     "compile_live_comparison",
     "compile_scenario",
+    "create_scenario",
     "parse_scenario",
     "scenario_fingerprint",
     "scenario_warnings",

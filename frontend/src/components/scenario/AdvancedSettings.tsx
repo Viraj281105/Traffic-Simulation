@@ -1,4 +1,8 @@
-import { type ScenarioDocument } from "../../scenario/scenarioTypes";
+import {
+  DRIVER_AGGRESSION_DISCLAIMER,
+  type DriverAggression,
+  type ScenarioDocument,
+} from "../../scenario/scenarioTypes";
 import { setEntryControl } from "../../scenario/scenarioModel";
 import { NumberField } from "./fields";
 
@@ -485,6 +489,42 @@ export function AdvancedSettings({
           />
           Drivers change lanes on multi-lane approaches
         </label>
+      </fieldset>
+      <fieldset>
+        <legend>Driver aggression</legend>
+        <div className="sb-field">
+          <span className="sb-field-label">Profile</span>
+          <div className="chip-row">
+            {(["standard", "moderate", "high"] as const).map(
+              (profile: DriverAggression) => {
+                const current = value.traffic?.driverAggression ?? "standard";
+                const isActive = current === profile;
+                return (
+                  <button
+                    key={profile}
+                    type="button"
+                    className={`chip${isActive ? " is-active" : ""}`}
+                    aria-pressed={isActive}
+                    onClick={() => {
+                      update((d) => {
+                        if (!d.traffic) {
+                          d.traffic = { driverAggression: profile };
+                        } else {
+                          d.traffic.driverAggression = profile;
+                        }
+                      });
+                    }}
+                  >
+                    {profile.charAt(0).toUpperCase() + profile.slice(1)}
+                  </button>
+                );
+              },
+            )}
+          </div>
+        </div>
+        <p className="config-hint" role="note">
+          {DRIVER_AGGRESSION_DISCLAIMER}
+        </p>
       </fieldset>
     </div>
   );

@@ -96,18 +96,30 @@ def resolve_lane_change_settings(config: Mapping[str, Any]) -> LaneChangeSetting
         and traffic.get("unstructuredTraffic", False)
     )
 
+    from src.vehicles.driver_aggression import resolve_aggression_multipliers
+
+    aggression_name = (
+        traffic.get("driverAggression") if isinstance(traffic, Mapping) else None
+    )
+    m = resolve_aggression_multipliers(aggression_name)
+
+    base_threshold = 0.2 * m["threshold_mult"]
+    base_safe_decel = 4.0  # Invariant: unchanged at 4.0 m/s^2
+
     if not isinstance(section, Mapping):
-        return LaneChangeSettings(aggressive_two_wheelers=aggressive)
+        return LaneChangeSettings(
+            acceleration_threshold=base_threshold,
+            safe_deceleration=base_safe_decel,
+            aggressive_two_wheelers=aggressive,
+        )
     defaults = LaneChangeSettings()
     politeness = section.get("politeness")
     return LaneChangeSettings(
         enabled=bool(section.get("enabled", defaults.enabled)),
         acceleration_threshold=float(
-            section.get("accelerationThreshold", defaults.acceleration_threshold)
+            section.get("accelerationThreshold", base_threshold)
         ),
-        safe_deceleration=float(
-            section.get("safeDeceleration", defaults.safe_deceleration)
-        ),
+        safe_deceleration=float(section.get("safeDeceleration", base_safe_decel)),
         politeness=float(politeness) if politeness is not None else None,
         aggressive_two_wheelers=aggressive,
     )

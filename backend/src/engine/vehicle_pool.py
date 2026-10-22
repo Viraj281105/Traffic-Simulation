@@ -569,10 +569,20 @@ class VehiclePool:
 def _idm_from_config(config: Dict[str, Any]) -> IntelligentDriverModel:
     """The engine-wide IDM a legacy vehicle uses, from vehicleGeneration."""
     veh_gen = config.get("vehicleGeneration", {}) or {}
+    traffic = config.get("traffic", {}) or {}
+    aggression = (
+        traffic.get("driverAggression", "standard")
+        if isinstance(traffic, dict)
+        else "standard"
+    )
+    from src.vehicles.driver_aggression import resolve_aggression_multipliers
+
+    m = resolve_aggression_multipliers(aggression)
     return IntelligentDriverModel(
-        max_acceleration=veh_gen.get("maxAcceleration", 2.0),
-        comfort_deceleration=veh_gen.get("comfortDeceleration", 3.0),
-        desired_time_headway=veh_gen.get("desiredTimeHeadway", 1.5),
-        minimum_gap=veh_gen.get("minimumGap", 2.0),
-        idm_delta=veh_gen.get("idmDelta", 4.0),
+        max_acceleration=float(veh_gen.get("maxAcceleration", 2.0)) * m["accel_mult"],
+        comfort_deceleration=float(veh_gen.get("comfortDeceleration", 3.0)),
+        desired_time_headway=float(veh_gen.get("desiredTimeHeadway", 1.5))
+        * m["headway_mult"],
+        minimum_gap=float(veh_gen.get("minimumGap", 2.0)) * m["gap_mult"],
+        idm_delta=float(veh_gen.get("idmDelta", 4.0)),
     )

@@ -922,6 +922,17 @@
         "simulation": {
           "$ref": "#/$defs/SimulationSpec"
         },
+        "traffic": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TrafficSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "advanced": {
           "anyOf": [
             {
@@ -1085,6 +1096,30 @@
         }
       },
       "title": "SpillbackGuardSpec",
+      "type": "object"
+    },
+    "TrafficSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "driverAggression": {
+          "anyOf": [
+            {
+              "enum": [
+                "standard",
+                "moderate",
+                "high"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Driveraggression"
+        }
+      },
+      "title": "TrafficSpec",
       "type": "object"
     },
     "Turning": {

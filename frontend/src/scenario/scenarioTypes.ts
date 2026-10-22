@@ -48,6 +48,15 @@ export const STRATEGY_TITLE: Record<Strategy, string> = {
 /** The roundabout as it is named when its entries carry signals. */
 export const METERED_ROUNDABOUT_TITLE = "Roundabout (metered entry)";
 
+export type DriverAggression = "standard" | "moderate" | "high";
+export const DRIVER_AGGRESSION_PROFILES: DriverAggression[] = [
+  "standard",
+  "moderate",
+  "high",
+];
+export const DRIVER_AGGRESSION_DISCLAIMER =
+  "driver aggression — a simulation assumption, not a measurement of real-world driver behaviour";
+
 /** The scenario's roundabout has signals on its entries (V3.0 W2). */
 export function isMeteredEntry(doc: {
   roundabout: { entryControl?: "metered_entry" | "none" | null };
@@ -175,6 +184,9 @@ export interface ScenarioDocument {
     arrivalPattern: "poisson" | "uniform";
     timeStep: number;
   };
+  traffic?: {
+    driverAggression?: DriverAggression | null;
+  } | null;
 }
 
 /** What the backend says it will build (POST /api/v1/scenarios/validate). */

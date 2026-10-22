@@ -31,7 +31,9 @@ import {
   scenarioFromConfigValues,
 } from "../../scenario/scenarioModel";
 import {
+  DRIVER_AGGRESSION_DISCLAIMER,
   isMeteredEntry,
+  type DriverAggression,
   type ScenarioDocument,
   type Strategy,
 } from "../../scenario/scenarioTypes";
@@ -471,6 +473,55 @@ export function ScenarioSetup({
                 </div>
               </label>
             )}
+
+            <div style={{ marginTop: "1.25rem" }}>
+              <span
+                className="choice-title"
+                style={{
+                  display: "block",
+                  marginBottom: "0.5rem",
+                  fontSize: "0.95rem",
+                }}
+              >
+                Driver Aggression Profile
+              </span>
+              <div className="choice-grid three">
+                {(["standard", "moderate", "high"] as const).map(
+                  (profile: DriverAggression) => {
+                    const current = draft.driverAggression ?? "standard";
+                    const isSelected = current === profile;
+                    return (
+                      <label
+                        key={profile}
+                        className={`choice-card${isSelected ? " is-selected" : ""}`}
+                      >
+                        <input
+                          type="radio"
+                          name="driverAggression"
+                          checked={isSelected}
+                          onChange={() => {
+                            set("driverAggression", profile);
+                          }}
+                        />
+                        <span className="choice-title">
+                          {profile.charAt(0).toUpperCase() + profile.slice(1)}
+                        </span>
+                        <span className="choice-desc">
+                          {profile === "standard"
+                            ? "Calibrated base headways and gaps"
+                            : profile === "moderate"
+                              ? "Tighter headways and quicker acceleration"
+                              : "Minimum gaps, rapid acceleration, assertive lane changes"}
+                        </span>
+                      </label>
+                    );
+                  },
+                )}
+              </div>
+              <p className="q-note" style={{ marginTop: "0.5rem" }}>
+                {DRIVER_AGGRESSION_DISCLAIMER}
+              </p>
+            </div>
           </fieldset>
 
           <fieldset className="guided-question">
