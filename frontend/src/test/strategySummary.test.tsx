@@ -63,10 +63,10 @@ function BuilderHarness({
 describe("Strategy DNA model and layer resolution", () => {
   it("ships all four built-in strategies with frozen 16-hex fingerprints", () => {
     expect(BUILTIN_STRATEGY_DESCRIPTORS.fixed_time_signal.fingerprint).toBe(
-      "dc4cea8828710979",
+      "21b44f48677fff33",
     );
     expect(BUILTIN_STRATEGY_DESCRIPTORS.adaptive_signal.fingerprint).toBe(
-      "588ee921ecda8e01",
+      "9463e0b9e7a3619d",
     );
     expect(
       BUILTIN_STRATEGY_DESCRIPTORS.conventional_roundabout.fingerprint,
@@ -132,11 +132,8 @@ describe("Strategy DNA model and layer resolution", () => {
   });
 
   it("tracks parameter provenance and detects factory defaults vs customizations", () => {
+    // The preset carries the engine's own defaults: 30 s green, 4 s yellow, 2 s all-red.
     const doc = scenarioFromPreset("typical-urban");
-    // Explicitly set to descriptor factory defaults
-    doc.signal.greenTime = 25.0;
-    doc.signal.yellowTime = 3.0;
-    doc.signal.allRedTime = 2.0;
     doc.signal.nsGreenTime = null;
     doc.signal.ewGreenTime = null;
 
@@ -238,7 +235,7 @@ describe("StrategySummaryCard rendering and live updates", () => {
 
     expect(screen.getByText(/Strategy DNA & Contract/)).toBeInTheDocument();
     expect(screen.getByText("Fixed-Time Signal")).toBeInTheDocument();
-    expect(screen.getByText("dc4cea8828710979")).toBeInTheDocument();
+    expect(screen.getByText("21b44f48677fff33")).toBeInTheDocument();
     expect(screen.getByText("Geometry Constraint")).toBeInTheDocument();
     expect(screen.getByText("Movement Topology")).toBeInTheDocument();
     expect(screen.getByText("Right-of-Way Rule")).toBeInTheDocument();
@@ -251,7 +248,7 @@ describe("StrategySummaryCard rendering and live updates", () => {
   it("updates live when junction type switches from signal to roundabout in ScenarioBuilder", () => {
     render(<BuilderHarness initial={scenarioFromPreset("typical-urban")} />);
     expect(screen.getByText("Fixed-Time Signal")).toBeInTheDocument();
-    expect(screen.getByText("dc4cea8828710979")).toBeInTheDocument();
+    expect(screen.getByText("21b44f48677fff33")).toBeInTheDocument();
 
     // Click Roundabout in step 1
     const rbRadio = screen.getByLabelText(/Roundabout/);

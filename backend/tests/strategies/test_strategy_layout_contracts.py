@@ -206,7 +206,8 @@ class TestAdaptiveStrategyContradiction:
 
 class TestCirculatingLanesRange:
     def test_limit_matches_the_engine(self) -> None:
-        assert MAX_CIRCULATING_LANES == ENGINE_MAX_CIRCULATING_LANES
+        # One source (strategies/limits.py); see test_strategy_defaults_and_identity.
+        assert MAX_CIRCULATING_LANES == ENGINE_MAX_CIRCULATING_LANES == 2
 
     @pytest.mark.parametrize("lanes", [[0], [3], [-1], [1, 1], [1, 2, 3]])
     def test_unsupported_ring_lane_counts_are_rejected(self, lanes: List[int]) -> None:

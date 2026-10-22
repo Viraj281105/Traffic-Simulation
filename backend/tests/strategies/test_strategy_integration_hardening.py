@@ -35,6 +35,7 @@ from src.strategies.registry import (
 )
 from src.strategies.resolution import (
     PARAMETER_CONFIG_ALIASES,
+    PARAMETER_CONTROLLER_KEYS,
     resolve_strategy_parameters,
 )
 from src.strategies.validator import (
@@ -97,13 +98,22 @@ def _schema_backed_parameters() -> Iterator[Tuple[str, str, str, Dict[str, Any]]
             if name in PARAMETER_CONFIG_ALIASES:
                 _, key = PARAMETER_CONFIG_ALIASES[name]
                 candidates = [(f"controller.entryMetering.{key}", metering_props, key)]
+            # Every engine key for the parameter must stay inside the bounds.
+            candidates += [
+                (f"controller.{key}", ctrl_props, key)
+                for key in PARAMETER_CONTROLLER_KEYS.get(name, ())
+            ]
+            found = False
             for path, props, key in candidates:
                 prop = props.get(key)
                 if prop is not None and (
                     "minimum" in prop or "exclusiveMinimum" in prop
                 ):
+                    found = True
                     yield desc.id, name, path, prop
-                    break
+                    if name not in PARAMETER_CONTROLLER_KEYS:
+                        break
+            assert found or name in {"cycle_time", "passage_gap"}, name
 
 
 class TestParameterSchemaParity:

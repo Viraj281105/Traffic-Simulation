@@ -167,12 +167,22 @@ The composable strategy architecture enforces strict boundary conditions, securi
    - Pre-simulation guards (`check_scenario_strategy_compatibility` and `resolve_strategy_parameters`) run before any simulation engine, road network, or controller is instantiated.
    - Parameter values outside descriptor bounds (e.g. green duration $< 5\,\text{s}$ or $> 120\,\text{s}$) and non-numeric values trigger `InvalidSimulationConfigError` immediately.
    - Roundabout descriptors list only tunables backed by a bounded config key: `critical_gap` (`controller.criticalGap`), `inner_radius` (`controller.innerRadius`), `metering_yellow` / `metering_all_red` (`controller.entryMetering.yellow` / `.allRed`). Values the engine derives (metering cycle, red) or fixes (entry setback) are not parameters, and unbounded keys (`followUpTime`, `entrySpeed`) are omitted so the guard can never reject a schema-valid value. `cycle_time` (fixed-time) and `passage_gap` (adaptive) remain as derived/informational descriptor knobs with no config key; a test pins that list.
+   - Descriptor defaults equal what the engine uses when a key is omitted (fixed-time green 30 s, yellow 4 s, all-red 2 s; the adaptive and roundabout controller defaults; metering yellow 3 s / all-red 2 s), so `strategy_parameters` records what the run actually used. `resolve_strategy_parameters` reads the controller's own keys in the controller's precedence (`straightRightDuration` > `greenTime` > `greenDuration`; `yellowDuration` > `yellowTime`; `allRedDuration` > `allRedTime`). The derived knobs `cycle_time` and `passage_gap` carry no default. Tests compare the defaults with the controllers themselves.
    - Descriptor bounds for parameters that map onto a config key (`controller.yellowTime`, `controller.allRedTime`, `controller.adaptive.*`) must cover the config schema's range, and adaptive defaults must equal the controller defaults; `test_strategy_integration_hardening.py` enforces this so the guard can never reject a schema-valid configuration.
    - Failed initializations produce zero state changes in `simulations_db`: no leaked simulation IDs, no orphan worker threads, and no partial database records.
 
 4. **Backward-Compatible Error Diagnostics:**
    - All 16 diagnostic codes (`compat.*`) provide stable, machine-readable keys, clear human-readable messages, and actionable remediation suggestions.
    - Legacy configuration validation (`semantic_config_errors`) and scenario document validation (`validate_scenario`) seamlessly support both canonical strategy identifiers and legacy aliases.
+
+### Descriptor Identity & Change Policy
+
+A built-in descriptor's identity is its fingerprint (id, version, layers, parameter bounds and defaults, text). Every parameter, bound, default or layer edit changes it, and strategy-instance fingerprints (`compute_strategy_instance_fingerprint`) change with it; the instance fingerprint always recomputes the descriptor fingerprint rather than trusting the stored field.
+
+* The four fingerprints are pinned in `tests/strategies/test_strategy_defaults_and_identity.py` and copied into `frontend/src/scenario/strategySummaryModel.ts`; a backend test fails if the frontend copy drifts from the registry.
+* **Before V3.0 ships**, changing a descriptor is allowed: update the pin and the frontend copy in the same commit. The descriptors have not been published, so no stored run depends on an earlier fingerprint (the registry entry's `strategy_parameters` is in-memory only).
+* **After V3.0 ships**, a semantic change to a built-in must bump its `version`, so a run's recorded identity never silently changes meaning.
+* The ring-lane limit (`MAX_CIRCULATING_LANES`) has one source, `src/strategies/limits.py`, which `roads/lane_config.py` re-exports; `strategies/` stays a leaf package.
 
 ### Documented Scope Boundaries & Remaining Limitations
 

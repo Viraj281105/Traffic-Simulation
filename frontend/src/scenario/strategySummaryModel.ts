@@ -114,7 +114,7 @@ export const BUILTIN_STRATEGY_DESCRIPTORS: Record<
     status: "stable",
     description:
       "Cyclic fixed-duration signal control across orthogonal or multi-leg approaches with conflict points managed by dedicated green phases.",
-    fingerprint: "dc4cea8828710979",
+    fingerprint: "21b44f48677fff33",
     notModelled: [
       "Actuated / demand-responsive extensions",
       "Coordination with upstream junctions",
@@ -161,7 +161,7 @@ export const BUILTIN_STRATEGY_DESCRIPTORS: Record<
     status: "stable",
     description:
       "Traffic-actuated signal control extending green phases based on vehicle detection and gap-out thresholds within bounded cycle limits.",
-    fingerprint: "588ee921ecda8e01",
+    fingerprint: "9463e0b9e7a3619d",
     notModelled: [
       "Queue spillback detection across junctions",
       "Dynamic phase reordering",
@@ -340,6 +340,9 @@ export function resolveActiveStrategyId(
   return "fixed_time_signal";
 }
 
+/** Two phases at the default 30 s green, 4 s yellow and 2 s all-red (a derived value). */
+const DEFAULT_FIXED_TIME_CYCLE = 2 * 30 + 2 * 4 + 2 * 2;
+
 /**
  * Resolves parameter provenance comparing current document values with descriptor defaults.
  */
@@ -360,17 +363,17 @@ export function resolveParameterProvenance(
         name: "green_time",
         label: "Green duration",
         unit: "s",
-        defaultValue: 25.0,
+        defaultValue: 30.0,
         currentValue: doc.signal.greenTime,
-        isDefault: doc.signal.greenTime === 25.0,
+        isDefault: doc.signal.greenTime === 30.0,
       },
       {
         name: "yellow_time",
         label: "Yellow interval",
         unit: "s",
-        defaultValue: 3.0,
+        defaultValue: 4.0,
         currentValue: doc.signal.yellowTime,
-        isDefault: doc.signal.yellowTime === 3.0,
+        isDefault: doc.signal.yellowTime === 4.0,
       },
       {
         name: "all_red_time",
@@ -384,9 +387,9 @@ export function resolveParameterProvenance(
         name: "cycle_time",
         label: "Cycle length",
         unit: "s",
-        defaultValue: 60.0,
+        defaultValue: DEFAULT_FIXED_TIME_CYCLE,
         currentValue: cycle,
-        isDefault: cycle === 60.0,
+        isDefault: cycle === DEFAULT_FIXED_TIME_CYCLE,
       },
     );
   } else if (strategyId === "adaptive_signal") {

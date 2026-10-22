@@ -177,6 +177,15 @@ def resolve_strategy_id(
     return resolve_strategy(source, registry=registry).id
 
 
+# Controller keys the engine accepts for a parameter, highest precedence first
+# (FixedTimeSignalController: the *Duration names win over the *Time aliases, and
+# straightRightDuration over greenTime over greenDuration).
+PARAMETER_CONTROLLER_KEYS: Dict[str, Tuple[str, ...]] = {
+    "green_time": ("straightRightDuration", "greenTime", "greenDuration"),
+    "yellow_time": ("yellowDuration", "yellowTime"),
+    "all_red_time": ("allRedDuration", "allRedTime"),
+}
+
 # Descriptor parameters whose config key is not the camelCase of their name:
 # parameter -> (controller sub-object, key).
 PARAMETER_CONFIG_ALIASES: Dict[str, Tuple[str, str]] = {
@@ -196,6 +205,10 @@ def _lookup_parameter(
     if alias is not None:
         sub = ctrl.get(alias[0])
         return sub.get(alias[1]) if isinstance(sub, dict) else None
+
+    for key in PARAMETER_CONTROLLER_KEYS.get(param_name, ()):
+        if ctrl.get(key) is not None:
+            return ctrl[key]
 
     camel_name = "".join(
         word.capitalize() if i > 0 else word
@@ -255,8 +268,9 @@ def compute_strategy_instance_fingerprint(
     Combines descriptor ID, version, descriptor fingerprint, and canonical resolved parameters.
     """
     payload = {
-        "descriptor_fingerprint": descriptor.fingerprint
-        or descriptor.compute_fingerprint(),
+        # Recomputed, never read from the stored field: a modified copy of a
+        # descriptor must not keep the identity of the one it was copied from.
+        "descriptor_fingerprint": descriptor.compute_fingerprint(),
         "id": descriptor.id,
         "parameters": resolved_parameters or {},
         "version": descriptor.version,

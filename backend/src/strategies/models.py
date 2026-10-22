@@ -21,12 +21,10 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from src.strategies.limits import MAX_CIRCULATING_LANES
+
 STRATEGY_FORMAT: Literal["urbanflow-strategy"] = "urbanflow-strategy"
 STRATEGY_VERSION: Literal[1] = 1
-
-# Most ring lanes the engine models (roads/lane_config.py MAX_CIRCULATING_LANES;
-# strategies/ is a leaf package, so the value is mirrored and a test pins it).
-MAX_CIRCULATING_LANES: int = 2
 
 
 def canonical_json(value: Any) -> str:
