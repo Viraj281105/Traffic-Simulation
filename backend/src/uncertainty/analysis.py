@@ -6,9 +6,9 @@ the paired difference (bootstrap intervals), regret, preference share, exclusion
 eligibility checklist.
 
 What this module deliberately does not do (scheduled later, and reported as such rather than faked):
-one-factor preference-flip detection and Spearman sensitivity (W3), split-half stability and the variance
-split (W4). Because stability is not yet computed, **no result can be classified "eligible"** in this
-version; the checklist says so explicitly.
+one-factor preference-flip detection and Spearman sensitivity (W3). Split-half stability and the
+variance split are evaluated here (W4). When all five required criteria pass, a result is classified
+"eligible".
 
 Rules honoured here:
 
@@ -35,7 +35,13 @@ from src.study.tolerances import (
     delays_are_tied,
 )
 
-from .stats import bootstrap_intervals, mean_sorted, percentile_sorted, wilson_interval
+from .stats import (
+    bootstrap_intervals,
+    mean_sorted,
+    percentile_sorted,
+    variance_decomposition,
+    wilson_interval,
+)
 
 ANALYSIS_FORMAT = "urbanflow-robustness-analysis"
 ANALYSIS_VERSION = 1
@@ -51,6 +57,9 @@ STRATA_PER_FACTOR = (
 BOOTSTRAP_RESAMPLES = 2000
 RESULT_DECIMALS = 6
 _EPS = 1e-9
+
+SPLIT_HALF_EVALUATIONS = 20
+SPLIT_HALF_PASS_THRESHOLD = 18
 
 REAL_WORLD_VALIDITY = "None — assumptions only"
 
@@ -234,12 +243,117 @@ def _difference_block(
     }
 
 
+def _sign(val: float, eps: float = _EPS) -> int:
+    if val > eps:
+        return 1
+    if val < -eps:
+        return -1
+    return 0
+
+
+def _split_half_stability(
+    valid_count: int,
+    comparisons: Mapping[str, Mapping[str, Any]],
+    y: Mapping[str, Sequence[float]],
+    alternatives: Sequence[str],
+    baseline: str,
+    tie_tolerance: Optional[float],
+    seed: int,
+) -> Dict[str, Any]:
+    if valid_count < EXPLORATORY_BELOW:
+        return {
+            "passed": None,
+            "splitsEvaluated": 0,
+            "splitsPassed": 0,
+            "threshold": SPLIT_HALF_PASS_THRESHOLD,
+            "evaluations": SPLIT_HALF_EVALUATIONS,
+            "detail": (
+                "no valid conditions"
+                if valid_count == 0
+                else f"fewer than {EXPLORATORY_BELOW} valid conditions ({valid_count}); "
+                f"split-half stability requires at least {EXPLORATORY_BELOW}"
+            ),
+        }
+
+    non_baselines = [a for a in alternatives if a != baseline]
+    if not non_baselines:
+        return {
+            "passed": None,
+            "splitsEvaluated": 0,
+            "splitsPassed": 0,
+            "threshold": SPLIT_HALF_PASS_THRESHOLD,
+            "evaluations": SPLIT_HALF_EVALUATIONS,
+            "detail": "no alternative comparisons available",
+        }
+
+    full_w_win = {a: _half_width(comparisons[a]["win"]) for a in non_baselines}
+    full_w_loss = {a: _half_width(comparisons[a]["loss"]) for a in non_baselines}
+
+    rng = _seeded_rng(seed, "split_half")
+    half = valid_count // 2
+    splits_passed = 0
+
+    for _ in range(SPLIT_HALF_EVALUATIONS):
+        indices = list(range(valid_count))
+        rng.shuffle(indices)
+        h1 = indices[:half]
+        h2 = indices[half:]
+        n1 = len(h1)
+        n2 = len(h2)
+
+        split_ok = True
+        for a in non_baselines:
+            classes_1 = [classify(y[a][i], y[baseline][i], tie_tolerance) for i in h1]
+            p_win_1 = classes_1.count("win") / n1
+            p_loss_1 = classes_1.count("loss") / n1
+            d_1 = [y[a][i] - y[baseline][i] for i in h1]
+            med_d_1 = percentile_sorted(sorted(d_1), 0.5)
+
+            classes_2 = [classify(y[a][i], y[baseline][i], tie_tolerance) for i in h2]
+            p_win_2 = classes_2.count("win") / n2
+            p_loss_2 = classes_2.count("loss") / n2
+            d_2 = [y[a][i] - y[baseline][i] for i in h2]
+            med_d_2 = percentile_sorted(sorted(d_2), 0.5)
+
+            w_win_diff = abs(p_win_1 - p_win_2)
+            w_loss_diff = abs(p_loss_1 - p_loss_2)
+            sign_1 = _sign(med_d_1)
+            sign_2 = _sign(med_d_2)
+
+            if not (
+                w_win_diff < full_w_win[a] + _EPS
+                and w_loss_diff < full_w_loss[a] + _EPS
+                and sign_1 == sign_2
+            ):
+                split_ok = False
+                break
+
+        if split_ok:
+            splits_passed += 1
+
+    passed = splits_passed >= SPLIT_HALF_PASS_THRESHOLD
+    detail = (
+        f"{splits_passed}/{SPLIT_HALF_EVALUATIONS} random splits agreed on median D sign "
+        f"and kept half-estimates within Wilson half-widths; "
+        f"limit {SPLIT_HALF_PASS_THRESHOLD}/{SPLIT_HALF_EVALUATIONS} (90%)"
+    )
+    return {
+        "passed": passed,
+        "splitsEvaluated": SPLIT_HALF_EVALUATIONS,
+        "splitsPassed": splits_passed,
+        "threshold": SPLIT_HALF_PASS_THRESHOLD,
+        "evaluations": SPLIT_HALF_EVALUATIONS,
+        "detail": detail,
+    }
+
+
 def _eligibility(
     valid: int,
     replications: int,
     comparisons: Mapping[str, Mapping[str, Any]],
     exclusions: Mapping[str, Any],
     predeclared: bool,
+    stability: Mapping[str, Any],
 ) -> Dict[str, Any]:
     widths = [
         _half_width(block[key])
@@ -262,9 +376,8 @@ def _eligibility(
         },
         {
             "id": "stability",
-            "passed": None,
-            "detail": "split-half stability is not computed in this version (scheduled for W4); "
-            "until it is, no result can be called eligible",
+            "passed": stability["passed"],
+            "detail": stability["detail"],
         },
         {
             "id": "replications",
@@ -346,12 +459,18 @@ def analyze(
 
     per_alternative: Dict[str, Dict[str, Any]] = {}
     comparisons: Dict[str, Dict[str, Any]] = {}
+    can_decompose_variance = n_valid >= 2 and replications >= MIN_REPLICATIONS
     if n_valid:
         best = [min(y[a][i] for a in alternatives) for i in range(n_valid)]
         for a in alternatives:
             regrets = sorted(y[a][i] - best[i] for i in range(n_valid))
             shares = sum(
                 1 for i in range(n_valid) if _tied(y[a][i], best[i], tie_tolerance)
+            )
+            var_split = (
+                variance_decomposition([c.outcomes[a] for c in valid])
+                if can_decompose_variance
+                else None
             )
             entry: Dict[str, Any] = {
                 "isBaseline": a == baseline,
@@ -362,28 +481,61 @@ def analyze(
                     "sampleMax": _rounded(regrets[-1]),
                 },
                 "preferenceShare": _rounded(shares / n_valid),
+                "varianceSplit": var_split,
             }
             if a != baseline:
                 classes = [
                     classify(y[a][i], y[baseline][i], tie_tolerance)
                     for i in range(n_valid)
                 ]
+                diff_block = _difference_block(
+                    [y[a][i] - y[baseline][i] for i in range(n_valid)],
+                    _seeded_rng(seed, a),
+                    bootstrap_resamples,
+                )
+                if can_decompose_variance:
+                    diff_runs = [
+                        [
+                            c.outcomes[a][k] - c.outcomes[baseline][k]
+                            for k in range(replications)
+                        ]
+                        for c in valid
+                    ]
+                    diff_block["varianceSplit"] = variance_decomposition(diff_runs)
+                else:
+                    diff_block["varianceSplit"] = None
+
                 block = {
                     "win": _proportion(classes.count("win"), n_valid),
                     "tie": _proportion(classes.count("tie"), n_valid),
                     "loss": _proportion(classes.count("loss"), n_valid),
-                    "difference": _difference_block(
-                        [y[a][i] - y[baseline][i] for i in range(n_valid)],
-                        _seeded_rng(seed, a),
-                        bootstrap_resamples,
-                    ),
+                    "difference": diff_block,
                 }
                 comparisons[a] = block
                 entry["comparison"] = block
             per_alternative[a] = entry
     else:
         for a in alternatives:
-            per_alternative[a] = {"isBaseline": a == baseline, "comparison": None}
+            per_alternative[a] = {
+                "isBaseline": a == baseline,
+                "comparison": None,
+                "varianceSplit": None,
+            }
+
+    stability = _split_half_stability(
+        n_valid,
+        comparisons,
+        y,
+        alternatives,
+        baseline,
+        tie_tolerance,
+        seed,
+    )
+    variance_split = (
+        {a: per_alternative[a]["varianceSplit"] for a in alternatives}
+        if can_decompose_variance
+        else None
+    )
 
     return {
         "format": ANALYSIS_FORMAT,
@@ -402,8 +554,15 @@ def analyze(
         },
         "exclusions": exclusions,
         "alternatives": per_alternative,
+        "stability": stability,
+        "varianceSplit": variance_split,
         "eligibility": _eligibility(
-            n_valid, replications, comparisons, exclusions, predeclared
+            n_valid,
+            replications,
+            comparisons,
+            exclusions,
+            predeclared,
+            stability,
         ),
         "realWorldValidity": REAL_WORLD_VALIDITY,
         "limitations": list(LIMITATIONS),
@@ -423,6 +582,8 @@ __all__ = [
     "EXCLUSION_REASONS",
     "LIMITATIONS",
     "REAL_WORLD_VALIDITY",
+    "SPLIT_HALF_EVALUATIONS",
+    "SPLIT_HALF_PASS_THRESHOLD",
     "analyze",
     "classify",
     "result_fingerprint",

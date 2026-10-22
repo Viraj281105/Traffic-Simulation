@@ -27,6 +27,7 @@ from .spec import (
     fingerprint,
     run_counts,
 )
+from .stats import variance_decomposition
 
 __all__ = [
     "Condition",
@@ -52,4 +53,5 @@ __all__ = [
     "run_experiment",
     "run_counts",
     "sample_conditions",
+    "variance_decomposition",
 ]

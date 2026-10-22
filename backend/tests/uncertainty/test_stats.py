@@ -9,6 +9,7 @@ from src.uncertainty.stats import (
     mean_sorted,
     percentile,
     percentile_sorted,
+    variance_decomposition,
     wilson_interval,
 )
 
@@ -127,3 +128,45 @@ def test_bootstrap_rejects_bad_input():
         bootstrap_intervals([1.0], {"mean": mean_sorted}, random.Random(1), resamples=0)
     with pytest.raises(ValueError):
         bootstrap_intervals([1.0], {"mean": mean_sorted}, random.Random(1), level=1.0)
+
+
+def test_variance_decomposition_known_values():
+    # 2 conditions, 2 replications:
+    # c0: [10, 12] (mean 11), c1: [20, 22] (mean 21), grand mean 16
+    # SS between = 2 * ((11-16)^2 + (21-16)^2) = 100, df = 1, MS = 100
+    # SS within = (10-11)^2 + (12-11)^2 + (20-21)^2 + (22-21)^2 = 4, df = 2, MS = 2
+    # SS total = 104, betweenShare = 100/104 ≈ 0.961538, withinShare = 4/104 ≈ 0.038462
+    out = variance_decomposition([[10.0, 12.0], [20.0, 22.0]])
+    assert out["between"] == pytest.approx(100.0)
+    assert out["within"] == pytest.approx(4.0)
+    assert out["total"] == pytest.approx(104.0)
+    assert out["dfBetween"] == 1
+    assert out["dfWithin"] == 2
+    assert out["msBetween"] == pytest.approx(100.0)
+    assert out["msWithin"] == pytest.approx(2.0)
+    assert out["betweenShare"] == pytest.approx(100.0 / 104.0, abs=1e-5)
+    assert out["withinShare"] == pytest.approx(4.0 / 104.0, abs=1e-5)
+    assert out["betweenShare"] + out["withinShare"] == pytest.approx(1.0)
+
+
+def test_variance_decomposition_degenerate_zero_variance():
+    # Constant data across conditions and replications: SS total = 0
+    out = variance_decomposition([[5.0, 5.0], [5.0, 5.0], [5.0, 5.0]])
+    assert out["between"] == 0.0
+    assert out["within"] == 0.0
+    assert out["total"] == 0.0
+    assert out["dfBetween"] == 2
+    assert out["dfWithin"] == 3
+    assert out["msBetween"] == 0.0
+    assert out["msWithin"] == 0.0
+    assert out["betweenShare"] == 0.0
+    assert out["withinShare"] == 0.0
+
+
+def test_variance_decomposition_rejects_insufficient_or_ragged_data():
+    with pytest.raises(ValueError, match="at least 2 conditions"):
+        variance_decomposition([[1.0, 2.0]])
+    with pytest.raises(ValueError, match="at least 2 replications"):
+        variance_decomposition([[1.0], [2.0]])
+    with pytest.raises(ValueError, match="same number of replications"):
+        variance_decomposition([[1.0, 2.0], [1.0, 2.0, 3.0]])

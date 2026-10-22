@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 import random
 from statistics import NormalDist
-from typing import Callable, Dict, List, Mapping, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Sequence, Tuple
 
 Z95 = NormalDist().inv_cdf(0.975)  # 1.959963984540054
 
@@ -96,3 +96,58 @@ def bootstrap_intervals(
             percentile_sorted(series, 1.0 - tail),
         )
     return intervals
+
+
+def variance_decomposition(
+    condition_runs: Sequence[Sequence[float]],
+) -> Dict[str, Any]:
+    """Between-condition versus within-condition variance decomposition (one-way ANOVA).
+
+    ``condition_runs`` contains the outcomes for each valid condition across its replications
+    (i.e., a sequence of rows, one per condition, each holding r replication outcomes).
+    Requires at least 2 conditions and at least 2 replications per condition.
+    """
+    n = len(condition_runs)
+    if n < 2:
+        raise ValueError("variance decomposition requires at least 2 conditions")
+    r = len(condition_runs[0])
+    if r < 2:
+        raise ValueError("variance decomposition requires at least 2 replications")
+    for row in condition_runs:
+        if len(row) != r:
+            raise ValueError("all conditions must have the same number of replications")
+
+    condition_means = [math.fsum(row) / r for row in condition_runs]
+    grand_mean = math.fsum(condition_means) / n
+
+    ss_between = r * math.fsum((m - grand_mean) ** 2 for m in condition_means)
+    ss_within = math.fsum(
+        math.fsum((val - m) ** 2 for val in row)
+        for row, m in zip(condition_runs, condition_means)
+    )
+    ss_total = ss_between + ss_within
+
+    df_between = n - 1
+    df_within = n * (r - 1)
+
+    ms_between = ss_between / df_between if df_between > 0 else 0.0
+    ms_within = ss_within / df_within if df_within > 0 else 0.0
+
+    if ss_total <= 1e-12:
+        between_share = 0.0
+        within_share = 0.0
+    else:
+        between_share = ss_between / ss_total
+        within_share = ss_within / ss_total
+
+    return {
+        "between": round(ss_between, 6) + 0.0,
+        "within": round(ss_within, 6) + 0.0,
+        "total": round(ss_total, 6) + 0.0,
+        "dfBetween": df_between,
+        "dfWithin": df_within,
+        "msBetween": round(ms_between, 6) + 0.0,
+        "msWithin": round(ms_within, 6) + 0.0,
+        "betweenShare": round(between_share, 6) + 0.0,
+        "withinShare": round(within_share, 6) + 0.0,
+    }
