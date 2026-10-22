@@ -371,6 +371,12 @@
   font-size: 12px;
   color: var(--color-text-3);
 }
+/* A parameter readout under a choice (driver-aggression levers). */
+.sb-figure {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-accent);
+}
 .sb-check {
   display: flex;
   gap: 8px;

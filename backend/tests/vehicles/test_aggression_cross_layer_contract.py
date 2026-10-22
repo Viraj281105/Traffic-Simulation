@@ -115,6 +115,27 @@ def test_frontend_types_contract_parity() -> None:
         assert f'"{p}"' in content_scenario_types
 
 
+def test_frontend_lever_figures_match_the_backend_multipliers() -> None:
+    """DRIVER_AGGRESSION_INFO's ``levers`` strings show the real T, s0 and a multipliers."""
+    import re
+
+    from src.vehicles.driver_aggression import AGGRESSION_MULTIPLIERS
+
+    text = (REPO_ROOT / "frontend" / "src" / "scenario" / "scenarioTypes.ts").read_text(
+        encoding="utf-8"
+    )
+    for profile, m in AGGRESSION_MULTIPLIERS.items():
+        block = re.search(rf"\n  {profile}: \{{(.*?)\n  \}}", text, re.S)
+        assert block, f"no DRIVER_AGGRESSION_INFO entry for {profile}"
+        levers = re.search(r'levers: "([^"]*)"', block.group(1))
+        assert levers, profile
+        shown = [float(x) for x in re.findall(r"×([0-9.]+)", levers.group(1))]
+        assert shown == [m["headway_mult"], m["gap_mult"], m["accel_mult"]], (
+            profile,
+            levers.group(1),
+        )
+
+
 def test_presets_default_to_standard_and_match_fingerprint_baselines() -> None:
     """Presets in presets.json parse validly, resolve to standard, and keep frozen fingerprints."""
     presets_path = REPO_ROOT / "frontend" / "src" / "scenario" / "presets.json"

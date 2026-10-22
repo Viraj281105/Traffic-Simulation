@@ -487,12 +487,12 @@ class FixedTimeSignalController(BaseController):
                 elif is_yellow_phase:
                     # Allow dilemma zone clearance during yellow phase
                     lane.virtual_obstacle = VirtualObstacle(
-                        position=lane.length, is_yellow=True
+                        position=lane.length, is_yellow=True, stop_line=True
                     )
                 else:
                     # Block the lane with a virtual obstacle at the stop line
                     lane.virtual_obstacle = VirtualObstacle(
-                        position=lane.length, is_yellow=False
+                        position=lane.length, is_yellow=False, stop_line=True
                     )
 
     # ------------------------------------------------------------------

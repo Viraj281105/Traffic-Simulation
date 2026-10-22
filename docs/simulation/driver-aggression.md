@@ -1,159 +1,133 @@
 # Driver Aggression Profiles
 
-> **Scientific Disclaimer:**  
-> **"driver aggression — a simulation assumption, not a measurement of real-world driver behaviour"**  
-> *V3.0 simulation results under `high` aggression are not comparable to V2.0 baseline reports unless the profile is explicitly stated.*
+> **driver aggression — a simulation assumption, not a measurement of real-world driver behaviour**
+>
+> V3.0 results under `moderate` or `high` are not comparable to V2.0 reports unless the profile is stated.
 
-**Status:** Accepted in V3.0 W4 ([ADR-016](../decisions/adr-016-driver-aggression-profile.md), [Product Strategy §14](../roadmap/V3_PRODUCT_STRATEGY.md#14-driver-aggression-as-a-profile), issue [#165](https://github.com/Viraj281105/Traffic-Simulation/issues/165)).
-
----
-
-## 1. Overview and Core Concept
-
-There was previously no global driver aggression setting in UrbanFlow. Related features addressed different phenomena: `traffic.unstructuredTraffic` introduces random per-tick kinematic noise via `StochasticIDM`, and `traffic.aggressiveTwoWheelers` affects only motorcycle lane-filtering when unstructured traffic is active.
-
-In V3.0, driver aggression is modelled as a **named profile**:
-$$\text{traffic.driverAggression} \in \{\text{"standard"}, \text{"moderate"}, \text{"high"}\}$$
-
-A driver aggression profile is a deterministic set of **calibrated multipliers and offsets applied on top of each vehicle class's base properties**. It is not a flag flip, not random noise, and not a replacement of unrelated vehicle dynamics.
-
-```mermaid
-flowchart TD
-    CFG["Scenario Configuration (traffic.driverAggression)"] --> RES["resolve_aggression_multipliers()"]
-    BASE["Base VehicleTypeProfile (car, suv, bus, truck, motorcycle)"] --> RES
-    RES --> MULT["Apply ADR-016 Multipliers & Offsets"]
-    MULT --> APPL["Resolved VehicleTypeProfile"]
-    APPL --> IDM["IDM Car-Following (T, s0, a)"]
-    APPL --> SPD["Speed Profile (ceiling <= 1.10x limit)"]
-    APPL --> MOBIL["MOBIL Lane Changing (politeness, threshold)"]
-    APPL --> SAFE["Strict Safety Invariants (b_safe = 4.0 m/s^2, b = 3.0 m/s^2, Exit Margin = 1.0 s)"]
-```
-
-### Key Conceptual Distinctions
-
-1. **Systematic Profile vs Random Noise:** Aggression is a systematic behavioural assumption (`driverAggression`), whereas unstructured traffic is stochastic noise (`unstructuredTraffic`). Both can be enabled independently.
-2. **Decision D-AG2:** `high` aggression does **not** implicitly enable `aggressiveTwoWheelers`.
-3. **Reproducibility Invariant:** Stored configurations and frozen API endpoints (`/api/v1`, `/api/v2`) omitting `driverAggression` resolve to `standard`, producing bit-for-bit identical results and unchanged fingerprints.
+**Status:** implemented in V3.0 W4 ([ADR-016](../decisions/adr-016-driver-aggression-profile.md), [Product Strategy §14](../roadmap/V3_PRODUCT_STRATEGY.md#14-high-driver-aggression-as-the-default-for-new-scenarios), issue [#165](https://github.com/Viraj281105/Traffic-Simulation/issues/165)). The `high` **default at authoring boundaries is not merged**: it waits for gate G-AG (§4, §7).
 
 ---
 
-## 2. Definitive Profile Multipliers and Levers
+## 1. What a profile is
 
-The multipliers below were proposed in Product Strategy §14, validated empirically in Spike AG-1 ([`test_aggression_spike.py`](file:///c:/Viraj/Code/Traffic-Simulation/backend/tests/vehicles/test_aggression_spike.py)), and ratified in [ADR-016](../decisions/adr-016-driver-aggression-profile.md):
+`traffic.driverAggression ∈ {standard, moderate, high}` is a named, deterministic set of multipliers and offsets applied on top of each vehicle class's base parameters. `standard` is the pre-W4 behaviour bit for bit.
 
-| Lever | Baseline (`standard`) | `moderate` | `high` | Behavioral Effect |
+It is separate from the two older flags:
+
+* `traffic.unstructuredTraffic` — random per-tick noise (`StochasticIDM`). Aggression is systematic; both can be on.
+* `traffic.aggressiveTwoWheelers` — two-wheeler lane-change gaps, only with `unstructuredTraffic`. **`high` does not turn it on** (decision D-AG2). An aggressive two-wheeler keeps its own lane-change rules (politeness 0, threshold 0.05); the profile's lane-change levers do not apply to it.
+
+Resolution has one owner, [`backend/src/vehicles/driver_aggression.py`](../../backend/src/vehicles/driver_aggression.py): every engine component (shared IDM, spawner, class population, lane changing) reads the profile through `aggression_multipliers_for(config)`. Absent or `null` is `standard`; any other value that is not a profile name raises `ValueError` — the API layers reject it earlier with a 400 (`semantic_config_errors`, the JSON Schema enum, the scenario document's `Literal`).
+
+## 2. The levers
+
+| Lever | `standard` | `moderate` | `high` | Applied where |
 | :--- | :---: | :---: | :---: | :--- |
-| **Desired Time Headway $T$** | $\times 1.00$ | $\times 0.85$ | $\times 0.70$ | Tighter following distance at cruising speed; drives higher saturation flow. |
-| **Minimum Standstill Gap $s_0$** | $\times 1.00$ | $\times 0.875$ | $\times 0.75$ | Shorter distance between stopped vehicles in queues; compacts queue footprint. |
-| **Max Launch Acceleration $a$** | $\times 1.00$ | $\times 1.075$ | $\times 1.15$ | Faster launch from stop lines; reduces startup lost time per phase. |
-| **Desired Speed Factor** | $+0.000$ | $+0.025$ | $+0.050$ | Higher speed choice relative to speed limit; bounded by strict ceiling $\le 1.10 \times \text{limit}$. |
-| **MOBIL Politeness $p$** | $\times 1.00$ | $\times 0.75$ | $\times 0.50$ | Lower altruism; drivers accept lane changes advantageous to ego even if imposing minor follower braking. |
-| **MOBIL Threshold $\Delta a_{th}$** | $\times 1.00$ | $\times 0.75$ | $\times 0.50$ | Lower acceleration advantage required to trigger a lane change. |
+| IDM desired time headway *T* | ×1.00 | ×0.85 | ×0.70 | every class; the legacy cars-only shared IDM |
+| IDM standstill gap *s₀* | ×1.00 | ×0.875 | ×0.75 | to the vehicle ahead only, for every class, the shared IDM and the spawner insertion gap. **Not** at a stop or yield line, where every profile stops where `standard` does ([ADR-019](../decisions/adr-019-stop-line-position-under-driver-aggression.md)) |
+| IDM max acceleration *a* | ×1.00 | ×1.075 | ×1.15 | every class; shared IDM |
+| Desired-speed factor | +0.000 | +0.025 | +0.050 | every class, capped at **1.10 × the limit for every profile**; the legacy cars-only speed range is scaled exactly like the car class |
+| MOBIL politeness *p* | ×1.00 | ×0.75 | ×0.50 | every class; legacy cars (0.3) |
+| MOBIL acceleration threshold | ×1.00 | ×0.75 | ×0.50 | the scenario default (0.2 m/s²) |
 
-### Strict Invariants (Preserved Across All Profiles)
+An explicit `roads.laneChange.accelerationThreshold` or `politeness` in a config is a user setting and wins over the profile.
 
-* **Safe Deceleration $b_{safe} = 4.0\text{ m/s}^2$ (Strictly Unchanged):** The MOBIL safety criterion is not weakened. A lane change that forces an approaching follower to brake harder than $4.0\text{ m/s}^2$ is rejected $100\%$ of the time.
-* **Comfort Deceleration $b = 3.0\text{ m/s}^2$ (Strictly Unchanged):** IDM braking interaction dynamics are untouched to prevent conflating aggression with vehicle braking mechanics.
-* **IDM Exponent $\delta = 4.0$ (Strictly Unchanged):** Free-road acceleration curvature is preserved.
-* **Roundabout Internal Safety Margins (Strictly Unchanged):** `_EXIT_SAFETY_HEADWAY` and `_EXIT_COMMIT_MARGIN` remain fixed at $1.0\text{ s}$ in [`src/controllers/roundabout.py`](file:///c:/Viraj/Code/Traffic-Simulation/backend/src/controllers/roundabout.py). Spike AG-1 confirmed that approach headway and launch acceleration provide $+11\%$ to $+25\%$ entry flow without altering internal ring conflict buffers.
+**Not changed by any profile:** MOBIL safe deceleration *b_safe* = 4.0 m/s², IDM comfort deceleration *b* = 3.0 m/s², IDM δ = 4, roundabout gap acceptance (critical gap, follow-up time) and the roundabout's internal margins `_EXIT_SAFETY_HEADWAY` / `_EXIT_COMMIT_MARGIN` = 1.0 s. §6 records why the last two stay fixed.
 
----
+## 3. Resolved values by class
 
-## 3. Parameter Values by Vehicle Class
+Generated from `DEFAULT_PROFILES` through `apply_aggression_to_profile` (2026-10-22). The car's IDM values come from `vehicleGeneration` (defaults shown); explicit `vehicleTypes` overrides are applied first and the profile scales them.
 
-Aggression multipliers scale base parameters across all five supported vehicle classes while strictly maintaining physical ordering (heavy vehicles accelerate slower and maintain longer headways than cars):
-
-| Vehicle Class | Parameter | Standard | Moderate | High |
+| Class | Parameter | `standard` | `moderate` | `high` |
 | :--- | :--- | :---: | :---: | :---: |
-| **Car** | Time headway $T$ | $1.50\text{ s}$ | $1.275\text{ s}$ | $1.050\text{ s}$ |
-| | Standstill gap $s_0$ | $2.00\text{ m}$ | $1.750\text{ m}$ | $1.500\text{ m}$ |
-| | Max acceleration $a$ | $2.00\text{ m/s}^2$ | $2.150\text{ m/s}^2$ | $2.300\text{ m/s}^2$ |
-| | Desired speed factor | $[0.90, 1.05]$ | $[0.925, 1.075]$ | $[0.950, 1.100]$ |
-| | Politeness $p$ | $0.30$ | $0.225$ | $0.150$ |
-| **SUV** | Time headway $T$ | $1.60\text{ s}$ | $1.360\text{ s}$ | $1.120\text{ s}$ |
-| | Standstill gap $s_0$ | $2.20\text{ m}$ | $1.925\text{ m}$ | $1.650\text{ m}$ |
-| | Max acceleration $a$ | $1.80\text{ m/s}^2$ | $1.935\text{ m/s}^2$ | $2.070\text{ m/s}^2$ |
-| | Desired speed factor | $[0.85, 1.00]$ | $[0.875, 1.025]$ | $[0.900, 1.050]$ |
-| | Politeness $p$ | $0.40$ | $0.300$ | $0.200$ |
-| **Bus** | Time headway $T$ | $2.20\text{ s}$ | $1.870\text{ s}$ | $1.540\text{ s}$ |
-| | Standstill gap $s_0$ | $3.00\text{ m}$ | $2.625\text{ m}$ | $2.250\text{ m}$ |
-| | Max acceleration $a$ | $1.20\text{ m/s}^2$ | $1.290\text{ m/s}^2$ | $1.380\text{ m/s}^2$ |
-| | Desired speed factor | $[0.75, 0.90]$ | $[0.775, 0.925]$ | $[0.800, 0.950]$ |
-| | Politeness $p$ | $0.60$ | $0.450$ | $0.300$ |
-| **Truck** | Time headway $T$ | $2.40\text{ s}$ | $2.040\text{ s}$ | $1.680\text{ s}$ |
-| | Standstill gap $s_0$ | $3.00\text{ m}$ | $2.625\text{ m}$ | $2.250\text{ m}$ |
-| | Max acceleration $a$ | $1.00\text{ m/s}^2$ | $1.075\text{ m/s}^2$ | $1.150\text{ m/s}^2$ |
-| | Desired speed factor | $[0.70, 0.85]$ | $[0.725, 0.875]$ | $[0.750, 0.900]$ |
-| | Politeness $p$ | $0.70$ | $0.525$ | $0.350$ |
-| **Motorcycle** | Time headway $T$ | $1.10\text{ s}$ | $0.935\text{ s}$ | $0.770\text{ s}$ |
-| | Standstill gap $s_0$ | $1.00\text{ m}$ | $0.875\text{ m}$ | $0.750\text{ m}$ |
-| | Max acceleration $a$ | $3.00\text{ m/s}^2$ | $3.225\text{ m/s}^2$ | $3.450\text{ m/s}^2$ |
-| | Desired speed factor | $[0.95, 1.10]$ | $[0.975, 1.100]$ | $[1.000, 1.100]$ |
-| | Politeness $p$ | $0.10$ | $0.075$ | $0.050$ |
+| **Car** | *T* (s) | 1.5 | 1.275 | 1.05 |
+| | *s₀* (m) | 2 | 1.75 | 1.5 |
+| | *a* (m/s²) | 2 | 2.15 | 2.3 |
+| | Desired-speed factor | [0.85, 1.05] | [0.875, 1.075] | [0.9, 1.1] |
+| | Politeness | 0.3 | 0.225 | 0.15 |
+| **SUV** | *T* (s) | 1.6 | 1.36 | 1.12 |
+| | *s₀* (m) | 2 | 1.75 | 1.5 |
+| | *a* (m/s²) | 1.8 | 1.935 | 2.07 |
+| | Desired-speed factor | [0.85, 1.05] | [0.875, 1.075] | [0.9, 1.1] |
+| | Politeness | 0.3 | 0.225 | 0.15 |
+| **Bus** | *T* (s) | 1.8 | 1.53 | 1.26 |
+| | *s₀* (m) | 2.5 | 2.188 | 1.875 |
+| | *a* (m/s²) | 1 | 1.075 | 1.15 |
+| | Desired-speed factor | [0.75, 0.9] | [0.775, 0.925] | [0.8, 0.95] |
+| | Politeness | 0.5 | 0.375 | 0.25 |
+| **Truck** | *T* (s) | 2 | 1.7 | 1.4 |
+| | *s₀* (m) | 3 | 2.625 | 2.25 |
+| | *a* (m/s²) | 0.8 | 0.86 | 0.92 |
+| | Desired-speed factor | [0.7, 0.9] | [0.725, 0.925] | [0.75, 0.95] |
+| | Politeness | 0.5 | 0.375 | 0.25 |
+| **Motorcycle / bike** | *T* (s) | 1.1 | 0.935 | 0.77 |
+| | *s₀* (m) | 1.5 | 1.312 | 1.125 |
+| | *a* (m/s²) | 3 | 3.225 | 3.45 |
+| | Desired-speed factor | [0.9, 1.1] | [0.925, 1.1] | [0.95, 1.1] |
+| | Politeness | 0.1 | 0.075 | 0.05 |
 
----
+The motorcycle is already at the 1.10 ceiling, so only its lower bound moves.
 
-## 4. Default Semantics and Authoring Boundaries
+## 4. Defaults and boundaries
 
-To preserve backward compatibility, reproducibility, and existing golden fingerprints while making high aggression the default for new investigations, the system enforces strict authoring boundary rules:
+| Boundary | Behaviour today |
+| :--- | :--- |
+| Stored configs, `/api/v1`, `/api/v2`, fixtures, presets | Absent ⇒ `standard`; fingerprints unchanged (§5) |
+| Scenario document (`traffic.driverAggression`), engine config (`traffic.driverAggression`), dashboard flat payload (`driverAggression`) | Any of the three profiles accepted and run; anything else rejected with a 400 |
+| UI: quick setup (`ScenarioSetup`) and scenario builder (`AdvancedSettings`) | Selector shown with the disclaimer; **defaults to `standard`** |
+| New-scenario helpers `create_scenario()` (backend) and `newScenarioDocument()` (frontend) | Write `high` explicitly, but **nothing calls them yet** |
+| Presets, Python client helper, `/api/v3` specifications, Copilot, `.ufpkg` | **No `high` default yet** |
+| Explicit user choice | Always preserved, including an explicit `standard` |
 
-| Boundary | Ingestion / Processing Rule | Stored Representation |
-| :--- | :--- | :--- |
-| **Stored Scenarios & V2.0 Fixtures** | Absent `traffic.driverAggression` implicitly resolves to `standard`. Existing fingerprints are bit-for-bit preserved. | Stored JSON omits `driverAggression` or contains `"standard"`. |
-| **Frozen APIs (`/api/v1`, `/api/v2`)** | Absent parameter resolves to `standard`. No stored scenario changes meaning. | Legacy schema contract intact. |
-| **New Authoring: Frontend UI & Presets** | Authoring UI (e.g. `ScenarioSetup.tsx`, `AdvancedSettings.tsx`) defaults to `high`. | Explicitly written as `"driverAggression": "high"`. |
-| **New Authoring: Builder & Client SDK** | `create_scenario()` and Python SDK helpers write `"driverAggression": "high"` by default. | Explicitly written as `"driverAggression": "high"`. |
-| **New Authoring: `/api/v3` Experiments** | New experiment specifications write `"driverAggression": "high"` if unspecified. | Explicitly stored in manifest assumptions. |
-| **User Selection (Any Boundary)** | Explicit selection (`standard`, `moderate`, or `high`) is **always preserved**; never overridden. | Selected value recorded verbatim. |
+Strategy §14.3 makes `high` the written default at every new-scenario authoring boundary. Sprint plan §3.5 merges that default **only after gate G-AG passes**; until then the boundaries above stay at `standard`. Wiring the default is a separate change once the gate passes.
 
----
+## 5. Reproducibility
 
-## 5. Reproducibility, Manifests, and Fingerprinting
+* **Fingerprint.** A document with no profile or with `standard` has the pre-W4 fingerprint (verified against commit `4b2d4e1` for every preset, with and without an explicit `standard`). `moderate` and `high` add `{driverAggression, driverAggressionHash}` to the fingerprinted body, so re-tuning a profile's multipliers changes the identity of every document that uses it.
+* **Parameter hash.** `compute_aggression_parameter_hash` covers the profile name, its multipliers, *b_safe* and the speed-factor ceiling.
+* **Manifest.** `/api/v3` experiment results carry `manifest.assumptions.{driverAggression, driverAggressionHash, disclaimer}`, resolved from the compiled config — so an `advanced.traffic.driverAggression` override is what is recorded, because it is what runs.
+* **Replay.** Same document, seed and profile ⇒ identical metrics (`test_aggression_deterministic_replay.py`, matrix determinism test).
 
-1. **Fingerprint Sensitivity:**
-   - When `driverAggression` is omitted or `"standard"`, `scenario_fingerprint()` produces the identical 16-hex hash as V2.0, preserving golden fixtures.
-   - When set to `"moderate"` or `"high"`, scenario fingerprints change deterministically to distinguish differing behaviour.
-2. **Experiment Manifest Tracking:**
-   Every `/api/v3` experiment manifest includes the resolved profile name and its parameter hash in the `assumptions` block:
-   ```json
-   {
-     "assumptions": {
-       "driverAggression": "high",
-       "driverAggressionHash": "7f8b92b6...",
-       "disclaimer": "driver aggression — a simulation assumption, not a measurement of real-world driver behaviour"
-     }
-   }
-   ```
-3. **Deterministic Replay:**
-   Identical scenario specification, random seed, and profile guarantee bit-identical trajectories and performance metrics.
+## 6. Evidence
 
----
+### Lever sensitivity (AG-1, measured 2026-10-22, after ADR-019)
 
-## 6. The 108-Cell Factorial Interaction Matrix
+Saturated single-lane junction, 1,000 veh/h per arm, 300 s (60 s warm-up), 6 seeds, cars only. Each cell gives the mean number of vehicles discharged, with the longest stall in brackets:
 
-W4-T5 validated profile behavior across a complete $3 \times 3 \times 4 \times 3 = 108$ factorial matrix:
-* **Profiles (3):** `standard`, `moderate`, `high`
-* **Vehicle Mixes (3):** `car-only`, `mixed` (urban), `heavy-vehicle` (70% bus/truck)
-* **Strategies (4):** `fixed_time_signal`, `adaptive_signal`, `conventional_roundabout`, `metered_entry_roundabout`
-* **Densities (3):** `low` (200 vph/arm), `medium` (500 vph/arm), `saturated` (1000 vph/arm)
+| Junction | `standard` | `moderate` | `high` |
+| :--- | :---: | :---: | :---: |
+| Roundabout | 96.5 (47 s) | 101.2 (46 s) | 105.0 (45 s), +9 % |
+| Fixed-time signal, no mix | 93.8 (33 s) | 90.8 (42 s) | 96.0 (35 s), +2 % |
+| Fixed-time signal, `{car: 1.0}` | 88.3 (37 s) | 100.5 (36 s) | 105.8 (42 s), +20 % |
 
-### Empirical Findings
+All runs had 0 collisions. Before ADR-019, the same signal cells gridlocked in 4 of 24 `moderate`/`high` runs (§7).
 
-1. **Zero Collisions and Zero Deadlocks:**
-   $100\%$ of the 108 configurations ran collision-free and deadlock-free with longest stalls $\le 40.8\text{ s}$ (limit $70.0\text{ s}$).
-2. **Throughput Scaling:**
-   Mean throughput rose monotonically from $8.00\text{ veh}$ (`standard`) to $8.19\text{ veh}$ (`moderate`, $+2.4\%$) and $8.67\text{ veh}$ (`high`, $+8.4\%$). Under saturated demand, throughput increased by $+10.7\%$.
-3. **Control Strategy Synergy:**
-   `adaptive_signal` benefited most strongly ($+13.8\%$ throughput under `high`), as shorter time headways allowed platoons to clear through green phases before gap-out timers expired.
-4. **Queue Footprint Compression:**
-   In saturated regimes, the physical queue count increased from $2.99$ to $3.41$ vehicles. Tighter standstill spacing ($s_0 \times 0.75$) compressed queues, accommodating more vehicles within approach lanes before entry lines.
+`_EXIT_SAFETY_HEADWAY` at 0.7 s instead of 1.0 s gave **identical** results, run for run, under both `standard` and `high` on the roundabout. In these cells it is not binding, so it is not the dominant lever. The strategy's condition for parametrising it (§14.2) is not met, and it stays fixed. This is the measured reason. The earlier argument that 0.7 s "creates collision hazards" was never tested and is withdrawn.
 
-Full tabular data is archived in [`w4_t5_factorial_matrix_report.md`](../brain/ce28a29a-ef51-4385-a46d-5eee0cca129f/w4_t5_factorial_matrix_report.md).
+The analytic steady-state values in `test_aggression_spike.py` (equilibrium spacing at 50 km/h, theoretical stop-line capacity) describe what the IDM parameters imply. They are not simulation measurements.
 
----
+### 108-cell matrix (W4-T5, 2026-10-22, after ADR-019)
 
-## 7. Limitations and Scientific Boundaries
+The matrix crosses profile (3), vehicle mix (car-only with no mix, mixed, heavy 70 % bus/truck), strategy (fixed-time, adaptive, roundabout, metered-entry roundabout) and density (200 / 500 / 1,000 veh/h per arm). It uses two-lane approaches, 240 s per cell with a 30 s warm-up, and seed 1. Harness: `backend/tests/vehicles/test_aggression_matrix.py`; the full-strength run is under `-m slow`, in CI's nightly slow job. On 4 workers it took 14.5 min wall time (56 CPU-minutes; the slowest cell took 132 s).
 
-* **Simulation Assumption, Not Reality:** Driver aggression profiles are theoretical modeling parameters designed to study junction sensitivity under varying driving styles. They are not empirical distributions fitted to naturalistic driving or telematics data.
-* **No Homogeneous Calibration:** Real drivers exhibit heterogeneous distributions of headways and reaction times; UrbanFlow applies uniform class-specific multipliers per profile.
-* **Non-Comparability:** Experiments executed under `high` aggression must not be directly compared against V2.0 baseline publications without explicitly declaring the profile difference.
+* **Safety and liveness:** 108/108 cells ran to completion with 0 collisions and no deadlock-detector trip. The longest stall was 40.8 s (bound 70 s). Every cell ran its strategy's controller and its mix's vehicle classes. The `standard` cells are identical to the run before ADR-019.
+* **Measured levers:** the mean following time headway was 3.07 / 2.84 / 2.59 s (`high` −15.7 %). The mean gap between queued vehicles was 2.60 / 2.33 / 2.15 m (`high` −17.5 %).
+* **Outcomes**, given as mean throughput / mean delay (s) / unserved-demand share:
+
+| | `standard` | `moderate` | `high` |
+| :--- | :---: | :---: | :---: |
+| Fixed-time signal | 68.9 / 43.9 / 0.138 | 71.1 / 43.7 / 0.122 | 78.3 / 40.7 / 0.119 |
+| Adaptive signal | 71.1 / 39.8 / 0.134 | 75.9 / 35.4 / 0.113 | 79.9 / 38.6 / 0.091 |
+| Roundabout | 69.0 / 39.9 / 0.133 | 71.7 / 39.6 / 0.110 | 74.7 / 38.3 / 0.098 |
+| Metered-entry roundabout | 58.4 / 52.1 / 0.143 | 60.3 / 51.6 / 0.133 | 62.6 / 50.5 / 0.131 |
+| Saturated cells | 83.8 / 65.8 / 0.303 | 88.2 / 64.2 / 0.270 | 95.1 / 64.3 / 0.253 |
+
+* **Adverse results (12 of 72 comparisons, all under `moderate`):** throughput was 1–5 vehicles lower, or unserved demand up to 1.5 points higher, than `standard`. These cells are spread across all four strategies and are mostly roundabout cells. `high` had none. With one seed per cell these differences are within run-to-run noise, so they are reported, not interpreted. `moderate` is not a guaranteed improvement on `standard`.
+
+## 7. Limitations and open findings
+
+* **Fixed: saturated single-lane signals gridlocked under aggression.** The shorter standstill gap made a head vehicle wait 0.5 m nearer the junction box, inside the corridor of a right turn crossing in front of it, and a four-vehicle circular wait followed. 4 of 24 `moderate`/`high` runs stalled 115–169 s. [ADR-019](../decisions/adr-019-stop-line-position-under-driver-aggression.md) keeps the stop position at a line profile-independent. The runs that locked up are slow regressions in `test_aggression_integration_regressions.py`. ADR-019 is **Proposed**: it is a physics-adjacent change awaiting Product Owner acceptance.
+* The matrix still uses two-lane approaches only. The single-lane case is covered by the regression tests above, not by the matrix.
+* Profiles are assumptions: they are not fitted to naturalistic driving data, and every vehicle of a class gets the same multiplier.
+* The matrix uses one seed per cell. Its throughput and delay differences are descriptive, not statistical.
+* Real-world validity: **None — assumptions only.**

@@ -184,9 +184,10 @@ def test_aggression_multipliers_and_profiles() -> None:
     assert high["politeness_mult"] == 0.50
     assert high["threshold_mult"] == 0.50
 
-    # Unknown defaults to standard
-    fallback = resolve_aggression_multipliers("unknown")
-    assert fallback == std
+    # Absent is standard; an unknown name is an error, never a silent standard
+    assert resolve_aggression_multipliers(None) == std
+    with pytest.raises(ValueError):
+        resolve_aggression_multipliers("unknown")
 
 
 def test_vehicle_population_scaling_per_profile() -> None:
@@ -318,9 +319,10 @@ def test_compute_aggression_parameter_hash() -> None:
     assert h_std1 == h_std2
     assert len(h_std1) == 16
 
-    # Unset/None/invalid fallback to standard
+    # Unset/None is standard; an unknown name is an error, never standard
     assert compute_aggression_parameter_hash(None) == h_std1
-    assert compute_aggression_parameter_hash("unknown_mode") == h_std1
+    with pytest.raises(ValueError):
+        compute_aggression_parameter_hash("unknown_mode")
     assert compute_aggression_parameter_hash({}) == h_std1
     assert (
         compute_aggression_parameter_hash({"traffic": {"driverAggression": "standard"}})
@@ -447,25 +449,39 @@ class TestAggressionBoundsAndEdgeCases:
         with pytest.raises(ValidationError):
             create_scenario(driver_aggression="extreme")  # type: ignore[arg-type]
 
-    def test_apply_aggression_graceful_fallbacks_on_malformed_input(self) -> None:
-        """Multipliers and profile application gracefully fall back to standard without crashing."""
+    def test_absent_profile_is_standard(self) -> None:
+        """None (absent) resolves to standard everywhere, untouched."""
         from src.vehicles.driver_aggression import apply_aggression_to_profile
 
         base_car = DEFAULT_PROFILES[CAR]
+        assert resolve_aggression_multipliers(None) == resolve_aggression_multipliers(
+            "standard"
+        )
+        assert compute_aggression_parameter_hash(
+            None
+        ) == compute_aggression_parameter_hash("standard")
+        assert apply_aggression_to_profile(base_car, None) is base_car
 
-        for bad in (None, "", "invalid", 123, "high_speed"):
-            mults = resolve_aggression_multipliers(bad)  # type: ignore[arg-type]
-            assert mults == resolve_aggression_multipliers("standard")
-            assert compute_aggression_parameter_hash(
-                bad
-            ) == compute_aggression_parameter_hash("standard")
+    @pytest.mark.parametrize(
+        "bad", ["", "invalid", "High", "high_speed", 123, True, ["high"], ("high",)]
+    )
+    def test_invalid_profile_fails_loudly_instead_of_running_standard(
+        self, bad: Any
+    ) -> None:
+        """A value that bypassed validation must not silently run as standard."""
+        from src.vehicles.driver_aggression import (
+            aggression_multipliers_for,
+            apply_aggression_to_profile,
+        )
 
-            applied = apply_aggression_to_profile(base_car, bad)  # type: ignore[arg-type]
-            assert applied.desired_time_headway == pytest.approx(
-                base_car.desired_time_headway
-            )
-            assert applied.minimum_gap == pytest.approx(base_car.minimum_gap)
-            assert applied.max_acceleration == pytest.approx(base_car.max_acceleration)
+        with pytest.raises(ValueError, match="driverAggression"):
+            resolve_aggression_multipliers(bad)
+        with pytest.raises(ValueError, match="driverAggression"):
+            compute_aggression_parameter_hash(bad)
+        with pytest.raises(ValueError, match="driverAggression"):
+            apply_aggression_to_profile(DEFAULT_PROFILES[CAR], bad)
+        with pytest.raises(ValueError, match="driverAggression"):
+            aggression_multipliers_for({"traffic": {"driverAggression": bad}})
 
     @pytest.mark.parametrize("profile_name", ("standard", "moderate", "high"))
     def test_physical_bounds_across_all_vehicle_classes(

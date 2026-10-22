@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 import random
 from statistics import NormalDist
-from typing import Any, Callable, Dict, List, Mapping, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
 Z95 = NormalDist().inv_cdf(0.975)  # 1.959963984540054
 
@@ -106,6 +106,11 @@ def variance_decomposition(
     ``condition_runs`` contains the outcomes for each valid condition across its replications
     (i.e., a sequence of rows, one per condition, each holding r replication outcomes).
     Requires at least 2 conditions and at least 2 replications per condition.
+
+    ``between``/``within``/``total`` are sums of squares (between + within = total) and the shares
+    are their fractions of the total; ``msBetween``/``msWithin`` are the mean squares. The shares
+    describe the observed partition, not variance components (E[MS_between] still contains the
+    within-condition noise).
     """
     n = len(condition_runs)
     if n < 2:
@@ -133,12 +138,12 @@ def variance_decomposition(
     ms_between = ss_between / df_between if df_between > 0 else 0.0
     ms_within = ss_within / df_within if df_within > 0 else 0.0
 
-    if ss_total <= 1e-12:
-        between_share = 0.0
-        within_share = 0.0
-    else:
-        between_share = ss_between / ss_total
-        within_share = ss_within / ss_total
+    # No variation at all: the shares are undefined, reported as None (not 0 and 0).
+    between_share: Optional[float] = None
+    within_share: Optional[float] = None
+    if ss_total > 1e-12:
+        between_share = round(ss_between / ss_total, 6) + 0.0
+        within_share = round(ss_within / ss_total, 6) + 0.0
 
     return {
         "between": round(ss_between, 6) + 0.0,
@@ -148,6 +153,6 @@ def variance_decomposition(
         "dfWithin": df_within,
         "msBetween": round(ms_between, 6) + 0.0,
         "msWithin": round(ms_within, 6) + 0.0,
-        "betweenShare": round(between_share, 6) + 0.0,
-        "withinShare": round(within_share, 6) + 0.0,
+        "betweenShare": between_share,
+        "withinShare": within_share,
     }

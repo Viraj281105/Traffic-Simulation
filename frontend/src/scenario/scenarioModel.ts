@@ -421,7 +421,17 @@ export function describeDemand(doc: ScenarioDocument): string {
 }
 
 export function describeScenario(doc: ScenarioDocument): string {
-  return `${describeRoads(doc)}; ${describeDemand(doc)}; ${describeMix(doc.vehicles.mix ?? null)}.`;
+  return `${describeRoads(doc)}; ${describeDemand(doc)}; ${describeMix(doc.vehicles.mix ?? null)}${describeAggression(doc.traffic?.driverAggression)}.`;
+}
+
+/** "; high driver aggression" when the profile is not standard, so a result
+ *  never hides the assumption it was run under (strategy §14.3). */
+export function describeAggression(
+  profile: DriverAggression | null | undefined,
+): string {
+  return profile && profile !== "standard"
+    ? `; ${profile} driver aggression`
+    : "";
 }
 
 // ── Exchange ──────────────────────────────────────────────────────────────
@@ -505,8 +515,9 @@ export function configValuesFromScenario(
     laneChanging: doc.roads.laneChanging,
     signalControl: strategy === "adaptive" ? "adaptive" : undefined,
     adaptive: { ...doc.signal.adaptive },
-    driverAggression:
-      doc.traffic?.driverAggression ?? prev.driverAggression ?? "standard",
+    // The document is what runs: without a profile it is "standard", never
+    // whatever the previous quick-setup answers held.
+    driverAggression: doc.traffic?.driverAggression ?? "standard",
   };
 }
 

@@ -159,8 +159,9 @@ def test_variance_decomposition_degenerate_zero_variance():
     assert out["dfWithin"] == 3
     assert out["msBetween"] == 0.0
     assert out["msWithin"] == 0.0
-    assert out["betweenShare"] == 0.0
-    assert out["withinShare"] == 0.0
+    # 0/0: undefined shares are reported as None, not as 0 and 0 (which would not sum to 1).
+    assert out["betweenShare"] is None
+    assert out["withinShare"] is None
 
 
 def test_variance_decomposition_rejects_insufficient_or_ragged_data():

@@ -24,6 +24,7 @@ This directory contains historical **Architecture Decision Records (ADRs)**. The
 | **[ADR-016](adr-016-driver-aggression-profile.md)** | Driver Aggression Profile | Proposed (draft for G-D) | 2026-10-14 |
 | **[ADR-017](adr-017-ai-validation-boundary.md)** | AI Validation Boundary | Proposed (draft for G-D) | 2026-10-14 |
 | **[ADR-018](adr-018-backend-layering-and-resource-routers.md)** | Backend Layering and Resource Routers | Accepted | 2026-10-16 |
+| **[ADR-019](adr-019-stop-line-position-under-driver-aggression.md)** | Stop-Line Position Under Driver Aggression | Proposed | 2026-10-22 |
 
 ## ADR Structure
 

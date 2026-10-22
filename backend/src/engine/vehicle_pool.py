@@ -17,6 +17,10 @@ from src.intersection.predictive_conflicts import (
     apply_predictive_constraint,
 )
 from src.roads.network import SIGNAL_STOP_LINE_SETBACK
+from src.vehicles.driver_aggression import (
+    aggression_multipliers_for,
+    stop_line_margin,
+)
 from src.vehicles.idm import IntelligentDriverModel
 from src.vehicles.lane_change import (
     LaneChangeModel,
@@ -302,6 +306,14 @@ class VehiclePool:
         stop_line_setback = float(
             getattr(net, "stop_line_setback", SIGNAL_STOP_LINE_SETBACK)
         )
+        aggression = aggression_multipliers_for(config or {})
+        # The legacy cars-only standstill gap under the profile (the engine IDM's).
+        legacy_minimum_gap = (
+            float(
+                ((config or {}).get("vehicleGeneration") or {}).get("minimumGap", 2.0)
+            )
+            * aggression["gap_mult"]
+        )
 
         # Curve speed (see speed_profile.py): the same lateral-acceleration
         # limit on every curved path, at the signal and at the roundabout.
@@ -355,6 +367,21 @@ class VehiclePool:
                 vehicle_idm = idm
                 vehicle_lat = max_lateral_accel
                 vehicle_decel = curve_decel
+
+            # A stop line is a marking, not a vehicle: under a driver-
+            # aggression profile the vehicle still stops where standard would
+            # (ADR-019). Never taken for standard, which is left bit for bit.
+            if (
+                aggression["gap_mult"] != 1.0
+                and leader is not None
+                and getattr(leader, "stop_line", False)
+            ):
+                standstill = (
+                    params.profile.minimum_gap
+                    if params is not None
+                    else legacy_minimum_gap
+                )
+                gap = max(0.0, gap - stop_line_margin(standstill, aggression))
 
             # The vehicle's own desired speed, lowered where a curve ahead
             # requires it. vehicle.desired_speed itself is left untouched: it
@@ -569,15 +596,7 @@ class VehiclePool:
 def _idm_from_config(config: Dict[str, Any]) -> IntelligentDriverModel:
     """The engine-wide IDM a legacy vehicle uses, from vehicleGeneration."""
     veh_gen = config.get("vehicleGeneration", {}) or {}
-    traffic = config.get("traffic", {}) or {}
-    aggression = (
-        traffic.get("driverAggression", "standard")
-        if isinstance(traffic, dict)
-        else "standard"
-    )
-    from src.vehicles.driver_aggression import resolve_aggression_multipliers
-
-    m = resolve_aggression_multipliers(aggression)
+    m = aggression_multipliers_for(config)
     return IntelligentDriverModel(
         max_acceleration=float(veh_gen.get("maxAcceleration", 2.0)) * m["accel_mult"],
         comfort_deceleration=float(veh_gen.get("comfortDeceleration", 3.0)),

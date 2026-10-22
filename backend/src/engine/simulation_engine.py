@@ -31,6 +31,7 @@ from src.roads.network import (
     resolve_circulating_lanes,
     resolve_lanes_per_approach,
 )
+from src.vehicles.driver_aggression import aggression_multipliers_for
 from src.vehicles.idm import IntelligentDriverModel
 from src.vehicles.spawner import VehicleSpawner
 from src.vehicles.stochastic_idm import StochasticIDM
@@ -135,14 +136,7 @@ class SimulationEngine:
             veh_gen = self.config.get("vehicleGeneration", {})
             traffic_cfg = self.config.get("traffic", {})
             is_unstructured = traffic_cfg.get("unstructuredTraffic", False)
-            aggression = (
-                traffic_cfg.get("driverAggression", "standard")
-                if isinstance(traffic_cfg, dict)
-                else "standard"
-            )
-            from src.vehicles.driver_aggression import resolve_aggression_multipliers
-
-            m = resolve_aggression_multipliers(aggression)
+            m = aggression_multipliers_for(self.config)
 
             idm_kwargs: Dict[str, Any] = {
                 "max_acceleration": float(veh_gen.get("maxAcceleration", 2.0))

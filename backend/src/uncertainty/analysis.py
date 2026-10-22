@@ -243,12 +243,17 @@ def _difference_block(
     }
 
 
-def _sign(val: float, eps: float = _EPS) -> int:
-    if val > eps:
-        return 1
-    if val < -eps:
-        return -1
-    return 0
+def _difference_class(d: float, tau: Optional[float]) -> str:
+    """win / tie / loss of a paired difference D on its own (the class of a median D).
+
+    With an explicit tau this is exactly ``classify``. With the default tolerance only its absolute
+    part (DELAY_TIE_ABS_SECONDS) applies: the relative part needs both outcomes, which a median of D
+    does not carry, so the tie band is never wider than the per-condition one.
+    """
+    band = DELAY_TIE_ABS_SECONDS if tau is None else tau
+    if abs(d) <= band + _EPS:
+        return "tie"
+    return "win" if d < 0 else "loss"
 
 
 def _split_half_stability(
@@ -317,13 +322,13 @@ def _split_half_stability(
 
             w_win_diff = abs(p_win_1 - p_win_2)
             w_loss_diff = abs(p_loss_1 - p_loss_2)
-            sign_1 = _sign(med_d_1)
-            sign_2 = _sign(med_d_2)
 
+            # Strictly less than the full-sample half-width (strategy section 5.7).
             if not (
-                w_win_diff < full_w_win[a] + _EPS
-                and w_loss_diff < full_w_loss[a] + _EPS
-                and sign_1 == sign_2
+                w_win_diff < full_w_win[a]
+                and w_loss_diff < full_w_loss[a]
+                and _difference_class(med_d_1, tie_tolerance)
+                == _difference_class(med_d_2, tie_tolerance)
             ):
                 split_ok = False
                 break
@@ -333,8 +338,8 @@ def _split_half_stability(
 
     passed = splits_passed >= SPLIT_HALF_PASS_THRESHOLD
     detail = (
-        f"{splits_passed}/{SPLIT_HALF_EVALUATIONS} random splits agreed on median D sign "
-        f"and kept half-estimates within Wilson half-widths; "
+        f"{splits_passed}/{SPLIT_HALF_EVALUATIONS} random splits agreed on the class of the median D "
+        f"and kept half-estimates of P(win)/P(loss) within the full-sample Wilson half-widths; "
         f"limit {SPLIT_HALF_PASS_THRESHOLD}/{SPLIT_HALF_EVALUATIONS} (90%)"
     )
     return {

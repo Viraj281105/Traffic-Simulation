@@ -57,6 +57,29 @@ export const DRIVER_AGGRESSION_PROFILES: DriverAggression[] = [
 export const DRIVER_AGGRESSION_DISCLAIMER =
   "driver aggression — a simulation assumption, not a measurement of real-world driver behaviour";
 
+/** What each profile does, for the selectors (ADR-016). ``levers`` mirrors
+ *  backend AGGRESSION_MULTIPLIERS; a backend contract test keeps them equal. */
+export const DRIVER_AGGRESSION_INFO: Record<
+  DriverAggression,
+  { label: string; summary: string; levers: string }
+> = {
+  standard: {
+    label: "Standard",
+    summary: "The calibrated drivers every earlier result used",
+    levers: "T ×1 · s₀ ×1 · a ×1",
+  },
+  moderate: {
+    label: "Moderate",
+    summary: "Closer following and quicker launches",
+    levers: "T ×0.85 · s₀ ×0.875 · a ×1.075",
+  },
+  high: {
+    label: "High",
+    summary: "Short gaps, hard launches, assertive lane changes",
+    levers: "T ×0.7 · s₀ ×0.75 · a ×1.15",
+  },
+};
+
 /** The scenario's roundabout has signals on its entries (V3.0 W2). */
 export function isMeteredEntry(doc: {
   roundabout: { entryControl?: "metered_entry" | "none" | null };

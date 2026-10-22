@@ -362,6 +362,27 @@ def compile_dashboard_config(payload: Dict[str, Any], seed_val: int) -> Dict[str
         if adaptive_settings:
             config["controller"]["adaptive"] = dict(adaptive_settings)
 
+    # The quick-setup behaviour toggles. They used to be sent and silently
+    # ignored here. Off (or omitted) keeps the config exactly as before.
+    for flag in ("unstructuredTraffic", "aggressiveTwoWheelers"):
+        value = payload.get(flag)
+        if value is None:
+            continue
+        if not isinstance(value, bool):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid configuration: {flag} must be true or false",
+            )
+        if value:
+            config["traffic"][flag] = True
+
+    # V3.0 W4: the driver-aggression profile (ADR-016). Omitted keeps the
+    # config exactly as before (absent means "standard"); the schema enum
+    # below rejects anything that is not a profile name.
+    driver_aggression = payload.get("driverAggression")
+    if driver_aggression is not None:
+        config["traffic"]["driverAggression"] = driver_aggression
+
     # The coercions above only reject values that are not numbers at all.
     # Range checks were missing entirely, so lanesNorth=0 or -1, a negative or
     # NaN arrivalRate, a negative yellow/all-red or a negative critical gap

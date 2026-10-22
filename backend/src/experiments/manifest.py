@@ -12,12 +12,15 @@ from __future__ import annotations
 
 from typing import Any, Dict, Mapping, Optional, Sequence
 
-from src.scenario.documents import ScenarioDocument, scenario_fingerprint
+from src.scenario.documents import (
+    ScenarioDocument,
+    scenario_driver_aggression,
+    scenario_fingerprint,
+)
 from src.uncertainty.spec import Factor
 from src.vehicles.driver_aggression import (
     DRIVER_AGGRESSION_DISCLAIMER,
     compute_aggression_parameter_hash,
-    resolve_aggression_name,
 )
 
 MANIFEST_FORMAT = "urbanflow-experiment-manifest"
@@ -30,10 +33,11 @@ def build_manifest_assumptions(
 ) -> Dict[str, Any]:
     """Build the assumptions block for an experiment manifest.
 
-    Records the resolved driver aggression profile and its parameter hash,
-    the scientific disclaimer, and factor assumptions.
+    Records the driver aggression profile the engine runs (an ``advanced``
+    override included) and its parameter hash, the scientific disclaimer,
+    and factor assumptions.
     """
-    profile = resolve_aggression_name(scenario.model_dump())
+    profile = scenario_driver_aggression(scenario)
     param_hash = compute_aggression_parameter_hash(profile)
     return {
         "driverAggression": profile,

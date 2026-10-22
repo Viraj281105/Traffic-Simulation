@@ -39,10 +39,6 @@ from src.uncertainty.spec import (
     PrimaryIndicator,
     fingerprint,
 )
-from src.vehicles.driver_aggression import (
-    compute_aggression_parameter_hash,
-    resolve_aggression_name,
-)
 
 from . import limits
 from .models import (
@@ -260,8 +256,6 @@ class ExperimentService:
             "specFingerprint": outcome["specFingerprint"],
             "analysis": outcome["analysis"],
         }
-        profile = resolve_aggression_name(base.model_dump())
-        aggression_hash = compute_aggression_parameter_hash(profile)
         manifest = build_experiment_manifest(
             scenario=base,
             spec_fingerprint=outcome["specFingerprint"],
@@ -306,8 +300,8 @@ class ExperimentService:
                 "sampling": "seeded Latin hypercube, stratified per factor",
                 "commonRandomNumbers": True,
                 "seedRule": "sha256('urbanflow-uncertainty-v1:<seed>:<condition>:<replication>')[:4] & 0x7fffffff",
-                "driverAggression": profile,
-                "driverAggressionHash": aggression_hash,
+                "driverAggression": manifest["assumptions"]["driverAggression"],
+                "driverAggressionHash": manifest["assumptions"]["driverAggressionHash"],
                 "note": "The full reproducibility manifest and package verification arrive in a later release.",
             },
             "manifest": manifest,

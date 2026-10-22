@@ -312,8 +312,8 @@ def test_variance_decomposition_in_analysis_replicated_and_unreplicated():
     diff_v = out["alternatives"]["A"]["comparison"]["difference"]["varianceSplit"]
     assert diff_v is not None
     assert diff_v["total"] == 0.0
-    assert diff_v["betweenShare"] == 0.0
-    assert diff_v["withinShare"] == 0.0
+    assert diff_v["betweenShare"] is None
+    assert diff_v["withinShare"] is None
 
     # Unreplicated (r = 1): variance decomposition cannot be estimated
     one_rep = [
@@ -342,8 +342,8 @@ def test_variance_decomposition_degenerate_zero_variance_in_analysis():
     v_base = out["alternatives"]["base"]["varianceSplit"]
     assert v_base is not None
     assert v_base["total"] == 0.0
-    assert v_base["betweenShare"] == 0.0
-    assert v_base["withinShare"] == 0.0
+    assert v_base["betweenShare"] is None
+    assert v_base["withinShare"] is None
 
 
 def test_stability_and_variance_deterministic():
@@ -465,3 +465,31 @@ def test_bad_inputs_are_rejected():
         _two_alt(conds[1:])
     with pytest.raises(ValueError, match="no conditions"):
         _two_alt([])
+
+
+def test_stability_compares_the_class_of_the_median_d_not_its_sign():
+    # Every D is +-0.2 s, well inside tau = 1.0: every condition is a tie, so every half's median D
+    # is a tie too. Its sign flips between halves, which must not count as instability (section 5.7).
+    conds = [
+        ConditionResult(
+            i,
+            {"f": i},
+            {"base": [50.0, 50.0], "A": [50.2, 50.2] if i % 2 else [49.8, 49.8]},
+        )
+        for i in range(40)
+    ]
+    out = _two_alt(conds)
+    assert out["stability"]["splitsPassed"] == 20
+    assert out["stability"]["passed"] is True
+
+
+def test_median_d_class_uses_tau_and_only_the_absolute_default_tolerance():
+    from src.uncertainty.analysis import _difference_class
+
+    assert _difference_class(0.9, 1.0) == "tie"
+    assert _difference_class(-1.5, 1.0) == "win"
+    assert _difference_class(1.5, 1.0) == "loss"
+    # Default tolerance: the 1.0 s absolute part only (the 5 % relative part needs both outcomes).
+    assert _difference_class(1.0, None) == "tie"
+    assert _difference_class(-1.01, None) == "win"
+    assert _difference_class(1.01, None) == "loss"

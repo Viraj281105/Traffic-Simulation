@@ -44,7 +44,9 @@ def test_manifest_assumptions_standard_and_absent() -> None:
     doc_absent = create_scenario(name="Absent Traffic", driver_aggression=None)
     assumptions_absent = build_manifest_assumptions(doc_absent, [_factor()])
     assert assumptions_absent["driverAggression"] == "standard"
-    assert assumptions_absent["driverAggressionHash"] == compute_aggression_parameter_hash("standard")
+    assert assumptions_absent[
+        "driverAggressionHash"
+    ] == compute_aggression_parameter_hash("standard")
     assert assumptions_absent["disclaimer"] == DRIVER_AGGRESSION_DISCLAIMER
     assert len(assumptions_absent["factors"]) == 1
     assert assumptions_absent["factors"][0]["id"] == "demand"
@@ -53,7 +55,10 @@ def test_manifest_assumptions_standard_and_absent() -> None:
     doc_std = create_scenario(name="Standard Traffic", driver_aggression="standard")
     assumptions_std = build_manifest_assumptions(doc_std, [_factor()])
     assert assumptions_std["driverAggression"] == "standard"
-    assert assumptions_std["driverAggressionHash"] == assumptions_absent["driverAggressionHash"]
+    assert (
+        assumptions_std["driverAggressionHash"]
+        == assumptions_absent["driverAggressionHash"]
+    )
 
 
 def test_manifest_assumptions_non_standard_profiles() -> None:
@@ -61,18 +66,25 @@ def test_manifest_assumptions_non_standard_profiles() -> None:
     doc_mod = create_scenario(name="Moderate Traffic", driver_aggression="moderate")
     assumptions_mod = build_manifest_assumptions(doc_mod, [_factor()])
     assert assumptions_mod["driverAggression"] == "moderate"
-    assert assumptions_mod["driverAggressionHash"] == compute_aggression_parameter_hash("moderate")
+    assert assumptions_mod["driverAggressionHash"] == compute_aggression_parameter_hash(
+        "moderate"
+    )
 
     doc_high = create_scenario(name="High Traffic", driver_aggression="high")
     assumptions_high = build_manifest_assumptions(doc_high, [_factor()])
     assert assumptions_high["driverAggression"] == "high"
-    assert assumptions_high["driverAggressionHash"] == compute_aggression_parameter_hash("high")
+    assert assumptions_high[
+        "driverAggressionHash"
+    ] == compute_aggression_parameter_hash("high")
 
     # Assert pairwise distinct parameter hashes
     h_std = compute_aggression_parameter_hash("standard")
     assert assumptions_mod["driverAggressionHash"] != h_std
     assert assumptions_high["driverAggressionHash"] != h_std
-    assert assumptions_high["driverAggressionHash"] != assumptions_mod["driverAggressionHash"]
+    assert (
+        assumptions_high["driverAggressionHash"]
+        != assumptions_mod["driverAggressionHash"]
+    )
 
 
 def test_build_experiment_manifest_structure() -> None:
@@ -98,5 +110,7 @@ def test_build_experiment_manifest_structure() -> None:
 
     assumptions = manifest["assumptions"]
     assert assumptions["driverAggression"] == "high"
-    assert assumptions["driverAggressionHash"] == compute_aggression_parameter_hash("high")
+    assert assumptions["driverAggressionHash"] == compute_aggression_parameter_hash(
+        "high"
+    )
     assert assumptions["disclaimer"] == DRIVER_AGGRESSION_DISCLAIMER

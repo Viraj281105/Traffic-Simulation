@@ -46,6 +46,8 @@ from src.vehicles.driver_aggression import (
     DRIVER_AGGRESSION_DISCLAIMER,
     DRIVER_AGGRESSION_PROFILES,
     DriverAggression,
+    compute_aggression_parameter_hash,
+    resolve_aggression_name,
 )
 
 SCENARIO_FORMAT = "urbanflow-scenario"
@@ -283,16 +285,17 @@ def scenario_fingerprint(document: ScenarioDocument) -> str:
         for key in _W2_OPTIONAL_ROUNDABOUT_FIELDS:
             if body["roundabout"].get(key) is None:
                 body["roundabout"].pop(key, None)
-    if "traffic" in body:
-        if body["traffic"] is None:
-            body.pop("traffic", None)
-        elif isinstance(body["traffic"], dict):
-            # Absent or standard aggression must produce bit-identical fingerprint
-            # to legacy documents that have no traffic block.
-            if body["traffic"].get("driverAggression") == "standard":
-                body["traffic"].pop("driverAggression", None)
-            if not body["traffic"] or body["traffic"].get("driverAggression") is None:
-                body.pop("traffic", None)
+    # Absent or standard aggression keeps the fingerprint of a legacy document
+    # (no traffic block). Any other profile is identified by its name and the
+    # hash of its resolved parameters (ADR-016 §5), so re-tuning a profile's
+    # multipliers changes the identity of every document that uses it.
+    traffic = body.pop("traffic", None)
+    profile = traffic.get("driverAggression") if isinstance(traffic, dict) else None
+    if profile not in (None, "standard"):
+        body["traffic"] = {
+            "driverAggression": profile,
+            "driverAggressionHash": compute_aggression_parameter_hash(profile),
+        }
     canonical = json.dumps(body, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode()).hexdigest()[:16]
 
@@ -472,6 +475,17 @@ def compile_scenario(document: ScenarioDocument, strategy: str) -> Dict[str, Any
         "strategy": strategy,
     }
     return config
+
+
+def scenario_driver_aggression(document: ScenarioDocument) -> str:
+    """The driver-aggression profile the engine runs *document* with.
+
+    Read from the compiled config, so an ``advanced.traffic`` override wins
+    over ``traffic`` exactly as it does in the engine; absent is 'standard'.
+    The profile does not depend on the strategy, so the document's own is used.
+    """
+    config = compile_scenario(document, JUNCTION_STRATEGY[document.junction.type])
+    return resolve_aggression_name(config)
 
 
 def compile_live_comparison(
@@ -890,6 +904,7 @@ __all__ = [
     "compile_scenario",
     "create_scenario",
     "parse_scenario",
+    "scenario_driver_aggression",
     "scenario_fingerprint",
     "scenario_warnings",
     "total_vehicles_per_hour",

@@ -1,6 +1,8 @@
+import { useId } from "react";
 import {
   DRIVER_AGGRESSION_DISCLAIMER,
-  type DriverAggression,
+  DRIVER_AGGRESSION_INFO,
+  DRIVER_AGGRESSION_PROFILES,
   type ScenarioDocument,
 } from "../../scenario/scenarioTypes";
 import { setEntryControl } from "../../scenario/scenarioModel";
@@ -16,6 +18,8 @@ export function AdvancedSettings({
   const sig = value.signal;
   const rb = value.roundabout;
   const isMetered = rb.entryControl === "metered_entry";
+  const aggression = value.traffic?.driverAggression ?? "standard";
+  const aggressionLabelId = useId();
   return (
     <div className="sb-advanced-grid">
       <fieldset>
@@ -493,34 +497,39 @@ export function AdvancedSettings({
       <fieldset>
         <legend>Driver aggression</legend>
         <div className="sb-field">
-          <span className="sb-field-label">Profile</span>
-          <div className="chip-row">
-            {(["standard", "moderate", "high"] as const).map(
-              (profile: DriverAggression) => {
-                const current = value.traffic?.driverAggression ?? "standard";
-                const isActive = current === profile;
-                return (
-                  <button
-                    key={profile}
-                    type="button"
-                    className={`chip${isActive ? " is-active" : ""}`}
-                    aria-pressed={isActive}
-                    onClick={() => {
-                      update((d) => {
-                        if (!d.traffic) {
-                          d.traffic = { driverAggression: profile };
-                        } else {
-                          d.traffic.driverAggression = profile;
-                        }
-                      });
-                    }}
-                  >
-                    {profile.charAt(0).toUpperCase() + profile.slice(1)}
-                  </button>
-                );
-              },
-            )}
+          <span className="sb-field-label" id={aggressionLabelId}>
+            Profile
+          </span>
+          <div
+            className="chip-row"
+            role="group"
+            aria-labelledby={aggressionLabelId}
+          >
+            {DRIVER_AGGRESSION_PROFILES.map((profile) => {
+              const isActive = aggression === profile;
+              return (
+                <button
+                  key={profile}
+                  type="button"
+                  className={`chip${isActive ? " is-active" : ""}`}
+                  aria-pressed={isActive}
+                  onClick={() => {
+                    update((d) => {
+                      d.traffic = { ...d.traffic, driverAggression: profile };
+                    });
+                  }}
+                >
+                  {DRIVER_AGGRESSION_INFO[profile].label}
+                </button>
+              );
+            })}
           </div>
+          <span className="sb-unit">
+            {DRIVER_AGGRESSION_INFO[aggression].summary}
+          </span>
+          <span className="sb-figure">
+            {DRIVER_AGGRESSION_INFO[aggression].levers}
+          </span>
         </div>
         <p className="config-hint" role="note">
           {DRIVER_AGGRESSION_DISCLAIMER}

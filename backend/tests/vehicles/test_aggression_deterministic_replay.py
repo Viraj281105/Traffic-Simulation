@@ -85,8 +85,12 @@ def test_deterministic_replay_per_profile(profile: DriverAggression) -> None:
     assert scenario_fingerprint(doc1) == scenario_fingerprint(doc2)
 
     # Run two independent simulations
-    states1, metrics1, collisions1 = _simulate_scenario(doc1, strategy="fixed_time", ticks=120)
-    states2, metrics2, collisions2 = _simulate_scenario(doc2, strategy="fixed_time", ticks=120)
+    states1, metrics1, collisions1 = _simulate_scenario(
+        doc1, strategy="fixed_time", ticks=120
+    )
+    states2, metrics2, collisions2 = _simulate_scenario(
+        doc2, strategy="fixed_time", ticks=120
+    )
 
     # Invariants: no collisions, vehicles spawned
     assert collisions1 == 0
@@ -128,9 +132,15 @@ def test_distinct_trajectories_across_profiles_under_same_seed() -> None:
     )
     doc_high.simulation.seed = seed
 
-    states_std, metrics_std, collisions_std = _simulate_scenario(doc_std, strategy="fixed_time", ticks=150)
-    states_mod, metrics_mod, collisions_mod = _simulate_scenario(doc_mod, strategy="fixed_time", ticks=150)
-    states_high, metrics_high, collisions_high = _simulate_scenario(doc_high, strategy="fixed_time", ticks=150)
+    states_std, metrics_std, collisions_std = _simulate_scenario(
+        doc_std, strategy="fixed_time", ticks=150
+    )
+    states_mod, metrics_mod, collisions_mod = _simulate_scenario(
+        doc_mod, strategy="fixed_time", ticks=150
+    )
+    states_high, metrics_high, collisions_high = _simulate_scenario(
+        doc_high, strategy="fixed_time", ticks=150
+    )
 
     # Zero collisions invariant holds across all aggression profiles
     assert collisions_std == 0

@@ -495,8 +495,13 @@ def find_leader(
                     gap = max(0.0, total_block_dist - vehicle.length / 2.0)
                     if gap < best_gap:
                         best_gap = gap
+                        # Refused admission is held at the stop line, the start
+                        # of the connection lane (see get_conflict_distance).
                         best_leader = VirtualObstacle(
-                            position=0.0, speed=0.0, length=0.0
+                            position=0.0,
+                            speed=0.0,
+                            length=0.0,
+                            stop_line=lane is not vehicle.lane and block_dist == 0.0,
                         )
 
                 # Update reservation clear time if vehicle has passed through

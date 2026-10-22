@@ -8,6 +8,11 @@ from src.core.limits import DEFAULT_TOTAL_VEHICLES
 from src.core.speed_thresholds import resolve_speed_threshold
 from src.roads.lane import Lane
 from src.roads.network import RoadNetwork
+from src.vehicles.driver_aggression import (
+    aggression_multipliers_for,
+    apply_aggression_to_speed_range,
+    resolve_aggression_name,
+)
 from src.vehicles.speed_profile import resolve_desired_speed_range
 from src.vehicles.vehicle import Vehicle
 from src.vehicles.vehicle_types import (
@@ -111,17 +116,14 @@ class VehicleSpawner:
         # Desired speed: explicit vehicleGeneration.desiredSpeed, otherwise
         # derived from roads.speedLimit (see speed_profile.py). It used to
         # default to 18-25 m/s whatever the speed limit said.
-        self.speed_min, self.speed_max = resolve_desired_speed_range(config)
+        # The legacy cars-only population takes the driver-aggression speed
+        # offset here; a mixed one takes it per class (resolve_vehicle_population).
+        self.speed_min, self.speed_max = apply_aggression_to_speed_range(
+            resolve_desired_speed_range(config), resolve_aggression_name(config)
+        )
 
         # Safety distance
-        aggression = (
-            traffic_cfg.get("driverAggression", "standard")
-            if isinstance(traffic_cfg, dict)
-            else "standard"
-        )
-        from src.vehicles.driver_aggression import resolve_aggression_multipliers
-
-        m = resolve_aggression_multipliers(aggression)
+        m = aggression_multipliers_for(config)
         self.minimum_gap: float = (
             float(veh_gen_cfg.get("minimumGap", 2.0)) * m["gap_mult"]
         )
