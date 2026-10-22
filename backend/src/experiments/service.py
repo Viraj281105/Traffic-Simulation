@@ -18,6 +18,7 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 from src.core.provenance import GIT_COMMIT_HASH, PYTHON_VERSION
+from src.experiments.manifest import build_experiment_manifest
 from src.planning.models import fingerprint_of
 from src.scenario.documents import (
     STRATEGIES,
@@ -37,6 +38,10 @@ from src.uncertainty.spec import (
     FactorKind,
     PrimaryIndicator,
     fingerprint,
+)
+from src.vehicles.driver_aggression import (
+    compute_aggression_parameter_hash,
+    resolve_aggression_name,
 )
 
 from . import limits
@@ -255,6 +260,18 @@ class ExperimentService:
             "specFingerprint": outcome["specFingerprint"],
             "analysis": outcome["analysis"],
         }
+        profile = resolve_aggression_name(base.model_dump())
+        aggression_hash = compute_aggression_parameter_hash(profile)
+        manifest = build_experiment_manifest(
+            scenario=base,
+            spec_fingerprint=outcome["specFingerprint"],
+            result_fingerprint=fingerprint_of(evidence),
+            factors=spec.factors,
+            extra={
+                "gitCommit": GIT_COMMIT_HASH,
+                "pythonVersion": PYTHON_VERSION,
+            },
+        )
         return {
             "format": RESULT_FORMAT,
             "version": RESULT_VERSION,
@@ -289,8 +306,11 @@ class ExperimentService:
                 "sampling": "seeded Latin hypercube, stratified per factor",
                 "commonRandomNumbers": True,
                 "seedRule": "sha256('urbanflow-uncertainty-v1:<seed>:<condition>:<replication>')[:4] & 0x7fffffff",
+                "driverAggression": profile,
+                "driverAggressionHash": aggression_hash,
                 "note": "The full reproducibility manifest and package verification arrive in a later release.",
             },
+            "manifest": manifest,
             "execution": outcome["execution"],
         }
 
