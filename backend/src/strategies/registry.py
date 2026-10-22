@@ -56,6 +56,11 @@ class StrategyRegistry:
             raise ValueError(
                 f"Strategy '{descriptor.id}' is already registered. Re-registration is forbidden."
             )
+        if descriptor.id in self._aliases:
+            raise ValueError(
+                f"Strategy id '{descriptor.id}' collides with an existing alias "
+                f"for '{self._aliases[descriptor.id]}'."
+            )
 
         # Ensure descriptor is internally consistent
         descriptor.validate_self()
@@ -71,7 +76,8 @@ class StrategyRegistry:
                     f"'{descriptor.fingerprint}' != expected '{expected_fp}'."
                 )
 
-        self._strategies[descriptor.id] = descriptor
+        # Keep a private copy so a caller's reference cannot alter the registry.
+        self._strategies[descriptor.id] = descriptor.model_copy(deep=True)
         logger.debug(
             "Registered strategy descriptor: %s (%s)", descriptor.id, descriptor.name
         )
@@ -85,6 +91,13 @@ class StrategyRegistry:
                 f"Cannot alias '{alias}' to unknown strategy '{canonical_id}'."
             )
 
+        # An alias is consulted before canonical ids, so one that reuses a
+        # registered id would silently redirect that strategy.
+        if alias in self._strategies:
+            raise ValueError(
+                f"Alias '{alias}' would shadow the registered strategy id '{alias}'."
+            )
+
         # Detect cyclic alias chains immediately
         current = canonical_id
         visited = {alias}
@@ -95,6 +108,12 @@ class StrategyRegistry:
                 )
             visited.add(current)
             current = self._aliases[current]
+
+        existing = self._aliases.get(alias)
+        if existing is not None and existing != canonical_id:
+            raise ValueError(
+                f"Alias '{alias}' already maps to '{existing}'. Re-targeting is forbidden."
+            )
 
         self._aliases[alias] = canonical_id
 
@@ -126,7 +145,7 @@ class StrategyRegistry:
     def get(self, alias_or_id: str) -> StrategyDescriptor:
         """Retrieve a strategy descriptor by canonical ID or alias."""
         canonical_id = self.resolve_id(alias_or_id)
-        return self._strategies[canonical_id]
+        return self._strategies[canonical_id].model_copy(deep=True)
 
     def has(self, alias_or_id: str) -> bool:
         """Check if a strategy canonical ID or alias exists in the registry."""
@@ -138,7 +157,10 @@ class StrategyRegistry:
 
     def list_all(self) -> List[StrategyDescriptor]:
         """Return all registered strategy descriptors sorted by ID."""
-        return [self._strategies[k] for k in sorted(self._strategies.keys())]
+        return [
+            self._strategies[k].model_copy(deep=True)
+            for k in sorted(self._strategies.keys())
+        ]
 
     def list_ids(self) -> List[str]:
         """Return all canonical registered strategy IDs sorted alphabetically."""

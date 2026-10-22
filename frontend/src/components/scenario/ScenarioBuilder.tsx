@@ -614,7 +614,7 @@ export function ScenarioBuilder({
                   {e.includes("(metering.missing_arm)") &&
                     " Under “How do vehicles enter the roundabout?” in step 1, choose “Rebuild phases for the current roads”."}
                   {e.includes("(compat.adaptive_unsupported_policy)") &&
-                    " Adaptive control requires a signalised junction or a fixed-time plan; change junction type or configure roundabout metering."}
+                    " Adaptive control requires a signalised junction; change the junction type in step 1 or switch to fixed-time control."}
                   {e.includes("(compat.signal_requires_signal_geometry)") &&
                     " Change junction type to a signalised junction in step 1."}
                   {e.includes(

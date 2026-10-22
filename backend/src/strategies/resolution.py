@@ -196,13 +196,17 @@ def resolve_strategy_parameters(
                     break
 
         if val is not None:
-            num_val = float(val) if isinstance(val, (int, float)) else val
-            if isinstance(num_val, float):
-                if not (bound.min_value <= num_val <= bound.max_value):
-                    raise ValueError(
-                        f"Strategy '{descriptor.id}': parameter '{param_name}' value {num_val} "
-                        f"out of bounds [{bound.min_value}, {bound.max_value}] {bound.unit}"
-                    )
+            if isinstance(val, bool) or not isinstance(val, (int, float)):
+                raise ValueError(
+                    f"Strategy '{descriptor.id}': parameter '{param_name}' must be a "
+                    f"number, got {type(val).__name__}"
+                )
+            num_val = float(val)
+            if not (bound.min_value <= num_val <= bound.max_value):
+                raise ValueError(
+                    f"Strategy '{descriptor.id}': parameter '{param_name}' value {num_val} "
+                    f"out of bounds [{bound.min_value}, {bound.max_value}] {bound.unit}"
+                )
             resolved[param_name] = num_val
         elif bound.default_value is not None:
             resolved[param_name] = bound.default_value

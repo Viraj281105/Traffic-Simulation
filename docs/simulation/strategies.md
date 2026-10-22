@@ -46,6 +46,10 @@ Contradictory or physically impossible layer combinations are rejected with stab
 | `compat.adaptive_unsupported_policy` | Adaptive gap-out actuation requires phase plan or metering | `adaptation_logic.logic == "gap_out_extension"` with `uncontrolled` policy | Set `control_policy.policy` to `fixed_time_phase_plan` or `metering`, or set `adaptation_logic.logic` to `none`. |
 | `compat.uncontrolled_cannot_be_cycle_aware` | Uncontrolled policy cannot be cycle-aware | `control_policy.policy == "uncontrolled"` and `cycle_aware == True` | Set `control_policy.cycle_aware` to `False`. |
 | `compat.priority_overlay_unsupported` | Priority overlay reserved for future scope | `priority_overlay.overlay != "none"` | Set `priority_overlay.overlay` to `none`. |
+| `compat.unknown_strategy` | Explicit strategy must be registered | `strategy` names neither a canonical ID nor a legacy alias | Choose a registered strategy from the list in the message. |
+| `compat.strategy_config_mismatch` | Explicit strategy must agree with the physical layout | e.g. `conventional_roundabout` on signal geometry, or `metered_entry_roundabout` without `entryControl: "metered_entry"` | Set the geometry / entry control to match, or change the strategy. |
+
+The adaptive rule is applied to scenario configurations as well as descriptors: `signalControl: "adaptive"` on **any** roundabout, metered or not, reports `compat.adaptive_unsupported_policy`, because no adaptive signalised roundabout exists until the gated W3-T6 (the descriptor rule alone would accept `gap_out_extension` on a `metering` policy).
 
 ---
 
@@ -151,11 +155,14 @@ The composable strategy architecture enforces strict boundary conditions, securi
    - Registration strictly requires concrete `StrategyDescriptor` instances. Unvalidated client dicts, JSON strings, or arbitrary objects are rejected with `TypeError`.
    - Re-registration of existing identifiers is strictly forbidden (`ValueError`).
    - Cyclic alias definitions (e.g. $A \to B \to A$) are detected and blocked at registration time and guarded during resolution.
+   - An alias can never reuse a registered strategy ID (aliases are consulted first, so it would silently redirect that strategy), an existing alias cannot be re-targeted, and a strategy ID cannot reuse an existing alias.
+   - The registry keeps private copies: descriptors returned by `get()` / `list_all()` and the instance a caller registered are detached from registry state, so mutating them cannot alter later resolutions or fingerprints.
    - Custom descriptors registered in isolated `StrategyRegistry` instances never leak into the global singleton registry (`get_strategy_registry()`).
 
 3. **Pre-Simulation Initialization Guards & Database Isolation:**
    - Pre-simulation guards (`check_scenario_strategy_compatibility` and `resolve_strategy_parameters`) run before any simulation engine, road network, or controller is instantiated.
-   - Parameter values outside descriptor bounds (e.g. green duration $< 5\,\text{s}$ or $> 120\,\text{s}$) trigger `InvalidSimulationConfigError` immediately.
+   - Parameter values outside descriptor bounds (e.g. green duration $< 5\,\text{s}$ or $> 120\,\text{s}$) and non-numeric values trigger `InvalidSimulationConfigError` immediately.
+   - Descriptor bounds for parameters that map onto a config key (`controller.yellowTime`, `controller.allRedTime`, `controller.adaptive.*`) must cover the config schema's range, and adaptive defaults must equal the controller defaults; `test_strategy_integration_hardening.py` enforces this so the guard can never reject a schema-valid configuration.
    - Failed initializations produce zero state changes in `simulations_db`: no leaked simulation IDs, no orphan worker threads, and no partial database records.
 
 4. **Backward-Compatible Error Diagnostics:**

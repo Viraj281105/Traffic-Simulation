@@ -13,6 +13,7 @@
 
 import { isMeteredEntry, type ScenarioDocument } from "./scenarioTypes";
 import { presentApproaches, ringLanes } from "./scenarioModel";
+import { ADAPTIVE_DEFAULTS } from "../types/config";
 
 export type CanonicalStrategyId =
   | "fixed_time_signal"
@@ -113,7 +114,7 @@ export const BUILTIN_STRATEGY_DESCRIPTORS: Record<
     status: "stable",
     description:
       "Cyclic fixed-duration signal control across orthogonal or multi-leg approaches with conflict points managed by dedicated green phases.",
-    fingerprint: "083fceab10d30094",
+    fingerprint: "dc4cea8828710979",
     notModelled: [
       "Actuated / demand-responsive extensions",
       "Coordination with upstream junctions",
@@ -160,7 +161,7 @@ export const BUILTIN_STRATEGY_DESCRIPTORS: Record<
     status: "stable",
     description:
       "Traffic-actuated signal control extending green phases based on vehicle detection and gap-out thresholds within bounded cycle limits.",
-    fingerprint: "7ea85d253096dc37",
+    fingerprint: "588ee921ecda8e01",
     notModelled: [
       "Queue spillback detection across junctions",
       "Dynamic phase reordering",
@@ -395,33 +396,33 @@ export function resolveParameterProvenance(
         name: "min_green",
         label: "Minimum green",
         unit: "s",
-        defaultValue: 10.0,
+        defaultValue: ADAPTIVE_DEFAULTS.minGreen,
         currentValue: a.minGreen,
-        isDefault: a.minGreen === 10.0,
+        isDefault: a.minGreen === ADAPTIVE_DEFAULTS.minGreen,
       },
       {
         name: "max_green",
         label: "Maximum green",
         unit: "s",
-        defaultValue: 60.0,
+        defaultValue: ADAPTIVE_DEFAULTS.maxGreen,
         currentValue: a.maxGreen,
-        isDefault: a.maxGreen === 60.0,
+        isDefault: a.maxGreen === ADAPTIVE_DEFAULTS.maxGreen,
       },
       {
         name: "extension_step",
         label: "Extension step",
         unit: "s",
-        defaultValue: 1.0,
+        defaultValue: ADAPTIVE_DEFAULTS.extensionStep,
         currentValue: a.extensionStep,
-        isDefault: a.extensionStep === 1.0,
+        isDefault: a.extensionStep === ADAPTIVE_DEFAULTS.extensionStep,
       },
       {
         name: "detection_distance",
         label: "Detection distance",
         unit: "m",
-        defaultValue: 40.0,
+        defaultValue: ADAPTIVE_DEFAULTS.detectionDistance,
         currentValue: a.detectionDistance,
-        isDefault: a.detectionDistance === 40.0,
+        isDefault: a.detectionDistance === ADAPTIVE_DEFAULTS.detectionDistance,
       },
     );
   } else if (strategyId === "conventional_roundabout") {
@@ -686,18 +687,15 @@ export function evaluateStrategyCompatibility(
     });
   }
 
-  // 3. Adaptive on unmetered roundabout conflict
-  if (
-    strategyId === "adaptive_signal" &&
-    doc.junction.type === "roundabout" &&
-    !isMeteredEntry(doc)
-  ) {
+  // 3. Adaptive on any roundabout: the backend rejects it for unmetered and
+  // metered-entry rings alike (no adaptive signalised roundabout in V3.0).
+  if (strategyId === "adaptive_signal" && doc.junction.type === "roundabout") {
     issues.push({
       code: "compat.adaptive_unsupported_policy",
       message:
-        "Adaptive detectors require a fixed-time signal phase plan; incompatible with unmetered roundabout.",
+        "Adaptive detectors require a signalised junction; they are not available on a roundabout.",
       layerIndex: 5,
-      suggestion: "Switch to a signalised junction or use metered entry.",
+      suggestion: "Switch to a signalised junction or use fixed-time control.",
     });
   }
 

@@ -241,7 +241,12 @@ def _signal_control_errors(config: Dict[str, Any]) -> List[str]:
             ),
             None,
         )
-        if adaptive_issue is not None:
+        if adaptive_issue is not None and ctrl.get("entryControl") == "metered_entry":
+            errors.append(
+                f"controller.signalControl 'adaptive' requires a signalised junction; "
+                f"{adaptive_issue.message} ({adaptive_issue.code})"
+            )
+        elif adaptive_issue is not None:
             errors.append(
                 f"controller.signalControl 'adaptive' requires a signalised junction; "
                 f"incompatible with unmetered roundabout control policy 'uncontrolled' "

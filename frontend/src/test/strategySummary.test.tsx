@@ -27,6 +27,7 @@ import {
   resolveParameterProvenance,
   resolveStrategyLayers,
 } from "../scenario/strategySummaryModel";
+import { ADAPTIVE_DEFAULTS } from "../types/config";
 import { axeViolations } from "./axe";
 
 const READY_VALIDATION: ValidationState = {
@@ -62,10 +63,10 @@ function BuilderHarness({
 describe("Strategy DNA model and layer resolution", () => {
   it("ships all four built-in strategies with frozen 16-hex fingerprints", () => {
     expect(BUILTIN_STRATEGY_DESCRIPTORS.fixed_time_signal.fingerprint).toBe(
-      "083fceab10d30094",
+      "dc4cea8828710979",
     );
     expect(BUILTIN_STRATEGY_DESCRIPTORS.adaptive_signal.fingerprint).toBe(
-      "7ea85d253096dc37",
+      "588ee921ecda8e01",
     );
     expect(
       BUILTIN_STRATEGY_DESCRIPTORS.conventional_roundabout.fingerprint,
@@ -178,6 +179,28 @@ describe("Strategy DNA model and layer resolution", () => {
       ),
     ).toBe(true);
   });
+
+  it("flags adaptive on a metered-entry roundabout, as the backend does", () => {
+    const doc = scenarioFromPreset("typical-urban");
+    doc.junction.type = "roundabout";
+    setEntryControl(doc, "metered_entry");
+    const issues = evaluateStrategyCompatibility("adaptive_signal", doc);
+    expect(
+      issues.some((i) => i.code === "compat.adaptive_unsupported_policy"),
+    ).toBe(true);
+  });
+
+  it("reports untouched adaptive parameters as defaults of the real controller", () => {
+    const doc = scenarioFromPreset("typical-urban");
+    doc.signal.adaptive = { ...doc.signal.adaptive, ...ADAPTIVE_DEFAULTS };
+    const provenance = resolveParameterProvenance("adaptive_signal", doc);
+    expect(provenance.isAllDefault).toBe(true);
+    doc.signal.adaptive.maxGreen = ADAPTIVE_DEFAULTS.maxGreen + 5;
+    const edited = resolveParameterProvenance("adaptive_signal", doc);
+    expect(
+      edited.parameters.find((p) => p.name === "max_green")?.isDefault,
+    ).toBe(false);
+  });
 });
 
 describe("StrategySummaryCard rendering and live updates", () => {
@@ -187,7 +210,7 @@ describe("StrategySummaryCard rendering and live updates", () => {
 
     expect(screen.getByText(/Strategy DNA & Contract/)).toBeInTheDocument();
     expect(screen.getByText("Fixed-Time Signal")).toBeInTheDocument();
-    expect(screen.getByText("083fceab10d30094")).toBeInTheDocument();
+    expect(screen.getByText("dc4cea8828710979")).toBeInTheDocument();
     expect(screen.getByText("Geometry Constraint")).toBeInTheDocument();
     expect(screen.getByText("Movement Topology")).toBeInTheDocument();
     expect(screen.getByText("Right-of-Way Rule")).toBeInTheDocument();
@@ -200,7 +223,7 @@ describe("StrategySummaryCard rendering and live updates", () => {
   it("updates live when junction type switches from signal to roundabout in ScenarioBuilder", () => {
     render(<BuilderHarness initial={scenarioFromPreset("typical-urban")} />);
     expect(screen.getByText("Fixed-Time Signal")).toBeInTheDocument();
-    expect(screen.getByText("083fceab10d30094")).toBeInTheDocument();
+    expect(screen.getByText("dc4cea8828710979")).toBeInTheDocument();
 
     // Click Roundabout in step 1
     const rbRadio = screen.getByLabelText(/Roundabout/);
