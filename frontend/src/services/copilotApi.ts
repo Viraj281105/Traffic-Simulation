@@ -17,7 +17,7 @@ export interface ConversationTurn {
   content: string;
 }
 
-export type CopilotGeometry = "fixed_time_signal" | "roundabout" | "comparison";
+export type CopilotGeometry = "fixed_time_signal" | "roundabout" | "comparison" | "research" | "planning";
 
 export interface SummaryRequest {
   metrics: Record<string, unknown>;

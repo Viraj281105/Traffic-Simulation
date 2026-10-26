@@ -1,3 +1,4 @@
+import { FloatingAICopilot } from "./components/ai/FloatingAICopilot";
 import { Suspense, lazy, useState, useLayoutEffect } from "react";
 import { useWebSocketSnapshot } from "./hooks/useWebSocketSnapshot";
 import { useSimulationPolling } from "./hooks/useSimulationPolling";
@@ -1006,6 +1007,15 @@ function Dashboard({
       {showLogin && (
         <LoginDialog onClose={closeLogin} onLogin={handleLoginSuccess} />
       )}
+
+      {/* ── Persistent Floating AI Copilot Assistant ─────────────── */}
+      <FloatingAICopilot
+        viewMode={viewMode}
+        snapshot={isSingle ? singleSnapshot : null}
+        dualSnapshot={viewMode === "comparative" ? (replayDual ?? dualSnapshot) : null}
+        config={configValues}
+        replayName={activeReplay?.name ?? null}
+      />
     </div>
   );
 }

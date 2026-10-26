@@ -134,8 +134,9 @@ _KEYWORD_PATTERNS = [
     (r"delay|wait|time lost", "averageDelay", "Average delay (time lost per driver vs driving through an empty junction)"),
     (r"throughput|served|through|exited", "throughput", "Throughput (vehicles that exited after the warm-up)"),
     (r"queue|backlog|congestion", "maxQueueLength", "Maximum queue length seen on any approach"),
+    (r"speed|velocity|fast|slow", "averageTravelSpeed", "Average travel speed"),
     (r"fair|balance|even|direction", "directionalFairnessIndex", "Directional fairness index (Jain's, 1.0 = perfectly even across approaches)"),
-    (r"collision|overlap|crash", "collisionCount", "Collision count (vehicle overlaps, a model-integrity signal)"),
+    (r"collision|overlap|crash|safety", "collisionCount", "Collision count (vehicle overlaps, a model-integrity signal)"),
 ]
 
 
@@ -145,6 +146,26 @@ def chat_fallback(
     config: Dict[str, Any],
 ) -> ChatResponse:
     q_lower = question.lower()
+
+    # If this is a comparative evaluation or scenario planning dataset
+    if "signal" in metrics and "roundabout" in metrics:
+        sig = metrics.get("signal", {})
+        rnd = metrics.get("roundabout", {})
+        if re.search(r"better|strategy|compare|which|signal|roundabout", q_lower):
+            s_del = _v(sig, "averageDelay")
+            r_del = _v(rnd, "averageDelay")
+            s_tp = _v(sig, "throughput")
+            r_tp = _v(rnd, "throughput")
+            if s_del is not None and r_del is not None:
+                winner = "Roundabout" if r_del < s_del else "Signal"
+                diff = abs(r_del - s_del)
+                ans = (
+                    f"Based on current comparative metrics, {winner} recorded lower average delay "
+                    f"(Signal: {s_del:.1f} s vs Roundabout: {r_del:.1f} s, difference: {diff:.1f} s). "
+                )
+                if s_tp is not None and r_tp is not None:
+                    ans += f"Throughput: Signal served {int(s_tp)} veh vs Roundabout {int(r_tp)} veh."
+                return ChatResponse(answer=ans, fallback=True)
 
     for pattern, key, label in _KEYWORD_PATTERNS:
         if re.search(pattern, q_lower):

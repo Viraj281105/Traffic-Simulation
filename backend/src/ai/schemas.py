@@ -37,8 +37,9 @@ class SummaryRequest(BaseModel):
     @field_validator("geometry")
     @classmethod
     def _valid_geom(cls, v: str) -> str:
-        if v not in ("fixed_time_signal", "roundabout", "comparison"):
-            raise ValueError("geometry must be fixed_time_signal, roundabout, or comparison")
+        valid = ("fixed_time_signal", "roundabout", "comparison", "research", "planning")
+        if v not in valid:
+            raise ValueError(f"geometry must be one of {valid}")
         return v
 
 
@@ -68,8 +69,9 @@ class ChatRequest(BaseModel):
     @field_validator("geometry")
     @classmethod
     def _valid_geom(cls, v: str) -> str:
-        if v not in ("fixed_time_signal", "roundabout", "comparison"):
-            raise ValueError("geometry must be fixed_time_signal, roundabout, or comparison")
+        valid = ("fixed_time_signal", "roundabout", "comparison", "research", "planning")
+        if v not in valid:
+            raise ValueError(f"geometry must be one of {valid}")
         return v
 
 
