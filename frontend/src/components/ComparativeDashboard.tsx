@@ -1,4 +1,4 @@
-import { ChartColumn, Table } from "lucide-react";
+import { ChartColumn, Table, Bot } from "lucide-react";
 import React, {
   Suspense,
   lazy,
@@ -6,6 +6,7 @@ import React, {
   useState,
   type ComponentProps,
 } from "react";
+import { ComparativeAIInsights } from "./ComparativeAIInsights";
 import type {
   DualSnapshot,
   LiveSnapshot,
@@ -392,7 +393,7 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
   onClose,
 }) => {
   const [weights, setWeights] = useState<ScoringWeights>(DEFAULT_WEIGHTS);
-  const [viewMode, setViewMode] = useState<"visual" | "table">("visual");
+  const [viewMode, setViewMode] = useState<"visual" | "table" | "ai">("visual");
   // The dialog fades out before it unmounts (ui/motion.ts).
   const {
     overlay: overlayRef,
@@ -469,6 +470,16 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
                 >
                   <Table size={14} aria-hidden="true" className="uf-glyph" />{" "}
                   Data Table
+                </button>
+                <button
+                  type="button"
+                  className={`toggle-tab-btn ${viewMode === "ai" ? "active" : ""}`}
+                  onClick={() => {
+                    setViewMode("ai");
+                  }}
+                >
+                  <Bot size={14} aria-hidden="true" className="uf-glyph" />{" "}
+                  AI Insights & Q&amp;A
                 </button>
               </div>
             )}
@@ -621,6 +632,11 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
                     />
                   </div>
                 </div>
+              ) : viewMode === "ai" ? (
+                <ComparativeAIInsights
+                  snapshot={snapshot}
+                  replayName={replayName}
+                />
               ) : (
                 <>
                   <ComparisonSections

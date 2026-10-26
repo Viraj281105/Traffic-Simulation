@@ -938,6 +938,9 @@ function Dashboard({
                 viewMode === "roundabout" ? "roundabout" : "fixed_time_signal"
               }
               replayName={replaySingle ? (activeReplay?.name ?? null) : null}
+              config={replaySingle ? null : configValues}
+              onApply={replaySingle ? undefined : handleApplyConfig}
+              isRunning={activeIsPlaying}
             />
             {!replaySingle && (
               <div className="save-bar">
