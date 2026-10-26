@@ -15,7 +15,9 @@ arrives, refusing it as soon as it passes the cap.
 
 from __future__ import annotations
 
+import ipaddress
 import json
+import os
 import threading
 from datetime import datetime, timezone
 from typing import (
@@ -26,7 +28,10 @@ from typing import (
     Dict,
     Iterator,
     MutableMapping,
+    Optional,
     Sequence,
+    Tuple,
+    Union,
 )
 
 from fastapi import HTTPException, Query, Request
@@ -171,22 +176,76 @@ PageOffset = Annotated[int, Query(ge=0)]
 # concurrent runs than this only slow every run down.
 MAX_SYNC_COMPUTE_REQUESTS = 2
 # One client may hold only one of those slots, so a single client cannot take
-# both and lock everyone else out. A "client" is the address nginx reports in
-# X-Real-IP (it overwrites any value the browser sent; the backend is reachable
-# only through nginx), else the socket peer. Clients behind one NAT share it.
+# both and lock everyone else out. A "client" is the socket peer, except when
+# the peer is a configured trusted proxy (TRUSTED_PROXY_IPS): then it is the
+# address that proxy reports in X-Real-IP (see client_key). Clients behind one
+# NAT share a key.
 MAX_SYNC_COMPUTE_PER_CLIENT = 1
+
+_IPNetwork = Union[ipaddress.IPv4Network, ipaddress.IPv6Network]
+
+
+def parse_trusted_proxies(raw: str) -> Tuple[_IPNetwork, ...]:
+    """Parse a comma-separated list of IP addresses and CIDRs.
+
+    Raises ValueError (naming the entry's position, not its text) on any invalid
+    entry, so a typo stops startup instead of silently trusting a wider or
+    different range than intended.
+    """
+    networks = []
+    for position, entry in enumerate(raw.split(","), start=1):
+        entry = entry.strip()
+        if not entry:
+            continue
+        try:
+            networks.append(ipaddress.ip_network(entry, strict=False))
+        except ValueError:
+            raise ValueError(
+                f"TRUSTED_PROXY_IPS entry {position} is not an IP address or CIDR"
+            ) from None
+    return tuple(networks)
+
+
+# Empty by default: no forwarding header is trusted. Read once at import, like
+# the other deployment settings; an invalid value raises and stops startup.
+TRUSTED_PROXY_NETWORKS: Tuple[_IPNetwork, ...] = parse_trusted_proxies(
+    os.getenv("TRUSTED_PROXY_IPS", "")
+)
 
 _compute_slots = threading.BoundedSemaphore(MAX_SYNC_COMPUTE_REQUESTS)
 _clients_lock = threading.Lock()
 _running_per_client: Dict[str, int] = {}
 
 
+def _parse_ip(value: str) -> Optional[ipaddress.IPv4Address | ipaddress.IPv6Address]:
+    """A single IP address (IPv4-mapped IPv6 folded to IPv4), else None."""
+    try:
+        ip = ipaddress.ip_address(value.strip())
+    except ValueError:
+        return None
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+        return ip.ipv4_mapped
+    return ip
+
+
 def client_key(request: Request) -> str:
-    """The client a request is counted against (see above)."""
-    forwarded = (request.headers.get("x-real-ip") or "").strip()
-    if forwarded:
-        return forwarded
-    return request.client.host if request.client else "unknown"
+    """The client a request is counted against.
+
+    The socket peer, unless the peer is inside TRUSTED_PROXY_IPS; only then is
+    X-Real-IP honoured, and only when it is one valid IP address (not a chain,
+    not text). A missing or malformed value from a trusted proxy falls back to
+    the proxy's own address. X-Forwarded-For is never consulted. Used by both
+    the failed-authentication limiter and ``compute_slot``.
+    """
+    peer_host = request.client.host if request.client else ""
+    peer = _parse_ip(peer_host)
+    if peer is None:
+        return peer_host or "unknown"
+    if any(peer in net for net in TRUSTED_PROXY_NETWORKS):
+        forwarded = _parse_ip(request.headers.get("x-real-ip") or "")
+        if forwarded is not None:
+            return str(forwarded)
+    return str(peer)
 
 
 def compute_slot(request: Request) -> Iterator[None]:

@@ -254,10 +254,36 @@ accepts only RS256-signed user-pool tokens.
 | Simulated duration | 3600 s | schema, `src/study/limits.py` |
 | Request body | 1 MiB on `/api/v2/networks/*`, `/api/v2/planning/validate` (app); nginx's default 1 MiB on every proxied request | `src/api/request_limits.py`, nginx |
 
-These are per backend process; the stack runs one. A *client* is the
-address nginx passes in `X-Real-IP` (nginx overwrites whatever the browser
-sent, and the backend is reachable only through nginx), so one client cannot
-hold both synchronous slots; visitors behind one NAT count as one client.
+These are per backend process; the stack runs one. A *client* is the socket
+peer address, unless that peer is a configured trusted proxy, in which case it
+is the address the proxy reports in `X-Real-IP` (see below). Visitors behind
+one NAT count as one client.
+
+**Client identity (`TRUSTED_PROXY_IPS`).** One rule serves both the
+synchronous-compute limiter and the failed-authentication limiter
+(`client_key` in `src/api/request_limits.py`):
+
+* `TRUSTED_PROXY_IPS` is a comma-separated list of IPv4/IPv6 addresses and
+  CIDRs (e.g. `172.18.0.0/16,fd00::/8`). Default: empty. An invalid entry
+  stops the backend at startup; the error names the entry's position, not its
+  text.
+* `X-Real-IP` is honoured only when the socket peer is inside that list, and
+  only if it is a single valid IP address. A missing or malformed value from a
+  trusted proxy falls back to the proxy's own address. `X-Forwarded-For` is
+  never used. From any other peer the header is ignored, so rotating it
+  does not change a client's identity.
+* **Fail-closed caveat:** with the list empty, every request through nginx
+  has nginx's address as its peer, so all visitors share one client: one
+  synchronous simulation at a time site-wide, and one shared failed-auth
+  counter. Set `TRUSTED_PROXY_IPS` to the nginx container's address range to
+  restore per-visitor limits.
+* `docker-compose.yml` passes `TRUSTED_PROXY_IPS` through but leaves it empty:
+  the compose file defines no network or subnet, so Docker assigns the range
+  and the repository cannot name it. The operator must supply it, e.g. find it
+  with `docker network inspect <project>_default` (the `Subnet`), or pin a
+  subnet in compose and trust exactly that. Trust only the proxy's range,
+  never a broad range that clients can originate from.
+* Counters are per backend process (the stack runs one).
 
 **No per-IP request-rate limit, deliberately.** The live dashboard polls up to
 10 times a second per viewer and the demo is often shown to a room behind one

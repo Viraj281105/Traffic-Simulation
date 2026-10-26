@@ -38,6 +38,12 @@ services:
       - COGNITO_USER_POOL_ID=${VITE_COGNITO_USER_POOL_ID:-}
       - COGNITO_CLIENT_ID=${VITE_COGNITO_CLIENT_ID:-}
       - ADMIN_EMAILS=${ADMIN_EMAILS:-}
+      # Peers (IPs/CIDRs, comma-separated) whose X-Real-IP the backend may
+      # believe: the nginx container's address on this compose network. Empty
+      # (default) = X-Real-IP is ignored and every client looks like nginx.
+      # The subnet is assigned by Docker, so set it for your deployment; see
+      # docs/operations.md "Client identity".
+      - TRUSTED_PROXY_IPS=${TRUSTED_PROXY_IPS:-}
     volumes:
       - traffic_data:/app/data
     restart: unless-stopped
