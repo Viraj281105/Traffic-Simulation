@@ -44,6 +44,11 @@ services:
       # Override it if you change that network; empty = X-Real-IP is ignored and
       # every client looks like nginx. See docs/operations.md "Client identity".
       - TRUSTED_PROXY_IPS=${TRUSTED_PROXY_IPS:-${URBANFLOW_FRONTEND_IP:-172.30.77.10}}
+    # Extra backend settings (for example the AI provider key) kept out of this
+    # file. Values in `environment:` above take precedence over it.
+    env_file:
+      - path: backend/.env
+        required: false
     volumes:
       - traffic_data:/app/data
     networks:

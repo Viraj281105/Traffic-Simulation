@@ -121,6 +121,11 @@ const ThreeWayStudyPage = lazy(() =>
     default: m.ThreeWayStudyPage,
   })),
 );
+const ScenarioPlanningDashboard = lazy(() =>
+  import("./components/planning/ScenarioPlanningDashboard").then((m) => ({
+    default: m.ScenarioPlanningDashboard,
+  })),
+);
 const AdminPanel = lazy(() =>
   import("./components/AdminPanel").then((m) => ({ default: m.AdminPanel })),
 );
@@ -869,6 +874,15 @@ function Dashboard({
             <ThreeWayStudyPage />
           </Suspense>
         </PageTransition>
+      ) : viewMode === "scenarios" ? (
+        <PageTransition
+          transitionKey={pageKey}
+          className="app-main full-screen page-scroll"
+        >
+          <Suspense fallback={viewLoading}>
+            <ScenarioPlanningDashboard />
+          </Suspense>
+        </PageTransition>
       ) : viewMode === "planner" ? (
         <PageTransition
           transitionKey={pageKey}
@@ -938,6 +952,9 @@ function Dashboard({
                 viewMode === "roundabout" ? "roundabout" : "fixed_time_signal"
               }
               replayName={replaySingle ? (activeReplay?.name ?? null) : null}
+              config={replaySingle ? null : configValues}
+              onApply={replaySingle ? undefined : handleApplyConfig}
+              isRunning={activeIsPlaying}
             />
             {!replaySingle && (
               <div className="save-bar">

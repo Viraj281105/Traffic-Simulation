@@ -13,6 +13,7 @@ from typing import AsyncIterator
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.ai import router as ai_router
 from src.api import meta
 from src.api.auth import (
     get_current_identity,
@@ -130,3 +131,5 @@ app.include_router(study_router.router)
 app.include_router(replays_router.router)
 # /api/suites (src/suites/router.py).
 app.include_router(suites_router.router)
+# /api/ai/* (src/ai/router.py): AI Copilot — summary, chat, config-patch.
+app.include_router(ai_router.router)
