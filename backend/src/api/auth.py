@@ -4,6 +4,7 @@ import logging
 import os
 import threading
 import time
+from collections import deque
 from datetime import timezone
 from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, cast
 
@@ -15,9 +16,10 @@ from jose.utils import base64url_decode
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.api.request_limits import client_key
-from src.api.token_store import AuditStore, TokenStore, hash_token_secret
+from src.api.store import AuditStore, TokenStore, hash_token_secret
 from src.database.dao import UserDAO
 from src.database.db import get_db_connection
+from src.experiments.limits import PER_TOKEN_REQUESTS_PER_MINUTE
 
 # ── Personal Access Token (PAT) Scopes and Unified Identity (W7 / ADR-013) ───
 PAT_SCOPES: frozenset[str] = frozenset(
@@ -202,10 +204,45 @@ def is_auth_rate_limited(key: str) -> bool:
         return len(recent) >= MAX_AUTH_FAILURES
 
 
+# ── Per-token request rate (W7 Stage 2) ──────────────────────────────────────
+# Sliding 60 s window of request times per PAT id. Process-local like the failure
+# counters above: with several workers each would allow its own 60 requests.
+TOKEN_RATE_WINDOW_SECONDS = 60.0
+_TOKEN_REQUESTS_LOCK = threading.Lock()
+_TOKEN_REQUESTS: Dict[str, "deque[float]"] = {}
+
+
+def check_token_rate(token_id: str) -> None:
+    """Count one request for ``token_id``; 429 (naming the quota) once it exceeds the limit."""
+    now = time.monotonic()
+    with _TOKEN_REQUESTS_LOCK:
+        window = _TOKEN_REQUESTS.setdefault(token_id, deque())
+        while window and window[0] <= now - TOKEN_RATE_WINDOW_SECONDS:
+            window.popleft()
+        if len(window) >= PER_TOKEN_REQUESTS_PER_MINUTE:
+            retry_after = max(1, int(window[0] + TOKEN_RATE_WINDOW_SECONDS - now) + 1)
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=(
+                    "quota perTokenRequestsPerMinute: this token has made "
+                    f"{PER_TOKEN_REQUESTS_PER_MINUTE} requests in the last minute"
+                ),
+                headers={"Retry-After": str(retry_after)},
+            )
+        window.append(now)
+
+
+def reset_token_rate() -> None:
+    """Clear per-token request tracking. Intended for test fixtures."""
+    with _TOKEN_REQUESTS_LOCK:
+        _TOKEN_REQUESTS.clear()
+
+
 def reset_auth_failures() -> None:
-    """Clear failed authentication tracking. Intended for test fixtures."""
+    """Clear failed authentication and per-token request tracking. Intended for test fixtures."""
     with _AUTH_FAILURES_LOCK:
         _AUTH_FAILURES.clear()
+    reset_token_rate()
 
 
 def verify_cognito_jwt(token: str) -> Dict[str, Any]:
@@ -329,9 +366,7 @@ def get_current_identity(
 
         owner = {"user_id": row["user_id"], "token_id": row["id"]}
         if row.get("revoked_at") is not None:
-            raise _fail_auth(
-                key, "revoked_token", "Token has been revoked", **owner
-            )
+            raise _fail_auth(key, "revoked_token", "Token has been revoked", **owner)
 
         try:
             expires_at = datetime.datetime.fromisoformat(row["expires_at"])
@@ -346,6 +381,7 @@ def get_current_identity(
         if expired:
             raise _fail_auth(key, "expired_token", "Token is expired", **owner)
 
+        check_token_rate(row["id"])
         TokenStore.touch_last_used(row["id"])
         scopes = json.loads(row["scopes_json"])
         return UserIdentity(
@@ -363,9 +399,7 @@ def get_current_identity(
             raise _fail_auth(key, "invalid_jwt", str(err.detail)) from err
         raise
     except Exception as e:
-        raise _fail_auth(
-            key, "invalid_jwt", f"Authentication error: {str(e)}"
-        ) from e
+        raise _fail_auth(key, "invalid_jwt", f"Authentication error: {str(e)}") from e
 
     sub = _subject(claims)
     upsert_user(claims)

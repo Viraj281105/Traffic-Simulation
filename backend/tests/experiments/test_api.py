@@ -26,15 +26,16 @@ def test_capabilities_report_only_what_exists(client):
     assert body["apiVersion"] == 3
     features = body["features"]
     assert features["robustnessExperiments"] is True
-    # nothing the server cannot do yet is advertised
-    for missing in (
+    # W7 platform features are implemented and advertised; W5/W6 ones are not (nothing is advertised
+    # that the server cannot do)
+    for present in (
         "experimentCancellation",
         "experimentPackages",
         "personalAccessTokens",
         "pythonClient",
-        "aiCopilot",
-        "discoveryLab",
     ):
+        assert features[present] is True
+    for missing in ("aiCopilot", "discoveryLab"):
         assert features[missing] is False
     assert body["quotas"] == limits.quotas()
     assert body["documents"]["request"] == "urbanflow-experiment@1"
@@ -347,7 +348,7 @@ def test_one_running_experiment_per_user_and_a_server_wide_cap(make_service):
         refused = client.delete(
             f"/api/v3/experiments/{first['id']}", headers=as_user(ALICE)
         )
-        assert refused.status_code == 409 and "cancellation" in refused.json()["detail"]
+        assert refused.status_code == 409 and "cancel it" in refused.json()["detail"]
     finally:
         release.set()
     wait_for(client, first["id"], ALICE)

@@ -11,8 +11,8 @@ The manifest's assumptions block records:
 from __future__ import annotations
 
 import re
-from urllib.parse import unquote
 from typing import Any, Dict, List, Literal, Mapping, Optional, Sequence, Tuple
+from urllib.parse import unquote
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -243,7 +243,10 @@ def validate_manifest_structure(data: Any) -> Tuple[bool, Optional[str]]:
                 return False, f"sidecar at index {idx} has unexpected field(s)"
             for text_field in SIDECAR_FIELDS:
                 if not isinstance(sc[text_field], str):
-                    return False, f"sidecar at index {idx} '{text_field}' must be a string"
+                    return (
+                        False,
+                        f"sidecar at index {idx} '{text_field}' must be a string",
+                    )
             for text_field, limit in _SIDECAR_MAX_LENGTHS.items():
                 if not sc[text_field] or len(sc[text_field]) > limit:
                     return (

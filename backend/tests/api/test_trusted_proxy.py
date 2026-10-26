@@ -15,7 +15,9 @@ def _proxied(peer: str, real_ip: Optional[str] = None) -> Request:
 
 def _trust(monkeypatch: pytest.MonkeyPatch, raw: str) -> None:
     monkeypatch.setattr(
-        request_limits, "TRUSTED_PROXY_NETWORKS", request_limits.parse_trusted_proxies(raw)
+        request_limits,
+        "TRUSTED_PROXY_NETWORKS",
+        request_limits.parse_trusted_proxies(raw),
     )
 
 
@@ -83,7 +85,9 @@ def test_non_ip_peer_is_never_trusted(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-@pytest.mark.parametrize("raw", ["300.1.1.1", "10.0.0.0/33", "abc", "10.0.0.1;10.0.0.2"])
+@pytest.mark.parametrize(
+    "raw", ["300.1.1.1", "10.0.0.0/33", "abc", "10.0.0.1;10.0.0.2"]
+)
 def test_invalid_trusted_proxy_config_is_rejected(raw: str) -> None:
     with pytest.raises(ValueError, match="TRUSTED_PROXY_IPS entry 1"):
         request_limits.parse_trusted_proxies(raw)

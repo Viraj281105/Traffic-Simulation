@@ -86,6 +86,7 @@ EXCLUSION_REASONS = (
     "no_completed_vehicles",  # no vehicle finished its trip after warm-up: the delay is undefined
     "non_finite",
     "missing_run",
+    "incomplete_cancelled",  # the experiment was cancelled before this condition finished
 )
 
 

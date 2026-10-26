@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 import src.api.auth as auth
 import src.api.security as security
 from src.api.auth import DEV_AUTH_TOKEN, reset_auth_failures
-from src.api.token_store import AuditStore, TokenStore, ensure_tables
+from src.api.store import AuditStore, TokenStore, ensure_tables
 from src.database.db import get_db_connection
 from src.main import app
 
@@ -390,7 +390,7 @@ def test_concurrent_creation_cannot_exceed_active_token_limit() -> None:
     """Simultaneous creators for one user are serialized: exactly the limit succeeds."""
     import threading
 
-    from src.api.token_store import MAX_ACTIVE_TOKENS_PER_USER
+    from src.api.store import MAX_ACTIVE_TOKENS_PER_USER
 
     attempts = MAX_ACTIVE_TOKENS_PER_USER + 6
     barrier = threading.Barrier(attempts)
@@ -441,7 +441,9 @@ def test_browser_session_manages_own_tokens(
     assert created.status_code == 201
     assert client.get("/api/v3/tokens", headers=headers).status_code == 200
     token_id = created.json()["id"]
-    assert client.delete(f"/api/v3/tokens/{token_id}", headers=headers).status_code == 200
+    assert (
+        client.delete(f"/api/v3/tokens/{token_id}", headers=headers).status_code == 200
+    )
 
 
 def test_listing_requires_tokens_read(client: TestClient) -> None:
@@ -497,7 +499,9 @@ def test_pat_listing_shows_only_the_owners_tokens(client: TestClient) -> None:
     alice_id, _ = _pat_headers("alice", ["experiments:read"])
     bob_id, _ = _pat_headers("bob", ["experiments:read"])
     _, reader = _pat_headers("alice", ["tokens:read"])
-    ids = {t["id"] for t in client.get("/api/v3/tokens", headers=reader).json()["tokens"]}
+    ids = {
+        t["id"] for t in client.get("/api/v3/tokens", headers=reader).json()["tokens"]
+    }
     assert alice_id in ids and bob_id not in ids
 
 
@@ -596,3 +600,56 @@ def test_audit_log_rejects_insert_or_replace_of_an_existing_row() -> None:
     # Appending a new, distinct row is still allowed.
     AuditStore.record_event("alice", "token_revoked", token_id="pat_x")
     assert len(AuditStore.list_events("alice")) == 2
+
+
+# ── Per-token request rate (W7 Stage 2) ──────────────────────────────────────
+
+
+def test_per_token_request_rate_limit(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from src.experiments.limits import PER_TOKEN_REQUESTS_PER_MINUTE
+
+    _, busy = _pat_headers("alice", ["experiments:read"])
+    _, other = _pat_headers("alice", ["experiments:read"])
+    for _ in range(PER_TOKEN_REQUESTS_PER_MINUTE):
+        assert client.get("/api/v3/capabilities", headers=busy).status_code == 200
+
+    limited = client.get("/api/v3/capabilities", headers=busy)
+    assert limited.status_code == 429
+    assert "perTokenRequestsPerMinute" in error_message(limited)
+    assert 1 <= int(limited.headers["Retry-After"]) <= 61
+    # The limit belongs to the token, not the user or the address.
+    assert client.get("/api/v3/capabilities", headers=other).status_code == 200
+
+    now = auth.time.monotonic()
+    monkeypatch.setattr(auth.time, "monotonic", lambda: now + 61.0)
+    assert client.get("/api/v3/capabilities", headers=busy).status_code == 200
+
+
+def test_browser_sessions_are_not_subject_to_the_token_rate_limit(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
+    headers = {"X-API-Key": KEY, "Authorization": f"Bearer {DEV_AUTH_TOKEN}"}
+    for _ in range(70):
+        assert client.get("/api/v3/capabilities", headers=headers).status_code == 200
+
+
+def test_the_quota_constants_agree_with_the_contract_module() -> None:
+    from src.api import contracts_v3 as contract
+    from src.experiments import limits
+
+    assert (
+        limits.PER_TOKEN_REQUESTS_PER_MINUTE
+        == contract.PER_TOKEN_REQUESTS_PER_MINUTE_QUOTA
+    )
+    assert (
+        limits.MAX_DAILY_SIMULATED_SECONDS_PER_USER
+        == contract.DAILY_SIMULATED_SECONDS_PER_USER_QUOTA
+    )
+    assert limits.MAX_PACKAGE_BYTES == contract.MAX_PACKAGE_BYTES_QUOTA
+    assert (
+        limits.MAX_PACKAGE_UNCOMPRESSED_BYTES == contract.MAX_UNCOMPRESSED_PACKAGE_BYTES
+    )
+    assert limits.MAX_PACKAGE_ENTRIES == contract.MAX_PACKAGE_ENTRY_COUNT

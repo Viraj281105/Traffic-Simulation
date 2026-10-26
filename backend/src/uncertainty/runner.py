@@ -25,7 +25,7 @@ from __future__ import annotations
 import math
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Sequence, Union
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Union
 
 from src.scenario.documents import (
     STRATEGIES,
@@ -34,6 +34,7 @@ from src.scenario.documents import (
     validate_scenario,
 )
 from src.study.runner import (
+    CancelledRun,
     Progress,
     SimTask,
     run_simulation_tasks_isolated,
@@ -69,6 +70,11 @@ class EnsembleRefusedError(ValueError):
         self.errors = list(errors)
 
 
+def run_key(condition: int, replication: int, alternative: str) -> str:
+    """Stable identity of one simulation run inside an experiment (used by checkpoints)."""
+    return f"{condition}:{replication}:{alternative}"
+
+
 @dataclass
 class EnsembleRun:
     sampled: List[Condition]
@@ -78,6 +84,11 @@ class EnsembleRun:
     elapsed_seconds: float
     workers: int
     notes: List[str] = field(default_factory=list)
+    # Cancelled before every run finished. ``checkpoint`` holds the metrics of every run that did
+    # finish (by run_key); a later call passes it back as ``completed`` and runs only the rest.
+    cancelled: bool = False
+    checkpoint: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    runs_from_checkpoint: int = 0
 
 
 def _check_alternatives(alternatives: Sequence[RunAlternative]) -> None:
@@ -141,6 +152,7 @@ def run_ensemble(
     *,
     progress: Optional[Progress] = None,
     executor: TaskExecutor = run_simulation_tasks_isolated,
+    completed: Optional[Mapping[str, Mapping[str, Any]]] = None,
 ) -> EnsembleRun:
     """Sample the conditions, run every (condition, alternative, replication) and collect the outcomes."""
     _check_alternatives(alternatives)
@@ -209,18 +221,40 @@ def run_ensemble(
             tasks.append(task)
             keys.append((condition.index, rep, pos))
 
+    # Runs finished before a cancellation are not repeated: their stored metrics stand in for a result.
+    # Every run is deterministic (condition, replication and seed fix it), so a resumed experiment
+    # produces exactly the outcomes of an uninterrupted one.
+    done = completed or {}
+    key_of = [run_key(index, rep, alternatives[pos].id) for (index, rep, pos) in keys]
+    todo = [i for i, key in enumerate(key_of) if key not in done]
     started = time.monotonic()
-    results = executor(tasks, progress) if tasks else []
+    fresh = executor([tasks[i] for i in todo], progress) if todo else []
     elapsed = time.monotonic() - started
-    if len(results) != len(tasks):
+    if len(fresh) != len(todo):
         raise RuntimeError(
             "the executor returned a different number of results than tasks"
         )
+    results: List[Union[Dict[str, Any], Exception]] = [{}] * len(tasks)
+    for i, key in enumerate(key_of):
+        if key in done:
+            results[i] = dict(done[key])
+    cancelled_conditions: set[int] = set()
+    checkpoint: Dict[str, Dict[str, Any]] = {
+        key: {"metrics": dict(done[key].get("metrics") or {})} for key in done
+    }
+    for i, outcome in zip(todo, fresh):
+        results[i] = outcome
+        if isinstance(outcome, CancelledRun):
+            cancelled_conditions.add(keys[i][0])
+        elif not isinstance(outcome, Exception):
+            checkpoint[key_of[i]] = {"metrics": dict(outcome.get("metrics") or {})}
 
     # 3. Gather outcomes per condition and apply the exclusion rules.
     outcomes: Dict[int, Dict[str, List[float]]] = {}
     failures: Dict[int, str] = {}
     for (index, _rep, pos), result in zip(keys, results):
+        if isinstance(result, CancelledRun):
+            continue
         per_alt = outcomes.setdefault(index, {}).setdefault(alternatives[pos].id, [])
         if isinstance(result, Exception):
             per_alt.append(math.nan)
@@ -238,7 +272,11 @@ def run_ensemble(
     conditions: List[ConditionResult] = []
     for condition in sampled:
         index = condition.index
-        reason = excluded.get(index) or failures.get(index)
+        reason = (
+            excluded.get(index)
+            or ("incomplete_cancelled" if index in cancelled_conditions else None)
+            or failures.get(index)
+        )
         conditions.append(
             ConditionResult(
                 index=index,
@@ -254,6 +292,9 @@ def run_ensemble(
         runs_executed=len(tasks),
         elapsed_seconds=elapsed,
         workers=study_workers(),
+        cancelled=bool(cancelled_conditions),
+        checkpoint=checkpoint,
+        runs_from_checkpoint=len(tasks) - len(todo),
     )
 
 
@@ -264,33 +305,58 @@ def run_experiment(
     *,
     progress: Optional[Progress] = None,
     executor: TaskExecutor = run_simulation_tasks_isolated,
+    completed: Optional[Mapping[str, Mapping[str, Any]]] = None,
 ) -> Dict[str, Any]:
-    """Run the ensemble and analyse it. The specification is fingerprinted before any run."""
+    """Run the ensemble and analyse it. The specification is fingerprinted before any run.
+
+    A cancelled ensemble returns ``cancelled: True`` with the checkpoint of finished runs and, when the
+    finished conditions allow one, a partial analysis whose unfinished conditions are excluded as
+    ``incomplete_cancelled``. It has no ``resultFingerprint``: only a complete run is fingerprinted."""
     spec_fingerprint = fingerprint(
         spec
     )  # pre-declaration: computed before the first simulation
-    run = run_ensemble(spec, alternatives, progress=progress, executor=executor)
-    analysis = analyze(
-        run.conditions,
-        alternatives=[a.id for a in alternatives],
-        baseline=baseline,
-        replications=spec.replications,
-        factor_ids=[f.id for f in spec.factors],
-        primary_indicator=spec.primaryIndicator,
-        tie_tolerance=spec.tieTolerance,
-        seed=spec.seed,
-        predeclared=bool(spec_fingerprint),
+    run = run_ensemble(
+        spec, alternatives, progress=progress, executor=executor, completed=completed
     )
+    analysis: Optional[Dict[str, Any]]
+    try:
+        analysis = analyze(
+            run.conditions,
+            alternatives=[a.id for a in alternatives],
+            baseline=baseline,
+            replications=spec.replications,
+            factor_ids=[f.id for f in spec.factors],
+            primary_indicator=spec.primaryIndicator,
+            tie_tolerance=spec.tieTolerance,
+            seed=spec.seed,
+            predeclared=bool(spec_fingerprint),
+        )
+    except ValueError:
+        if not run.cancelled:
+            raise
+        analysis = None  # too little finished to analyse; the checkpoint is still kept
+    execution = {
+        "runsPlanned": run.runs_planned,
+        "runsExecuted": run.runs_executed,
+        "runsFromCheckpoint": run.runs_from_checkpoint,
+        "workers": run.workers,
+        "wallSeconds": round(run.elapsed_seconds, 3),
+    }
+    if run.cancelled:
+        return {
+            "cancelled": True,
+            "specFingerprint": spec_fingerprint,
+            "analysis": analysis,
+            "checkpoint": run.checkpoint,
+            "execution": execution,
+        }
+    assert analysis is not None
     return {
+        "checkpoint": run.checkpoint,
         "specFingerprint": spec_fingerprint,
         "resultFingerprint": result_fingerprint(analysis),
         "analysis": analysis,
         # Execution details are diagnostic and kept out of the fingerprinted analysis: they may differ
         # between machines without changing the result.
-        "execution": {
-            "runsPlanned": run.runs_planned,
-            "runsExecuted": run.runs_executed,
-            "workers": run.workers,
-            "wallSeconds": round(run.elapsed_seconds, 3),
-        },
+        "execution": execution,
     }

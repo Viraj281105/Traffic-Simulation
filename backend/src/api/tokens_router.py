@@ -27,7 +27,7 @@ from src.api.contracts_v3 import (
     TokenMetadata,
     TokenRevokedResponse,
 )
-from src.api.token_store import (
+from src.api.store import (
     MAX_ACTIVE_TOKENS_PER_USER,
     AuditStore,
     TokenStore,

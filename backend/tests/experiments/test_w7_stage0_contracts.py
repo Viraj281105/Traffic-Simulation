@@ -296,6 +296,8 @@ def test_audit_event_types_vocabulary() -> None:
         "experiment_cancelled",
         "quota_rejected",
         "auth_failed",
+        "package_exported",
+        "package_verified",
     }
     assert AUDIT_EVENT_TYPES == expected
 

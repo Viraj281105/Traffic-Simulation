@@ -156,7 +156,8 @@
               "queued",
               "running",
               "completed",
-              "failed"
+              "failed",
+              "cancelled"
             ],
             "title": "Status",
             "type": "string"
@@ -189,6 +190,73 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "PackageVerificationReport": {
+        "additionalProperties": false,
+        "description": "Report returned by POST /api/v3/packages/verify.",
+        "properties": {
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "format": {
+            "const": "urbanflow-package-verification",
+            "default": "urbanflow-package-verification",
+            "title": "Format",
+            "type": "string"
+          },
+          "integrityNote": {
+            "default": "Integrity is not authenticity: checksums show a package is internally consistent, not who made it.",
+            "title": "Integritynote",
+            "type": "string"
+          },
+          "internallyConsistent": {
+            "title": "Internallyconsistent",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "manifestSummary": {
+            "additionalProperties": true,
+            "title": "Manifestsummary",
+            "type": "object"
+          },
+          "replayClass": {
+            "enum": [
+              "exact",
+              "comparable",
+              "differs (engine or runtime changed)"
+            ],
+            "title": "Replayclass",
+            "type": "string"
+          },
+          "version": {
+            "const": 1,
+            "default": 1,
+            "title": "Version",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "replayClass",
+          "internallyConsistent",
+          "manifestSummary"
+        ],
+        "title": "PackageVerificationReport",
         "type": "object"
       },
       "RunCounts": {
@@ -907,6 +975,170 @@
         ]
       }
     },
+    "/api/v3/experiments/{experiment_id}/cancel": {
+      "post": {
+        "description": "Stop a queued or running experiment; repeating the request is harmless.",
+        "operationId": "cancel_api_v3_experiments__experiment_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Cancel",
+        "tags": [
+          "experiments-v3"
+        ]
+      }
+    },
+    "/api/v3/experiments/{experiment_id}/package": {
+      "get": {
+        "description": "Download a completed experiment as a portable .ufpkg archive.",
+        "operationId": "export_package_api_v3_experiments__experiment_id__package_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "application/zip": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The .ufpkg archive."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Export Package",
+        "tags": [
+          "experiments-v3"
+        ]
+      }
+    },
     "/api/v3/experiments/{experiment_id}/result": {
       "get": {
         "operationId": "result_api_v3_experiments__experiment_id__result_get",
@@ -983,6 +1215,169 @@
           }
         ],
         "summary": "Result",
+        "tags": [
+          "experiments-v3"
+        ]
+      }
+    },
+    "/api/v3/experiments/{experiment_id}/resume": {
+      "post": {
+        "description": "Run the unfinished part of a cancelled experiment.",
+        "operationId": "resume_api_v3_experiments__experiment_id__resume_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Resume",
+        "tags": [
+          "experiments-v3"
+        ]
+      }
+    },
+    "/api/v3/packages/verify": {
+      "post": {
+        "description": "Check an uploaded .ufpkg without running anything or storing it.",
+        "operationId": "verify_package_api_v3_packages_verify_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "description": "A .ufpkg archive, at most 10485760 bytes.",
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackageVerificationReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Verify Package",
         "tags": [
           "experiments-v3"
         ]

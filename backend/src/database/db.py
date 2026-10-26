@@ -223,7 +223,7 @@ def _create_schema(conn: sqlite3.Connection) -> None:
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);")
 
     # 7. Personal Access Tokens (uf_pats) and Audit Log (uf_audit_log) (W7 / ADR-013)
-    from src.api.token_store import ensure_tables as ensure_token_tables
+    from src.api.store import ensure_tables as ensure_token_tables
 
     ensure_token_tables(conn)
 

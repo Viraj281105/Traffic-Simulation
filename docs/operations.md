@@ -297,6 +297,17 @@ synchronous-compute limiter and the failed-authentication limiter
   configured here.
 * Counters are per backend process (the stack runs one).
 
+**Platform quotas (`/api/v3`, W7).**
+
+| Quota | Value | Where |
+| --- | --- | --- |
+| Requests per personal access token | 60 per minute (429, `Retry-After`, names `perTokenRequestsPerMinute`) | `src/api/auth.py` `check_token_rate`; process-local |
+| Simulated seconds per user per UTC day | 86,400, reserved at submission and resume, refunded on cancel (429, or 422 if one experiment exceeds a day) | `UsageStore` in `src/experiments/store.py`, table `uf_usage` |
+| Package size | 10 MB uploaded or exported (413) | `src/experiments/limits.py`, body-size middleware |
+| Package unpacked size / entries | 50 MB actually read / 50 members | `src/experiments/package.py` |
+
+`GET /api/v3/capabilities` reports all of them.
+
 **No per-IP request-rate limit, deliberately.** The live dashboard polls up to
 10 times a second per viewer and the demo is often shown to a room behind one
 NAT address, so an nginx `limit_req` sized to stop a flood would also stop a
@@ -367,6 +378,46 @@ browser sends the credentials automatically, so no frontend change is needed.
 
 For a public EC2 demo, prefer restricting access at the security group as well,
 and treat the gate as the application-level backstop.
+
+## Python client, tokens, cancel and packages (`/api/v3`)
+
+**Personal access tokens (PATs).** Create one in a signed-in browser session (`POST /api/v3/tokens`, shown
+once, 1–90 days, at most 10 active). A PAT can never create a PAT. Scopes: `experiments:read`,
+`experiments:run`, `packages:read`, `packages:write`, `tokens:read` (list your tokens), `tokens:manage` (revoke
+them). A token without the scope gets 403; another user's token or experiment is a 404. Failed
+authentication is counted per client and audited (`auth_failed`); the audit table is append-only.
+
+**Client.** `sdk/python` is a standard-library package (`pip install ./sdk/python`):
+
+```python
+from urbanflow_client import Client
+api = Client("https://urbanflow.example", token=os.environ["URBANFLOW_TOKEN"])
+result = api.run(experiment_document)               # submit, wait, fetch the result
+api.export_package(experiment_id, "run.ufpkg")      # never overwrites an existing file
+print(api.verify_package("run.ufpkg")["internallyConsistent"])
+```
+
+`URBANFLOW_URL` / `URBANFLOW_TOKEN` are read from the environment; the CLI (`python -m urbanflow_client`)
+reads only the environment, never a token argument. The client refuses to send credentials over plain HTTP
+(except to loopback), refuses redirects, caps response sizes, and keeps tokens out of `repr`, logs and
+exception text. It does not hold the shared `API_KEY`; in a locked-down deployment that key stays with nginx,
+so an external SDK needs the gateway pattern still to be decided (see the W7 plan, section 6).
+
+**Cancel and resume.** `POST /api/v3/experiments/{id}/cancel` stops a queued or running experiment: runs not
+yet started are skipped, simulations already running in a worker finish (they cannot be interrupted), so the
+experiment still counts as active until they do. `POST .../resume` simulates only the missing runs and yields
+the result an uninterrupted run would have. The partial result of a cancelled experiment is not exportable.
+
+**Packages (`.ufpkg`).** `GET /api/v3/experiments/{id}/package` (needs `packages:read`) downloads a completed
+experiment as a ZIP: `manifest.json`, `experiment.json`, `result.json`, `SHA256SUMS` and optional
+`sidecars/*.json|csv|txt`. `POST /api/v3/packages/verify` (needs `packages:write`, raw `application/octet-stream`
+body, 10 MB) checks an upload in memory and returns a report; it never runs, imports or stores anything.
+Verification enforces: size, entry-count and unpacked-size limits measured on bytes actually read, a
+compression-ratio ceiling, no duplicate/absolute/traversing/backslash/drive/dotted/Windows-reserved names, no
+links, encryption or exotic compression, no executable or archive content, exact SHA-256 of every member,
+manifest/request/result cross-checks and recomputed fingerprints. **Integrity is not authenticity**: a passing
+report says the package is internally consistent, not who made it. `replayClass` compares recorded
+provenance with this server and is not a re-run.
 
 ## Contracts and Metrics
 

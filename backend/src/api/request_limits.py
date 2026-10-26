@@ -47,6 +47,10 @@ ASGIApp = Callable[[Scope, Receive, Send], Awaitable[None]]
 # few tens of kilobytes; tests/api/test_request_limits.py pins that margin.
 MAX_V2_BODY_BYTES = 1024 * 1024
 
+# Larger uploads that are still bounded: a .ufpkg package (W7) may be 10 MB.
+MAX_PACKAGE_UPLOAD_BYTES = 10 * 1024 * 1024
+PREFIX_LIMITS: Dict[str, int] = {"/api/v3/packages": MAX_PACKAGE_UPLOAD_BYTES}
+
 # Stateless compute that is cheap per request but takes arbitrary documents.
 LIMITED_PREFIXES: Sequence[str] = (
     "/api/v2/networks",
@@ -103,10 +107,20 @@ class BodySizeLimitMiddleware:
         app: ASGIApp,
         max_bytes: int = MAX_V2_BODY_BYTES,
         prefixes: Sequence[str] = LIMITED_PREFIXES,
+        prefix_limits: Optional[Dict[str, int]] = None,
     ) -> None:
         self.app = app
         self.max_bytes = max_bytes
-        self.prefixes = tuple(prefixes)
+        self.prefix_limits = dict(
+            PREFIX_LIMITS if prefix_limits is None else prefix_limits
+        )
+        self.prefixes = tuple(prefixes) + tuple(self.prefix_limits)
+
+    def _limit_for(self, path: str) -> int:
+        for prefix, limit in self.prefix_limits.items():
+            if path.startswith(prefix):
+                return limit
+        return self.max_bytes
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http" or not str(scope.get("path", "")).startswith(
@@ -115,15 +129,16 @@ class BodySizeLimitMiddleware:
             await self.app(scope, receive, send)
             return
 
+        limit = self._limit_for(str(scope.get("path", "")))
         headers: Dict[bytes, bytes] = dict(scope.get("headers") or [])
         declared = headers.get(b"content-length")
         if declared is not None:
             try:
-                too_large = int(declared) > self.max_bytes
+                too_large = int(declared) > limit
             except ValueError:
                 too_large = False  # malformed: let the server reject it
             if too_large:
-                await _send_413(send, self.max_bytes)
+                await _send_413(send, limit)
                 return
 
         received = 0
@@ -134,8 +149,8 @@ class BodySizeLimitMiddleware:
             message = await receive()
             if message["type"] == "http.request":
                 received += len(message.get("body", b""))
-                if received > self.max_bytes:
-                    raise _TooLarge(self.max_bytes)
+                if received > limit:
+                    raise _TooLarge(limit)
             return message
 
         async def tracking_send(message: Message) -> None:
@@ -148,7 +163,7 @@ class BodySizeLimitMiddleware:
             await self.app(scope, counting_receive, tracking_send)
         except _TooLarge:
             if not started:
-                await _send_413(send, self.max_bytes)
+                await _send_413(send, limit)
 
 
 # ── Query and workload bounds shared by routers ───────────────────────────

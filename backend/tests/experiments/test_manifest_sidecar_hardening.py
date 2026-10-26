@@ -80,7 +80,15 @@ UNSAFE_PATHS = [
     "a?.csv",
     "a*.csv",
 ]
-SAFE_PATHS = ["sidecars/metrics.csv", "a.csv", "console.txt", "com10.csv", "a.b.c.json", "dir/sub dir/file-1.v2.json", "ü/ä.txt"]
+SAFE_PATHS = [
+    "sidecars/metrics.csv",
+    "a.csv",
+    "console.txt",
+    "com10.csv",
+    "a.b.c.json",
+    "dir/sub dir/file-1.v2.json",
+    "ü/ä.txt",
+]
 
 
 @pytest.mark.parametrize("path", UNSAFE_PATHS)
@@ -104,7 +112,15 @@ def test_safe_relative_paths_are_accepted(path: str) -> None:
 
 @pytest.mark.parametrize(
     "digest",
-    ["", "a" * 63, "a" * 65, "g" * 64, "a" * 63 + "\n", " " + "a" * 63, "0x" + "a" * 62],
+    [
+        "",
+        "a" * 63,
+        "a" * 65,
+        "g" * 64,
+        "a" * 63 + "\n",
+        " " + "a" * 63,
+        "0x" + "a" * 62,
+    ],
 )
 def test_sha256_must_be_exactly_64_hex_characters(digest: str) -> None:
     with pytest.raises(ValidationError):
@@ -142,9 +158,13 @@ def test_structural_tier_rejects_bad_shapes_and_lengths() -> None:
     assert validate_manifest_structure(_manifest(["not-an-object"]))[0] is False
     assert validate_manifest_structure(_manifest([_sidecar(extra=1)]))[0] is False
     assert validate_manifest_structure(_manifest([_sidecar(name="")]))[0] is False
-    assert validate_manifest_structure(_manifest([_sidecar(name="n" * 121)]))[0] is False
+    assert (
+        validate_manifest_structure(_manifest([_sidecar(name="n" * 121)]))[0] is False
+    )
     assert validate_manifest_structure(_manifest([_sidecar(kind="k" * 65)]))[0] is False
-    assert validate_manifest_structure(_manifest([_sidecar(path="p" * 257)]))[0] is False
+    assert (
+        validate_manifest_structure(_manifest([_sidecar(path="p" * 257)]))[0] is False
+    )
 
 
 def test_duplicate_paths_are_rejected_case_insensitively() -> None:

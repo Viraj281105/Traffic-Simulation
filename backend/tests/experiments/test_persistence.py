@@ -150,7 +150,7 @@ def test_a_failing_audit_write_never_fails_an_experiment(
     def broken(*args, **kwargs):
         raise RuntimeError("audit store down")
 
-    monkeypatch.setattr("src.api.token_store.AuditStore.record_event", broken)
+    monkeypatch.setattr("src.api.store.AuditStore.record_event", broken)
     client = build_client(service)
     with caplog.at_level("WARNING"):
         done = wait_for(client, submit(client)["id"])

@@ -32,8 +32,8 @@ V3_ROUTES = _v3_routes()
 
 def test_the_v3_family_is_mounted() -> None:
     families = {path.split("/")[3] for _, path in V3_ROUTES}
-    assert families == {"capabilities", "experiments", "tokens"}
-    assert len(V3_ROUTES) >= 10
+    assert families == {"capabilities", "experiments", "packages", "tokens"}
+    assert len(V3_ROUTES) >= 14
 
 
 @pytest.fixture

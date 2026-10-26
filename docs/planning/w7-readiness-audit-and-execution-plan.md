@@ -1,6 +1,6 @@
 # W7 Readiness Audit and Staged Execution Plan
 
-> **Status:** PROPOSED — planning only, nothing implemented. Audit date 2026-10-23, branch `viraj-dev`, HEAD `cac27aa`, clean working tree.
+> **Status:** IMPLEMENTED on branch `viraj-dev` (Stages 0–5; Stage 6 frontend and Stage 7 W5/W6 items remain out of scope) — see [§7 Implementation record](#7-implementation-record). The text below is the original plan; where §7 records a different decision, §7 is what the code does. Audit date 2026-10-23, HEAD at planning time `cac27aa`.
 > **Decision:** `CONDITIONAL GO — AUTONOMOUS W7 PLATFORM EXECUTION`
 > **Sources:** [sprint plan §1.1, §1.3, §1.5, §3.8](../roadmap/V3_WEEKLY_SPRINT_PLAN.md), [strategy §6, §7, §15](../roadmap/V3_PRODUCT_STRATEGY.md), ADR-013, ADR-017.
 > **Authority:** [`docs/roadmap/V3_WEEKLY_SPRINT_PLAN.md`](../roadmap/V3_WEEKLY_SPRINT_PLAN.md) and ADR-013 remain authoritative. Any design proposal here that conflicts with them is flagged as a decision for the Product Owner (PO), not silently adopted.
@@ -164,3 +164,82 @@ W5 and W6 will define their own schemas and register their quotas when built; W7
 * **Governance Flag (Frontend Capacity):** Frontend ownership (khushik8605 vs Viraj281105) must be formally confirmed by the PO. If assigned to Viraj, frontend work must be funded from separate capacity or contingency buffer, not compressed into the 4.25 ED backend platform budget.
 * **W4 PO Sign-Off:** High-aggression default (ADR-016 / ADR-019) sign-off at gate G-AG is tracked separately and does not block W7 development.
 * **Unresolved Architecture Decision (External SDK Access Pattern in Locked-Down Environments):** The repository defines Nginx reverse proxying for containerized web traffic (`frontend/templates/default.conf.template`) and trusted internal `X-API-Key` passing, but does not establish an external gateway topology or edge access pattern for distributable SDK clients operating outside the private network in production. `require_api_key` cannot be weakened to accept PATs, and distributable SDKs must never embed or expose shared infrastructure secrets. The Product Owner and infrastructure team must formally decide on the external-client access pattern (e.g. an edge gateway endpoint that injects `BACKEND_API_KEY` or a dedicated ingress proxy) prior to public SDK distribution.
+
+## 7. Implementation record
+
+What was built, where it departs from the plan above, and what is still open. Tests named here run in the
+backend virtual environment (`pytest --no-cov`); the SDK's own unit tests run from `sdk/python`.
+
+### 7.1 Delivered
+
+| Stage | Delivered | Main files |
+| --- | --- | --- |
+| 0 | Manifest `kind`/`sidecars`, two-tier validation, PAT scopes, audit vocabulary, route contracts | `experiments/manifest.py`, `api/contracts_v3.py` |
+| 1 | PATs (SHA-256 at rest, shown once, 1–90 days, max 10 active, atomic quota), scopes incl. `tokens:read` / `tokens:manage`, browser-session-only creation, ownership 404s, failed-auth auditing, append-only `uf_audit_log`, trusted-proxy client identity | `api/auth.py`, `api/token_store.py`, `api/tokens_router.py`, `api/audit.py`, `api/request_limits.py` |
+| 2 | Per-token 60 requests/minute, 86,400 simulated seconds per user per UTC day (persisted in `uf_usage`), 10 MB package limit; all reported by `GET /api/v3/capabilities`, whose feature flags are now true only for what exists | `experiments/limits.py`, `experiments/store.py`, `api/auth.py` |
+| 3 | `POST /experiments/{id}/cancel` and `/resume`; delete allowed after cancel | `experiments/service.py`, `study/runner.py`, `uncertainty/runner.py` |
+| 4 | `GET /experiments/{id}/package`, `POST /packages/verify`, safe extraction helper | `experiments/package.py`, `experiments/router.py` |
+| 5 | Standard-library client and CLI, `sdk/python` (`urbanflow_client`) | `sdk/python/` |
+
+### 7.2 Decisions recorded (where the plan was silent or is refined)
+
+* **Cancel/resume is real, within one limit.** Every simulation run is a deterministic function of the
+  specification, so a cancelled experiment keeps the metrics of the runs that finished (its *checkpoint*, kept
+  in `uf_experiments.checkpoint_json`) and a resume simulates only the rest; the completed result has the same
+  `resultFingerprint` as an uninterrupted run (tested on the fake executor and on the real process pool).
+  The limit: a simulation already running in a worker cannot be interrupted, so a cancelled experiment stays
+  counted as active, and cannot be deleted or resumed, until the runs in flight finish (seconds to a minute).
+  Status goes to `cancelled` at once; a repeated cancel is a harmless 202. Failed runs are not checkpointed and
+  run again on resume. Failed and completed experiments cannot be cancelled or resumed (409). Allowed
+  transitions: `queued|running → cancelled → queued → running → completed|failed|cancelled`.
+* **The result of a cancelled experiment** is an `urbanflow-experiment-partial-result` (not an
+  `urbanflow-experiment-result`): finished conditions analysed, unfinished ones excluded as
+  `incomplete_cancelled` (a new member of `EXCLUSION_REASONS`), no `resultFingerprint`, no manifest, not
+  exportable.
+* **Daily simulated seconds** are *reserved* up front (`duration × total runs`), atomically (`BEGIN IMMEDIATE`),
+  so execution can never exceed the quota; a cancellation refunds the runs that never ran and a resume reserves
+  only the remainder. An experiment larger than a whole day is refused with 422, not 429. If SQLite is
+  unavailable the counters fall back to process memory.
+* **Per-token rate** is a sliding 60 s window per PAT id and is process-local (like the failed-auth counters).
+  Browser sessions (dev, Cognito) are not limited by it.
+* **Package layout** is `manifest.json`, `experiment.json`, `result.json`, `SHA256SUMS` and optional
+  `sidecars/<file>` (`.json`, `.csv`, `.txt`); the plan's flat allow-list regex is applied to each path segment
+  and one `sidecars/` level is allowed because the manifest contract names that folder.
+* **Checksums are over the exact member bytes**, not LF-normalised bytes (the plan's wording): export always
+  writes LF, and a package re-saved with CRLF fails verification rather than silently passing. `SHA256SUMS` is
+  authoritative for every member; the manifest's `sidecars[].sha256` and `packageChecksums` must agree with it.
+* **Executable content** is refused by allow-list (names and extensions) *and* by leading bytes (PE, ELF,
+  `#!`, Mach-O, Java class, ZIP, gzip, 7z, RAR), and sidecars must be UTF-8 text without NUL bytes.
+* **Verification is fingerprint-aware**: besides digests, the verifier recomputes the specification, scenario
+  and result fingerprints from the packaged documents and compares them with the manifest, so a package whose
+  analysis was edited and whose checksums were regenerated is still rejected.
+* **`replayClass`** is derived from recorded provenance, never by re-running: `exact` = same code revision,
+  Python version and driver-aggression parameters as this server; `comparable` = same aggression parameters and
+  Python minor version but a different or unrecorded revision; `differs (engine or runtime changed)` otherwise
+  and for unknown kinds (where replay evaluation is skipped). It states how likely an identical replay is, not
+  that it was reproduced.
+* **"Import" is verification.** `POST /packages/verify` inspects an upload in memory and stores nothing; no
+  endpoint ingests a package into the experiment store or runs it. `extract_package` exists for a future local
+  importer and re-validates every resolved target against the extraction root, creating files exclusively.
+* **`POST /packages/verify` needs `packages:write`** as the contract fixed; export needs `packages:read`.
+* **Audit vocabulary** gained `auth_failed`, `package_exported` and `package_verified`; `experiment_cancelled`
+  is now emitted. Audit writes on the experiment routes never fail the request.
+* **Upload**: the raw request body (`application/octet-stream`), capped at 10 MB by the body-size middleware for
+  `/api/v3/packages` only, and held in a compute slot while it is inspected.
+
+### 7.3 Still open (deployment and design)
+
+* **Trusted proxy.** Compose pins the nginx container to `172.30.77.10` on a private network and trusts that one
+  address; behind a further load balancer nginx needs its real-IP module configured, which is not done here
+  ([operations guide](../operations.md#request-and-workload-limits)). Verify two visitors get distinct
+  identities after deploying.
+* **Process-local counters.** Failed-auth, per-token-rate and in-memory usage fallback counters belong to one
+  backend process; with several workers each would allow its own share. A shared store is a later decision.
+* **Audit tamper limits.** The append-only triggers stop SQL on the schema, not someone with write access to
+  the database file.
+* **External SDK access pattern** (above, §6) is still undecided: the SDK does not embed the infrastructure API
+  key and accepts one only through configuration for trusted internal use.
+* **Frontend (Stage 6)** and **W5/W6 items (Stage 7)** are not implemented; capabilities report `aiCopilot` and
+  `discoveryLab` as false.
+* **Not exercised here:** the Docker network and live nginx identity (only `docker compose config` and a probe
+  network were checked), multi-worker behaviour, and a package produced on another machine.

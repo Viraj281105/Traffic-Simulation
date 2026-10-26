@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "urbanflow-client"
+version = "1.0.0"
+description = "Python client for the UrbanFlow V3 API: robustness experiments, .ufpkg packages, personal access tokens"
+requires-python = ">=3.11"
+dependencies = []  # standard library only
+
+[project.scripts]
+urbanflow = "urbanflow_client.cli:main"
+
+[tool.setuptools]
+packages = ["urbanflow_client"]
+
+[tool.setuptools.package-data]
+urbanflow_client = ["py.typed"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff.lint.per-file-ignores]
+# HTTP-status names (NotFound, Conflict, ...) read better than a suffixed Error.
+"urbanflow_client/errors.py" = ["N818"]

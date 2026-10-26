@@ -15,7 +15,7 @@ import datetime as _dt
 import logging
 import threading
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from src.core.provenance import GIT_COMMIT_HASH, PYTHON_VERSION
 from src.experiments.manifest import build_experiment_manifest
@@ -44,13 +44,16 @@ from . import limits
 from .models import (
     EXPERIMENT_FORMAT,
     EXPERIMENT_VERSION,
+    PARTIAL_RESULT_FORMAT,
+    PARTIAL_RESULT_VERSION,
     RESULT_FORMAT,
     RESULT_VERSION,
 )
 
 logger = logging.getLogger(__name__)
+from .package import PACKAGE_EXTENSION, build_package
 from .preparation import Prepared, prepare
-from .store import ExperimentStore
+from .store import ExperimentStore, UsageStore, utc_day
 
 MAX_ERROR_CHARS = 300
 
@@ -102,8 +105,12 @@ class ExperimentService:
         self.store = store or ExperimentStore()
         self.executor = executor
         self.jobs = JobRegistry()  # our own registry, not the V1 study one
+        self.usage = UsageStore(persist=self.store._persist)
         self._progress: Dict[str, Progress] = {}
         self._submit_lock = threading.Lock()
+        # Guards every status transition (run start/end, cancel, resume, delete) so duplicate, stale or
+        # simultaneous requests see one consistent state.
+        self._state_lock = threading.RLock()
 
     # ---- validate / submit ----------------------------------------------
     def validate(self, payload: Any) -> Dict[str, Any]:
@@ -141,24 +148,67 @@ class ExperimentService:
         assert prepared.request is not None and prepared.counts is not None
         assert prepared.baseline is not None and prepared.base is not None
 
+        cost = self._simulated_seconds(prepared)
+        daily = limits.MAX_DAILY_SIMULATED_SECONDS_PER_USER
+        if cost > daily:
+            # Not a matter of waiting: this experiment can never fit in one day.
+            raise ExperimentError(
+                [
+                    f"quota {limits.QUOTA_NAMES['dailySimulatedSecondsPerUser']}: the experiment "
+                    f"needs {cost:,.0f} simulated seconds, more than the {daily:,} a user may use per day"
+                ]
+            )
+
         # The quota check and the reservation (the record becomes "queued") happen under one lock, so two
         # simultaneous submissions cannot both pass a limit of one.
         with self._submit_lock:
             self._check_quotas(user_id)
+            self._reserve_usage(user_id, cost)
             record = self._new_record(user_id, prepared)
+            record["usageDay"] = utc_day()
+            record["reservedSeconds"] = cost
+            self.store.put(record)
 
+        try:
+            self._start(record, prepared, None)
+        except QuotaExceeded:
+            self.usage.release(user_id, cost, record["usageDay"])
+            self.store.delete(record["id"])
+            raise
+        return self._status_view(record)
+
+    def _start(
+        self,
+        record: Dict[str, Any],
+        prepared: Prepared,
+        completed: Optional[Dict[str, Any]],
+    ) -> None:
         def work(job_progress: Progress) -> Dict[str, Any]:
-            self._run(record, prepared, job_progress)
+            self._run(record, prepared, job_progress, completed)
             return {}
 
         try:
             self.jobs.submit("experiment", work)
         except TooManyJobsError as err:
-            self.store.delete(record["id"])
             raise QuotaExceeded("maxActiveExperiments", str(err)) from err
-        return self._status_view(record)
 
-    def _check_quotas(self, user_id: str) -> None:
+    @staticmethod
+    def _simulated_seconds(prepared: Prepared, runs: Optional[int] = None) -> float:
+        assert prepared.base is not None and prepared.counts is not None
+        total = prepared.counts["totalRuns"] if runs is None else runs
+        return float(prepared.base.simulation.duration) * total
+
+    def _reserve_usage(self, user_id: str, seconds: float) -> None:
+        daily = limits.MAX_DAILY_SIMULATED_SECONDS_PER_USER
+        ok, used = self.usage.reserve(user_id, seconds, daily)
+        if not ok:
+            raise QuotaExceeded(
+                limits.QUOTA_NAMES["dailySimulatedSecondsPerUser"],
+                f"{used:,.0f} of your {daily:,} simulated seconds are used today (UTC); "
+                f"this needs {seconds:,.0f}",
+            )
+
+    def _check_quotas(self, user_id: str, new_record: bool = True) -> None:
         if self.store.active(user_id) >= limits.MAX_ACTIVE_EXPERIMENTS_PER_USER:
             raise QuotaExceeded(
                 limits.QUOTA_NAMES["activeExperimentsPerUser"],
@@ -171,7 +221,11 @@ class ExperimentService:
                 f"the server is already running {limits.MAX_ACTIVE_EXPERIMENTS} experiments; "
                 "try again shortly",
             )
-        if self.store.count_stored(user_id) >= limits.MAX_STORED_EXPERIMENTS_PER_USER:
+        if (
+            new_record
+            and self.store.count_stored(user_id)
+            >= limits.MAX_STORED_EXPERIMENTS_PER_USER
+        ):
             raise QuotaExceeded(
                 limits.QUOTA_NAMES["storedExperimentsPerUser"],
                 f"you already keep {limits.MAX_STORED_EXPERIMENTS_PER_USER} experiments; "
@@ -198,13 +252,24 @@ class ExperimentService:
 
     # ---- execution --------------------------------------------------------
     def _run(
-        self, record: Dict[str, Any], prepared: Prepared, progress: Progress
+        self,
+        record: Dict[str, Any],
+        prepared: Prepared,
+        progress: Progress,
+        completed: Optional[Dict[str, Any]] = None,
     ) -> None:
         request = prepared.request
         assert request is not None and prepared.baseline is not None
-        record["status"] = "running"
-        self._progress[record["id"]] = progress
-        self.store.put(record)
+        with self._state_lock:
+            self._progress[record["id"]] = progress
+            if record.get("cancelRequested"):
+                # Cancelled while still queued: nothing was started.
+                self._settle_cancelled(
+                    record, prepared, {"checkpoint": completed or {}}
+                )
+                return
+            record["status"] = "running"
+            self.store.put(record)
         try:
             progress.set_phase("preparing")
             alternatives = [
@@ -215,18 +280,165 @@ class ExperimentService:
             kwargs: Dict[str, Any] = {"progress": progress}
             if self.executor is not None:
                 kwargs["executor"] = self.executor
+            if completed:
+                kwargs["completed"] = completed
             outcome = run_experiment(
                 request.uncertainty, alternatives, prepared.baseline, **kwargs
             )
-            record["result"] = self._result_document(record, prepared, outcome)
-            record["status"] = "completed"
+            with self._state_lock:
+                if outcome.get("cancelled") or record.get("cancelRequested"):
+                    self._settle_cancelled(record, prepared, outcome)
+                    return
+                outcome.pop("checkpoint", None)
+                record["result"] = self._result_document(record, prepared, outcome)
+                record["checkpoint"] = None
+                record["status"] = "completed"
         except Exception as exc:
             logger.exception("Experiment %s failed", record["id"])
-            record["error"] = _public_error(exc)
-            record["status"] = "failed"
+            with self._state_lock:
+                record["error"] = _public_error(exc)
+                record["status"] = "failed"
+                record["cancelRequested"] = False
         finally:
-            self._progress.pop(record["id"], None)
+            with self._state_lock:
+                self._progress.pop(record["id"], None)
+                record["settling"] = False
+                self.store.put(record)
+
+    def _settle_cancelled(
+        self, record: Dict[str, Any], prepared: Prepared, outcome: Dict[str, Any]
+    ) -> None:
+        """The runner has stopped: keep what finished, refund what was never run, leave a partial result.
+
+        Called with the state lock held."""
+        assert prepared.counts is not None
+        checkpoint = dict(outcome.get("checkpoint") or {})
+        total = prepared.counts["totalRuns"]
+        done = min(len(checkpoint), total)
+        reserved = float(record.get("reservedSeconds") or 0.0)
+        kept = reserved * done / total if total else 0.0
+        if record.get("usageDay"):
+            self.usage.release(record["userId"], reserved - kept, record["usageDay"])
+        record["reservedSeconds"] = kept
+        record["checkpoint"] = checkpoint
+        record["result"] = self._partial_result(record, prepared, outcome, done)
+        record["status"] = "cancelled"
+        record["error"] = None
+        self._progress.pop(record["id"], None)
+        record["settling"] = False
+        self.store.put(record)
+
+    @staticmethod
+    def _partial_result(
+        record: Dict[str, Any], prepared: Prepared, outcome: Dict[str, Any], done: int
+    ) -> Dict[str, Any]:
+        base = prepared.base
+        assert base is not None and prepared.counts is not None
+        return {
+            "format": PARTIAL_RESULT_FORMAT,
+            "version": PARTIAL_RESULT_VERSION,
+            "experimentId": record["id"],
+            "name": record["name"],
+            "complete": False,
+            "status": "cancelled",
+            "scenario": {"name": base.name, "fingerprint": scenario_fingerprint(base)},
+            "baseline": prepared.baseline,
+            "specFingerprint": record.get("specFingerprint"),
+            "runs": {
+                "planned": prepared.counts["totalRuns"],
+                "completed": done,
+                "resumable": True,
+            },
+            # Computed from the finished conditions only; unfinished ones are excluded as
+            # ``incomplete_cancelled``. ``None`` when too little finished to analyse. Not fingerprinted.
+            "analysis": outcome.get("analysis"),
+            "note": (
+                "Cancelled before every run finished. This is not a result: resume the experiment to "
+                "complete it. Only a completed result is fingerprinted and exportable."
+            ),
+        }
+
+    # ---- cancel / resume --------------------------------------------------
+    def cancel(self, user_id: str, experiment_id: str) -> Dict[str, Any]:
+        """Stop a queued or running experiment (HTTP 202). Repeating the request is harmless.
+
+        Cooperative: runs not yet started are skipped, a simulation already running in a worker finishes
+        first, so the experiment stays counted as active until it has fully stopped. A finished or failed
+        experiment cannot be cancelled (HTTP 409)."""
+        with self._state_lock:
+            record = self.store.get(user_id, experiment_id)
+            if record is None:
+                raise NotFound(experiment_id)
+            status = record["status"]
+            if status == "cancelled":
+                return self._status_view(record)
+            if status not in ("queued", "running"):
+                raise ConflictError(
+                    f"Experiment is {status}; only a queued or running one can be cancelled"
+                )
+            record["cancelRequested"] = True
+            record["settling"] = True
+            record["status"] = "cancelled"
+            progress = self._progress.get(experiment_id)
+            if progress is not None:
+                progress.cancel()
             self.store.put(record)
+            return self._status_view(record)
+
+    def resume(self, user_id: str, experiment_id: str) -> Dict[str, Any]:
+        """Run the rest of a cancelled experiment (HTTP 202).
+
+        The finished runs are kept (each is a deterministic function of the specification) and only the
+        missing ones are simulated, so the completed result equals that of an uninterrupted run."""
+        with self._state_lock:
+            record = self.store.get(user_id, experiment_id)
+            if record is None:
+                raise NotFound(experiment_id)
+            if record["status"] != "cancelled":
+                raise ConflictError(
+                    f"Experiment is {record['status']}; only a cancelled experiment can be resumed"
+                )
+            if record.get("settling"):
+                raise ConflictError("Experiment is still stopping; retry in a moment")
+            prepared = prepare(record["request"])
+            if not prepared.valid:
+                raise ExperimentError(prepared.errors)
+            assert prepared.counts is not None
+            checkpoint: Dict[str, Any] = dict(record.get("checkpoint") or {})
+            remaining = max(prepared.counts["totalRuns"] - len(checkpoint), 0)
+            cost = self._simulated_seconds(prepared, remaining)
+            with self._submit_lock:
+                self._check_quotas(user_id, new_record=False)
+                self._reserve_usage(user_id, cost)
+            previous = {
+                key: record.get(key)
+                for key in (
+                    "status",
+                    "cancelRequested",
+                    "settling",
+                    "result",
+                    "error",
+                    "usageDay",
+                    "reservedSeconds",
+                )
+            }
+            record.update(
+                status="queued",
+                cancelRequested=False,
+                settling=False,
+                result=None,
+                error=None,
+                usageDay=utc_day(),
+                reservedSeconds=float(record.get("reservedSeconds") or 0.0) + cost,
+            )
+            try:
+                self._start(record, prepared, checkpoint)
+            except QuotaExceeded:
+                self.usage.release(user_id, cost, record["usageDay"])
+                record.update(previous)
+                raise
+            self.store.put(record)
+            return self._status_view(record)
 
     @staticmethod
     def _result_document(
@@ -358,17 +570,37 @@ class ExperimentService:
         }
 
     def delete(self, user_id: str, experiment_id: str) -> None:
-        """Delete the caller's finished or failed experiment. A queued or running one cannot be deleted:
-        there is no cancellation in this release."""
+        """Delete the caller's finished, failed or cancelled experiment. A queued or running one must be
+        cancelled first, and a cancelled one that is still stopping must settle."""
+        with self._state_lock:
+            record = self.store.get(user_id, experiment_id)
+            if record is None:
+                raise NotFound(experiment_id)
+            if record["status"] in ("queued", "running"):
+                raise ConflictError(
+                    f"Experiment is {record['status']}; cancel it or wait for it to finish, "
+                    "then delete it"
+                )
+            if record.get("settling"):
+                raise ConflictError("Experiment is still stopping; retry in a moment")
+            self.store.delete(experiment_id)
+
+    # ---- packages ---------------------------------------------------------
+    def export_package(self, user_id: str, experiment_id: str) -> Tuple[bytes, str]:
+        """The caller's completed experiment as ``.ufpkg`` bytes plus a download file name.
+
+        Raises :class:`NotFound` (not the caller's), :class:`ConflictError` (not completed) or
+        :class:`PackageTooLarge` (over the package size limit)."""
         record = self.store.get(user_id, experiment_id)
         if record is None:
             raise NotFound(experiment_id)
-        if record["status"] in ("queued", "running"):
+        result = record.get("result")
+        if record["status"] != "completed" or result is None:
             raise ConflictError(
-                f"Experiment is {record['status']}; cancellation is not supported yet, "
-                "wait for it to finish, then delete it"
+                f"Experiment is {record['status']}; only a completed experiment can be exported"
             )
-        self.store.delete(experiment_id)
+        data = build_package(record["request"], result, record["createdAt"])
+        return data, f"urbanflow-{experiment_id[:12]}{PACKAGE_EXTENSION}"
 
     # ---- capabilities ---------------------------------------------------
     @staticmethod
@@ -388,10 +620,10 @@ class ExperimentService:
             "gitCommit": GIT_COMMIT_HASH,
             "features": {
                 "robustnessExperiments": True,
-                "experimentCancellation": False,
-                "experimentPackages": False,
-                "personalAccessTokens": False,
-                "pythonClient": False,
+                "experimentCancellation": True,
+                "experimentPackages": True,
+                "personalAccessTokens": True,
+                "pythonClient": True,
                 "aiCopilot": False,
                 "discoveryLab": False,
             },
@@ -410,7 +642,12 @@ class ExperimentService:
                 "maxReplications": uspec.MAX_REPLICATIONS,
             },
             "quotas": limits.quotas(),
-            "limits": {"maxRequestBodyBytes": max_request_body_bytes},
+            "limits": {
+                "maxRequestBodyBytes": max_request_body_bytes,
+                "maxPackageBytes": limits.MAX_PACKAGE_BYTES,
+                "maxPackageUncompressedBytes": limits.MAX_PACKAGE_UNCOMPRESSED_BYTES,
+                "maxPackageEntries": limits.MAX_PACKAGE_ENTRIES,
+            },
         }
 
 
