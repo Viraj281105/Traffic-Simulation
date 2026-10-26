@@ -290,6 +290,11 @@ synchronous-compute limiter and the failed-authentication limiter
   there the header is ignored. After deploying, check that two different
   visitors are not counted as one client (for example two hosts each running a
   simulation at once should both be accepted).
+* nginx reports `$remote_addr` as `X-Real-IP`. If another proxy or load balancer
+  sits in front of nginx, that address is the load balancer's, so all visitors
+  collapse into one client again until nginx is configured with the real-IP
+  module (`set_real_ip_from` / `real_ip_header`) for that hop. This is not
+  configured here.
 * Counters are per backend process (the stack runs one).
 
 **No per-IP request-rate limit, deliberately.** The live dashboard polls up to
