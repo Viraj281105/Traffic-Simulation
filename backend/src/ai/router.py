@@ -14,9 +14,8 @@ import logging
 from copy import deepcopy
 from typing import Any, Dict
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
-from src.api.security import require_api_key
 from src.ai import fallback as fb
 from src.ai import groq_client as gc
 from src.ai import prompts
@@ -28,6 +27,7 @@ from src.ai.schemas import (
     SummaryRequest,
     SummaryResponse,
 )
+from src.api.security import require_api_key
 
 logger = logging.getLogger(__name__)
 

@@ -43,10 +43,10 @@ export function formatDeltaText(
   unit: string = "",
 ): string {
   const sign = delta.absolute > 0 ? "+" : "";
-  const absStr = `${sign}${delta.absolute}${unit ? ` ${unit}` : ""}`;
+  const absStr = `${sign}${String(delta.absolute)}${unit ? ` ${unit}` : ""}`;
   if (delta.percentage !== null) {
     const pctSign = delta.percentage > 0 ? "+" : "";
-    return `${pctSign}${delta.percentage}% (${absStr})`;
+    return `${pctSign}${String(delta.percentage)}% (${absStr})`;
   }
   return absStr;
 }
@@ -98,7 +98,7 @@ export function exportComparisonCsv(
       `"${res.name.replace(/"/g, '""')}"`,
       isBaseline ? "Baseline" : "Intervention",
       res.strategy,
-      `x${res.volumeScale}`,
+      `x${String(res.volumeScale)}`,
       String(res.duration),
       res.metrics.averageDelay.toFixed(2),
       isBaseline ? "—" : `${delayDelta.absolute > 0 ? "+" : ""}${delayDelta.absolute.toFixed(2)}`,

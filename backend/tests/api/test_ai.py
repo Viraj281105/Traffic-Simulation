@@ -2,8 +2,9 @@
 Unit and integration tests for Phase 1 AI Copilot endpoints and fallback logic.
 """
 from fastapi.testclient import TestClient
+
+from src.ai.fallback import chat_fallback, patch_fallback, summary_fallback
 from src.main import app
-from src.ai.fallback import summary_fallback, chat_fallback, patch_fallback
 
 client = TestClient(app)
 

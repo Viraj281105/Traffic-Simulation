@@ -63,7 +63,7 @@ export interface ConfigPatch {
 
 // ── Internal helper ───────────────────────────────────────────────────────
 
-async function aiPost<Req, Res>(path: string, body: Req): Promise<Res> {
+async function aiPost<Res>(path: string, body: unknown): Promise<Res> {
   const token = await getAuthToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -79,7 +79,7 @@ async function aiPost<Req, Res>(path: string, body: Req): Promise<Res> {
 
   if (!resp.ok) {
     const text = await resp.text().catch(() => resp.statusText);
-    throw new Error(`AI API ${resp.status}: ${text}`);
+    throw new Error(`AI API ${String(resp.status)}: ${text}`);
   }
   return resp.json() as Promise<Res>;
 }
@@ -87,13 +87,13 @@ async function aiPost<Req, Res>(path: string, body: Req): Promise<Res> {
 // ── Public API ────────────────────────────────────────────────────────────
 
 export async function fetchSummary(req: SummaryRequest): Promise<SummaryResponse> {
-  return aiPost<SummaryRequest, SummaryResponse>("/api/ai/summary", req);
+  return aiPost<SummaryResponse>("/api/ai/summary", req);
 }
 
 export async function fetchChat(req: ChatRequest): Promise<ChatResponse> {
-  return aiPost<ChatRequest, ChatResponse>("/api/ai/chat", req);
+  return aiPost<ChatResponse>("/api/ai/chat", req);
 }
 
 export async function fetchPatch(req: PatchRequest): Promise<ConfigPatch> {
-  return aiPost<PatchRequest, ConfigPatch>("/api/ai/patch", req);
+  return aiPost<ConfigPatch>("/api/ai/patch", req);
 }

@@ -13,6 +13,7 @@ from typing import AsyncIterator
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.ai import router as ai_router
 from src.api import meta
 from src.api.auth import get_current_user_id, get_current_user_is_admin
 from src.api.errors import http_exception_handler
@@ -32,7 +33,6 @@ from src.simulations import router as simulations_router
 from src.study import router as study_router
 from src.study.runner import shutdown_pool
 from src.suites import router as suites_router
-from src.ai import router as ai_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

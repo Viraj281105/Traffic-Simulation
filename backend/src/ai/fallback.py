@@ -12,7 +12,6 @@ from typing import Any, Dict, List, Optional
 
 from src.ai.schemas import ChatResponse, ConfigPatch, SummaryResponse
 
-
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 def _v(metrics: Dict[str, Any], key: str) -> Optional[float]:
