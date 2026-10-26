@@ -109,9 +109,10 @@ def build_client(service: ExperimentService) -> TestClient:
 
 @pytest.fixture
 def make_service(
-    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
 ) -> Callable[..., ExperimentService]:
-    monkeypatch.setattr("src.database.db.DB_PATH", str(tmp_path / "experiments.db"))
+    db_dir = tmp_path_factory.mktemp("experiments_db")
+    monkeypatch.setattr("src.database.db.DB_PATH", str(db_dir / "experiments.db"))
 
     def make(executor: Any = None, persist: bool = False) -> ExperimentService:
         return ExperimentService(

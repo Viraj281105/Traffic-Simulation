@@ -43,6 +43,9 @@ def test_snapshot_holds_only_v3_and_the_expected_operations():
         ("GET", "/api/v3/experiments/{experiment_id}"),
         ("DELETE", "/api/v3/experiments/{experiment_id}"),
         ("GET", "/api/v3/experiments/{experiment_id}/result"),
+        ("POST", "/api/v3/tokens"),
+        ("GET", "/api/v3/tokens"),
+        ("DELETE", "/api/v3/tokens/{token_id}"),
     }
 
 

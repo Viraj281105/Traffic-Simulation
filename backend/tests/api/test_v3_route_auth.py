@@ -32,8 +32,8 @@ V3_ROUTES = _v3_routes()
 
 def test_the_v3_family_is_mounted() -> None:
     families = {path.split("/")[3] for _, path in V3_ROUTES}
-    assert families == {"capabilities", "experiments"}
-    assert len(V3_ROUTES) >= 7
+    assert families == {"capabilities", "experiments", "tokens"}
+    assert len(V3_ROUTES) >= 10
 
 
 @pytest.fixture
@@ -41,6 +41,7 @@ def client(monkeypatch: pytest.MonkeyPatch, tmp_path) -> TestClient:
     monkeypatch.setattr("src.database.db.DB_PATH", str(tmp_path / "auth.db"))
     monkeypatch.setattr(security, "API_KEY", KEY)
     monkeypatch.delenv("DEV_AUTH_BYPASS", raising=False)
+    auth.reset_auth_failures()
     return TestClient(app)
 
 

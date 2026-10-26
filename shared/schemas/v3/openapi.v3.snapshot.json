@@ -1,6 +1,50 @@
 {
   "components": {
     "schemas": {
+      "CreateTokenRequest": {
+        "additionalProperties": false,
+        "description": "Request payload for POST /api/v3/tokens.",
+        "properties": {
+          "expiresInDays": {
+            "default": 30,
+            "description": "Validity period (default 30d, max 90d)",
+            "maximum": 90.0,
+            "minimum": 1.0,
+            "title": "Expiresindays",
+            "type": "integer"
+          },
+          "name": {
+            "description": "Human-readable token name",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "scopes": {
+            "description": "Requested permissions",
+            "items": {
+              "enum": [
+                "experiments:read",
+                "experiments:run",
+                "packages:read",
+                "packages:write",
+                "tokens:read",
+                "tokens:manage"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Scopes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "scopes"
+        ],
+        "title": "CreateTokenRequest",
+        "type": "object"
+      },
       "ExperimentList": {
         "properties": {
           "experiments": {
@@ -174,6 +218,155 @@
           "totalRuns"
         ],
         "title": "RunCounts",
+        "type": "object"
+      },
+      "TokenCreatedResponse": {
+        "additionalProperties": false,
+        "description": "Response returned once upon POST /api/v3/tokens containing the secret token.",
+        "properties": {
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "expiresAt": {
+            "title": "Expiresat",
+            "type": "string"
+          },
+          "id": {
+            "description": "Short token identifier (pat_xxx)",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "scopes": {
+            "items": {
+              "enum": [
+                "experiments:read",
+                "experiments:run",
+                "packages:read",
+                "packages:write",
+                "tokens:read",
+                "tokens:manage"
+              ],
+              "type": "string"
+            },
+            "title": "Scopes",
+            "type": "array"
+          },
+          "token": {
+            "description": "256-bit cryptographically secure secret (shown once)",
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "token",
+          "scopes",
+          "createdAt",
+          "expiresAt"
+        ],
+        "title": "TokenCreatedResponse",
+        "type": "object"
+      },
+      "TokenListResponse": {
+        "additionalProperties": false,
+        "description": "Response payload for GET /api/v3/tokens.",
+        "properties": {
+          "tokens": {
+            "items": {
+              "$ref": "#/components/schemas/TokenMetadata"
+            },
+            "title": "Tokens",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tokens"
+        ],
+        "title": "TokenListResponse",
+        "type": "object"
+      },
+      "TokenMetadata": {
+        "additionalProperties": false,
+        "description": "Masked token metadata returned by GET /api/v3/tokens.",
+        "properties": {
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "expiresAt": {
+            "title": "Expiresat",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lastUsedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastusedat"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "scopes": {
+            "items": {
+              "enum": [
+                "experiments:read",
+                "experiments:run",
+                "packages:read",
+                "packages:write",
+                "tokens:read",
+                "tokens:manage"
+              ],
+              "type": "string"
+            },
+            "title": "Scopes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "scopes",
+          "createdAt",
+          "expiresAt"
+        ],
+        "title": "TokenMetadata",
+        "type": "object"
+      },
+      "TokenRevokedResponse": {
+        "additionalProperties": false,
+        "description": "Response payload for DELETE /api/v3/tokens/{token_id}.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "revoked": {
+            "const": true,
+            "default": true,
+            "title": "Revoked",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "TokenRevokedResponse",
         "type": "object"
       },
       "ValidationError": {
@@ -792,6 +985,236 @@
         "summary": "Result",
         "tags": [
           "experiments-v3"
+        ]
+      }
+    },
+    "/api/v3/tokens": {
+      "get": {
+        "description": "Returns caller's active, non-revoked PATs with usage timestamps. Browser sessions, or a PAT with the tokens:read scope.",
+        "operationId": "list_tokens_api_v3_tokens_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List active personal access tokens",
+        "tags": [
+          "tokens-v3"
+        ]
+      },
+      "post": {
+        "description": "Creates a PAT. Restricted to browser sessions (dev or Cognito JWT). A PAT cannot create a PAT.",
+        "operationId": "create_token_api_v3_tokens_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenCreatedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create a personal access token",
+        "tags": [
+          "tokens-v3"
+        ]
+      }
+    },
+    "/api/v3/tokens/{token_id}": {
+      "delete": {
+        "description": "Immediately revokes a PAT owned by the caller. Browser sessions, or a PAT with the tokens:manage scope.",
+        "operationId": "revoke_token_api_v3_tokens__token_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token_id",
+            "required": true,
+            "schema": {
+              "title": "Token Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenRevokedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Revoke a personal access token",
+        "tags": [
+          "tokens-v3"
         ]
       }
     }

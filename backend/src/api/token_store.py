@@ -17,6 +17,7 @@ from datetime import timedelta, timezone
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from src.api.audit import (
+    AUDIT_APPEND_ONLY_SQL,
     AUDIT_EVENT_TYPES,
     AUDIT_INDEX_SQL,
     AUDIT_TABLE_SQL,
@@ -64,6 +65,8 @@ def ensure_tables(conn: sqlite3.Connection) -> None:
     cursor.execute(PAT_INDEX_USER_SQL)
     cursor.execute(AUDIT_TABLE_SQL)
     cursor.execute(AUDIT_INDEX_SQL)
+    for trigger_sql in AUDIT_APPEND_ONLY_SQL:
+        cursor.execute(trigger_sql)
     conn.commit()
 
 

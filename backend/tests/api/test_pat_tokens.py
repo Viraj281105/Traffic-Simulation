@@ -418,3 +418,181 @@ def test_concurrent_creation_cannot_exceed_active_token_limit() -> None:
     assert outcomes.count("ok") == MAX_ACTIVE_TOKENS_PER_USER, outcomes
     assert outcomes.count("quota") == attempts - MAX_ACTIVE_TOKENS_PER_USER, outcomes
     assert TokenStore.count_active("racer") == MAX_ACTIVE_TOKENS_PER_USER
+
+
+# ── PAT management scopes (tokens:read / tokens:manage) ──────────────────────
+
+
+def _pat_headers(user: str, scopes: List[str]) -> Any:
+    meta, raw = TokenStore.create_token(user, "t-" + "-".join(scopes), scopes)
+    return meta["id"], {"X-API-Key": KEY, "Authorization": f"Bearer {raw}"}
+
+
+def test_browser_session_manages_own_tokens(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
+    headers = {"X-API-Key": KEY, "Authorization": f"Bearer {DEV_AUTH_TOKEN}"}
+    created = client.post(
+        "/api/v3/tokens",
+        json={"name": "mine", "scopes": ["experiments:read"]},
+        headers=headers,
+    )
+    assert created.status_code == 201
+    assert client.get("/api/v3/tokens", headers=headers).status_code == 200
+    token_id = created.json()["id"]
+    assert client.delete(f"/api/v3/tokens/{token_id}", headers=headers).status_code == 200
+
+
+def test_listing_requires_tokens_read(client: TestClient) -> None:
+    _, no_scope = _pat_headers("alice", ["experiments:read"])
+    denied = client.get("/api/v3/tokens", headers=no_scope)
+    assert denied.status_code == 403
+    assert error_message(denied) == "Insufficient token scope"
+
+    _, reader = _pat_headers("alice", ["tokens:read"])
+    assert client.get("/api/v3/tokens", headers=reader).status_code == 200
+
+
+def test_read_only_pat_cannot_revoke(client: TestClient) -> None:
+    target_id, _ = _pat_headers("alice", ["experiments:read"])
+    _, reader = _pat_headers("alice", ["tokens:read"])
+    res = client.delete(f"/api/v3/tokens/{target_id}", headers=reader)
+    assert res.status_code == 403
+    # Still active: nothing was revoked.
+    target = TokenStore.get_by_id(target_id)
+    assert target is not None and target["revoked_at"] is None
+
+
+def test_manage_pat_revokes_own_but_not_another_users_tokens(
+    client: TestClient,
+) -> None:
+    own_id, _ = _pat_headers("alice", ["experiments:read"])
+    bob_id, _ = _pat_headers("bob", ["experiments:read"])
+    _, manager = _pat_headers("alice", ["tokens:manage"])
+
+    assert client.delete(f"/api/v3/tokens/{own_id}", headers=manager).status_code == 200
+
+    cross = client.delete(f"/api/v3/tokens/{bob_id}", headers=manager)
+    missing = client.delete("/api/v3/tokens/pat_doesnotexist", headers=manager)
+    assert cross.status_code == missing.status_code == 404
+    assert error_message(cross) == error_message(missing)
+    bob = TokenStore.get_by_id(bob_id)
+    assert bob is not None and bob["revoked_at"] is None
+
+
+def test_manage_scope_does_not_allow_listing_or_creating(client: TestClient) -> None:
+    _, manager = _pat_headers("alice", ["tokens:manage"])
+    assert client.get("/api/v3/tokens", headers=manager).status_code == 403
+    created = client.post(
+        "/api/v3/tokens",
+        json={"name": "escalate", "scopes": ["tokens:manage"]},
+        headers=manager,
+    )
+    assert created.status_code == 403
+    assert error_message(created) == "A PAT cannot create a PAT"
+
+
+def test_pat_listing_shows_only_the_owners_tokens(client: TestClient) -> None:
+    alice_id, _ = _pat_headers("alice", ["experiments:read"])
+    bob_id, _ = _pat_headers("bob", ["experiments:read"])
+    _, reader = _pat_headers("alice", ["tokens:read"])
+    ids = {t["id"] for t in client.get("/api/v3/tokens", headers=reader).json()["tokens"]}
+    assert alice_id in ids and bob_id not in ids
+
+
+# ── Authentication-failure audit and append-only log ─────────────────────────
+
+
+def _audit_rows() -> List[Any]:
+    with get_db_connection() as conn:
+        return conn.execute(
+            "SELECT user_id, token_id, event_type, details_json FROM uf_audit_log "
+            "WHERE event_type = 'auth_failed' ORDER BY rowid;"
+        ).fetchall()
+
+
+def test_revoked_and_expired_token_use_is_audited_against_the_owner(
+    client: TestClient,
+) -> None:
+    meta, raw = TokenStore.create_token("alice", "r", ["experiments:read"])
+    TokenStore.revoke(meta["id"], "alice")
+    headers = {"X-API-Key": KEY, "Authorization": f"Bearer {raw}"}
+    assert client.get("/api/v3/capabilities", headers=headers).status_code == 401
+
+    rows = _audit_rows()
+    assert len(rows) == 1
+    assert (rows[0]["user_id"], rows[0]["token_id"]) == ("alice", meta["id"])
+    assert '"revoked_token"' in rows[0]["details_json"]
+    assert raw not in rows[0]["details_json"]
+
+
+def test_unknown_credentials_are_audited_once_at_lockout_without_secrets(
+    client: TestClient,
+) -> None:
+    bad = "uf_pat_totally_made_up_secret_value"
+    headers = {"X-API-Key": KEY, "Authorization": f"Bearer {bad}"}
+    for _ in range(auth.MAX_AUTH_FAILURES):
+        assert client.get("/api/v3/capabilities", headers=headers).status_code == 401
+    assert client.get("/api/v3/capabilities", headers=headers).status_code == 429
+
+    rows = _audit_rows()
+    assert len(rows) == 1  # bounded: one per lockout, not one per attempt
+    assert rows[0]["user_id"] == "unknown"
+    assert "rate_limit_reached" in rows[0]["details_json"]
+    assert bad not in rows[0]["details_json"]
+    assert KEY not in rows[0]["details_json"]
+
+
+def test_missing_credentials_count_toward_the_limiter(client: TestClient) -> None:
+    headers = {"X-API-Key": KEY}
+    for _ in range(auth.MAX_AUTH_FAILURES):
+        res = client.get("/api/v3/capabilities", headers=headers)
+        assert res.status_code in (401, 403)
+    assert client.get("/api/v3/capabilities", headers=headers).status_code == 429
+
+
+def test_requests_failing_the_api_key_never_reach_the_auth_boundary(
+    client: TestClient,
+) -> None:
+    for _ in range(auth.MAX_AUTH_FAILURES + 2):
+        res = client.get("/api/v3/capabilities", headers={"X-API-Key": "wrong"})
+        assert res.status_code in (401, 403)
+    assert _audit_rows() == []
+
+
+def test_audit_log_rejects_update_and_delete() -> None:
+    import sqlite3
+
+    event = AuditStore.record_event("alice", "token_created", token_id="pat_x")
+    with get_db_connection() as conn:
+        with pytest.raises(sqlite3.DatabaseError, match="append-only"):
+            conn.execute("UPDATE uf_audit_log SET user_id = 'mallory';")
+        with pytest.raises(sqlite3.DatabaseError, match="append-only"):
+            conn.execute("DELETE FROM uf_audit_log;")
+        count = conn.execute("SELECT COUNT(*) FROM uf_audit_log;").fetchone()[0]
+    assert count == 1
+    assert [e.id for e in AuditStore.list_events("alice")] == [event.id]
+
+
+def test_audit_log_rejects_insert_or_replace_of_an_existing_row() -> None:
+    import sqlite3
+
+    event = AuditStore.record_event("alice", "token_created", token_id="pat_x")
+    with get_db_connection() as conn:
+        for verb in ("INSERT OR REPLACE", "REPLACE", "INSERT OR IGNORE"):
+            with pytest.raises(sqlite3.DatabaseError, match="append-only"):
+                conn.execute(
+                    f"{verb} INTO uf_audit_log "
+                    "(id, timestamp, user_id, token_id, event_type, details_json) "
+                    "VALUES (?, 't', 'mallory', NULL, 'token_revoked', '{}');",
+                    (event.id,),
+                )
+        conn.rollback()
+        row = conn.execute(
+            "SELECT user_id, event_type FROM uf_audit_log WHERE id = ?;", (event.id,)
+        ).fetchone()
+    assert (row["user_id"], row["event_type"]) == ("alice", "token_created")
+    # Appending a new, distinct row is still allowed.
+    AuditStore.record_event("alice", "token_revoked", token_id="pat_x")
+    assert len(AuditStore.list_events("alice")) == 2

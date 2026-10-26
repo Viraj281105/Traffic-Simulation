@@ -39,13 +39,15 @@ services:
       - COGNITO_CLIENT_ID=${VITE_COGNITO_CLIENT_ID:-}
       - ADMIN_EMAILS=${ADMIN_EMAILS:-}
       # Peers (IPs/CIDRs, comma-separated) whose X-Real-IP the backend may
-      # believe: the nginx container's address on this compose network. Empty
-      # (default) = X-Real-IP is ignored and every client looks like nginx.
-      # The subnet is assigned by Docker, so set it for your deployment; see
-      # docs/operations.md "Client identity".
-      - TRUSTED_PROXY_IPS=${TRUSTED_PROXY_IPS:-}
+      # believe. Defaults to the one address the frontend (nginx) container is
+      # pinned to on the `urbanflow` network below, so only nginx is trusted.
+      # Override it if you change that network; empty = X-Real-IP is ignored and
+      # every client looks like nginx. See docs/operations.md "Client identity".
+      - TRUSTED_PROXY_IPS=${TRUSTED_PROXY_IPS:-${URBANFLOW_FRONTEND_IP:-172.30.77.10}}
     volumes:
       - traffic_data:/app/data
+    networks:
+      - urbanflow
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -80,6 +82,10 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    networks:
+      urbanflow:
+        # Fixed so the backend can trust exactly this address as the proxy.
+        ipv4_address: ${URBANFLOW_FRONTEND_IP:-172.30.77.10}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
@@ -91,6 +97,14 @@ services:
       resources:
         limits:
           memory: 128M
+
+networks:
+  urbanflow:
+    ipam:
+      config:
+        # Private range pinned so the proxy address above is known. Change both
+        # if it collides with a network on your host.
+        - subnet: ${URBANFLOW_SUBNET:-172.30.77.0/24}
 
 volumes:
   traffic_data:

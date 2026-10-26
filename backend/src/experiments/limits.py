@@ -45,9 +45,23 @@ QUOTA_NAMES = {
     "simulationStepsPerExperiment": "maxSimulationStepsPerExperiment",
 }
 
+# Extensible quota registration seam (W7 / ADR-013).
+# Future modules (e.g. W5 Copilot proposals, W6 Discovery budgets) register their quotas here
+# when built without modifying base platform limits.
+_EXTENSION_QUOTAS: dict[str, float | int] = {}
+
+
+def register_quota(
+    name: str, value: float | int, internal_key: str | None = None
+) -> None:
+    """Register an extension quota dynamically."""
+    _EXTENSION_QUOTAS[name] = value
+    if internal_key:
+        QUOTA_NAMES[internal_key] = name
+
 
 def quotas() -> dict[str, float | int]:
-    return {
+    base: dict[str, float | int] = {
         "maxActiveExperiments": MAX_ACTIVE_EXPERIMENTS,
         "maxActiveExperimentsPerUser": MAX_ACTIVE_EXPERIMENTS_PER_USER,
         "maxStoredExperimentsPerUser": MAX_STORED_EXPERIMENTS_PER_USER,
@@ -55,3 +69,5 @@ def quotas() -> dict[str, float | int]:
         "maxRunsPerExperiment": MAX_RUNS_PER_EXPERIMENT,
         "maxSimulationStepsPerExperiment": MAX_SIMULATION_STEPS_PER_EXPERIMENT,
     }
+    base.update(_EXTENSION_QUOTAS)
+    return base

@@ -16,8 +16,8 @@ from fastapi import APIRouter, Body, Depends, HTTPException, status
 
 from src.api.auth import (
     UserIdentity,
-    get_current_identity,
     require_browser_session,
+    require_scope,
     validate_scopes,
 )
 from src.api.contracts_v3 import (
@@ -107,10 +107,10 @@ def create_token(
     status_code=status.HTTP_200_OK,
     response_model=TokenListResponse,
     summary="List active personal access tokens",
-    description="Returns caller's active, non-revoked PATs with masked secrets and usage timestamps.",
+    description="Returns caller's active, non-revoked PATs with usage timestamps. Browser sessions, or a PAT with the tokens:read scope.",
 )
 def list_tokens(
-    identity: UserIdentity = Depends(get_current_identity),
+    identity: UserIdentity = Depends(require_scope("tokens:read")),
 ) -> TokenListResponse:
     """List caller's active tokens with metadata (no raw secrets)."""
     tokens = TokenStore.list_active(identity.user_id)
@@ -122,11 +122,11 @@ def list_tokens(
     status_code=status.HTTP_200_OK,
     response_model=TokenRevokedResponse,
     summary="Revoke a personal access token",
-    description="Immediately revokes a PAT owned by the caller.",
+    description="Immediately revokes a PAT owned by the caller. Browser sessions, or a PAT with the tokens:manage scope.",
 )
 def revoke_token(
     token_id: str,
-    identity: UserIdentity = Depends(get_current_identity),
+    identity: UserIdentity = Depends(require_scope("tokens:manage")),
 ) -> TokenRevokedResponse:
     """Revoke a token immediately. Returns 404 if not found or not owned."""
     revoked = TokenStore.revoke(token_id=token_id, user_id=identity.user_id)

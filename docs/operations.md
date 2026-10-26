@@ -264,7 +264,8 @@ synchronous-compute limiter and the failed-authentication limiter
 (`client_key` in `src/api/request_limits.py`):
 
 * `TRUSTED_PROXY_IPS` is a comma-separated list of IPv4/IPv6 addresses and
-  CIDRs (e.g. `172.18.0.0/16,fd00::/8`). Default: empty. An invalid entry
+  CIDRs (e.g. `172.18.0.0/16,fd00::/8`). Code default: empty (compose sets it,
+  below). An invalid entry
   stops the backend at startup; the error names the entry's position, not its
   text.
 * `X-Real-IP` is honoured only when the socket peer is inside that list, and
@@ -272,17 +273,23 @@ synchronous-compute limiter and the failed-authentication limiter
   trusted proxy falls back to the proxy's own address. `X-Forwarded-For` is
   never used. From any other peer the header is ignored, so rotating it
   does not change a client's identity.
-* **Fail-closed caveat:** with the list empty, every request through nginx
+* **Fail-closed caveat:** with the list empty or wrong, every request through nginx
   has nginx's address as its peer, so all visitors share one client: one
   synchronous simulation at a time site-wide, and one shared failed-auth
-  counter. Set `TRUSTED_PROXY_IPS` to the nginx container's address range to
-  restore per-visitor limits.
-* `docker-compose.yml` passes `TRUSTED_PROXY_IPS` through but leaves it empty:
-  the compose file defines no network or subnet, so Docker assigns the range
-  and the repository cannot name it. The operator must supply it, e.g. find it
-  with `docker network inspect <project>_default` (the `Subnet`), or pin a
-  subnet in compose and trust exactly that. Trust only the proxy's range,
-  never a broad range that clients can originate from.
+  counter. Set `TRUSTED_PROXY_IPS` to the nginx container's address to restore
+  per-visitor limits.
+* `docker-compose.yml` defines a private `urbanflow` network
+  (`172.30.77.0/24`, override with `URBANFLOW_SUBNET`) and pins the frontend
+  (nginx) container to `172.30.77.10` (`URBANFLOW_FRONTEND_IP`). The backend's
+  `TRUSTED_PROXY_IPS` defaults to that one address, so only nginx is trusted and
+  visitors keep distinct identities. If the subnet collides with a network on
+  your host, change `URBANFLOW_SUBNET` and `URBANFLOW_FRONTEND_IP` together
+  (`TRUSTED_PROXY_IPS` follows the frontend address unless set explicitly).
+  Trust only the proxy's address, never a range clients can originate from.
+  `docker-compose.dev.yml` publishes port 8000 and sets no trusted proxy, so
+  there the header is ignored. After deploying, check that two different
+  visitors are not counted as one client (for example two hosts each running a
+  simulation at once should both be accepted).
 * Counters are per backend process (the stack runs one).
 
 **No per-IP request-rate limit, deliberately.** The live dashboard polls up to

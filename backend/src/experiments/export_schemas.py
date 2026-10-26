@@ -6,6 +6,7 @@ Writes, under ``shared/schemas/v3/``:
 
 * ``experiment.schema.json``        -- the request document (``urbanflow-experiment`` v1);
 * ``uncertainty-spec.schema.json``  -- ``urbanflow-uncertainty-spec`` v1;
+* ``manifest.schema.json``          -- the reproducibility manifest (``urbanflow-experiment-manifest`` v1);
 * ``openapi.v3.snapshot.json``      -- the ``/api/v3`` part of the app's OpenAPI document.
 
 ``tests/experiments/test_contract.py`` fails when any of them is stale, so a contract change cannot ship
@@ -22,6 +23,7 @@ from pydantic import BaseModel
 
 from src.uncertainty.spec import UncertaintySpec
 
+from .manifest import ExperimentManifest
 from .models import ExperimentRequest
 
 OUT = Path(__file__).resolve().parents[3] / "shared" / "schemas" / "v3"
@@ -29,6 +31,7 @@ OUT = Path(__file__).resolve().parents[3] / "shared" / "schemas" / "v3"
 MODELS: Tuple[Tuple[str, Type[BaseModel]], ...] = (
     ("experiment", ExperimentRequest),
     ("uncertainty-spec", UncertaintySpec),
+    ("manifest", ExperimentManifest),
 )
 
 OPENAPI_FILE = "openapi.v3.snapshot.json"

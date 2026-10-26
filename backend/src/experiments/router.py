@@ -21,11 +21,14 @@ quota (the message names the quota), 429 a running/stored-experiments quota.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Callable, Dict, Optional, Sequence
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
+from src.api.auth import PAT_SCOPES, UserIdentity
 from src.api.request_limits import MAX_V2_BODY_BYTES
+from src.api.token_store import AuditStore
 
 from . import limits
 from .models import ExperimentList, ExperimentStatus
@@ -60,8 +63,21 @@ _REQUEST_BODY = {
 }
 
 
+logger = logging.getLogger(__name__)
+
+
+def _audit(**event: Any) -> None:
+    """Record an audit event without ever failing the request: like experiment
+    persistence, a broken database must not turn an accepted experiment into an
+    error. The failure is logged."""
+    try:
+        AuditStore.record_event(**event)
+    except Exception:
+        logger.warning("audit event not recorded", exc_info=True)
+
+
 def create_router(
-    user_dependency: Optional[Callable[..., str]] = None,
+    user_dependency: Optional[Callable[..., Any]] = None,
     dependencies: Sequence[Any] = (),
     service: Optional[ExperimentService] = None,
 ) -> APIRouter:
@@ -70,20 +86,35 @@ def create_router(
     )
     svc = service or get_service()
 
-    def current_user(user: str = Depends(user_dependency)) -> str:
-        return user
+    def current_identity(user: Any = Depends(user_dependency)) -> UserIdentity:
+        if isinstance(user, UserIdentity):
+            return user
+        return UserIdentity(user_id=str(user), auth_type="dev", scopes=PAT_SCOPES)
 
-    user_dep = current_user if user_dependency else (lambda: "anonymous")
+    identity_dep = (
+        current_identity
+        if user_dependency
+        else (
+            lambda: UserIdentity(
+                user_id="anonymous", auth_type="dev", scopes=PAT_SCOPES
+            )
+        )
+    )
 
     @router.get("/capabilities")
-    def capabilities(user: str = Depends(user_dep)) -> Dict[str, Any]:
+    def capabilities(identity: UserIdentity = Depends(identity_dep)) -> Dict[str, Any]:
+        if not identity.has_scope("experiments:read"):
+            raise HTTPException(status_code=403, detail="Insufficient token scope")
         return svc.capabilities(MAX_V2_BODY_BYTES)
 
     @router.post("/experiments/validate", openapi_extra=_REQUEST_BODY)
     def validate(
-        payload: Dict[str, Any] = Body(...), user: str = Depends(user_dep)
+        payload: Dict[str, Any] = Body(...),
+        identity: UserIdentity = Depends(identity_dep),
     ) -> Dict[str, Any]:
         """Check a request and report its size without running anything."""
+        if not identity.has_scope("experiments:read"):
+            raise HTTPException(status_code=403, detail="Insufficient token scope")
         return svc.validate(payload)
 
     @router.post(
@@ -93,43 +124,73 @@ def create_router(
         openapi_extra=_REQUEST_BODY,
     )
     def submit(
-        payload: Dict[str, Any] = Body(...), user: str = Depends(user_dep)
+        payload: Dict[str, Any] = Body(...),
+        identity: UserIdentity = Depends(identity_dep),
     ) -> Dict[str, Any]:
+        if not identity.has_scope("experiments:run"):
+            raise HTTPException(status_code=403, detail="Insufficient token scope")
         try:
-            return svc.submit(user, payload)
+            rec = svc.submit(identity.user_id, payload)
+            _audit(
+                user_id=identity.user_id,
+                event_type="experiment_submitted",
+                token_id=identity.token_id,
+                details={"experiment_id": rec.get("id"), "name": payload.get("name")},
+            )
+            return rec
         except ExperimentError as err:
             raise HTTPException(status_code=422, detail={"errors": err.errors}) from err
         except QuotaExceeded as err:
+            _audit(
+                user_id=identity.user_id,
+                event_type="quota_rejected",
+                token_id=identity.token_id,
+                details={"quota": str(err)},
+            )
             raise HTTPException(status_code=429, detail=str(err)) from err
 
     @router.get("/experiments", response_model=ExperimentList)
     def list_experiments(
         limit: int = Query(limits.DEFAULT_PAGE_SIZE, ge=1, le=100),
         offset: int = Query(0, ge=0),
-        user: str = Depends(user_dep),
+        identity: UserIdentity = Depends(identity_dep),
     ) -> Dict[str, Any]:
-        return svc.list_experiments(user, limit, offset)
+        if not identity.has_scope("experiments:read"):
+            raise HTTPException(status_code=403, detail="Insufficient token scope")
+        return svc.list_experiments(identity.user_id, limit, offset)
 
     @router.get("/experiments/{experiment_id}", response_model=ExperimentStatus)
-    def status(experiment_id: str, user: str = Depends(user_dep)) -> Dict[str, Any]:
+    def status(
+        experiment_id: str, identity: UserIdentity = Depends(identity_dep)
+    ) -> Dict[str, Any]:
+        if not identity.has_scope("experiments:read"):
+            raise HTTPException(status_code=403, detail="Insufficient token scope")
         try:
-            return svc.status(user, experiment_id)
+            return svc.status(identity.user_id, experiment_id)
         except NotFound as err:
             raise HTTPException(status_code=404, detail=_NOT_FOUND) from err
 
     @router.get("/experiments/{experiment_id}/result")
-    def result(experiment_id: str, user: str = Depends(user_dep)) -> Dict[str, Any]:
+    def result(
+        experiment_id: str, identity: UserIdentity = Depends(identity_dep)
+    ) -> Dict[str, Any]:
+        if not identity.has_scope("experiments:read"):
+            raise HTTPException(status_code=403, detail="Insufficient token scope")
         try:
-            return svc.result(user, experiment_id)
+            return svc.result(identity.user_id, experiment_id)
         except NotFound as err:
             raise HTTPException(status_code=404, detail=_NOT_FOUND) from err
         except ConflictError as err:
             raise HTTPException(status_code=409, detail=str(err)) from err
 
     @router.delete("/experiments/{experiment_id}")
-    def delete(experiment_id: str, user: str = Depends(user_dep)) -> Dict[str, Any]:
+    def delete(
+        experiment_id: str, identity: UserIdentity = Depends(identity_dep)
+    ) -> Dict[str, Any]:
+        if not identity.has_scope("experiments:run"):
+            raise HTTPException(status_code=403, detail="Insufficient token scope")
         try:
-            svc.delete(user, experiment_id)
+            svc.delete(identity.user_id, experiment_id)
         except NotFound as err:
             raise HTTPException(status_code=404, detail=_NOT_FOUND) from err
         except ConflictError as err:
