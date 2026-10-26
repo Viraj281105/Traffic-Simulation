@@ -26,6 +26,7 @@ from src.api.request_limits import BodySizeLimitMiddleware, compute_slot
 from src.api.security import require_api_key
 from src.api.tokens_router import router as tokens_router
 from src.calibration import api as calibration_api
+from src.copilot.router import create_router as build_copilot_router
 from src.database.db import init_db
 from src.experiments.router import create_router as build_experiments_router
 from src.history import router as history_router
@@ -96,6 +97,15 @@ app.include_router(
 # Same guards as /api/v2 (API key AND a signed-in user); every resource is private to its owner.
 app.include_router(
     build_experiments_router(
+        user_dependency=get_current_identity,
+        dependencies=[Depends(require_api_key)],
+    )
+)
+
+# V3.0 /api/v3/copilot (src/copilot/router.py): Experiment Copilot (W5): proposals that are validated
+# and confirmed before they become ordinary experiments, and grounded interpretations of results.
+app.include_router(
+    build_copilot_router(
         user_dependency=get_current_identity,
         dependencies=[Depends(require_api_key)],
     )

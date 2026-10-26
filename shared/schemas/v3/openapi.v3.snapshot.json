@@ -1,6 +1,22 @@
 {
   "components": {
     "schemas": {
+      "ConfirmRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "contentHash": {
+            "maxLength": 64,
+            "minLength": 64,
+            "title": "Contenthash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contentHash"
+        ],
+        "title": "ConfirmRequest",
+        "type": "object"
+      },
       "CreateTokenRequest": {
         "additionalProperties": false,
         "description": "Request payload for POST /api/v3/tokens.",
@@ -45,6 +61,151 @@
         "title": "CreateTokenRequest",
         "type": "object"
       },
+      "ExperimentIntent": {
+        "additionalProperties": false,
+        "description": "What a proposer may decide. Every field is bounded; the experiment is *built* from it, never\nwritten by the proposer, so a proposer cannot reach any other part of the request.",
+        "properties": {
+          "aggression": {
+            "anyOf": [
+              {
+                "enum": [
+                  "standard",
+                  "moderate",
+                  "high"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aggression"
+          },
+          "alternatives": {
+            "items": {
+              "enum": [
+                "fixed_time",
+                "adaptive",
+                "roundabout",
+                "signalised_roundabout"
+              ],
+              "type": "string"
+            },
+            "maxItems": 4,
+            "minItems": 2,
+            "title": "Alternatives",
+            "type": "array"
+          },
+          "assumptions": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Assumptions",
+            "type": "array"
+          },
+          "baseline": {
+            "anyOf": [
+              {
+                "enum": [
+                  "fixed_time",
+                  "adaptive",
+                  "roundabout",
+                  "signalised_roundabout"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline"
+          },
+          "clarification": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clarification"
+          },
+          "demand": {
+            "default": "moderate",
+            "enum": [
+              "light",
+              "moderate",
+              "peak",
+              "near_capacity"
+            ],
+            "title": "Demand",
+            "type": "string"
+          },
+          "depth": {
+            "default": "standard",
+            "enum": [
+              "quick",
+              "standard",
+              "thorough"
+            ],
+            "title": "Depth",
+            "type": "string"
+          },
+          "mix": {
+            "default": "default",
+            "enum": [
+              "default",
+              "heavy_vehicles",
+              "two_wheelers"
+            ],
+            "title": "Mix",
+            "type": "string"
+          },
+          "primaryIndicator": {
+            "default": "averageDelay",
+            "enum": [
+              "averageDelay",
+              "medianDelay",
+              "p95Delay"
+            ],
+            "title": "Primaryindicator",
+            "type": "string"
+          },
+          "replications": {
+            "default": 2,
+            "maximum": 5.0,
+            "minimum": 2.0,
+            "title": "Replications",
+            "type": "integer"
+          },
+          "uncertainAggression": {
+            "default": false,
+            "title": "Uncertainaggression",
+            "type": "boolean"
+          },
+          "unevenDemand": {
+            "default": false,
+            "title": "Unevendemand",
+            "type": "boolean"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "alternatives"
+        ],
+        "title": "ExperimentIntent",
+        "type": "object"
+      },
       "ExperimentList": {
         "properties": {
           "experiments": {
@@ -81,6 +242,191 @@
           "experiments"
         ],
         "title": "ExperimentList",
+        "type": "object"
+      },
+      "ExperimentProposal": {
+        "additionalProperties": false,
+        "properties": {
+          "aiUnavailableReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aiunavailablereason"
+          },
+          "assumptions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Assumptions",
+            "type": "array"
+          },
+          "clarification": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clarification"
+          },
+          "confirmed": {
+            "default": false,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "contentHash": {
+            "title": "Contenthash",
+            "type": "string"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "estimatedRuns": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimatedruns"
+          },
+          "estimatedSimulatedSeconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimatedsimulatedseconds"
+          },
+          "estimatedWallTime": {
+            "const": "unverified",
+            "default": "unverified",
+            "title": "Estimatedwalltime",
+            "type": "string"
+          },
+          "experiment": {
+            "additionalProperties": true,
+            "title": "Experiment",
+            "type": "object"
+          },
+          "experimentId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Experimentid"
+          },
+          "expiresAt": {
+            "title": "Expiresat",
+            "type": "string"
+          },
+          "fieldProvenance": {
+            "additionalProperties": {
+              "enum": [
+                "user",
+                "rule",
+                "model"
+              ],
+              "type": "string"
+            },
+            "title": "Fieldprovenance",
+            "type": "object"
+          },
+          "format": {
+            "const": "urbanflow-experiment-proposal",
+            "default": "urbanflow-experiment-proposal",
+            "title": "Format",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "intent": {
+            "$ref": "#/components/schemas/ExperimentIntent"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/ProposalIssue"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "mode": {
+            "enum": [
+              "deterministic",
+              "model"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "reproducibilityMetadata": {
+            "$ref": "#/components/schemas/ReproducibilityMetadata"
+          },
+          "suggestedChecks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Suggestedchecks",
+            "type": "array"
+          },
+          "validated": {
+            "title": "Validated",
+            "type": "boolean"
+          },
+          "version": {
+            "const": 1,
+            "default": 1,
+            "title": "Version",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "question",
+          "mode",
+          "intent",
+          "experiment",
+          "fieldProvenance",
+          "assumptions",
+          "warnings",
+          "suggestedChecks",
+          "reproducibilityMetadata",
+          "validated",
+          "issues",
+          "contentHash",
+          "createdAt",
+          "expiresAt"
+        ],
+        "title": "ExperimentProposal",
         "type": "object"
       },
       "ExperimentStatus": {
@@ -192,6 +538,34 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "InterpretationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "default": "auto",
+            "enum": [
+              "auto",
+              "template"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "preferred": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred"
+          }
+        },
+        "title": "InterpretationRequest",
+        "type": "object"
+      },
       "PackageVerificationReport": {
         "additionalProperties": false,
         "description": "Report returned by POST /api/v3/packages/verify.",
@@ -257,6 +631,124 @@
           "manifestSummary"
         ],
         "title": "PackageVerificationReport",
+        "type": "object"
+      },
+      "ProposalIssue": {
+        "additionalProperties": false,
+        "description": "A problem found by the validation boundary. ``code`` is stable; ``suggestion`` is a deterministic\nchange that would make the proposal valid (applied only as a new proposal, never silently).",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "suggestion": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggestion"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ProposalIssue",
+        "type": "object"
+      },
+      "ProposalRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "default": "auto",
+            "enum": [
+              "auto",
+              "deterministic"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "question": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "ProposalRequest",
+        "type": "object"
+      },
+      "ReproducibilityMetadata": {
+        "additionalProperties": false,
+        "properties": {
+          "catalogueHash": {
+            "title": "Cataloguehash",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "promptTemplateVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompttemplateversion"
+          },
+          "proposer": {
+            "enum": [
+              "deterministic",
+              "model"
+            ],
+            "title": "Proposer",
+            "type": "string"
+          },
+          "proposerVersion": {
+            "title": "Proposerversion",
+            "type": "string"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          }
+        },
+        "required": [
+          "proposer",
+          "proposerVersion",
+          "catalogueHash"
+        ],
+        "title": "ReproducibilityMetadata",
         "type": "object"
       },
       "RunCounts": {
@@ -554,6 +1046,519 @@
         "summary": "Capabilities",
         "tags": [
           "experiments-v3"
+        ]
+      }
+    },
+    "/api/v3/copilot/catalogue": {
+      "get": {
+        "description": "What a proposal may contain: alternatives, profiles, demand levels, bounds and quotas.",
+        "operationId": "get_catalogue_api_v3_copilot_catalogue_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Catalogue Api V3 Copilot Catalogue Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Catalogue",
+        "tags": [
+          "copilot-v3"
+        ]
+      }
+    },
+    "/api/v3/copilot/experiments/{experiment_id}/interpretation": {
+      "post": {
+        "description": "Measured evidence, a template summary and (when it passes grounding) a model-written reading.",
+        "operationId": "interpret_api_v3_copilot_experiments__experiment_id__interpretation_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/InterpretationRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Interpret Api V3 Copilot Experiments  Experiment Id  Interpretation Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Interpret",
+        "tags": [
+          "copilot-v3"
+        ]
+      }
+    },
+    "/api/v3/copilot/proposals": {
+      "post": {
+        "description": "Turn a question into a validated proposal. Nothing runs until the proposal is confirmed.",
+        "operationId": "create_proposal_api_v3_copilot_proposals_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentProposal"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Proposal",
+        "tags": [
+          "copilot-v3"
+        ]
+      }
+    },
+    "/api/v3/copilot/proposals/{proposal_id}": {
+      "get": {
+        "operationId": "get_proposal_api_v3_copilot_proposals__proposal_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentProposal"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Proposal",
+        "tags": [
+          "copilot-v3"
+        ]
+      }
+    },
+    "/api/v3/copilot/proposals/{proposal_id}/confirm": {
+      "post": {
+        "description": "Submit the proposal's experiment as an ordinary experiment (single use, hash-bound).",
+        "operationId": "confirm_api_v3_copilot_proposals__proposal_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Confirm Api V3 Copilot Proposals  Proposal Id  Confirm Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Confirm",
+        "tags": [
+          "copilot-v3"
+        ]
+      }
+    },
+    "/api/v3/copilot/proposals/{proposal_id}/suggestions/{code}": {
+      "post": {
+        "description": "A new proposal with one validation suggestion applied; it is validated again.",
+        "operationId": "apply_suggestion_api_v3_copilot_proposals__proposal_id__suggestions__code__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentProposal"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Apply Suggestion",
+        "tags": [
+          "copilot-v3"
         ]
       }
     },

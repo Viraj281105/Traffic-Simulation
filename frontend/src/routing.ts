@@ -24,6 +24,7 @@ export const VIEW_ROUTES = {
   scenarios: "/app/scenarios",
   research: "/app/research",
   planner: "/app/planner",
+  copilot: "/app/copilot",
   admin: "/app/admin",
 } as const;
 

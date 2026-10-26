@@ -236,3 +236,34 @@
     padding: 16px;
   }
 }
+
+.experiment-error {
+  color: var(--color-danger);
+  margin: var(--space-2) 0;
+}
+
+.interpretation-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+
+.interpretation-text {
+  white-space: pre-wrap;
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  line-height: 1.55;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  margin: var(--space-2) 0;
+}
+
+.interpretation-generated {
+  border-left: 3px solid var(--color-accent);
+  padding-left: var(--space-3);
+  margin-top: var(--space-4);
+}

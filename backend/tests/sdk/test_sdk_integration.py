@@ -254,7 +254,7 @@ def test_every_route_the_client_uses_is_in_the_openapi_snapshot():
     for method, path in re.findall(
         r'"(GET|POST|DELETE)",\s*f?"(/api/v3[^"]*)"', source
     ):
-        template = re.sub(r"\{self\._id\([a-z_]+\)\}", "{ID}", path).split("?")[0]
+        template = re.sub(r"\{[^{}]*\}", "{ID}", path).split("?")[0]
         used.add((method, template))
     assert used, "no routes found in the client"
     normalised = {(m, re.sub(r"\{[a-z_]+\}", "{ID}", p)) for m, p in operations}
@@ -279,7 +279,36 @@ def test_every_documented_v3_operation_has_a_client_method_or_is_deliberately_om
     }
     source = (SDK_ROOT / "urbanflow_client" / "client.py").read_text(encoding="utf-8")
     used = {
-        (m, re.sub(r"\{self\._id\([a-z_]+\)\}", "{ID}", p).split("?")[0])
+        (m, re.sub(r"\{[^{}]*\}", "{ID}", p).split("?")[0])
         for m, p in re.findall(r'"(GET|POST|DELETE)",\s*f?"(/api/v3[^"]*)"', source)
     }
     assert operations - used == {("POST", "/api/v3/tokens")}
+
+
+def test_copilot_proposal_confirm_and_interpretation_through_the_client(
+    server: TestClient,
+):
+    from src.ai import groq_client as gc
+
+    api = client_for(server)
+    original = gc.is_configured
+    gc.is_configured = lambda: False  # type: ignore[assignment]
+    try:
+        assert api.copilot_catalogue()["format"] == "urbanflow-copilot-catalogue"
+        proposal = api.propose(
+            "adaptive signal versus fixed-time signal at peak", deterministic=True
+        )
+        assert proposal["validated"] is True and proposal["mode"] == "deterministic"
+        assert api.proposal(proposal["id"])["contentHash"] == proposal["contentHash"]
+        accepted = api.confirm_proposal(proposal)
+        assert api.wait(accepted["id"], poll_interval=0.05)["status"] == "completed"
+        reading = api.interpret(
+            accepted["id"], preferred="fixed_time", template_only=True
+        )
+        assert (
+            reading["interpretation"] is None and "Eligibility:" in reading["template"]
+        )
+        with pytest.raises(Conflict):
+            api.confirm_proposal(proposal)  # single use
+    finally:
+        gc.is_configured = original  # type: ignore[assignment]

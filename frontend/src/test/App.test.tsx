@@ -354,6 +354,7 @@ describe("App", () => {
         "Overview",
         "Your own junction",
         "Three-way study",
+        "Scenario planning",
         "Statistical validation",
         "Traffic-level sweep",
         "Signal on its own",

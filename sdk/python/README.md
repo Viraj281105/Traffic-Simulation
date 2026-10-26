@@ -33,14 +33,14 @@ from urbanflow_client import Client, QuotaExceeded, InvalidRequest
 api = Client(os.environ["URBANFLOW_URL"], os.environ["URBANFLOW_TOKEN"])
 
 print(api.capabilities()["quotas"])
-check = api.validate(experiment)             # no work is done
+check = api.validate(experiment)  # no work is done
 result = api.run(experiment, on_progress=lambda s: print(s["status"]))
 
 experiment_id = api.list_experiments()["experiments"][0]["id"]
-api.cancel(experiment_id)                    # later: api.resume(experiment_id)
-api.export_package(experiment_id, "run.ufpkg")   # refuses to overwrite
+api.cancel(experiment_id)  # later: api.resume(experiment_id)
+api.export_package(experiment_id, "run.ufpkg")  # refuses to overwrite
 report = api.verify_package("run.ufpkg")
-assert report["internallyConsistent"]        # integrity, not authenticity
+assert report["internallyConsistent"]  # integrity, not authenticity
 ```
 
 `wait()` raises `WaitTimeout` without cancelling the experiment. Errors are typed: `AuthenticationError`

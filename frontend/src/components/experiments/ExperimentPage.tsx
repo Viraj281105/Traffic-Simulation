@@ -1,14 +1,20 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Download, Play, Square } from "lucide-react";
 import "./Experiments.css";
 import {
   ExperimentsApiError,
+  cancelExperiment,
+  downloadPackage,
   getExperiment,
   getExperimentResult,
+  getPartialResult,
   isActive,
+  resumeExperiment,
   type ExperimentResult,
   type ExperimentStatus,
+  type PartialResult,
 } from "../../services/v3/experiments";
+import { InterpretationPanel } from "./InterpretationPanel";
 import { VIEW_ROUTES, followLink } from "../../routing";
 import { parseStoredTimestamp } from "../../utils/time";
 import { LoaderMark } from "../ui/Loader";
@@ -24,6 +30,12 @@ type LoadState =
   | { kind: "error"; message: string }
   | { kind: "active"; status: ExperimentStatus }
   | { kind: "failed"; status: ExperimentStatus }
+  | {
+      kind: "cancelled";
+      status: ExperimentStatus;
+      partial: PartialResult | null;
+      stopping: boolean;
+    }
   | { kind: "ready"; status: ExperimentStatus; result: ExperimentResult };
 
 function BackToPlanner() {
@@ -52,7 +64,19 @@ const STATE_WORD: Record<ExperimentStatus["status"], string> = {
   running: "Running",
   completed: "Finished",
   failed: "Failed",
+  cancelled: "Cancelled",
 };
+
+function saveBlob(filename: string, blob: Blob) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
 
 /** First-class page for one Robustness Lab experiment: /app/experiments/:id.
  *  Follows a queued or running experiment until it ends, then shows its
@@ -66,6 +90,27 @@ export function ExperimentPage({
 }) {
   const [state, setState] = useState<LoadState>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [acting, setActing] = useState(false);
+
+  const act = (action: () => Promise<unknown>) => {
+    setActing(true);
+    setActionError(null);
+    action()
+      .then(() => {
+        setAttempt((n) => n + 1);
+      })
+      .catch((err: unknown) => {
+        setActionError(
+          err instanceof ExperimentsApiError
+            ? err.message
+            : "The request could not be completed.",
+        );
+      })
+      .finally(() => {
+        setActing(false);
+      });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -98,6 +143,30 @@ export function ExperimentPage({
             setState({ kind: "active", status });
             timer = setTimeout(load, pollMs);
             return;
+          }
+          if (status.status === "cancelled") {
+            if (!status.resultAvailable) {
+              // Still stopping: simulations already in a worker finish first.
+              setState({
+                kind: "cancelled",
+                status,
+                partial: null,
+                stopping: true,
+              });
+              timer = setTimeout(load, pollMs);
+              return;
+            }
+            return getPartialResult(experimentId)
+              .catch(() => null)
+              .then((p) => {
+                if (!cancelled)
+                  setState({
+                    kind: "cancelled",
+                    status,
+                    partial: p,
+                    stopping: false,
+                  });
+              });
           }
           if (status.status === "failed" || !status.resultAvailable) {
             setState({ kind: "failed", status });
@@ -218,7 +287,52 @@ export function ExperimentPage({
               aria-label="Simulations finished"
             />
           ) : null}
+          <button
+            type="button"
+            className="pb-btn pb-secondary"
+            disabled={acting}
+            onClick={() => {
+              act(() => cancelExperiment(experimentId));
+            }}
+          >
+            <Square size={14} aria-hidden="true" />
+            Cancel experiment
+          </button>
         </section>
+      ) : null}
+
+      {state.kind === "cancelled" ? (
+        <section className="experiment-block" aria-labelledby="exp-cancelled">
+          <h2 id="exp-cancelled">Cancelled</h2>
+          <p role="status">
+            {state.stopping
+              ? "Stopping: simulations that were already running finish first, then the finished runs are kept."
+              : state.partial
+                ? `${state.partial.runs.completed.toString()} of ${state.partial.runs.planned.toString()} runs finished before it stopped. They are kept: resuming runs only the rest and gives the same result as an uninterrupted run.`
+                : "It was stopped before any run finished. Resuming runs all of it."}
+          </p>
+          <p className="experiment-muted">
+            A simulation already running when you cancelled finishes first, so
+            resuming may need a moment.
+          </p>
+          <button
+            type="button"
+            className="pb-btn pb-primary"
+            disabled={acting || state.stopping}
+            onClick={() => {
+              act(() => resumeExperiment(experimentId));
+            }}
+          >
+            <Play size={14} aria-hidden="true" />
+            Resume experiment
+          </button>
+        </section>
+      ) : null}
+
+      {actionError ? (
+        <p className="experiment-error" role="alert">
+          {actionError}
+        </p>
       ) : null}
 
       {state.kind === "failed" ? (
@@ -233,7 +347,39 @@ export function ExperimentPage({
       ) : null}
 
       {state.kind === "ready" ? (
-        <ExperimentResultView result={state.result} />
+        <>
+          <ExperimentResultView result={state.result} />
+          <section className="experiment-block" aria-labelledby="exp-package">
+            <h2 id="exp-package">Package</h2>
+            <p className="experiment-muted">
+              Download this experiment as a portable <code>.ufpkg</code> package
+              (request, result, manifest and checksums) that anyone can verify.
+              A package shows it is internally consistent, not who made it.
+            </p>
+            <button
+              type="button"
+              className="pb-btn pb-secondary"
+              disabled={acting}
+              onClick={() => {
+                act(() =>
+                  downloadPackage(experimentId).then(({ filename, blob }) => {
+                    saveBlob(filename, blob);
+                  }),
+                );
+              }}
+            >
+              <Download size={14} aria-hidden="true" />
+              Download package
+            </button>
+          </section>
+          <InterpretationPanel
+            experimentId={experimentId}
+            alternatives={state.result.alternatives.map((a) => ({
+              id: a.id,
+              label: a.label || a.id,
+            }))}
+          />
+        </>
       ) : null}
     </div>
   );

@@ -14,7 +14,12 @@ import {
   navigate,
   type RoutedView,
 } from "../../routing";
-import { RESEARCH_TABS, type Section, type ViewMode } from "./sections";
+import {
+  PLAN_TABS,
+  RESEARCH_TABS,
+  type Section,
+  type ViewMode,
+} from "./sections";
 
 const MAIN_TABS: {
   view: RoutedView;
@@ -78,6 +83,19 @@ export function MainNav({
           Admin
         </ViewTab>
       )}
+    </nav>
+  );
+}
+
+export function PlanNav({ viewMode }: { viewMode: ViewMode }) {
+  const ref = useNavIndicator<HTMLElement>(viewMode);
+  return (
+    <nav className="sub-nav" aria-label="Planning tools" ref={ref}>
+      {PLAN_TABS.map((tab) => (
+        <ViewTab key={tab.view} view={tab.view} current={tab.view === viewMode}>
+          {tab.label}
+        </ViewTab>
+      ))}
     </nav>
   );
 }

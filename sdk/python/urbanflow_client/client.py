@@ -458,6 +458,54 @@ class Client:
             )
         return self._json("POST", "/api/v3/packages/verify", raw_body=data)
 
+    # ---- experiment copilot ------------------------------------------------------------------------
+    def copilot_catalogue(self) -> Dict[str, Any]:
+        """What a Copilot proposal may contain (alternatives, profiles, demand levels, bounds, quotas)."""
+        return self._json("GET", "/api/v3/copilot/catalogue")
+
+    def propose(self, question: str, *, deterministic: bool = False) -> Dict[str, Any]:
+        """Turn a research question into a validated experiment proposal. Nothing runs yet.
+
+        ``deterministic=True`` skips the language model even when the server has one."""
+        body = {
+            "question": question,
+            "mode": "deterministic" if deterministic else "auto",
+        }
+        return self._json("POST", "/api/v3/copilot/proposals", json_body=body)
+
+    def proposal(self, proposal_id: str) -> Dict[str, Any]:
+        return self._json("GET", f"/api/v3/copilot/proposals/{self._id(proposal_id)}")
+
+    def apply_suggestion(self, proposal_id: str, code: str) -> Dict[str, Any]:
+        """A new proposal with one of the validation suggestions applied (validated again)."""
+        return self._json(
+            "POST",
+            f"/api/v3/copilot/proposals/{self._id(proposal_id)}/suggestions/{self._id(code)}",
+        )
+
+    def confirm_proposal(self, proposal: Mapping[str, Any]) -> Dict[str, Any]:
+        """Submit a proposal you have inspected. Needs its id and content hash; works once."""
+        return self._json(
+            "POST",
+            f"/api/v3/copilot/proposals/{self._id(str(proposal['id']))}/confirm",
+            json_body={"contentHash": proposal["contentHash"]},
+        )
+
+    def interpret(
+        self,
+        experiment_id: str,
+        *,
+        preferred: Optional[str] = None,
+        template_only: bool = False,
+    ) -> Dict[str, Any]:
+        """Measured evidence plus a template summary and, if it passes grounding, a model-written reading."""
+        body = {"preferred": preferred, "mode": "template" if template_only else "auto"}
+        return self._json(
+            "POST",
+            f"/api/v3/copilot/experiments/{self._id(experiment_id)}/interpretation",
+            json_body=body,
+        )
+
     # ---- tokens ------------------------------------------------------------------------------------
     def list_tokens(self) -> List[Dict[str, Any]]:
         """Your active tokens (needs the ``tokens:read`` scope). The secrets are never listed."""

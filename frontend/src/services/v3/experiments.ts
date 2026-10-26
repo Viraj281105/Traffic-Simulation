@@ -18,7 +18,8 @@ const PREFIX = "/api/v3";
 
 // ── Status ─────────────────────────────────────────────────────────────────
 
-export type ExperimentState = "queued" | "running" | "completed" | "failed";
+export type ExperimentState =
+  "queued" | "running" | "completed" | "failed" | "cancelled";
 
 export interface RunCounts {
   conditions: number;
@@ -188,13 +189,21 @@ function reasonsFrom(body: unknown): string[] {
   return typeof message === "string" && message ? [message] : [];
 }
 
-async function json<T>(path: string): Promise<T> {
+async function send(
+  path: string,
+  init: { method?: string; body?: BodyInit; contentType?: string } = {},
+): Promise<Response> {
   const token = await getAuthToken();
   const headers = new Headers();
   if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (init.contentType) headers.set("Content-Type", init.contentType);
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, { headers });
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method: init.method ?? "GET",
+      headers,
+      body: init.body,
+    });
   } catch {
     throw new ExperimentsApiError(0, ["The server could not be reached."]);
   }
@@ -206,7 +215,28 @@ async function json<T>(path: string): Promise<T> {
       reasons.length ? reasons : [response.statusText || "Request failed"],
     );
   }
+  return response;
+}
+
+async function json<T>(
+  path: string,
+  init: { method?: string; body?: BodyInit; contentType?: string } = {},
+): Promise<T> {
+  const response = await send(path, init);
   return (await response.json()) as T;
+}
+
+/** POST a JSON body (or nothing) and read the JSON answer. */
+export function postJson<T>(path: string, body?: unknown): Promise<T> {
+  return json<T>(path, {
+    method: "POST",
+    body: body === undefined ? undefined : JSON.stringify(body),
+    contentType: body === undefined ? undefined : "application/json",
+  });
+}
+
+export function getJson<T>(path: string): Promise<T> {
+  return json<T>(path);
 }
 
 // ── Endpoints ──────────────────────────────────────────────────────────────
@@ -217,4 +247,60 @@ export function getExperiment(id: string): Promise<ExperimentStatus> {
 
 export function getExperimentResult(id: string): Promise<ExperimentResult> {
   return json(`${PREFIX}/experiments/${encodeURIComponent(id)}/result`);
+}
+
+/** The result so far of a cancelled experiment (not a result: no fingerprint, not exportable). */
+export interface PartialResult {
+  format: "urbanflow-experiment-partial-result";
+  experimentId: string;
+  name: string;
+  complete: false;
+  runs: { planned: number; completed: number; resumable: boolean };
+  note: string;
+}
+
+export function cancelExperiment(id: string): Promise<ExperimentStatus> {
+  return postJson(`${PREFIX}/experiments/${encodeURIComponent(id)}/cancel`);
+}
+
+export function resumeExperiment(id: string): Promise<ExperimentStatus> {
+  return postJson(`${PREFIX}/experiments/${encodeURIComponent(id)}/resume`);
+}
+
+export function getPartialResult(id: string): Promise<PartialResult> {
+  return json(`${PREFIX}/experiments/${encodeURIComponent(id)}/result`);
+}
+
+/** The experiment's .ufpkg package as a file name and bytes. */
+export async function downloadPackage(
+  id: string,
+): Promise<{ filename: string; blob: Blob }> {
+  const response = await send(
+    `${PREFIX}/experiments/${encodeURIComponent(id)}/package`,
+  );
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const match = /filename="([^"]+)"/.exec(disposition);
+  return {
+    filename: match ? match[1] : `urbanflow-${id.slice(0, 12)}.ufpkg`,
+    blob: await response.blob(),
+  };
+}
+
+export interface PackageReport {
+  format: "urbanflow-package-verification";
+  kind: string;
+  replayClass: "exact" | "comparable" | "differs (engine or runtime changed)";
+  internallyConsistent: boolean;
+  integrityNote: string;
+  manifestSummary: Record<string, unknown>;
+  errors: string[];
+  warnings: string[];
+}
+
+export function verifyPackage(file: Blob): Promise<PackageReport> {
+  return json(`${PREFIX}/packages/verify`, {
+    method: "POST",
+    body: file,
+    contentType: "application/octet-stream",
+  });
 }

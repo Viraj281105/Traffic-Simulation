@@ -37,10 +37,17 @@ const RESEARCH_VIEWS: ReadonlySet<ViewMode> = new Set([
   "single",
 ]);
 
+const PLAN_VIEWS: ReadonlySet<ViewMode> = new Set(["planner", "copilot"]);
+
+export const PLAN_TABS: { view: RoutedView; label: string }[] = [
+  { view: "planner", label: "Planner" },
+  { view: "copilot", label: "Experiment Copilot" },
+];
+
 export function sectionOf(view: ViewMode): Section {
   if (view === "history") return "saved";
   if (view === "admin") return "admin";
-  if (view === "planner") return "plan";
+  if (PLAN_VIEWS.has(view)) return "plan";
   if (RESEARCH_VIEWS.has(view)) return "research";
   return "compare";
 }
