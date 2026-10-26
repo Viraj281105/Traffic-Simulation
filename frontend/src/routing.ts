@@ -21,8 +21,10 @@ export const VIEW_ROUTES = {
   validation: "/app/validation",
   junction: "/app/junction",
   threeWay: "/app/three-way",
+  scenarios: "/app/scenarios",
   research: "/app/research",
   planner: "/app/planner",
+  copilot: "/app/copilot",
   admin: "/app/admin",
 } as const;
 

@@ -43,6 +43,19 @@ def test_snapshot_holds_only_v3_and_the_expected_operations():
         ("GET", "/api/v3/experiments/{experiment_id}"),
         ("DELETE", "/api/v3/experiments/{experiment_id}"),
         ("GET", "/api/v3/experiments/{experiment_id}/result"),
+        ("POST", "/api/v3/tokens"),
+        ("GET", "/api/v3/tokens"),
+        ("DELETE", "/api/v3/tokens/{token_id}"),
+        ("POST", "/api/v3/experiments/{experiment_id}/cancel"),
+        ("POST", "/api/v3/experiments/{experiment_id}/resume"),
+        ("GET", "/api/v3/experiments/{experiment_id}/package"),
+        ("POST", "/api/v3/packages/verify"),
+        ("GET", "/api/v3/copilot/catalogue"),
+        ("POST", "/api/v3/copilot/proposals"),
+        ("GET", "/api/v3/copilot/proposals/{proposal_id}"),
+        ("POST", "/api/v3/copilot/proposals/{proposal_id}/suggestions/{code}"),
+        ("POST", "/api/v3/copilot/proposals/{proposal_id}/confirm"),
+        ("POST", "/api/v3/copilot/experiments/{experiment_id}/interpretation"),
     }
 
 

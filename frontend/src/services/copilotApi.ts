@@ -86,7 +86,9 @@ async function aiPost<Res>(path: string, body: unknown): Promise<Res> {
 
 // ── Public API ────────────────────────────────────────────────────────────
 
-export async function fetchSummary(req: SummaryRequest): Promise<SummaryResponse> {
+export async function fetchSummary(
+  req: SummaryRequest,
+): Promise<SummaryResponse> {
   return aiPost<SummaryResponse>("/api/ai/summary", req);
 }
 

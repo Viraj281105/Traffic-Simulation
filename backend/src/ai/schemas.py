@@ -2,6 +2,7 @@
 
 All input strings are stripped and length-limited here so routers stay clean.
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
@@ -9,6 +10,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, field_validator
 
 # ── Shared ─────────────────────────────────────────────────────────────────
+
 
 class ConversationTurn(BaseModel):
     role: str  # "user" | "assistant"
@@ -24,6 +26,7 @@ class ConversationTurn(BaseModel):
 
 # ── Summary ─────────────────────────────────────────────────────────────────
 
+
 class SummaryRequest(BaseModel):
     """POST /api/ai/summary"""
 
@@ -38,7 +41,9 @@ class SummaryRequest(BaseModel):
     @classmethod
     def _valid_geom(cls, v: str) -> str:
         if v not in ("fixed_time_signal", "roundabout", "comparison"):
-            raise ValueError("geometry must be fixed_time_signal, roundabout, or comparison")
+            raise ValueError(
+                "geometry must be fixed_time_signal, roundabout, or comparison"
+            )
         return v
 
 
@@ -50,6 +55,7 @@ class SummaryResponse(BaseModel):
 
 
 # ── Chat ────────────────────────────────────────────────────────────────────
+
 
 class ChatRequest(BaseModel):
     """POST /api/ai/chat"""
@@ -69,7 +75,9 @@ class ChatRequest(BaseModel):
     @classmethod
     def _valid_geom(cls, v: str) -> str:
         if v not in ("fixed_time_signal", "roundabout", "comparison"):
-            raise ValueError("geometry must be fixed_time_signal, roundabout, or comparison")
+            raise ValueError(
+                "geometry must be fixed_time_signal, roundabout, or comparison"
+            )
         return v
 
 
@@ -79,6 +87,7 @@ class ChatResponse(BaseModel):
 
 
 # ── Config patch ─────────────────────────────────────────────────────────────
+
 
 class PatchRequest(BaseModel):
     """POST /api/ai/patch

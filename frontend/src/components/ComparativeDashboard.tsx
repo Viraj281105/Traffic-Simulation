@@ -478,8 +478,8 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
                     setViewMode("ai");
                   }}
                 >
-                  <Bot size={14} aria-hidden="true" className="uf-glyph" />{" "}
-                  AI Insights & Q&amp;A
+                  <Bot size={14} aria-hidden="true" className="uf-glyph" /> AI
+                  Insights & Q&amp;A
                 </button>
               </div>
             )}

@@ -25,7 +25,9 @@ interface MetricsSidebarProps {
   /** Config values for the AI Copilot patch feature. */
   config?: import("../types/config").SimulationConfigValues | null;
   /** Called when the AI Copilot applies a patched config (same as onApply in ConfigurationSidebar). */
-  onApply?: (newConfig: import("../types/config").SimulationConfigValues) => void;
+  onApply?: (
+    newConfig: import("../types/config").SimulationConfigValues,
+  ) => void;
   /** True when a simulation is actively running. */
   isRunning?: boolean;
 }
@@ -226,7 +228,9 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
             onApply(newCfg);
             setCopilotOpen(false);
           }}
-          onClose={() => { setCopilotOpen(false); }}
+          onClose={() => {
+            setCopilotOpen(false);
+          }}
           geometry={aiGeometry}
           isRunning={isRunning}
         />
@@ -260,7 +264,11 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           {!replayName && <ConnectionBadge status={connectionStatus} />}
           {config && onApply && !replayName && (
-            <AICopilotTrigger onClick={() => { setCopilotOpen(true); }} />
+            <AICopilotTrigger
+              onClick={() => {
+                setCopilotOpen(true);
+              }}
+            />
           )}
         </div>
       </div>

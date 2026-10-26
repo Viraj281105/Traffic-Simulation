@@ -30,7 +30,7 @@ import os
 import threading
 import time
 import uuid
-from concurrent.futures import Future, ProcessPoolExecutor
+from concurrent.futures import FIRST_COMPLETED, Future, ProcessPoolExecutor, wait
 from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass
 from functools import partial
@@ -125,6 +125,10 @@ def simulate_geometry(
     }
 
 
+class CancelledRun(Exception):  # noqa: N818
+    """A task that was never run because its batch was cancelled (see Progress.cancel)."""
+
+
 class Progress:
     """Live, thread-safe progress of a list of simulations.
 
@@ -142,6 +146,16 @@ class Progress:
         self._done: List[bool] = []
         self._t0 = time.monotonic()
         self.phase = "queued"
+        self._cancel = threading.Event()
+
+    def cancel(self) -> None:
+        """Ask the batch to stop. Cooperative: runs not yet started are skipped, runs already in a
+        worker finish (a running simulation cannot be interrupted safely)."""
+        self._cancel.set()
+
+    @property
+    def cancelled(self) -> bool:
+        return self._cancel.is_set()
 
     def begin(self, labels: List[str]) -> None:
         with self._lock:
@@ -361,6 +375,9 @@ def run_simulation_tasks_isolated(
     if workers == 0:
         outcomes: List[Union[Dict[str, Any], Exception]] = []
         for i, t in enumerate(tasks):
+            if progress.cancelled:
+                outcomes.append(CancelledRun())
+                continue
             try:
                 outcomes.append(
                     simulate_geometry(
@@ -386,7 +403,19 @@ def run_simulation_tasks_isolated(
             futures[i] = future
         results: List[Union[Dict[str, Any], Exception]] = []
         try:
+            pending = set(futures.values())
+            while pending:
+                _done, pending = wait(
+                    pending, timeout=0.25, return_when=FIRST_COMPLETED
+                )
+                if progress.cancelled:
+                    # Runs a worker has not started are dropped; running ones finish and are kept.
+                    for future in pending:
+                        future.cancel()
             for i in range(len(tasks)):
+                if futures[i].cancelled():
+                    results.append(CancelledRun())
+                    continue
                 error = futures[i].exception()
                 if isinstance(error, BrokenProcessPool):
                     raise error

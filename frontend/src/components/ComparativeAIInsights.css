@@ -38,9 +38,9 @@
   letter-spacing: 0.08em;
   padding: 3px 8px;
   border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--color-primary, #6366f1) 14%, transparent);
-  color: var(--color-primary, #6366f1);
-  border: 1px solid color-mix(in srgb, var(--color-primary, #6366f1) 30%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+  color: var(--color-primary);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
 }
 
 .ai-refresh-btn {
@@ -74,8 +74,12 @@
 }
 
 @keyframes ai-rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .ai-loading-box {
@@ -83,7 +87,7 @@
   align-items: center;
   gap: 12px;
   padding: 24px;
-  background: color-mix(in srgb, var(--color-primary, #6366f1) 4%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 4%, transparent);
   border-radius: var(--radius-md);
   color: var(--text-secondary);
   font-size: 13px;
@@ -92,8 +96,8 @@
 .ai-spinner-circle {
   width: 20px;
   height: 20px;
-  border: 2px solid color-mix(in srgb, var(--color-primary, #6366f1) 20%, transparent);
-  border-top-color: var(--color-primary, #6366f1);
+  border: 2px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+  border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: ai-rotate 0.8s linear infinite;
 }
@@ -103,9 +107,9 @@
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  background: color-mix(in srgb, #ef4444 10%, transparent);
-  border-left: 3px solid #ef4444;
-  color: #ef4444;
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  border-left: 3px solid var(--color-danger);
+  color: var(--color-danger);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   font-size: 12.5px;
 }
@@ -123,7 +127,7 @@
   background: color-mix(in srgb, var(--color-surface-2) 60%, transparent);
   padding: 12px 16px;
   border-radius: var(--radius-md);
-  border-left: 3px solid var(--color-primary, #6366f1);
+  border-left: 3px solid var(--color-primary);
 }
 
 .ai-insights-grid {
@@ -149,7 +153,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--color-primary, #6366f1);
+  background: var(--color-primary);
   margin-top: 6px;
   flex-shrink: 0;
 }
@@ -165,9 +169,9 @@
   align-items: center;
   gap: 8px;
   padding: 7px 12px;
-  background: color-mix(in srgb, #f59e0b 12%, transparent);
-  border: 1px solid color-mix(in srgb, #f59e0b 25%, transparent);
-  color: #d97706;
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 25%, transparent);
+  color: var(--color-warning);
   border-radius: var(--radius-sm);
   font-size: 12px;
 }
@@ -224,7 +228,7 @@
 }
 
 .ai-empty-icon {
-  color: var(--color-primary, #6366f1);
+  color: var(--color-primary);
   opacity: 0.8;
 }
 
@@ -249,8 +253,8 @@
 
 .ai-suggestion-chip:hover {
   background: var(--bg-hover);
-  border-color: var(--color-primary, #6366f1);
-  color: var(--color-primary, #6366f1);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .ai-messages-list {
@@ -281,8 +285,8 @@
 }
 
 .ai-message-row.user .ai-message-bubble {
-  background: var(--color-primary, #6366f1);
-  color: #ffffff;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
   border-bottom-right-radius: 2px;
 }
 
@@ -314,12 +318,24 @@
   animation: ai-blink 1.2s infinite ease-in-out both;
 }
 
-.ai-typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
-.ai-typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+.ai-typing-indicator span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+.ai-typing-indicator span:nth-child(2) {
+  animation-delay: -0.16s;
+}
 
 @keyframes ai-blink {
-  0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
-  40% { transform: scale(1); opacity: 1; }
+  0%,
+  80%,
+  100% {
+    transform: scale(0);
+    opacity: 0.3;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .ai-chat-input-bar {
@@ -343,7 +359,7 @@
 }
 
 .ai-chat-textarea:focus {
-  border-color: var(--color-primary, #6366f1);
+  border-color: var(--color-primary);
 }
 
 .ai-chat-send-btn {
@@ -353,11 +369,13 @@
   width: 38px;
   height: 38px;
   border-radius: var(--radius-md);
-  background: var(--color-primary, #6366f1);
-  color: #ffffff;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
   border: none;
   cursor: pointer;
-  transition: opacity 0.15s, transform 0.15s;
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
   flex-shrink: 0;
 }
 

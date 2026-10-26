@@ -6,7 +6,7 @@ import {
 /**
  * Calculates absolute and percentage change from baseline.
  * lowerIsBetter: true for waiting time, delay, queue, collisions.
- * lowerIsBetter: false for throughput, speed.
+ * lowerIsBetter: false for throughput.
  */
 export function calculateDelta(
   value: number,
@@ -19,7 +19,7 @@ export function calculateDelta(
     percentage = ((value - baselineValue) / baselineValue) * 100;
   }
 
-  let direction: "better" | "worse" | "neutral" = "neutral";
+  let direction: "better" | "worse" | "neutral";
   if (Math.abs(absolute) < 0.001) {
     direction = "neutral";
   } else if (lowerIsBetter) {
@@ -74,8 +74,8 @@ export function exportComparisonCsv(
     "Throughput Delta (%)",
     "Mean Queue (veh)",
     "Queue Delta (%)",
-    "Mean Speed (m/s)",
-    "Speed Delta (%)",
+    "Max Queue (veh)",
+    "Max Queue Delta (%)",
     "Collisions",
   ];
 
@@ -88,11 +88,31 @@ export function exportComparisonCsv(
 
   for (const res of results) {
     const isBaseline = res.scenarioId === baseline.scenarioId;
-    const delayDelta = calculateDelta(res.metrics.averageDelay, baseline.metrics.averageDelay, true);
-    const waitDelta = calculateDelta(res.metrics.averageWaitTime, baseline.metrics.averageWaitTime, true);
-    const tpDelta = calculateDelta(res.metrics.throughput, baseline.metrics.throughput, false);
-    const qDelta = calculateDelta(res.metrics.averageQueueLength, baseline.metrics.averageQueueLength, true);
-    const speedDelta = calculateDelta(res.metrics.averageTravelSpeed, baseline.metrics.averageTravelSpeed, false);
+    const delayDelta = calculateDelta(
+      res.metrics.averageDelay,
+      baseline.metrics.averageDelay,
+      true,
+    );
+    const waitDelta = calculateDelta(
+      res.metrics.averageWaitTime,
+      baseline.metrics.averageWaitTime,
+      true,
+    );
+    const tpDelta = calculateDelta(
+      res.metrics.throughput,
+      baseline.metrics.throughput,
+      false,
+    );
+    const qDelta = calculateDelta(
+      res.metrics.averageQueueLength,
+      baseline.metrics.averageQueueLength,
+      true,
+    );
+    const maxQDelta = calculateDelta(
+      res.metrics.maxQueueLength,
+      baseline.metrics.maxQueueLength,
+      true,
+    );
 
     rows.push([
       `"${res.name.replace(/"/g, '""')}"`,
@@ -101,16 +121,36 @@ export function exportComparisonCsv(
       `x${String(res.volumeScale)}`,
       String(res.duration),
       res.metrics.averageDelay.toFixed(2),
-      isBaseline ? "—" : `${delayDelta.absolute > 0 ? "+" : ""}${delayDelta.absolute.toFixed(2)}`,
-      isBaseline ? "—" : (delayDelta.percentage !== null ? `${delayDelta.percentage > 0 ? "+" : ""}${delayDelta.percentage.toFixed(1)}%` : "—"),
+      isBaseline
+        ? "—"
+        : `${delayDelta.absolute > 0 ? "+" : ""}${delayDelta.absolute.toFixed(2)}`,
+      isBaseline
+        ? "—"
+        : delayDelta.percentage !== null
+          ? `${delayDelta.percentage > 0 ? "+" : ""}${delayDelta.percentage.toFixed(1)}%`
+          : "—",
       res.metrics.averageWaitTime.toFixed(2),
-      isBaseline ? "—" : `${waitDelta.absolute > 0 ? "+" : ""}${waitDelta.absolute.toFixed(2)}`,
+      isBaseline
+        ? "—"
+        : `${waitDelta.absolute > 0 ? "+" : ""}${waitDelta.absolute.toFixed(2)}`,
       String(res.metrics.throughput),
-      isBaseline ? "—" : (tpDelta.percentage !== null ? `${tpDelta.percentage > 0 ? "+" : ""}${tpDelta.percentage.toFixed(1)}%` : "—"),
+      isBaseline
+        ? "—"
+        : tpDelta.percentage !== null
+          ? `${tpDelta.percentage > 0 ? "+" : ""}${tpDelta.percentage.toFixed(1)}%`
+          : "—",
       res.metrics.averageQueueLength.toFixed(2),
-      isBaseline ? "—" : (qDelta.percentage !== null ? `${qDelta.percentage > 0 ? "+" : ""}${qDelta.percentage.toFixed(1)}%` : "—"),
-      res.metrics.averageTravelSpeed.toFixed(2),
-      isBaseline ? "—" : (speedDelta.percentage !== null ? `${speedDelta.percentage > 0 ? "+" : ""}${speedDelta.percentage.toFixed(1)}%` : "—"),
+      isBaseline
+        ? "—"
+        : qDelta.percentage !== null
+          ? `${qDelta.percentage > 0 ? "+" : ""}${qDelta.percentage.toFixed(1)}%`
+          : "—",
+      String(res.metrics.maxQueueLength),
+      isBaseline
+        ? "—"
+        : maxQDelta.percentage !== null
+          ? `${maxQDelta.percentage > 0 ? "+" : ""}${maxQDelta.percentage.toFixed(1)}%`
+          : "—",
       String(res.metrics.collisionCount),
     ]);
   }

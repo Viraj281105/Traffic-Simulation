@@ -1,5 +1,8 @@
 /**
- * Types for V1.7 Phase 1: Scenario Planning & Comparison Dashboard.
+ * Types for the Scenario Planning & Comparison dashboard.
+ *
+ * Every metric here is measured by the simulation (the control-comparison
+ * study's per-strategy means); nothing is estimated or filled in on the client.
  */
 import type { Strategy } from "../../scenario/scenarioTypes";
 
@@ -8,7 +11,7 @@ export interface ScenarioItemConfig {
   name: string;
   isBaseline: boolean;
   strategy: Strategy;
-  /** Volume multiplier vs base scenario approaches (e.g. 1.0, 1.25, 0.75) */
+  /** Demand multiplier applied by the study to every approach (e.g. 1.0, 1.25, 0.75) */
   volumeScale: number;
   /** Signal green time in seconds (for fixed-time and adaptive) */
   greenTime: number;
@@ -16,7 +19,7 @@ export interface ScenarioItemConfig {
   yellowTime: number;
   /** Simulation duration in seconds */
   duration: number;
-  /** Vehicle mix percentages */
+  /** Vehicle mix shares */
   vehicleMix: {
     car: number;
     suv: number;
@@ -32,6 +35,16 @@ export interface ScenarioItemConfig {
   };
 }
 
+/** Means over the seeds run for one scenario. */
+export interface ScenarioMetrics {
+  averageWaitTime: number;
+  averageDelay: number;
+  throughput: number;
+  averageQueueLength: number;
+  maxQueueLength: number;
+  collisionCount: number;
+}
+
 export interface ScenarioSimulationResult {
   scenarioId: string;
   name: string;
@@ -39,58 +52,11 @@ export interface ScenarioSimulationResult {
   volumeScale: number;
   duration: number;
   seedCount: number;
-  metrics: {
-    averageWaitTime: number;
-    averageDelay: number;
-    throughput: number;
-    averageQueueLength: number;
-    maxQueueLength: number;
-    averageTravelSpeed: number;
-    collisionCount: number;
-    minTTC: number | null;
-    ttcEventCount: number;
-  };
-  perSeed?: Array<{
-    seed: number;
-    averageWaitTime: number;
-    averageDelay: number;
-    throughput: number;
-    averageQueueLength: number;
-    maxQueueLength: number;
-    averageTravelSpeed: number;
-    collisionCount: number;
-  }>;
+  metrics: ScenarioMetrics;
 }
 
 export interface ComparisonDelta {
   absolute: number;
   percentage: number | null;
-  /** "better" | "worse" | "neutral" */
   direction: "better" | "worse" | "neutral";
-}
-
-export interface ScenarioComparisonData {
-  baseline: ScenarioSimulationResult;
-  scenarios: Array<{
-    result: ScenarioSimulationResult;
-    deltas: {
-      averageWaitTime: ComparisonDelta;
-      averageDelay: ComparisonDelta;
-      throughput: ComparisonDelta;
-      averageQueueLength: ComparisonDelta;
-      maxQueueLength: ComparisonDelta;
-      averageTravelSpeed: ComparisonDelta;
-      collisionCount: ComparisonDelta;
-    };
-  }>;
-}
-
-export interface SavedExperimentData {
-  id: string;
-  name: string;
-  description: string;
-  created_at: string;
-  user_id?: string | null;
-  scenarios: ScenarioItemConfig[];
-  results: ScenarioSimulationResult[];
 }

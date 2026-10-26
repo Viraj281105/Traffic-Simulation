@@ -5,7 +5,7 @@
   padding: 1.5rem 2rem 3rem;
   max-width: 1400px;
   margin: 0 auto;
-  color: var(--text-color, #1f2937);
+  color: var(--color-text);
 }
 
 .planning-header {
@@ -14,7 +14,7 @@
   align-items: flex-start;
   flex-wrap: wrap;
   gap: 1rem;
-  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  border-bottom: 1px solid var(--color-border);
   padding-bottom: 1.25rem;
 }
 
@@ -26,7 +26,7 @@
 }
 
 .planning-header-title p {
-  color: var(--text-muted, #6b7280);
+  color: var(--color-text-3);
   font-size: 0.95rem;
   margin: 0;
 }
@@ -40,8 +40,8 @@
 
 /* ── Section Cards ── */
 .planning-card {
-  background: var(--card-bg, #ffffff);
-  border: 1px solid var(--border-color, #e5e7eb);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 1.5rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -73,19 +73,21 @@
 }
 
 .scenario-config-item {
-  border: 1px solid var(--border-color, #e5e7eb);
+  border: 1px solid var(--color-border);
   border-radius: 10px;
   padding: 1.25rem;
-  background: var(--bg-surface, #f9fafb);
+  background: var(--color-surface-2);
   display: flex;
   flex-direction: column;
   gap: 1rem;
   position: relative;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .scenario-config-item.is-baseline {
-  border-color: #3b82f6;
+  border-color: var(--color-info);
   background: rgba(59, 130, 246, 0.03);
 }
 
@@ -97,8 +99,8 @@
 }
 
 .scenario-badge-baseline {
-  background: #3b82f6;
-  color: #ffffff;
+  background: var(--color-info);
+  color: var(--color-on-primary);
   font-size: 0.72rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -108,8 +110,8 @@
 }
 
 .scenario-badge-intervention {
-  background: #10b981;
-  color: #ffffff;
+  background: var(--color-success);
+  color: var(--color-on-primary);
   font-size: 0.72rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -127,15 +129,15 @@
 .scenario-input-group label {
   font-size: 0.8rem;
   font-weight: 500;
-  color: var(--text-muted, #4b5563);
+  color: var(--color-text-2);
 }
 
 .scenario-input-group input,
 .scenario-input-group select {
   padding: 0.45rem 0.65rem;
   border-radius: 6px;
-  border: 1px solid var(--border-color, #d1d5db);
-  background: var(--input-bg, #ffffff);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-2);
   color: inherit;
   font-size: 0.88rem;
 }
@@ -156,8 +158,8 @@
 .kpi-card {
   padding: 1.15rem;
   border-radius: 10px;
-  background: var(--card-bg, #ffffff);
-  border: 1px solid var(--border-color, #e5e7eb);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
@@ -167,7 +169,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: var(--text-muted, #6b7280);
+  color: var(--color-text-3);
   font-size: 0.82rem;
   font-weight: 500;
 }
@@ -181,7 +183,7 @@
 .kpi-card-val small {
   font-size: 0.95rem;
   font-weight: 400;
-  color: var(--text-muted, #6b7280);
+  color: var(--color-text-3);
   margin-left: 0.2rem;
 }
 
@@ -194,21 +196,21 @@
 }
 
 .kpi-delta--better {
-  color: #059669;
+  color: var(--color-success);
 }
 
 .kpi-delta--worse {
-  color: #dc2626;
+  color: var(--color-danger);
 }
 
 .kpi-delta--neutral {
-  color: var(--text-muted, #6b7280);
+  color: var(--color-text-3);
 }
 
 /* ── Comparison Table ── */
 .comparison-table-wrap {
   overflow-x: auto;
-  border: 1px solid var(--border-color, #e5e7eb);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
 }
 
@@ -222,14 +224,14 @@
 .planning-table th,
 .planning-table td {
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  border-bottom: 1px solid var(--color-border);
   white-space: nowrap;
 }
 
 .planning-table thead th {
-  background: var(--bg-surface, #f9fafb);
+  background: var(--color-surface-2);
   font-weight: 600;
-  color: var(--text-muted, #4b5563);
+  color: var(--color-text-2);
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -259,34 +261,43 @@
   align-items: center;
   padding: 0.85rem 1.15rem;
   border-radius: 8px;
-  border: 1px solid var(--border-color, #e5e7eb);
-  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
   transition: background 0.15s;
 }
 
 .saved-experiment-item:hover {
-  background: var(--bg-surface, #f9fafb);
+  background: var(--color-surface-2);
 }
 
-/* ── Dark Mode Overrides ── */
-:root.dark .scenario-planning-dashboard {
-  --text-color: #f3f4f6;
-  --text-muted: #9ca3af;
-  --card-bg: #1f2937;
-  --border-color: #374151;
-  --bg-surface: #111827;
-  --input-bg: #111827;
+.planning-status {
+  border: 1px solid var(--color-info);
+  background: color-mix(in srgb, var(--color-info) 8%, transparent);
+  color: var(--color-text);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
 }
 
-:root.dark .scenario-config-item {
-  background: #111827;
+.planning-remove {
+  background: none;
+  border: none;
+  color: var(--color-danger);
+  cursor: pointer;
 }
 
-:root.dark .scenario-config-item.is-baseline {
-  background: rgba(59, 130, 246, 0.08);
-  border-color: #3b82f6;
+.planning-baseline-tag {
+  margin-left: 0.5rem;
+  color: var(--color-info);
+  font-size: 0.75rem;
 }
 
-:root.dark .planning-table thead th {
-  background: #111827;
+.planning-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--color-bg) 60%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
 }

@@ -20,6 +20,10 @@ EXPERIMENT_FORMAT = "urbanflow-experiment"
 EXPERIMENT_VERSION = 1
 RESULT_FORMAT = "urbanflow-experiment-result"
 RESULT_VERSION = 1
+# A cancelled experiment's result so far: deliberately not an ``urbanflow-experiment-result``, so a
+# client cannot mistake it for a finished, fingerprinted result.
+PARTIAL_RESULT_FORMAT = "urbanflow-experiment-partial-result"
+PARTIAL_RESULT_VERSION = 1
 
 
 class ExperimentRequest(BaseModel):
@@ -54,7 +58,7 @@ class ExperimentStatus(BaseModel):
     version: Literal[1] = 1
     id: str
     name: str
-    status: Literal["queued", "running", "completed", "failed"]
+    status: Literal["queued", "running", "completed", "failed", "cancelled"]
     error: Optional[str] = None
     createdAt: str
     counts: Optional[RunCounts] = None

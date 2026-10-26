@@ -35,7 +35,7 @@ import { StepNav, type GuidedStage } from "./components/guided/StepNav";
 import "./components/guided/Guided.css";
 import { ConfigToggle } from "./components/shell/ConfigToggle";
 import { LoginDialog } from "./components/shell/LoginDialog";
-import { MainNav, ResearchNav } from "./components/shell/Navigation";
+import { MainNav, PlanNav, ResearchNav } from "./components/shell/Navigation";
 import { NotFound } from "./components/shell/NotFound";
 import {
   SIMULATION_VIEWS,
@@ -119,6 +119,16 @@ const JunctionStudyPage = lazy(() =>
 const ThreeWayStudyPage = lazy(() =>
   import("./components/ThreeWayStudyPage").then((m) => ({
     default: m.ThreeWayStudyPage,
+  })),
+);
+const ScenarioPlanningDashboard = lazy(() =>
+  import("./components/planning/ScenarioPlanningDashboard").then((m) => ({
+    default: m.ScenarioPlanningDashboard,
+  })),
+);
+const CopilotPage = lazy(() =>
+  import("./components/copilot/CopilotPage").then((m) => ({
+    default: m.CopilotPage,
   })),
 );
 const AdminPanel = lazy(() =>
@@ -641,6 +651,7 @@ function Dashboard({
 
       {/* ── Section sub-navigation ───────────────────────────────────── */}
       {section === "research" && <ResearchNav viewMode={viewMode} />}
+      {section === "plan" && <PlanNav viewMode={viewMode} />}
       {section === "compare" && (
         <StepNav
           stage={stage}
@@ -867,6 +878,24 @@ function Dashboard({
         >
           <Suspense fallback={viewLoading}>
             <ThreeWayStudyPage />
+          </Suspense>
+        </PageTransition>
+      ) : viewMode === "scenarios" ? (
+        <PageTransition
+          transitionKey={pageKey}
+          className="app-main full-screen page-scroll"
+        >
+          <Suspense fallback={viewLoading}>
+            <ScenarioPlanningDashboard />
+          </Suspense>
+        </PageTransition>
+      ) : viewMode === "copilot" ? (
+        <PageTransition
+          transitionKey={pageKey}
+          className="app-main full-screen page-scroll"
+        >
+          <Suspense fallback={viewLoading}>
+            <CopilotPage />
           </Suspense>
         </PageTransition>
       ) : viewMode === "planner" ? (

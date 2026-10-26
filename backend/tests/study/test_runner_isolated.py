@@ -10,6 +10,7 @@ from src.core.schema import CONFIG_SCHEMA
 from src.scenario.documents import _validate_against_config_schema
 from src.study import runner
 from src.study.runner import (
+    CancelledRun,
     Progress,
     SimTask,
     run_simulation_tasks,
@@ -112,3 +113,31 @@ def test_cached_config_validator_matches_jsonschema_validate() -> None:
         assert got == expected
         if payload is bad:
             assert expected is not None  # the comparison is not vacuous
+
+
+def test_inline_cancel_skips_the_remaining_tasks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("STUDY_WORKERS", "0")
+    progress = Progress()
+    progress.cancel()
+    results = run_simulation_tasks_isolated(_tasks(), progress)
+    assert all(isinstance(r, CancelledRun) for r in results)
+    assert progress.cancelled
+
+
+def test_process_pool_cancel_drops_unstarted_tasks_and_keeps_finished_ones(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("STUDY_WORKERS", "1")
+    tasks = [SimTask(_config(i), "signal", 8.0, f"t{i}") for i in range(1, 9)]
+    progress = Progress()
+    progress.cancel()  # cancelled before the first poll: only what a worker already has finishes
+    try:
+        results = run_simulation_tasks_isolated(tasks, progress)
+    finally:
+        runner.shutdown_pool()
+    assert len(results) == len(tasks)
+    assert any(isinstance(r, CancelledRun) for r in results)
+    for r in results:
+        assert isinstance(r, CancelledRun) or (isinstance(r, dict) and "metrics" in r)

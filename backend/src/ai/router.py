@@ -7,6 +7,7 @@ Every route:
 * validates and patches the config through the existing backend schema before
   returning it to the frontend
 """
+
 from __future__ import annotations
 
 import json
@@ -14,11 +15,11 @@ import logging
 from copy import deepcopy
 from typing import Any, Dict
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
+from src.ai import budget, prompts
 from src.ai import fallback as fb
 from src.ai import groq_client as gc
-from src.ai import prompts
 from src.ai.schemas import (
     ChatRequest,
     ChatResponse,
@@ -27,6 +28,7 @@ from src.ai.schemas import (
     SummaryRequest,
     SummaryResponse,
 )
+from src.api.request_limits import client_key
 from src.api.security import require_api_key
 
 logger = logging.getLogger(__name__)
@@ -35,20 +37,35 @@ router = APIRouter(prefix="/api/ai", tags=["ai"])
 
 # ── Shared ───────────────────────────────────────────────────────────────────
 
+
 def _metrics_context(request_body: Dict[str, Any]) -> str:
     """Compact JSON string of metrics + config for the LLM context window."""
     return json.dumps(
-        {"metrics": request_body.get("metrics", {}), "config": request_body.get("config", {})},
+        {
+            "metrics": request_body.get("metrics", {}),
+            "config": request_body.get("config", {}),
+        },
         separators=(",", ":"),
     )
 
 
-def _validate_patch(patch: Dict[str, Any], geometry: str) -> list[str]:
-    """Basic range checks on the AI-generated patch fields.
+# The only keys a patch may set (the fields of PATCH_JSON_SCHEMA); anything else the model invents is dropped.
+_PATCH_KEYS = frozenset(prompts.PATCH_JSON_SCHEMA["properties"]["patch"]["properties"])
+_BOOLEAN_KEYS = ("unstructuredTraffic", "aggressiveTwoWheelers", "laneChanging")
 
-    Returns a list of error strings (empty = valid).
+
+def _validate_patch(patch: Dict[str, Any], geometry: str) -> Dict[str, str]:
+    """Range and type checks on the AI-generated patch fields.
+
+    Returns ``{field: problem}`` (empty = valid); the caller removes every field named here.
     """
-    errors: list[str] = []
+    errors: Dict[str, str] = {}
+    for key in patch:
+        if key not in _PATCH_KEYS:
+            errors[key] = f"{key} is not a configurable field"
+    for key in _BOOLEAN_KEYS:
+        if key in patch and not isinstance(patch[key], bool):
+            errors[key] = f"{key} must be true or false"
     float_ranges = {
         "arrivalRate": (0.05, 1.2),
         "duration": (30, 600),
@@ -70,41 +87,71 @@ def _validate_patch(patch: Dict[str, Any], geometry: str) -> list[str]:
             try:
                 val = float(patch[key])
             except (TypeError, ValueError):
-                errors.append(f"{key} must be a number")
+                errors[key] = f"{key} must be a number"
                 continue
             if not lo <= val <= hi:
-                errors.append(f"{key} ({val}) must be between {lo} and {hi}")
+                errors[key] = f"{key} ({val}) must be between {lo} and {hi}"
     for key, (lo, hi) in int_ranges.items():
         if key in patch:
             try:
                 val = int(patch[key])
             except (TypeError, ValueError):
-                errors.append(f"{key} must be an integer")
+                errors[key] = f"{key} must be an integer"
                 continue
             if not lo <= val <= hi:
-                errors.append(f"{key} ({val}) must be between {lo} and {hi}")
-    if "signalControl" in patch and patch["signalControl"] not in ("fixed_time", "adaptive"):
-        errors.append("signalControl must be 'fixed_time' or 'adaptive'")
+                errors[key] = f"{key} ({val}) must be between {lo} and {hi}"
+    if "signalControl" in patch and patch["signalControl"] not in (
+        "fixed_time",
+        "adaptive",
+    ):
+        errors["signalControl"] = "signalControl must be 'fixed_time' or 'adaptive'"
     if "vehicleMix" in patch:
         mix = patch["vehicleMix"]
-        if isinstance(mix, dict):
-            total = sum(float(v) for v in mix.values() if isinstance(v, (int, float)))
+        shares = list(mix.values()) if isinstance(mix, dict) else []
+        if not isinstance(mix, dict) or not all(
+            isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0
+            for v in shares
+        ):
+            errors["vehicleMix"] = (
+                "vehicleMix must map vehicle types to non-negative shares"
+            )
+        else:
+            total = sum(float(v) for v in shares)
             if abs(total - 1.0) > 0.01:
-                errors.append(f"vehicleMix shares must sum to 1.0 (got {total:.3f})")
+                errors["vehicleMix"] = (
+                    f"vehicleMix shares must sum to 1.0 (got {total:.3f})"
+                )
     return errors
 
 
+def _strings(value: Any, limit: int = 8) -> list[str]:
+    """A model-supplied list of strings, coerced and bounded (anything else becomes empty)."""
+    if not isinstance(value, list):
+        return []
+    return [str(item)[:300] for item in value[:limit]]
+
+
+def _may_call_model(request: Request) -> bool:
+    """True when the provider is configured and this call fits the budget (see budget.py)."""
+    if not gc.is_configured():
+        return False
+    allowed, reason = budget.try_spend(client_key(request))
+    if not allowed:
+        logger.info("AI model not called: %s", reason)
+    return allowed
+
+
 # ── Summary ──────────────────────────────────────────────────────────────────
+
 
 @router.post(
     "/summary",
     response_model=SummaryResponse,
     dependencies=[Depends(require_api_key)],
 )
-def ai_summary(payload: SummaryRequest) -> SummaryResponse:
+def ai_summary(payload: SummaryRequest, request: Request) -> SummaryResponse:
     """Generate a plain-English summary of the current simulation results."""
-    if not gc.is_configured():
-        logger.info("GROQ_API_KEY not set; returning summary fallback")
+    if not _may_call_model(request):
         return fb.summary_fallback(
             payload.metrics, payload.config, payload.geometry, payload.elapsed_seconds
         )
@@ -126,8 +173,8 @@ def ai_summary(payload: SummaryRequest) -> SummaryResponse:
         )
         return SummaryResponse(
             summary=str(result.get("summary", ""))[:600],
-            bullets=result.get("bullets", []),
-            warnings=result.get("warnings", []),
+            bullets=_strings(result.get("bullets")),
+            warnings=_strings(result.get("warnings")),
             fallback=False,
         )
     except Exception:  # noqa: BLE001
@@ -139,15 +186,15 @@ def ai_summary(payload: SummaryRequest) -> SummaryResponse:
 
 # ── Chat ─────────────────────────────────────────────────────────────────────
 
+
 @router.post(
     "/chat",
     response_model=ChatResponse,
     dependencies=[Depends(require_api_key)],
 )
-def ai_chat(payload: ChatRequest) -> ChatResponse:
+def ai_chat(payload: ChatRequest, request: Request) -> ChatResponse:
     """Answer a natural-language question about the current simulation."""
-    if not gc.is_configured():
-        logger.info("GROQ_API_KEY not set; returning chat fallback")
+    if not _may_call_model(request):
         return fb.chat_fallback(payload.question, payload.metrics, payload.config)
 
     # Build history list for the Groq call
@@ -179,20 +226,20 @@ def ai_chat(payload: ChatRequest) -> ChatResponse:
 
 # ── Config patch ──────────────────────────────────────────────────────────────
 
+
 @router.post(
     "/patch",
     response_model=ConfigPatch,
     dependencies=[Depends(require_api_key)],
 )
-def ai_patch(payload: PatchRequest) -> ConfigPatch:
+def ai_patch(payload: PatchRequest, request: Request) -> ConfigPatch:
     """Convert a natural-language instruction into a validated config patch.
 
     The patch is validated against known field ranges before being returned.
     The frontend must show the before/after preview and ask for explicit
     confirmation before calling ``onApply``.
     """
-    if not gc.is_configured():
-        logger.info("GROQ_API_KEY not set; returning patch fallback")
+    if not _may_call_model(request):
         return fb.patch_fallback(payload.instruction, payload.current_config)
 
     user_msg = (
@@ -212,19 +259,20 @@ def ai_patch(payload: PatchRequest) -> ConfigPatch:
         logger.warning("Groq patch call failed; using fallback", exc_info=False)
         return fb.patch_fallback(payload.instruction, payload.current_config)
 
-    patch: Dict[str, Any] = result.get("patch", {})
-    assumptions: list[str] = result.get("assumptions", [])
-    warnings: list[str] = result.get("warnings", [])
-    clarification: str | None = result.get("clarification")
+    raw_patch = result.get("patch")
+    patch: Dict[str, Any] = dict(raw_patch) if isinstance(raw_patch, dict) else {}
+    assumptions = _strings(result.get("assumptions"))
+    warnings = _strings(result.get("warnings"))
+    raw_clarification = result.get("clarification")
+    clarification = (
+        str(raw_clarification)[:500] if raw_clarification is not None else None
+    )
 
-    # Validate generated patch values
+    # Validate generated values; strip every invalid field rather than rejecting the whole response.
     errors = _validate_patch(patch, payload.geometry)
-    if errors:
-        warnings.extend([f"[Validation] {e}" for e in errors])
-        # Strip invalid keys rather than rejecting the whole response
-        for e in errors:
-            key = e.split("(")[0].strip()
-            patch.pop(key, None)
+    for key, problem in errors.items():
+        warnings.append(f"[Validation] {problem}")
+        patch.pop(key, None)
 
     # Build merged config
     merged = deepcopy(payload.current_config)

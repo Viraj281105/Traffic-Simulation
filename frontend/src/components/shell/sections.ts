@@ -31,15 +31,23 @@ const RESEARCH_VIEWS: ReadonlySet<ViewMode> = new Set([
   "validation",
   "junction",
   "threeWay",
+  "scenarios",
   "signal",
   "roundabout",
   "single",
 ]);
 
+const PLAN_VIEWS: ReadonlySet<ViewMode> = new Set(["planner", "copilot"]);
+
+export const PLAN_TABS: { view: RoutedView; label: string }[] = [
+  { view: "planner", label: "Planner" },
+  { view: "copilot", label: "Experiment Copilot" },
+];
+
 export function sectionOf(view: ViewMode): Section {
   if (view === "history") return "saved";
   if (view === "admin") return "admin";
-  if (view === "planner") return "plan";
+  if (PLAN_VIEWS.has(view)) return "plan";
   if (RESEARCH_VIEWS.has(view)) return "research";
   return "compare";
 }
@@ -48,6 +56,7 @@ export const RESEARCH_TABS: { view: RoutedView; label: string }[] = [
   { view: "research", label: "Overview" },
   { view: "junction", label: "Your own junction" },
   { view: "threeWay", label: "Three-way study" },
+  { view: "scenarios", label: "Scenario planning" },
   { view: "validation", label: "Statistical validation" },
   { view: "volume", label: "Traffic-level sweep" },
   { view: "signal", label: "Signal on its own" },

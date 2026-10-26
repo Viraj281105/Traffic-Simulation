@@ -28,10 +28,7 @@ import {
   formatDeltaText,
   exportComparisonCsv,
 } from "./planningUtils";
-import {
-  DEFAULT_SCENARIO,
-  cloneScenario,
-} from "../../scenario/scenarioModel";
+import { DEFAULT_SCENARIO, cloneScenario } from "../../scenario/scenarioModel";
 import {
   STRATEGIES,
   STRATEGY_TITLE,
@@ -48,7 +45,48 @@ import { STUDY_JOB_ROUTES } from "../../services/studyJobs";
 import { useStudyJob } from "../../hooks/useStudyJob";
 import { StudyProgress } from "../ui/StudyProgress";
 import { downloadText } from "../../metrics/catalog";
+import {
+  SERIES,
+  CHART_AXIS,
+  CHART_GRID,
+  TOOLTIP_STYLE,
+} from "../../theme/chart";
 import "./ScenarioPlanningDashboard.css";
+
+interface Stat {
+  mean: number;
+  ci: number;
+}
+
+/** The parts of a control-comparison study result this dashboard reads. */
+interface StudyResult {
+  results: {
+    controls: Partial<Record<Strategy, Partial<Record<string, Stat>>>>;
+  }[];
+  collisionCount: Partial<Record<Strategy, number>>;
+}
+
+/** The study compares at least two controls; a lone strategy is paired with one it is not. */
+function partnerOf(strategy: Strategy): Strategy {
+  return strategy === "fixed_time" ? "adaptive" : "fixed_time";
+}
+
+function mean(
+  stats: Partial<Record<string, Stat>> | undefined,
+  key: string,
+): number | null {
+  const value = stats?.[key]?.mean;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function isSavedPlanning(value: unknown): value is {
+  scenarios: ScenarioItemConfig[];
+  results: ScenarioSimulationResult[];
+} {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return Array.isArray(v.scenarios) && Array.isArray(v.results);
+}
 
 const DEFAULT_BASELINE: ScenarioItemConfig = {
   id: "base_1",
@@ -85,8 +123,12 @@ const DEFAULT_INTERVENTION: ScenarioItemConfig = {
 };
 
 export function ScenarioPlanningDashboard() {
-  const [experimentName, setExperimentName] = useState("Corridor Upgrade Experiment");
-  const [experimentDesc, setExperimentDesc] = useState("Comparing baseline fixed-time against adaptive and geometry interventions");
+  const [experimentName, setExperimentName] = useState(
+    "Corridor Upgrade Experiment",
+  );
+  const [experimentDesc, setExperimentDesc] = useState(
+    "Comparing baseline fixed-time against adaptive and geometry interventions",
+  );
   const [scenarios, setScenarios] = useState<ScenarioItemConfig[]>([
     DEFAULT_BASELINE,
     DEFAULT_INTERVENTION,
@@ -105,30 +147,38 @@ export function ScenarioPlanningDashboard() {
   useEffect(() => {
     getSuites()
       .then((data) => {
-        if (data?.suites) setSavedSuites(data.suites);
+        setSavedSuites(data.suites);
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         console.warn("Could not load saved suites:", err);
       });
   }, []);
 
-  const baselineConfig = scenarios.find((s) => s.isBaseline) || scenarios[0];
-  const baselineResult = results.find((r) => r.scenarioId === baselineConfig?.id);
+  const baselineConfig = scenarios.find((s) => s.isBaseline) ?? scenarios[0];
+  const baselineResult = results.find(
+    (r) => r.scenarioId === baselineConfig.id,
+  );
 
   // Add Intervention Scenario
   const handleAddScenario = () => {
     if (scenarios.length >= 6) return;
     const nextIdx = scenarios.length;
     const newScen: ScenarioItemConfig = {
-      id: `int_${Date.now()}`,
-      name: `Intervention ${nextIdx}: Roundabout Conversion`,
+      id: `int_${String(Date.now())}`,
+      name: `Intervention ${String(nextIdx)}: Roundabout Conversion`,
       isBaseline: false,
       strategy: "roundabout",
       volumeScale: 1.0,
       greenTime: 30,
       yellowTime: 4,
       duration: 120,
-      vehicleMix: { car: 0.8, suv: 0.15, bus: 0.05, truck: 0.0, motorcycle: 0.0 },
+      vehicleMix: {
+        car: 0.8,
+        suv: 0.15,
+        bus: 0.05,
+        truck: 0.0,
+        motorcycle: 0.0,
+      },
       driverBehavior: {
         aggressiveTwoWheelers: false,
         unstructuredTraffic: false,
@@ -143,7 +193,10 @@ export function ScenarioPlanningDashboard() {
     setScenarios(scenarios.filter((s) => s.id !== id));
   };
 
-  const handleUpdateScenario = (id: string, updates: Partial<ScenarioItemConfig>) => {
+  const handleUpdateScenario = (
+    id: string,
+    updates: Partial<ScenarioItemConfig>,
+  ) => {
     setScenarios((prev) =>
       prev.map((s) => {
         if (s.id === id) {
@@ -164,7 +217,10 @@ export function ScenarioPlanningDashboard() {
     doc.name = item.name;
     doc.simulation.duration = item.duration;
     // Ensure warmup is always shorter than duration
-    doc.simulation.warmup = Math.min(30, Math.max(5, Math.floor(item.duration / 4)));
+    doc.simulation.warmup = Math.min(
+      30,
+      Math.max(5, Math.floor(item.duration / 4)),
+    );
     doc.signal.greenTime = item.greenTime;
     doc.signal.yellowTime = item.yellowTime;
     doc.roads.laneChanging = item.driverBehavior.laneChanging;
@@ -177,17 +233,12 @@ export function ScenarioPlanningDashboard() {
     } else {
       doc.junction.type = "fixed_time_signal";
     }
-    
-    // Scale vehicle volumes across arms
-    for (const arm of Object.values(doc.approaches)) {
-      if (arm) {
-        arm.vehiclesPerHour = Math.round(arm.vehiclesPerHour * item.volumeScale);
-      }
-    }
+
+    // Demand is scaled by the study itself (demandScales), not here.
     return doc;
   };
 
-  // Execute batch simulations sequentially using controlComparison job queue
+  // Run every scenario through the control-comparison study, one after another.
   const handleRunExperiment = async () => {
     setRunning(true);
     setStatusMessage(null);
@@ -197,59 +248,32 @@ export function ScenarioPlanningDashboard() {
       for (let i = 0; i < scenarios.length; i++) {
         setCurrentRunningIndex(i);
         const item = scenarios[i];
-        const doc = buildScenarioDoc(item);
-
-        let studyRes: any;
-        try {
-          studyRes = await study.run<any>(STUDY_JOB_ROUTES.controlComparison, {
-            scenario: doc,
-            strategies: [item.strategy],
+        const studyRes = await study.run<StudyResult>(
+          STUDY_JOB_ROUTES.controlComparison,
+          {
+            scenario: buildScenarioDoc(item),
+            strategies: [item.strategy, partnerOf(item.strategy)],
             numSeeds: seedsCount,
-            demandScales: [1.0],
-          });
-        } catch (studyErr: any) {
-          const errMsg = studyErr instanceof Error ? studyErr.message : String(studyErr);
-          // If running against a backend with min_length=2 on strategies, fall back to passing paired strategy
-          if (errMsg.includes("422") || errMsg.includes("at least 2 items") || errMsg.includes("too_short")) {
-            const partner = item.strategy === "fixed_time" ? "adaptive" : "fixed_time";
-            studyRes = await study.run<any>(STUDY_JOB_ROUTES.controlComparison, {
-              scenario: doc,
-              strategies: [item.strategy, partner],
-              numSeeds: seedsCount,
-              demandScales: [1.0],
-            });
-          } else {
-            throw studyErr;
-          }
+            demandScales: [item.volumeScale],
+          },
+        );
+        const stats = studyRes.results[0]?.controls[item.strategy];
+        const delay = mean(stats, "averageDelay");
+        const wait = mean(stats, "averageWaitTime");
+        const throughput = mean(stats, "throughput");
+        const queue = mean(stats, "averageQueueLength");
+        const maxQueue = mean(stats, "maxQueueLength");
+        if (
+          delay === null ||
+          wait === null ||
+          throughput === null ||
+          queue === null ||
+          maxQueue === null
+        ) {
+          throw new Error(
+            `the study returned no measurements for ${item.name}`,
+          );
         }
-
-        // Extract metrics for the simulated strategy
-        const firstRow = studyRes.results?.[0];
-        const controlStat = firstRow?.controls?.[item.strategy] || {};
-
-        // Extract per-seed figures to compute speeds and detailed stats
-        const perSeeds = (studyRes.perSeed || []).map((row: any) => {
-          const side = row[item.strategy] || {};
-          return {
-            seed: row.seed,
-            averageWaitTime: side.averageWaitTime ?? side.averageDelay ?? 0,
-            averageDelay: side.averageDelay ?? 0,
-            throughput: side.throughput ?? 0,
-            averageQueueLength: side.averageQueueLength ?? 0,
-            maxQueueLength: side.maxQueueLength ?? side.averageQueueLength ?? 0,
-            averageTravelSpeed: side.averageTravelSpeed ?? (side.averageDelay ? Math.max(2, 13.89 - (side.averageDelay / 10)) : 10),
-            collisionCount: side.collisionCount ?? 0,
-          };
-        });
-
-        const meanDelay = controlStat.averageDelay?.mean ?? 0;
-        const meanWait = controlStat.averageWaitTime?.mean ?? (meanDelay * 0.85);
-        const meanTp = controlStat.throughput?.mean ?? 0;
-        const meanQ = controlStat.averageQueueLength?.mean ?? 0;
-        const maxQ = controlStat.maxQueueLength?.mean ?? (meanQ * 1.5);
-        const meanSpeed = Math.max(3.5, 13.89 - (meanDelay / 12));
-        const collisions = studyRes.collisionCount?.[item.strategy] ?? 0;
-
         newResults.push({
           scenarioId: item.id,
           name: item.name,
@@ -258,25 +282,23 @@ export function ScenarioPlanningDashboard() {
           duration: item.duration,
           seedCount: seedsCount,
           metrics: {
-            averageWaitTime: Number(meanWait.toFixed(2)),
-            averageDelay: Number(meanDelay.toFixed(2)),
-            throughput: Math.round(meanTp),
-            averageQueueLength: Number(meanQ.toFixed(2)),
-            maxQueueLength: Math.round(maxQ),
-            averageTravelSpeed: Number(meanSpeed.toFixed(2)),
-            collisionCount: collisions,
-            minTTC: 1.5,
-            ttcEventCount: 0,
+            averageWaitTime: Number(wait.toFixed(2)),
+            averageDelay: Number(delay.toFixed(2)),
+            throughput: Math.round(throughput),
+            averageQueueLength: Number(queue.toFixed(2)),
+            maxQueueLength: Math.round(maxQueue),
+            collisionCount: studyRes.collisionCount[item.strategy] ?? 0,
           },
-          perSeed: perSeeds,
         });
       }
 
       setResults(newResults);
-      setStatusMessage("Experiment completed successfully! Actual simulation results loaded.");
+      setStatusMessage("Experiment completed: every figure below is measured.");
     } catch (err: unknown) {
       console.error("Experiment failed:", err);
-      setStatusMessage(`Simulation error: ${err instanceof Error ? err.message : "Failed to run batch"}`);
+      setStatusMessage(
+        `Simulation error: ${err instanceof Error ? err.message : "the batch could not run"}`,
+      );
     } finally {
       setRunning(false);
     }
@@ -297,11 +319,13 @@ export function ScenarioPlanningDashboard() {
         },
       };
       const res = await createSuite(payload);
-      setStatusMessage(`Experiment saved successfully (Suite ID: ${res.id.slice(0, 8)})`);
+      setStatusMessage(
+        `Experiment saved successfully (Suite ID: ${res.id.slice(0, 8)})`,
+      );
       // refresh saved list
       const updated = await getSuites();
-      if (updated?.suites) setSavedSuites(updated.suites);
-    } catch (err) {
+      setSavedSuites(updated.suites);
+    } catch (err: unknown) {
       console.error(err);
       setStatusMessage("Failed to save experiment to database.");
     }
@@ -311,18 +335,20 @@ export function ScenarioPlanningDashboard() {
   const handleLoadExperiment = async (suiteId: string) => {
     try {
       const res = await getSuiteById(suiteId);
-      const variations = res?.suite?.config_variations || {};
-      if (variations.scenarios && variations.results) {
+      const variations = res.suite.config_variations;
+      if (isSavedPlanning(variations)) {
         setExperimentName(res.suite.name);
-        setExperimentDesc(res.suite.description || "");
-        setScenarios(variations.scenarios as unknown as ScenarioItemConfig[]);
-        setResults(variations.results as unknown as ScenarioSimulationResult[]);
+        setExperimentDesc(res.suite.description);
+        setScenarios(variations.scenarios);
+        setResults(variations.results);
         setShowSavedModal(false);
-        setStatusMessage(`Loaded saved experiment "${res.suite.name}" without re-running simulations.`);
+        setStatusMessage(
+          `Loaded saved experiment "${res.suite.name}" without re-running simulations.`,
+        );
       } else {
         setStatusMessage("This suite does not contain scenario planning data.");
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
       setStatusMessage("Failed to load saved experiment.");
     }
@@ -331,8 +357,16 @@ export function ScenarioPlanningDashboard() {
   // Export comparison data to CSV
   const handleExportCsv = () => {
     if (!baselineResult) return;
-    const csvContent = exportComparisonCsv(experimentName, baselineResult, results);
-    downloadText(`scenario_comparison_${Date.now()}.csv`, csvContent, "text/csv");
+    const csvContent = exportComparisonCsv(
+      experimentName,
+      baselineResult,
+      results,
+    );
+    downloadText(
+      `scenario_comparison_${String(Date.now())}.csv`,
+      csvContent,
+      "text/csv",
+    );
   };
 
   // Chart data preparation
@@ -343,7 +377,6 @@ export function ScenarioPlanningDashboard() {
       wait: r.metrics.averageWaitTime,
       throughput: r.metrics.throughput,
       queue: r.metrics.averageQueueLength,
-      speed: r.metrics.averageTravelSpeed,
       collisions: r.metrics.collisionCount,
     }));
   }, [results]);
@@ -353,13 +386,18 @@ export function ScenarioPlanningDashboard() {
       <header className="planning-header">
         <div className="planning-header-title">
           <h1>Scenario Planning & Comparison</h1>
-          <p>Create baseline and intervention scenarios, run batch experiments, and compare data-driven KPIs.</p>
+          <p>
+            Create baseline and intervention scenarios, run batch experiments,
+            and compare data-driven KPIs.
+          </p>
         </div>
         <div className="planning-header-actions">
           <button
             type="button"
             className="pb-btn pb-secondary"
-            onClick={() => setShowSavedModal(true)}
+            onClick={() => {
+              setShowSavedModal(true);
+            }}
           >
             <FolderOpen size={16} aria-hidden="true" />
             Saved Experiments ({savedSuites.length})
@@ -376,7 +414,9 @@ export function ScenarioPlanningDashboard() {
           <button
             type="button"
             className="pb-btn pb-secondary"
-            onClick={handleSaveExperiment}
+            onClick={() => {
+              void handleSaveExperiment();
+            }}
             disabled={!results.length}
           >
             <Save size={16} aria-hidden="true" />
@@ -385,7 +425,9 @@ export function ScenarioPlanningDashboard() {
           <button
             type="button"
             className="pb-btn pb-primary"
-            onClick={handleRunExperiment}
+            onClick={() => {
+              void handleRunExperiment();
+            }}
             disabled={running}
           >
             <Play size={16} aria-hidden="true" />
@@ -395,14 +437,14 @@ export function ScenarioPlanningDashboard() {
       </header>
 
       {statusMessage && (
-        <div className="sb-card" style={{ borderColor: "#3b82f6", background: "rgba(59, 130, 246, 0.05)" }}>
-          <p style={{ margin: 0, fontSize: "0.9rem", color: "#1d4ed8" }}>{statusMessage}</p>
+        <div className="planning-status" role="status">
+          {statusMessage}
         </div>
       )}
 
       {running && (
         <StudyProgress
-          title={`Simulating ${scenarios[currentRunningIndex]?.name} (${currentRunningIndex + 1} of ${scenarios.length})`}
+          title={`Simulating ${scenarios[currentRunningIndex]?.name ?? ""} (${String(currentRunningIndex + 1)} of ${String(scenarios.length)})`}
           progress={study.progress}
         />
       )}
@@ -414,11 +456,20 @@ export function ScenarioPlanningDashboard() {
             Configure Scenarios ({scenarios.length})
           </h2>
           <div style={{ display: "flex", gap: "0.5rem" }}>
-            <label style={{ fontSize: "0.85rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+            <label
+              style={{
+                fontSize: "0.85rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.4rem",
+              }}
+            >
               Seeds per scenario:
               <select
                 value={seedsCount}
-                onChange={(e) => setSeedsCount(Number(e.target.value))}
+                onChange={(e) => {
+                  setSeedsCount(Number(e.target.value));
+                }}
                 disabled={running}
                 style={{ padding: "0.2rem 0.5rem", borderRadius: "4px" }}
               >
@@ -445,15 +496,24 @@ export function ScenarioPlanningDashboard() {
               className={`scenario-config-item ${scen.isBaseline ? "is-baseline" : ""}`}
             >
               <div className="scenario-item-header">
-                <span className={scen.isBaseline ? "scenario-badge-baseline" : "scenario-badge-intervention"}>
-                  {scen.isBaseline ? "Baseline" : `Intervention ${idx}`}
+                <span
+                  className={
+                    scen.isBaseline
+                      ? "scenario-badge-baseline"
+                      : "scenario-badge-intervention"
+                  }
+                >
+                  {scen.isBaseline ? "Baseline" : `Intervention ${String(idx)}`}
                 </span>
                 {!scen.isBaseline && (
                   <button
                     type="button"
-                    onClick={() => handleRemoveScenario(scen.id)}
-                    style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer" }}
+                    onClick={() => {
+                      handleRemoveScenario(scen.id);
+                    }}
+                    className="planning-remove"
                     title="Remove scenario"
+                    aria-label={`Remove ${scen.name}`}
                   >
                     <Trash2 size={16} />
                   </button>
@@ -466,7 +526,9 @@ export function ScenarioPlanningDashboard() {
                   type="text"
                   value={scen.name}
                   disabled={running}
-                  onChange={(e) => handleUpdateScenario(scen.id, { name: e.target.value })}
+                  onChange={(e) => {
+                    handleUpdateScenario(scen.id, { name: e.target.value });
+                  }}
                 />
               </div>
 
@@ -476,10 +538,16 @@ export function ScenarioPlanningDashboard() {
                   <select
                     value={scen.strategy}
                     disabled={running}
-                    onChange={(e) => handleUpdateScenario(scen.id, { strategy: e.target.value as Strategy })}
+                    onChange={(e) => {
+                      handleUpdateScenario(scen.id, {
+                        strategy: e.target.value as Strategy,
+                      });
+                    }}
                   >
                     {STRATEGIES.map((s) => (
-                      <option key={s} value={s}>{STRATEGY_TITLE[s]}</option>
+                      <option key={s} value={s}>
+                        {STRATEGY_TITLE[s]}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -489,7 +557,11 @@ export function ScenarioPlanningDashboard() {
                   <select
                     value={scen.volumeScale}
                     disabled={running}
-                    onChange={(e) => handleUpdateScenario(scen.id, { volumeScale: Number(e.target.value) })}
+                    onChange={(e) => {
+                      handleUpdateScenario(scen.id, {
+                        volumeScale: Number(e.target.value),
+                      });
+                    }}
                   >
                     <option value={0.75}>0.75× (-25%)</option>
                     <option value={1.0}>1.0× (Baseline)</option>
@@ -508,7 +580,11 @@ export function ScenarioPlanningDashboard() {
                     max={120}
                     value={scen.greenTime}
                     disabled={running || scen.strategy === "roundabout"}
-                    onChange={(e) => handleUpdateScenario(scen.id, { greenTime: Number(e.target.value) })}
+                    onChange={(e) => {
+                      handleUpdateScenario(scen.id, {
+                        greenTime: Number(e.target.value),
+                      });
+                    }}
                   />
                 </div>
 
@@ -520,19 +596,34 @@ export function ScenarioPlanningDashboard() {
                     max={600}
                     value={scen.duration}
                     disabled={running}
-                    onChange={(e) => handleUpdateScenario(scen.id, { duration: Number(e.target.value) })}
+                    onChange={(e) => {
+                      handleUpdateScenario(scen.id, {
+                        duration: Number(e.target.value),
+                      });
+                    }}
                   />
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: "1rem", marginTop: "0.25rem" }}>
-                <label style={{ fontSize: "0.82rem", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+              <div
+                style={{ display: "flex", gap: "1rem", marginTop: "0.25rem" }}
+              >
+                <label
+                  style={{
+                    fontSize: "0.82rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.3rem",
+                  }}
+                >
                   <input
                     type="radio"
                     name="baseline_select"
                     checked={scen.isBaseline}
                     disabled={running}
-                    onChange={() => handleUpdateScenario(scen.id, { isBaseline: true })}
+                    onChange={() => {
+                      handleUpdateScenario(scen.id, { isBaseline: true });
+                    }}
                   />
                   Set as Baseline
                 </label>
@@ -547,54 +638,110 @@ export function ScenarioPlanningDashboard() {
         <>
           {/* KPI Summary Cards */}
           <section className="planning-card">
-            <h2 className="planning-card-title" style={{ marginBottom: "1.25rem" }}>
+            <h2
+              className="planning-card-title"
+              style={{ marginBottom: "1.25rem" }}
+            >
               Key Performance Indicator Cards vs Baseline
             </h2>
             <div className="kpi-cards-grid">
               {results.map((res) => {
                 const isBase = res.scenarioId === baselineResult.scenarioId;
-                const delayDelta = calculateDelta(res.metrics.averageDelay, baselineResult.metrics.averageDelay, true);
-                const waitDelta = calculateDelta(res.metrics.averageWaitTime, baselineResult.metrics.averageWaitTime, true);
-                const tpDelta = calculateDelta(res.metrics.throughput, baselineResult.metrics.throughput, false);
-                const qDelta = calculateDelta(res.metrics.averageQueueLength, baselineResult.metrics.averageQueueLength, true);
+                const delayDelta = calculateDelta(
+                  res.metrics.averageDelay,
+                  baselineResult.metrics.averageDelay,
+                  true,
+                );
+                const waitDelta = calculateDelta(
+                  res.metrics.averageWaitTime,
+                  baselineResult.metrics.averageWaitTime,
+                  true,
+                );
+                const tpDelta = calculateDelta(
+                  res.metrics.throughput,
+                  baselineResult.metrics.throughput,
+                  false,
+                );
+                const qDelta = calculateDelta(
+                  res.metrics.averageQueueLength,
+                  baselineResult.metrics.averageQueueLength,
+                  true,
+                );
 
                 return (
-                  <div key={res.scenarioId} className="kpi-card" style={isBase ? { borderColor: "#3b82f6" } : {}}>
+                  <div
+                    key={res.scenarioId}
+                    className="kpi-card"
+                    style={isBase ? { borderColor: "var(--color-info)" } : {}}
+                  >
                     <div className="kpi-card-header">
                       <span>{res.name}</span>
                       {isBase ? (
                         <span className="scenario-badge-baseline">Base</span>
                       ) : (
-                        <span className="scenario-badge-intervention">Intervention</span>
+                        <span className="scenario-badge-intervention">
+                          Intervention
+                        </span>
                       )}
                     </div>
 
                     <div style={{ margin: "0.5rem 0" }}>
-                      <div style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>Mean Delay</div>
+                      <div
+                        style={{
+                          fontSize: "0.82rem",
+                          color: "var(--text-muted)",
+                        }}
+                      >
+                        Mean Delay
+                      </div>
                       <div className="kpi-card-val">
                         {res.metrics.averageDelay} <small>s</small>
                       </div>
                       {!isBase && (
-                        <div className={`kpi-card-delta kpi-delta--${delayDelta.direction}`}>
-                          {delayDelta.direction === "better" ? <TrendingDown size={14} /> : <TrendingUp size={14} />}
+                        <div
+                          className={`kpi-card-delta kpi-delta--${delayDelta.direction}`}
+                        >
+                          {delayDelta.direction === "better" ? (
+                            <TrendingDown size={14} />
+                          ) : (
+                            <TrendingUp size={14} />
+                          )}
                           {formatDeltaText(delayDelta, "s")}
                         </div>
                       )}
                     </div>
 
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.5rem", borderTop: "1px solid var(--border-color)", paddingTop: "0.5rem" }}>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr 1fr",
+                        gap: "0.5rem",
+                        borderTop: "1px solid var(--border-color)",
+                        paddingTop: "0.5rem",
+                      }}
+                    >
                       <div>
-                        <small style={{ color: "var(--text-muted)" }}>Mean Wait</small>
-                        <div style={{ fontWeight: 600 }}>{res.metrics.averageWaitTime} s</div>
+                        <small style={{ color: "var(--text-muted)" }}>
+                          Mean Wait
+                        </small>
+                        <div style={{ fontWeight: 600 }}>
+                          {res.metrics.averageWaitTime} s
+                        </div>
                         {!isBase && (
-                          <small className={`kpi-delta--${waitDelta.direction}`}>
+                          <small
+                            className={`kpi-delta--${waitDelta.direction}`}
+                          >
                             {formatDeltaText(waitDelta, "s")}
                           </small>
                         )}
                       </div>
                       <div>
-                        <small style={{ color: "var(--text-muted)" }}>Throughput</small>
-                        <div style={{ fontWeight: 600 }}>{res.metrics.throughput} veh</div>
+                        <small style={{ color: "var(--text-muted)" }}>
+                          Throughput
+                        </small>
+                        <div style={{ fontWeight: 600 }}>
+                          {res.metrics.throughput} veh
+                        </div>
                         {!isBase && (
                           <small className={`kpi-delta--${tpDelta.direction}`}>
                             {formatDeltaText(tpDelta, "")}
@@ -602,8 +749,12 @@ export function ScenarioPlanningDashboard() {
                         )}
                       </div>
                       <div>
-                        <small style={{ color: "var(--text-muted)" }}>Mean Queue</small>
-                        <div style={{ fontWeight: 600 }}>{res.metrics.averageQueueLength} veh</div>
+                        <small style={{ color: "var(--text-muted)" }}>
+                          Mean Queue
+                        </small>
+                        <div style={{ fontWeight: 600 }}>
+                          {res.metrics.averageQueueLength} veh
+                        </div>
                         {!isBase && (
                           <small className={`kpi-delta--${qDelta.direction}`}>
                             {formatDeltaText(qDelta, "")}
@@ -619,21 +770,54 @@ export function ScenarioPlanningDashboard() {
 
           {/* Performance Comparison Charts */}
           <section className="planning-card">
-            <h2 className="planning-card-title" style={{ marginBottom: "1.25rem" }}>
+            <h2
+              className="planning-card-title"
+              style={{ marginBottom: "1.25rem" }}
+            >
               Comparative Performance Visualizations
             </h2>
             <div style={{ width: "100%", height: 320 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" />
-                  <YAxis yAxisId="right" orientation="right" stroke="#10b981" />
-                  <Tooltip />
+                <BarChart
+                  data={chartData}
+                  margin={{ top: 20, right: 30, left: 0, bottom: 20 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 12 }}
+                    stroke={CHART_AXIS}
+                  />
+                  <YAxis
+                    yAxisId="left"
+                    orientation="left"
+                    stroke={CHART_AXIS}
+                  />
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    stroke={CHART_AXIS}
+                  />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} />
                   <Legend />
-                  <Bar yAxisId="left" dataKey="delay" name="Mean Delay (s)" fill="#3b82f6" />
-                  <Bar yAxisId="left" dataKey="wait" name="Mean Wait (s)" fill="#60a5fa" />
-                  <Bar yAxisId="right" dataKey="throughput" name="Throughput (veh)" fill="#10b981" />
+                  <Bar
+                    yAxisId="left"
+                    dataKey="delay"
+                    name="Mean Delay (s)"
+                    fill={SERIES.signal}
+                  />
+                  <Bar
+                    yAxisId="left"
+                    dataKey="wait"
+                    name="Mean Wait (s)"
+                    fill={SERIES.neutral}
+                  />
+                  <Bar
+                    yAxisId="right"
+                    dataKey="throughput"
+                    name="Throughput (veh)"
+                    fill={SERIES.roundabout}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -641,7 +825,10 @@ export function ScenarioPlanningDashboard() {
 
           {/* Detailed Metric Comparison Table */}
           <section className="planning-card">
-            <h2 className="planning-card-title" style={{ marginBottom: "1.25rem" }}>
+            <h2
+              className="planning-card-title"
+              style={{ marginBottom: "1.25rem" }}
+            >
               Detailed Scenario Comparison Table
             </h2>
             <div className="comparison-table-wrap">
@@ -656,21 +843,36 @@ export function ScenarioPlanningDashboard() {
                     <th>Throughput</th>
                     <th>Throughput Change</th>
                     <th>Mean Queue</th>
-                    <th>Speed</th>
+                    <th>Max Queue</th>
                     <th>Collisions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {results.map((res) => {
                     const isBase = res.scenarioId === baselineResult.scenarioId;
-                    const delayDelta = calculateDelta(res.metrics.averageDelay, baselineResult.metrics.averageDelay, true);
-                    const tpDelta = calculateDelta(res.metrics.throughput, baselineResult.metrics.throughput, false);
+                    const delayDelta = calculateDelta(
+                      res.metrics.averageDelay,
+                      baselineResult.metrics.averageDelay,
+                      true,
+                    );
+                    const tpDelta = calculateDelta(
+                      res.metrics.throughput,
+                      baselineResult.metrics.throughput,
+                      false,
+                    );
 
                     return (
-                      <tr key={res.scenarioId} className={isBase ? "row-baseline" : ""}>
+                      <tr
+                        key={res.scenarioId}
+                        className={isBase ? "row-baseline" : ""}
+                      >
                         <td>
                           <strong>{res.name}</strong>
-                          {isBase && <span style={{ marginLeft: "0.5rem", color: "#3b82f6", fontSize: "0.75rem" }}>(Baseline)</span>}
+                          {isBase && (
+                            <span className="planning-baseline-tag">
+                              (Baseline)
+                            </span>
+                          )}
                         </td>
                         <td>{STRATEGY_TITLE[res.strategy]}</td>
                         <td>{res.volumeScale}×</td>
@@ -679,7 +881,9 @@ export function ScenarioPlanningDashboard() {
                           {isBase ? (
                             "—"
                           ) : (
-                            <span className={`kpi-delta--${delayDelta.direction}`}>
+                            <span
+                              className={`kpi-delta--${delayDelta.direction}`}
+                            >
                               {formatDeltaText(delayDelta, "s")}
                             </span>
                           )}
@@ -695,7 +899,7 @@ export function ScenarioPlanningDashboard() {
                           )}
                         </td>
                         <td>{res.metrics.averageQueueLength} veh</td>
-                        <td>{res.metrics.averageTravelSpeed} m/s</td>
+                        <td>{res.metrics.maxQueueLength} veh</td>
                         <td>{res.metrics.collisionCount}</td>
                       </tr>
                     );
@@ -710,33 +914,43 @@ export function ScenarioPlanningDashboard() {
       {/* ── Saved Experiments Modal ── */}
       {showSavedModal && (
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
+          className="planning-modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Saved experiments"
         >
           <div
             className="planning-card"
-            style={{ width: "90%", maxWidth: "600px", maxHeight: "80vh", overflow: "hidden", display: "flex", flexDirection: "column" }}
+            style={{
+              width: "90%",
+              maxWidth: "600px",
+              maxHeight: "80vh",
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+            }}
           >
             <div className="planning-card-header">
               <h3 className="planning-card-title">Saved Experiments</h3>
               <button
                 type="button"
                 className="pb-btn pb-secondary"
-                onClick={() => setShowSavedModal(false)}
+                onClick={() => {
+                  setShowSavedModal(false);
+                }}
               >
                 Close
               </button>
             </div>
             <div className="saved-experiments-list">
               {savedSuites.length === 0 ? (
-                <p style={{ color: "var(--text-muted)", textAlign: "center", padding: "2rem" }}>
+                <p
+                  style={{
+                    color: "var(--text-muted)",
+                    textAlign: "center",
+                    padding: "2rem",
+                  }}
+                >
                   No saved experiments found for your account.
                 </p>
               ) : (
@@ -751,7 +965,9 @@ export function ScenarioPlanningDashboard() {
                     <button
                       type="button"
                       className="pb-btn pb-secondary"
-                      onClick={() => handleLoadExperiment(s.id)}
+                      onClick={() => {
+                        void handleLoadExperiment(s.id);
+                      }}
                     >
                       Reopen
                     </button>

@@ -15,12 +15,18 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.ai import router as ai_router
 from src.api import meta
-from src.api.auth import get_current_user_id, get_current_user_is_admin
+from src.api.auth import (
+    get_current_identity,
+    get_current_user_id,
+    get_current_user_is_admin,
+)
 from src.api.errors import http_exception_handler
 from src.api.origins import CORS_ALLOW_CREDENTIALS, CORS_ORIGINS
 from src.api.request_limits import BodySizeLimitMiddleware, compute_slot
 from src.api.security import require_api_key
+from src.api.tokens_router import router as tokens_router
 from src.calibration import api as calibration_api
+from src.copilot.router import create_router as build_copilot_router
 from src.database.db import init_db
 from src.experiments.router import create_router as build_experiments_router
 from src.history import router as history_router
@@ -91,9 +97,24 @@ app.include_router(
 # Same guards as /api/v2 (API key AND a signed-in user); every resource is private to its owner.
 app.include_router(
     build_experiments_router(
-        user_dependency=get_current_user_id,
+        user_dependency=get_current_identity,
         dependencies=[Depends(require_api_key)],
     )
+)
+
+# V3.0 /api/v3/copilot (src/copilot/router.py): Experiment Copilot (W5): proposals that are validated
+# and confirmed before they become ordinary experiments, and grounded interpretations of results.
+app.include_router(
+    build_copilot_router(
+        user_dependency=get_current_identity,
+        dependencies=[Depends(require_api_key)],
+    )
+)
+
+# V3.0 /api/v3/tokens (src/api/tokens_router.py): Personal Access Tokens (W7 Stage 1).
+app.include_router(
+    tokens_router,
+    dependencies=[Depends(require_api_key)],
 )
 
 # V1.1 /api/v1/study/history/runs (src/history/router.py): stored runs; a

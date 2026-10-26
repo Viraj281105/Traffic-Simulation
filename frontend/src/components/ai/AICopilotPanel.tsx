@@ -4,14 +4,16 @@
  * Designed to replace the MetricsSidebar on the right column while open.
  * Three tabs: Summary · Ask · Configure.
  */
-import React, {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  useId,
-} from "react";
-import { X, Bot, FileText, MessageCircle, Settings2, Send, BarChart2 } from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState, useId } from "react";
+import {
+  X,
+  Bot,
+  FileText,
+  MessageCircle,
+  Settings2,
+  Send,
+  BarChart2,
+} from "lucide-react";
 import type { SimulationConfigValues } from "../../types/config";
 import type { LiveSnapshot } from "../../types/simulation";
 import {
@@ -58,10 +60,11 @@ function formatKey(key: string): string {
 
 function formatValue(val: unknown): string {
   if (typeof val === "boolean") return val ? "Yes" : "No";
-  if (typeof val === "number") return val.toLocaleString(undefined, { maximumFractionDigits: 3 });
+  if (typeof val === "number")
+    return val.toLocaleString(undefined, { maximumFractionDigits: 3 });
   if (val === null || val === undefined) return "—";
-  if (typeof val === "object") return JSON.stringify(val);
-  return String(val);
+  if (typeof val === "string") return val;
+  return JSON.stringify(val);
 }
 
 // ── Summary Tab ────────────────────────────────────────────────────────────
@@ -93,7 +96,7 @@ function SummaryTab({
     }
   }, [snapshot, config, geometry]);
 
-  const hasMetrics = snapshot?.metrics != null;
+  const hasMetrics = snapshot !== null;
 
   return (
     <div className="ai-panel-body">
@@ -108,7 +111,7 @@ function SummaryTab({
             type="button"
             className="ai-action-btn"
             onClick={() => void handleSummarise()}
-            disabled={loading || !hasMetrics}
+            disabled={!hasMetrics}
           >
             <BarChart2 size={14} aria-hidden="true" />
             Summarize Metrics
@@ -124,7 +127,9 @@ function SummaryTab({
       )}
 
       {error && !loading && (
-        <div className="ai-warning-item" role="alert">{error}</div>
+        <div className="ai-warning-item" role="alert">
+          {error}
+        </div>
       )}
 
       {result && !loading && (
@@ -134,16 +139,18 @@ function SummaryTab({
             {result.bullets.length > 0 && (
               <ul className="ai-bullets">
                 {result.bullets.map((b, i) => (
-                  // eslint-disable-next-line react/no-array-index-key
-                  <li key={i} className="ai-bullet">{b}</li>
+                  <li key={i} className="ai-bullet">
+                    {b}
+                  </li>
                 ))}
               </ul>
             )}
             {result.warnings.length > 0 && (
               <div className="ai-warnings">
                 {result.warnings.map((w, i) => (
-                  // eslint-disable-next-line react/no-array-index-key
-                  <div key={i} className="ai-warning-item">{w}</div>
+                  <div key={i} className="ai-warning-item">
+                    {w}
+                  </div>
                 ))}
               </div>
             )}
@@ -156,7 +163,10 @@ function SummaryTab({
           <button
             type="button"
             className="ai-action-btn secondary"
-            onClick={() => { setResult(null); setError(null); }}
+            onClick={() => {
+              setResult(null);
+              setError(null);
+            }}
           >
             Regenerate
           </button>
@@ -236,14 +246,18 @@ function ChatTab({
 
   return (
     <div className="ai-panel-body" style={{ gap: "8px" }}>
-      <div className="ai-chat-history" aria-live="polite" aria-label="Conversation">
+      <div
+        className="ai-chat-history"
+        aria-live="polite"
+        aria-label="Conversation"
+      >
         {messages.length === 0 && (
           <p className="ai-empty-hint">
-            Ask anything about this simulation — delay, queues, how the signal works, or what to try next.
+            Ask anything about this simulation — delay, queues, how the signal
+            works, or what to try next.
           </p>
         )}
         {messages.map((m, i) => (
-          // eslint-disable-next-line react/no-array-index-key
           <div key={i} className={`ai-chat-bubble ${m.role}`}>
             <div className="ai-bubble-text">{m.content}</div>
             {m.fallback && (
@@ -269,7 +283,9 @@ function ChatTab({
           placeholder="Ask about this run… (Enter to send, Shift+Enter for new line)"
           value={draft}
           maxLength={500}
-          onChange={(e) => { setDraft(e.target.value); }}
+          onChange={(e) => {
+            setDraft(e.target.value);
+          }}
           onKeyDown={handleKey}
           aria-label="Question"
         />
@@ -289,7 +305,9 @@ function ChatTab({
           type="button"
           className="ai-action-btn secondary"
           style={{ fontSize: "11px", padding: "6px" }}
-          onClick={() => { setMessages([]); }}
+          onClick={() => {
+            setMessages([]);
+          }}
         >
           Clear conversation
         </button>
@@ -361,7 +379,8 @@ function ConfigureTab({
           aria-label="Configuration instruction"
         />
         <p className="ai-patch-hints">
-          {500 - instruction.length} characters remaining. The AI will generate a before/after preview before applying anything.
+          {500 - instruction.length} characters remaining. The AI will generate
+          a before/after preview before applying anything.
         </p>
         <button
           type="button"
@@ -370,14 +389,23 @@ function ConfigureTab({
           disabled={!instruction.trim() || loading}
         >
           {loading ? (
-            <><span className="ai-spinner" aria-hidden="true" /> Generating patch…</>
+            <>
+              <span className="ai-spinner" aria-hidden="true" /> Generating
+              patch…
+            </>
           ) : (
-            <><Settings2 size={14} aria-hidden="true" /> Preview changes</>
+            <>
+              <Settings2 size={14} aria-hidden="true" /> Preview changes
+            </>
           )}
         </button>
       </div>
 
-      {error && <div className="ai-warning-item" role="alert">{error}</div>}
+      {error && (
+        <div className="ai-warning-item" role="alert">
+          {error}
+        </div>
+      )}
 
       {confirmed && (
         <div className="ai-summary-card">
@@ -413,7 +441,9 @@ function ConfigureTab({
                     <tr key={key}>
                       <td>{formatKey(key)}</td>
                       <td className="ai-diff-before">
-                        {formatValue((config as unknown as Record<string, unknown>)[key])}
+                        {formatValue(
+                          (config as unknown as Record<string, unknown>)[key],
+                        )}
                       </td>
                       <td className="ai-diff-after">
                         {formatValue(patch.patch[key])}
@@ -431,8 +461,9 @@ function ConfigureTab({
               <div style={{ padding: "8px 12px" }}>
                 <div className="ai-assumptions">
                   {patch.assumptions.map((a, i) => (
-                    // eslint-disable-next-line react/no-array-index-key
-                    <div key={i} className="ai-assumption-item">{a}</div>
+                    <div key={i} className="ai-assumption-item">
+                      {a}
+                    </div>
                   ))}
                 </div>
               </div>
@@ -442,14 +473,17 @@ function ConfigureTab({
           {patch.warnings.length > 0 && (
             <div className="ai-warnings">
               {patch.warnings.map((w, i) => (
-                // eslint-disable-next-line react/no-array-index-key
-                <div key={i} className="ai-warning-item">{w}</div>
+                <div key={i} className="ai-warning-item">
+                  {w}
+                </div>
               ))}
             </div>
           )}
 
           {patch.fallback && (
-            <span className="ai-fallback-badge">⚠ AI unavailable — rule-based patch</span>
+            <span className="ai-fallback-badge">
+              ⚠ AI unavailable — rule-based patch
+            </span>
           )}
 
           {changedKeys.length > 0 && (
@@ -464,7 +498,9 @@ function ConfigureTab({
               <button
                 type="button"
                 className="ai-action-btn secondary"
-                onClick={() => { setPatch(null); }}
+                onClick={() => {
+                  setPatch(null);
+                }}
               >
                 Cancel
               </button>
@@ -492,13 +528,19 @@ export const AICopilotPanel: React.FC<Props> = ({
 
   // Escape closes
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
     window.addEventListener("keydown", onKey);
-    return () => { window.removeEventListener("keydown", onKey); };
+    return () => {
+      window.removeEventListener("keydown", onKey);
+    };
   }, [onClose]);
 
   // Focus panel on open
-  useEffect(() => { panelRef.current?.focus(); }, []);
+  useEffect(() => {
+    panelRef.current?.focus();
+  }, []);
 
   return (
     <div
@@ -529,9 +571,21 @@ export const AICopilotPanel: React.FC<Props> = ({
       <div className="ai-tabs" role="tablist" aria-label="Copilot tabs">
         {(
           [
-            { id: "summary" as Tab, label: "Summary", icon: <FileText size={12} /> },
-            { id: "ask"     as Tab, label: "Ask",     icon: <MessageCircle size={12} /> },
-            { id: "configure" as Tab, label: "Configure", icon: <Settings2 size={12} /> },
+            {
+              id: "summary" as Tab,
+              label: "Summary",
+              icon: <FileText size={12} />,
+            },
+            {
+              id: "ask" as Tab,
+              label: "Ask",
+              icon: <MessageCircle size={12} />,
+            },
+            {
+              id: "configure" as Tab,
+              label: "Configure",
+              icon: <Settings2 size={12} />,
+            },
           ] as const
         ).map(({ id, label, icon }) => (
           <button
@@ -540,7 +594,9 @@ export const AICopilotPanel: React.FC<Props> = ({
             role="tab"
             aria-selected={tab === id}
             className={`ai-tab${tab === id ? " active" : ""}`}
-            onClick={() => { setTab(id); }}
+            onClick={() => {
+              setTab(id);
+            }}
           >
             {icon}
             {label}

@@ -11,8 +11,10 @@ Verifies:
 from __future__ import annotations
 
 from src.experiments.manifest import (
+    DEFAULT_PACKAGE_KIND,
     MANIFEST_FORMAT,
     MANIFEST_VERSION,
+    ExperimentManifest,
     build_experiment_manifest,
     build_manifest_assumptions,
 )
@@ -103,6 +105,8 @@ def test_build_experiment_manifest_structure() -> None:
 
     assert manifest["format"] == MANIFEST_FORMAT
     assert manifest["version"] == MANIFEST_VERSION
+    assert manifest["kind"] == DEFAULT_PACKAGE_KIND
+    assert manifest["sidecars"] == []
     assert manifest["scenarioFingerprint"] == scenario_fingerprint(doc)
     assert manifest["specFingerprint"] == spec_fp
     assert manifest["resultFingerprint"] == result_fp
@@ -114,3 +118,8 @@ def test_build_experiment_manifest_structure() -> None:
         "high"
     )
     assert assumptions["disclaimer"] == DRIVER_AGGRESSION_DISCLAIMER
+
+    # Manifest validates strictly against the ExperimentManifest schema
+    parsed = ExperimentManifest.model_validate(manifest)
+    assert parsed.kind == "robustness_experiment"
+    assert parsed.sidecars == []

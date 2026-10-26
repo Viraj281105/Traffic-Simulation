@@ -6,19 +6,19 @@
   align-items: center;
   gap: 5px;
   padding: 4px 10px;
-  border: 1px solid color-mix(in srgb, var(--color-primary, #6366f1) 35%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
   border-radius: var(--radius-pill, 20px);
   font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.18s ease;
-  background: color-mix(in srgb, var(--color-primary, #6366f1) 12%, transparent);
-  color: var(--color-primary, #6366f1);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
 }
 
 .ai-copilot-trigger:hover {
-  background: color-mix(in srgb, var(--color-primary, #6366f1) 22%, transparent);
-  border-color: var(--color-primary, #6366f1);
+  background: color-mix(in srgb, var(--color-primary) 22%, transparent);
+  border-color: var(--color-primary);
   transform: translateY(-1px);
 }
 
@@ -48,7 +48,7 @@
   pointer-events: all;
 
   /* Glassmorphism */
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
   backdrop-filter: blur(18px) saturate(180%);
   -webkit-backdrop-filter: blur(18px) saturate(180%);
   border-left: 1px solid hsl(250 40% 60% / 0.25);
@@ -59,8 +59,14 @@
 }
 
 @keyframes copilot-slide-in {
-  from { transform: translateX(100%); opacity: 0; }
-  to   { transform: translateX(0);    opacity: 1; }
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 /* ── Header ───────────────────────────────────────────────────────────── */
@@ -93,8 +99,8 @@
   padding: 2px 6px;
   border-radius: 10px;
   background: linear-gradient(135deg, hsl(250 70% 55%), hsl(220 80% 60%));
-  color: #fff;
-  -webkit-text-fill-color: #fff;
+  color: var(--color-on-primary);
+  -webkit-text-fill-color: var(--color-on-primary);
   letter-spacing: 0.06em;
 }
 
@@ -106,13 +112,15 @@
   padding: 4px;
   border-radius: 6px;
   line-height: 1;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
   display: flex;
   align-items: center;
 }
 
 .ai-panel-close:hover {
-  background: var(--surface-hover);
+  background: var(--color-surface-3);
   color: var(--text-primary);
 }
 
@@ -136,7 +144,9 @@
   cursor: pointer;
   color: var(--text-secondary);
   letter-spacing: 0.02em;
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -194,7 +204,9 @@
 }
 
 @keyframes ai-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ── Summary tab ───────────────────────────────────────────────────────── */
@@ -268,7 +280,7 @@
   cursor: pointer;
   transition: all 0.18s ease;
   background: linear-gradient(135deg, hsl(250 70% 55%), hsl(220 80% 60%));
-  color: #fff;
+  color: var(--color-on-primary);
   box-shadow: 0 2px 8px hsl(250 70% 55% / 0.3);
 }
 
@@ -283,14 +295,18 @@
 }
 
 .ai-action-btn.secondary {
-  background: var(--surface-hover);
+  background: var(--color-surface-3);
   color: var(--text-primary);
   box-shadow: none;
   border: 1px solid var(--border);
 }
 
 .ai-action-btn.secondary:hover:not(:disabled) {
-  background: var(--surface-active);
+  background: color-mix(
+    in srgb,
+    var(--color-primary) 18%,
+    var(--color-surface-2)
+  );
   box-shadow: none;
 }
 
@@ -328,7 +344,7 @@
 
 .ai-chat-bubble.user .ai-bubble-text {
   background: linear-gradient(135deg, hsl(250 70% 55%), hsl(220 80% 60%));
-  color: #fff;
+  color: var(--color-on-primary);
   border-bottom-right-radius: 3px;
 }
 
@@ -357,7 +373,7 @@
   padding: 9px 11px;
   border-radius: 8px;
   border: 1px solid hsl(250 40% 60% / 0.3);
-  background: var(--surface-hover);
+  background: var(--color-surface-3);
   color: var(--text-primary);
   font-size: 12.5px;
   resize: none;
@@ -384,7 +400,7 @@
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, hsl(250 70% 55%), hsl(220 80% 60%));
-  color: #fff;
+  color: var(--color-on-primary);
   transition: all 0.18s;
   box-shadow: 0 2px 8px hsl(250 70% 55% / 0.3);
 }
@@ -420,7 +436,7 @@
   padding: 10px 12px;
   border-radius: 8px;
   border: 1px solid hsl(250 40% 60% / 0.3);
-  background: var(--surface-hover);
+  background: var(--color-surface-3);
   color: var(--text-primary);
   font-size: 12.5px;
   resize: vertical;

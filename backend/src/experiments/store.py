@@ -4,10 +4,11 @@ SQLite table when persistence is on (inline, additive migration).
 
 from __future__ import annotations
 
+import datetime as _dt
 import json
 import logging
 import threading
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from .models import (
     EXPERIMENT_VERSION,
@@ -49,6 +50,11 @@ def ensure_table(conn: Any) -> None:
     it never alters or drops anything that already exists."""
     conn.execute(_TABLE)
     conn.execute(_INDEX)
+    # Additive migration (W7): the checkpoint of a cancelled experiment and its usage reservation.
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(uf_experiments)")}
+    for column in ("checkpoint_json", "meta_json"):
+        if column not in existing:
+            conn.execute(f"ALTER TABLE uf_experiments ADD COLUMN {column} TEXT")
     conn.commit()
 
 
@@ -80,7 +86,7 @@ class ExperimentStore:
             return sum(
                 1
                 for r in self._records.values()
-                if r["status"] in ("queued", "running")
+                if (r["status"] in ("queued", "running") or r.get("settling"))
                 and (user_id is None or r["userId"] == user_id)
             )
 
@@ -187,8 +193,8 @@ class ExperimentStore:
                 conn.execute(
                     "INSERT OR REPLACE INTO uf_experiments (id, user_id, name, schema_version, "
                     "request_json, summary_json, result_json, spec_fingerprint, "
-                    "result_fingerprint, created_at, status, error) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "result_fingerprint, created_at, status, error, checkpoint_json, meta_json) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         rec["id"],
                         rec["userId"],
@@ -198,10 +204,19 @@ class ExperimentStore:
                         json.dumps(rec["summary"]),
                         None if result is None else json.dumps(result),
                         rec["specFingerprint"],
-                        None if result is None else result["resultFingerprint"],
+                        None if result is None else result.get("resultFingerprint"),
                         rec["createdAt"],
                         rec["status"],
                         rec.get("error"),
+                        None
+                        if rec.get("checkpoint") is None
+                        else json.dumps(rec["checkpoint"]),
+                        json.dumps(
+                            {
+                                "usageDay": rec.get("usageDay"),
+                                "reservedSeconds": rec.get("reservedSeconds", 0.0),
+                            }
+                        ),
                     ),
                 )
                 conn.commit()
@@ -221,11 +236,17 @@ class ExperimentStore:
                 ).fetchone()
             if row is None:
                 return None
+            meta = json.loads(row["meta_json"] or "{}")
             return {
                 "id": row["id"],
                 "userId": row["user_id"],
                 "name": row["name"],
                 "status": row["status"] or "completed",
+                "checkpoint": None
+                if row["checkpoint_json"] is None
+                else json.loads(row["checkpoint_json"]),
+                "usageDay": meta.get("usageDay"),
+                "reservedSeconds": meta.get("reservedSeconds", 0.0),
                 "request": json.loads(row["request_json"]),
                 "summary": json.loads(row["summary_json"] or "{}"),
                 "result": None
@@ -237,3 +258,127 @@ class ExperimentStore:
             }
         except Exception:
             return None
+
+
+# ---- simulated seconds per user per UTC day (W7 Stage 2 / ADR-013) -----------------------------------
+# Reserved when an experiment is submitted or resumed and refunded for work a cancellation skipped, so the
+# check and the reservation are one atomic step. Kept in SQLite when persistence is on (a restart does not
+# reset the day); if the database cannot be used the counters fall back to this process's memory.
+
+_USAGE_TABLE = """
+CREATE TABLE IF NOT EXISTS uf_usage (
+    user_id TEXT NOT NULL,
+    day TEXT NOT NULL,
+    simulated_seconds REAL NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, day)
+)
+"""
+
+
+def utc_day(now: Optional[_dt.datetime] = None) -> str:
+    return (now or _dt.datetime.now(_dt.timezone.utc)).date().isoformat()
+
+
+def ensure_usage_table(conn: Any) -> None:
+    conn.execute(_USAGE_TABLE)
+    conn.commit()
+
+
+class UsageStore:
+    def __init__(self, persist: bool = True) -> None:
+        self._persist = persist
+        self._lock = threading.Lock()
+        self._memory: Dict[Tuple[str, str], float] = {}
+
+    def reserve(
+        self, user_id: str, seconds: float, limit: float, day: Optional[str] = None
+    ) -> Tuple[bool, float]:
+        """Add ``seconds`` to the user's day if the total stays within ``limit``.
+
+        Returns ``(reserved, used_before)``. Nothing is added when the answer is False."""
+        day = day or utc_day()
+        with self._lock:
+            if self._persist:
+                try:
+                    return self._reserve_sql(user_id, seconds, limit, day)
+                except Exception:
+                    logger.warning("uf_usage unavailable; using memory", exc_info=True)
+            used = self._memory.get((user_id, day), 0.0)
+            if used + seconds > limit:
+                return False, used
+            self._memory[(user_id, day)] = used + seconds
+            return True, used
+
+    def _reserve_sql(
+        self, user_id: str, seconds: float, limit: float, day: str
+    ) -> Tuple[bool, float]:
+        from src.database.db import get_db_connection
+
+        with get_db_connection() as conn:
+            ensure_usage_table(conn)
+            conn.execute(
+                "BEGIN IMMEDIATE;"
+            )  # cross-process safe: take the write lock first
+            try:
+                row = conn.execute(
+                    "SELECT simulated_seconds FROM uf_usage WHERE user_id = ? AND day = ?;",
+                    (user_id, day),
+                ).fetchone()
+                used = float(row[0]) if row else 0.0
+                if used + seconds > limit:
+                    conn.rollback()
+                    return False, used
+                conn.execute(
+                    "INSERT INTO uf_usage (user_id, day, simulated_seconds) VALUES (?, ?, ?) "
+                    "ON CONFLICT(user_id, day) DO UPDATE SET "
+                    "simulated_seconds = simulated_seconds + excluded.simulated_seconds;",
+                    (user_id, day, seconds),
+                )
+                conn.commit()
+                return True, used
+            except BaseException:
+                conn.rollback()
+                raise
+
+    def release(self, user_id: str, seconds: float, day: str) -> None:
+        """Give back reserved seconds (floored at zero). Best effort: a refund never fails a request."""
+        if seconds <= 0:
+            return
+        with self._lock:
+            if self._persist:
+                try:
+                    from src.database.db import get_db_connection
+
+                    with get_db_connection() as conn:
+                        ensure_usage_table(conn)
+                        conn.execute(
+                            "UPDATE uf_usage SET simulated_seconds = "
+                            "MAX(0, simulated_seconds - ?) WHERE user_id = ? AND day = ?;",
+                            (seconds, user_id, day),
+                        )
+                        conn.commit()
+                    return
+                except Exception:
+                    logger.warning("could not refund usage", exc_info=True)
+            key = (user_id, day)
+            if key in self._memory:
+                self._memory[key] = max(0.0, self._memory[key] - seconds)
+
+    def used(self, user_id: str, day: Optional[str] = None) -> float:
+        day = day or utc_day()
+        with self._lock:
+            if self._persist:
+                try:
+                    from src.database.db import get_db_connection
+
+                    with get_db_connection() as conn:
+                        ensure_usage_table(conn)
+                        row = conn.execute(
+                            "SELECT simulated_seconds FROM uf_usage "
+                            "WHERE user_id = ? AND day = ?;",
+                            (user_id, day),
+                        ).fetchone()
+                    return float(row[0]) if row else 0.0
+                except Exception:
+                    pass
+            return self._memory.get((user_id, day), 0.0)

@@ -33,6 +33,13 @@ MAX_DOCUMENT_DEPTH = _MAX_DOCUMENT_DEPTH
 # first, by hand, so its message can name it.
 MAX_ALTERNATIVES_PARSED = 64
 
+# W7 platform quotas (ADR-013). Process-local where noted: a single uvicorn process is assumed.
+PER_TOKEN_REQUESTS_PER_MINUTE = 60  # per personal access token, sliding 60 s window
+MAX_DAILY_SIMULATED_SECONDS_PER_USER = 86_400  # 24 h of simulated time per UTC day
+MAX_PACKAGE_BYTES = 10 * 1024 * 1024  # a .ufpkg as uploaded or exported
+MAX_PACKAGE_UNCOMPRESSED_BYTES = 50 * 1024 * 1024  # all members together, actually read
+MAX_PACKAGE_ENTRIES = 50
+
 # Listing page size.
 DEFAULT_PAGE_SIZE = 25
 
@@ -43,15 +50,37 @@ QUOTA_NAMES = {
     "alternatives": "maxAlternatives",
     "runsPerExperiment": "maxRunsPerExperiment",
     "simulationStepsPerExperiment": "maxSimulationStepsPerExperiment",
+    "dailySimulatedSecondsPerUser": "maxDailySimulatedSecondsPerUser",
+    "requestsPerTokenPerMinute": "perTokenRequestsPerMinute",
+    "packageBytes": "maxPackageBytes",
 }
+
+# Extensible quota registration seam (W7 / ADR-013).
+# Future modules (e.g. W5 Copilot proposals, W6 Discovery budgets) register their quotas here
+# when built without modifying base platform limits.
+_EXTENSION_QUOTAS: dict[str, float | int] = {}
+
+
+def register_quota(
+    name: str, value: float | int, internal_key: str | None = None
+) -> None:
+    """Register an extension quota dynamically."""
+    _EXTENSION_QUOTAS[name] = value
+    if internal_key:
+        QUOTA_NAMES[internal_key] = name
 
 
 def quotas() -> dict[str, float | int]:
-    return {
+    base: dict[str, float | int] = {
         "maxActiveExperiments": MAX_ACTIVE_EXPERIMENTS,
         "maxActiveExperimentsPerUser": MAX_ACTIVE_EXPERIMENTS_PER_USER,
         "maxStoredExperimentsPerUser": MAX_STORED_EXPERIMENTS_PER_USER,
         "maxAlternatives": MAX_ALTERNATIVES,
         "maxRunsPerExperiment": MAX_RUNS_PER_EXPERIMENT,
         "maxSimulationStepsPerExperiment": MAX_SIMULATION_STEPS_PER_EXPERIMENT,
+        "maxDailySimulatedSecondsPerUser": MAX_DAILY_SIMULATED_SECONDS_PER_USER,
+        "perTokenRequestsPerMinute": PER_TOKEN_REQUESTS_PER_MINUTE,
+        "maxPackageBytes": MAX_PACKAGE_BYTES,
     }
+    base.update(_EXTENSION_QUOTAS)
+    return base

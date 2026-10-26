@@ -81,6 +81,33 @@ jobs:
       - name: Run MyPy Type Checker
         run: mypy src/
 
+  sdk-check:
+    name: Python SDK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/python
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Install Tools
+        run: pip install pytest ruff mypy
+
+      - name: Lint, Format and Type Check
+        run: |
+          ruff check .
+          ruff format --check .
+          mypy --strict --ignore-missing-imports urbanflow_client
+
+      - name: Unit Tests
+        run: python -m pytest tests -q
+
   backend-test:
     name: Backend CI
     runs-on: ubuntu-latest

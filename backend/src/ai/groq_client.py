@@ -10,6 +10,7 @@ Key contract
 * Any other Groq error is caught, logged at WARNING level (without the key),
   and re-raised so the router can return the fallback instead of a 500.
 """
+
 from __future__ import annotations
 
 import json
@@ -22,15 +23,16 @@ logger = logging.getLogger(__name__)
 
 # ── Lazy import so the app starts even if groq is not installed yet ──────────
 
-def _groq():
+
+def _groq() -> Any:
     """Return the groq module, raising ImportError with a helpful message."""
     try:
-        import groq as _g  # type: ignore[import-not-found]
+        import groq as _g
+
         return _g
     except ImportError as exc:
         raise ImportError(
-            "The 'groq' package is not installed. "
-            "Run: pip install groq>=0.28.0"
+            "The 'groq' package is not installed. Run: pip install groq>=0.28.0"
         ) from exc
 
 
@@ -41,13 +43,13 @@ _GROQ_API_KEY: Optional[str] = os.environ.get("GROQ_API_KEY")
 _MODEL: str = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
 
 # Hard caps applied to every call, regardless of what the caller requests.
-_MAX_INPUT_CHARS = 8_000   # ~2 K tokens of metrics JSON (generous budget)
-_MAX_OUTPUT_TOKENS = 900   # enough for any of our three use-cases
+_MAX_INPUT_CHARS = 8_000  # ~2 K tokens of metrics JSON (generous budget)
+_MAX_OUTPUT_TOKENS = 900  # enough for any of our three use-cases
 _TIMEOUT_SECONDS = 30
 _RATE_LIMIT_RETRY_SECONDS = 2
 
 
-def _client():
+def _client() -> Any:
     """Build a Groq client from the environment key."""
     if not _GROQ_API_KEY:
         raise EnvironmentError(
@@ -63,6 +65,7 @@ def is_configured() -> bool:
 
 
 # ── Core call ────────────────────────────────────────────────────────────────
+
 
 def _call(
     messages: List[Dict[str, str]],
@@ -101,15 +104,14 @@ def _call(
             logger.warning("Groq connection error: %s", type(exc).__name__)
             raise
         except g.APIStatusError as exc:
-            logger.warning(
-                "Groq API error %s: %s", exc.status_code, type(exc).__name__
-            )
+            logger.warning("Groq API error %s: %s", exc.status_code, type(exc).__name__)
             raise
 
     return ""  # unreachable, but satisfies type checkers
 
 
 # ── Public helpers ───────────────────────────────────────────────────────────
+
 
 def complete(
     system: str,
@@ -142,7 +144,9 @@ def complete_json(
     have to be mandatory.
     """
     user = user[:_MAX_INPUT_CHARS]
-    system_with_instruction = f"{system}\n\nIMPORTANT: You MUST respond ONLY with a valid JSON object."
+    system_with_instruction = (
+        f"{system}\n\nIMPORTANT: You MUST respond ONLY with a valid JSON object."
+    )
     messages: List[Dict[str, str]] = [
         {"role": "system", "content": system_with_instruction},
         {"role": "user", "content": user},
@@ -150,7 +154,7 @@ def complete_json(
     response_format: Dict[str, Any] = {"type": "json_object"}
     raw = _call(messages, max_tokens=max_tokens, response_format=response_format)
     try:
-        return json.loads(raw)  # type: ignore[return-value]
+        return _as_object(json.loads(raw))
     except json.JSONDecodeError:
         # Extract markdown json block if wrapped
         if "```" in raw:
@@ -160,8 +164,15 @@ def complete_json(
                 if cleaned.startswith("json"):
                     cleaned = cleaned[4:].strip()
                 try:
-                    return json.loads(cleaned)
+                    return _as_object(json.loads(cleaned))
                 except Exception:
                     continue
-        logger.warning("Groq returned non-JSON despite json_object format; raw=%r", raw[:200])
-        raise ValueError(f"Model returned non-JSON: {raw[:200]}")
+        # Model output is not logged or echoed: it may contain the user's data.
+        logger.warning("Groq returned non-JSON despite json_object format")
+        raise ValueError("Model returned non-JSON output")
+
+
+def _as_object(parsed: Any) -> Dict[str, Any]:
+    if not isinstance(parsed, dict):
+        raise ValueError("Model returned JSON that is not an object")
+    return parsed

@@ -4,7 +4,10 @@ Prompts are plain Python constants so they can be unit-tested without a
 live Groq connection.  The metric schema is embedded at module load time so
 the model always knows what fields exist and what units they use.
 """
+
 from __future__ import annotations
+
+from typing import Any, Dict
 
 # ── Shared context injected into every prompt ────────────────────────────────
 
@@ -127,7 +130,7 @@ Indian traffic context hints (use when the user mentions Indian cities):
 
 # ── JSON schemas for structured output ───────────────────────────────────────
 
-SUMMARY_JSON_SCHEMA: dict = {
+SUMMARY_JSON_SCHEMA: Dict[str, Any] = {
     "type": "object",
     "properties": {
         "summary": {"type": "string"},
@@ -138,7 +141,7 @@ SUMMARY_JSON_SCHEMA: dict = {
     "additionalProperties": False,
 }
 
-PATCH_JSON_SCHEMA: dict = {
+PATCH_JSON_SCHEMA: Dict[str, Any] = {
     "type": "object",
     "properties": {
         "patch": {

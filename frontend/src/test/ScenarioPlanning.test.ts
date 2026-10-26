@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { calculateDelta, formatDeltaText, exportComparisonCsv } from "../components/planning/planningUtils";
+import {
+  calculateDelta,
+  formatDeltaText,
+  exportComparisonCsv,
+} from "../components/planning/planningUtils";
 import { type ScenarioSimulationResult } from "../components/planning/planningTypes";
 
 describe("planningUtils", () => {
@@ -24,7 +28,7 @@ describe("planningUtils", () => {
       expect(resNeutral.direction).toBe("neutral");
     });
 
-    it("evaluates higher-is-better metrics correctly (e.g. throughput, speed)", () => {
+    it("evaluates higher-is-better metrics correctly (e.g. throughput)", () => {
       // Higher is better: baseline 100, intervention 120 -> increase of 20 (better)
       const resBetter = calculateDelta(120, 100, false);
       expect(resBetter.absolute).toBe(20);
@@ -41,10 +45,18 @@ describe("planningUtils", () => {
 
   describe("formatDeltaText", () => {
     it("formats positive and negative deltas with percentages", () => {
-      const delta1 = { absolute: -4.5, percentage: -22.5, direction: "better" as const };
+      const delta1 = {
+        absolute: -4.5,
+        percentage: -22.5,
+        direction: "better" as const,
+      };
       expect(formatDeltaText(delta1, "s")).toBe("-22.5% (-4.5 s)");
 
-      const delta2 = { absolute: 10, percentage: 15.0, direction: "worse" as const };
+      const delta2 = {
+        absolute: 10,
+        percentage: 15.0,
+        direction: "worse" as const,
+      };
       expect(formatDeltaText(delta2, "veh")).toBe("+15% (+10 veh)");
     });
   });
@@ -64,10 +76,7 @@ describe("planningUtils", () => {
           throughput: 200,
           averageQueueLength: 4.5,
           maxQueueLength: 9,
-          averageTravelSpeed: 10.5,
           collisionCount: 0,
-          minTTC: 1.5,
-          ttcEventCount: 0,
         },
       };
 
@@ -84,17 +93,18 @@ describe("planningUtils", () => {
           throughput: 240,
           averageQueueLength: 2.1,
           maxQueueLength: 5,
-          averageTravelSpeed: 11.8,
           collisionCount: 0,
-          minTTC: 1.5,
-          ttcEventCount: 0,
         },
       };
 
       const csv = exportComparisonCsv("Test Plan", base, [base, intervention]);
       expect(csv).toContain("Experiment: Test Plan");
-      expect(csv).toContain('"Baseline Signal",Baseline,fixed_time,x1,120,15.00,—,—,12.00,—,200,—,4.50,—,10.50,—,0');
-      expect(csv).toContain('"Intervention Roundabout",Intervention,roundabout,x1,120,8.00,-7.00,-46.7%,6.00,-6.00,240,+20.0%,2.10,-53.3%,11.80,+12.4%,0');
+      expect(csv).toContain(
+        '"Baseline Signal",Baseline,fixed_time,x1,120,15.00,—,—,12.00,—,200,—,4.50,—,9,—,0',
+      );
+      expect(csv).toContain(
+        '"Intervention Roundabout",Intervention,roundabout,x1,120,8.00,-7.00,-46.7%,6.00,-6.00,240,+20.0%,2.10,-53.3%,5,-44.4%,0',
+      );
     });
   });
 });

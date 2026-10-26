@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Send, Bot, RefreshCw, AlertTriangle } from "lucide-react";
 import type { DualSnapshot } from "../types/simulation";
 import {
@@ -12,6 +18,17 @@ import "./ComparativeAIInsights.css";
 interface ComparativeAIInsightsProps {
   snapshot: DualSnapshot | null;
   replayName?: string | null;
+}
+
+/** a − b rounded, or null when either side is missing or not a finite number. */
+function difference(
+  a: number | undefined,
+  b: number | undefined,
+  digits: number,
+): number | null {
+  if (typeof a !== "number" || typeof b !== "number") return null;
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+  return Number((a - b).toFixed(digits));
 }
 
 interface ChatMessage {
@@ -36,44 +53,51 @@ export const ComparativeAIInsights: React.FC<ComparativeAIInsightsProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hasTriggeredRef = useRef(false);
 
-  const signalMetrics = (snapshot?.signal?.metrics ?? {}) as Record<string, any>;
-  const roundaboutMetrics = (snapshot?.roundabout?.metrics ?? {}) as Record<string, any>;
-  const elapsed = snapshot?.signal?.timestamp ?? null;
+  const signalMetrics = snapshot?.signal.metrics;
+  const roundaboutMetrics = snapshot?.roundabout.metrics;
+  const elapsed = snapshot?.signal.timestamp ?? null;
 
-  const comparativePayload = {
-    signal: signalMetrics,
-    roundabout: roundaboutMetrics,
-    comparison: {
-      delayDelta_roundaboutMinusSignal:
-        signalMetrics.averageDelay != null && roundaboutMetrics.averageDelay != null
-          ? Number((roundaboutMetrics.averageDelay - signalMetrics.averageDelay).toFixed(2))
-          : null,
-      throughputDelta_roundaboutMinusSignal:
-        signalMetrics.throughput != null && roundaboutMetrics.throughput != null
-          ? Number((roundaboutMetrics.throughput - signalMetrics.throughput).toFixed(0))
-          : null,
-      maxQueueDelta_roundaboutMinusSignal:
-        signalMetrics.maxQueueLength != null && roundaboutMetrics.maxQueueLength != null
-          ? Number((roundaboutMetrics.maxQueueLength - signalMetrics.maxQueueLength).toFixed(0))
-          : null,
-      fairnessDelta_roundaboutMinusSignal:
-        signalMetrics.directionalFairnessIndex != null && roundaboutMetrics.directionalFairnessIndex != null
-          ? Number((roundaboutMetrics.directionalFairnessIndex - signalMetrics.directionalFairnessIndex).toFixed(3))
-          : null,
-    },
-    context: {
-      replayName: replayName ?? null,
-      elapsedSeconds: elapsed,
-    },
-  };
+  const comparativePayload = useMemo(
+    () => ({
+      signal: signalMetrics ?? {},
+      roundabout: roundaboutMetrics ?? {},
+      comparison: {
+        delayDelta_roundaboutMinusSignal: difference(
+          roundaboutMetrics?.averageDelay,
+          signalMetrics?.averageDelay,
+          2,
+        ),
+        throughputDelta_roundaboutMinusSignal: difference(
+          roundaboutMetrics?.throughput,
+          signalMetrics?.throughput,
+          0,
+        ),
+        maxQueueDelta_roundaboutMinusSignal: difference(
+          roundaboutMetrics?.maxQueueLength,
+          signalMetrics?.maxQueueLength,
+          0,
+        ),
+        fairnessDelta_roundaboutMinusSignal: difference(
+          roundaboutMetrics?.directionalFairnessIndex,
+          signalMetrics?.directionalFairnessIndex,
+          3,
+        ),
+      },
+      context: {
+        replayName: replayName ?? null,
+        elapsedSeconds: elapsed,
+      },
+    }),
+    [signalMetrics, roundaboutMetrics, replayName, elapsed],
+  );
 
   const generateSummary = useCallback(async () => {
-    if (!snapshot?.signal?.metrics && !snapshot?.roundabout?.metrics) return;
+    if (!snapshot) return;
     setLoadingSummary(true);
     setSummaryError(null);
     try {
       const res = await fetchSummary({
-        metrics: comparativePayload as unknown as Record<string, unknown>,
+        metrics: comparativePayload,
         config: {},
         geometry: "comparison",
         elapsed_seconds: elapsed,
@@ -81,20 +105,18 @@ export const ComparativeAIInsights: React.FC<ComparativeAIInsightsProps> = ({
       setSummary(res);
     } catch (err: unknown) {
       setSummaryError(
-        err instanceof Error ? err.message : "Failed to generate comparison insights."
+        err instanceof Error
+          ? err.message
+          : "Failed to generate comparison insights.",
       );
     } finally {
       setLoadingSummary(false);
     }
-  }, [snapshot, elapsed]);
+  }, [snapshot, elapsed, comparativePayload]);
 
   // Auto-generate as soon as results/data exist
   useEffect(() => {
-    const hasData =
-      snapshot?.signal?.metrics?.throughput != null ||
-      snapshot?.roundabout?.metrics?.throughput != null ||
-      snapshot?.signal?.metrics?.averageDelay != null ||
-      snapshot?.roundabout?.metrics?.averageDelay != null;
+    const hasData = snapshot !== null;
 
     if (hasData && !hasTriggeredRef.current) {
       hasTriggeredRef.current = true;
@@ -120,7 +142,7 @@ export const ComparativeAIInsights: React.FC<ComparativeAIInsightsProps> = ({
     try {
       const res = await fetchChat({
         question: q,
-        metrics: comparativePayload as unknown as Record<string, unknown>,
+        metrics: comparativePayload,
         config: {},
         geometry: "comparison",
         history,
@@ -156,7 +178,9 @@ export const ComparativeAIInsights: React.FC<ComparativeAIInsightsProps> = ({
         <div className="ai-summary-header">
           <div className="ai-badge-row">
             <span className="ai-section-tag">AI ANALYSIS</span>
-            <h3 className="modal-section-title">Automated Comparison Summary & Insights</h3>
+            <h3 className="modal-section-title">
+              Automated Comparison Summary & Insights
+            </h3>
           </div>
           <button
             type="button"
@@ -214,7 +238,10 @@ export const ComparativeAIInsights: React.FC<ComparativeAIInsightsProps> = ({
 
             {summary.fallback && (
               <div className="ai-fallback-notice">
-                <span>Deterministic rule-based metrics synthesis (API key unavailable or offline).</span>
+                <span>
+                  Deterministic rule-based metrics synthesis (API key
+                  unavailable or offline).
+                </span>
               </div>
             )}
           </div>
@@ -227,7 +254,9 @@ export const ComparativeAIInsights: React.FC<ComparativeAIInsightsProps> = ({
           <div>
             <h3 className="modal-section-title">Comparative Q&A Analyst</h3>
             <p className="ai-section-subtitle">
-              Ask deep questions about this comparison (e.g. "Which junction handles queue clearance better?", "Is the difference in delay statistically significant?", "Where did delays spike?").
+              Ask deep questions about this comparison (e.g. "Which junction
+              handles queue clearance better?", "Is the difference in delay
+              statistically significant?", "Where did delays spike?").
             </p>
           </div>
         </div>
@@ -236,13 +265,18 @@ export const ComparativeAIInsights: React.FC<ComparativeAIInsightsProps> = ({
           {chatMessages.length === 0 ? (
             <div className="ai-chat-empty">
               <Bot size={28} className="ai-empty-icon" />
-              <p>Ask any analytical questions comparing signal and roundabout performance for this run.</p>
+              <p>
+                Ask any analytical questions comparing signal and roundabout
+                performance for this run.
+              </p>
               <div className="ai-suggested-prompts">
                 <button
                   type="button"
                   className="ai-suggestion-chip"
                   onClick={() => {
-                    setDraft("Which intersection provided better throughput and why?");
+                    setDraft(
+                      "Which intersection provided better throughput and why?",
+                    );
                   }}
                 >
                   Which intersection provided better throughput and why?
@@ -251,7 +285,9 @@ export const ComparativeAIInsights: React.FC<ComparativeAIInsightsProps> = ({
                   type="button"
                   className="ai-suggestion-chip"
                   onClick={() => {
-                    setDraft("How did average delay and max queue length compare?");
+                    setDraft(
+                      "How did average delay and max queue length compare?",
+                    );
                   }}
                 >
                   How did average delay and max queue length compare?
@@ -260,7 +296,9 @@ export const ComparativeAIInsights: React.FC<ComparativeAIInsightsProps> = ({
                   type="button"
                   className="ai-suggestion-chip"
                   onClick={() => {
-                    setDraft("Which design maintained better directional fairness?");
+                    setDraft(
+                      "Which design maintained better directional fairness?",
+                    );
                   }}
                 >
                   Which design maintained better directional fairness?
@@ -298,7 +336,9 @@ export const ComparativeAIInsights: React.FC<ComparativeAIInsightsProps> = ({
             ref={textareaRef}
             rows={1}
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(e) => {
+              setDraft(e.target.value);
+            }}
             onKeyDown={handleKeyDown}
             placeholder="Ask about these comparison metrics… (Enter to send)"
             disabled={loadingChat}
