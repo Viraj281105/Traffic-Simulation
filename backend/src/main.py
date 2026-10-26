@@ -32,6 +32,7 @@ from src.simulations import router as simulations_router
 from src.study import router as study_router
 from src.study.runner import shutdown_pool
 from src.suites import router as suites_router
+from src.ai import router as ai_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -119,3 +120,5 @@ app.include_router(study_router.router)
 app.include_router(replays_router.router)
 # /api/suites (src/suites/router.py).
 app.include_router(suites_router.router)
+# /api/ai/* (src/ai/router.py): AI Copilot — summary, chat, config-patch.
+app.include_router(ai_router.router)

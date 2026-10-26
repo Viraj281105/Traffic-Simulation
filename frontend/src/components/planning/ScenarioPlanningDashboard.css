@@ -1,0 +1,292 @@
+.scenario-planning-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  padding: 1.5rem 2rem 3rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  color: var(--text-color, #1f2937);
+}
+
+.planning-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  padding-bottom: 1.25rem;
+}
+
+.planning-header-title h1 {
+  font-size: 1.85rem;
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+  letter-spacing: -0.02em;
+}
+
+.planning-header-title p {
+  color: var(--text-muted, #6b7280);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.planning-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* ── Section Cards ── */
+.planning-card {
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.planning-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.planning-card-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ── Scenario Configuration Grid ── */
+.scenarios-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 1.25rem;
+}
+
+.scenario-config-item {
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 10px;
+  padding: 1.25rem;
+  background: var(--bg-surface, #f9fafb);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  position: relative;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.scenario-config-item.is-baseline {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.03);
+}
+
+.scenario-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.scenario-badge-baseline {
+  background: #3b82f6;
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  letter-spacing: 0.05em;
+}
+
+.scenario-badge-intervention {
+  background: #10b981;
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  letter-spacing: 0.05em;
+}
+
+.scenario-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.scenario-input-group label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-muted, #4b5563);
+}
+
+.scenario-input-group input,
+.scenario-input-group select {
+  padding: 0.45rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color, #d1d5db);
+  background: var(--input-bg, #ffffff);
+  color: inherit;
+  font-size: 0.88rem;
+}
+
+.scenario-inputs-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+/* ── KPI Cards ── */
+.kpi-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.kpi-card {
+  padding: 1.15rem;
+  border-radius: 10px;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.kpi-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--text-muted, #6b7280);
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.kpi-card-val {
+  font-size: 1.65rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.kpi-card-val small {
+  font-size: 0.95rem;
+  font-weight: 400;
+  color: var(--text-muted, #6b7280);
+  margin-left: 0.2rem;
+}
+
+.kpi-card-delta {
+  font-size: 0.82rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.kpi-delta--better {
+  color: #059669;
+}
+
+.kpi-delta--worse {
+  color: #dc2626;
+}
+
+.kpi-delta--neutral {
+  color: var(--text-muted, #6b7280);
+}
+
+/* ── Comparison Table ── */
+.comparison-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 8px;
+}
+
+.planning-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  text-align: left;
+}
+
+.planning-table th,
+.planning-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  white-space: nowrap;
+}
+
+.planning-table thead th {
+  background: var(--bg-surface, #f9fafb);
+  font-weight: 600;
+  color: var(--text-muted, #4b5563);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.planning-table tr:hover td {
+  background: rgba(0, 0, 0, 0.015);
+}
+
+.planning-table tr.row-baseline td {
+  font-weight: 600;
+  background: rgba(59, 130, 246, 0.02);
+}
+
+/* ── Saved Experiments Modal / Drawer ── */
+.saved-experiments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.saved-experiment-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.85rem 1.15rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  background: var(--card-bg, #ffffff);
+  transition: background 0.15s;
+}
+
+.saved-experiment-item:hover {
+  background: var(--bg-surface, #f9fafb);
+}
+
+/* ── Dark Mode Overrides ── */
+:root.dark .scenario-planning-dashboard {
+  --text-color: #f3f4f6;
+  --text-muted: #9ca3af;
+  --card-bg: #1f2937;
+  --border-color: #374151;
+  --bg-surface: #111827;
+  --input-bg: #111827;
+}
+
+:root.dark .scenario-config-item {
+  background: #111827;
+}
+
+:root.dark .scenario-config-item.is-baseline {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: #3b82f6;
+}
+
+:root.dark .planning-table thead th {
+  background: #111827;
+}
