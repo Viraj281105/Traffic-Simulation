@@ -26,6 +26,7 @@ export const VIEW_ROUTES = {
   planner: "/app/planner",
   copilot: "/app/copilot",
   discovery: "/app/discovery",
+  stress: "/app/stress",
   admin: "/app/admin",
 } as const;
 

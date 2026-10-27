@@ -553,6 +553,32 @@ class Client:
                 raise ConfigurationError(f"{Path(path).name} already exists") from err
         return reply.body
 
+    # ---- stress lab ----------------------------------------------------------------------------------
+    def stress_catalogue(self) -> Dict[str, Any]:
+        return self._json("GET", "/api/v3/stress/catalogue")
+
+    def start_stress_suite(self, request: Mapping[str, Any]) -> Dict[str, Any]:
+        """Generate and run stress scenarios (stationary extremes) and classify failures."""
+        return self._json("POST", "/api/v3/stress/suites", json_body=dict(request))
+
+    def start_breakpoints(self, request: Mapping[str, Any]) -> Dict[str, Any]:
+        """Sweep one factor and report where the preferred strategy changes."""
+        return self._json("POST", "/api/v3/stress/breakpoints", json_body=dict(request))
+
+    def list_stress_jobs(self) -> List[Dict[str, Any]]:
+        reply = self._request("GET", "/api/v3/stress/jobs")
+        document = json.loads(reply.body.decode("utf-8"))
+        return list(document) if isinstance(document, list) else []
+
+    def stress_job(self, job_id: str) -> Dict[str, Any]:
+        return self._json("GET", f"/api/v3/stress/jobs/{self._id(job_id)}")
+
+    def stress_result(self, job_id: str) -> Dict[str, Any]:
+        return self._json("GET", f"/api/v3/stress/jobs/{self._id(job_id)}/result")
+
+    def cancel_stress_job(self, job_id: str) -> Dict[str, Any]:
+        return self._json("POST", f"/api/v3/stress/jobs/{self._id(job_id)}/cancel")
+
     # ---- tokens ------------------------------------------------------------------------------------
     def list_tokens(self) -> List[Dict[str, Any]]:
         """Your active tokens (needs the ``tokens:read`` scope). The secrets are never listed."""

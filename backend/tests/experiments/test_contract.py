@@ -63,6 +63,13 @@ def test_snapshot_holds_only_v3_and_the_expected_operations():
         ("GET", "/api/v3/discovery/searches/{search_id}/result"),
         ("POST", "/api/v3/discovery/searches/{search_id}/cancel"),
         ("GET", "/api/v3/discovery/searches/{search_id}/package"),
+        ("GET", "/api/v3/stress/catalogue"),
+        ("POST", "/api/v3/stress/suites"),
+        ("POST", "/api/v3/stress/breakpoints"),
+        ("GET", "/api/v3/stress/jobs"),
+        ("GET", "/api/v3/stress/jobs/{job_id}"),
+        ("GET", "/api/v3/stress/jobs/{job_id}/result"),
+        ("POST", "/api/v3/stress/jobs/{job_id}/cancel"),
     }
 
 

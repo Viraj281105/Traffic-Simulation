@@ -58,6 +58,7 @@ LIMITED_PREFIXES: Sequence[str] = (
     "/api/v3/experiments",
     "/api/v3/copilot",
     "/api/v3/discovery",
+    "/api/v3/stress",
 )
 
 

@@ -627,6 +627,7 @@ class ExperimentService:
                 # The deterministic experiment assistant (always available). "aiCopilot" stays false
                 # until a model provider passes the copilot-eval-v1 evaluation (strategy 15.1.6).
                 "experimentCopilot": True,
+                "stressLab": True,
                 "aiCopilot": False,
                 "discoveryLab": True,
             },
