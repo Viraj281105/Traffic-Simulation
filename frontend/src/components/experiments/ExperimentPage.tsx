@@ -10,6 +10,7 @@ import {
   getPartialResult,
   isActive,
   resumeExperiment,
+  saveBlob,
   type ExperimentResult,
   type ExperimentStatus,
   type PartialResult,
@@ -66,17 +67,6 @@ const STATE_WORD: Record<ExperimentStatus["status"], string> = {
   failed: "Failed",
   cancelled: "Cancelled",
 };
-
-function saveBlob(filename: string, blob: Blob) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
 
 /** First-class page for one Robustness Lab experiment: /app/experiments/:id.
  *  Follows a queued or running experiment until it ends, then shows its

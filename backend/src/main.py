@@ -28,6 +28,7 @@ from src.api.tokens_router import router as tokens_router
 from src.calibration import api as calibration_api
 from src.copilot.router import create_router as build_copilot_router
 from src.database.db import init_db
+from src.discovery.router import create_router as build_discovery_router
 from src.experiments.router import create_router as build_experiments_router
 from src.history import router as history_router
 from src.live import router as live_router
@@ -36,6 +37,7 @@ from src.networks.api import router as networks_router
 from src.planning.router import create_router as build_planning_router
 from src.replays import router as replays_router
 from src.simulations import router as simulations_router
+from src.stress.router import create_router as build_stress_router
 from src.study import router as study_router
 from src.study.runner import shutdown_pool
 from src.suites import router as suites_router
@@ -106,6 +108,23 @@ app.include_router(
 # and confirmed before they become ordinary experiments, and grounded interpretations of results.
 app.include_router(
     build_copilot_router(
+        user_dependency=get_current_identity,
+        dependencies=[Depends(require_api_key)],
+    )
+)
+
+# V3.0 /api/v3/discovery (src/discovery/router.py): Control Strategy Discovery Lab (W6): bounded
+# multi-objective evolutionary search with held-out evaluation against the unchanged baselines.
+app.include_router(
+    build_discovery_router(
+        user_dependency=get_current_identity,
+        dependencies=[Depends(require_api_key)],
+    )
+)
+
+# V3.0 /api/v3/stress (src/stress/router.py): stress-test lab and breakpoint explorer (W8).
+app.include_router(
+    build_stress_router(
         user_dependency=get_current_identity,
         dependencies=[Depends(require_api_key)],
     )

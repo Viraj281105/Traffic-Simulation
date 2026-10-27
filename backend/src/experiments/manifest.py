@@ -30,7 +30,9 @@ from src.vehicles.driver_aggression import (
 MANIFEST_FORMAT = "urbanflow-experiment-manifest"
 MANIFEST_VERSION = 1
 DEFAULT_PACKAGE_KIND = "robustness_experiment"
-KNOWN_PACKAGE_KINDS: frozenset[str] = frozenset({DEFAULT_PACKAGE_KIND})
+KNOWN_PACKAGE_KINDS: frozenset[str] = frozenset(
+    {DEFAULT_PACKAGE_KIND, "discovery_search"}
+)
 
 
 _SHA256_RE = re.compile(r"[0-9a-fA-F]{64}")

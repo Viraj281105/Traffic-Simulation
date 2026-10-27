@@ -325,6 +325,8 @@ class ExperimentService:
         record["status"] = "cancelled"
         record["error"] = None
         self._progress.pop(record["id"], None)
+        # Persist the checkpoint before anyone can see the experiment as settled (and resume or restart).
+        self.store.put(record)
         record["settling"] = False
         self.store.put(record)
 
@@ -514,7 +516,7 @@ class ExperimentService:
                 "seedRule": "sha256('urbanflow-uncertainty-v1:<seed>:<condition>:<replication>')[:4] & 0x7fffffff",
                 "driverAggression": manifest["assumptions"]["driverAggression"],
                 "driverAggressionHash": manifest["assumptions"]["driverAggressionHash"],
-                "note": "The full reproducibility manifest and package verification arrive in a later release.",
+                "note": "Download the .ufpkg package to verify this result elsewhere: it carries the manifest and checksums (integrity, not authenticity).",
             },
             "manifest": manifest,
             "execution": outcome["execution"],
@@ -627,8 +629,9 @@ class ExperimentService:
                 # The deterministic experiment assistant (always available). "aiCopilot" stays false
                 # until a model provider passes the copilot-eval-v1 evaluation (strategy 15.1.6).
                 "experimentCopilot": True,
+                "stressLab": True,
                 "aiCopilot": False,
-                "discoveryLab": False,
+                "discoveryLab": True,
             },
             "documents": {
                 "request": f"{EXPERIMENT_FORMAT}@{EXPERIMENT_VERSION}",

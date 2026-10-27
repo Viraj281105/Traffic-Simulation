@@ -77,6 +77,19 @@ export interface AlternativeAnalysis {
   regret?: { mean: number; p95: number; sampleMax: number };
   preferenceShare?: number;
   comparison: Comparison | null;
+  /** Share of the outcome's variation between conditions vs within them (replications). */
+  varianceSplit?: {
+    betweenShare: number | null;
+    withinShare: number | null;
+  } | null;
+}
+
+export interface Stability {
+  passed: boolean | null;
+  splitsEvaluated: number;
+  splitsPassed: number;
+  threshold: number;
+  detail: string;
 }
 
 export interface EligibilityCriterion {
@@ -114,6 +127,7 @@ export interface Analysis {
     validConditions: number;
     criteria: EligibilityCriterion[];
   };
+  stability?: Stability;
   realWorldValidity: string;
   limitations: string[];
 }
@@ -271,19 +285,40 @@ export function getPartialResult(id: string): Promise<PartialResult> {
   return json(`${PREFIX}/experiments/${encodeURIComponent(id)}/result`);
 }
 
-/** The experiment's .ufpkg package as a file name and bytes. */
-export async function downloadPackage(
-  id: string,
+/** A file the server sends as an attachment: its suggested name and bytes. */
+export async function downloadFile(
+  path: string,
+  fallbackName: string,
 ): Promise<{ filename: string; blob: Blob }> {
-  const response = await send(
-    `${PREFIX}/experiments/${encodeURIComponent(id)}/package`,
-  );
+  const response = await send(path);
   const disposition = response.headers.get("Content-Disposition") ?? "";
   const match = /filename="([^"]+)"/.exec(disposition);
   return {
-    filename: match ? match[1] : `urbanflow-${id.slice(0, 12)}.ufpkg`,
+    filename: match ? match[1] : fallbackName,
     blob: await response.blob(),
   };
+}
+
+/** The experiment's .ufpkg package as a file name and bytes. */
+export function downloadPackage(
+  id: string,
+): Promise<{ filename: string; blob: Blob }> {
+  return downloadFile(
+    `${PREFIX}/experiments/${encodeURIComponent(id)}/package`,
+    `urbanflow-${id.slice(0, 12)}.ufpkg`,
+  );
+}
+
+/** Hand a downloaded file to the browser. */
+export function saveBlob(filename: string, blob: Blob): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 export interface PackageReport {

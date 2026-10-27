@@ -126,6 +126,21 @@ const ScenarioPlanningDashboard = lazy(() =>
     default: m.ScenarioPlanningDashboard,
   })),
 );
+const TokensPage = lazy(() =>
+  import("./components/tokens/TokensPage").then((m) => ({
+    default: m.TokensPage,
+  })),
+);
+const StressLabPage = lazy(() =>
+  import("./components/stress/StressLabPage").then((m) => ({
+    default: m.StressLabPage,
+  })),
+);
+const DiscoveryPage = lazy(() =>
+  import("./components/discovery/DiscoveryPage").then((m) => ({
+    default: m.DiscoveryPage,
+  })),
+);
 const CopilotPage = lazy(() =>
   import("./components/copilot/CopilotPage").then((m) => ({
     default: m.CopilotPage,
@@ -887,6 +902,33 @@ function Dashboard({
         >
           <Suspense fallback={viewLoading}>
             <ScenarioPlanningDashboard />
+          </Suspense>
+        </PageTransition>
+      ) : viewMode === "tokens" ? (
+        <PageTransition
+          transitionKey={pageKey}
+          className="app-main full-screen page-scroll"
+        >
+          <Suspense fallback={viewLoading}>
+            <TokensPage />
+          </Suspense>
+        </PageTransition>
+      ) : viewMode === "stress" ? (
+        <PageTransition
+          transitionKey={pageKey}
+          className="app-main full-screen page-scroll"
+        >
+          <Suspense fallback={viewLoading}>
+            <StressLabPage />
+          </Suspense>
+        </PageTransition>
+      ) : viewMode === "discovery" ? (
+        <PageTransition
+          transitionKey={pageKey}
+          className="app-main full-screen page-scroll"
+        >
+          <Suspense fallback={viewLoading}>
+            <DiscoveryPage />
           </Suspense>
         </PageTransition>
       ) : viewMode === "copilot" ? (

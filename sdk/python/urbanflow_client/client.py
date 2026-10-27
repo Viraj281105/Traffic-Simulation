@@ -506,6 +506,79 @@ class Client:
             json_body=body,
         )
 
+    # ---- discovery lab -----------------------------------------------------------------------------
+    def estimate_search(self, spec: Mapping[str, Any]) -> Dict[str, Any]:
+        """Runs and simulated seconds a Discovery search would reserve (starts nothing)."""
+        return self._json("POST", "/api/v3/discovery/estimate", json_body=dict(spec))
+
+    def start_search(self, spec: Mapping[str, Any]) -> Dict[str, Any]:
+        """Start a bounded Discovery search (an EXPERIMENTAL evolutionary search, not a learned model)."""
+        return self._json("POST", "/api/v3/discovery/searches", json_body=dict(spec))
+
+    def list_searches(self) -> List[Dict[str, Any]]:
+        reply = self._request("GET", "/api/v3/discovery/searches")
+        document = json.loads(reply.body.decode("utf-8"))
+        return list(document) if isinstance(document, list) else []
+
+    def search_status(self, search_id: str) -> Dict[str, Any]:
+        return self._json("GET", f"/api/v3/discovery/searches/{self._id(search_id)}")
+
+    def search_result(self, search_id: str) -> Dict[str, Any]:
+        return self._json(
+            "GET", f"/api/v3/discovery/searches/{self._id(search_id)}/result"
+        )
+
+    def cancel_search(self, search_id: str) -> Dict[str, Any]:
+        return self._json(
+            "POST", f"/api/v3/discovery/searches/{self._id(search_id)}/cancel"
+        )
+
+    def export_search_package(
+        self,
+        search_id: str,
+        path: Union[str, Path, None] = None,
+        *,
+        overwrite: bool = False,
+    ) -> bytes:
+        reply = self._request(
+            "GET",
+            f"/api/v3/discovery/searches/{self._id(search_id)}/package",
+            accept_binary=True,
+        )
+        if path is not None:
+            try:
+                with open(Path(path), "wb" if overwrite else "xb") as handle:
+                    handle.write(reply.body)
+            except FileExistsError as err:
+                raise ConfigurationError(f"{Path(path).name} already exists") from err
+        return reply.body
+
+    # ---- stress lab ----------------------------------------------------------------------------------
+    def stress_catalogue(self) -> Dict[str, Any]:
+        return self._json("GET", "/api/v3/stress/catalogue")
+
+    def start_stress_suite(self, request: Mapping[str, Any]) -> Dict[str, Any]:
+        """Generate and run stress scenarios (stationary extremes) and classify failures."""
+        return self._json("POST", "/api/v3/stress/suites", json_body=dict(request))
+
+    def start_breakpoints(self, request: Mapping[str, Any]) -> Dict[str, Any]:
+        """Sweep one factor and report where the preferred strategy changes."""
+        return self._json("POST", "/api/v3/stress/breakpoints", json_body=dict(request))
+
+    def list_stress_jobs(self) -> List[Dict[str, Any]]:
+        reply = self._request("GET", "/api/v3/stress/jobs")
+        document = json.loads(reply.body.decode("utf-8"))
+        return list(document) if isinstance(document, list) else []
+
+    def stress_job(self, job_id: str) -> Dict[str, Any]:
+        return self._json("GET", f"/api/v3/stress/jobs/{self._id(job_id)}")
+
+    def stress_result(self, job_id: str) -> Dict[str, Any]:
+        return self._json("GET", f"/api/v3/stress/jobs/{self._id(job_id)}/result")
+
+    def cancel_stress_job(self, job_id: str) -> Dict[str, Any]:
+        return self._json("POST", f"/api/v3/stress/jobs/{self._id(job_id)}/cancel")
+
     # ---- tokens ------------------------------------------------------------------------------------
     def list_tokens(self) -> List[Dict[str, Any]]:
         """Your active tokens (needs the ``tokens:read`` scope). The secrets are never listed."""

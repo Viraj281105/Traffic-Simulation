@@ -1,6 +1,140 @@
 {
   "components": {
     "schemas": {
+      "BreakpointRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "factor": {
+            "default": "demand_scale",
+            "enum": [
+              "demand_scale",
+              "aggression"
+            ],
+            "title": "Factor",
+            "type": "string"
+          },
+          "levels": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "maxItems": 8,
+            "minItems": 1,
+            "title": "Levels",
+            "type": "array"
+          },
+          "scenario": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario"
+          },
+          "seed": {
+            "default": 1,
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "seedsPerLevel": {
+            "default": 3,
+            "maximum": 6.0,
+            "minimum": 1.0,
+            "title": "Seedsperlevel",
+            "type": "integer"
+          },
+          "strategies": {
+            "items": {
+              "enum": [
+                "fixed_time",
+                "adaptive",
+                "roundabout",
+                "signalised_roundabout"
+              ],
+              "type": "string"
+            },
+            "maxItems": 4,
+            "minItems": 2,
+            "title": "Strategies",
+            "type": "array"
+          }
+        },
+        "title": "BreakpointRequest",
+        "type": "object"
+      },
+      "Budget": {
+        "additionalProperties": false,
+        "properties": {
+          "generations": {
+            "default": 6,
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Generations",
+            "type": "integer"
+          },
+          "heldOutSeeds": {
+            "default": 10,
+            "maximum": 20.0,
+            "minimum": 10.0,
+            "title": "Heldoutseeds",
+            "type": "integer"
+          },
+          "paretoCap": {
+            "default": 6,
+            "maximum": 8.0,
+            "minimum": 2.0,
+            "title": "Paretocap",
+            "type": "integer"
+          },
+          "population": {
+            "default": 10,
+            "maximum": 24.0,
+            "minimum": 4.0,
+            "title": "Population",
+            "type": "integer"
+          },
+          "selectionSeeds": {
+            "default": 3,
+            "maximum": 5.0,
+            "minimum": 2.0,
+            "title": "Selectionseeds",
+            "type": "integer"
+          },
+          "shortlist": {
+            "default": 3,
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Shortlist",
+            "type": "integer"
+          },
+          "tuningSeeds": {
+            "default": 2,
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Tuningseeds",
+            "type": "integer"
+          },
+          "unseenGrid": {
+            "default": true,
+            "title": "Unseengrid",
+            "type": "boolean"
+          }
+        },
+        "title": "Budget",
+        "type": "object"
+      },
       "ConfirmRequest": {
         "additionalProperties": false,
         "properties": {
@@ -690,6 +824,79 @@
         "title": "ProposalRequest",
         "type": "object"
       },
+      "Regime": {
+        "additionalProperties": false,
+        "description": "The traffic the candidates are tuned for (uncertainty is ignored during the search).",
+        "properties": {
+          "aggression": {
+            "anyOf": [
+              {
+                "enum": [
+                  "standard",
+                  "moderate",
+                  "high"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aggression"
+          },
+          "duration": {
+            "default": 150.0,
+            "maximum": 600.0,
+            "minimum": 60.0,
+            "title": "Duration",
+            "type": "number"
+          },
+          "lanesPerArm": {
+            "default": 1,
+            "maximum": 2.0,
+            "minimum": 1.0,
+            "title": "Lanesperarm",
+            "type": "integer"
+          },
+          "mix": {
+            "default": "default",
+            "enum": [
+              "default",
+              "heavy_vehicles",
+              "two_wheelers"
+            ],
+            "title": "Mix",
+            "type": "string"
+          },
+          "name": {
+            "default": "Declared regime",
+            "maxLength": 120,
+            "title": "Name",
+            "type": "string"
+          },
+          "unevenDemand": {
+            "default": false,
+            "title": "Unevendemand",
+            "type": "boolean"
+          },
+          "vehiclesPerHour": {
+            "default": 600,
+            "maximum": 1200.0,
+            "minimum": 100.0,
+            "title": "Vehiclesperhour",
+            "type": "integer"
+          },
+          "warmup": {
+            "default": 30.0,
+            "maximum": 120.0,
+            "minimum": 0.0,
+            "title": "Warmup",
+            "type": "number"
+          }
+        },
+        "title": "Regime",
+        "type": "object"
+      },
       "ReproducibilityMetadata": {
         "additionalProperties": false,
         "properties": {
@@ -778,6 +985,109 @@
           "totalRuns"
         ],
         "title": "RunCounts",
+        "type": "object"
+      },
+      "SearchSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "budget": {
+            "$ref": "#/components/schemas/Budget"
+          },
+          "format": {
+            "const": "urbanflow-discovery-search",
+            "default": "urbanflow-discovery-search",
+            "title": "Format",
+            "type": "string"
+          },
+          "name": {
+            "default": "Discovery search",
+            "maxLength": 120,
+            "title": "Name",
+            "type": "string"
+          },
+          "regime": {
+            "$ref": "#/components/schemas/Regime"
+          },
+          "seed": {
+            "default": 1,
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "strategies": {
+            "items": {
+              "enum": [
+                "fixed_time",
+                "adaptive",
+                "roundabout",
+                "signalised_roundabout"
+              ],
+              "type": "string"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Strategies",
+            "type": "array"
+          },
+          "version": {
+            "const": 1,
+            "default": 1,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "title": "SearchSpec",
+        "type": "object"
+      },
+      "SuiteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "default": 8,
+            "maximum": 30.0,
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "duration": {
+            "default": 120.0,
+            "maximum": 600.0,
+            "minimum": 60.0,
+            "title": "Duration",
+            "type": "number"
+          },
+          "seed": {
+            "default": 1,
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "seedsPerRun": {
+            "default": 2,
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Seedsperrun",
+            "type": "integer"
+          },
+          "strategies": {
+            "items": {
+              "enum": [
+                "fixed_time",
+                "adaptive",
+                "roundabout",
+                "signalised_roundabout"
+              ],
+              "type": "string"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Strategies",
+            "type": "array"
+          }
+        },
+        "title": "SuiteRequest",
         "type": "object"
       },
       "TokenCreatedResponse": {
@@ -1559,6 +1869,567 @@
         "summary": "Apply Suggestion",
         "tags": [
           "copilot-v3"
+        ]
+      }
+    },
+    "/api/v3/discovery/estimate": {
+      "post": {
+        "description": "The budget a specification would reserve, without starting anything.",
+        "operationId": "estimate_api_v3_discovery_estimate_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Estimate Api V3 Discovery Estimate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Estimate",
+        "tags": [
+          "discovery-v3"
+        ]
+      }
+    },
+    "/api/v3/discovery/searches": {
+      "get": {
+        "operationId": "list_searches_api_v3_discovery_searches_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response List Searches Api V3 Discovery Searches Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Searches",
+        "tags": [
+          "discovery-v3"
+        ]
+      },
+      "post": {
+        "description": "Start a bounded search (a background job); the budget is reserved against today's quota.",
+        "operationId": "submit_api_v3_discovery_searches_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchSpec"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Submit Api V3 Discovery Searches Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Submit",
+        "tags": [
+          "discovery-v3"
+        ]
+      }
+    },
+    "/api/v3/discovery/searches/{search_id}": {
+      "get": {
+        "operationId": "status_api_v3_discovery_searches__search_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "search_id",
+            "required": true,
+            "schema": {
+              "title": "Search Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Status Api V3 Discovery Searches  Search Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Status",
+        "tags": [
+          "discovery-v3"
+        ]
+      }
+    },
+    "/api/v3/discovery/searches/{search_id}/cancel": {
+      "post": {
+        "description": "Stop at the next batch boundary; the result so far stays consistent and is marked incomplete.",
+        "operationId": "cancel_api_v3_discovery_searches__search_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "search_id",
+            "required": true,
+            "schema": {
+              "title": "Search Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cancel Api V3 Discovery Searches  Search Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Cancel",
+        "tags": [
+          "discovery-v3"
+        ]
+      }
+    },
+    "/api/v3/discovery/searches/{search_id}/package": {
+      "get": {
+        "operationId": "package_api_v3_discovery_searches__search_id__package_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "search_id",
+            "required": true,
+            "schema": {
+              "title": "Search Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "application/zip": {}
+            },
+            "description": "The .ufpkg archive."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Package",
+        "tags": [
+          "discovery-v3"
+        ]
+      }
+    },
+    "/api/v3/discovery/searches/{search_id}/result": {
+      "get": {
+        "operationId": "result_api_v3_discovery_searches__search_id__result_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "search_id",
+            "required": true,
+            "schema": {
+              "title": "Search Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Result Api V3 Discovery Searches  Search Id  Result Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Result",
+        "tags": [
+          "discovery-v3"
         ]
       }
     },
@@ -2385,6 +3256,560 @@
         "summary": "Verify Package",
         "tags": [
           "experiments-v3"
+        ]
+      }
+    },
+    "/api/v3/stress/breakpoints": {
+      "post": {
+        "operationId": "breakpoints_api_v3_stress_breakpoints_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BreakpointRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Breakpoints Api V3 Stress Breakpoints Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Breakpoints",
+        "tags": [
+          "stress-v3"
+        ]
+      }
+    },
+    "/api/v3/stress/catalogue": {
+      "get": {
+        "operationId": "catalogue_api_v3_stress_catalogue_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Catalogue Api V3 Stress Catalogue Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Catalogue",
+        "tags": [
+          "stress-v3"
+        ]
+      }
+    },
+    "/api/v3/stress/jobs": {
+      "get": {
+        "operationId": "jobs_api_v3_stress_jobs_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response Jobs Api V3 Stress Jobs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Jobs",
+        "tags": [
+          "stress-v3"
+        ]
+      }
+    },
+    "/api/v3/stress/jobs/{job_id}": {
+      "get": {
+        "operationId": "status_api_v3_stress_jobs__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Status Api V3 Stress Jobs  Job Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Status",
+        "tags": [
+          "stress-v3"
+        ]
+      }
+    },
+    "/api/v3/stress/jobs/{job_id}/cancel": {
+      "post": {
+        "operationId": "cancel_api_v3_stress_jobs__job_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cancel Api V3 Stress Jobs  Job Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Cancel",
+        "tags": [
+          "stress-v3"
+        ]
+      }
+    },
+    "/api/v3/stress/jobs/{job_id}/result": {
+      "get": {
+        "operationId": "result_api_v3_stress_jobs__job_id__result_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Result Api V3 Stress Jobs  Job Id  Result Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Result",
+        "tags": [
+          "stress-v3"
+        ]
+      }
+    },
+    "/api/v3/stress/suites": {
+      "post": {
+        "operationId": "suite_api_v3_stress_suites_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-api-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuiteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Suite Api V3 Stress Suites Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Suite",
+        "tags": [
+          "stress-v3"
         ]
       }
     },

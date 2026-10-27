@@ -264,6 +264,54 @@ export function ExperimentResultView({ result }: { result: ExperimentResult }) {
 
       <section
         className="experiment-block"
+        aria-labelledby="exp-stability-title"
+      >
+        <h2 id="exp-stability-title">Stability and sources of variation</h2>
+        <p>
+          {a.stability
+            ? `Split-half stability: ${a.stability.detail}`
+            : "Split-half stability was not assessed for this result."}
+        </p>
+        {all.some(([, alt]) => alt.varianceSplit) ? (
+          <div className="uf-table-wrap">
+            <table className="uf-table experiment-table">
+              <caption>
+                How much of each alternative's variation comes from the sampled
+                conditions (the assumptions) and how much from the replications
+                within a condition (simulation noise).
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Alternative</th>
+                  <th scope="col">Between conditions</th>
+                  <th scope="col">Within conditions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {all.map(([id, alt]) => (
+                  <tr key={id}>
+                    <th scope="row">{label(id)}</th>
+                    <td>
+                      {percent(alt.varianceSplit?.betweenShare ?? undefined)}
+                    </td>
+                    <td>
+                      {percent(alt.varianceSplit?.withinShare ?? undefined)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="experiment-muted">
+            The variance split needs at least two valid conditions and two
+            replications.
+          </p>
+        )}
+      </section>
+
+      <section
+        className="experiment-block"
         aria-labelledby="exp-assumptions-title"
       >
         <h2 id="exp-assumptions-title">Assumptions behind these numbers</h2>

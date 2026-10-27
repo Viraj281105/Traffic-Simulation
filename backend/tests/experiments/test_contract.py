@@ -56,6 +56,20 @@ def test_snapshot_holds_only_v3_and_the_expected_operations():
         ("POST", "/api/v3/copilot/proposals/{proposal_id}/suggestions/{code}"),
         ("POST", "/api/v3/copilot/proposals/{proposal_id}/confirm"),
         ("POST", "/api/v3/copilot/experiments/{experiment_id}/interpretation"),
+        ("POST", "/api/v3/discovery/estimate"),
+        ("POST", "/api/v3/discovery/searches"),
+        ("GET", "/api/v3/discovery/searches"),
+        ("GET", "/api/v3/discovery/searches/{search_id}"),
+        ("GET", "/api/v3/discovery/searches/{search_id}/result"),
+        ("POST", "/api/v3/discovery/searches/{search_id}/cancel"),
+        ("GET", "/api/v3/discovery/searches/{search_id}/package"),
+        ("GET", "/api/v3/stress/catalogue"),
+        ("POST", "/api/v3/stress/suites"),
+        ("POST", "/api/v3/stress/breakpoints"),
+        ("GET", "/api/v3/stress/jobs"),
+        ("GET", "/api/v3/stress/jobs/{job_id}"),
+        ("GET", "/api/v3/stress/jobs/{job_id}/result"),
+        ("POST", "/api/v3/stress/jobs/{job_id}/cancel"),
     }
 
 

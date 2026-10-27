@@ -33,10 +33,12 @@ def test_capabilities_report_only_what_exists(client):
         "experimentPackages",
         "personalAccessTokens",
         "pythonClient",
+        "experimentCopilot",
+        "discoveryLab",
     ):
         assert features[present] is True
-    for missing in ("aiCopilot", "discoveryLab"):
-        assert features[missing] is False
+    # Not claimed until a model provider passes copilot-eval-v1 (strategy 15.1.6).
+    assert features["aiCopilot"] is False
     assert body["quotas"] == limits.quotas()
     assert body["documents"]["request"] == "urbanflow-experiment@1"
     assert "demand_scale" in body["experiments"]["factorKinds"]
