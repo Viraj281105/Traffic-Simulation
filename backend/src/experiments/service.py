@@ -628,7 +628,7 @@ class ExperimentService:
                 # until a model provider passes the copilot-eval-v1 evaluation (strategy 15.1.6).
                 "experimentCopilot": True,
                 "aiCopilot": False,
-                "discoveryLab": False,
+                "discoveryLab": True,
             },
             "documents": {
                 "request": f"{EXPERIMENT_FORMAT}@{EXPERIMENT_VERSION}",

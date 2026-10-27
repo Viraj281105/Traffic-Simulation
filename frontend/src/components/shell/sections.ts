@@ -37,11 +37,16 @@ const RESEARCH_VIEWS: ReadonlySet<ViewMode> = new Set([
   "single",
 ]);
 
-const PLAN_VIEWS: ReadonlySet<ViewMode> = new Set(["planner", "copilot"]);
+const PLAN_VIEWS: ReadonlySet<ViewMode> = new Set([
+  "planner",
+  "copilot",
+  "discovery",
+]);
 
 export const PLAN_TABS: { view: RoutedView; label: string }[] = [
   { view: "planner", label: "Planner" },
   { view: "copilot", label: "Experiment Copilot" },
+  { view: "discovery", label: "Discovery Lab" },
 ];
 
 export function sectionOf(view: ViewMode): Section {

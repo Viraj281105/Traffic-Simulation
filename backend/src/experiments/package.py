@@ -174,6 +174,19 @@ def build_package(
         result.get("manifest"), dict
     ):
         raise PackageError("only a completed experiment can be exported")
+    return assemble_package(
+        request, result, dict(result["manifest"]), created_at, sidecars
+    )
+
+
+def assemble_package(
+    request: Dict[str, Any],
+    result: Dict[str, Any],
+    manifest: Dict[str, Any],
+    created_at: str,
+    sidecars: Optional[Dict[str, bytes]] = None,
+) -> bytes:
+    """Write ``experiment.json``, ``result.json``, the manifest and ``SHA256SUMS`` (any package kind)."""
     members: Dict[str, bytes] = {
         EXPERIMENT_NAME: _canonical_json(request),
         RESULT_NAME: _canonical_json(result),
@@ -193,7 +206,7 @@ def build_package(
                 sha256=_sha256(content),
             ).model_dump(mode="json")
         )
-    manifest = dict(result["manifest"])
+    manifest = dict(manifest)
     manifest["sidecars"] = declared
     manifest["createdAt"] = created_at
     manifest["packageChecksums"] = {
@@ -500,6 +513,57 @@ def _check_robustness_documents(
         out.error("the result fingerprint does not match the result")
 
 
+def _check_discovery_documents(
+    manifest: Dict[str, Any], sums: Optional[Dict[str, str]], out: _Read
+) -> None:
+    """A Discovery Lab package: the search specification and the trace fingerprint must recompute."""
+    from src.discovery.models import RESULT_FORMAT as DISCOVERY_RESULT
+    from src.discovery.models import SearchSpec
+
+    spec_doc = _load_json(EXPERIMENT_NAME, out, MAX_JSON_MEMBER_BYTES)
+    result = _load_json(RESULT_NAME, out, MAX_JSON_MEMBER_BYTES)
+    if not isinstance(spec_doc, dict) or not isinstance(result, dict):
+        return
+    checksums = manifest.get("packageChecksums")
+    if isinstance(checksums, dict) and sums is not None:
+        for name, digest in checksums.items():
+            if sums.get(name) != str(digest).lower():
+                out.error(
+                    f"manifest packageChecksums disagree with SHA256SUMS for {_display(str(name))}"
+                )
+    try:
+        spec = SearchSpec.model_validate(spec_doc)
+    except ValidationError:
+        out.error("experiment.json is not a valid discovery search specification")
+        return
+    if spec.fingerprint() != manifest.get(
+        "specFingerprint"
+    ) or spec.fingerprint() != result.get("specFingerprint"):
+        out.error(
+            "the search specification fingerprint does not match the specification"
+        )
+    if result.get("format") != DISCOVERY_RESULT:
+        out.error("result.json is not a discovery search result")
+        return
+    log = result.get("evaluationLog")
+    if not isinstance(log, list):
+        out.error("result.json has no evaluation log")
+        return
+    trace = hashlib.sha256(
+        json.dumps(log, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()[:16]
+    if trace != result.get("traceFingerprint") or trace != manifest.get(
+        "resultFingerprint"
+    ):
+        out.error("the search trace fingerprint does not match the evaluation log")
+
+
+_KIND_CHECKS = {
+    DEFAULT_PACKAGE_KIND: _check_robustness_documents,
+    "discovery_search": _check_discovery_documents,
+}
+
+
 def _replay_class(manifest: Dict[str, Any], out: _Read) -> str:
     """Compare the recorded provenance with this server. Not a re-run: it says how likely an identical
     replay is, from what the package records."""
@@ -590,7 +654,11 @@ def inspect_package(data: bytes) -> PackageVerificationReport:
                                 "manifest does not satisfy the experiment manifest schema"
                             )
                         else:
-                            _check_robustness_documents(manifest, sums, out)
+                            check = _KIND_CHECKS.get(
+                                str(manifest.get("kind") or DEFAULT_PACKAGE_KIND),
+                                _check_robustness_documents,
+                            )
+                            check(manifest, sums, out)
                     else:
                         out.warnings.append(
                             f"package kind {_display(kind)} is not recognised: only its structure and "

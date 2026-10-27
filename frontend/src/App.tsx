@@ -126,6 +126,11 @@ const ScenarioPlanningDashboard = lazy(() =>
     default: m.ScenarioPlanningDashboard,
   })),
 );
+const DiscoveryPage = lazy(() =>
+  import("./components/discovery/DiscoveryPage").then((m) => ({
+    default: m.DiscoveryPage,
+  })),
+);
 const CopilotPage = lazy(() =>
   import("./components/copilot/CopilotPage").then((m) => ({
     default: m.CopilotPage,
@@ -887,6 +892,15 @@ function Dashboard({
         >
           <Suspense fallback={viewLoading}>
             <ScenarioPlanningDashboard />
+          </Suspense>
+        </PageTransition>
+      ) : viewMode === "discovery" ? (
+        <PageTransition
+          transitionKey={pageKey}
+          className="app-main full-screen page-scroll"
+        >
+          <Suspense fallback={viewLoading}>
+            <DiscoveryPage />
           </Suspense>
         </PageTransition>
       ) : viewMode === "copilot" ? (
