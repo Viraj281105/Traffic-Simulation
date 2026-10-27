@@ -53,3 +53,29 @@
 .comparison-table-wrap {
   overflow-x: auto;
 }
+
+.token-scopes {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  margin: var(--space-3) 0;
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.token-scopes .discovery-check {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.token-secret {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--font-mono);
+  padding: var(--space-2);
+  color: var(--color-text);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+}

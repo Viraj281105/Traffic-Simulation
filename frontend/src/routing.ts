@@ -27,6 +27,7 @@ export const VIEW_ROUTES = {
   copilot: "/app/copilot",
   discovery: "/app/discovery",
   stress: "/app/stress",
+  tokens: "/app/tokens",
   admin: "/app/admin",
 } as const;
 

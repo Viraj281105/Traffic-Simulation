@@ -126,6 +126,11 @@ const ScenarioPlanningDashboard = lazy(() =>
     default: m.ScenarioPlanningDashboard,
   })),
 );
+const TokensPage = lazy(() =>
+  import("./components/tokens/TokensPage").then((m) => ({
+    default: m.TokensPage,
+  })),
+);
 const StressLabPage = lazy(() =>
   import("./components/stress/StressLabPage").then((m) => ({
     default: m.StressLabPage,
@@ -897,6 +902,15 @@ function Dashboard({
         >
           <Suspense fallback={viewLoading}>
             <ScenarioPlanningDashboard />
+          </Suspense>
+        </PageTransition>
+      ) : viewMode === "tokens" ? (
+        <PageTransition
+          transitionKey={pageKey}
+          className="app-main full-screen page-scroll"
+        >
+          <Suspense fallback={viewLoading}>
+            <TokensPage />
           </Suspense>
         </PageTransition>
       ) : viewMode === "stress" ? (

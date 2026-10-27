@@ -145,7 +145,7 @@ There is no universal "enough conditions", and 100 is not automatically enough. 
 
 The same specification, scenario and seed give the same `resultFingerprint`: a hash of the scenario, the alternatives, the specification and the whole analysis, but not of timestamps, worker counts or wall time. Results are aggregated by condition index, so the order in which workers finish cannot change them. The demo verifies this by running the experiment twice (`scripts/v3_demo.py --verify`).
 
-Two precautions apply. A fingerprint match is *exact replay* only on the same code revision, the same Python minor version and dependency pins, and the same kind of machine; on anything else, expect statistically comparable results rather than identical ones. And the full reproducibility manifest (environment, dependency hash, replay classes `exact` / `comparable` / `differs`) and portable packages arrive in a later release; today a result carries the commit, the Python version and the fingerprints.
+Two precautions apply. A fingerprint match is *exact replay* only on the same code revision, the same Python minor version and dependency pins, and the same kind of machine; on anything else, expect statistically comparable results rather than identical ones. Since V3.0 W7 a completed experiment can be exported as a `.ufpkg` package (manifest, request, result and SHA-256 checksums) and verified elsewhere; the verifier recomputes the fingerprints and reports a replay class `exact` / `comparable` / `differs` from the recorded provenance (it does not re-run the experiment). See the [operations guide](../operations.md).
 
 ---
 

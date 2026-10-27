@@ -77,6 +77,19 @@ export interface AlternativeAnalysis {
   regret?: { mean: number; p95: number; sampleMax: number };
   preferenceShare?: number;
   comparison: Comparison | null;
+  /** Share of the outcome's variation between conditions vs within them (replications). */
+  varianceSplit?: {
+    betweenShare: number | null;
+    withinShare: number | null;
+  } | null;
+}
+
+export interface Stability {
+  passed: boolean | null;
+  splitsEvaluated: number;
+  splitsPassed: number;
+  threshold: number;
+  detail: string;
 }
 
 export interface EligibilityCriterion {
@@ -114,6 +127,7 @@ export interface Analysis {
     validConditions: number;
     criteria: EligibilityCriterion[];
   };
+  stability?: Stability;
   realWorldValidity: string;
   limitations: string[];
 }
