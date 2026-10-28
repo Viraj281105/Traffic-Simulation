@@ -457,7 +457,7 @@ describe("Your own junction page", () => {
     expect(
       screen.getByRole("heading", {
         level: 1,
-        name: /your own junction: a controlled study/i,
+        name: /custom junction study/i,
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("Same in every control")).toBeInTheDocument();

@@ -43,6 +43,9 @@ const stopSimulation = vi.fn();
 const playDualSimulation = vi.fn();
 const pauseDualSimulation = vi.fn();
 const stopDualSimulation = vi.fn();
+const playComparison = vi.fn();
+const pauseComparison = vi.fn();
+const resetComparison = vi.fn();
 
 vi.mock("../services/api", () => ({
   playSimulation: async (): Promise<void> => {
@@ -62,6 +65,15 @@ vi.mock("../services/api", () => ({
   },
   stopDualSimulation: async (): Promise<void> => {
     await stopDualSimulation();
+  },
+  playComparison: async (): Promise<void> => {
+    await playComparison();
+  },
+  pauseComparison: async (): Promise<void> => {
+    await pauseComparison();
+  },
+  resetComparison: async (): Promise<void> => {
+    await resetComparison();
   },
 }));
 
@@ -255,6 +267,39 @@ describe("useWebSocketSnapshot", () => {
       await result.current.stop();
     });
     expect(stopSimulation).toHaveBeenCalled();
+  });
+
+  it("follows the comparison of chosen strategies and drives its controls", async () => {
+    const { result } = renderHook(() => useWebSocketSnapshot("comparison"));
+    expect(capturedUrl).toContain("/ws/simulation/comparison");
+
+    act(() => {
+      capturedCallbacks.onSnapshot({
+        tick: 1,
+        elapsed: 0.1,
+        runs: [
+          {
+            strategy: "adaptive_signal",
+            snapshot: { simulationStatus: "running" },
+          },
+          {
+            strategy: "metered_entry_roundabout",
+            snapshot: { simulationStatus: "running" },
+          },
+        ],
+      });
+    });
+    expect(result.current.isPlaying).toBe(true);
+
+    await act(async () => {
+      await result.current.play();
+      await result.current.pause();
+      await result.current.stop();
+    });
+    expect(playComparison).toHaveBeenCalled();
+    expect(pauseComparison).toHaveBeenCalled();
+    expect(resetComparison).toHaveBeenCalled();
+    expect(playDualSimulation).not.toHaveBeenCalled();
   });
 
   it("calls the dual-mode control endpoints", async () => {

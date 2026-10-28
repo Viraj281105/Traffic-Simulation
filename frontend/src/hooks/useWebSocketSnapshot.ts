@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SimulationWebSocket } from "../services/websocket";
-import { LiveSnapshot, DualSnapshot } from "../types/simulation";
+import type {
+  ComparisonSnapshot,
+  LiveSnapshot,
+  DualSnapshot,
+} from "../types/simulation";
 import {
   playSimulation,
   pauseSimulation,
@@ -8,13 +12,51 @@ import {
   playDualSimulation,
   pauseDualSimulation,
   stopDualSimulation,
+  playComparison,
+  pauseComparison,
+  resetComparison,
 } from "../services/api";
 import type { ConnectionStatus } from "../services/websocket";
 import { WS_BASE_URL } from "../config";
 import { whenLiveSessionReady } from "../services/liveSession";
 
+/** Which live stream to follow: the single simulation, the legacy
+ *  signal-vs-roundabout pair, or the comparison of chosen strategies. */
+export type StreamMode = "single" | "dual" | "comparison";
+
+const STREAM_PATH: Record<StreamMode, string> = {
+  single: "/ws/simulation/live",
+  dual: "/ws/simulation/dual",
+  comparison: "/ws/simulation/comparison",
+};
+
+const CONTROLS: Record<
+  StreamMode,
+  {
+    play: () => Promise<void>;
+    pause: () => Promise<void>;
+    stop: () => Promise<void>;
+  }
+> = {
+  single: {
+    play: playSimulation,
+    pause: pauseSimulation,
+    stop: stopSimulation,
+  },
+  dual: {
+    play: playDualSimulation,
+    pause: pauseDualSimulation,
+    stop: stopDualSimulation,
+  },
+  comparison: {
+    play: playComparison,
+    pause: pauseComparison,
+    stop: resetComparison,
+  },
+};
+
 export interface WebSocketSnapshotState {
-  snapshot: LiveSnapshot | DualSnapshot | null;
+  snapshot: LiveSnapshot | DualSnapshot | ComparisonSnapshot | null;
   connectionStatus: ConnectionStatus;
   isPlaying: boolean;
   error: string | null;
@@ -23,12 +65,10 @@ export interface WebSocketSnapshotState {
   stop: () => Promise<void>;
 }
 
-export function useWebSocketSnapshot(
-  mode: "single" | "dual",
-): WebSocketSnapshotState {
-  const [snapshot, setSnapshot] = useState<LiveSnapshot | DualSnapshot | null>(
-    null,
-  );
+export function useWebSocketSnapshot(mode: StreamMode): WebSocketSnapshotState {
+  const [snapshot, setSnapshot] = useState<
+    LiveSnapshot | DualSnapshot | ComparisonSnapshot | null
+  >(null);
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>("disconnected");
   const [isPlaying, setIsPlaying] = useState(false);
@@ -44,10 +84,7 @@ export function useWebSocketSnapshot(
   }
 
   useEffect(() => {
-    const url =
-      mode === "dual"
-        ? `${WS_BASE_URL}/ws/simulation/dual`
-        : `${WS_BASE_URL}/ws/simulation/live`;
+    const url = `${WS_BASE_URL}${STREAM_PATH[mode]}`;
 
     // The backend streams at ~10 Hz regardless of whether the simulation has
     // advanced: while idle/paused, and whenever its send loop outpaces the
@@ -65,10 +102,7 @@ export function useWebSocketSnapshot(
             setSnapshot(snap);
           }
           setError(null);
-          const status =
-            "signal" in snap
-              ? snap.signal.simulationStatus
-              : snap.simulationStatus;
+          const status = streamStatus(snap);
 
           if (status === "running" || status === "initializing") {
             setIsPlaying(true);
@@ -102,11 +136,7 @@ export function useWebSocketSnapshot(
   const play = useCallback(async () => {
     try {
       setError(null);
-      if (mode === "dual") {
-        await playDualSimulation();
-      } else {
-        await playSimulation();
-      }
+      await CONTROLS[mode].play();
       setIsPlaying(true);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -117,11 +147,7 @@ export function useWebSocketSnapshot(
   const pause = useCallback(async () => {
     try {
       setError(null);
-      if (mode === "dual") {
-        await pauseDualSimulation();
-      } else {
-        await pauseSimulation();
-      }
+      await CONTROLS[mode].pause();
       setIsPlaying(false);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -132,11 +158,7 @@ export function useWebSocketSnapshot(
   const stop = useCallback(async () => {
     try {
       setError(null);
-      if (mode === "dual") {
-        await stopDualSimulation();
-      } else {
-        await stopSimulation();
-      }
+      await CONTROLS[mode].stop();
       setIsPlaying(false);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -149,12 +171,27 @@ export function useWebSocketSnapshot(
 
 /** Identity of the simulation state a snapshot describes. Two snapshots with
  *  the same run, tick, timestamp and status describe the same engine state. */
-function snapshotKey(snap: LiveSnapshot | DualSnapshot): string {
+function snapshotKey(
+  snap: LiveSnapshot | DualSnapshot | ComparisonSnapshot,
+): string {
   const one = (s: LiveSnapshot) =>
     [s.simulationId, s.configId, s.tick, s.timestamp, s.simulationStatus].join(
       "|",
     );
+  if ("runs" in snap) {
+    return snap.runs.map((r) => `${r.strategy}:${one(r.snapshot)}`).join("#");
+  }
   return "signal" in snap
     ? `${one(snap.signal)}#${one(snap.roundabout)}`
     : one(snap);
+}
+
+/** The lead run's status: every run of a lockstep stream shares it. */
+function streamStatus(
+  snap: LiveSnapshot | DualSnapshot | ComparisonSnapshot,
+): string | undefined {
+  if ("runs" in snap) return snap.runs[0]?.snapshot.simulationStatus;
+  return "signal" in snap
+    ? snap.signal.simulationStatus
+    : snap.simulationStatus;
 }

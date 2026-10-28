@@ -20,6 +20,8 @@ const getRunRecord = vi.fn();
 const getReplay = vi.fn();
 
 vi.mock("../services/api", () => ({
+  listStrategies: () =>
+    import("./strategyCatalogFixture").then((m) => m.STRATEGY_CATALOG),
   updateSimulationConfig: async (payload: unknown): Promise<void> => {
     await updateSimulationConfig(payload);
   },
@@ -339,7 +341,7 @@ describe("App", () => {
   describe("Your own junction tab", () => {
     const researchNav = () =>
       within(screen.getByRole("navigation", { name: "Research tools" }));
-    const studyHeading = /your own junction: a controlled study/i;
+    const studyHeading = /custom junction study/i;
 
     it("is a Research lab tab, next to the Overview and the three-way study", async () => {
       signIn();
@@ -352,16 +354,15 @@ describe("App", () => {
         .map((link) => link.textContent);
       expect(labels).toEqual([
         "Overview",
-        "Your own junction",
+        "Custom junction study",
         "Three-way study",
-        "Scenario planning",
         "Statistical validation",
         "Traffic-level sweep",
         "Signal on its own",
         "Roundabout on its own",
       ]);
       expect(
-        researchNav().getByRole("link", { name: "Your own junction" }),
+        researchNav().getByRole("link", { name: "Custom junction study" }),
       ).toHaveAttribute("href", "/app/junction");
     });
 
@@ -381,7 +382,9 @@ describe("App", () => {
       ).not.toBeInTheDocument();
       expect(screen.queryByLabelText("Scenario name")).not.toBeInTheDocument();
       // The overview still offers it: the tab, plus a card linking to it.
-      const links = screen.getAllByRole("link", { name: /your own junction/i });
+      const links = screen.getAllByRole("link", {
+        name: /custom junction study/i,
+      });
       expect(links.length).toBeGreaterThanOrEqual(2);
       for (const link of links) {
         expect(link).toHaveAttribute("href", "/app/junction");
@@ -406,14 +409,14 @@ describe("App", () => {
         await user.click(screen.getByRole("link", { name: "Research lab" }));
 
         await user.click(
-          researchNav().getByRole("link", { name: "Your own junction" }),
+          researchNav().getByRole("link", { name: "Custom junction study" }),
         );
         expect(window.location.pathname).toBe("/app/junction");
         expect(
           await screen.findByRole("heading", { level: 1, name: studyHeading }),
         ).toBeInTheDocument();
         expect(
-          researchNav().getByRole("link", { name: "Your own junction" }),
+          researchNav().getByRole("link", { name: "Custom junction study" }),
         ).toHaveAttribute("aria-current", "page");
         expect(
           screen.getByRole("link", { name: "Research lab" }),
@@ -435,10 +438,14 @@ describe("App", () => {
           researchNav().getByRole("link", { name: "Statistical validation" }),
         );
         expect(window.location.pathname).toBe("/app/validation");
+        // The validation page is a lazy chunk: on a cold transform cache its
+        // first import alone can pass findBy's default 1 s.
         expect(
-          await screen.findByRole("heading", {
-            name: /statistical validation studio/i,
-          }),
+          await screen.findByRole(
+            "heading",
+            { name: /statistical validation studio/i },
+            { timeout: 4000 },
+          ),
         ).toBeInTheDocument();
         expect(
           screen.queryByRole("heading", { name: studyHeading }),
@@ -448,7 +455,7 @@ describe("App", () => {
         ).not.toBeInTheDocument();
 
         await user.click(
-          researchNav().getByRole("link", { name: "Your own junction" }),
+          researchNav().getByRole("link", { name: "Custom junction study" }),
         );
         expect(
           await screen.findByRole("heading", { level: 1, name: studyHeading }),
@@ -470,7 +477,7 @@ describe("App", () => {
         await screen.findByRole("heading", { level: 1, name: studyHeading }),
       ).toBeInTheDocument();
       expect(
-        researchNav().getByRole("link", { name: "Your own junction" }),
+        researchNav().getByRole("link", { name: "Custom junction study" }),
       ).toHaveAttribute("aria-current", "page");
       expect(
         screen.getByRole("link", { name: "Research lab" }),
@@ -544,7 +551,7 @@ describe("App", () => {
       render(<App />);
       await user.click(screen.getByRole("link", { name: "Research lab" }));
       for (const [name, path] of [
-        ["Your own junction", "/app/junction"],
+        ["Custom junction study", "/app/junction"],
         ["Three-way study", "/app/three-way"],
         ["Statistical validation", "/app/validation"],
         ["Traffic-level sweep", "/app/volume"],
@@ -567,7 +574,7 @@ describe("App", () => {
     await waitFor(() => {
       expect(window.location.pathname).toBe("/app/comparative");
     });
-    expect(screen.getByRole("link", { name: "Compare" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Simulate" })).toHaveAttribute(
       "aria-current",
       "page",
     );
@@ -673,5 +680,140 @@ describe("App", () => {
     expect(
       screen.getByRole("heading", { name: /page not found/i }),
     ).toBeInTheDocument();
+  });
+});
+
+// The navigation model (shell/sections.ts): workflows in the header tabs,
+// utilities beside them, and every section's pages one click apart.
+describe("Navigation architecture", () => {
+  const utilityNav = () =>
+    within(screen.getByRole("navigation", { name: "Developer and admin" }));
+  const experimentNav = () =>
+    within(screen.getByRole("navigation", { name: "Experiment tools" }));
+
+  it("shows the four workflows in the header, in order", () => {
+    render(<App />);
+    const labels = within(screen.getByRole("navigation", { name: "Main" }))
+      .getAllByRole("link")
+      .map((link) => link.textContent);
+    expect(labels).toEqual([
+      "Simulate",
+      "Research lab",
+      "Experiments",
+      "Saved",
+    ]);
+  });
+
+  it.each(["/app/comparative", "/app/history", "/app/signal"])(
+    "offers API tokens in one click from %s",
+    (path) => {
+      window.history.replaceState(null, "", path);
+      render(<App />);
+      expect(
+        utilityNav().getByRole("link", { name: "Developer" }),
+      ).toHaveAttribute("href", "/app/tokens");
+    },
+  );
+
+  it("opens API tokens from Saved and marks Developer as current", async () => {
+    signIn();
+    window.history.replaceState(null, "", "/app/history");
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(utilityNav().getByRole("link", { name: "Developer" }));
+
+    expect(window.location.pathname).toBe("/app/tokens");
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "API tokens" }),
+    ).toBeInTheDocument();
+    expect(
+      utilityNav().getByRole("link", { name: "Developer" }),
+    ).toHaveAttribute("aria-current", "page");
+    // Not a workflow: no header tab is current, and there is no sub-nav.
+    expect(
+      within(screen.getByRole("navigation", { name: "Main" })).queryByRole(
+        "link",
+        { current: "page" },
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("navigation", { name: "Experiment tools" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("asks a signed-out visitor to sign in before opening API tokens", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(utilityNav().getByRole("link", { name: "Developer" }));
+    expect(window.location.pathname).toBe("/app/comparative");
+  });
+
+  it("groups the experiment tools, with the others linked at the page end", async () => {
+    signIn();
+    window.history.replaceState(null, "", "/app/copilot");
+    render(<App />);
+
+    expect(
+      experimentNav()
+        .getAllByRole("link")
+        .map((link) => link.textContent),
+    ).toEqual([
+      "Planner",
+      "Scenario planning",
+      "Experiment Copilot",
+      "Discovery Lab",
+      "Stress Lab",
+    ]);
+    expect(
+      experimentNav().getByRole("link", { name: "Experiment Copilot" }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Experiments" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+
+    const related = within(
+      await screen.findByRole("complementary", {
+        name: "Other experiment tools",
+      }),
+    );
+    expect(
+      related.getAllByRole("link").map((link) => link.getAttribute("href")),
+    ).toEqual([
+      "/app/planner",
+      "/app/scenarios",
+      "/app/discovery",
+      "/app/stress",
+    ]);
+  });
+
+  it("names an experiment page in the sub-nav instead of a tool tab", () => {
+    signIn();
+    window.history.replaceState(null, "", "/app/experiments/exp_1");
+    render(<App />);
+
+    const current = experimentNav().getAllByText("Experiment");
+    expect(current[0]).toHaveAttribute("aria-current", "page");
+    expect(
+      experimentNav().queryByRole("link", { current: "page" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("points Saved at the work each tool keeps in its own list", async () => {
+    window.history.replaceState(null, "", "/app/history");
+    render(<App />);
+
+    const elsewhere = within(
+      await screen.findByRole("complementary", {
+        name: "Saved in other tools",
+      }),
+    );
+    expect(
+      elsewhere.getByRole("link", { name: /planner studies/i }),
+    ).toHaveAttribute("href", "/app/planner");
+    expect(
+      elsewhere.getByRole("link", { name: /stress and breakpoint jobs/i }),
+    ).toHaveAttribute("href", "/app/stress");
   });
 });

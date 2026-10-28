@@ -416,6 +416,21 @@ export interface LiveSnapshot {
   laneModel?: LaneModelState;
 }
 
+/** One strategy's run within a comparison of chosen strategies. */
+export interface ComparisonRunSnapshot {
+  /** Canonical strategy id (backend strategy registry). */
+  strategy: string;
+  snapshot: LiveSnapshot;
+}
+
+/** The comparison of chosen strategies, all stepped in lockstep on the same
+ *  traffic (/ws/simulation/comparison). Runs keep the order chosen. */
+export interface ComparisonSnapshot {
+  tick: number;
+  elapsed: number;
+  runs: ComparisonRunSnapshot[];
+}
+
 export interface DualSnapshot {
   tick: number;
   elapsed: number;

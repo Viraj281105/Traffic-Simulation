@@ -1,9 +1,17 @@
+import { Fragment, type CSSProperties } from "react";
 import type { RunningMetrics } from "../../types/simulation";
 import { seconds } from "../../metrics/plainLanguage";
 import { APPROACHES } from "../../scenario/scenarioTypes";
 import type { ScenarioDocument } from "../../scenario/scenarioTypes";
+import type { StrategyInfo } from "../../strategies/strategyCatalog";
 
 type Breakdown = RunningMetrics["approachBreakdown"];
+
+/** One strategy's column in a breakdown table. */
+export interface BreakdownColumn<B> {
+  strategy: Pick<StrategyInfo, "id" | "name" | "color">;
+  breakdown: B;
+}
 
 function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -11,7 +19,7 @@ function cap(s: string): string {
 
 /**
  * Per-approach results (V1.4) for a junction the user built: how much traffic
- * each road offered, and at both junctions how many of its drivers got
+ * each road offered, and under each strategy how many of its drivers got
  * through and the time they lost. An uneven junction — a busy main road, a
  * quiet side street — can look fine on average while one road queues.
  *
@@ -20,14 +28,12 @@ function cap(s: string): string {
  */
 export function ApproachResults({
   scenario,
-  signal,
-  roundabout,
+  columns,
 }: {
   scenario: ScenarioDocument;
-  signal: Breakdown;
-  roundabout: Breakdown;
+  columns: BreakdownColumn<Breakdown>[];
 }) {
-  if (!signal && !roundabout) return null;
+  if (!columns.some((c) => c.breakdown)) return null;
   const cell = (b: Breakdown, a: (typeof APPROACHES)[number]) => {
     const entry = b?.[a];
     if (!entry || entry.exited === 0) return <td colSpan={2}>none through</td>;
@@ -55,18 +61,26 @@ export function ApproachResults({
               <th scope="col" rowSpan={2}>
                 Lanes · traffic offered
               </th>
-              <th scope="colgroup" colSpan={2}>
-                Traffic signal
-              </th>
-              <th scope="colgroup" colSpan={2}>
-                Roundabout
-              </th>
+              {columns.map((c) => (
+                <th
+                  scope="colgroup"
+                  colSpan={2}
+                  key={c.strategy.id}
+                  style={
+                    { "--strategy-color": c.strategy.color } as CSSProperties
+                  }
+                >
+                  <span className="strategy-label">
+                    <span className="strategy-dot" aria-hidden="true" />
+                    {c.strategy.name}
+                  </span>
+                </th>
+              ))}
             </tr>
             <tr>
-              <th scope="col">Got through</th>
-              <th scope="col">Time lost (avg)</th>
-              <th scope="col">Got through</th>
-              <th scope="col">Time lost (avg)</th>
+              {columns.map((c) => (
+                <FragmentHeads key={c.strategy.id} />
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -81,8 +95,11 @@ export function ApproachResults({
                     {arm.lanes} ·{" "}
                     {Math.round(arm.vehiclesPerHour).toLocaleString()} veh/h
                   </td>
-                  {cell(signal, a)}
-                  {cell(roundabout, a)}
+                  {columns.map((c) => (
+                    <Fragment key={c.strategy.id}>
+                      {cell(c.breakdown, a)}
+                    </Fragment>
+                  ))}
                 </tr>
               );
             })}
@@ -90,5 +107,14 @@ export function ApproachResults({
         </table>
       </div>
     </section>
+  );
+}
+
+function FragmentHeads() {
+  return (
+    <>
+      <th scope="col">Got through</th>
+      <th scope="col">Time lost (avg)</th>
+    </>
   );
 }

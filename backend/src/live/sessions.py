@@ -28,7 +28,7 @@ import logging
 import threading
 import time
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -45,6 +45,10 @@ from src.live.dashboard_config import DEFAULT_CONFIG, generate_random_seed
 from src.metrics.collector import MetricCollector
 from src.snapshot.builder import SnapshotBuilder
 from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
+from src.snapshot.strategy_comparison import (
+    DEFAULT_COMPARISON_STRATEGIES,
+    StrategyComparisonOrchestrator,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +78,10 @@ class LiveSession:
         self.is_user_defined_seed: bool = False
         self.live_sim_data: Dict[str, Any] = _empty_live_sim_data()
         self.dual_sim_orchestrator: Optional[DualSimulationOrchestrator] = None
+        # The strategies the guided comparison runs, as canonical ids, and the
+        # lockstep runs of them (built on demand from current_live_config).
+        self.comparison_strategies: List[str] = list(DEFAULT_COMPARISON_STRATEGIES)
+        self.comparison_orchestrator: Optional[StrategyComparisonOrchestrator] = None
         self.last_seen: float = time.time()
 
     def touch(self) -> None:
@@ -92,9 +100,9 @@ class LiveSession:
             SimulationStatus.PAUSED,
         ):
             return True
-        orch = self.dual_sim_orchestrator
-        if orch is not None and orch.get_status() in ("running", "paused"):
-            return True
+        for orch in (self.dual_sim_orchestrator, self.comparison_orchestrator):
+            if orch is not None and orch.get_status() in ("running", "paused"):
+                return True
         return False
 
     def shutdown(self) -> None:
@@ -110,14 +118,26 @@ class LiveSession:
                 engine.stop()
             except Exception:
                 logger.exception("Failed to stop live engine during eviction")
-        orch = self.dual_sim_orchestrator
+        for orch in (self.dual_sim_orchestrator, self.comparison_orchestrator):
+            if orch is not None:
+                try:
+                    orch.stop()
+                except Exception:
+                    logger.exception("Failed to stop an orchestrator during eviction")
+        self.live_sim_data = _empty_live_sim_data()
+        self.dual_sim_orchestrator = None
+        self.comparison_orchestrator = None
+
+    def drop_comparison(self) -> None:
+        """Stops and discards the strategy comparison so the next request
+        rebuilds it from the current configuration and strategies."""
+        orch = self.comparison_orchestrator
         if orch is not None:
             try:
                 orch.stop()
             except Exception:
-                logger.exception("Failed to stop dual orchestrator during eviction")
-        self.live_sim_data = _empty_live_sim_data()
-        self.dual_sim_orchestrator = None
+                pass
+        self.comparison_orchestrator = None
 
 
 live_sessions: Dict[str, LiveSession] = {DEFAULT_SESSION_KEY: LiveSession()}
@@ -283,6 +303,15 @@ def get_or_create_dual_orchestrator() -> DualSimulationOrchestrator:
             session.current_live_config
         )
     return session.dual_sim_orchestrator
+
+
+def get_or_create_comparison_orchestrator() -> StrategyComparisonOrchestrator:
+    session = current_session()
+    if session.comparison_orchestrator is None:
+        session.comparison_orchestrator = StrategyComparisonOrchestrator(
+            session.current_live_config, session.comparison_strategies
+        )
+    return session.comparison_orchestrator
 
 
 def reseed_unless_user_pinned(session: LiveSession) -> None:

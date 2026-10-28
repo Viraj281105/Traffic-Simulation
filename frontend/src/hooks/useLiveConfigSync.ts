@@ -46,11 +46,13 @@ export function useLiveConfigSync(
     unstructuredTraffic,
     aggressiveTwoWheelers,
     driverAggression,
+    strategies,
   } = configValues;
   // Object-valued: compared by content in the sync effect below.
   const vehicleMixKey = JSON.stringify(vehicleMix ?? null);
   const adaptiveKey = JSON.stringify(adaptive ?? null);
   const scenarioKey = JSON.stringify(scenario ?? null);
+  const strategiesKey = JSON.stringify(strategies ?? null);
 
   useEffect(() => {
     const intersectionType =
@@ -81,6 +83,8 @@ export function useLiveConfigSync(
             unstructuredTraffic,
             aggressiveTwoWheelers,
             driverAggression,
+            strategies: (JSON.parse(strategiesKey) ?? undefined) as
+              string[] | undefined,
           },
           intersectionType,
           viewMode === "signal",
@@ -124,6 +128,7 @@ export function useLiveConfigSync(
     unstructuredTraffic,
     aggressiveTwoWheelers,
     driverAggression,
+    strategiesKey,
   ]);
 
   return {

@@ -22,9 +22,10 @@ class SaveReplayRequest(BaseModel):
     name: str
     config: Dict[str, Any]
     metrics: Dict[str, Any]
-    # "dual" for a signal-vs-roundabout comparison. Optional for older
-    # clients: inferred from the metrics shape ({signal, roundabout}).
-    mode: Optional[Literal["single", "dual"]] = None
+    # "dual" for a signal-vs-roundabout comparison, "comparison" for the
+    # comparison of chosen strategies ({strategies: {id: metrics}}). Optional
+    # for older clients: inferred from the metrics shape.
+    mode: Optional[Literal["single", "dual", "comparison"]] = None
 
 
 def _with_reproducibility(
@@ -50,7 +51,9 @@ def save_replay(
 ) -> Dict[str, Any]:
     ensure_db_initialized()
     mode = payload.mode or (
-        "dual"
+        "comparison"
+        if isinstance(payload.metrics.get("strategies"), dict)
+        else "dual"
         if "signal" in payload.metrics and "roundabout" in payload.metrics
         else "single"
     )
@@ -90,7 +93,7 @@ def save_replay(
         )
     itype = (
         "comparative"
-        if mode == "dual"
+        if mode in ("dual", "comparison")
         else run_config.get("geometry", {}).get("intersectionType", "unknown")
     )
     arr_rate = run_config.get("traffic", {}).get("arrivalRate", 0.5)

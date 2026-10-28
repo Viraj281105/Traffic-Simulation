@@ -101,6 +101,16 @@
   /* Series colours as text on the page's surfaces. */
   --series-signal-ink: #e3a73a;
   --series-roundabout-ink: #3bb7c9;
+  /* One colour per control strategy (strategies/strategyCatalog.ts): the
+     fixed-time signal and conventional roundabout keep the signal and
+     roundabout colours; their adaptive and metered variants sit beside
+     them. --series-5/6 serve strategies registered later. */
+  --series-fixed: #e3a73a;
+  --series-adaptive: #f0805f;
+  --series-conventional: #3bb7c9;
+  --series-metered: #9b9cf8;
+  --series-5: #d48ae6;
+  --series-6: #84c96a;
   /* Secondary caution (negative deltas, idle share): distinct from amber. */
   --color-orange: #fb923c;
   --chart-grid: #22324c;
@@ -205,6 +215,12 @@
   --series-neutral: #536076;
   --series-signal-ink: #b45309;
   --series-roundabout-ink: #0e7490;
+  --series-fixed: #b06f00;
+  --series-adaptive: #c2482b;
+  --series-conventional: #0e7f99;
+  --series-metered: #5355d1;
+  --series-5: #9333ea;
+  --series-6: #3f7f22;
   --color-orange: #c2410c;
   --chart-grid: #e3e8ef;
   --chart-axis: #536076;
@@ -283,6 +299,15 @@ select,
 textarea {
   font-family: inherit;
   font-size: inherit;
+}
+
+/* Native ticks, radios, ranges and progress bars take the theme's accent
+   rather than the browser's own blue, in both themes. */
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"],
+progress {
+  accent-color: var(--color-accent);
 }
 
 code,

@@ -29,7 +29,29 @@ def capture_engine_run(
         return None
     engine: Optional[SimulationEngine]
     collector: Optional[MetricCollector]
-    if mode == "dual":
+    extra_config: Dict[str, Any] = {}
+    if mode == "comparison":
+        comparison = session.comparison_orchestrator
+        if comparison is None:
+            return None
+        lead = comparison.runs[0]
+        engine = lead.engine
+        clock = lead.clock
+        collector = lead.collector
+        # Every run's config is derived from this one and the strategy list,
+        # which is stored with it so the comparison can be re-run.
+        config = comparison.config
+        extra_config = {"comparison": {"strategies": list(comparison.strategies)}}
+        compared_runs = list(comparison.runs)
+
+        def read_metrics() -> Dict[str, Any]:
+            return {
+                "strategies": {
+                    run.key: dict(engine_metrics(run.engine, run.collector))
+                    for run in compared_runs
+                }
+            }
+    elif mode == "dual":
         orch = session.dual_sim_orchestrator
         if orch is None:
             return None
@@ -65,6 +87,7 @@ def capture_engine_run(
     if claimed_seed is not None and claimed_seed != seed:
         return None
     exact_config = copy.deepcopy(config)
+    exact_config.update(copy.deepcopy(extra_config))
     exact_config.setdefault("simulation", {})["randomSeed"] = seed
     return {
         "config": exact_config,

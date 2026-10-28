@@ -26,6 +26,7 @@ from src.live.sessions import (
     DEFAULT_SESSION_KEY,
     LIVE_SESSION_COOKIE,
     current_session,
+    get_or_create_comparison_orchestrator,
     get_or_create_dual_orchestrator,
     get_or_create_live_simulation,
     get_or_create_session,
@@ -33,6 +34,12 @@ from src.live.sessions import (
     reseed_unless_user_pinned,
 )
 from src.live.single_vehicle import single_veh
+from src.snapshot.strategy_comparison import (
+    DEFAULT_COMPARISON_STRATEGIES,
+    LIVE_COMPARISON_STRATEGIES,
+    canonical_comparison_strategies,
+)
+from src.strategies.registry import get_strategy_registry
 
 logger = logging.getLogger(__name__)
 
@@ -156,6 +163,20 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     session = current_session()
 
+    # The strategies the guided comparison runs (canonical registry ids). They
+    # select runs, not engine settings, so they never enter the config. Like
+    # every other field, an absent list means the default, so a dashboard
+    # that reloads (and shows the default choice) never runs a choice it
+    # no longer shows.
+    payload = dict(payload)
+    requested_strategies = payload.pop("strategies", None)
+    strategies = list(DEFAULT_COMPARISON_STRATEGIES)
+    if requested_strategies is not None:
+        try:
+            strategies = canonical_comparison_strategies(requested_strategies)
+        except ValueError as err:
+            raise HTTPException(status_code=400, detail=f"Invalid strategies: {err}")
+
     # Determine randomSeed (preserve user-provided seed explicitly). A
     # scenario document (V1.4) always carries its own seed.
     raw_seed = payload.get("randomSeed")
@@ -177,6 +198,9 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
     # untouched — if this one is rejected: the compile raises before
     # anything is assigned.
     new_config = compile_dashboard_config(payload, seed_val)
+    if strategies != session.comparison_strategies:
+        session.comparison_strategies = strategies
+        session.drop_comparison()
     if session.current_live_config == new_config:
         return {
             "status": "ok",
@@ -203,6 +227,7 @@ def update_simulation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
         except Exception:
             pass
         session.dual_sim_orchestrator = None
+    session.drop_comparison()
 
     # Reset live simulation cache
     session.live_sim_data["engine"] = None
@@ -428,6 +453,153 @@ async def websocket_dual_stream(websocket: WebSocket) -> None:
         pass
     except Exception:
         logger.exception("Dual simulation websocket failed")
+        await close_after_stream_error(websocket)
+    finally:
+        live_session_var.reset(token)
+
+
+# ── Strategies, and the comparison of any of them ───────────────────────────
+@router.get("/api/strategies")
+def list_strategies() -> Dict[str, Any]:
+    """The registered control strategies and what the live comparison can do
+    with them. The dashboard builds its strategy choice from this, so a
+    strategy appears there once it is registered and derivable, and never
+    before."""
+    registry = get_strategy_registry()
+
+    def order(strategy_id: str) -> tuple[int, str]:
+        # The built-ins in comparison order, then any later additions.
+        if strategy_id in LIVE_COMPARISON_STRATEGIES:
+            return (LIVE_COMPARISON_STRATEGIES.index(strategy_id), strategy_id)
+        return (len(LIVE_COMPARISON_STRATEGIES), strategy_id)
+
+    return {
+        "strategies": [
+            {
+                "id": d.id,
+                "name": d.name,
+                "status": d.status,
+                "description": d.description,
+                "family": (
+                    "roundabout"
+                    if d.geometry.intersection_type == "roundabout"
+                    else "signal"
+                ),
+                "controlPolicy": d.control_policy.policy,
+                "adaptation": d.adaptation_logic.logic,
+                "notModelled": list(d.not_modelled),
+                "liveComparison": d.id in LIVE_COMPARISON_STRATEGIES,
+            }
+            for d in sorted(registry.list_all(), key=lambda d: order(d.id))
+        ],
+        "aliases": registry.list_aliases(),
+        "liveComparison": {
+            "defaultSelection": list(DEFAULT_COMPARISON_STRATEGIES),
+            "maxStrategies": len(LIVE_COMPARISON_STRATEGIES),
+        },
+    }
+
+
+def _comparison_payload(orch: Any, message: str) -> Dict[str, Any]:
+    session = current_session()
+    return {
+        "status": orch.get_status(),
+        "strategies": list(orch.strategies),
+        "message": message,
+        "randomSeed": session.current_live_config["simulation"].get("randomSeed"),
+    }
+
+
+@router.post("/api/simulation/comparison/play", dependencies=[Depends(require_api_key)])
+def play_comparison() -> Dict[str, Any]:
+    session = current_session()
+    orch = get_or_create_comparison_orchestrator()
+    status = orch.runs[0].engine.status
+    if status == SimulationStatus.COMPLETED:
+        # A finished comparison restarts on a fresh seed unless one is pinned.
+        session.drop_comparison()
+        reseed_unless_user_pinned(session)
+        orch = get_or_create_comparison_orchestrator()
+        orch.start()
+    elif status == SimulationStatus.INITIALIZED:
+        orch.start()
+    elif status == SimulationStatus.PAUSED:
+        orch.resume()
+    return _comparison_payload(orch, "Comparison started/resumed")
+
+
+@router.post(
+    "/api/simulation/comparison/pause", dependencies=[Depends(require_api_key)]
+)
+def pause_comparison() -> Dict[str, Any]:
+    orch = get_or_create_comparison_orchestrator()
+    orch.pause()
+    return _comparison_payload(orch, "Comparison paused")
+
+
+@router.post(
+    "/api/simulation/comparison/speed", dependencies=[Depends(require_api_key)]
+)
+def set_comparison_speed(req: SpeedRequest) -> Dict[str, Any]:
+    orch = get_or_create_comparison_orchestrator()
+    orch.speed_multiplier = req.multiplier
+    return {"status": "ok", "speed": orch.speed_multiplier}
+
+
+@router.post(
+    "/api/simulation/comparison/reset", dependencies=[Depends(require_api_key)]
+)
+def reset_comparison() -> Dict[str, Any]:
+    session = current_session()
+    session.drop_comparison()
+    reseed_unless_user_pinned(session)
+    orch = get_or_create_comparison_orchestrator()
+    return _comparison_payload(orch, "Comparison reset")
+
+
+@router.get("/api/simulation/comparison/status")
+def get_comparison_status() -> Dict[str, Any]:
+    orch = get_or_create_comparison_orchestrator()
+    lead = orch.runs[0]
+    return {
+        "status": orch.get_status(),
+        "strategies": list(orch.strategies),
+        "elapsed": round(lead.clock.get_elapsed_time(), 2),
+        "tick": lead.clock.get_tick_count(),
+    }
+
+
+@router.websocket("/ws/simulation/comparison")
+async def websocket_comparison_stream(websocket: WebSocket) -> None:
+    if await refuse_foreign_origin(websocket):
+        return
+    await websocket.accept()
+    session_key = websocket.cookies.get(LIVE_SESSION_COOKIE) or DEFAULT_SESSION_KEY
+    token = live_session_var.set(get_or_create_session(session_key))
+    last_frame: Optional[tuple[Any, ...]] = None
+    last_sent_time = 0.0
+
+    try:
+        while True:
+            # See the live stream above: an open stream keeps the session alive.
+            current_session().touch()
+
+            # Re-fetch each frame so a new configuration or choice of
+            # strategies is reflected at once.
+            orch = get_or_create_comparison_orchestrator()
+            frame = (orch, orch.get_status(), orch.runs[0].clock.get_elapsed_time())
+            now = time.time()
+            if frame_changed(frame, last_frame) or now - last_sent_time >= 1.0:
+                snapshot = await asyncio.to_thread(orch.get_snapshot)
+                await websocket.send_json(snapshot)
+                last_frame = frame
+                last_sent_time = now
+
+            await asyncio.sleep(0.1)
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        logger.exception("Comparison websocket failed")
         await close_after_stream_error(websocket)
     finally:
         live_session_var.reset(token)

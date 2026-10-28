@@ -385,10 +385,11 @@ export function ScenarioPlanningDashboard() {
     <div className="scenario-planning-dashboard">
       <header className="planning-header">
         <div className="planning-header-title">
-          <h1>Scenario Planning & Comparison</h1>
+          <p className="guided-eyebrow">Experiments</p>
+          <h1>Scenario planning</h1>
           <p>
-            Create baseline and intervention scenarios, run batch experiments,
-            and compare data-driven KPIs.
+            Set up a baseline and the interventions you are considering, run
+            them as one batch on matched seeds, and compare their measures.
           </p>
         </div>
         <div className="planning-header-actions">
@@ -400,7 +401,7 @@ export function ScenarioPlanningDashboard() {
             }}
           >
             <FolderOpen size={16} aria-hidden="true" />
-            Saved Experiments ({savedSuites.length})
+            Saved experiments ({savedSuites.length})
           </button>
           <button
             type="button"
@@ -420,7 +421,7 @@ export function ScenarioPlanningDashboard() {
             disabled={!results.length}
           >
             <Save size={16} aria-hidden="true" />
-            Save Experiment
+            Save experiment
           </button>
           <button
             type="button"
@@ -431,7 +432,7 @@ export function ScenarioPlanningDashboard() {
             disabled={running}
           >
             <Play size={16} aria-hidden="true" />
-            {running ? "Running Experiment…" : "Run Batch Experiment"}
+            {running ? "Running the batch…" : "Run batch experiment"}
           </button>
         </div>
       </header>
@@ -453,25 +454,17 @@ export function ScenarioPlanningDashboard() {
       <section className="planning-card">
         <div className="planning-card-header">
           <h2 className="planning-card-title">
-            Configure Scenarios ({scenarios.length})
+            Configure scenarios ({scenarios.length})
           </h2>
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            <label
-              style={{
-                fontSize: "0.85rem",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.4rem",
-              }}
-            >
-              Seeds per scenario:
+          <div className="planning-card-tools">
+            <label className="planning-inline-field">
+              Seeds per scenario
               <select
                 value={seedsCount}
                 onChange={(e) => {
                   setSeedsCount(Number(e.target.value));
                 }}
                 disabled={running}
-                style={{ padding: "0.2rem 0.5rem", borderRadius: "4px" }}
               >
                 <option value={1}>1 (Fast)</option>
                 <option value={3}>3 (Balanced)</option>

@@ -11,10 +11,7 @@ import { AdaptiveSignalStatus } from "./components/AdaptiveSignalStatus";
 import { MeteredRoundaboutStatus } from "./components/MeteredRoundaboutStatus";
 import { VehicleLegend } from "./components/VehicleLegend";
 import { MetricsSidebar } from "./components/MetricsSidebar";
-import {
-  ComparativeDashboard,
-  ComparisonPanel,
-} from "./components/ComparativeDashboard";
+import { ComparativeDashboard } from "./components/ComparativeDashboard";
 import { PlaybackControls } from "./components/PlaybackControls";
 import type { SavedReplay } from "./components/HistoryDashboard";
 import { ConfigurationSidebar } from "./components/ConfigurationSidebar";
@@ -23,19 +20,26 @@ import {
   ScenarioSetup,
   type GuidedRunRequest,
 } from "./components/guided/ScenarioSetup";
-import { LiveGuide } from "./components/guided/LiveGuide";
-import { ResultsReport } from "./components/guided/ResultsReport";
-import { ComparisonMaps } from "./components/guided/ComparisonMaps";
+import { LiveComparison, StrategyMaps } from "./components/guided/StrategyLive";
+import { StrategyResults } from "./components/guided/StrategyResults";
 import {
-  contextsOf,
+  asSignalRoundaboutPair,
+  hasComparisonResults,
+  savedComparison,
   sessionRunFrom,
+  strategyRuns,
   type SessionRun,
 } from "./components/guided/comparisonRun";
 import { StepNav, type GuidedStage } from "./components/guided/StepNav";
 import "./components/guided/Guided.css";
 import { ConfigToggle } from "./components/shell/ConfigToggle";
 import { LoginDialog } from "./components/shell/LoginDialog";
-import { MainNav, PlanNav, ResearchNav } from "./components/shell/Navigation";
+import {
+  MainNav,
+  RelatedTools,
+  SectionNav,
+  UtilityNav,
+} from "./components/shell/Navigation";
 import { NotFound } from "./components/shell/NotFound";
 import {
   SIMULATION_VIEWS,
@@ -58,30 +62,24 @@ import { UrbanFlowLockup } from "./components/ui/UrbanFlowLogo";
 import { PageTransition } from "./components/ui/PageTransition";
 import { UrbanFlowLoader } from "./components/ui/Loader";
 import type { SimulationConfigValues } from "./types/config";
-import {
-  DEFAULT_CONFIG_VALUES,
-  dashboardPayload,
-  sameConfigValues,
-} from "./types/config";
+import { DEFAULT_CONFIG_VALUES, sameConfigValues } from "./types/config";
 import {
   saveReplay,
   setSimulationSpeed,
-  setDualSimulationSpeed,
-  createSuite,
-  enqueueSuiteBatch,
+  setComparisonSpeed,
 } from "./services/api";
 import { approachLanes } from "./scenario/scenarioModel";
-import { isMeteredEntry } from "./scenario/scenarioTypes";
-import { hasResults, sideSummary } from "./metrics/plainLanguage";
 import type {
+  ComparisonSnapshot,
   LiveSnapshot,
-  DualSnapshot,
   SimulationStatus,
 } from "./types/simulation";
 import {
   VIEW_ROUTES,
+  followLink,
   navigate,
   resolveRoute,
+  runPath,
   usePathname,
   type RoutedView,
 } from "./routing";
@@ -262,7 +260,7 @@ function Dashboard({
   const { toast, showToast } = useToast();
   const { isLight, toggleTheme } = useThemeMode();
 
-  const mode = viewMode === "comparative" ? "dual" : "single";
+  const mode = viewMode === "comparative" ? "comparison" : "single";
   const {
     snapshot,
     connectionStatus,
@@ -287,8 +285,11 @@ function Dashboard({
   // paused run keeps showing its final values (the backend keeps streaming
   // them), while a reset or reconfiguration shows the fresh run rather than
   // the previous run's numbers next to a reset map.
-  const dualSnapshot = snapshot && "signal" in snapshot ? snapshot : null;
-  const singleSnapshot = snapshot && !("signal" in snapshot) ? snapshot : null;
+  const comparisonSnapshot = snapshot && "runs" in snapshot ? snapshot : null;
+  const singleSnapshot =
+    snapshot && !("runs" in snapshot) && !("signal" in snapshot)
+      ? snapshot
+      : null;
 
   // Simulation configuration. The dashboard starts from the same values that
   // "Reset defaults" restores, with a fresh random seed.
@@ -306,7 +307,6 @@ function Dashboard({
     duration,
     randomSeed,
     lanesEastWest,
-    signalControl,
     scenario,
   } = configValues;
   const armLanes = approachLanes(configValues);
@@ -327,19 +327,25 @@ function Dashboard({
     showToast("Scenario applied — the simulation was reset with it.");
   };
 
-  // ── Guided comparison (the Compare section) ─────────────────────────────
+  // ── Guided comparison (the Simulate section) ────────────────────────────
   const [stage, setStage] = useState<GuidedStage>("setup");
   const [sessionRuns, setSessionRuns] = useState<SessionRun[]>([]);
+  // The strategy whose full live panel is open beside the maps.
+  const [inspected, setInspected] = useState<string | null>(null);
   const currentRunId = JSON.stringify(configValues);
-  const dualComplete = dualSnapshot?.signal.simulationStatus === "completed";
-  const liveResultsReady = (() => {
-    if (!dualSnapshot) return false;
-    const { signal, roundabout } = contextsOf(dualSnapshot);
-    return hasResults(sideSummary(signal), sideSummary(roundabout));
-  })();
+  const comparisonComplete =
+    comparisonSnapshot?.runs[0]?.snapshot.simulationStatus === "completed";
+  const liveResultsReady = hasComparisonResults(
+    strategyRuns(comparisonSnapshot),
+  );
   const currentRun =
-    dualSnapshot && liveResultsReady && !activeReplay
-      ? sessionRunFrom(currentRunId, configValues, dualSnapshot, dualComplete)
+    comparisonSnapshot && liveResultsReady && !activeReplay
+      ? sessionRunFrom(
+          currentRunId,
+          configValues,
+          comparisonSnapshot,
+          comparisonComplete,
+        )
       : null;
   const shownSessionRuns = [
     ...sessionRuns.filter((run) => run.id !== currentRunId),
@@ -354,34 +360,9 @@ function Dashboard({
     setSessionRuns((prev) => [...prev.filter((r) => r.id !== run.id), run]);
   };
 
-  const handleGuidedRun = ({ isBatch, ...next }: GuidedRunRequest) => {
-    if (isBatch) {
-      const payload = dashboardPayload(next, "fixed_time_signal");
-      const arrivalRates = [0.1, 0.2, 0.4, 0.8, 1.2];
-      createSuite({
-        name: `Batch Experiment - ${new Date().toLocaleTimeString()}`,
-        description: "Batch experiment generated from dashboard.",
-        run_ids: [],
-        config_variations: { arrivalRate: arrivalRates },
-      })
-        .then((suite) =>
-          enqueueSuiteBatch(suite.id, {
-            baseConfig: payload,
-            sweepParameters: { arrivalRate: arrivalRates },
-            numSeeds: 3,
-          }),
-        )
-        .then((res) => {
-          showToast(`Batch enqueued! Job ID: ${res.jobId}`);
-          navigate(VIEW_ROUTES.history);
-        })
-        .catch((e: unknown) => {
-          console.error(e);
-          showToast("Failed to enqueue batch experiment", "error");
-        });
-      return;
-    }
+  const handleGuidedRun = (next: GuidedRunRequest) => {
     recordCurrentRun();
+    setInspected(null);
     setActiveReplay(null);
     setStage("watch");
     if (sameConfigValues(next, configValues)) {
@@ -435,10 +416,10 @@ function Dashboard({
 
   const handleSpeedChange = (speed: number) => {
     setPlaybackSpeed(speed);
-    if (viewMode === "single") {
-      setSimulationSpeed(speed).catch(() => {});
+    if (viewMode === "comparative") {
+      setComparisonSpeed(speed).catch(() => {});
     } else {
-      setDualSimulationSpeed(speed).catch(() => {});
+      setSimulationSpeed(speed).catch(() => {});
     }
   };
 
@@ -455,18 +436,20 @@ function Dashboard({
   const playbackEnvelope =
     viewMode === "single"
       ? (singlePlaybackEnvelope as unknown as LiveSnapshot)
-      : dualSnapshot
+      : comparisonSnapshot?.runs[0]
         ? ({
-            timestamp: dualSnapshot.elapsed,
-            tick: dualSnapshot.tick,
-            samplingFrequency: dualSnapshot.signal.samplingFrequency,
-            simulationStatus: dualSnapshot.signal.simulationStatus,
+            timestamp: comparisonSnapshot.elapsed,
+            tick: comparisonSnapshot.tick,
+            samplingFrequency:
+              comparisonSnapshot.runs[0].snapshot.samplingFrequency,
+            simulationStatus:
+              comparisonSnapshot.runs[0].snapshot.simulationStatus,
           } as unknown as LiveSnapshot)
         : singleSnapshot;
 
   // A run can be saved once it has produced data and is not running.
   const liveTimestamp = isDual
-    ? (dualSnapshot?.elapsed ?? 0)
+    ? (comparisonSnapshot?.elapsed ?? 0)
     : (singleSnapshot?.timestamp ?? 0);
   const canSave =
     !activeIsPlaying && activeReplay === null && liveTimestamp > 0;
@@ -491,11 +474,17 @@ function Dashboard({
         traffic: { arrivalRate },
       };
 
+      // The server re-reads every metric from its engines when it can; these
+      // are its fallback, in the same per-strategy shape.
       let metricsToSave: Record<string, unknown> = {};
-      if (isDual && dualSnapshot) {
+      if (isDual && comparisonSnapshot) {
         metricsToSave = {
-          signal: dualSnapshot.signal.metrics,
-          roundabout: dualSnapshot.roundabout.metrics,
+          strategies: Object.fromEntries(
+            comparisonSnapshot.runs.map((r) => [
+              r.strategy,
+              r.snapshot.metrics,
+            ]),
+          ),
         };
       } else if (singleSnapshot) {
         metricsToSave = { ...singleSnapshot.metrics };
@@ -511,16 +500,19 @@ function Dashboard({
         name: `${label} · seed ${String(randomSeed)} · ${liveTimestamp.toFixed(0)} s`,
         config: configToSave,
         metrics: metricsToSave,
-        mode: isDual ? ("dual" as const) : ("single" as const),
+        mode: isDual ? ("comparison" as const) : ("single" as const),
       };
 
       saveReplay(payload)
         .then((saved: { runId?: string } | undefined) => {
           const runId = saved?.runId;
           showToast(
-            runId
-              ? `Run ${runId.slice(0, 8)} saved to History.`
-              : "Run saved to History.",
+            runId ? `Run ${runId.slice(0, 8)} saved.` : "Run saved.",
+            "success",
+            {
+              label: runId ? "Open saved run" : "Open Saved",
+              href: runId ? runPath(runId) : VIEW_ROUTES.history,
+            },
           );
         })
         .catch((e: unknown) => {
@@ -537,10 +529,15 @@ function Dashboard({
     setActiveReplay(replay);
     setConfigValues((prev) => configFromReplay(replay, prev));
 
-    const replayIsDual =
-      replay.metrics.signal !== undefined &&
-      replay.metrics.roundabout !== undefined;
-    if (replayIsDual) {
+    const comparison = savedComparison(
+      replay.metrics,
+      configFromReplay(replay, configValues),
+    );
+    if (comparison) {
+      setConfigValues((prev) => ({
+        ...configFromReplay(replay, prev),
+        strategies: comparison.runs.map((r) => r.strategy),
+      }));
       setStage("results");
       setViewMode("comparative");
     } else {
@@ -549,22 +546,23 @@ function Dashboard({
     }
   };
 
-  const replayDual: DualSnapshot | null =
-    activeReplay?.metrics.signal && activeReplay.metrics.roundabout
-      ? ({
-          signal: { metrics: activeReplay.metrics.signal },
-          roundabout: { metrics: activeReplay.metrics.roundabout },
-        } as unknown as DualSnapshot)
-      : null;
+  const replayComparison: ComparisonSnapshot | null = activeReplay
+    ? savedComparison(activeReplay.metrics, configValues)
+    : null;
   const replaySingle: LiveSnapshot | null =
     activeReplay && "averageWaitTime" in activeReplay.metrics
       ? ({ metrics: activeReplay.metrics } as unknown as LiveSnapshot)
       : null;
 
   const section = sectionOf(viewMode);
+  const related = <RelatedTools section={section} viewMode={viewMode} />;
   const isSingle = SINGLE_VIEWS.has(viewMode);
-  const guidedResultsAvailable = replayDual !== null || liveResultsReady;
-  const warmupSeconds = dualSnapshot?.signal.warmupTime ?? null;
+  const guidedResultsAvailable = replayComparison !== null || liveResultsReady;
+  const warmupSeconds =
+    comparisonSnapshot?.runs[0]?.snapshot.warmupTime ?? null;
+  const shownComparison = replayComparison ?? comparisonSnapshot;
+  // The signal-vs-roundabout charts read a pair; offered only for one.
+  const analyticsPair = asSignalRoundaboutPair(shownComparison);
 
   // Each page (and each guided step) enters with the shared transition.
   const pageKey = [
@@ -586,13 +584,14 @@ function Dashboard({
           </a>
         </div>
 
-        <MainNav
-          section={section}
-          requireAuth={requireAuth}
-          isAdmin={isAdmin}
-        />
+        <MainNav section={section} requireAuth={requireAuth} />
 
         <div className="header-right">
+          <UtilityNav
+            section={section}
+            requireAuth={requireAuth}
+            isAdmin={isAdmin}
+          />
           {isSingle && (
             <button
               type="button"
@@ -665,12 +664,22 @@ function Dashboard({
       </header>
 
       {/* ── Section sub-navigation ───────────────────────────────────── */}
-      {section === "research" && <ResearchNav viewMode={viewMode} />}
-      {section === "plan" && <PlanNav viewMode={viewMode} />}
-      {section === "compare" && (
+      {(section === "research" || section === "experiments") && (
+        <SectionNav
+          section={section}
+          viewMode={viewMode}
+          trail={page?.kind === "experiment" ? "Experiment" : undefined}
+        />
+      )}
+      {section === "simulate" && (
         <StepNav
           stage={stage}
           resultsAvailable={guidedResultsAvailable}
+          strategyCount={
+            comparisonSnapshot?.runs.length ??
+            configValues.strategies?.length ??
+            2
+          }
           onChange={(next) => {
             if (next !== "results") setActiveReplay(null);
             setStage(next);
@@ -736,7 +745,7 @@ function Dashboard({
               config={configValues}
               onRun={handleGuidedRun}
               runInProgress={
-                !activeReplay && liveTimestamp > 0 && !dualComplete
+                !activeReplay && liveTimestamp > 0 && !comparisonComplete
               }
             />
           </PageTransition>
@@ -745,17 +754,19 @@ function Dashboard({
             transitionKey={pageKey}
             className="app-main full-screen page-scroll"
           >
-            <ResultsReport
-              snapshot={replayDual ?? dualSnapshot}
+            <StrategyResults
+              snapshot={shownComparison}
               config={configValues}
-              replayName={replayDual ? (activeReplay?.name ?? null) : null}
-              complete={replayDual === null && dualComplete}
-              running={replayDual === null && activeIsPlaying}
-              warmupSeconds={replayDual ? null : warmupSeconds}
+              replayName={
+                replayComparison ? (activeReplay?.name ?? null) : null
+              }
+              complete={replayComparison === null && comparisonComplete}
+              running={replayComparison === null && activeIsPlaying}
+              warmupSeconds={replayComparison ? null : warmupSeconds}
               elapsedSeconds={
-                replayDual
+                replayComparison
                   ? (activeReplay?.config.simulation?.elapsed ?? null)
-                  : (dualSnapshot?.elapsed ?? null)
+                  : (comparisonSnapshot?.elapsed ?? null)
               }
               canSave={canSave}
               onSave={handleSaveHistory}
@@ -768,16 +779,22 @@ function Dashboard({
                 setStage("setup");
               }}
               onTryScenario={handleGuidedRun}
-              onOpenAnalytics={() => {
-                setShowAnalyticsModal(true);
-              }}
+              onOpenAnalytics={
+                analyticsPair
+                  ? () => {
+                      setShowAnalyticsModal(true);
+                    }
+                  : null
+              }
               sessionRuns={shownSessionRuns}
-              currentRunId={replayDual ? null : currentRunId}
+              currentRunId={replayComparison ? null : currentRunId}
             />
-            {showAnalyticsModal && (
+            {showAnalyticsModal && analyticsPair && (
               <ComparativeDashboard
-                snapshot={replayDual ?? dualSnapshot}
-                replayName={replayDual ? (activeReplay?.name ?? null) : null}
+                snapshot={analyticsPair}
+                replayName={
+                  replayComparison ? (activeReplay?.name ?? null) : null
+                }
                 onClose={() => {
                   setShowAnalyticsModal(false);
                 }}
@@ -790,47 +807,31 @@ function Dashboard({
             className="app-main comparison-layout"
           >
             <h1 className="sr-only">
-              Watch the traffic signal and the roundabout run side by side
+              Watch the chosen strategies run side by side
             </h1>
-            <ComparisonMaps
-              snapshot={dualSnapshot}
-              signalControl={signalControl}
+            <StrategyMaps
+              snapshot={comparisonSnapshot}
+              strategies={configValues.strategies ?? []}
               armLanes={armLanes}
               lanes={lanes}
               laneWidth={laneWidth}
               showStopLines={showStopLines}
               debug={debug}
+              inspected={inspected}
+              onInspect={setInspected}
             />
-            <LiveGuide
-              snapshot={dualSnapshot}
-              meteredEntry={scenario ? isMeteredEntry(scenario) : false}
+            <LiveComparison
+              snapshot={comparisonSnapshot}
+              strategies={configValues.strategies ?? []}
               durationSeconds={duration}
               connectionStatus={activeConnectionStatus}
               onSeeResults={() => {
                 setStage("results");
               }}
-              detailedPanel={
-                <ComparisonPanel
-                  snapshot={dualSnapshot}
-                  connectionStatus={activeConnectionStatus}
-                  replayName={null}
-                  canSave={canSave}
-                  onSave={handleSaveHistory}
-                  onOpenDetails={() => {
-                    setShowAnalyticsModal(true);
-                  }}
-                />
-              }
+              inspected={inspected}
+              onInspect={setInspected}
+              isRunning={activeIsPlaying}
             />
-            {showAnalyticsModal && (
-              <ComparativeDashboard
-                snapshot={dualSnapshot}
-                replayName={null}
-                onClose={() => {
-                  setShowAnalyticsModal(false);
-                }}
-              />
-            )}
           </PageTransition>
         )
       ) : viewMode === "history" ? (
@@ -867,6 +868,7 @@ function Dashboard({
           <Suspense fallback={viewLoading}>
             <VolumeAnalysisDashboard />
           </Suspense>
+          {related}
         </PageTransition>
       ) : viewMode === "validation" ? (
         <PageTransition
@@ -876,6 +878,7 @@ function Dashboard({
           <Suspense fallback={viewLoading}>
             <ValidationDashboard />
           </Suspense>
+          {related}
         </PageTransition>
       ) : viewMode === "junction" ? (
         <PageTransition
@@ -885,6 +888,7 @@ function Dashboard({
           <Suspense fallback={viewLoading}>
             <JunctionStudyPage />
           </Suspense>
+          {related}
         </PageTransition>
       ) : viewMode === "threeWay" ? (
         <PageTransition
@@ -894,6 +898,7 @@ function Dashboard({
           <Suspense fallback={viewLoading}>
             <ThreeWayStudyPage />
           </Suspense>
+          {related}
         </PageTransition>
       ) : viewMode === "scenarios" ? (
         <PageTransition
@@ -903,6 +908,7 @@ function Dashboard({
           <Suspense fallback={viewLoading}>
             <ScenarioPlanningDashboard />
           </Suspense>
+          {related}
         </PageTransition>
       ) : viewMode === "tokens" ? (
         <PageTransition
@@ -918,27 +924,36 @@ function Dashboard({
           transitionKey={pageKey}
           className="app-main full-screen page-scroll"
         >
-          <Suspense fallback={viewLoading}>
-            <StressLabPage />
-          </Suspense>
+          <div className="related-fit">
+            <Suspense fallback={viewLoading}>
+              <StressLabPage />
+            </Suspense>
+            {related}
+          </div>
         </PageTransition>
       ) : viewMode === "discovery" ? (
         <PageTransition
           transitionKey={pageKey}
           className="app-main full-screen page-scroll"
         >
-          <Suspense fallback={viewLoading}>
-            <DiscoveryPage />
-          </Suspense>
+          <div className="related-fit">
+            <Suspense fallback={viewLoading}>
+              <DiscoveryPage />
+            </Suspense>
+            {related}
+          </div>
         </PageTransition>
       ) : viewMode === "copilot" ? (
         <PageTransition
           transitionKey={pageKey}
           className="app-main full-screen page-scroll"
         >
-          <Suspense fallback={viewLoading}>
-            <CopilotPage />
-          </Suspense>
+          <div className="related-fit">
+            <Suspense fallback={viewLoading}>
+              <CopilotPage />
+            </Suspense>
+            {related}
+          </div>
         </PageTransition>
       ) : viewMode === "planner" ? (
         <PageTransition
@@ -955,6 +970,7 @@ function Dashboard({
               <PlannerPage />
             )}
           </Suspense>
+          {page?.kind !== "experiment" && related}
         </PageTransition>
       ) : viewMode === "admin" ? (
         <PageTransition
@@ -1022,11 +1038,11 @@ function Dashboard({
                   disabled={!canSave}
                   title={
                     canSave
-                      ? "Save this run to History"
+                      ? "Keep this run under Saved"
                       : "Pause or finish the run (after it has started) to save it"
                   }
                 >
-                  Save to History
+                  Save run
                 </button>
               </div>
             )}
@@ -1070,6 +1086,17 @@ function Dashboard({
               <CircleCheck size={17} aria-hidden="true" />
             )}
             {toast.message}
+            {toast.action && (
+              <a
+                className="toast-action"
+                href={toast.action.href}
+                onClick={(event) => {
+                  if (toast.action) followLink(event, toast.action.href);
+                }}
+              >
+                {toast.action.label}
+              </a>
+            )}
           </div>
         )}
       </div>

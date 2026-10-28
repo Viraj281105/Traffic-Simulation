@@ -995,6 +995,18 @@ body {
 .toast-notification.is-error svg {
   color: var(--color-danger);
 }
+/* A link offered with the message (the page of a run just saved). The
+   region ignores the pointer so the toast never blocks the page; the link
+   takes it back. */
+.toast-action {
+  pointer-events: auto;
+  margin-left: 4px;
+  color: var(--color-accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
 @keyframes uf-toast-in {
   from {
     opacity: 0;

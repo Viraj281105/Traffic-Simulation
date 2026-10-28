@@ -71,5 +71,17 @@ vi.mock("recharts", () => {
     Legend: () => React.createElement("div", { className: "recharts-legend" }),
     ReferenceLine: () =>
       React.createElement("div", { className: "recharts-reference-line" }),
+    PieChart: ({ children }: { children: React.ReactNode }) =>
+      React.createElement("div", { className: "recharts-pie-chart" }, children),
+    Pie: () => React.createElement("div", { className: "recharts-pie" }),
+    ScatterChart: ({ children }: { children: React.ReactNode }) =>
+      React.createElement(
+        "div",
+        { className: "recharts-scatter-chart" },
+        children,
+      ),
+    Scatter: () =>
+      React.createElement("div", { className: "recharts-scatter" }),
+    ZAxis: () => React.createElement("div", { className: "recharts-zaxis" }),
   };
 });

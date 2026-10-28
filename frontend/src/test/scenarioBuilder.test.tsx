@@ -350,8 +350,24 @@ describe("per-approach results", () => {
     render(
       <ApproachResults
         scenario={doc}
-        signal={side(31.2)}
-        roundabout={side(18.4)}
+        columns={[
+          {
+            strategy: {
+              id: "fixed_time_signal",
+              name: "Fixed-time signal",
+              color: "var(--series-fixed)",
+            },
+            breakdown: side(31.2),
+          },
+          {
+            strategy: {
+              id: "conventional_roundabout",
+              name: "Roundabout",
+              color: "var(--series-conventional)",
+            },
+            breakdown: side(18.4),
+          },
+        ]}
       />,
     );
     const north = screen.getByRole("row", { name: /North/ });
