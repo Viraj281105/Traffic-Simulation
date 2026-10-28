@@ -100,9 +100,7 @@ def _reproduce_dual(run_config: Dict[str, Any], steps: int) -> Dict[str, Any]:
     }
 
 
-def _reproduce_comparison(
-    run_config: Dict[str, Any], steps: int
-) -> Dict[str, Any]:
+def _reproduce_comparison(run_config: Dict[str, Any], steps: int) -> Dict[str, Any]:
     """Re-runs a comparison of chosen strategies headlessly through the same
     orchestrator the live comparison uses; each strategy's final metrics."""
     strategies = (run_config.get("comparison") or {}).get("strategies")

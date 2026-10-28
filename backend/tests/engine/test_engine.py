@@ -240,7 +240,9 @@ def test_dual_stop_racing_the_next_tick_is_not_reported_as_an_error(
         # stop() joins the loop thread; called from that thread it must not.
         orch.stop()
 
-    monkeypatch.setattr(lockstep_module, "time", _StopOnFirstClockRead(stop_without_join))
+    monkeypatch.setattr(
+        lockstep_module, "time", _StopOnFirstClockRead(stop_without_join)
+    )
 
     orch.start()
     assert orch._thread is not None

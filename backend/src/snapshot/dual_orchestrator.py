@@ -83,9 +83,7 @@ def signal_and_roundabout_configs(
         "entrySpeed": _ring_value("entrySpeed", 5.0),
         "circulatingSpeed": _ring_value("circulatingSpeed", 8.0),
     }
-    if (config_roundabout.get("geometry") or {}).get(
-        "circulatingLanes"
-    ) is not None:
+    if (config_roundabout.get("geometry") or {}).get("circulatingLanes") is not None:
         # The ring lane count is set where V1.4 reads it; the reserved,
         # inert V1.0 field would only contradict it.
         del config_roundabout["controller"]["circulatingLanes"]
@@ -96,9 +94,7 @@ def signal_and_roundabout_configs(
     for key in ("entryControl", "entryMetering"):
         for section in (round_ctrl, source_ctrl):
             if isinstance(section, dict) and section.get(key) is not None:
-                config_roundabout["controller"][key] = copy.deepcopy(
-                    section[key]
-                )
+                config_roundabout["controller"][key] = copy.deepcopy(section[key])
                 break
 
     return config_signal, config_roundabout

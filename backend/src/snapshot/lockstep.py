@@ -27,9 +27,11 @@ from src.snapshot.builder import SnapshotBuilder
 logger = logging.getLogger(__name__)
 
 
-def resolve_shared_seed(config: Dict[str, Any], what: str) -> int:
+def resolve_shared_seed(config: Dict[str, Any], what: str) -> Any:
     """The seed every run of a comparison shares, drawing (and recording in
-    ``config``) a fresh one when the scenario sets none."""
+    ``config``) a fresh one when the scenario sets none. A configured seed is
+    passed through as the scenario gave it, exactly as the dual orchestrator
+    always did."""
     seed = config.get("simulation", {}).get("randomSeed")
     if seed is None:
         # Never fall back to the shared global `random` module (see
@@ -143,8 +145,7 @@ class LockstepOrchestrator:
 
             with self._lock:
                 if all(
-                    run.engine.status == SimulationStatus.COMPLETED
-                    for run in self.runs
+                    run.engine.status == SimulationStatus.COMPLETED for run in self.runs
                 ):
                     break
 

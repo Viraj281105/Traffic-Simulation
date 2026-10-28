@@ -28,9 +28,7 @@ def _approaches(config: Dict[str, Any]) -> List[str]:
     the dashboard's symmetric four-arm junction."""
     declared = (config.get("roads") or {}).get("approaches")
     if isinstance(declared, list):
-        names = {
-            item.get("direction") for item in declared if isinstance(item, dict)
-        }
+        names = {item.get("direction") for item in declared if isinstance(item, dict)}
         present = [a for a in APPROACH_ORDER if a in names]
         if present:
             return present
@@ -92,7 +90,9 @@ def _metered(roundabout: Dict[str, Any], source: Dict[str, Any]) -> None:
 # How each live-comparable strategy is derived: which of the two base
 # configurations it starts from, and the setting that makes it that strategy.
 # A strategy is offered in the live comparison exactly when it is listed here.
-_DERIVATIONS: Dict[str, tuple[str, Callable[[Dict[str, Any], Dict[str, Any]], None]]] = {
+_DERIVATIONS: Dict[
+    str, tuple[str, Callable[[Dict[str, Any], Dict[str, Any]], None]]
+] = {
     "fixed_time_signal": ("signal", _fixed_time),
     "adaptive_signal": ("signal", _adaptive),
     "conventional_roundabout": ("roundabout", _conventional),
