@@ -23,6 +23,7 @@ from src.engine.readout import engine_metrics
 from src.engine.simulation_engine import SimulationEngine
 from src.metrics.collector import MetricCollector
 from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
+from src.snapshot.strategy_comparison import StrategyComparisonOrchestrator
 from src.study.limits import MAX_STUDY_DURATION_SECONDS
 
 
@@ -96,6 +97,25 @@ def _reproduce_dual(run_config: Dict[str, Any], steps: int) -> Dict[str, Any]:
         "roundabout": dict(
             engine_metrics(orch.engine_roundabout, orch.collector_roundabout)
         ),
+    }
+
+
+def _reproduce_comparison(
+    run_config: Dict[str, Any], steps: int
+) -> Dict[str, Any]:
+    """Re-runs a comparison of chosen strategies headlessly through the same
+    orchestrator the live comparison uses; each strategy's final metrics."""
+    strategies = (run_config.get("comparison") or {}).get("strategies")
+    orch = StrategyComparisonOrchestrator(run_config, strategies or [])
+    for _ in range(steps):
+        if orch.runs[0].engine.status == SimulationStatus.COMPLETED:
+            break
+        orch.step()
+    return {
+        "strategies": {
+            run.key: dict(engine_metrics(run.engine, run.collector))
+            for run in orch.runs
+        }
     }
 
 
@@ -190,6 +210,14 @@ def reproduce_run(run: Dict[str, Any]) -> Dict[str, Any]:
             f"Run '{run_id}' is a comparison but has no per-geometry "
             "metrics to compare against."
         )
+    if mode == "comparison" and not (
+        isinstance(original_metrics.get("strategies"), dict)
+        and isinstance((config.get("comparison") or {}).get("strategies"), list)
+    ):
+        raise ReproductionError(
+            f"Run '{run_id}' is a strategy comparison but has no per-strategy "
+            "metrics or strategy list to compare against."
+        )
 
     random_seed = run.get("random_seed", 0)
     timing = (provenance or {}).get("timing") or {}
@@ -238,7 +266,20 @@ def reproduce_run(run: Dict[str, Any]) -> Dict[str, Any]:
 
     compared: list[str] = []
     discrepancies: list[str] = []
-    if mode == "dual":
+    if mode == "comparison":
+        try:
+            reproduced_metrics = _reproduce_comparison(run_config, steps)
+        except ValueError as err:
+            raise ReproductionError(f"Run '{run_id}' cannot be re-run: {err}")
+        for strategy_id, original in original_metrics["strategies"].items():
+            reproduced = reproduced_metrics["strategies"].get(strategy_id)
+            if not isinstance(original, dict) or reproduced is None:
+                discrepancies.append(f"{strategy_id}: not reproduced")
+                continue
+            c, d = _compare_key_metrics(original, reproduced, f"{strategy_id}.")
+            compared += c
+            discrepancies += d
+    elif mode == "dual":
         reproduced_metrics = _reproduce_dual(run_config, steps)
         for side in ("signal", "roundabout"):
             c, d = _compare_key_metrics(

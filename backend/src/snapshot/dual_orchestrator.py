@@ -1,338 +1,177 @@
 import copy
 import json
 import logging
-import random
-import threading
-import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Tuple
 
-from src.controllers.factory import create_controller
-from src.core.clock import Clock
 from src.core.config_models import DEFAULT_PHASE_SEQUENCE
-from src.core.enums import SimulationStatus
-from src.engine.simulation_engine import SimulationEngine
-from src.engine.tick_callback import build_tick_callback
-from src.metrics.collector import MetricCollector
-from src.snapshot.builder import SnapshotBuilder
+from src.snapshot.lockstep import (
+    LockstepOrchestrator,
+    LockstepRun,
+    resolve_shared_seed,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class DualSimulationOrchestrator:
+def signal_and_roundabout_configs(
+    config: Dict[str, Any],
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """The signal and roundabout engine configurations derived from one live
+    scenario configuration (seed not yet applied). The signal keeps the
+    scenario's signal control (fixed-time or adaptive); the roundabout keeps
+    its entry control (conventional or metered)."""
+    # Make deep copies of the configuration for both instances
+    config_signal = json.loads(json.dumps(config))
+    config_signal["geometry"] = config_signal.get("geometry", {})
+    config_signal["geometry"]["intersectionType"] = "fixed_time_signal"
+
+    config_roundabout = json.loads(json.dumps(config))
+    config_roundabout["geometry"] = config_roundabout.get("geometry", {})
+    config_roundabout["geometry"]["intersectionType"] = "roundabout"
+
+    # ── Inject proper controller configs for each mode ──────────────
+    # Signal controller needs signal timing parameters. When the source
+    # config carries none (the live dashboard was set to "roundabout", so
+    # its controller block holds ring parameters), the signal side gets the
+    # canonical signal defaults: the paired NS/EW phaseSequence and
+    # FixedTimeSignalController's own 30/5/4/2 s fallbacks.
+    #
+    # It used to get 15 s greens, a 3 s yellow and no phaseSequence — the
+    # one-direction-at-a-time cycle — so the "same" signal in the dual
+    # comparison ran a 100 s one-way cycle or a 72 s paired cycle
+    # depending only on which geometry the dashboard happened to have
+    # selected.
+    signal_ctrl = config_signal.get("controller") or {}
+    if not any(
+        key in signal_ctrl
+        for key in ("straightRightDuration", "greenDuration", "greenTime")
+    ):
+        # How the signal times its greens (V1.3) is not a timing value;
+        # it is kept so an adaptive comparison stays adaptive.
+        signal_ctrl = {
+            "phaseSequence": list(DEFAULT_PHASE_SEQUENCE),
+            **{
+                key: signal_ctrl[key]
+                for key in ("signalControl", "adaptive")
+                if key in signal_ctrl
+            },
+        }
+    config_signal["controller"] = signal_ctrl
+
+    # Roundabout controller needs gap-acceptance / geometry parameters
+    #
+    # V1.4: the ring's design (radii, entry and circulating speed) is
+    # carried over from the source config when it sets it. These used to
+    # be replaced by fixed values whatever the scenario said, so a study
+    # of a larger or faster roundabout silently ran the default one. A
+    # config that does not set them gets exactly the old values.
+    round_ctrl = config.get("roundaboutController", config.get("controller", {}))
+    source_ctrl = config.get("controller") or {}
+
+    def _ring_value(key: str, default: float) -> float:
+        for section in (round_ctrl, source_ctrl):
+            if isinstance(section, dict) and section.get(key) is not None:
+                return float(section[key])
+        return default
+
+    config_roundabout["controller"] = {
+        "innerRadius": _ring_value("innerRadius", 10.0),
+        "outerRadius": _ring_value("outerRadius", 20.0),
+        "circulatingLanes": 1,
+        "criticalGap": float(round_ctrl.get("criticalGap", 4.0)),
+        "followUpTime": float(round_ctrl.get("followUpTime", 2.5)),
+        "entrySpeed": _ring_value("entrySpeed", 5.0),
+        "circulatingSpeed": _ring_value("circulatingSpeed", 8.0),
+    }
+    if (config_roundabout.get("geometry") or {}).get(
+        "circulatingLanes"
+    ) is not None:
+        # The ring lane count is set where V1.4 reads it; the reserved,
+        # inert V1.0 field would only contradict it.
+        del config_roundabout["controller"]["circulatingLanes"]
+
+    # V3.0 W2 (H12): carry entryControl and entryMetering across when
+    # configured, reading from roundaboutController falling back to
+    # controller. An absent field leaves the section untouched.
+    for key in ("entryControl", "entryMetering"):
+        for section in (round_ctrl, source_ctrl):
+            if isinstance(section, dict) and section.get(key) is not None:
+                config_roundabout["controller"][key] = copy.deepcopy(
+                    section[key]
+                )
+                break
+
+    return config_signal, config_roundabout
+
+
+class DualSimulationOrchestrator(LockstepOrchestrator):
     """Orchestrates two parallel simulations (Fixed-Time Signal and Roundabout) in lockstep with matching random seeds."""
 
     def __init__(self, config: Dict[str, Any]) -> None:
         self.config = config
-        self.speed_multiplier = 1.0
-
-        # Make deep copies of the configuration for both instances
-        self.config_signal = json.loads(json.dumps(config))
-        self.config_signal["geometry"] = self.config_signal.get("geometry", {})
-        self.config_signal["geometry"]["intersectionType"] = "fixed_time_signal"
-
-        self.config_roundabout = json.loads(json.dumps(config))
-        self.config_roundabout["geometry"] = self.config_roundabout.get("geometry", {})
-        self.config_roundabout["geometry"]["intersectionType"] = "roundabout"
-
-        # ── Inject proper controller configs for each mode ──────────────
-        # Signal controller needs signal timing parameters. When the source
-        # config carries none (the live dashboard was set to "roundabout", so
-        # its controller block holds ring parameters), the signal side gets the
-        # canonical signal defaults: the paired NS/EW phaseSequence and
-        # FixedTimeSignalController's own 30/5/4/2 s fallbacks.
-        #
-        # It used to get 15 s greens, a 3 s yellow and no phaseSequence — the
-        # one-direction-at-a-time cycle — so the "same" signal in the dual
-        # comparison ran a 100 s one-way cycle or a 72 s paired cycle
-        # depending only on which geometry the dashboard happened to have
-        # selected.
-        signal_ctrl = self.config_signal.get("controller") or {}
-        if not any(
-            key in signal_ctrl
-            for key in ("straightRightDuration", "greenDuration", "greenTime")
-        ):
-            # How the signal times its greens (V1.3) is not a timing value;
-            # it is kept so an adaptive comparison stays adaptive.
-            signal_ctrl = {
-                "phaseSequence": list(DEFAULT_PHASE_SEQUENCE),
-                **{
-                    key: signal_ctrl[key]
-                    for key in ("signalControl", "adaptive")
-                    if key in signal_ctrl
-                },
-            }
-        self.config_signal["controller"] = signal_ctrl
-
-        # Roundabout controller needs gap-acceptance / geometry parameters
-        #
-        # V1.4: the ring's design (radii, entry and circulating speed) is
-        # carried over from the source config when it sets it. These used to
-        # be replaced by fixed values whatever the scenario said, so a study
-        # of a larger or faster roundabout silently ran the default one. A
-        # config that does not set them gets exactly the old values.
-        round_ctrl = config.get("roundaboutController", config.get("controller", {}))
-        source_ctrl = config.get("controller") or {}
-
-        def _ring_value(key: str, default: float) -> float:
-            for section in (round_ctrl, source_ctrl):
-                if isinstance(section, dict) and section.get(key) is not None:
-                    return float(section[key])
-            return default
-
-        self.config_roundabout["controller"] = {
-            "innerRadius": _ring_value("innerRadius", 10.0),
-            "outerRadius": _ring_value("outerRadius", 20.0),
-            "circulatingLanes": 1,
-            "criticalGap": float(round_ctrl.get("criticalGap", 4.0)),
-            "followUpTime": float(round_ctrl.get("followUpTime", 2.5)),
-            "entrySpeed": _ring_value("entrySpeed", 5.0),
-            "circulatingSpeed": _ring_value("circulatingSpeed", 8.0),
-        }
-        if (self.config_roundabout.get("geometry") or {}).get(
-            "circulatingLanes"
-        ) is not None:
-            # The ring lane count is set where V1.4 reads it; the reserved,
-            # inert V1.0 field would only contradict it.
-            del self.config_roundabout["controller"]["circulatingLanes"]
-
-        # V3.0 W2 (H12): carry entryControl and entryMetering across when
-        # configured, reading from roundaboutController falling back to
-        # controller. An absent field leaves the section untouched.
-        for key in ("entryControl", "entryMetering"):
-            for section in (round_ctrl, source_ctrl):
-                if isinstance(section, dict) and section.get(key) is not None:
-                    self.config_roundabout["controller"][key] = copy.deepcopy(
-                        section[key]
-                    )
-                    break
-
+        config_signal, config_roundabout = signal_and_roundabout_configs(config)
         # Propagate random seed to align spawn sequences for fair comparison
-        seed = config.get("simulation", {}).get("randomSeed")
-        if seed is None:
-            # Never fall back to the shared global `random` module (see
-            # vehicles/spawner.py for the same fix and rationale). Use a
-            # private, independently OS-seeded instance instead, and log
-            # the fallback so it is never silent.
-            seed = random.Random().randint(1, 10_000_000)
-            logger.warning(
-                "No simulation.randomSeed configured for dual simulation; "
-                "generated seed=%d for this comparison run. Pass "
-                "randomSeed explicitly for reproducible comparisons.",
-                seed,
-            )
-            if "simulation" not in self.config:
-                self.config["simulation"] = {}
-            self.config["simulation"]["randomSeed"] = seed
-
-        if "simulation" not in self.config_signal:
-            self.config_signal["simulation"] = {}
-        if "simulation" not in self.config_roundabout:
-            self.config_roundabout["simulation"] = {}
-        self.config_signal["simulation"]["randomSeed"] = seed
-        self.config_roundabout["simulation"]["randomSeed"] = seed
-
-        # Both engines step with the configured time step. This used to be a
-        # hard-coded 0.1 s, so the sweep and Monte-Carlo dashboards' Δt
-        # choice (0.05 / 0.1 / 0.2 s, shown next to their results) was
-        # silently ignored, and a reproduction of a run recorded at another
-        # time step could not honour it either.
-        time_step = float(config.get("simulation", {}).get("timeStep", 0.1))
-
-        # ── Build Signal Simulation ─────────────────────────────────────
-        self.clock_signal = Clock(time_step=time_step)
-        duration = config.get("simulation", {}).get("duration", 300)
-        self.engine_signal = SimulationEngine(
-            self.clock_signal, duration=duration, config=self.config_signal
-        )
-        self.controller_signal = create_controller(
-            self.config_signal, self.engine_signal.network
+        seed = resolve_shared_seed(self.config, "dual simulation")
+        for derived in (config_signal, config_roundabout):
+            derived.setdefault("simulation", {})["randomSeed"] = seed
+        self.config_signal = config_signal
+        self.config_roundabout = config_roundabout
+        super().__init__(
+            [
+                ("signal", config_signal, "dual_signal"),
+                ("roundabout", config_roundabout, "dual_roundabout"),
+            ]
         )
 
-        # CRITICAL: Assign controller to engine so engine.step() calls
-        # controller.update() BEFORE vehicle physics (zero-latency response)
-        self.engine_signal.controller = self.controller_signal
+    # The two runs under the names the live API, captures, reproduction and
+    # studies have always read.
+    @property
+    def _signal(self) -> LockstepRun:
+        return self.runs[0]
 
-        self.collector_signal = MetricCollector(self.config_signal)
-        self.builder_signal = SnapshotBuilder(
-            "dual_signal",
-            "dual_cfg",
-            self.engine_signal,
-            self.collector_signal,
-            self.controller_signal,
-        )
+    @property
+    def _roundabout(self) -> LockstepRun:
+        return self.runs[1]
 
-        self.engine_signal.register_tick_callback(
-            build_tick_callback(
-                self.controller_signal,
-                self.clock_signal,
-                self.engine_signal,
-                self.collector_signal,
-            )
-        )
+    @property
+    def clock_signal(self) -> Any:
+        return self._signal.clock
 
-        # ── Build Roundabout Simulation ─────────────────────────────────
-        self.clock_roundabout = Clock(time_step=time_step)
-        self.engine_roundabout = SimulationEngine(
-            self.clock_roundabout, duration=duration, config=self.config_roundabout
-        )
-        self.controller_roundabout = create_controller(
-            self.config_roundabout, self.engine_roundabout.network
-        )
+    @property
+    def engine_signal(self) -> Any:
+        return self._signal.engine
 
-        # CRITICAL: Assign controller to engine so engine.step() calls
-        # controller.update() BEFORE vehicle physics (zero-latency yield response)
-        self.engine_roundabout.controller = self.controller_roundabout
+    @property
+    def controller_signal(self) -> Any:
+        return self._signal.controller
 
-        self.collector_roundabout = MetricCollector(self.config_roundabout)
-        self.builder_roundabout = SnapshotBuilder(
-            "dual_roundabout",
-            "dual_cfg",
-            self.engine_roundabout,
-            self.collector_roundabout,
-            self.controller_roundabout,
-        )
+    @property
+    def collector_signal(self) -> Any:
+        return self._signal.collector
 
-        self.engine_roundabout.register_tick_callback(
-            build_tick_callback(
-                self.controller_roundabout,
-                self.clock_roundabout,
-                self.engine_roundabout,
-                self.collector_roundabout,
-            )
-        )
+    @property
+    def builder_signal(self) -> Any:
+        return self._signal.builder
 
-        # ── Thread synchronization primitives for lockstep execution ────
-        self._thread: Optional[threading.Thread] = None
-        self._stop_event: threading.Event = threading.Event()
-        self._lock: threading.Lock = threading.Lock()
+    @property
+    def clock_roundabout(self) -> Any:
+        return self._roundabout.clock
 
-    def start(self) -> None:
-        with self._lock:
-            if self.engine_signal.status == SimulationStatus.RUNNING:
-                return
-            if self.engine_signal.status == SimulationStatus.PAUSED:
-                self.resume()
-                return
+    @property
+    def engine_roundabout(self) -> Any:
+        return self._roundabout.engine
 
-            self.engine_signal._transition_to(SimulationStatus.RUNNING)
-            self.engine_roundabout._transition_to(SimulationStatus.RUNNING)
-            self._stop_event.clear()
-            self._thread = threading.Thread(target=self._run_loop, daemon=True)
-            self._thread.start()
+    @property
+    def controller_roundabout(self) -> Any:
+        return self._roundabout.controller
 
-    def _run_loop(self) -> None:
-        while not self._stop_event.is_set():
-            start_time = time.time()
+    @property
+    def collector_roundabout(self) -> Any:
+        return self._roundabout.collector
 
-            try:
-                # Check and tick under one lock hold, as SimulationEngine's own
-                # loop does: a stop() between the two used to make step() raise
-                # on COMPLETED engines, which was then reported as ERROR.
-                with self._lock:
-                    if (
-                        self.engine_signal.status != SimulationStatus.RUNNING
-                        or self.engine_roundabout.status != SimulationStatus.RUNNING
-                    ):
-                        break
-                    self.step()
-            except Exception:
-                logger.exception("Error in dual simulation step")
-                with self._lock:
-                    self.engine_signal._transition_to(SimulationStatus.ERROR)
-                    self.engine_roundabout._transition_to(SimulationStatus.ERROR)
-                break
-
-            with self._lock:
-                sig_status: Any = self.engine_signal.status
-                round_status: Any = self.engine_roundabout.status
-                if (
-                    sig_status == SimulationStatus.COMPLETED
-                    and round_status == SimulationStatus.COMPLETED
-                ):
-                    break
-
-            elapsed = time.time() - start_time
-            target_sleep = self.clock_signal.time_step / (
-                self.engine_signal.config.get("simulation", {}).get("timeScale", 1.0)
-                * self.speed_multiplier
-            )
-            sleep_time = max(0.0, target_sleep - elapsed)
-            time.sleep(sleep_time)
-
-    def resume(self) -> None:
-        thread_to_join: Optional[threading.Thread] = None
-        with self._lock:
-            if self.engine_signal.status != SimulationStatus.PAUSED:
-                return
-            thread_to_join = self._thread
-
-        if (
-            thread_to_join is not None
-            and thread_to_join is not threading.current_thread()
-        ):
-            thread_to_join.join()
-
-        with self._lock:
-            if self.engine_signal.status == SimulationStatus.PAUSED:
-                self.engine_signal._transition_to(SimulationStatus.RUNNING)
-                self.engine_roundabout._transition_to(SimulationStatus.RUNNING)
-                self._stop_event.clear()
-                self._thread = threading.Thread(target=self._run_loop, daemon=True)
-                self._thread.start()
-
-    def pause(self) -> None:
-        with self._lock:
-            if self.engine_signal.status == SimulationStatus.RUNNING:
-                self._stop_event.set()
-                self.engine_signal._transition_to(SimulationStatus.PAUSED)
-                self.engine_roundabout._transition_to(SimulationStatus.PAUSED)
-
-    def stop(self) -> None:
-        thread_to_join: Optional[threading.Thread] = None
-        with self._lock:
-            self._stop_event.set()
-            thread_to_join = self._thread
-            self.engine_signal._transition_to(SimulationStatus.COMPLETED)
-            self.engine_roundabout._transition_to(SimulationStatus.COMPLETED)
-
-        if (
-            thread_to_join is not None
-            and thread_to_join is not threading.current_thread()
-        ):
-            thread_to_join.join()
-
-    def reset(self) -> None:
-        thread_to_join: Optional[threading.Thread] = None
-        with self._lock:
-            self._stop_event.set()
-            thread_to_join = self._thread
-
-        if (
-            thread_to_join is not None
-            and thread_to_join is not threading.current_thread()
-        ):
-            thread_to_join.join()
-
-        with self._lock:
-            self.engine_signal.reset()
-            self.engine_roundabout.reset()
-
-    def step(self) -> None:
-        self.engine_signal.step()
-        self.engine_roundabout.step()
-
-    def get_status(self) -> str:
-        if (
-            self.engine_signal.status == SimulationStatus.ERROR
-            or self.engine_roundabout.status == SimulationStatus.ERROR
-        ):
-            return "error"
-        if (
-            self.engine_signal.status == SimulationStatus.COMPLETED
-            and self.engine_roundabout.status == SimulationStatus.COMPLETED
-        ):
-            return "completed"
-        return str(self.engine_signal.status.value).lower()
+    @property
+    def builder_roundabout(self) -> Any:
+        return self._roundabout.builder
 
     def get_dual_snapshot(self) -> Dict[str, Any]:
         return {
