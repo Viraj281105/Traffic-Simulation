@@ -26,13 +26,14 @@ from typing import Any, Dict, List, Tuple
 
 import pytest
 
-from src.controllers.factory import build_tick_callback, create_controller
+from src.controllers.factory import create_controller
 from src.core.clock import Clock
-from src.core.engine import SimulationEngine
 from src.core.enums import Direction, TurnIntent
-from src.core.scenario import compile_scenario, parse_scenario, validate_scenario
+from src.engine.simulation_engine import SimulationEngine
+from src.engine.tick_callback import build_tick_callback
 from src.metrics.collector import MetricCollector
 from src.roads.lane_config import target_direction
+from src.scenario.documents import compile_scenario, parse_scenario, validate_scenario
 
 ARMS = ("north", "south", "east", "west")
 STRATEGIES = ("fixed_time", "adaptive", "roundabout")

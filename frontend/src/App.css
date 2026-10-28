@@ -995,6 +995,18 @@ body {
 .toast-notification.is-error svg {
   color: var(--color-danger);
 }
+/* A link offered with the message (the page of a run just saved). The
+   region ignores the pointer so the toast never blocks the page; the link
+   takes it back. */
+.toast-action {
+  pointer-events: auto;
+  margin-left: 4px;
+  color: var(--color-accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
 @keyframes uf-toast-in {
   from {
     opacity: 0;
@@ -1043,7 +1055,7 @@ body {
   flex-direction: column;
   box-shadow: var(--glass-highlight), var(--shadow-overlay);
   overflow: hidden;
-  animation: uf-dialog-in var(--dur-slow) var(--ease-spring);
+  animation: uf-dialog-in var(--dur-slow) var(--ease-emphasized);
 }
 
 .modal-header {
@@ -1068,28 +1080,6 @@ body {
   overflow-y: auto;
   flex: 1;
 }
-
-@keyframes modal-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes modal-slide-up {
-  from {
-    opacity: 0;
-    transform: translateY(20px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* ── Comparative actions bar ─────────────────────────────────────────────── */
 
 /* ── View layouts ───────────────────────────────────────────────────────── */
 .header-right {

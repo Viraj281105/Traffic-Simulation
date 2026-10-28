@@ -1,13 +1,12 @@
 import pytest
 from fastapi.testclient import TestClient
 
-import src.main as main_module
-from src.main import (
-    app,
-    get_or_create_live_simulation,
-    simulations_db,
-    single_veh,
-)
+import src.api.validation as validation
+from src.core.provenance import GIT_COMMIT_HASH, PYTHON_VERSION
+from src.live.sessions import get_or_create_live_simulation
+from src.live.single_vehicle import single_veh
+from src.main import app
+from src.simulations.registry import simulations_db
 
 client = TestClient(app)
 
@@ -22,8 +21,8 @@ def test_version_reports_the_running_build() -> None:
     response = client.get("/api/version")
     assert response.status_code == 200
     assert response.json() == {
-        "gitCommit": main_module.GIT_COMMIT_HASH,
-        "pythonVersion": main_module.PYTHON_VERSION,
+        "gitCommit": GIT_COMMIT_HASH,
+        "pythonVersion": PYTHON_VERSION,
     }
 
 
@@ -75,11 +74,11 @@ def test_config_validation_route() -> None:
     assert res_inv.status_code == 200
 
     # Validation when schema is empty
-    orig_schema = main_module.CONFIG_SCHEMA
-    main_module.CONFIG_SCHEMA = {}
+    orig_schema = validation.CONFIG_SCHEMA
+    validation.CONFIG_SCHEMA = {}
     res_empty_schema = client.post("/api/v1/configs/validate", json={})
     assert res_empty_schema.json()["valid"] is True
-    main_module.CONFIG_SCHEMA = orig_schema
+    validation.CONFIG_SCHEMA = orig_schema
 
 
 def test_simulations_lifecycle_and_tick_callbacks() -> None:
@@ -243,27 +242,24 @@ def test_dashboard_config_accepts_boundary_durations() -> None:
     session isn't the same one a bare `get_or_create_live_simulation()`
     call would read back) for a precise, deterministic assertion on the
     resulting duration."""
-    from src.main import (
-        _get_or_create_session,
-        _live_session_var,
-        update_simulation_config,
-    )
+    from src.live.router import update_simulation_config
+    from src.live.sessions import get_or_create_session, live_session_var
 
-    session_min = _get_or_create_session("test-duration-boundary-min")
-    token_min = _live_session_var.set(session_min)
+    session_min = get_or_create_session("test-duration-boundary-min")
+    token_min = live_session_var.set(session_min)
     try:
         result_min = update_simulation_config({"duration": 1})
     finally:
-        _live_session_var.reset(token_min)
+        live_session_var.reset(token_min)
     assert result_min["status"] == "ok"
     assert session_min.current_live_config["simulation"]["duration"] == 1.0
 
-    session_max = _get_or_create_session("test-duration-boundary-max")
-    token_max = _live_session_var.set(session_max)
+    session_max = get_or_create_session("test-duration-boundary-max")
+    token_max = live_session_var.set(session_max)
     try:
         result_max = update_simulation_config({"duration": 3600})
     finally:
-        _live_session_var.reset(token_max)
+        live_session_var.reset(token_max)
     assert result_max["status"] == "ok"
     assert session_max.current_live_config["simulation"]["duration"] == 3600.0
 
@@ -381,14 +377,11 @@ def test_dashboard_config_passes_through_corridor_greens() -> None:
     nsGreenDuration/ewGreenDuration overrides). They must reach the live
     signal controller unchanged, and omitting them must leave the
     controller config exactly as before (no override keys at all)."""
-    from src.main import (
-        _get_or_create_session,
-        _live_session_var,
-        update_simulation_config,
-    )
+    from src.live.router import update_simulation_config
+    from src.live.sessions import get_or_create_session, live_session_var
 
-    session = _get_or_create_session("test-corridor-greens")
-    token = _live_session_var.set(session)
+    session = get_or_create_session("test-corridor-greens")
+    token = live_session_var.set(session)
     try:
         update_simulation_config(
             {
@@ -410,7 +403,7 @@ def test_dashboard_config_passes_through_corridor_greens() -> None:
         assert "nsGreenDuration" not in ctrl
         assert "ewGreenDuration" not in ctrl
     finally:
-        _live_session_var.reset(token)
+        live_session_var.reset(token)
 
 
 @pytest.mark.parametrize("value", [5, 0, -3, 121, "fast"])

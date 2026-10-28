@@ -71,6 +71,16 @@ class ReplayDAO:
         return None
 
     @staticmethod
+    def owner_of(
+        conn: sqlite3.Connection, replay_id: str
+    ) -> tuple[bool, Optional[str]]:
+        """(exists, owner) of a replay; the owner is None for an unowned one."""
+        row = conn.execute(
+            "SELECT user_id FROM saved_replays WHERE id = ?", (replay_id,)
+        ).fetchone()
+        return (False, None) if row is None else (True, row["user_id"])
+
+    @staticmethod
     def list_all(
         conn: sqlite3.Connection,
         limit: int = 50,

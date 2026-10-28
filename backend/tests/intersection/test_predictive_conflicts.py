@@ -25,12 +25,12 @@ from typing import Any, Dict, List
 import pytest
 
 from src.core.enums import Direction, TurnIntent
+from src.engine.vehicle_pool import VehiclePool
 from src.intersection.predictive_conflicts import (
     _DECISION_MEMORY_TICKS,
     PredictiveConflictResolver,
 )
 from src.roads.network import RoadNetwork
-from src.vehicles.pool import VehiclePool
 from src.vehicles.vehicle import Vehicle
 
 DT = 0.1

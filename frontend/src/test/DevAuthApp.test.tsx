@@ -26,6 +26,8 @@ vi.mock("../auth/cognito", async (importOriginal) => {
 });
 
 vi.mock("../services/api", () => ({
+  listStrategies: () =>
+    import("./strategyCatalogFixture").then((m) => m.STRATEGY_CATALOG),
   updateSimulationConfig: vi.fn().mockResolvedValue(undefined),
   saveReplay: vi.fn().mockResolvedValue({ runId: "r1" }),
   listReplays: () => listReplays() as Promise<unknown>,

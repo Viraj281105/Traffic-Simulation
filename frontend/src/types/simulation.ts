@@ -155,6 +155,42 @@ export interface RoundaboutControllerState {
   exitYieldEvents?: number;
   /** V1.4: vehicles that had to continue out through a late conflict. */
   forcedExitCommitments?: number;
+  /** V3.0 W2: roundabout entry control mode */
+  entryControl?: "metered_entry" | "none";
+  /** V3.0 W2: live entry metering state */
+  metering?: MeteringControllerState;
+}
+
+export interface MeteredArmState {
+  direction: SignalDirection;
+  metered: boolean;
+  color: "green" | "yellow" | "red";
+  reason: string | null;
+}
+
+export interface SpillbackGuardState {
+  enabled: boolean;
+  cumulativeHoldTime?: Record<string, number>;
+  activations?: Record<string, number>;
+  budgetExhaustions?: Record<string, number>;
+}
+
+export interface QueueCapState {
+  enabled: boolean;
+  triggers?: Record<string, number>;
+}
+
+export interface MeteringControllerState {
+  currentPhase: string;
+  color: "green" | "yellow" | "red";
+  timeRemaining: number;
+  cycleNumber: number;
+  cycleProgress?: number;
+  arms: MeteredArmState[];
+  decisions?: Record<string, number>;
+  recentDecisions?: Array<Record<string, unknown>>;
+  spillbackGuard?: SpillbackGuardState;
+  queueCap?: QueueCapState;
 }
 
 export type ControllerState =
@@ -378,6 +414,21 @@ export interface LiveSnapshot {
   simulationStatus: SimulationStatus;
   /** V1.2 lane-model counters; absent from older snapshots. */
   laneModel?: LaneModelState;
+}
+
+/** One strategy's run within a comparison of chosen strategies. */
+export interface ComparisonRunSnapshot {
+  /** Canonical strategy id (backend strategy registry). */
+  strategy: string;
+  snapshot: LiveSnapshot;
+}
+
+/** The comparison of chosen strategies, all stepped in lockstep on the same
+ *  traffic (/ws/simulation/comparison). Runs keep the order chosen. */
+export interface ComparisonSnapshot {
+  tick: number;
+  elapsed: number;
+  runs: ComparisonRunSnapshot[];
 }
 
 export interface DualSnapshot {

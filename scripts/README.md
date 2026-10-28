@@ -15,7 +15,7 @@ scripts/
 ├── set_milestone_deadlines.py    # GitHub Milestone timeline configuration runner
 ├── setup_github.py               # Creates GitHub labels, milestones, and issues
 ├── validate-schemas.sh           # Bash wrapper for CI/CD schema validation
-├── validate_schemas.py           # Core validation script using JSON Schema engine
+├── validate_schemas.py           # Validates top-level shared schema files for JSON syntax and $schema presence
 └── README.md                     # This documentation file
 ```
 
@@ -49,9 +49,9 @@ Ensures data integrity for configuration and snapshot contracts across Backend/F
 
 #### Core Validator: [`validate_schemas.py`](./validate_schemas.py)
 
-Checks that every JSON file in `shared/schemas/` is valid JSON and contains a `$schema` field. It does not validate example payloads and does not require the `jsonschema` package.
+Checks that top-level JSON Schema files in `shared/schemas/*.json` (`config.schema.json`, `snapshot.schema.json`, `vehicle_state.json`) are valid JSON and contain a root `$schema` field. It does not recurse into subdirectories (`v2/`, `v3/`), which are validated by dedicated backend contract test suites (`test_contract.py`). It does not validate sample payloads and requires only Python standard libraries (`json`, `pathlib`).
 
-- **Requirements**: `jsonschema`, `json`
+- **Requirements**: Python 3.11+ standard library (`json`, `pathlib`; no external dependencies required)
 - **Execution**:
   ```bash
   python scripts/validate_schemas.py

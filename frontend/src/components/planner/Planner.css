@@ -1,203 +1,832 @@
-/* V2.0 planner page. Uses the app's theme tokens only. */
+/* V2.0 planner page. A wide workspace in the guided page frame
+   (components/guided/Guided.css), built from the shared tokens and the
+   workspace primitives (styles/workspace.css). */
 
 .planner {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 20px 16px 48px;
-  color: var(--color-text);
-}
-
-.planner-header h1 {
-  margin: 0 0 6px;
-}
-
-.planner-header p,
-.planner-muted {
-  color: var(--color-text-2);
-}
-
-.planner-setup,
-.planner-study,
-.planner-results {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.planner-block,
-.planner-banner,
-.planner-scale {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 16px;
-}
-
-.planner-block h2,
-.planner-block h3,
-.planner-scale h3 {
-  margin-top: 0;
-}
-
-.planner-banner {
-  border-color: var(--color-warning);
-}
-
-.planner-banner p {
-  margin: 0 0 6px;
-}
-
-.planner-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 10px 0;
-  font-size: 14px;
-}
-
-.planner-table caption {
-  text-align: left;
-  color: var(--color-text-2);
-  padding-bottom: 6px;
-}
-
-.planner-table th,
-.planner-table td {
-  border-bottom: 1px solid var(--color-border);
-  padding: 6px 8px;
-  text-align: left;
-  vertical-align: top;
-}
-
-.planner-ci {
-  color: var(--color-text-3);
-  font-size: 12px;
-}
-
-.planner-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 8px 0;
-  border: 0;
-  padding: 0;
-}
-
-.planner-inline {
-  display: flex;
-  flex-wrap: wrap;
+  max-width: var(--content-wide);
   gap: 24px;
 }
 
-.planner-check {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-right: 12px;
+.planner-muted {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text-2);
 }
 
+/* ── Header ────────────────────────────────────────────────────────────── */
+.planner-intro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 32px;
+}
+.planner-intro__text {
+  flex: 1 1 520px;
+  min-width: 0;
+}
+.planner-open {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 0 1 340px;
+  min-width: 240px;
+}
+.planner-open__row {
+  display: flex;
+  gap: 8px;
+}
+.planner-open__row .uf-input {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.planner-open__row .pb-btn {
+  flex-shrink: 0;
+}
+
+/* ── Workflow rail ─────────────────────────────────────────────────────── */
+.planner-flow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--glass-highlight);
+  overflow: hidden;
+}
+.planner-flow__step {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  padding: 12px 16px;
+  color: var(--color-text-3);
+  transition: color var(--dur-base) var(--ease-out);
+}
+/* The connector: a hairline that fills green once the step is done. */
+.planner-flow__step + .planner-flow__step::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 22%;
+  bottom: 22%;
+  width: 1px;
+  background: var(--color-border);
+}
+.planner-flow__step::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--brand-green);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--dur-slow) var(--ease-emphasized);
+}
+.planner-flow__step.is-done::after {
+  transform: scaleX(1);
+}
+.planner-flow__step.is-current::after {
+  transform: scaleX(0.5);
+}
+.planner-flow__step.is-blocked::after {
+  transform: scaleX(1);
+  background: var(--color-warning);
+}
+.planner-flow__index {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text-3);
+  font-size: 12px;
+  font-weight: 700;
+  transition:
+    background-color var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out),
+    color var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-spring);
+}
+.planner-flow__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+.planner-flow__label {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--color-text-2);
+}
+.planner-flow__note {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.planner-flow__step.is-current {
+  color: var(--color-text-2);
+  background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+}
+.planner-flow__step.is-current .planner-flow__label {
+  color: var(--color-text);
+}
+.planner-flow__step.is-current .planner-flow__index {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  transform: scale(1.06);
+}
+.planner-flow__step.is-done .planner-flow__index {
+  border-color: transparent;
+  background: var(--brand-green-soft);
+  color: var(--brand-green-ink);
+}
+.planner-flow__step.is-done .planner-flow__label {
+  color: var(--color-text);
+}
+.planner-flow__step.is-blocked {
+  color: var(--color-warning);
+}
+.planner-flow__step.is-blocked .planner-flow__index {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-warning) 16%, transparent);
+  color: var(--color-warning);
+}
+
+/* ── Setup ─────────────────────────────────────────────────────────────── */
+.planner-setup,
+.planner-study {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+.planner-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+.planner-section__head {
+  padding: 0 2px;
+}
+.planner-section .uf-panel__title,
+.planner-config .uf-panel__title {
+  font-size: 18px;
+}
+
+/* Alternatives (wide) beside the check-and-run panel (sticky). */
+.planner-config {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  gap: 20px;
+  align-items: start;
+}
+.planner-check {
+  position: sticky;
+  top: 16px;
+}
+
+.planner-name {
+  max-width: 420px;
+}
+
+.planner-alt-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.planner-alt-table caption {
+  padding-top: 10px;
+}
+.planner-alt-table tbody th,
+.planner-alt-table tbody td {
+  padding: 8px 10px;
+}
+.planner-alt-table thead th {
+  padding: 8px 10px;
+}
+.planner-alt-table tbody th:first-child,
+.planner-alt-table thead th:first-child {
+  padding-left: 14px;
+}
+.planner-alt-table .uf-select {
+  min-width: 168px;
+}
+.planner-alt-table .uf-input {
+  min-width: 150px;
+}
+.planner-alt-table tbody tr {
+  animation: uf-fade-in var(--dur-base) var(--ease-out) both;
+}
+.planner-role {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--color-text-2);
+  white-space: nowrap;
+}
+.planner-role.is-baseline {
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-green-soft);
+  color: var(--brand-green-ink);
+}
 .planner-row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  white-space: nowrap;
+}
+.planner-remove:hover:not(:disabled) {
+  color: var(--color-danger);
+}
+.planner-alt-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.planner-reps {
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+  gap: 18px 28px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+.planner-seeds .uf-input {
+  max-width: 120px;
+}
+.planner-scales {
+  gap: 8px;
+}
+
+/* ── Check and run ─────────────────────────────────────────────────────── */
+.planner-check__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 72px;
+}
+.planner-checking {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--color-text-2);
+}
+.planner-check-badge {
+  --badge-tone: var(--color-text-3);
+}
+.planner-check-badge.is-checking .uf-spinner {
+  width: 10px;
+  height: 10px;
+  border-width: 1.5px;
+}
+.planner-check-badge.is-ready {
+  --badge-tone: var(--color-success);
+}
+.planner-check-badge.is-blocked {
+  --badge-tone: var(--color-warning);
+}
+
+.planner-total {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.planner-total__n {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums;
+}
+.planner-total__n strong {
+  font-weight: 700;
+}
+.planner-total__formula {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-2);
+  font-variant-numeric: tabular-nums;
+}
+.planner-total .uf-meter {
+  margin-top: 4px;
+}
+
+.planner-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+.planner-note-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.planner-note-list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text);
+}
+.planner-note-list svg {
+  margin-top: 3px;
+  color: var(--color-warning);
+}
+.planner-note-list p {
+  margin: 0;
+}
+
+.planner-run-action {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+/* ── A submitted study ─────────────────────────────────────────────────── */
+.planner-back {
+  align-self: flex-start;
+  font-size: 13.5px;
+}
+
+.planner-run {
+  gap: 14px;
+}
+.planner-run.is-loading {
+  padding: 18px 22px;
+}
+.planner-run__line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-text-2);
+}
+.planner-run__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.planner-run__name {
+  margin: 2px 0 0;
+  font-size: 18px;
+  font-weight: 650;
+  color: var(--color-text);
+}
+.planner-run__meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+.planner-run__meta p {
+  margin: 0;
+}
+.planner-run__count {
+  color: var(--color-text);
+  font-weight: 600;
+}
+.planner-run__elapsed {
+  color: var(--color-text-3);
+}
+
+.planner-status {
+  --badge-tone: var(--color-info);
+}
+.planner-status.is-running {
+  --badge-tone: var(--color-success);
+}
+.planner-status__dot {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+/* One expanding ring per second while the job runs: it signals a live job,
+   and stops the moment the server says it has finished. */
+.planner-status.is-running .planner-status__dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: currentColor;
+  animation: uf-live-ping 1.6s var(--ease-out) infinite;
+}
+
+.planner-state {
+  max-width: none;
+  align-items: center;
+}
+
+/* ── Evidence ──────────────────────────────────────────────────────────── */
+.planner-results {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+.planner-results__head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.planner-results__title {
+  margin: 0;
+  font-size: clamp(22px, 2.2vw, 26px);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.planner-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  margin: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-raised);
+  overflow: hidden;
+}
+.planner-facts > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 16px;
+  min-width: 0;
+  border-left: 1px solid var(--color-border);
+  margin-left: -1px;
+}
+.planner-facts dt {
+  font-size: 11.5px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-3);
+}
+.planner-facts dd {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  white-space: pre-wrap;
+}
+
+.planner-validity .uf-callout__title {
+  font-size: 14px;
+}
+
+.planner-scale {
+  gap: 14px;
+}
+.planner-vph {
+  --badge-tone: var(--color-text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.planner-tag {
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-green-soft);
+  color: var(--brand-green-ink);
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.planner-indicators tbody th {
+  white-space: nowrap;
+}
+.planner-mean {
+  display: block;
+  font-weight: 650;
+}
+.planner-mean.is-na {
+  font-weight: 500;
+  color: var(--color-text-3);
+}
+.planner-ci {
+  display: block;
+  margin-top: 1px;
+  font-size: 11.5px;
+  color: var(--color-text-3);
+  white-space: nowrap;
+}
+
+.planner-paired tbody th[scope="rowgroup"] {
+  vertical-align: top;
+  white-space: nowrap;
+  border-right: 1px solid var(--color-border);
+}
+.planner-paired__group + .planner-paired__group > tr:first-child > * {
+  border-top: 1px solid var(--color-border-strong);
+}
+.planner-delta {
+  font-weight: 650;
+}
+.planner-interval {
+  color: var(--color-text-2);
+}
+
+/* The server's reading of one paired difference. The words carry the
+   reading; the tone only groups like with like. */
+.planner-verdict {
+  --verdict-tone: var(--color-text-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  border: 1px solid color-mix(in srgb, var(--verdict-tone) 30%, transparent);
+  background: color-mix(in srgb, var(--verdict-tone) 9%, transparent);
+  color: var(--color-text);
+  font-size: 12px;
+  font-weight: 550;
+  white-space: nowrap;
+}
+.planner-verdict::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--verdict-tone);
+}
+.planner-verdict.is-better {
+  --verdict-tone: var(--color-success);
+}
+.planner-verdict.is-worse {
+  --verdict-tone: var(--color-orange);
+}
+.planner-verdict.is-tie {
+  --verdict-tone: var(--color-info);
+}
+.planner-verdict.is-inconclusive {
+  --verdict-tone: var(--color-warning);
+  border-style: dashed;
+}
+.planner-verdict.is-unavailable {
+  color: var(--color-text-3);
+}
+
+/* Findings (wide) beside reliability and missing indicators. */
+.planner-results__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+/* Stays in view beside a long list of findings. */
+.planner-results__side {
+  position: sticky;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.planner-shared {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+}
+.planner-shared__list {
+  list-style: decimal;
+}
+
+.planner-findings {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: finding;
+}
+.planner-finding {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px 12px 50px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  counter-increment: finding;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+.planner-finding:hover {
+  border-color: var(--color-border-strong);
+}
+.planner-finding::before {
+  content: counter(finding);
+  position: absolute;
+  left: 14px;
+  top: 12px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-2);
+  font-size: 12px;
+  font-weight: 700;
+}
+.planner-finding__statement {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text);
+}
+.planner-finding__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+.planner-confidence {
+  --badge-tone: var(--color-text-2);
+  text-transform: none;
+}
+.planner-confidence.is-high {
+  --badge-tone: var(--color-info);
+}
+.planner-confidence.is-low {
+  --badge-tone: var(--color-warning);
+}
+
+.planner-evidence summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-text-2);
+  list-style: none;
+}
+.planner-evidence summary::-webkit-details-marker {
+  display: none;
+}
+.planner-evidence summary::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--dur-base) var(--ease-emphasized);
+}
+.planner-evidence[open] summary::before {
+  transform: rotate(45deg);
+}
+.planner-evidence summary:hover {
+  color: var(--color-text);
+}
+.planner-evidence ul {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.planner-evidence code {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  font-size: 11.5px;
+  color: var(--color-text-2);
+  overflow-wrap: anywhere;
 }
 
-.planner button,
-.planner input,
-.planner select {
-  font: inherit;
-}
-
-.planner button {
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-2);
-  color: var(--color-text);
-  padding: 6px 12px;
-  cursor: pointer;
-}
-
-.planner button:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.planner button:focus-visible,
-.planner input:focus-visible,
-.planner select:focus-visible,
-.planner a:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-
-.planner .planner-primary {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: #fff;
+.planner-sample {
+  margin: 0;
+  font-size: 13.5px;
   font-weight: 600;
-  margin-top: 8px;
+  color: var(--color-text);
 }
 
+/* Report and reproducibility side by side. */
+.planner-results__end {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 20px;
+  align-items: start;
+}
 .planner-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
-
-.planner-error {
-  color: var(--color-text);
-  border-left: 3px solid var(--color-warning);
-  padding-left: 8px;
-}
-
-.planner-ok {
-  border-left: 3px solid var(--color-success);
-  padding-left: 8px;
-}
-
-.planner-progress progress {
-  width: 100%;
-  max-width: 480px;
-}
-
-.planner-open {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.planner-findings li {
-  margin-bottom: 10px;
-}
-
-.planner-evidence {
-  font-size: 12px;
-  color: var(--color-text-2);
-  overflow-wrap: anywhere;
-}
-
 .planner-provenance {
   display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 4px 12px;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0;
+  margin: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  font-size: 13px;
 }
-
+.planner-provenance dt,
 .planner-provenance dd {
   margin: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+.planner-provenance dt {
+  background: var(--color-surface-2);
+  color: var(--color-text-2);
+  font-weight: 600;
+}
+.planner-provenance dd {
+  color: var(--color-text);
   overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
 }
-
-.planner-provenance code,
-.planner-evidence code {
+.planner-provenance dt:last-of-type,
+.planner-provenance dd:last-of-type {
+  border-bottom: 0;
+}
+.planner-provenance code {
   font-family: var(--font-mono);
+  font-size: 12.5px;
 }
 
-@media (max-width: 700px) {
-  .planner-table {
-    display: block;
-    overflow-x: auto;
+/* ── Responsive ────────────────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .planner-config,
+  .planner-results__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .planner-check,
+  .planner-results__side {
+    position: static;
+  }
+}
+@media (max-width: 860px) {
+  .planner-flow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .planner-flow__step:nth-child(3)::before {
+    display: none;
+  }
+  .planner-flow__step:nth-child(n + 3) {
+    border-top: 1px solid var(--color-border);
+  }
+  .planner-results__end,
+  .planner-reps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 520px) {
+  .planner-open {
+    flex-basis: 100%;
+  }
+  .planner-flow__step {
+    padding: 10px 12px;
+  }
+  .planner-flow__note {
+    display: none;
   }
 }

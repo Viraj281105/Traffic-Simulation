@@ -1,0 +1,547 @@
+{
+  "alternatives": [
+    {
+      "changesFromBase": [],
+      "fingerprint": "dd9f9bd2eaffef15",
+      "id": "fixed",
+      "isBaseline": true,
+      "label": "Fixed-time signal",
+      "strategy": "fixed_time"
+    },
+    {
+      "changesFromBase": [],
+      "fingerprint": "dd9f9bd2eaffef15",
+      "id": "adaptive",
+      "isBaseline": false,
+      "label": "Adaptive signal",
+      "strategy": "adaptive"
+    },
+    {
+      "changesFromBase": [],
+      "fingerprint": "dd9f9bd2eaffef15",
+      "id": "roundabout",
+      "isBaseline": false,
+      "label": "Conventional roundabout",
+      "strategy": "roundabout"
+    }
+  ],
+  "analysis": {
+    "alternatives": {
+      "adaptive": {
+        "comparison": {
+          "difference": {
+            "mean": {
+              "ci": [
+                -2.579516,
+                1.173823
+              ],
+              "value": -0.738125
+            },
+            "median": {
+              "ci": [
+                -3.32,
+                2.505
+              ],
+              "value": -1.6025
+            },
+            "p5": {
+              "ci": [
+                -9.945,
+                -4.855
+              ],
+              "value": -6.72225
+            },
+            "p95": {
+              "ci": [
+                3.739256,
+                9.555
+              ],
+              "value": 5.973
+            }
+          },
+          "loss": {
+            "ci": [
+              0.211594,
+              0.5729
+            ],
+            "count": 9,
+            "p": 0.375
+          },
+          "tie": {
+            "ci": [
+              0.023159,
+              0.258488
+            ],
+            "count": 2,
+            "p": 0.083333
+          },
+          "win": {
+            "ci": [
+              0.350749,
+              0.721087
+            ],
+            "count": 13,
+            "p": 0.541667
+          }
+        },
+        "isBaseline": false,
+        "meanOutcome": 21.354583,
+        "preferenceShare": 0.625,
+        "regret": {
+          "mean": 1.685417,
+          "p95": 5.973,
+          "sampleMax": 9.555
+        }
+      },
+      "fixed": {
+        "isBaseline": true,
+        "meanOutcome": 22.092708,
+        "preferenceShare": 0.458333,
+        "regret": {
+          "mean": 2.423542,
+          "p95": 6.72225,
+          "sampleMax": 9.945
+        }
+      },
+      "roundabout": {
+        "comparison": {
+          "difference": {
+            "mean": {
+              "ci": [
+                2.09826,
+                5.285057
+              ],
+              "value": 3.638958
+            },
+            "median": {
+              "ci": [
+                1.4125,
+                5.2825
+              ],
+              "value": 3.085
+            },
+            "p5": {
+              "ci": [
+                -4.13,
+                0.565
+              ],
+              "value": -1.74325
+            },
+            "p95": {
+              "ci": [
+                6.68,
+                10.89
+              ],
+              "value": 10.0745
+            }
+          },
+          "loss": {
+            "ci": [
+              0.508323,
+              0.850854
+            ],
+            "count": 17,
+            "p": 0.708333
+          },
+          "tie": {
+            "ci": [
+              0.092448,
+              0.404705
+            ],
+            "count": 5,
+            "p": 0.208333
+          },
+          "win": {
+            "ci": [
+              0.023159,
+              0.258488
+            ],
+            "count": 2,
+            "p": 0.083333
+          }
+        },
+        "isBaseline": false,
+        "meanOutcome": 25.731667,
+        "preferenceShare": 0.0,
+        "regret": {
+          "mean": 6.0625,
+          "p95": 10.7895,
+          "sampleMax": 11.38
+        }
+      }
+    },
+    "baseline": "fixed",
+    "confidenceLevel": 0.95,
+    "counts": {
+      "alternatives": 3,
+      "conditions": 24,
+      "replications": 2,
+      "totalRuns": 144,
+      "validConditions": 24
+    },
+    "eligibility": {
+      "class": "exploratory",
+      "criteria": [
+        {
+          "detail": "largest 95% Wilson half-width of P(win)/P(loss) is 0.185; limit 0.1",
+          "id": "precision",
+          "passed": false
+        },
+        {
+          "detail": "split-half stability is not computed in this version (scheduled for W4); until it is, no result can be called eligible",
+          "id": "stability",
+          "passed": null
+        },
+        {
+          "detail": "2 per condition; at least 2 are needed to estimate within-condition noise",
+          "id": "replications",
+          "passed": true
+        },
+        {
+          "detail": "0.0% excluded overall (limit 10%); worst factor stratum 0.0% (limit 20%)",
+          "id": "exclusions",
+          "passed": true
+        },
+        {
+          "detail": "specification, primary indicator and tolerance were fingerprinted before the run",
+          "id": "predeclaration",
+          "passed": true
+        }
+      ],
+      "validConditions": 24
+    },
+    "exclusions": {
+      "byFactorStratum": [
+        {
+          "excluded": 0,
+          "factor": "demand",
+          "of": 5,
+          "share": 0.0,
+          "stratum": 0
+        },
+        {
+          "excluded": 0,
+          "factor": "demand",
+          "of": 5,
+          "share": 0.0,
+          "stratum": 1
+        },
+        {
+          "excluded": 0,
+          "factor": "demand",
+          "of": 5,
+          "share": 0.0,
+          "stratum": 2
+        },
+        {
+          "excluded": 0,
+          "factor": "demand",
+          "of": 5,
+          "share": 0.0,
+          "stratum": 3
+        },
+        {
+          "excluded": 0,
+          "factor": "demand",
+          "of": 4,
+          "share": 0.0,
+          "stratum": 4
+        },
+        {
+          "excluded": 0,
+          "factor": "turning",
+          "of": 5,
+          "share": 0.0,
+          "stratum": 0
+        },
+        {
+          "excluded": 0,
+          "factor": "turning",
+          "of": 5,
+          "share": 0.0,
+          "stratum": 1
+        },
+        {
+          "excluded": 0,
+          "factor": "turning",
+          "of": 5,
+          "share": 0.0,
+          "stratum": 2
+        },
+        {
+          "excluded": 0,
+          "factor": "turning",
+          "of": 5,
+          "share": 0.0,
+          "stratum": 3
+        },
+        {
+          "excluded": 0,
+          "factor": "turning",
+          "of": 4,
+          "share": 0.0,
+          "stratum": 4
+        },
+        {
+          "excluded": 0,
+          "factor": "heavy",
+          "of": 5,
+          "share": 0.0,
+          "stratum": 0
+        },
+        {
+          "excluded": 0,
+          "factor": "heavy",
+          "of": 5,
+          "share": 0.0,
+          "stratum": 1
+        },
+        {
+          "excluded": 0,
+          "factor": "heavy",
+          "of": 5,
+          "share": 0.0,
+          "stratum": 2
+        },
+        {
+          "excluded": 0,
+          "factor": "heavy",
+          "of": 5,
+          "share": 0.0,
+          "stratum": 3
+        },
+        {
+          "excluded": 0,
+          "factor": "heavy",
+          "of": 4,
+          "share": 0.0,
+          "stratum": 4
+        },
+        {
+          "excluded": 0,
+          "factor": "headway",
+          "of": 5,
+          "share": 0.0,
+          "stratum": 0
+        },
+        {
+          "excluded": 0,
+          "factor": "headway",
+          "of": 5,
+          "share": 0.0,
+          "stratum": 1
+        },
+        {
+          "excluded": 0,
+          "factor": "headway",
+          "of": 5,
+          "share": 0.0,
+          "stratum": 2
+        },
+        {
+          "excluded": 0,
+          "factor": "headway",
+          "of": 5,
+          "share": 0.0,
+          "stratum": 3
+        },
+        {
+          "excluded": 0,
+          "factor": "headway",
+          "of": 4,
+          "share": 0.0,
+          "stratum": 4
+        }
+      ],
+      "byReason": {},
+      "excluded": 0,
+      "overallShare": 0.0,
+      "worstStratumShare": 0.0
+    },
+    "format": "urbanflow-robustness-analysis",
+    "limitations": [
+      "Every input distribution is an assumption of the analyst, not an estimate from data.",
+      "Intervals treat the sampled conditions as exchangeable draws; with Latin-hypercube stratification they are approximate and slightly conservative.",
+      "The unit of inference is the sampled condition, not the simulation run; replications reduce noise inside a condition and do not add conditions.",
+      "Win, tie and loss are descriptive comparisons against the baseline, not a ranking and not a test of significance.",
+      "Interactions between factors are not resolved.",
+      "Headway scale is a proxy for driver behaviour: the engine has no explicit reaction delay.",
+      "The simulation is not calibrated to observed traffic; 'eligible' (when available) would mean adequately sampled for the declared assumptions, never that the model is correct."
+    ],
+    "lowerIsBetter": true,
+    "primaryIndicator": "averageDelay",
+    "realWorldValidity": "None \u2014 assumptions only",
+    "tolerance": {
+      "absSeconds": 1.0,
+      "kind": "rule",
+      "relative": 0.05
+    },
+    "version": 1
+  },
+  "analysisFingerprint": "fa32294f53a17d03",
+  "assumptions": [
+    {
+      "basis": "assumed",
+      "bounds": [
+        0.7,
+        1.3
+      ],
+      "distribution": {
+        "kind": "uniform"
+      },
+      "id": "demand",
+      "kind": "demand_scale",
+      "rationale": "Peak-hour flow varies by about 30 % either way between days."
+    },
+    {
+      "basis": "assumed",
+      "bounds": [
+        -0.3,
+        0.3
+      ],
+      "distribution": {
+        "kind": "triangular",
+        "mode": 0.0
+      },
+      "id": "turning",
+      "kind": "turning_shift",
+      "rationale": "Turning shares drift with local events; most days stay near the counted split."
+    },
+    {
+      "basis": "assumed",
+      "bounds": [
+        -0.4,
+        0.4
+      ],
+      "distribution": {
+        "kind": "uniform"
+      },
+      "id": "heavy",
+      "kind": "mix_shift",
+      "rationale": "The share of buses and trucks changes between weekdays."
+    },
+    {
+      "basis": "assumed",
+      "bounds": [
+        0.8,
+        1.3
+      ],
+      "distribution": {
+        "kind": "triangular",
+        "mode": 1.0
+      },
+      "id": "headway",
+      "kind": "headway_scale",
+      "rationale": "Driver behaviour is uncertain; headway scale is a proxy, not a measured reaction time."
+    }
+  ],
+  "baseline": "fixed",
+  "execution": {
+    "runsExecuted": 144,
+    "runsPlanned": 144,
+    "wallSeconds": 203.65,
+    "workers": 8
+  },
+  "experimentId": "17733b8ff5f240cd8a719ce05277cafd",
+  "format": "urbanflow-experiment-result",
+  "name": "Demo: does the preferred control survive uncertainty?",
+  "provenance": {
+    "commonRandomNumbers": true,
+    "gitCommit": "ca09d3d2d404b9bada6ecf38a65da40c0d8ae8b5",
+    "note": "The full reproducibility manifest and package verification arrive in a later release.",
+    "pythonVersion": "3.14.7",
+    "sampling": "seeded Latin hypercube, stratified per factor",
+    "seedRule": "sha256('urbanflow-uncertainty-v1:<seed>:<condition>:<replication>')[:4] & 0x7fffffff"
+  },
+  "resultFingerprint": "52b7b3d275d0e8ca",
+  "scenario": {
+    "fingerprint": "dd9f9bd2eaffef15",
+    "name": "Demo junction (600 veh/h per arm)"
+  },
+  "specFingerprint": "a1064d25dfcc0941",
+  "specification": {
+    "conditions": 24,
+    "factors": [
+      {
+        "basis": "assumed",
+        "bounds": [
+          0.7,
+          1.3
+        ],
+        "distribution": {
+          "kind": "uniform",
+          "mean": null,
+          "mode": null,
+          "mu": null,
+          "sd": null,
+          "sigma": null
+        },
+        "id": "demand",
+        "kind": "demand_scale",
+        "rationale": "Peak-hour flow varies by about 30 % either way between days."
+      },
+      {
+        "basis": "assumed",
+        "bounds": [
+          -0.3,
+          0.3
+        ],
+        "distribution": {
+          "kind": "triangular",
+          "mean": null,
+          "mode": 0.0,
+          "mu": null,
+          "sd": null,
+          "sigma": null
+        },
+        "id": "turning",
+        "kind": "turning_shift",
+        "rationale": "Turning shares drift with local events; most days stay near the counted split."
+      },
+      {
+        "basis": "assumed",
+        "bounds": [
+          -0.4,
+          0.4
+        ],
+        "distribution": {
+          "kind": "uniform",
+          "mean": null,
+          "mode": null,
+          "mu": null,
+          "sd": null,
+          "sigma": null
+        },
+        "id": "heavy",
+        "kind": "mix_shift",
+        "rationale": "The share of buses and trucks changes between weekdays."
+      },
+      {
+        "basis": "assumed",
+        "bounds": [
+          0.8,
+          1.3
+        ],
+        "distribution": {
+          "kind": "triangular",
+          "mean": null,
+          "mode": 1.0,
+          "mu": null,
+          "sd": null,
+          "sigma": null
+        },
+        "id": "headway",
+        "kind": "headway_scale",
+        "rationale": "Driver behaviour is uncertain; headway scale is a proxy, not a measured reaction time."
+      }
+    ],
+    "format": "urbanflow-uncertainty-spec",
+    "name": "Peak-hour uncertainty (assumed ranges)",
+    "primaryIndicator": "averageDelay",
+    "replications": 2,
+    "seed": 2026,
+    "tieTolerance": null,
+    "version": 1
+  },
+  "version": 1
+}

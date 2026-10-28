@@ -1,0 +1,133 @@
+{
+  "format": "urbanflow-planning-study",
+  "version": 1,
+  "name": "W2 baseline: metered roundabout vs conventional, fixed-time and adaptive",
+  "objective": "Report how a fixed-plan metered roundabout compares with the three existing strategies on one assumed junction. Evidence only; not a recommendation.",
+  "subject": {
+    "scenario": {
+      "format": "urbanflow-scenario",
+      "version": 1,
+      "name": "W2 baseline junction (uneven peak demand)",
+      "junction": {
+        "type": "roundabout"
+      },
+      "approaches": {
+        "north": {
+          "lanes": 1,
+          "length": 150.0,
+          "vehiclesPerHour": 800,
+          "turning": {
+            "left": 0.2,
+            "straight": 0.6,
+            "right": 0.2
+          }
+        },
+        "south": {
+          "lanes": 1,
+          "length": 150.0,
+          "vehiclesPerHour": 800,
+          "turning": {
+            "left": 0.2,
+            "straight": 0.6,
+            "right": 0.2
+          }
+        },
+        "east": {
+          "lanes": 1,
+          "length": 150.0,
+          "vehiclesPerHour": 400,
+          "turning": {
+            "left": 0.2,
+            "straight": 0.6,
+            "right": 0.2
+          }
+        },
+        "west": {
+          "lanes": 1,
+          "length": 150.0,
+          "vehiclesPerHour": 400,
+          "turning": {
+            "left": 0.2,
+            "straight": 0.6,
+            "right": 0.2
+          }
+        }
+      },
+      "vehicles": {
+        "mix": {
+          "car": 0.8,
+          "suv": 0.08,
+          "bus": 0.04,
+          "truck": 0.05,
+          "motorcycle": 0.03
+        }
+      },
+      "simulation": {
+        "duration": 240.0,
+        "warmup": 30.0,
+        "seed": 101
+      }
+    }
+  },
+  "alternatives": [
+    {
+      "id": "conventional",
+      "label": "Conventional roundabout",
+      "strategy": "roundabout"
+    },
+    {
+      "id": "metered",
+      "label": "Metered-entry roundabout (28/14 s)",
+      "strategy": "roundabout",
+      "patch": {
+        "roundabout": {
+          "entryControl": "metered_entry",
+          "entryMetering": {
+            "phases": [
+              {
+                "entries": [
+                  "north",
+                  "south"
+                ],
+                "green": 28,
+                "minGreen": 8
+              },
+              {
+                "entries": [
+                  "east",
+                  "west"
+                ],
+                "green": 14,
+                "minGreen": 8
+              }
+            ],
+            "yellow": 3,
+            "allRed": 2
+          }
+        }
+      }
+    },
+    {
+      "id": "fixed_time",
+      "label": "Fixed-time signal",
+      "strategy": "fixed_time"
+    },
+    {
+      "id": "adaptive",
+      "label": "Adaptive signal",
+      "strategy": "adaptive"
+    }
+  ],
+  "demand": {
+    "scales": [
+      0.25,
+      0.5,
+      1.0
+    ]
+  },
+  "repetitions": {
+    "seeds": 12,
+    "baseSeed": 101,
+    "confidenceLevel": 0.95
+  }
+}

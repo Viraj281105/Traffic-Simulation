@@ -1,6 +1,6 @@
 # API & WebSocket Reference
 
-> **Status:** Current · V1.0–V2.0 · every route on this page is registered in `backend/src/main.py` (V1 routes verified 2026-10-05; the `/api/v2` list in §10 was taken from the app's OpenAPI document on 2026-10-12). Nothing here is planned or hypothetical.
+> **Status:** Current · V1.0–V2.0 · every route on this page is mounted by `backend/src/main.py` from the package that owns it (see [backend architecture](../architecture/02-backend-architecture.md)) (V1 routes verified 2026-10-05; the `/api/v2` list in §10 was taken from the app's OpenAPI document on 2026-10-12). Nothing here is planned or hypothetical.
 > **Interactive schema:** FastAPI serves OpenAPI docs at `/docs` on the backend (e.g. `http://localhost:8000/docs` in development).
 > **Narrative guide:** [Operations guide](../operations.md) explains behaviour in more depth (study jobs, provenance, access control).
 
@@ -177,7 +177,7 @@ Jobs live in server memory: a restart drops unfinished jobs; finished jobs are k
 
 ### 6.2 Synchronous study routes (scripts, existing clients)
 
-These run whole simulations inside the request. **At most two run at once, and one per client**, across `sweeps/run`, `validate/monte-carlo`, `validate/repeatability`, `control-comparison/run`, `GET /api/v1/study/export`, `history/runs/{id}/reproduce`, `POST /api/v2/calibration/runs`, `POST /api/v2/planning/run` and `POST /api/v2/planning/{id}/reproduce`; a request that finds no slot is refused at once with **429** (`src/request_limits.py`). The background-job routes (§6.1) are the intended path for the app.
+These run whole simulations inside the request. **At most two run at once, and one per client**, across `sweeps/run`, `validate/monte-carlo`, `validate/repeatability`, `control-comparison/run`, `GET /api/v1/study/export`, `history/runs/{id}/reproduce`, `POST /api/v2/calibration/runs`, `POST /api/v2/planning/run` and `POST /api/v2/planning/{id}/reproduce`; a request that finds no slot is refused at once with **429** (`src/api/request_limits.py`). The background-job routes (§6.1) are the intended path for the app.
 
 | Method | Route | Body | Output |
 | --- | --- | --- | --- |
@@ -247,7 +247,7 @@ A suite's batch runs belong to the suite's owner (an admin running a legacy suit
 
 ## 8. WebSockets
 
-**Origin.** A handshake whose `Origin` is neither this site (same host name as the request's `Host`) nor one of `CORS_ORIGINS` is refused with close code **1008** before it is accepted; a client that sends no `Origin` (not a browser) is accepted (`src/ws_origin.py`).
+**Origin.** A handshake whose `Origin` is neither this site (same host name as the request's `Host`) nor one of `CORS_ORIGINS` is refused with close code **1008** before it is accepted; a client that sends no `Origin` (not a browser) is accepted (`src/api/ws_origin.py`).
 
 | Endpoint | Scope | Rate | Ends when | Client messages |
 | --- | --- | --- | --- | --- |
@@ -393,3 +393,29 @@ All return 401 without key/user and 413 over 1 MiB.
 `status` is `queued`, `running`, `completed` or `failed` (with `error`). Finished studies are kept in `uf_planning_studies` and survive a restart; a study that was queued or running when the server stopped is lost (in-memory jobs).
 
 The browser workflow over these routes is the planner page, `/app/planner` ([planner guide](../product/planner-guide.md)).
+
+---
+
+## 11. Robustness Lab API — `/api/v3` (V3.0, in development)
+
+Contract files: [`shared/schemas/v3/`](../../shared/schemas/v3/) (`experiment.schema.json`, `uncertainty-spec.schema.json` and `openapi.v3.snapshot.json`, the `/api/v3` part of the OpenAPI document). `backend/tests/experiments/test_contract.py` fails when any of them is stale; regenerate with `cd backend && python -m src.experiments.export_schemas`. Design: [ADR-013](../decisions/adr-013-v3-integration-contract-and-versioning.md), [ADR-015](../decisions/adr-015-robustness-lab-uncertainty-design.md); factor meanings: [factor mapping](../engineering/v3-w1-factor-mapping.md).
+
+**Access.** Same rule as `/api/v2`: every route requires the API key (when `API_KEY` is set) **and** a signed-in user (`backend/tests/api/test_v3_route_auth.py`). Every experiment is private to its owner: another user's id answers **404**, exactly like an unknown one. There is no administrator override.
+
+| Method | Route | Purpose | Output | Errors |
+| --- | --- | --- | --- | --- |
+| GET | `/capabilities` | What this server offers: feature flags (only what exists is `true`), document formats, factor kinds, quotas and limits | `urbanflow-capabilities` | 401 |
+| POST | `/experiments/validate` | Check a request and report its size without running anything | `{valid, errors, warnings, counts, baseline, specFingerprint, scenarioFingerprint, alternatives}` | 401, 413 |
+| POST | `/experiments` | Submit an `urbanflow-experiment` v1 document; runs in the background | 202 `urbanflow-experiment-status` | 401, 413, 422, 429 |
+| GET | `/experiments?limit&offset` | The caller's experiments, newest first (limit 1-100) | `urbanflow-experiment-list` | 401, 422 |
+| GET | `/experiments/{id}` | Status and live progress | `urbanflow-experiment-status` | 401, 404 |
+| GET | `/experiments/{id}/result` | The finished `urbanflow-experiment-result` | result document | 401, 404, 409 no result yet or failed |
+| DELETE | `/experiments/{id}` | Delete a finished or failed experiment | `{id, deleted: true}` | 401, 404, 409 while queued or running |
+
+**Request.** `{format, version, name, scenario, alternatives?, baseline?, uncertainty}`: the scenario and alternatives are the V2.0 documents; `alternatives` omitted means fixed-time, adaptive and roundabout; `uncertainty` is an `urbanflow-uncertainty-spec` v1 (factors, number of conditions, replications, seed, primary indicator, tie tolerance). Unknown fields are rejected by name.
+
+**Result.** Carries the specification and its fingerprint, the assumptions (with `basis` and rationale), **conditions, replications and total runs separately**, valid conditions and exclusions by reason and factor stratum, win/tie/loss with Wilson intervals, the paired difference with bootstrap intervals, regret, preference share, the eligibility checklist, the line `Real-world validity: None — assumptions only`, the limitations, a `resultFingerprint` that is identical for the same inputs and seed, and provenance. One-factor flip detection, sensitivity, split-half stability and the variance split are not computed yet, so **no result is classed "eligible"**; the checklist says why.
+
+**Exclusions.** A condition is excluded for every alternative (and counted by reason) when its scenario is invalid after the change, a simulation fails, a run hits the vehicle limit, **no vehicle finishes a trip after warm-up** (the engine reports delay 0.0 for an empty sample, which is not a measurement; `validate` warns when fewer than 60 s are measured), or the indicator is missing. More than 10 % excluded overall, or 20 % in a factor stratum, makes the result ineligible.
+
+**Quotas** (proposals, reported by `/capabilities`): one running experiment per user and two server-wide (429), 50 stored experiments per user (429), at most 6 alternatives, 2000 runs (conditions × alternatives × replications) and 2 500 000 engine steps per experiment (steps = runs × duration ÷ time step, so 250 000 simulated seconds at the default 0.1 s step; 422, and the message names the quota). Documents nested more than 24 levels, and scale factors outside 0.05 to 10, are refused (422). Request bodies over 1 MiB are refused with 413. The [security review](../engineering/v3-w1-security-review.md) lists what was checked and what remains. There is no cancellation yet; an experiment a stopped server process was running reads `failed` with an `Interrupted by a server restart …` error.

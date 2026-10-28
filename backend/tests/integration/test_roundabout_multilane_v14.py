@@ -19,11 +19,12 @@ from typing import Any, Dict, Optional
 
 import pytest
 
-from src.controllers.factory import build_tick_callback, create_controller
+from src.controllers.factory import create_controller
 from src.core.clock import Clock
-from src.core.engine import SimulationEngine
-from src.core.scenario import compile_scenario, parse_scenario
+from src.engine.simulation_engine import SimulationEngine
+from src.engine.tick_callback import build_tick_callback
 from src.metrics.collector import MetricCollector
+from src.scenario.documents import compile_scenario, parse_scenario
 
 TURN = {"left": 0.2, "straight": 0.6, "right": 0.2}
 MIXES: Dict[str, Optional[Dict[str, float]]] = {
@@ -74,7 +75,7 @@ def _run(doc: Dict[str, Any]) -> Dict[str, float]:
     engine.register_tick_callback(
         build_tick_callback(controller, clock, engine, collector)
     )
-    logging.getLogger("src.vehicles.pool").setLevel(logging.ERROR)
+    logging.getLogger("src.engine.vehicle_pool").setLevel(logging.ERROR)
 
     last_exit: Optional[float] = None
     longest_gap = 0.0
@@ -125,6 +126,7 @@ def test_two_lane_ring_heavy_traffic_high_demand_is_safe_and_flows() -> None:
     assert result["zone_yields"] > 0, result
 
 
+@pytest.mark.slow
 def test_unequal_approaches_on_a_two_lane_ring() -> None:
     """A two-lane main road and a one-lane side road: exits merge."""
     lanes = {"north": 2, "south": 2, "east": 1, "west": 1}
@@ -134,6 +136,7 @@ def test_unequal_approaches_on_a_two_lane_ring() -> None:
     assert result["exited"] > 30, result
 
 
+@pytest.mark.slow
 def test_three_lane_approaches_merging_onto_two_ring_lanes() -> None:
     lanes = {"north": 3, "south": 3, "east": 2, "west": 2}
     result = _run(_scenario(lanes, 2400, MIXES["moto"], seed=5, duration=150))
@@ -142,6 +145,7 @@ def test_three_lane_approaches_merging_onto_two_ring_lanes() -> None:
     assert result["exited"] > 30, result
 
 
+@pytest.mark.slow
 def test_asymmetric_demand_on_a_two_lane_ring() -> None:
     split = {"north": 0.5, "south": 0.2, "east": 0.15, "west": 0.15}
     result = _run(_scenario(EVEN2, 2600, None, seed=3, duration=150, split=split))
@@ -149,6 +153,7 @@ def test_asymmetric_demand_on_a_two_lane_ring() -> None:
     assert result["standstill"] < 20.0, result
 
 
+@pytest.mark.slow
 def test_a_long_vehicle_queued_past_an_exit_stops_traffic_leaving_by_it() -> None:
     """Regression (found by the V1.4 validation matrix): a 10.6 m bus stood on
     the inner lane just past an exit, its tail over the start of that exit's

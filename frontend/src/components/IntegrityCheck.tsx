@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { LoaderMark } from "./ui/Loader";
-import { API_BASE_URL } from "../config";
+import { runIntegrityChecks } from "../services/api";
 
 /** Result of POST /api/v1/study/validate/repeatability
  *  (backend/src/study/validation.py run_invariant_checks). */
@@ -45,15 +45,7 @@ export function IntegrityCheck() {
 
   const run = () => {
     setState({ kind: "running" });
-    fetch(`${API_BASE_URL}/api/v1/study/validate/repeatability`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status.toString()}`);
-        return r.json() as Promise<IntegrityResult>;
-      })
+    runIntegrityChecks<IntegrityResult>()
       .then((result) => {
         setState({ kind: "done", result });
       })

@@ -106,6 +106,89 @@ export function failureText(error: PlanningApiError): string {
   return `The server reported an error (${error.status.toString()}): ${error.message}`;
 }
 
+export interface GroupedNote {
+  message: string;
+  /** Who the note is about, in the order first seen; empty when the server
+   *  sent it without an alternative prefix. */
+  appliesTo: string[];
+}
+
+/**
+ * The validator sends one warning per alternative ("adaptive: More than one
+ * lane…"), so a three-way study repeats every note three times. Group
+ * identical messages and name the alternatives each applies to, through
+ * `titleOf` (alternative id → readable name). A warning without a known
+ * alternative prefix is kept exactly as sent. Nothing is dropped.
+ */
+export function groupStudyNotes(
+  notes: string[],
+  titleOf: (alternativeId: string) => string | undefined,
+): GroupedNote[] {
+  const groups: GroupedNote[] = [];
+  const byMessage = new Map<string, GroupedNote>();
+  for (const note of notes) {
+    const match = /^([A-Za-z0-9_-]+): (.+)$/s.exec(note);
+    const title = match ? titleOf(match[1]) : undefined;
+    const message = match && title ? match[2] : note;
+    let group = byMessage.get(message);
+    if (!group) {
+      group = { message, appliesTo: [] };
+      byMessage.set(message, group);
+      groups.push(group);
+    }
+    if (title && !group.appliesTo.includes(title)) group.appliesTo.push(title);
+  }
+  return groups;
+}
+
+/**
+ * Findings repeat caveats (a scenario-wide caveat is attached to nearly every
+ * finding). Split them into the caveats shared by two or more findings —
+ * shown once, numbered — and each finding's own. `shared[i]` is referenced by
+ * a finding through `refs`. Order is first appearance; nothing is dropped.
+ */
+export function splitCaveats(findings: { id: string; caveats: string[] }[]): {
+  shared: string[];
+  own: Map<string, string[]>;
+  refs: Map<string, number[]>;
+} {
+  const counts = new Map<string, number>();
+  for (const f of findings) {
+    for (const c of new Set(f.caveats)) counts.set(c, (counts.get(c) ?? 0) + 1);
+  }
+  const shared = [...counts.keys()].filter((c) => (counts.get(c) ?? 0) > 1);
+  const own = new Map<string, string[]>();
+  const refs = new Map<string, number[]>();
+  for (const f of findings) {
+    own.set(
+      f.id,
+      f.caveats.filter((c) => !shared.includes(c)),
+    );
+    refs.set(
+      f.id,
+      [...new Set(f.caveats)]
+        .map((c) => shared.indexOf(c))
+        .filter((i) => i >= 0)
+        .sort((a, b) => a - b),
+    );
+  }
+  return { shared, own, refs };
+}
+
+/** Elapsed seconds as m:ss (or h:mm:ss), for a running job. */
+export function formatElapsed(seconds: number | null | undefined): string {
+  if (seconds === null || seconds === undefined || !Number.isFinite(seconds)) {
+    return NOT_AVAILABLE;
+  }
+  const s = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const ss = String(s % 60).padStart(2, "0");
+  return h > 0
+    ? `${h.toString()}:${String(m).padStart(2, "0")}:${ss}`
+    : `${m.toString()}:${ss}`;
+}
+
 /** Strip the API's location prefix ("alternatives.0.strategy: ...") into
  *  something readable while keeping the field name. */
 export function plainValidationError(message: string): string {

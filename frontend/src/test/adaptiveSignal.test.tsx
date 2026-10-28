@@ -27,6 +27,11 @@ import { ControlComparisonStudy } from "../components/ControlComparisonStudy";
 import { completedJob } from "./studyJob";
 
 vi.mock("../config", () => ({ API_BASE_URL: "http://localhost:8000" }));
+vi.mock("../services/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../services/api")>()),
+  listStrategies: () =>
+    import("./strategyCatalogFixture").then((m) => m.STRATEGY_CATALOG),
+}));
 
 const ADAPTIVE = {
   ...DEFAULT_CONFIG_VALUES,
@@ -78,7 +83,7 @@ describe("dashboard payload", () => {
 });
 
 describe("guided setup", () => {
-  it("asks how the signal should respond and runs with the answer", async () => {
+  it("offers the adaptive signal as a strategy of its own and runs with it", async () => {
     const onRun = vi.fn();
     render(
       <ScenarioSetup
@@ -87,26 +92,26 @@ describe("guided setup", () => {
         runInProgress={false}
       />,
     );
-    expect(
-      screen.getByText("How should the signal respond to traffic?"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("radio", { name: /On a fixed timetable/ }),
-    ).toBeChecked();
-    await userEvent.click(
-      screen.getByRole("radio", { name: /Responds to traffic/ }),
-    );
+    const adaptive = await screen.findByRole("checkbox", {
+      name: "Adaptive signal",
+    });
+    expect(adaptive).not.toBeChecked();
+    // Its card states this scenario's adaptive settings.
     expect(
       screen.getByText(/Each green lasts at least 10 s/),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Traffic signal that responds" }),
-    ).toBeInTheDocument();
+    await userEvent.click(adaptive);
     await userEvent.click(
-      screen.getByRole("button", { name: /Run the comparison/ }),
+      screen.getByRole("button", { name: /Run 3 strategies/ }),
     );
     expect(onRun).toHaveBeenCalledWith(
-      expect.objectContaining({ signalControl: "adaptive" }),
+      expect.objectContaining({
+        strategies: [
+          "fixed_time_signal",
+          "adaptive_signal",
+          "conventional_roundabout",
+        ],
+      }),
     );
   });
 });

@@ -117,9 +117,9 @@ def test_demand_vehicle_limit_is_sized_from_the_scenario() -> None:
 
 
 def test_dashboard_scenarios_no_longer_inherit_the_silent_cap() -> None:
-    from src.main import _compile_dashboard_config
+    from src.live.dashboard_config import compile_dashboard_config
 
-    config = _compile_dashboard_config(
+    config = compile_dashboard_config(
         {
             "intersectionType": "fixed_time_signal",
             "arrivalRate": 0.8,

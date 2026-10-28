@@ -1,6 +1,6 @@
 # UrbanFlow Documentation
 
-> The map of everything written about UrbanFlow. **V1.0 — complete.** Documentation frozen and verified against the source on 2026-10-05.
+> The map of everything written about UrbanFlow. **V2.0 — complete** (release gate passed 2026-10-13) · **V3.0 W1 Robustness Lab vertical slice implemented** (2026-10-15).
 
 ---
 
@@ -22,9 +22,9 @@ flowchart TB
 
 | You are… | Read in this order |
 | --- | --- |
-| **A planner or reviewer** new to UrbanFlow | [Product story](product/README.md) → [Methodology §1–2](simulation/methodology.md) → [Validation §5 (limits)](research/validation.md#5-known-limitations) |
-| **A researcher** assessing the results | [Methodology](simulation/methodology.md) → [Metrics](research/metrics-reference.md) → [Validation](research/validation.md) → [Reproducibility](research/reproducibility.md) → [Comparative report](reports/comparative_report.md) |
-| **A developer** starting V1.3 | [System overview](architecture/00-system-overview.md) → [Backend](architecture/02-backend-architecture.md) / [Frontend](architecture/03-frontend-architecture.md) → [Configuration](simulation/configuration.md) → [API](api/README.md) → [Testing](testing/README.md) → [Roadmap](ROADMAP.md) |
+| **A planner or reviewer** new to UrbanFlow | [Product story](product/README.md) → [Planner guide](product/planner-guide.md) → [Methodology §1–2](simulation/methodology.md) → [Validation §5 (limits)](research/validation.md#5-known-limitations) |
+| **A researcher** assessing the results | [Methodology](simulation/methodology.md) → [Metrics](research/metrics-reference.md) → [Validation](research/validation.md) → [Uncertainty](research/uncertainty.md) → [Reproducibility](research/reproducibility.md) → [Comparative report](reports/comparative_report.md) |
+| **A developer** | [System overview](architecture/00-system-overview.md) → [Backend](architecture/02-backend-architecture.md) / [Frontend](architecture/03-frontend-architecture.md) → [Configuration](simulation/configuration.md) → [API](api/README.md) → [Testing](testing/README.md) → [Roadmap](ROADMAP.md) |
 | **An operator** | [Root README](../README.md#quick-start) → [Deployment & operations](deployment/README.md) → [Operations guide](operations.md) |
 
 ---
@@ -33,7 +33,7 @@ flowchart TB
 
 | Status | Meaning |
 | --- | --- |
-| **Current** | Describes the V1.0 implementation; verified against the source |
+| **Current** | Describes the V1.0–V2.0 / V3.0 W1 implementation; verified against the source |
 | **Reference** | Detailed contract or audit; current, but narrower or deeper than the Current docs |
 | **Record** | A dated record of work (reports, audits, logs). Accurate for its date; later changes are noted at the top |
 | **Historical** | Planning material from earlier phases. Kept for context; not a description of the system |
@@ -49,8 +49,10 @@ flowchart TB
 | --- | --- | --- |
 | [../README.md](../README.md) | Current | Project entry point |
 | [product/README.md](product/README.md) | Current | Product story: problem, personas, principles, journey |
+| [product/planner-guide.md](product/planner-guide.md) | Current (V2.0) | Step-by-step planner guide for running junction studies at `/app/planner` |
 | [product/urbanflow-user-narrative.md](product/urbanflow-user-narrative.md) | Reference | Narrative, information architecture and plain-language strategy as implemented |
 | [product/urbanflow-evaluation-metrics.md](product/urbanflow-evaluation-metrics.md) | Reference | Full metric audit: formulas, charts, validity findings |
+| [product/ux-audit-v3-w2-followup.md](product/ux-audit-v3-w2-followup.md) | Record (2026-10-21) | UX audit of the scenario → run → results workflow and the small changes made for metered-entry roundabouts; deferred items |
 
 ### Simulation and research
 
@@ -58,9 +60,15 @@ flowchart TB
 | --- | --- | --- |
 | [simulation/methodology.md](simulation/methodology.md) | Current | What is modelled and how; assumptions register; controlled comparison |
 | [simulation/configuration.md](simulation/configuration.md) | Current | Planner, advanced and research configuration; environment variables |
+| [simulation/signalised-roundabout.md](simulation/signalised-roundabout.md) | Current | V3.0 W2 metered-entry (signalised) roundabout: model, configuration, claims, limits, G-SR evidence |
 | [research/metrics-reference.md](research/metrics-reference.md) | Current | Every metric with definition, unit, calculation, interpretation, limits, use |
 | [research/reproducibility.md](research/reproducibility.md) | Current | Determinism, provenance, re-running runs and studies |
 | [research/validation.md](research/validation.md) | Current | Validated · measured · assumed · known limitations · future work |
+| [research/calibration.md](research/calibration.md) | Reference | Observed-traffic calibration framework and rating method |
+| [research/uncertainty.md](research/uncertainty.md) | Current (V3.0 W1) | Robustness Lab: does a comparison survive declared uncertainty? Method, eligibility, what it does not claim; [worked example](research/examples/robustness-demo/README.md) |
+| [engineering/v3-w1-factor-mapping.md](engineering/v3-w1-factor-mapping.md) | Reference (V3.0 W1) | Factor mapping for the Robustness Lab uncertainty engine |
+| [engineering/v3-w1-security-review.md](engineering/v3-w1-security-review.md) | Current (V3.0 W1) | Security review of `/api/v3`: findings, fixes, residual risks |
+| [engineering/v20-integration.md](engineering/v20-integration.md) | Record | V2.0 decision support integration notes |
 | [reports/comparative_report.md](reports/comparative_report.md) | Record | Measured signal-vs-roundabout comparison (revision 2026-09-25b) |
 | [reports/v1-known-limitations.md](reports/v1-known-limitations.md) | Record | Per-item limitation audit with measurements |
 | [bug-fix-report.md](bug-fix-report.md) | Record | Bug-fix and calibration pass with regression evidence |
@@ -72,7 +80,7 @@ flowchart TB
 | --- | --- | --- |
 | [architecture/00-system-overview.md](architecture/00-system-overview.md) | Current | Architecture, tick sequence, data flow, lifecycle, concurrency, security |
 | [architecture/01-repository-architecture.md](architecture/01-repository-architecture.md) | Current | Repository layout and ownership |
-| [architecture/02-backend-architecture.md](architecture/02-backend-architecture.md) | Current | Backend packages and dependencies |
+| [architecture/02-backend-architecture.md](architecture/02-backend-architecture.md) | Current | Backend packages, layers, and dependency directions |
 | [architecture/03-frontend-architecture.md](architecture/03-frontend-architecture.md) | Current | Frontend structure, routing, data flow |
 | [architecture/04-shared-contract-layer.md](architecture/04-shared-contract-layer.md) | Reference | Contract ownership and versioning |
 | [architecture/05-snapshot-contract.md](architecture/05-snapshot-contract.md) | Reference | Snapshot schema |
@@ -81,7 +89,7 @@ flowchart TB
 | [architecture/08-communication-contract.md](architecture/08-communication-contract.md) | Reference | REST/WebSocket design notes (endpoint list: [API reference](api/README.md)) |
 | [architecture/09-engineering-standards.md](architecture/09-engineering-standards.md) | Reference | Naming, Git workflow, code quality |
 | [architecture/10-repository-bootstrap.md](architecture/10-repository-bootstrap.md) | Historical | Original bootstrap specification |
-| [decisions/](decisions/README.md) | Reference | Architecture Decision Records and V1.0 implementation decisions |
+| [decisions/](decisions/README.md) | Reference | Architecture Decision Records (ADR-001 through ADR-018) |
 
 ### Interfaces, quality and operations
 
@@ -99,11 +107,14 @@ flowchart TB
 | Document | Status | Purpose |
 | --- | --- | --- |
 | [ROADMAP.md](ROADMAP.md) | **Authoritative** | V0.1 → V1.0 history, the V1.1 → V2.0 roadmap, and the proposed V3.0 plan (§7) |
-| [roadmap/V2_COMPLETION_AUDIT.md](roadmap/V2_COMPLETION_AUDIT.md) | Proposed | V2.0 completion audit and the binary V2.0 release gate (G-V2) |
+| [roadmap/V2_COMPLETION_AUDIT.md](roadmap/V2_COMPLETION_AUDIT.md) | Record | V2.0 completion audit — release gate G-V2 passed 2026-10-13 |
 | [roadmap/V3_PRODUCT_STRATEGY.md](roadmap/V3_PRODUCT_STRATEGY.md) | Proposed | V3.0 strategy: signalised roundabouts and composable strategies, high-aggression default, two AI features, Robustness Lab contract |
 | [roadmap/V3_WEEKLY_SPRINT_PLAN.md](roadmap/V3_WEEKLY_SPRINT_PLAN.md) | Proposed | Capacity model, one major feature per week, gates, GitHub issue map |
 | [roadmap/V3_PRESENTATION_PLAN.md](roadmap/V3_PRESENTATION_PLAN.md) | Proposed | Preview (29 Oct), interim (26 Nov) and final (7 Jan 2027) presentations |
-| [future-scope/future_scope.md](future-scope/future_scope.md) | **Authoritative** | Research frontiers beyond the roadmap |
+| [future-scope/future_scope.md](future-scope/future_scope.md) | **Authoritative** | Research frontiers beyond the roadmap (FS-1 … FS-13) |
+| [future-scope/next-generation-requirements.md](future-scope/next-generation-requirements.md) | Planning | Guided Scenario Builder, Visual City Studio, AI Traffic Analyst: users, journeys, requirements with stable IDs, MVPs, open questions |
+| [future-scope/next-generation-architecture.md](future-scope/next-generation-architecture.md) | Planning | Reusable capabilities, component boundaries, shared contracts, risks, ADR candidates |
+| [future-scope/next-generation-roadmap.md](future-scope/next-generation-roadmap.md) | Planning | Dependency-ordered phases, gates, parallel-work policy |
 | [future-scope/ui_ux_and_nextgen_innovations.md](future-scope/ui_ux_and_nextgen_innovations.md) | Archived | Early UI brainstorm, mapped to roadmap/future scope |
 | [project-management/](project-management/README.md) | Historical | Original milestone plan, labels, Kanban |
 | [issues/](issues/README.md) | Historical | Original atomic issue breakdown |

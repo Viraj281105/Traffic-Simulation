@@ -13,7 +13,7 @@ from typing import Any, Dict, Iterator
 import pytest
 from fastapi.testclient import TestClient
 
-from src.auth import get_current_user_id, get_current_user_is_admin
+from src.api.auth import get_current_user_id, get_current_user_is_admin
 from src.calibration import store
 from src.calibration.runner import run_calibration
 from src.main import app

@@ -1,0 +1,199 @@
+/* Navigation pieces beyond the header tabs (App.css) and the sub-nav bar
+   (Guided.css): sub-nav groups, the utility links and the related-tools
+   strip. Colours, depth and motion come from styles/tokens.css. */
+
+/* ── Sub-nav groups ─────────────────────────────────────────────────────── */
+.sub-nav {
+  align-items: flex-end;
+}
+.sub-nav__group {
+  align-self: center;
+  flex-shrink: 0;
+  padding: 0 4px 3px 2px;
+  color: var(--color-text-3);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.sub-nav__divider {
+  align-self: center;
+  flex-shrink: 0;
+  width: 1px;
+  height: 18px;
+  margin: 0 8px 3px;
+  background: var(--color-border-strong);
+}
+.sub-nav__chevron {
+  align-self: center;
+  flex-shrink: 0;
+  margin-bottom: 3px;
+  color: var(--color-text-3);
+}
+.sub-nav .sub-nav__trail {
+  cursor: default;
+  color: var(--color-text);
+  font-weight: 600;
+}
+.sub-nav .sub-nav__trail:hover {
+  background: transparent;
+}
+
+/* ── Utility links (Developer, Admin) ───────────────────────────────────── */
+.utility-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.utility-nav .utility-link {
+  height: 36px;
+  padding: 0 14px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-raised);
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+.utility-nav .utility-link:hover {
+  border-color: var(--color-border-strong);
+  transform: translateY(-1px);
+}
+.utility-nav .utility-link.active {
+  background: var(--color-accent-soft);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  color: var(--color-accent);
+}
+.utility-nav .utility-link.active .tab-icon {
+  color: var(--color-accent);
+}
+
+/* ── Related tools, at the end of a study or experiment page ────────────── */
+/* It takes the width of the page above it: the shared wide frame by
+   default, the narrower study frame, the planning dashboard's frame, or
+   (inside .related-fit) whatever width a dash page settles at. */
+.related-tools {
+  width: 100%;
+  max-width: var(--content-wide);
+  margin: 0 auto;
+  padding: 0 24px 64px;
+  color: var(--color-text);
+}
+.guided-page:not(.planner) + .related-tools {
+  max-width: 1080px;
+}
+.scenario-planning-dashboard + .related-tools {
+  max-width: 1400px;
+  padding-inline: 2rem;
+}
+.related-fit {
+  display: flex;
+  flex-direction: column;
+  margin: 0 auto;
+  max-width: 100%;
+}
+.related-fit > .related-tools {
+  width: 0;
+  min-width: 100%;
+  padding-inline: var(--space-5);
+}
+/* Inside a page that already has its own frame (Saved). */
+.related-tools.is-inline {
+  max-width: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.related-tools h2 {
+  margin: 0 0 12px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border);
+  font-size: 15px;
+  font-weight: 600;
+}
+.related-tools ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.related-tools a {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  height: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: inherit;
+  text-decoration: none;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+.related-tools a:hover {
+  border-color: var(--color-border-strong);
+  transform: translateY(-1px);
+}
+.related-tools__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.related-tools__label svg {
+  color: var(--color-text-3);
+}
+.related-tools__body {
+  color: var(--color-text-2);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+/* Tablets: the utility links keep only their icon (the name stays for
+   assistive technology). */
+@media (max-width: 1024px) {
+  .utility-nav .utility-link {
+    width: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+  .utility-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+/* Phones: group labels give way to the dividers, and the four workflow
+   tabs keep their names but drop their icons so all four fit one row. The
+   brand, utilities and account share the row above; the dev-server badge
+   (local development only) gives way there, leaving the avatar. */
+@media (max-width: 640px) {
+  .header-tabs .tab-icon {
+    display: none;
+  }
+  .header-tabs .tab-btn {
+    padding: 7px 8px;
+  }
+  .header-right .dev-auth-badge {
+    display: none;
+  }
+  .sub-nav__group {
+    display: none;
+  }
+  .related-tools {
+    padding: 0 14px 40px;
+  }
+  .related-fit > .related-tools {
+    padding-inline: var(--space-4);
+  }
+}

@@ -14,11 +14,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import pytest
 
-from src.controllers.factory import build_tick_callback, create_controller
+from src.controllers.factory import create_controller
 from src.core.clock import Clock
-from src.core.config_validation import semantic_config_errors
-from src.core.engine import SimulationEngine
+from src.engine.simulation_engine import SimulationEngine
+from src.engine.tick_callback import build_tick_callback
 from src.metrics.collector import MetricCollector
+from src.scenario.config_validation import semantic_config_errors
 from src.snapshot.builder import SnapshotBuilder
 
 PAIRED = ["ns_green", "ns_yellow", "all_red", "ew_green", "ew_yellow", "all_red"]
@@ -136,14 +137,15 @@ SAFETY_CASES = [
     ("fixed_time_signal", 1, 0.6, 3, HEAVY_MIX),
     ("roundabout", 1, 0.6, 3, HEAVY_MIX),
     ("fixed_time_signal", 2, 0.8, 11, URBAN_MIX),
-    ("roundabout", 2, 0.8, 11, URBAN_MIX),
-    ("fixed_time_signal", 3, 0.8, 7, None),
-    (
+    pytest.param("roundabout", 2, 0.8, 11, URBAN_MIX, marks=pytest.mark.slow),
+    pytest.param("fixed_time_signal", 3, 0.8, 7, None, marks=pytest.mark.slow),
+    pytest.param(
         "fixed_time_signal",
         {"north": 2, "south": 2, "east": 1, "west": 1},
         0.7,
         5,
         URBAN_MIX,
+        marks=pytest.mark.slow,
     ),
 ]
 
@@ -170,7 +172,10 @@ def test_multilane_runs_change_lanes_gradually() -> None:
     assert run.engine.pool.collision_count == 0
 
 
-@pytest.mark.parametrize("kind", ["fixed_time_signal", "roundabout"])
+@pytest.mark.parametrize(
+    "kind",
+    ["fixed_time_signal", pytest.param("roundabout", marks=pytest.mark.slow)],
+)
 def test_same_seed_replays_mixed_multilane_runs_exactly(kind: str) -> None:
     config = _config(kind, 2, 0.8, 19, duration=90, mix=URBAN_MIX)
     first = _Run(config).run()
@@ -229,6 +234,7 @@ def test_snapshot_reports_classes_lanes_and_breakdown() -> None:
     }
 
 
+@pytest.mark.slow
 def test_heavy_vehicles_are_slower_than_cars_on_the_same_junction() -> None:
     run = _Run(
         _config("fixed_time_signal", 1, 0.3, 31, duration=240, mix=HEAVY_MIX)
@@ -248,7 +254,7 @@ def test_heavy_vehicles_are_slower_than_cars_on_the_same_junction() -> None:
 
 @pytest.mark.parametrize(
     "lanes,mix,duration",
-    [(2, URBAN_MIX, 180), (3, HEAVY_MIX, 240)],
+    [(2, URBAN_MIX, 180), pytest.param(3, HEAVY_MIX, 240, marks=pytest.mark.slow)],
 )
 def test_multilane_roundabout_mouth_with_long_vehicles(
     lanes: int, mix: Dict[str, float], duration: float
@@ -262,6 +268,7 @@ def test_multilane_roundabout_mouth_with_long_vehicles(
     assert run.longest_stall < 70.0
 
 
+@pytest.mark.slow
 def test_signal_merge_onto_one_exit_lane_does_not_deadlock() -> None:
     """Three-lane signal, city mix: a car going straight and an SUV turning
     left, both already in the junction and both heading for the same exit

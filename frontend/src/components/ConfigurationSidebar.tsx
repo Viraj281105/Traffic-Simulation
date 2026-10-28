@@ -1,11 +1,4 @@
-import React, {
-  Fragment,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { Fragment, useEffect, useId, useMemo, useState } from "react";
 import type { SimulationConfigValues } from "../types/config";
 import {
   ADAPTIVE_DEFAULTS,
@@ -19,6 +12,7 @@ import { SIGNAL_CONTROL_CHOICES } from "../signals/signalControl";
 import "./ConfigurationSidebar.css";
 import { CircleAlert, Dices, TriangleAlert } from "lucide-react";
 import { CloseButton } from "./ui/CloseButton";
+import { EXIT, useExitTransition } from "./ui/motion";
 import {
   MIX_PRESETS,
   VEHICLE_CLASSES,
@@ -125,7 +119,12 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
   const [prevConfig, setPrevConfig] = useState<SimulationConfigValues>(config);
   const [form, setForm] = useState<SimulationConfigValues>(config);
   const [isApplied, setIsApplied] = useState(false);
-  const panelRef = useRef<HTMLDivElement>(null);
+  // The drawer slides out before it unmounts (ui/motion.ts).
+  const {
+    overlay: overlayRef,
+    panel: panelRef,
+    close,
+  } = useExitTransition(onClose, EXIT.drawer);
   const titleId = useId();
   const seedId = useId();
   const splitId = useId();
@@ -173,25 +172,21 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
   );
 
   // Escape closes; focus moves into the panel when it opens and back when it
-  // closes. onClose is read through a ref: the parent re-renders on every
-  // simulation snapshot, and re-running this effect would steal focus.
-  const onCloseRef = useRef(onClose);
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  });
+  // closes. `close` is stable (the parent re-renders on every simulation
+  // snapshot, and re-running this effect would steal focus).
   useEffect(() => {
     if (!isOpen) return;
     const previous = document.activeElement as HTMLElement | null;
     panelRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCloseRef.current();
+      if (e.key === "Escape") close();
     };
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
       previous?.focus();
     };
-  }, [isOpen]);
+  }, [isOpen, panelRef, close]);
 
   // Checks describe what the model supports; they do not claim behaviour the
   // simulation does not model.
@@ -277,7 +272,7 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
   const hourly = Math.round(form.arrivalRate * 3600).toLocaleString();
 
   return (
-    <div className="config-sidebar-overlay" onClick={onClose}>
+    <div ref={overlayRef} className="config-sidebar-overlay" onClick={close}>
       <div
         ref={panelRef}
         className="config-sidebar-panel"
@@ -294,7 +289,7 @@ export const ConfigurationSidebar: React.FC<ConfigurationSidebarProps> = ({
             <span>Scenario settings</span>
             {isDirty && <span className="config-dirty-badge">Unsaved</span>}
           </h2>
-          <CloseButton label="Close scenario settings" onClick={onClose} />
+          <CloseButton label="Close scenario settings" onClick={close} />
         </div>
 
         <form className="config-sidebar-body" onSubmit={handleSubmit}>

@@ -6,7 +6,8 @@ from typing import Any, Dict
 from fastapi.testclient import TestClient
 
 from src.core.enums import Direction
-from src.main import _compile_dashboard_config, app
+from src.live.dashboard_config import compile_dashboard_config
+from src.main import app
 from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
 
 client = TestClient(app)
@@ -77,7 +78,7 @@ def test_compile_and_run_a_three_arm_junction() -> None:
 
 
 def test_the_live_comparison_builds_both_designs_without_the_missing_arm() -> None:
-    config = _compile_dashboard_config(
+    config = compile_dashboard_config(
         {"intersectionType": "fixed_time_signal", "scenario": T_JUNCTION}, 1
     )
     orch = DualSimulationOrchestrator(config)

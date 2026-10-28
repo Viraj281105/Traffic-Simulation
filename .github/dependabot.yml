@@ -46,6 +46,13 @@ updates:
       docker-dependencies:
         patterns:
           - "*"
+    # One supported Python version across local, CI and Docker (decision D4, recommended 3.11):
+    # take 3.11.x patch releases, but never a new Python minor/major or a release candidate.
+    ignore:
+      - dependency-name: "python"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
 
   # Maintain the frontend's Docker base images
   - package-ecosystem: "docker"

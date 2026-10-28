@@ -1,0 +1,65 @@
+{
+  "E1-robustness": {
+    "eligibility": "exploratory",
+    "meanOutcome": {
+      "adaptive": 17.788333,
+      "fixed": 21.189167,
+      "roundabout": 24.37
+    },
+    "replayClass": "exact",
+    "resultFingerprint": "d254d8a08d887f33",
+    "runs": 72,
+    "verified": true,
+    "wallSeconds": 87.3
+  },
+  "E2-signalised-roundabout-high-aggression": {
+    "eligibility": "exploratory",
+    "meanOutcome": {
+      "adaptive": 19.863333,
+      "fixed": 17.423333,
+      "metered": 27.271667,
+      "roundabout": 23.429583
+    },
+    "replayClass": "exact",
+    "resultFingerprint": "24b9caf31e98dfce",
+    "runs": 96,
+    "verified": true,
+    "wallSeconds": 110.1
+  },
+  "E3-copilot-proposed": {
+    "eligibility": "exploratory",
+    "meanOutcome": {
+      "adaptive": 46.141667,
+      "roundabout": 52.244583,
+      "signalised_roundabout": 60.365
+    },
+    "replayClass": "exact",
+    "resultFingerprint": "d2d325e202ec51eb",
+    "runs": 72,
+    "verified": true,
+    "wallSeconds": 474.7
+  },
+  "E4-discovery-search": {
+    "bestOnTuningLosesOnHeldOut": true,
+    "heldOutVersusBaselines": {
+      "5f54b94ae4635188": {
+        "adaptive": 7.519,
+        "fixed_time": 11.259,
+        "roundabout": 0.0
+      },
+      "61b17c5a7d517f89": {
+        "adaptive": 6.664,
+        "fixed_time": 10.404,
+        "roundabout": -0.855
+      }
+    },
+    "replayClass": "exact",
+    "runs": {
+      "planned": 114,
+      "used": 114
+    },
+    "traceFingerprint": "e6a9aa42c2559e85",
+    "verified": true,
+    "wallSeconds": 180.5
+  }
+}

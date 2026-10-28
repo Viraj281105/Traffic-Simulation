@@ -27,10 +27,10 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 
 from src.controllers.base import BaseController
-from src.controllers.virtual_obstacle import VirtualObstacle
 from src.core.enums import Direction, TurnIntent
 from src.roads.network import RoadNetwork
 from src.vehicles.vehicle import Vehicle
+from src.vehicles.virtual_obstacle import VirtualObstacle
 
 # ---------------------------------------------------------------------------
 # Phase descriptor
@@ -207,7 +207,7 @@ class FixedTimeSignalController(BaseController):
 
         If a ``phaseSequence`` was configured, build grouped phases from it
         (e.g. "ns_green" = NORTH+SOUTH green together — permissive lefts are
-        then arbitrated by ConflictManager, see vehicles/pool.py). Otherwise
+        then arbitrated by ConflictManager, see engine/vehicle_pool.py). Otherwise
         preserve the existing default: one direction at a time, each with a
         dedicated straight+right phase followed by a protected left phase.
         """
@@ -487,12 +487,12 @@ class FixedTimeSignalController(BaseController):
                 elif is_yellow_phase:
                     # Allow dilemma zone clearance during yellow phase
                     lane.virtual_obstacle = VirtualObstacle(
-                        position=lane.length, is_yellow=True
+                        position=lane.length, is_yellow=True, stop_line=True
                     )
                 else:
                     # Block the lane with a virtual obstacle at the stop line
                     lane.virtual_obstacle = VirtualObstacle(
-                        position=lane.length, is_yellow=False
+                        position=lane.length, is_yellow=False, stop_line=True
                     )
 
     # ------------------------------------------------------------------

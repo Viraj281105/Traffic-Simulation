@@ -1,0 +1,284 @@
+.discovery-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-3);
+}
+
+.discovery-form label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: 0.88rem;
+  color: var(--color-text-2);
+}
+
+.discovery-form input,
+.discovery-form select {
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+}
+
+.discovery-form .discovery-check {
+  flex-direction: row;
+  align-items: center;
+}
+
+.discovery-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.discovery-pick {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-1) 0;
+  text-align: left;
+}
+
+.discovery-pick.is-current {
+  font-weight: 600;
+}
+
+.discovery-badge {
+  color: var(--color-warning);
+  border-color: var(--color-warning);
+}
+
+.comparison-table-wrap {
+  overflow-x: auto;
+}
+
+.token-scopes {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  margin: var(--space-3) 0;
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.token-scopes .discovery-check {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.token-secret {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--font-mono);
+  padding: var(--space-2);
+  color: var(--color-text);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+}
+
+/* ── Dashboard additions ──────────────────────────────────────────────── */
+.discovery-budget {
+  margin: var(--space-4) 0;
+}
+
+.discovery-progress {
+  margin: var(--space-2) 0 var(--space-3);
+}
+
+.discovery-charts {
+  margin: var(--space-4) 0;
+}
+
+.discovery-chart-title {
+  margin: 0 0 var(--space-2);
+  font-size: 0.9rem;
+  color: var(--color-text-2);
+}
+
+.discovery-heat-table {
+  margin-top: var(--space-4);
+}
+
+.forest {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.forest-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) minmax(120px, 2fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 12.5px;
+  color: var(--color-text-2);
+}
+
+.forest-row__track {
+  --tone: var(--series-neutral);
+  position: relative;
+  height: 22px;
+  background: var(--color-surface-2);
+  border-radius: var(--radius-sm);
+}
+
+.forest-row__zero {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  width: 1px;
+  background: var(--color-text-3);
+}
+
+.forest-row__ci {
+  position: absolute;
+  top: 10px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--tone, var(--series-neutral));
+}
+
+.forest-row__dot {
+  position: absolute;
+  top: 5px;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  border-radius: 50%;
+  background: var(--tone, var(--series-neutral));
+  border: 2px solid var(--color-surface);
+}
+
+.forest-row__ci.is-good,
+.forest-row__dot.is-good {
+  --tone: var(--color-success);
+}
+
+.forest-row__ci.is-bad,
+.forest-row__dot.is-bad {
+  --tone: var(--color-danger);
+}
+
+.forest-row__ci.is-neutral,
+.forest-row__dot.is-neutral {
+  --tone: var(--series-neutral);
+}
+
+@media (max-width: 600px) {
+  .forest-row {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+}
+
+.stress-hero-stats {
+  display: flex;
+  gap: var(--space-4);
+  font-size: 13px;
+  color: var(--color-text-2);
+}
+
+.stress-hero-stats strong {
+  display: block;
+  font-size: 1.4rem;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.stress-wait {
+  margin-top: var(--space-4);
+}
+
+.stress-rules {
+  flex-direction: column;
+  margin: var(--space-3) 0 0;
+}
+
+.dash-table td.stress-heat-cell {
+  background: color-mix(
+    in srgb,
+    var(--heat-colour, var(--color-accent)) calc(var(--heat, 0) * 45%),
+    transparent
+  );
+}
+
+/* ── API tokens ───────────────────────────────────────────────────────── */
+.token-scopes .discovery-check {
+  flex-wrap: wrap;
+}
+
+.token-scopes .discovery-check > span:first-of-type {
+  flex: 1 1 220px;
+}
+
+.token-secret-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.token-secret-row .token-secret {
+  flex: 1 1 240px;
+  width: auto;
+}
+
+.token-scope-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.token-expiry {
+  display: grid;
+  gap: 4px;
+  min-width: 140px;
+}
+
+.token-coverage {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.token-coverage li {
+  display: grid;
+  grid-template-columns: 130px 1fr 1.5rem;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 12.5px;
+  color: var(--color-text-2);
+}
+
+.token-coverage__bar {
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-3);
+  overflow: hidden;
+}
+
+.token-coverage__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.token-coverage__bar .is-read {
+  background: var(--color-accent);
+}
+
+.token-coverage__bar .is-write {
+  background: var(--color-warning);
+}
+
+.token-coverage__n {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

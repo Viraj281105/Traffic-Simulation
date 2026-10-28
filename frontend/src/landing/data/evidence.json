@@ -1,0 +1,157 @@
+{
+  "source": "fallback-pack/medium-precomputed/report.json",
+  "study": "Preview study (medium, precomputed)",
+  "gitCommit": "886742fed0ccd464d74c9e331b9ce5dcac537e25",
+  "seeds": 3,
+  "durationSeconds": 300.0,
+  "baseline": "base",
+  "labels": {
+    "base": "Fixed-time",
+    "adaptive": "Adaptive",
+    "rbt": "Roundabout"
+  },
+  "rows": [
+    {
+      "alt": "base",
+      "scale": 0.8,
+      "vph": 960,
+      "mean": 21.58,
+      "ciLow": 10.13,
+      "ciHigh": 33.03,
+      "n": 3
+    },
+    {
+      "alt": "base",
+      "scale": 1.0,
+      "vph": 1200,
+      "mean": 27.87,
+      "ciLow": 8.25,
+      "ciHigh": 47.49,
+      "n": 3
+    },
+    {
+      "alt": "base",
+      "scale": 1.2,
+      "vph": 1440,
+      "mean": 35.82,
+      "ciLow": 19.28,
+      "ciHigh": 52.36,
+      "n": 3
+    },
+    {
+      "alt": "adaptive",
+      "scale": 0.8,
+      "vph": 960,
+      "mean": 17.93,
+      "ciLow": 3.55,
+      "ciHigh": 32.31,
+      "n": 3
+    },
+    {
+      "alt": "adaptive",
+      "scale": 1.0,
+      "vph": 1200,
+      "mean": 22.04,
+      "ciLow": 12.19,
+      "ciHigh": 31.89,
+      "n": 3
+    },
+    {
+      "alt": "adaptive",
+      "scale": 1.2,
+      "vph": 1440,
+      "mean": 32.4,
+      "ciLow": 23.36,
+      "ciHigh": 41.44,
+      "n": 3
+    },
+    {
+      "alt": "rbt",
+      "scale": 0.8,
+      "vph": 960,
+      "mean": 15.99,
+      "ciLow": 13.33,
+      "ciHigh": 18.65,
+      "n": 3
+    },
+    {
+      "alt": "rbt",
+      "scale": 1.0,
+      "vph": 1200,
+      "mean": 20.73,
+      "ciLow": 9.06,
+      "ciHigh": 32.4,
+      "n": 3
+    },
+    {
+      "alt": "rbt",
+      "scale": 1.2,
+      "vph": 1440,
+      "mean": 27.78,
+      "ciLow": 12.85,
+      "ciHigh": 42.71,
+      "n": 3
+    }
+  ],
+  "deltas": [
+    {
+      "alt": "adaptive",
+      "scale": 0.8,
+      "delta": -3.65,
+      "ciLow": -8.26,
+      "ciHigh": 0.96,
+      "verdict": "inconclusive",
+      "n": 3
+    },
+    {
+      "alt": "adaptive",
+      "scale": 1.0,
+      "delta": -5.83,
+      "ciLow": -22.54,
+      "ciHigh": 10.89,
+      "verdict": "inconclusive",
+      "n": 3
+    },
+    {
+      "alt": "adaptive",
+      "scale": 1.2,
+      "delta": -3.42,
+      "ciLow": -16.05,
+      "ciHigh": 9.21,
+      "verdict": "inconclusive",
+      "n": 3
+    },
+    {
+      "alt": "rbt",
+      "scale": 0.8,
+      "delta": -5.58,
+      "ciLow": -14.99,
+      "ciHigh": 3.82,
+      "verdict": "inconclusive",
+      "n": 3
+    },
+    {
+      "alt": "rbt",
+      "scale": 1.0,
+      "delta": -7.14,
+      "ciLow": -17.55,
+      "ciHigh": 3.27,
+      "verdict": "inconclusive",
+      "n": 3
+    },
+    {
+      "alt": "rbt",
+      "scale": 1.2,
+      "delta": -8.04,
+      "ciLow": -21.08,
+      "ciHigh": 5.01,
+      "verdict": "inconclusive",
+      "n": 3
+    }
+  ],
+  "findings": 28,
+  "flags": [
+    "3 repetitions: indicative only; 5+ recommended.",
+    "Mean delay varies strongly across seeds (CV 0.32)."
+  ]
+}

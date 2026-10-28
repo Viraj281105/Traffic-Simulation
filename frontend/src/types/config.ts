@@ -1,6 +1,10 @@
 import type { VehicleMix } from "../vehicles/vehicleClasses";
 import { sameMix } from "../vehicles/vehicleClasses";
-import type { ScenarioDocument } from "../scenario/scenarioTypes";
+import type {
+  ScenarioDocument,
+  DriverAggression,
+} from "../scenario/scenarioTypes";
+export type { DriverAggression };
 
 /** V1.3: how a signal times its greens. */
 export type SignalControl = "fixed_time" | "adaptive";
@@ -78,6 +82,11 @@ export interface SimulationConfigValues {
   scenario?: ScenarioDocument | null;
   unstructuredTraffic: boolean;
   aggressiveTwoWheelers: boolean;
+  driverAggression?: DriverAggression;
+  /** The strategies the guided comparison runs: canonical strategy ids
+   *  (GET /api/strategies), in the order chosen. Absent = the backend's
+   *  default selection. */
+  strategies?: string[];
 }
 
 /** Field-by-field equality, comparing the vehicle mix by value. */
@@ -106,6 +115,16 @@ export function sameConfigValues(
         JSON.stringify(adaptiveSettings(a)) ===
         JSON.stringify(adaptiveSettings(b))
       );
+    if (k === "strategies")
+      return (
+        JSON.stringify(a.strategies ?? null) ===
+        JSON.stringify(b.strategies ?? null)
+      );
+    if (k === "driverAggression")
+      return (
+        (a.driverAggression ?? "standard") ===
+        (b.driverAggression ?? "standard")
+      );
     return (a[k] ?? null) === (b[k] ?? null);
   });
 }
@@ -130,6 +149,7 @@ export const DEFAULT_CONFIG_VALUES: SimulationConfigValues = {
   ewGreenDuration: null,
   unstructuredTraffic: false,
   aggressiveTwoWheelers: false,
+  driverAggression: "standard",
 };
 
 export interface ScenarioPreset {
@@ -247,6 +267,7 @@ export interface DashboardScenarioPayload {
   scenario?: ScenarioDocument;
   unstructuredTraffic: boolean;
   aggressiveTwoWheelers: boolean;
+  driverAggression?: DriverAggression;
 }
 
 export function dashboardPayload(
@@ -292,6 +313,10 @@ export function dashboardPayload(
     ...(config.scenario ? { scenario: config.scenario } : {}),
     unstructuredTraffic: config.unstructuredTraffic,
     aggressiveTwoWheelers: config.aggressiveTwoWheelers,
+    ...(config.driverAggression
+      ? { driverAggression: config.driverAggression }
+      : {}),
+    ...(config.strategies?.length ? { strategies: config.strategies } : {}),
   };
 }
 

@@ -1,7 +1,7 @@
 # Future Scope — Post-V2.0 Research Frontiers
 
 > **This is the single authoritative Future Scope.** It replaces every earlier future-scope list in this repository.
-> **Status:** 🔭 FUTURE SCOPE — none of these capabilities exist, and none are part of the V1.1–V2.0 roadmap or the proposed V3.0 plan ([ROADMAP §7](../ROADMAP.md#7-v30--composable-ai-assisted-traffic-control-experimentation-planned-proposed)). **Revision 2026-10-12:** FS-6 moved to V3.0; FS-2 narrowed to learned/RL controllers; FS-1 annotated.
+> **Status:** 🔭 FUTURE SCOPE — none of these capabilities exist, and none are part of the V1.1–V2.0 roadmap or the proposed V3.0 plan ([ROADMAP §7](../ROADMAP.md#7-v30--composable-ai-assisted-traffic-control-experimentation-planned-proposed)). **Revision 2026-10-12:** FS-6 moved to V3.0; FS-2 narrowed to learned/RL controllers; FS-1 annotated. **Revision 2026-10-21:** FS-11 … FS-13 (next-generation user experience) added as planning only.
 > **Boundary rule:** a capability scheduled anywhere in [the roadmap](../ROADMAP.md) is **not** listed here. Where a frontier builds on a roadmap capability, only the genuinely new extension beyond V2.0 is described.
 
 ```mermaid
@@ -28,6 +28,9 @@ flowchart LR
 | FS-8 | Incident & Disruption Simulation | 2–3 months | Lane model and routing (V1.2) | Crashes, blockages, closures, rerouting and recovery |
 | FS-9 | Large-Scale Traffic Network Simulation | 3–6 months | Network-level foundations (V1.8/V1.9) | City-scale networks, corridors, congestion propagation |
 | FS-10 | Digital Twin Integration | 4–6+ months | Real-world inputs and calibration (V1.8/V1.9) | Continuously updated, live representation of real junctions/networks |
+| FS-11 | Guided Scenario Builder *(planning only; [series](next-generation-requirements.md))* | relative M | Junction builder (V1.4/V1.5), planner (V2.0), V3.0 strategy registry | Guided lens, recipes and round-trip/parity guarantees over the existing scenario document |
+| FS-12 | Visual City Studio *(planning only)* | relative M + M (+ L, separate decision) | Network document and endpoints (V1.8/V1.9) | Visual editing model, accessible projection, stable network validation codes; running a network only after its own decision |
+| FS-13 | AI Traffic Analyst *(planning only)* | relative M + M | V3.0 Copilot, validation boundary, Robustness Lab | Network-derived assessment with a six-class evidence taxonomy and reproducible candidate scenarios |
 
 Effort figures are indicative planning estimates, not commitments.
 
@@ -125,6 +128,45 @@ This frontier is no longer Future Scope: it is the **Robustness Lab** in the pro
 | **Value** | Operational planning · continuous monitoring · data-driven infrastructure decisions |
 | **Deliverables** | Real-world data connectors · digital-twin model · continuous calibration · live scenario analysis · prediction-vs-observation dashboard |
 | **Boundary** | V1.5 models real layouts and V1.8/V1.9 calibrates from real traffic inputs. A *continuously* synchronised, live model is new here. |
+
+---
+
+## Next-generation user experience — FS-11 · FS-12 · FS-13
+
+*Added 2026-10-21 as **planning only**; none exists and none is scheduled. They are one progression — describe or build a network → configure → validate → simulate → compare → understand → refine — over one set of documents, so they are specified together: [requirements](next-generation-requirements.md) · [architecture and dependencies](next-generation-architecture.md) · [phased roadmap, gates and parallel-work policy](next-generation-roadmap.md).*
+
+## FS-11 · Guided Scenario Builder
+
+**Indicative effort:** relative **M** (unverified; see the roadmap's sizing assumptions)
+
+| | |
+| --- | --- |
+| **Core** | A guided, plain-language path to a valid study — purpose, junction, traffic, controls, summary — that edits the same scenario document the expert builder edits |
+| **Value** | Non-specialists reach a valid comparison without learning every parameter; experts lose nothing |
+| **Deliverables** | Choice-to-document recipes · plain-language summary · deterministic one-click fixes · guided↔expert round trip |
+| **Boundary** | The junction builder, presets, planner and V3.0 strategy registry are roadmap work (V1.4/V1.5, V2.0, V3.0 W3). New here: the guided lens, its recipes and the round-trip/parity guarantees. It adds **no** scenario field. |
+
+## FS-12 · Visual City Studio
+
+**Indicative effort:** relative **M + M**, with multi-junction execution a separate decision (**L**, unverified)
+
+| | |
+| --- | --- |
+| **Core** | A visual editor whose saved form is the existing `urbanflow-network` document: place junctions and gates, connect edges, set lanes and demand, validate, compile |
+| **Value** | Build and inspect a layout graphically; the same documents work from the API and the UI |
+| **Deliverables** | Editing model with undo/redo · accessible table projection · canvas · round-trip `studio ↔ network` · stable network validation codes |
+| **Boundary** | V1.8/V1.9 deliver the network document, validation, compile and fingerprint (API only; multi-junction simulation and a network viewer were **not** delivered — [ROADMAP V1.9](../ROADMAP.md)). New here: the editor and, only after a separate decision, running a network. GIS import stays out of scope. |
+
+## FS-13 · AI Traffic Analyst
+
+**Indicative effort:** relative **M** (deterministic part) + **M** (model layer), unverified
+
+| | |
+| --- | --- |
+| **Core** | An assessment layer over the V3.0 Copilot: derive facts from a network, state what is missing, propose a few validated candidate configurations, run them, and explain the measured trade-offs with every statement labelled as fact, derived, assumed, recommended, measured or uncertain |
+| **Value** | Helps users explore alternatives with transparent assumptions and simulation evidence — **never** a claim of an optimal or safe model |
+| **Deliverables** | Assessment schema and rule table · class-labelled output · reproducible candidate scenarios · grounded explanation |
+| **Boundary** | The Copilot, Discovery Lab, validation boundary and Robustness Lab are V3.0 work (strategy §15, ADR-017). New here: the network-derived assessment and its evidence taxonomy. It adds no provider, model dependency or backend by itself. |
 
 ---
 

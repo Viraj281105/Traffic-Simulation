@@ -6,7 +6,8 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from src.main import _compile_dashboard_config, app
+from src.live.dashboard_config import compile_dashboard_config
+from src.main import app
 
 client = TestClient(app)
 
@@ -31,13 +32,13 @@ MIX = {"car": 0.6, "suv": 0.2, "bus": 0.05, "truck": 0.05, "motorcycle": 0.1}
 
 
 def test_dashboard_payload_without_mix_is_the_calibrated_population() -> None:
-    config = _compile_dashboard_config(dict(SCENARIO), 42)
+    config = compile_dashboard_config(dict(SCENARIO), 42)
     assert "vehicleMix" not in config["vehicleGeneration"]
     assert "laneChange" not in config["roads"]
 
 
 def test_dashboard_payload_carries_mix_and_lane_changing() -> None:
-    config = _compile_dashboard_config(
+    config = compile_dashboard_config(
         {**SCENARIO, "vehicleMix": MIX, "laneChanging": False}, 42
     )
     assert config["vehicleGeneration"]["vehicleMix"] == MIX
@@ -58,7 +59,7 @@ def test_dashboard_payload_rejects_invalid_values(
     extra: Dict[str, Any], message: str
 ) -> None:
     with pytest.raises(HTTPException) as err:
-        _compile_dashboard_config({**SCENARIO, **extra}, 42)
+        compile_dashboard_config({**SCENARIO, **extra}, 42)
     assert err.value.status_code == 400
     assert message in str(err.value.detail)
 

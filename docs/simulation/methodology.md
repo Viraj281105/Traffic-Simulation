@@ -71,11 +71,11 @@ The full scope statement, with the reasoning for each limit, is in [Validation &
 
 ## 3. Time
 
-**IMPLEMENTATION** — `core/clock.py`, `core/engine.py`
+**IMPLEMENTATION** — `core/clock.py`, `engine/simulation_engine.py`
 
 | Item | Value | Source |
 | --- | --- | --- |
-| Time step Δt | **0.1 s** default; schema range `0 < Δt ≤ 1.0`; studies accept `0.05 ≤ Δt ≤ 1.0` | `SimulationSection.timeStep`, `main.py` study bounds |
+| Time step Δt | **0.1 s** default; schema range `0 < Δt ≤ 1.0`; studies accept `0.05 ≤ Δt ≤ 1.0` | `SimulationSection.timeStep`, `study/limits.py` study bounds |
 | Integration | Semi-implicit Euler: `v ← max(0, v + a·Δt)`, then `x ← x + v·Δt` | `vehicles/vehicle.py::update_state` |
 | Order inside a tick | clock → spawn → **controller** → vehicle physics → collision audit → metric callbacks → completion check | `SimulationEngine.step()` |
 | Duration | `1 ≤ duration ≤ 3600 s` | `SimulationSection.duration` |
@@ -125,7 +125,7 @@ On a roundabout the number of circulating lanes is `geometry.circulatingLanes` (
 
 ### 4.4 Real-world junction geometry (V1.5)
 
-**IMPLEMENTATION** — `roads/junction_geometry.py` (geometry, rules), `roads/network.py` (lanes and paths), `core/lane_validation.py` (rejections)
+**IMPLEMENTATION** — `roads/junction_geometry.py` (geometry, rules), `roads/network.py` (lanes and paths), `scenario/lane_validation.py` (rejections)
 
 A scenario may describe a three-arm junction, arms on their real bearings, and arms with their own lane widths. The geometry is compiled **once, when the network is built** — scenario intent → validated scenario → arm geometry → lanes, paths and conflict points → simulation — and vehicle control never reads a bearing: it sees lanes and paths, exactly as before.
 
@@ -357,6 +357,20 @@ V1.0–V1.3 had one ring per approach lane, kept every vehicle on its entry lane
 | **V1.4: two-lane designation + exit zones + keep-clear entry** | see [validation §4.2](../research/validation.md#42-v14-roundabout-validation-matrix) | | |
 
 The turbo designation is safe but adds almost nothing over one lane: inner-lane entries then face the same conflicting flow as on a one-lane ring, so only right turns gain.
+
+#### 7.4.2 Entry-gate seam (V3.0 W2, step S2)
+
+**IMPLEMENTATION** — `controllers/entry_gate.py`, `controllers/roundabout.py` ([ADR-014](../decisions/adr-014-strategy-registry-and-entry-gate-seam.md))
+
+`RoundaboutController` takes an optional `entry_gate` (default `AlwaysOpen`). After the rules above (gap acceptance, follow-up time, long-vehicle mouth, earlier neighbour, merging entry, keep-clear) have let the head of an entry lane proceed, it asks `entry_gate.allows(approach, lane, now) -> GateDecision(open, reason)`. A closed gate sets the same give-way obstacle as any other yield; an open gate changes nothing. The gate is asked **before** the committed-long-vehicle override, so a long vehicle already across the line still completes its entry. A gate therefore only removes entry opportunities and never grants one. `reason` is one of `red`, `yellow`, `ring_spillback_hold`, `queue_cap`, or none when open.
+
+*Recorded reason for touching `roundabout.py` (ADR-014 §7):* this is the one call site the signalised-roundabout design needs to meter entries without duplicating the controller. With the default gate the conventional roundabout is unchanged: the golden-fingerprint tests (`tests/controllers/test_roundabout_golden_fingerprints.py`) pass against the pre-seam pins. The exact (bit-level) pins were run only on the pinned Windows / Python 3.14.7 environment; they skip elsewhere and CI checks the portable fingerprints (D-S1-1). The only non-default gate is the metered-entry gate of §7.4.3; every other strategy runs `AlwaysOpen`.
+
+#### 7.4.3 Metered entry — signalised roundabout (V3.0 W2)
+
+**IMPLEMENTATION** — `controllers/signalised_roundabout.py`, `controllers/entry_metering.py` · full model, configuration, limits and evidence: [signalised-roundabout.md](signalised-roundabout.md)
+
+`controller.entryControl = "metered_entry"` makes `controllers/factory.py` build a `SignalisedRoundaboutController`, which composes (does not subclass) a `RoundaboutController` and passes it a `MeteredEntryGate`. A fixed phase plan (green → yellow → all-red per phase, the `Phase` descriptor of the fixed-time signal) decides which entries may *proceed to the give-way line*; the roundabout's own rules still decide whether they may enter. Yellow lets a vehicle in the dilemma zone commit (`commits_through_yellow`); an optional spillback guard holds a green arm red (at most `maxHold` s per cycle) while the downstream ring sector holds stopped vehicles; an optional queue cap ends a green early once a red arm's queue reaches a limit, never before `minGreen`. Gate transitions are recorded as decision events (`red`, `yellow`, `ring_spillback_hold`, `queue_cap`). **ASSUMPTION:** signal timings are model inputs, not calibrated to any site; the single give-way line replaces a separate upstream stop line.
 
 ---
 

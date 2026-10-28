@@ -15,7 +15,7 @@ import {
 import {
   APPROACHES,
   STRATEGIES,
-  STRATEGY_TITLE,
+  strategyTitle,
   type ApproachName,
   type ScenarioDocument,
   type Strategy,
@@ -88,11 +88,16 @@ function stat(s: Stat | undefined, decimals = 1): string {
   return `${s.mean.toFixed(decimals)} ± ${s.ci.toFixed(decimals)}`;
 }
 
-function reading(p: PairResult | undefined, a: Strategy, b: Strategy): string {
+function reading(
+  p: PairResult | undefined,
+  a: Strategy,
+  b: Strategy,
+  title: (s: Strategy) => string,
+): string {
   if (!p) return "—";
   const words: Record<Reading, string> = {
-    lower: `${STRATEGY_TITLE[a]} lower`,
-    higher: `${STRATEGY_TITLE[b]} lower`,
+    lower: `${title(a)} lower`,
+    higher: `${title(b)} lower`,
     tie: "About the same",
     inconclusive: "Inconclusive",
   };
@@ -284,7 +289,7 @@ export function ScenarioStudy() {
                   toggleStrategy(s);
                 }}
               />
-              {STRATEGY_TITLE[s]}
+              {strategyTitle(s, scenario)}
             </label>
           ))}
         </fieldset>
@@ -344,7 +349,7 @@ export function ScenarioStudy() {
                 showConfig(s);
               }}
             >
-              {STRATEGY_TITLE[s]}
+              {strategyTitle(s, scenario)}
             </button>
           ))}
         </span>
@@ -352,7 +357,7 @@ export function ScenarioStudy() {
       {inspect && (
         <details open className="sb-card">
           <summary>
-            Engine configuration — {STRATEGY_TITLE[inspect.strategy]}
+            Engine configuration — {strategyTitle(inspect.strategy, scenario)}
           </summary>
           <pre className="config-json">{inspect.text}</pre>
         </details>
@@ -360,7 +365,7 @@ export function ScenarioStudy() {
 
       {running && (
         <StudyProgress
-          title={`${scenario.name}: ${strategies.map((s) => STRATEGY_TITLE[s]).join(" vs ")}`}
+          title={`${scenario.name}: ${strategies.map((s) => strategyTitle(s, scenario)).join(" vs ")}`}
           progress={study.progress}
         />
       )}
@@ -384,6 +389,7 @@ function ScenarioStudyResultView({
   pairs: { a: Strategy; b: Strategy; key: string }[];
 }) {
   const controls = result.controls;
+  const title = (s: Strategy) => strategyTitle(s, result.scenario);
   const shownPairs = pairs.filter(
     (p) => controls.includes(p.a) && controls.includes(p.b),
   );
@@ -406,14 +412,11 @@ function ScenarioStudyResultView({
         </p>
         <p className="sb-small">{describeScenario(result.scenario)}</p>
         <p className="sb-small">
-          {controls.map((s) => STRATEGY_TITLE[s]).join(" · ")}; seeds{" "}
+          {controls.map((s) => title(s)).join(" · ")}; seeds{" "}
           {result.seeds.join(", ")}; {result.duration} s each,{" "}
           {result.warmupTime} s warm-up excluded. Collisions:{" "}
           {controls
-            .map(
-              (s) =>
-                `${STRATEGY_TITLE[s]} ${String(result.collisionCount[s] ?? 0)}`,
-            )
+            .map((s) => `${title(s)} ${String(result.collisionCount[s] ?? 0)}`)
             .join(", ")}
           .
         </p>
@@ -433,12 +436,12 @@ function ScenarioStudyResultView({
               <th scope="col">Demand</th>
               {controls.map((s) => (
                 <th scope="col" key={s}>
-                  {STRATEGY_TITLE[s]}
+                  {title(s)}
                 </th>
               ))}
               {shownPairs.map((p) => (
                 <th scope="col" key={p.key}>
-                  {STRATEGY_TITLE[p.a]} vs {STRATEGY_TITLE[p.b]}
+                  {title(p.a)} vs {title(p.b)}
                 </th>
               ))}
             </tr>
@@ -458,7 +461,7 @@ function ScenarioStudyResultView({
                 ))}
                 {shownPairs.map((p) => (
                   <td key={p.key}>
-                    {reading(level.delayComparisons[p.key], p.a, p.b)}
+                    {reading(level.delayComparisons[p.key], p.a, p.b, title)}
                   </td>
                 ))}
               </tr>
@@ -486,7 +489,7 @@ function ScenarioStudyResultView({
                 return (
                   <tr key={`${String(level.demandScale)}-${s}`}>
                     <th scope="row">×{level.demandScale}</th>
-                    <td>{STRATEGY_TITLE[s]}</td>
+                    <td>{title(s)}</td>
                     <td>{stat(st.throughput, 0)}</td>
                     <td>{stat(st.averageQueueLength)}</td>
                     <td>{stat(st.maxQueueLength, 0)}</td>
@@ -510,7 +513,7 @@ function ScenarioStudyResultView({
               <th scope="col">Offered (veh/h)</th>
               {controls.map((s) => (
                 <th scope="col" key={s}>
-                  {STRATEGY_TITLE[s]}
+                  {title(s)}
                 </th>
               ))}
             </tr>
@@ -567,7 +570,7 @@ function ScenarioStudyResultView({
                 <th scope="col">Class</th>
                 {controls.map((s) => (
                   <th scope="col" key={s}>
-                    {STRATEGY_TITLE[s]}
+                    {title(s)}
                   </th>
                 ))}
               </tr>

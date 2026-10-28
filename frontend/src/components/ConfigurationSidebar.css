@@ -25,7 +25,7 @@
   box-shadow: var(--glass-highlight), var(--shadow-overlay);
   display: flex;
   flex-direction: column;
-  animation: uf-drawer-slide var(--dur-slow) var(--ease-out);
+  animation: uf-drawer-slide var(--dur-slow) var(--ease-emphasized);
   overflow: hidden;
   color: var(--color-text);
 }

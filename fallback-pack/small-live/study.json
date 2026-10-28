@@ -1,0 +1,63 @@
+{
+  "name": "Preview study (small, live-capable)",
+  "objective": "compare control options at one demand level",
+  "subject": {
+    "scenario": {
+      "format": "urbanflow-scenario",
+      "version": 1,
+      "name": "Demo junction",
+      "junction": {
+        "type": "fixed_time_signal"
+      },
+      "approaches": {
+        "north": {
+          "lanes": 1,
+          "vehiclesPerHour": 300
+        },
+        "south": {
+          "lanes": 1,
+          "vehiclesPerHour": 300
+        },
+        "east": {
+          "lanes": 1,
+          "vehiclesPerHour": 300
+        },
+        "west": {
+          "lanes": 1,
+          "vehiclesPerHour": 300
+        }
+      },
+      "simulation": {
+        "duration": 60,
+        "warmup": 10,
+        "seed": 5
+      }
+    }
+  },
+  "alternatives": [
+    {
+      "id": "base",
+      "label": "Fixed-time",
+      "strategy": "fixed_time"
+    },
+    {
+      "id": "adaptive",
+      "label": "Adaptive",
+      "strategy": "adaptive"
+    },
+    {
+      "id": "rbt",
+      "label": "Roundabout",
+      "strategy": "roundabout"
+    }
+  ],
+  "demand": {
+    "scales": [
+      1.0
+    ]
+  },
+  "repetitions": {
+    "seeds": 3,
+    "baseSeed": 1
+  }
+}

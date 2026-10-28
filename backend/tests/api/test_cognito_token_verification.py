@@ -1,4 +1,4 @@
-"""The production token path of src/auth.py ``verify_token``, end to end.
+"""The production token path of src/api/auth.py ``verify_token``, end to end.
 
 Every other test either overrides the identity dependencies or uses the dev
 bypass, so the Cognito branch -- find the key by ``kid``, check the RS256
@@ -18,7 +18,7 @@ from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 from jose import jwt
 
-import src.auth as auth
+import src.api.auth as auth
 
 CLIENT = "test-client-id"
 KID = "test-kid"

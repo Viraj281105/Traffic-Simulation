@@ -85,7 +85,7 @@ def test_simulation_history() -> None:
 
 
 def test_generate_random_seed_does_not_consume_shared_global_random_state() -> None:
-    """_generate_random_seed() is the single authority for the live
+    """generate_random_seed() is the single authority for the live
     dashboard's auto-generated seeds — previously duplicated as a bare
     `random.randint(1, 10000000)` at 5 separate call sites in main.py, all
     drawing from the shared global `random` module. It must instead use a
@@ -95,7 +95,7 @@ def test_generate_random_seed_does_not_consume_shared_global_random_state() -> N
     the global module's sequence for any other code relying on it."""
     import random as random_module
 
-    from src.main import _generate_random_seed
+    from src.live.dashboard_config import generate_random_seed
 
     random_module.seed(12345)
     expected_sequence = [random_module.random() for _ in range(5)]
@@ -103,24 +103,25 @@ def test_generate_random_seed_does_not_consume_shared_global_random_state() -> N
     random_module.seed(12345)
     actual_sequence = []
     for _ in range(5):
-        _generate_random_seed()
+        generate_random_seed()
         actual_sequence.append(random_module.random())
 
     assert actual_sequence == expected_sequence
 
 
 def test_live_session_nested_config_isolation() -> None:
-    """Regression test: verify that _LiveSession receives an isolated deep copy
+    """Regression test: verify that LiveSession receives an isolated deep copy
     of DEFAULT_CONFIG so that mutating nested configuration (e.g. injecting an
     auto-generated randomSeed during simulation initialization) does not leak
     into DEFAULT_CONFIG or other sessions."""
-    from src.main import DEFAULT_CONFIG, _LiveSession
+    from src.live.dashboard_config import DEFAULT_CONFIG
+    from src.live.sessions import LiveSession
     from src.roads.network import RoadNetwork
     from src.vehicles.spawner import VehicleSpawner
 
     # 1. Initialize two fresh sessions without explicit configuration
-    session1 = _LiveSession()
-    session2 = _LiveSession()
+    session1 = LiveSession()
+    session2 = LiveSession()
 
     # 2. Verify nested configs are distinct objects (independent)
     assert session1.current_live_config is not DEFAULT_CONFIG
@@ -159,7 +160,7 @@ def test_live_session_nested_config_isolation() -> None:
 
     # 5. Verify that VehicleSpawner mutating simulation config does not pollute DEFAULT_CONFIG
     network = RoadNetwork()
-    spawner_session = _LiveSession()
+    spawner_session = LiveSession()
     assert "randomSeed" not in spawner_session.current_live_config["simulation"]
     assert "randomSeed" not in DEFAULT_CONFIG["simulation"]
 
@@ -173,7 +174,7 @@ def test_live_session_nested_config_isolation() -> None:
     assert "randomSeed" not in DEFAULT_CONFIG["simulation"]
 
     # A subsequent fresh session must also be unpolluted
-    subsequent_session = _LiveSession()
+    subsequent_session = LiveSession()
     assert "randomSeed" not in subsequent_session.current_live_config["simulation"]
 
 
@@ -182,19 +183,16 @@ def test_update_simulation_config_nested_config_isolation() -> None:
     handler) previously copied DEFAULT_CONFIG's nested `phaseSequence` list and
     `vehicleGeneration` dict into the live config by reference rather than by
     value. That was dormant (nothing mutated either structure in place at the
-    time), but it is the same class of cross-session leak _LiveSession's own
+    time), but it is the same class of cross-session leak LiveSession's own
     deepcopy fix (above) already guards against elsewhere. Verify both nested
     structures are now independently owned per config-update call, so mutating
     one session's live config can never pollute DEFAULT_CONFIG or a different
     session's config."""
     import copy as copy_module
 
-    from src.main import (
-        DEFAULT_CONFIG,
-        _get_or_create_session,
-        _live_session_var,
-        update_simulation_config,
-    )
+    from src.live.dashboard_config import DEFAULT_CONFIG
+    from src.live.router import update_simulation_config
+    from src.live.sessions import get_or_create_session, live_session_var
 
     original_phase_sequence = copy_module.deepcopy(
         DEFAULT_CONFIG["controller"]["phaseSequence"]
@@ -206,19 +204,19 @@ def test_update_simulation_config_nested_config_isolation() -> None:
     # 1. Build two independent sessions' live configs via the real endpoint
     # function, simulating two different clients each updating their own
     # fixed-time-signal configuration.
-    session_a = _get_or_create_session("test-session-isolation-a")
-    token_a = _live_session_var.set(session_a)
+    session_a = get_or_create_session("test-session-isolation-a")
+    token_a = live_session_var.set(session_a)
     try:
         update_simulation_config({"intersectionType": "fixed_time_signal"})
     finally:
-        _live_session_var.reset(token_a)
+        live_session_var.reset(token_a)
 
-    session_b = _get_or_create_session("test-session-isolation-b")
-    token_b = _live_session_var.set(session_b)
+    session_b = get_or_create_session("test-session-isolation-b")
+    token_b = live_session_var.set(session_b)
     try:
         update_simulation_config({"intersectionType": "fixed_time_signal"})
     finally:
-        _live_session_var.reset(token_b)
+        live_session_var.reset(token_b)
 
     phase_a = session_a.current_live_config["controller"]["phaseSequence"]
     phase_b = session_b.current_live_config["controller"]["phaseSequence"]

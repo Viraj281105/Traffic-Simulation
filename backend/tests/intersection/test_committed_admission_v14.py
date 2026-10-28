@@ -11,8 +11,8 @@ then waited for each other.
 from typing import Any, Dict, List, Tuple
 
 from src.core.clock import Clock
-from src.core.engine import SimulationEngine
 from src.core.enums import Direction, TurnIntent
+from src.engine.simulation_engine import SimulationEngine
 from src.intersection.conflict_manager import ConflictManager
 from src.roads.network import RoadNetwork
 

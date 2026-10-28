@@ -12,9 +12,9 @@ from typing import List, Tuple
 import pytest
 from fastapi.testclient import TestClient
 
-import src.auth as auth
-import src.main as main
-from src.auth import DEV_AUTH_TOKEN
+import src.api.auth as auth
+import src.api.security as security
+from src.api.auth import DEV_AUTH_TOKEN
 from src.main import app
 
 KEY = "test-gate-key"
@@ -43,7 +43,7 @@ def test_every_v2_family_is_mounted() -> None:
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch, tmp_path) -> TestClient:
     monkeypatch.setattr("src.database.db.DB_PATH", str(tmp_path / "auth.db"))
-    monkeypatch.setattr(main, "API_KEY", KEY)
+    monkeypatch.setattr(security, "API_KEY", KEY)
     monkeypatch.delenv("DEV_AUTH_BYPASS", raising=False)
     return TestClient(app)
 

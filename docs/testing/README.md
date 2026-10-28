@@ -56,12 +56,15 @@ mypy src/
 | `tests/controllers/` | Signal phase plans, asymmetric greens, offsets, roundabout gap acceptance, follow-up time, congestion hysteresis |
 | `tests/intersection/` | Conflict-point geometry and predictive conflict resolution (including lock-up cases) |
 | `tests/roads/` | Lane geometry; cached lookups equal to uncached trajectories |
-| `tests/core/` | Clock, engine lifecycle, reset, configuration models and cross-field rules, provenance, snapshots |
+| `tests/core/` | Clock, configuration models, provenance, snapshots, determinism |
+| `tests/engine/` | Engine lifecycle and reset, the vehicle pool |
+| `tests/scenario/` | Scenario documents, lane configuration, cross-field configuration rules |
 | `tests/metrics/` | Every metric definition, warm-up clipping, composite score rules, safety measures, vehicle limit |
 | `tests/study/` | Statistics (CI, Welch, Cohen's d), sweep verdict direction and crossover, report generation, CLI |
 | `tests/database/` | Persistence, run reproducibility, history/labels, sweep persistence batching |
 | `tests/api/` | Routes, API-key auth, development auth bypass, replay ownership, study jobs and limits, reliability scenario |
 | `tests/integration/` | Full runs, dual simulation, WebSocket integration, snapshot contract, config validation and ordering, live session limits, stress, DB concurrency |
+| `tests/test_architecture.py` | The backend's layer rules: the simulation domain is a strict import stack, uses no web or database library, nothing imports `main.py`, and SQL stays in `database/` and the feature stores |
 
 ### Slow simulation regression
 
@@ -79,12 +82,10 @@ Marked `@pytest.mark.slow`; excluded from the PR gate, run nightly (02:30 UTC) a
 | real-world-junctions | `tests/integration/test_real_world_junctions_v15.py` | V1.5 safety matrix (3–4 arms, bearings, U-turns) |
 | roundabout-multilane | `tests/integration/test_roundabout_multilane_v14.py` | V1.4 multi-lane ring: contacts and standstill |
 | vehicle-types-and-lanes | `tests/integration/test_vehicle_types_and_lanes.py` | Mixed classes and lanes |
+| roundabout-lane-capacity | `tests/integration/test_roundabout_lane_capacity.py` | Multi-lane roundabout capacity scaling across demand |
 | randomized-invariants | `tests/integration/test_randomized_invariants.py` | 48 random valid scenarios: conservation, speeds, greens, collisions, bit-identical rerun |
 
-The last six were in no CI job until the V2.0 release-gate audit (155 of then
-190 slow tests). `tests/test_ci_slow_matrix.py`, which runs in the ordinary PR
-job, now fails if any file with `@pytest.mark.slow` tests is missing from this
-matrix.
+The last seven were added to the CI matrix during the V2.0 release-gate audit. `tests/test_ci_slow_matrix.py`, which runs in the ordinary PR job, now fails if any file with `@pytest.mark.slow` tests is missing from this matrix.
 
 ---
 
@@ -118,7 +119,7 @@ npm run build         # tsc && vite build
 
 | Check | Command | Protects |
 | --- | --- | --- |
-| Schema validator | `python scripts/validate_schemas.py` | Every file in `shared/schemas/` is valid JSON with `$schema` |
+| Schema validator | `python scripts/validate_schemas.py` | Every top-level schema file in `shared/schemas/*.json` is valid JSON with `$schema` |
 | Compose validation | `docker compose -f docker-compose.yml config` (and `-dev`) | Both stacks parse |
 | Image builds + smoke tests | `.github/workflows/docker.yml` | Backend image starts and answers `/health`; frontend image builds; the full Compose stack starts and is healthy through nginx |
 | Stack smoke test (local) | `.\start.ps1 -SmokeTest` | Pages, assets, `/health`, database, study workers, live WebSocket and image freshness on a running stack |
@@ -135,7 +136,7 @@ flowchart LR
     P --> FE["Frontend CI<br/>ESLint · tsc · Prettier · Vitest"]
     V & BL & BT & FE --> G["build-and-test<br/>(aggregate gate)"]
     P --> DK["Docker Container CI<br/>compose config · image builds · full-stack smoke test"]
-    N["nightly 02:30 UTC / manual dispatch"] --> SL["Backend Slow Simulation Regression<br/>11 shards (every slow file)"]
+    N["nightly 02:30 UTC / manual dispatch"] --> SL["Backend Slow Simulation Regression<br/>12 shards (every slow file)"]
 ```
 
 A local pre-commit hook (`.husky/pre-commit`) runs the frontend linter.

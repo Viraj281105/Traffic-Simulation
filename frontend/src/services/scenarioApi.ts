@@ -1,4 +1,4 @@
-/** V1.4 scenario-document endpoints (backend core/scenario.py). */
+/** V1.4 scenario-document endpoints (backend scenario/documents.py). */
 import { post } from "./api";
 import type {
   ScenarioDocument,

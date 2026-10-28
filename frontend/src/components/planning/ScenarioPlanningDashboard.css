@@ -1,0 +1,318 @@
+.scenario-planning-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  padding: 1.5rem 2rem 3rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  color: var(--color-text);
+}
+
+.planning-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 1.25rem;
+}
+
+.planning-header-title h1 {
+  font-size: 1.85rem;
+  font-weight: 700;
+  margin: 0.25rem 0 0.35rem;
+  letter-spacing: -0.02em;
+}
+
+/* A compact labelled control in a card header (seeds per scenario). */
+.planning-card-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.planning-inline-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-text-2);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.planning-header-title p {
+  color: var(--color-text-3);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.planning-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* ── Section Cards ── */
+.planning-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.planning-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.planning-card-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ── Scenario Configuration Grid ── */
+.scenarios-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 1.25rem;
+}
+
+.scenario-config-item {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 1.25rem;
+  background: var(--color-surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  position: relative;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.scenario-config-item.is-baseline {
+  border-color: var(--color-info);
+  background: rgba(59, 130, 246, 0.03);
+}
+
+.scenario-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.scenario-badge-baseline {
+  background: var(--color-info);
+  color: var(--color-on-primary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  letter-spacing: 0.05em;
+}
+
+.scenario-badge-intervention {
+  background: var(--color-success);
+  color: var(--color-on-primary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  letter-spacing: 0.05em;
+}
+
+.scenario-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.scenario-input-group label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--color-text-2);
+}
+
+.scenario-input-group input,
+.scenario-input-group select {
+  padding: 0.45rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-2);
+  color: inherit;
+  font-size: 0.88rem;
+}
+
+.scenario-inputs-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+/* ── KPI Cards ── */
+.kpi-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.kpi-card {
+  padding: 1.15rem;
+  border-radius: 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.kpi-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--color-text-3);
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.kpi-card-val {
+  font-size: 1.65rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.kpi-card-val small {
+  font-size: 0.95rem;
+  font-weight: 400;
+  color: var(--color-text-3);
+  margin-left: 0.2rem;
+}
+
+.kpi-card-delta {
+  font-size: 0.82rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.kpi-delta--better {
+  color: var(--color-success);
+}
+
+.kpi-delta--worse {
+  color: var(--color-danger);
+}
+
+.kpi-delta--neutral {
+  color: var(--color-text-3);
+}
+
+/* ── Comparison Table ── */
+.comparison-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.planning-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  text-align: left;
+}
+
+.planning-table th,
+.planning-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.planning-table thead th {
+  background: var(--color-surface-2);
+  font-weight: 600;
+  color: var(--color-text-2);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.planning-table tr:hover td {
+  background: rgba(0, 0, 0, 0.015);
+}
+
+.planning-table tr.row-baseline td {
+  font-weight: 600;
+  background: rgba(59, 130, 246, 0.02);
+}
+
+/* ── Saved Experiments Modal / Drawer ── */
+.saved-experiments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.saved-experiment-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.85rem 1.15rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  transition: background 0.15s;
+}
+
+.saved-experiment-item:hover {
+  background: var(--color-surface-2);
+}
+
+.planning-status {
+  border: 1px solid var(--color-info);
+  background: color-mix(in srgb, var(--color-info) 8%, transparent);
+  color: var(--color-text);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+}
+
+.planning-remove {
+  background: none;
+  border: none;
+  color: var(--color-danger);
+  cursor: pointer;
+}
+
+.planning-baseline-tag {
+  margin-left: 0.5rem;
+  color: var(--color-info);
+  font-size: 0.75rem;
+}
+
+.planning-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--color-bg) 60%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}

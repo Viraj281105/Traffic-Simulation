@@ -17,7 +17,6 @@ import math
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Tuple
 
-from src.controllers.virtual_obstacle import VirtualObstacle
 from src.core.enums import TurnIntent
 from src.roads.network import RoadNetwork
 from src.vehicles.body import (
@@ -27,6 +26,7 @@ from src.vehicles.body import (
     polygons_overlap,
 )
 from src.vehicles.vehicle import Vehicle
+from src.vehicles.virtual_obstacle import VirtualObstacle
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -495,8 +495,13 @@ def find_leader(
                     gap = max(0.0, total_block_dist - vehicle.length / 2.0)
                     if gap < best_gap:
                         best_gap = gap
+                        # Refused admission is held at the stop line, the start
+                        # of the connection lane (see get_conflict_distance).
                         best_leader = VirtualObstacle(
-                            position=0.0, speed=0.0, length=0.0
+                            position=0.0,
+                            speed=0.0,
+                            length=0.0,
+                            stop_line=lane is not vehicle.lane and block_dist == 0.0,
                         )
 
                 # Update reservation clear time if vehicle has passed through
@@ -537,7 +542,7 @@ def find_leader(
                 # exits) are NOT covered by Layer 1's same-lane-index
                 # restriction and are not handled by ConflictManager either
                 # (its straight-chord conflict points don't apply to curved
-                # circulating arcs — see vehicles/pool.py) — let this
+                # circulating arcs — see engine/vehicle_pool.py) — let this
                 # Euclidean proximity scan catch those cross-lane conflicts.
                 if a_is_conn and b_is_conn:
                     if idx_a is not None and idx_a == idx_b:

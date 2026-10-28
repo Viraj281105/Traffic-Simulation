@@ -16,17 +16,18 @@ releases once it clears -- plus that there is no chatter and no collision.
 import copy
 from typing import Any, Dict, List, Tuple
 
-from src.controllers.factory import build_tick_callback, create_controller
+from src.controllers.factory import create_controller
 from src.controllers.roundabout import (
     _CONGESTION_MIN_HOLD,
     _QUEUE_TRIGGER_DIST,
     RoundaboutController,
 )
-from src.controllers.virtual_obstacle import VirtualObstacle
 from src.core.clock import Clock
-from src.core.engine import SimulationEngine
 from src.core.enums import Direction
+from src.engine.simulation_engine import SimulationEngine
+from src.engine.tick_callback import build_tick_callback
 from src.metrics.collector import MetricCollector
+from src.vehicles.virtual_obstacle import VirtualObstacle
 
 TIME_STEP = 0.1
 DURATION = 120.0

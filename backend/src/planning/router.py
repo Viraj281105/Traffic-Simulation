@@ -36,7 +36,7 @@ def create_router(
 ) -> APIRouter:
     """``run_dependencies`` apply to the routes that simulate inside the
     request, ``POST /run`` and ``POST /{id}/reproduce`` (main passes its
-    concurrent-simulation gate, src/request_limits.py)."""
+    concurrent-simulation gate, src/api/request_limits.py)."""
     router = APIRouter(
         prefix=PREFIX, tags=["planning-v2"], dependencies=list(dependencies)
     )
@@ -61,7 +61,10 @@ def create_router(
         user: str = Depends(user_dep),
         admin: bool = Depends(admin_dep),
     ) -> Dict[str, Any]:
-        return svc.validate(user, payload, admin)
+        try:
+            return svc.validate(user, payload, admin)
+        except PlanningError as err:  # only a document too deep to walk safely
+            raise _unprocessable(err) from err
 
     @router.post("/run", dependencies=list(run_dependencies))
     def run(

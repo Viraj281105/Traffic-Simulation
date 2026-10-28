@@ -19,7 +19,6 @@ from typing import Any, Dict, List, Optional
 
 from src.calibration import store as calibration_store
 from src.calibration.runner import CalibrationError, fitted_scenario
-from src.core.scenario import ScenarioDocument, scenario_fingerprint
 from src.networks.compile import LIMITATIONS, compile_network, derive_node_scenarios
 from src.networks.from_scenario import JUNCTION_ID, scenario_to_network
 from src.networks.models import (
@@ -30,6 +29,7 @@ from src.networks.models import (
 )
 from src.networks.validate import parse_network, validate_network
 from src.planning.models import PlanningStudy
+from src.scenario.documents import ScenarioDocument, scenario_fingerprint
 
 
 def _calibration_record(

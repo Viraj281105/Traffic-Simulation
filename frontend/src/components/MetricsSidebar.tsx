@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import type {
   LiveSnapshot,
   SignalDirection,
@@ -13,6 +13,7 @@ import {
   type MetricContext,
 } from "../metrics/catalog";
 import { MetricSections } from "./MetricSections";
+import { AICopilotTrigger, AICopilotPanel } from "./ai/AICopilotPanel";
 
 interface MetricsSidebarProps {
   snapshot: LiveSnapshot | null;
@@ -21,6 +22,14 @@ interface MetricsSidebarProps {
   geometry: Geometry;
   /** Set when the metrics come from a saved run rather than the live stream. */
   replayName?: string | null;
+  /** Config values for the AI Copilot patch feature. */
+  config?: import("../types/config").SimulationConfigValues | null;
+  /** Called when the AI Copilot applies a patched config (same as onApply in ConfigurationSidebar). */
+  onApply?: (
+    newConfig: import("../types/config").SimulationConfigValues,
+  ) => void;
+  /** True when a simulation is actively running. */
+  isRunning?: boolean;
 }
 
 const DIRECTIONS: SignalDirection[] = ["north", "south", "east", "west"];
@@ -141,6 +150,35 @@ function ControllerState({ snapshot }: { snapshot: LiveSnapshot }) {
       </p>
     );
   }
+  if (c.entryControl === "metered_entry" && c.metering) {
+    const m = c.metering;
+    return (
+      <div className="controller-state">
+        <p>
+          Metered · phase <strong>{m.currentPhase.replace(/_/g, " ")}</strong> ·{" "}
+          {m.timeRemaining.toFixed(1)} s left · cycle {m.cycleNumber}
+        </p>
+        <p>
+          {m.arms
+            .filter((a) => a.metered)
+            .map(
+              (a) =>
+                `${DIR_LABEL[a.direction]}: ${a.color.toUpperCase()}${
+                  a.reason && a.reason !== "red" && a.reason !== "yellow"
+                    ? ` (${a.reason})`
+                    : ""
+                }`,
+            )
+            .join(" · ")}
+        </p>
+        <p>
+          <strong>{c.circulatingCount}</strong> circulating ·{" "}
+          <strong>{c.yieldingCount}</strong> yielding · critical gap{" "}
+          {c.gapAcceptance.toFixed(1)} s
+        </p>
+      </div>
+    );
+  }
   return (
     <p className="controller-state">
       <strong>{c.circulatingCount}</strong> circulating ·{" "}
@@ -155,6 +193,9 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
   connectionStatus,
   geometry,
   replayName = null,
+  config = null,
+  onApply,
+  isRunning = false,
 }) => {
   const m = snapshot?.metrics;
   // Saved-run snapshots carry metrics only (no controller, time or counts).
@@ -164,11 +205,38 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
     geometry: partial?.controller?.type ?? geometry,
     inWarmup: isInWarmup(partial?.timestamp, partial?.warmupTime),
   };
+  const [copilotOpen, setCopilotOpen] = useState(false);
+  const aiGeometry: "fixed_time_signal" | "roundabout" =
+    (partial?.controller?.type ?? geometry) === "roundabout"
+      ? "roundabout"
+      : "fixed_time_signal";
   const maxQ = Math.max(
     1,
     ...DIRECTIONS.map((d) => m?.currentQueueLengths[d] ?? 0),
   );
   const title = geometry === "roundabout" ? "Roundabout" : "Fixed-time signal";
+
+  // When the Copilot is open it renders inside the sidebar element,
+  // replacing the normal content, so the layout is unchanged.
+  if (copilotOpen && config && onApply) {
+    return (
+      <aside className="metrics-sidebar" aria-label="AI Copilot">
+        <AICopilotPanel
+          snapshot={snapshot}
+          config={config}
+          onApply={(newCfg) => {
+            onApply(newCfg);
+            setCopilotOpen(false);
+          }}
+          onClose={() => {
+            setCopilotOpen(false);
+          }}
+          geometry={aiGeometry}
+          isRunning={isRunning}
+        />
+      </aside>
+    );
+  }
 
   const handleDownload = () => {
     const header = [
@@ -193,7 +261,16 @@ export const MetricsSidebar: React.FC<MetricsSidebarProps> = ({
         <h2 className="sidebar-title" id="metrics-sidebar-title">
           {replayName ? "Saved run" : "Live metrics"}
         </h2>
-        {!replayName && <ConnectionBadge status={connectionStatus} />}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          {!replayName && <ConnectionBadge status={connectionStatus} />}
+          {config && onApply && !replayName && (
+            <AICopilotTrigger
+              onClick={() => {
+                setCopilotOpen(true);
+              }}
+            />
+          )}
+        </div>
       </div>
 
       {replayName && <p className="replay-note">{replayName}</p>}

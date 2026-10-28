@@ -16,11 +16,12 @@ from typing import Any, Dict
 
 import pytest
 
-from src.controllers.factory import build_tick_callback, create_controller
+from src.controllers.factory import create_controller
 from src.controllers.roundabout import RoundaboutController
 from src.core.clock import Clock
-from src.core.engine import SimulationEngine
 from src.core.enums import Direction, TurnIntent
+from src.engine.simulation_engine import SimulationEngine
+from src.engine.tick_callback import build_tick_callback
 from src.metrics.collector import MetricCollector
 from src.roads.network import RoadNetwork
 from src.study.calibration import (
@@ -172,7 +173,10 @@ def test_roundabout_has_lower_delay_than_signal_when_empty() -> None:
 # ── Lanes ─────────────────────────────────────────────────────────────────
 
 
-@pytest.mark.parametrize("kind", ["fixed_time_signal", "roundabout"])
+@pytest.mark.parametrize(
+    "kind",
+    ["fixed_time_signal", pytest.param("roundabout", marks=pytest.mark.slow)],
+)
 def test_more_lanes_serve_more_traffic_fast(kind: str) -> None:
     """2,880 veh/h is beyond 1-lane capacity for both controls; two lanes
     carry clearly more of it."""

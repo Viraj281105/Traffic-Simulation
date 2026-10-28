@@ -1,6 +1,6 @@
 /**
  * Scenario documents (V1.4): the portable, strategy-neutral description of a
- * junction and its traffic. Mirrors backend/src/core/scenario.py
+ * junction and its traffic. Mirrors backend/src/scenario/documents.py
  * (ScenarioDocument); the backend validates and compiles it once per control
  * strategy, so every strategy runs the same approaches, lanes, traffic,
  * vehicles, duration and seed.
@@ -45,6 +45,58 @@ export const STRATEGY_TITLE: Record<Strategy, string> = {
   adaptive: "Adaptive signal",
   roundabout: "Roundabout",
 };
+/** The roundabout as it is named when its entries carry signals. */
+export const METERED_ROUNDABOUT_TITLE = "Roundabout (metered entry)";
+
+export type DriverAggression = "standard" | "moderate" | "high";
+export const DRIVER_AGGRESSION_PROFILES: DriverAggression[] = [
+  "standard",
+  "moderate",
+  "high",
+];
+export const DRIVER_AGGRESSION_DISCLAIMER =
+  "driver aggression — a simulation assumption, not a measurement of real-world driver behaviour";
+
+/** What each profile does, for the selectors (ADR-016). ``levers`` mirrors
+ *  backend AGGRESSION_MULTIPLIERS; a backend contract test keeps them equal. */
+export const DRIVER_AGGRESSION_INFO: Record<
+  DriverAggression,
+  { label: string; summary: string; levers: string }
+> = {
+  standard: {
+    label: "Standard",
+    summary: "The calibrated drivers every earlier result used",
+    levers: "T ×1 · s₀ ×1 · a ×1",
+  },
+  moderate: {
+    label: "Moderate",
+    summary: "Closer following and quicker launches",
+    levers: "T ×0.85 · s₀ ×0.875 · a ×1.075",
+  },
+  high: {
+    label: "High",
+    summary: "Short gaps, hard launches, assertive lane changes",
+    levers: "T ×0.7 · s₀ ×0.75 · a ×1.15",
+  },
+};
+
+/** The scenario's roundabout has signals on its entries (V3.0 W2). */
+export function isMeteredEntry(doc: {
+  roundabout: { entryControl?: "metered_entry" | "none" | null };
+}): boolean {
+  return doc.roundabout.entryControl === "metered_entry";
+}
+
+/** A strategy's display name for this scenario: a metered-entry roundabout is
+ *  not the conventional one, so the two must never share a name. */
+export function strategyTitle(
+  strategy: Strategy,
+  doc: Parameters<typeof isMeteredEntry>[0],
+): string {
+  return strategy === "roundabout" && isMeteredEntry(doc)
+    ? METERED_ROUNDABOUT_TITLE
+    : STRATEGY_TITLE[strategy];
+}
 export const JUNCTION_STRATEGY: Record<JunctionType, Strategy> = {
   fixed_time_signal: "fixed_time",
   adaptive_signal: "adaptive",
@@ -87,6 +139,33 @@ export interface AdaptiveSpec {
   demandThreshold: number;
 }
 
+export interface MeteredPhaseSpec {
+  entries: string[];
+  green: number;
+  minGreen?: number | null;
+  maxGreen?: number | null;
+}
+
+export interface SpillbackGuardSpec {
+  enabled: boolean;
+  stoppedThreshold?: number;
+  maxHold?: number;
+}
+
+export interface QueueCapSpec {
+  enabled: boolean;
+  vehicles?: number;
+}
+
+export interface EntryMeteringSpec {
+  phases: MeteredPhaseSpec[];
+  yellow: number;
+  allRed: number;
+  offset?: number;
+  spillbackGuard?: SpillbackGuardSpec | null;
+  queueCap?: QueueCapSpec | null;
+}
+
 export interface ScenarioDocument {
   format: typeof SCENARIO_FORMAT;
   version: typeof SCENARIO_VERSION;
@@ -116,6 +195,10 @@ export interface ScenarioDocument {
     followUpTime: number;
     entrySpeed: number;
     circulatingSpeed: number;
+    /** V3.0 W2: entry control mode. Omitted or "none" = conventional uncontrolled roundabout. */
+    entryControl?: "metered_entry" | "none" | null;
+    /** V3.0 W2: phase plan and optional guard/cap for metered entry. */
+    entryMetering?: EntryMeteringSpec | null;
   };
   simulation: {
     duration: number;
@@ -124,6 +207,9 @@ export interface ScenarioDocument {
     arrivalPattern: "poisson" | "uniform";
     timeStep: number;
   };
+  traffic?: {
+    driverAggression?: DriverAggression | null;
+  } | null;
 }
 
 /** What the backend says it will build (POST /api/v1/scenarios/validate). */

@@ -2,22 +2,16 @@ import { useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   APPROACHES,
-  MAX_SLOT_DEVIATION,
-  MOVEMENTS,
   OPPOSITE,
-  SLOT_BEARING,
-  STRATEGY_TITLE,
+  strategyTitle,
   type ApproachName,
   type ApproachSpec,
-  type JunctionType,
-  type Movement,
   type ScenarioDocument,
   type Strategy,
 } from "../../scenario/scenarioTypes";
 import {
   SCENARIO_PRESETS,
   cloneScenario,
-  defaultLaneUse,
   describeScenario,
   exportScenarioJson,
   localIssues,
@@ -27,79 +21,22 @@ import {
   presentApproaches,
   possibleMovements,
   ringLanes,
-  signalLaneUse,
-  sortMovements,
   totalVph,
-  turningShare,
-  turningTotal,
-  withLaneCount,
   type LocalIssue,
 } from "../../scenario/scenarioModel";
 import { downloadText } from "../../metrics/catalog";
 import { JunctionPreview } from "./JunctionPreview";
 import { MixEditor } from "./MixEditor";
 import type { ValidationState } from "./useScenarioValidation";
+import { JUNCTIONS, DURATIONS, STEPS, cap, type Step } from "./builderOptions";
+import { NumberField } from "./fields";
+import { ApproachLanesCard } from "./ApproachLanesCard";
+import { ApproachTrafficCard } from "./ApproachTrafficCard";
+import { GeometrySettings } from "./GeometrySettings";
+import { AdvancedSettings } from "./AdvancedSettings";
+import { EntryControlChoice } from "./EntryControlChoice";
+import { StrategySummaryCard } from "./StrategySummaryCard";
 import "./ScenarioBuilder.css";
-
-const JUNCTIONS: { id: JunctionType; title: string; body: string }[] = [
-  {
-    id: "fixed_time_signal",
-    title: "Fixed-time signal",
-    body: "Greens follow a timetable, whether or not anyone is waiting.",
-  },
-  {
-    id: "adaptive_signal",
-    title: "Adaptive signal",
-    body: "Detectors at the stop lines end each green when traffic runs dry.",
-  },
-  {
-    id: "roundabout",
-    title: "Roundabout",
-    body: "No signal: drivers give way to circulating traffic and enter at gaps.",
-  },
-];
-
-/** "How busy is this road?" — vehicles per hour per lane. */
-const BUSY_LEVELS: { id: string; label: string; perLane: number }[] = [
-  { id: "quiet", label: "Quiet", perLane: 120 },
-  { id: "moderate", label: "Moderate", perLane: 250 },
-  { id: "busy", label: "Busy", perLane: 400 },
-  { id: "very-busy", label: "Very busy", perLane: 550 },
-];
-
-const DURATIONS = [
-  { seconds: 120, label: "2 min" },
-  { seconds: 300, label: "5 min" },
-  { seconds: 600, label: "10 min" },
-];
-
-const GLYPH: Record<Movement, string> = {
-  uturn: "↶",
-  left: "↰",
-  straight: "↑",
-  right: "↱",
-};
-const MOVE_LABEL: Record<Movement, string> = {
-  uturn: "U-turn",
-  left: "Left",
-  straight: "Straight",
-  right: "Right",
-};
-
-type Step =
-  "junction" | "roads" | "traffic" | "vehicles" | "simulation" | "advanced";
-const STEPS: { id: Step; title: string }[] = [
-  { id: "junction", title: "Junction" },
-  { id: "roads", title: "Roads & lanes" },
-  { id: "traffic", title: "Traffic" },
-  { id: "vehicles", title: "Vehicles" },
-  { id: "simulation", title: "Simulation" },
-  { id: "advanced", title: "Advanced" },
-];
-
-function cap(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
 
 /**
  * The V1.4 scenario builder: the user constructs their own junction — the
@@ -316,6 +253,10 @@ export function ScenarioBuilder({
               Real road angles and lane widths are under Advanced.
             </p>
           </div>
+          {(strategies.includes("roundabout") ||
+            value.junction.type === "roundabout") && (
+            <EntryControlChoice value={value} update={update} />
+          )}
         </section>
 
         {/* 2 · Roads & lanes ────────────────────────────────────────── */}
@@ -539,7 +480,8 @@ export function ScenarioBuilder({
           >
             <summary>
               <span className="q-number">6</span> Advanced — junction geometry,
-              signal timing, adaptive settings, roundabout design, roads
+              signal timing, adaptive settings, roundabout design, metered-entry
+              timing, roads
             </summary>
             {/* Rendered only while open: the guided steps stay quick. */}
             {advancedOpen && (
@@ -644,6 +586,12 @@ export function ScenarioBuilder({
           )}
         </div>
 
+        <StrategySummaryCard
+          scenario={value}
+          strategies={strategies}
+          serverErrors={serverErrors}
+        />
+
         <div
           className={`sb-card sb-status ${ready ? "is-ready" : serverErrors.length || issues.length ? "is-blocked" : ""}`}
           role="status"
@@ -655,13 +603,24 @@ export function ScenarioBuilder({
               : validation.status === "unreachable"
                 ? "Cannot reach the simulator to check this scenario."
                 : ready
-                  ? `Ready to simulate as ${strategies.map((s) => STRATEGY_TITLE[s]).join(", ")}.`
+                  ? `Ready to simulate as ${strategies.map((s) => strategyTitle(s, value)).join(", ")}.`
                   : "This configuration cannot currently be simulated:"}
           </p>
           {serverErrors.length > 0 && (
             <ul className="sb-errors">
               {serverErrors.map((e) => (
-                <li key={e}>{e}</li>
+                <li key={e}>
+                  {e}
+                  {e.includes("(metering.missing_arm)") &&
+                    " Under “How do vehicles enter the roundabout?” in step 1, choose “Rebuild phases for the current roads”."}
+                  {e.includes("(compat.adaptive_unsupported_policy)") &&
+                    " Adaptive control requires a signalised junction; change the junction type in step 1 or switch to fixed-time control."}
+                  {e.includes("(compat.signal_requires_signal_geometry)") &&
+                    " Change junction type to a signalised junction in step 1."}
+                  {e.includes(
+                    "(compat.roundabout_yield_requires_roundabout)",
+                  ) && " Change junction type to Roundabout in step 1."}
+                </li>
               ))}
             </ul>
           )}
@@ -729,821 +688,6 @@ export function ScenarioBuilder({
           )}
         </div>
       </aside>
-    </div>
-  );
-}
-
-// ── Pieces ──────────────────────────────────────────────────────────────
-
-function NumberField({
-  label,
-  value,
-  onChange,
-  min,
-  max,
-  step,
-  unit,
-  placeholder,
-}: {
-  label: string;
-  value: number | null | undefined;
-  onChange: (v: number) => void;
-  min?: number;
-  max?: number;
-  step?: number;
-  unit?: string;
-  placeholder?: string;
-}) {
-  const id = useId();
-  return (
-    <div className="sb-field">
-      <label className="sb-field-label" htmlFor={id}>
-        {label}
-      </label>
-      <div className="sb-inline">
-        <input
-          id={id}
-          type="number"
-          value={value ?? ""}
-          placeholder={placeholder}
-          min={min}
-          max={max}
-          step={step}
-          onChange={(e) => {
-            if (e.target.value !== "") onChange(Number(e.target.value));
-          }}
-        />
-        {unit && <span className="sb-unit">{unit}</span>}
-      </div>
-    </div>
-  );
-}
-
-function Stepper({
-  value,
-  min,
-  max,
-  onChange,
-  label,
-}: {
-  value: number;
-  min: number;
-  max: number;
-  onChange: (v: number) => void;
-  label: string;
-}) {
-  return (
-    <div className="stepper" role="group" aria-label={label}>
-      <button
-        type="button"
-        aria-label={`Fewer ${label.toLowerCase()}`}
-        disabled={value <= min}
-        onClick={() => {
-          onChange(value - 1);
-        }}
-      >
-        −
-      </button>
-      <span aria-live="polite">{value}</span>
-      <button
-        type="button"
-        aria-label={`More ${label.toLowerCase()}`}
-        disabled={value >= max}
-        onClick={() => {
-          onChange(value + 1);
-        }}
-      >
-        +
-      </button>
-    </div>
-  );
-}
-
-function LaneArrowEditor({
-  lanes,
-  use,
-  onChange,
-  caption,
-}: {
-  lanes: number;
-  use: Movement[][];
-  onChange: (use: Movement[][]) => void;
-  caption: string;
-}) {
-  return (
-    <div className="lane-editor" role="group" aria-label={caption}>
-      {Array.from({ length: lanes }, (_, i) => {
-        const turns = use[i] ?? [];
-        return (
-          <div key={i} className="lane-card">
-            <span className="lane-card-n">Lane {i + 1}</span>
-            <span className="lane-card-glyphs" aria-hidden="true">
-              {turns.length ? turns.map((t) => GLYPH[t]).join("") : "∅"}
-            </span>
-            <div className="lane-card-toggles">
-              {MOVEMENTS.map((m) => {
-                const on = turns.includes(m);
-                return (
-                  <button
-                    key={m}
-                    type="button"
-                    className={`lane-toggle${on ? " is-on" : ""}`}
-                    aria-pressed={on}
-                    aria-label={`Lane ${String(i + 1)}: ${MOVE_LABEL[m]}`}
-                    title={MOVE_LABEL[m]}
-                    onClick={() => {
-                      const next = use.map((l) => [...l]);
-                      next[i] = sortMovements(
-                        on ? turns.filter((t) => t !== m) : [...turns, m],
-                      );
-                      onChange(next);
-                    }}
-                  >
-                    {GLYPH[m]}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function ApproachLanesCard({
-  approach,
-  arm,
-  hasOpposite,
-  possible,
-  selected,
-  onSelect,
-  onChange,
-  onCopyOpposite,
-  roundaboutUse,
-  issues,
-}: {
-  approach: ApproachName;
-  arm: ApproachSpec;
-  hasOpposite: boolean;
-  /** Movements that lead to a road that exists (V1.5). */
-  possible: Movement[];
-  selected: boolean;
-  onSelect: () => void;
-  onChange: (change: Partial<ApproachSpec>) => void;
-  onCopyOpposite: () => void;
-  roundaboutUse?: Movement[][];
-  issues: LocalIssue[];
-}) {
-  const [editRoundabout, setEditRoundabout] = useState(!!arm.roundaboutLaneUse);
-  const signalUse = signalLaneUse(arm, possible);
-  return (
-    <div
-      className={`approach-card${selected ? " is-selected" : ""}${issues.length ? " has-issues" : ""}`}
-      onFocusCapture={onSelect}
-      onClick={onSelect}
-    >
-      <div className="approach-card-head">
-        <h4>{cap(approach)}</h4>
-        <Stepper
-          label="Lanes"
-          value={arm.lanes}
-          min={1}
-          max={4}
-          onChange={(lanes) => {
-            onChange(withLaneCount(arm, lanes));
-          }}
-        />
-      </div>
-      <div className="sb-inline sb-small">
-        <label>
-          Length{" "}
-          <input
-            type="number"
-            min={60}
-            max={1000}
-            step={10}
-            value={arm.length}
-            aria-label={`${approach} approach length (m)`}
-            onChange={(e) => {
-              if (e.target.value !== "")
-                onChange({ length: Number(e.target.value) });
-            }}
-          />{" "}
-          m
-        </label>
-        {hasOpposite && (
-          <button type="button" className="link-btn" onClick={onCopyOpposite}>
-            Same as {OPPOSITE[approach]}
-          </button>
-        )}
-      </div>
-      <div className="sb-subhead">
-        <span>Signal lane arrows</span>
-        {arm.laneUse ? (
-          <button
-            type="button"
-            className="link-btn"
-            onClick={() => {
-              onChange({ laneUse: null });
-            }}
-          >
-            Use default arrows
-          </button>
-        ) : (
-          <span className="sb-muted">default</span>
-        )}
-      </div>
-      <LaneArrowEditor
-        lanes={arm.lanes}
-        use={signalUse}
-        caption={`${approach} signal lane arrows`}
-        onChange={(use) => {
-          onChange({ laneUse: use });
-        }}
-      />
-      <div className="sb-subhead">
-        <span>Roundabout lane markings</span>
-        <button
-          type="button"
-          className="link-btn"
-          onClick={() => {
-            if (editRoundabout) onChange({ roundaboutLaneUse: null });
-            else
-              onChange({
-                roundaboutLaneUse:
-                  roundaboutUse && roundaboutUse.length === arm.lanes
-                    ? roundaboutUse.map((l) => [...l])
-                    : defaultLaneUse(arm.lanes),
-              });
-            setEditRoundabout(!editRoundabout);
-          }}
-        >
-          {editRoundabout ? "Make automatic" : "Edit"}
-        </button>
-      </div>
-      {editRoundabout && arm.roundaboutLaneUse ? (
-        <LaneArrowEditor
-          lanes={arm.lanes}
-          use={arm.roundaboutLaneUse}
-          caption={`${approach} roundabout lane markings`}
-          onChange={(use) => {
-            onChange({ roundaboutLaneUse: use });
-          }}
-        />
-      ) : (
-        <p className="sb-muted sb-small">
-          Automatic
-          {roundaboutUse
-            ? `: ${roundaboutUse.map((l, i) => `lane ${String(i + 1)} ${l.map((t) => GLYPH[t]).join("")}`).join(", ")}`
-            : ""}
-        </p>
-      )}
-      {issues.map((i) => (
-        <p key={i.message} className="q-note is-caution sb-small">
-          {i.message}
-        </p>
-      ))}
-    </div>
-  );
-}
-
-function ApproachTrafficCard({
-  approach,
-  arm,
-  possible,
-  selected,
-  onSelect,
-  onChange,
-  issues,
-}: {
-  approach: ApproachName;
-  arm: ApproachSpec;
-  /** Movements that lead to a road that exists (V1.5). */
-  possible: Movement[];
-  selected: boolean;
-  onSelect: () => void;
-  onChange: (change: Partial<ApproachSpec>) => void;
-  issues: LocalIssue[];
-}) {
-  const level = BUSY_LEVELS.find(
-    (l) => Math.abs(l.perLane * arm.lanes - arm.vehiclesPerHour) < 1,
-  );
-  const turning = turningTotal(arm.turning);
-  return (
-    <div
-      className={`approach-card${selected ? " is-selected" : ""}${issues.length ? " has-issues" : ""}`}
-      onFocusCapture={onSelect}
-      onClick={onSelect}
-    >
-      <div className="approach-card-head">
-        <h4>{cap(approach)}</h4>
-        <span className="sb-muted sb-small">
-          {arm.lanes} lane{arm.lanes === 1 ? "" : "s"}
-        </span>
-      </div>
-      <div className="chip-row">
-        {BUSY_LEVELS.map((l) => (
-          <button
-            key={l.id}
-            type="button"
-            className={`chip${level?.id === l.id ? " is-active" : ""}`}
-            aria-pressed={level?.id === l.id}
-            onClick={() => {
-              onChange({ vehiclesPerHour: l.perLane * arm.lanes });
-            }}
-          >
-            {l.label}
-          </button>
-        ))}
-      </div>
-      <div className="sb-inline sb-small">
-        <label>
-          <input
-            type="number"
-            min={0}
-            max={7200}
-            step={10}
-            value={Math.round(arm.vehiclesPerHour)}
-            aria-label={`${approach} vehicles per hour`}
-            onChange={(e) => {
-              if (e.target.value !== "")
-                onChange({
-                  vehiclesPerHour: Math.max(0, Number(e.target.value)),
-                });
-            }}
-          />{" "}
-          vehicles / hour
-        </label>
-        <span className="sb-muted">
-          ≈ {Math.round(arm.vehiclesPerHour / arm.lanes)} per lane
-        </span>
-      </div>
-      <div className="sb-subhead">
-        <span>Where do drivers go?</span>
-        <span className={Math.abs(turning - 1) <= 0.01 ? "sb-ok" : "sb-bad"}>
-          {Math.round(turning * 100)}%
-        </span>
-      </div>
-      <div className="turning-row">
-        {MOVEMENTS.filter(
-          // A U-turn share is offered once a lane allows U-turns (or the
-          // road already has one), so the guided view stays simple.
-          (m) =>
-            (m !== "uturn" ||
-              turningShare(arm.turning, m) > 0 ||
-              signalLaneUse(arm).some((l) => l.includes("uturn")) ||
-              (arm.roundaboutLaneUse ?? []).some((l) => l.includes("uturn"))) &&
-            (possible.includes(m) || turningShare(arm.turning, m) > 0),
-        ).map((m) => (
-          <label key={m} className="turning-field">
-            <span>
-              {GLYPH[m]} {MOVE_LABEL[m]}
-            </span>
-            <input
-              type="number"
-              min={0}
-              max={100}
-              step={5}
-              value={Math.round(turningShare(arm.turning, m) * 1000) / 10}
-              aria-label={`${approach}: share turning ${m} (%)`}
-              onChange={(e) => {
-                if (e.target.value === "") return;
-                onChange({
-                  turning: {
-                    ...arm.turning,
-                    [m]:
-                      Math.max(0, Math.min(100, Number(e.target.value))) / 100,
-                  },
-                });
-              }}
-            />
-          </label>
-        ))}
-      </div>
-      <details className="sb-own-mix" open={!!arm.vehicleMix}>
-        <summary>Own vehicle mix for this road</summary>
-        {arm.vehicleMix ? (
-          <>
-            <MixEditor
-              value={arm.vehicleMix}
-              allowCarsOnlyNull={false}
-              label={`${cap(approach)} mix`}
-              onChange={(mix) => {
-                onChange({ vehicleMix: mix });
-              }}
-            />
-            <button
-              type="button"
-              className="link-btn"
-              onClick={() => {
-                onChange({ vehicleMix: null });
-              }}
-            >
-              Use the junction’s mix
-            </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            className="link-btn"
-            onClick={() => {
-              onChange({
-                vehicleMix: {
-                  car: 0.7,
-                  suv: 0.1,
-                  bus: 0.1,
-                  truck: 0.05,
-                  motorcycle: 0.05,
-                },
-              });
-            }}
-          >
-            Give this road its own mix
-          </button>
-        )}
-      </details>
-      {issues.map((i) => (
-        <p key={i.message} className="q-note is-caution sb-small">
-          {i.message}
-        </p>
-      ))}
-    </div>
-  );
-}
-
-function GeometrySettings({
-  value,
-  update,
-}: {
-  value: ScenarioDocument;
-  update: (mutate: (d: ScenarioDocument) => void) => void;
-}) {
-  return (
-    <fieldset className="sb-geometry">
-      <legend>Junction geometry (real-world layout)</legend>
-      <p className="q-help">
-        The compass bearing each road leaves the junction on, and its own lane
-        width. Each road may lie up to {MAX_SLOT_DEVIATION}° from its compass
-        direction, so left, straight and right keep their meaning; a layout that
-        cannot be represented is rejected with the reason, never bent to fit.
-      </p>
-      <div className="sb-geometry-rows">
-        {presentApproaches(value).map((a) => {
-          const arm = value.approaches[a] as ApproachSpec;
-          return (
-            <div key={a} className="sb-geometry-row">
-              <span className="sb-field-label">{cap(a)}</span>
-              <NumberField
-                label="Bearing"
-                unit="°"
-                value={arm.bearing ?? SLOT_BEARING[a]}
-                min={0}
-                max={359.9}
-                step={1}
-                onChange={(v) => {
-                  update((d) => {
-                    const own = d.approaches[a];
-                    if (own) own.bearing = ((v % 360) + 360) % 360;
-                  });
-                }}
-              />
-              <NumberField
-                label="Lane width"
-                unit="m"
-                value={arm.laneWidth ?? value.roads.laneWidth}
-                min={2.6}
-                max={5}
-                step={0.1}
-                onChange={(v) => {
-                  update((d) => {
-                    const own = d.approaches[a];
-                    if (own) own.laneWidth = v;
-                  });
-                }}
-              />
-              {(arm.bearing != null || arm.laneWidth != null) && (
-                <button
-                  type="button"
-                  className="link-btn"
-                  onClick={() => {
-                    update((d) => {
-                      const own = d.approaches[a];
-                      if (own) {
-                        own.bearing = null;
-                        own.laneWidth = null;
-                      }
-                    });
-                  }}
-                >
-                  Compass axis, junction lane width
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </fieldset>
-  );
-}
-
-function AdvancedSettings({
-  value,
-  update,
-}: {
-  value: ScenarioDocument;
-  update: (mutate: (d: ScenarioDocument) => void) => void;
-}) {
-  const sig = value.signal;
-  const rb = value.roundabout;
-  return (
-    <div className="sb-advanced-grid">
-      <fieldset>
-        <legend>Signal timing (both signals)</legend>
-        <NumberField
-          label="Green (both roads)"
-          unit="s"
-          value={sig.greenTime}
-          min={6}
-          max={120}
-          onChange={(v) => {
-            update((d) => {
-              d.signal.greenTime = v;
-            });
-          }}
-        />
-        <NumberField
-          label="North–south green"
-          unit="s"
-          placeholder="same"
-          value={sig.nsGreenTime}
-          min={6}
-          max={120}
-          onChange={(v) => {
-            update((d) => {
-              d.signal.nsGreenTime = v;
-            });
-          }}
-        />
-        <NumberField
-          label="East–west green"
-          unit="s"
-          placeholder="same"
-          value={sig.ewGreenTime}
-          min={6}
-          max={120}
-          onChange={(v) => {
-            update((d) => {
-              d.signal.ewGreenTime = v;
-            });
-          }}
-        />
-        <NumberField
-          label="Yellow"
-          unit="s"
-          value={sig.yellowTime}
-          min={2.5}
-          max={8}
-          step={0.5}
-          onChange={(v) => {
-            update((d) => {
-              d.signal.yellowTime = v;
-            });
-          }}
-        />
-        <NumberField
-          label="All-red"
-          unit="s"
-          value={sig.allRedTime}
-          min={0}
-          max={5}
-          step={0.5}
-          onChange={(v) => {
-            update((d) => {
-              d.signal.allRedTime = v;
-            });
-          }}
-        />
-        {(sig.nsGreenTime != null || sig.ewGreenTime != null) && (
-          <button
-            type="button"
-            className="link-btn"
-            onClick={() => {
-              update((d) => {
-                d.signal.nsGreenTime = null;
-                d.signal.ewGreenTime = null;
-              });
-            }}
-          >
-            Same green for both roads
-          </button>
-        )}
-      </fieldset>
-      <fieldset>
-        <legend>Adaptive signal</legend>
-        <NumberField
-          label="Minimum green"
-          unit="s"
-          value={sig.adaptive.minGreen}
-          min={5}
-          max={60}
-          onChange={(v) => {
-            update((d) => {
-              d.signal.adaptive.minGreen = v;
-            });
-          }}
-        />
-        <NumberField
-          label="Maximum green"
-          unit="s"
-          value={sig.adaptive.maxGreen}
-          min={10}
-          max={180}
-          onChange={(v) => {
-            update((d) => {
-              d.signal.adaptive.maxGreen = v;
-            });
-          }}
-        />
-        <NumberField
-          label="Passage time"
-          unit="s"
-          value={sig.adaptive.extensionStep}
-          min={0.5}
-          max={10}
-          step={0.5}
-          onChange={(v) => {
-            update((d) => {
-              d.signal.adaptive.extensionStep = v;
-            });
-          }}
-        />
-        <NumberField
-          label="Detection zone"
-          unit="m"
-          value={sig.adaptive.detectionDistance}
-          min={5}
-          max={200}
-          onChange={(v) => {
-            update((d) => {
-              d.signal.adaptive.detectionDistance = v;
-            });
-          }}
-        />
-        <NumberField
-          label="Vehicles to call"
-          value={sig.adaptive.demandThreshold}
-          min={1}
-          max={20}
-          onChange={(v) => {
-            update((d) => {
-              d.signal.adaptive.demandThreshold = Math.round(v);
-            });
-          }}
-        />
-      </fieldset>
-      <fieldset>
-        <legend>Roundabout design</legend>
-        <div className="sb-field">
-          <span className="sb-field-label">Circulating lanes</span>
-          <div className="chip-row">
-            {([null, 1, 2] as const).map((n) => (
-              <button
-                key={String(n)}
-                type="button"
-                className={`chip${(rb.circulatingLanes ?? null) === n ? " is-active" : ""}`}
-                aria-pressed={(rb.circulatingLanes ?? null) === n}
-                onClick={() => {
-                  update((d) => {
-                    d.roundabout.circulatingLanes = n;
-                  });
-                }}
-              >
-                {n === null ? "Automatic" : String(n)}
-              </button>
-            ))}
-          </div>
-        </div>
-        <NumberField
-          label="Island radius"
-          unit="m"
-          value={rb.innerRadius}
-          min={6}
-          max={50}
-          step={0.5}
-          onChange={(v) => {
-            update((d) => {
-              d.roundabout.innerRadius = v;
-            });
-          }}
-        />
-        <NumberField
-          label="Outer radius"
-          unit="m"
-          value={rb.outerRadius}
-          min={8}
-          max={80}
-          step={0.5}
-          onChange={(v) => {
-            update((d) => {
-              d.roundabout.outerRadius = v;
-            });
-          }}
-        />
-        <NumberField
-          label="Critical gap"
-          unit="s"
-          value={rb.criticalGap}
-          min={1}
-          max={10}
-          step={0.1}
-          onChange={(v) => {
-            update((d) => {
-              d.roundabout.criticalGap = v;
-            });
-          }}
-        />
-        <NumberField
-          label="Follow-up time"
-          unit="s"
-          value={rb.followUpTime}
-          min={0.5}
-          max={10}
-          step={0.1}
-          onChange={(v) => {
-            update((d) => {
-              d.roundabout.followUpTime = v;
-            });
-          }}
-        />
-        <NumberField
-          label="Entry speed"
-          unit="m/s"
-          value={rb.entrySpeed}
-          min={1}
-          max={15}
-          step={0.5}
-          onChange={(v) => {
-            update((d) => {
-              d.roundabout.entrySpeed = v;
-            });
-          }}
-        />
-        <NumberField
-          label="Circulating speed"
-          unit="m/s"
-          value={rb.circulatingSpeed}
-          min={2}
-          max={15}
-          step={0.5}
-          onChange={(v) => {
-            update((d) => {
-              d.roundabout.circulatingSpeed = v;
-            });
-          }}
-        />
-      </fieldset>
-      <fieldset>
-        <legend>Roads</legend>
-        <NumberField
-          label="Lane width"
-          unit="m"
-          value={value.roads.laneWidth}
-          min={2.6}
-          max={5}
-          step={0.1}
-          onChange={(v) => {
-            update((d) => {
-              d.roads.laneWidth = v;
-            });
-          }}
-        />
-        <NumberField
-          label="Speed limit"
-          unit="km/h"
-          value={Math.round(value.roads.speedLimit * 3.6)}
-          min={10}
-          max={108}
-          step={5}
-          onChange={(v) => {
-            update((d) => {
-              d.roads.speedLimit = Math.round((v / 3.6) * 100) / 100;
-            });
-          }}
-        />
-        <label className="sb-check">
-          <input
-            type="checkbox"
-            checked={value.roads.laneChanging}
-            onChange={(e) => {
-              update((d) => {
-                d.roads.laneChanging = e.target.checked;
-              });
-            }}
-          />
-          Drivers change lanes on multi-lane approaches
-        </label>
-      </fieldset>
     </div>
   );
 }

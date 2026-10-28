@@ -10,13 +10,14 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from src.core.scenario import parse_scenario, scenario_fingerprint
 from src.planning.findings import resolve_path
 from src.planning.models import PlanningStudy
 from src.planning.report import SECTION_IDS, export
 from src.planning.router import create_router
 from src.planning.runner import PlanningError, run_study
-from src.planning.service import PlanningService, PlanningStore
+from src.planning.service import PlanningService
+from src.planning.store import PlanningStore
+from src.scenario.documents import parse_scenario, scenario_fingerprint
 
 from .conftest import DEFAULT_PROFILE, SCENARIO, make_fake, study
 

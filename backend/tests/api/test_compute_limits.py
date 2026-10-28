@@ -1,6 +1,6 @@
 """Bounds on how much simulation one request may cause.
 
-* ``compute_slot`` (src/request_limits.py): at most
+* ``compute_slot`` (src/api/request_limits.py): at most
   MAX_SYNC_COMPUTE_REQUESTS synchronous simulations at once, and at most
   MAX_SYNC_COMPUTE_PER_CLIENT per client; the next request is refused with 429
   at once instead of holding a worker thread;
@@ -17,12 +17,12 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
-import src.request_limits as limits
+import src.api.request_limits as limits
 from src.core.clock import Clock
-from src.core.config_validation import semantic_config_errors
-from src.core.engine import SimulationEngine
 from src.core.limits import MAX_SIMULATION_TICKS
+from src.engine.simulation_engine import SimulationEngine
 from src.main import app
+from src.scenario.config_validation import semantic_config_errors
 
 SYNC_ROUTES = [
     ("/api/v1/study/sweeps/run", {"arrivalRates": [0.2], "duration": 2.0}),

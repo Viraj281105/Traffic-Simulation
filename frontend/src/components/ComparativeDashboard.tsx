@@ -1,12 +1,12 @@
-import { ChartColumn, Table } from "lucide-react";
+import { ChartColumn, Table, Bot } from "lucide-react";
 import React, {
   Suspense,
   lazy,
   useEffect,
-  useRef,
   useState,
   type ComponentProps,
 } from "react";
+import { ComparativeAIInsights } from "./ComparativeAIInsights";
 import type {
   DualSnapshot,
   LiveSnapshot,
@@ -33,6 +33,7 @@ import { CapacityDemandVisualizer } from "./analytics/CapacityDemandVisualizer";
 import { DistributionDiagnosticsVisualizer } from "./analytics/DistributionDiagnosticsVisualizer";
 import "./ComparativeDashboard.css";
 import { CloseButton } from "./ui/CloseButton";
+import { useExitTransition } from "./ui/motion";
 import { UrbanFlowLoader } from "./ui/Loader";
 
 // The two Recharts-based panels load on first use: they sit behind the
@@ -364,11 +365,11 @@ export function ComparisonPanel({
             disabled={!canSave}
             title={
               canSave
-                ? "Save this comparison to History"
+                ? "Keep this comparison under Saved"
                 : "Pause or finish the run (after it has started) to save it"
             }
           >
-            Save to History
+            Save comparison
           </button>
         )}
       </div>
@@ -392,35 +393,36 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
   onClose,
 }) => {
   const [weights, setWeights] = useState<ScoringWeights>(DEFAULT_WEIGHTS);
-  const [viewMode, setViewMode] = useState<"visual" | "table">("visual");
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const [viewMode, setViewMode] = useState<"visual" | "table" | "ai">("visual");
+  // The dialog fades out before it unmounts (ui/motion.ts).
+  const {
+    overlay: overlayRef,
+    panel: dialogRef,
+    close,
+  } = useExitTransition(onClose);
 
   const { history, collisionEvents } = useLiveComparisonHistory(snapshot);
 
   // Escape closes; focus moves into the dialog and back out on close.
-  const onCloseRef = useRef(onClose);
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  });
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     dialogRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCloseRef.current();
+      if (e.key === "Escape") close();
     };
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
       previous?.focus();
     };
-  }, []);
+  }, [dialogRef, close]);
 
   const { signal, roundabout } = contexts(snapshot);
 
   const isNWay = runs && runs.length > 0;
 
   return (
-    <div className="analytics-modal-overlay" onClick={onClose}>
+    <div ref={overlayRef} className="analytics-modal-overlay" onClick={close}>
       <div
         ref={dialogRef}
         className={`analytics-modal-content comparative-dashboard ${isNWay ? "n-way-dashboard" : ""}`}
@@ -469,11 +471,21 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
                   <Table size={14} aria-hidden="true" className="uf-glyph" />{" "}
                   Data Table
                 </button>
+                <button
+                  type="button"
+                  className={`toggle-tab-btn ${viewMode === "ai" ? "active" : ""}`}
+                  onClick={() => {
+                    setViewMode("ai");
+                  }}
+                >
+                  <Bot size={14} aria-hidden="true" className="uf-glyph" /> AI
+                  Insights & Q&amp;A
+                </button>
               </div>
             )}
           </div>
 
-          <CloseButton label="Close comparison" onClick={onClose} />
+          <CloseButton label="Close comparison" onClick={close} />
         </div>
 
         <div className="modal-body">
@@ -620,6 +632,11 @@ export const ComparativeDashboard: React.FC<ComparativeDashboardProps> = ({
                     />
                   </div>
                 </div>
+              ) : viewMode === "ai" ? (
+                <ComparativeAIInsights
+                  snapshot={snapshot}
+                  replayName={replayName}
+                />
               ) : (
                 <>
                   <ComparisonSections

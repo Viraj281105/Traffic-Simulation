@@ -310,6 +310,71 @@
   color: var(--color-text);
 }
 
+/* A stated modelling assumption (driver aggression): informational, so the
+   accent hue rather than the warning one. */
+.q-note.is-assumption {
+  border-left: 3px solid var(--color-accent);
+  padding: 8px 12px;
+  background: var(--color-accent-soft);
+  border-radius: var(--radius-sm);
+}
+
+/* A second choice inside one question, under a hairline. */
+.q-subsection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+}
+.q-subtitle {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+}
+
+/* An on/off option that belongs to the choice above it. */
+.q-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out);
+}
+.q-toggle:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface);
+}
+.q-toggle:has(input:checked) {
+  border-color: var(--color-accent);
+  background: var(--color-surface);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+.q-toggle:has(input:focus-visible) {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+.q-toggle input {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--color-accent);
+}
+.q-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .choice-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
@@ -1402,4 +1467,26 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* "Take it further": the studies that go deeper than one comparison. */
+.next-links {
+  align-items: center;
+  margin-top: 16px;
+}
+.next-links .rl-small-label {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+/* Specialist settings beside the questions: a plain secondary action with
+   a line on what it holds. */
+.setup-advanced {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.setup-advanced .q-help {
+  margin: 0;
 }

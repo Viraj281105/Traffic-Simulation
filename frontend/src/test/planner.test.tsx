@@ -18,8 +18,11 @@ import { buildStudyRequest } from "../components/planner/plannerRequest";
 import {
   NOT_AVAILABLE,
   fieldCalibrationText,
+  formatElapsed,
   formatInterval,
   formatNumber,
+  groupStudyNotes,
+  splitCaveats,
   verdictText,
 } from "../components/planner/plannerText";
 import { DEFAULT_SCENARIO } from "../scenario/scenarioModel";
@@ -315,6 +318,52 @@ describe("planner wording rules", () => {
     }
   });
 
+  it("groups per-alternative notes without dropping any", () => {
+    const titles = new Map([
+      ["fixed_time", "Fixed-time signal"],
+      ["adaptive", "Adaptive signal"],
+    ]);
+    const groups = groupStudyNotes(
+      [
+        "fixed_time: More than one lane: exploratory.",
+        "adaptive: More than one lane: exploratory.",
+        "adaptive: Mixed vehicle classes.",
+        "unknown_alt: Kept as sent.",
+        "No prefix here.",
+      ],
+      (id) => titles.get(id),
+    );
+    expect(groups).toEqual([
+      {
+        message: "More than one lane: exploratory.",
+        appliesTo: ["Fixed-time signal", "Adaptive signal"],
+      },
+      { message: "Mixed vehicle classes.", appliesTo: ["Adaptive signal"] },
+      { message: "unknown_alt: Kept as sent.", appliesTo: [] },
+      { message: "No prefix here.", appliesTo: [] },
+    ]);
+  });
+
+  it("shows a caveat shared by several findings once, and keeps the rest", () => {
+    const split = splitCaveats([
+      { id: "a", caveats: ["Scenario-wide.", "Only a."] },
+      { id: "b", caveats: ["Scenario-wide."] },
+      { id: "c", caveats: [] },
+    ]);
+    expect(split.shared).toEqual(["Scenario-wide."]);
+    expect(split.own.get("a")).toEqual(["Only a."]);
+    expect(split.own.get("b")).toEqual([]);
+    expect(split.refs.get("a")).toEqual([0]);
+    expect(split.refs.get("c")).toEqual([]);
+  });
+
+  it("formats elapsed job time", () => {
+    expect(formatElapsed(2)).toBe("0:02");
+    expect(formatElapsed(125)).toBe("2:05");
+    expect(formatElapsed(3725)).toBe("1:02:05");
+    expect(formatElapsed(null)).toBe(NOT_AVAILABLE);
+  });
+
   it("never calls an observed-data comparison calibration", () => {
     expect(fieldCalibrationText("not_provided")).toMatch(
       /not field-calibrated/i,
@@ -369,7 +418,7 @@ describe("planner setup (PL-1 … PL-4)", () => {
           <PlannerPage />
         </main>,
       );
-      await screen.findByText(/45 simulations/);
+      await screen.findByText(/45 simulations/, {}, { timeout: 10_000 });
       expect(await axeViolations(document.body)).toEqual([]);
     },
   );

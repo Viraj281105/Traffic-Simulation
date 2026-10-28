@@ -17,6 +17,10 @@ import {
   SCENARIO_VERSION,
   type ApproachName,
   type ApproachSpec,
+  type DriverAggression,
+  type EntryMeteringSpec,
+  type JunctionType,
+  type MeteredPhaseSpec,
   type Movement,
   type ScenarioDocument,
   type Strategy,
@@ -57,6 +61,21 @@ export function scenarioFromPreset(id: string): ScenarioDocument {
 export const DEFAULT_SCENARIO: ScenarioDocument =
   scenarioFromPreset("typical-urban");
 
+/** Creates a fresh custom scenario document at an authoring boundary, defaulting to "high" aggression per ADR-016. */
+export function newScenarioDocument(
+  name = "Custom scenario",
+  junctionType: JunctionType = "fixed_time_signal",
+  driverAggression: DriverAggression = "high",
+): ScenarioDocument {
+  const doc = cloneScenario(DEFAULT_SCENARIO);
+  doc.name = name;
+  doc.description = "";
+  doc.preset = null;
+  doc.junction.type = junctionType;
+  doc.traffic = { driverAggression };
+  return doc;
+}
+
 /** True when the document still equals the preset it names. */
 export function matchesPreset(doc: ScenarioDocument): boolean {
   const preset = doc.preset ? presetById(doc.preset) : undefined;
@@ -68,8 +87,16 @@ export function sameScenario(
   a: ScenarioDocument,
   b: ScenarioDocument,
 ): boolean {
-  const strip = (d: ScenarioDocument) =>
-    JSON.stringify({ ...d, name: "", description: "", preset: null });
+  const strip = (d: ScenarioDocument) => {
+    const aggression = d.traffic?.driverAggression ?? "standard";
+    return JSON.stringify({
+      ...d,
+      name: "",
+      description: "",
+      preset: null,
+      traffic: { ...(d.traffic ?? {}), driverAggression: aggression },
+    });
+  };
   return strip(a) === strip(b);
 }
 
@@ -394,7 +421,17 @@ export function describeDemand(doc: ScenarioDocument): string {
 }
 
 export function describeScenario(doc: ScenarioDocument): string {
-  return `${describeRoads(doc)}; ${describeDemand(doc)}; ${describeMix(doc.vehicles.mix ?? null)}.`;
+  return `${describeRoads(doc)}; ${describeDemand(doc)}; ${describeMix(doc.vehicles.mix ?? null)}${describeAggression(doc.traffic?.driverAggression)}.`;
+}
+
+/** "; high driver aggression" when the profile is not standard, so a result
+ *  never hides the assumption it was run under (strategy §14.3). */
+export function describeAggression(
+  profile: DriverAggression | null | undefined,
+): string {
+  return profile && profile !== "standard"
+    ? `; ${profile} driver aggression`
+    : "";
 }
 
 // ── Exchange ──────────────────────────────────────────────────────────────
@@ -478,6 +515,9 @@ export function configValuesFromScenario(
     laneChanging: doc.roads.laneChanging,
     signalControl: strategy === "adaptive" ? "adaptive" : undefined,
     adaptive: { ...doc.signal.adaptive },
+    // The document is what runs: without a profile it is "standard", never
+    // whatever the previous quick-setup answers held.
+    driverAggression: doc.traffic?.driverAggression ?? "standard",
   };
 }
 
@@ -524,6 +564,12 @@ export function scenarioFromConfigValues(
   base.roundabout.followUpTime = config.followUpTime;
   base.simulation.duration = config.duration;
   base.simulation.seed = config.randomSeed;
+  if (config.driverAggression) {
+    base.traffic = {
+      ...(base.traffic ?? {}),
+      driverAggression: config.driverAggression,
+    };
+  }
   return base;
 }
 
@@ -597,4 +643,85 @@ export function stopLineDistances(
     out[a] = need + SIGNAL_STOP_LINE_SETBACK;
   }
   return out;
+}
+
+/** Switches a draft's roundabout between conventional and metered entry.
+ *  Choosing conventional removes both metering fields, so a conventional
+ *  roundabout never carries metering settings and serialises as before;
+ *  choosing metered keeps any plan already there. */
+export function setEntryControl(
+  draft: ScenarioDocument,
+  mode: "conventional" | "metered_entry",
+): void {
+  if (mode === "conventional") {
+    delete draft.roundabout.entryControl;
+    delete draft.roundabout.entryMetering;
+    return;
+  }
+  draft.roundabout.entryControl = "metered_entry";
+  draft.roundabout.entryMetering =
+    draft.roundabout.entryMetering ?? defaultEntryMetering(draft);
+}
+
+/** Rebuilds a metered roundabout's phases for the roads the junction has now
+ *  (north–south, then east–west), keeping its yellow, all-red, offset, guard
+ *  and queue cap. Greens return to the default; this runs only when asked. */
+export function rebuildEntryMeteringPhases(draft: ScenarioDocument): void {
+  const fresh = defaultEntryMetering(draft);
+  const current = draft.roundabout.entryMetering;
+  draft.roundabout.entryMetering = current
+    ? { ...current, phases: fresh.phases }
+    : fresh;
+}
+
+/** Which roads a metered plan signals. Roads in no phase are not metered and
+ *  enter as at a conventional roundabout; phase entries naming a road the
+ *  junction no longer has are `missing` (the backend rejects those). */
+export function meteringCoverage(doc: ScenarioDocument): {
+  metered: ApproachName[];
+  unmetered: ApproachName[];
+  missing: string[];
+} {
+  const present = presentApproaches(doc);
+  const named = new Set(
+    (doc.roundabout.entryMetering?.phases ?? []).flatMap((p) => p.entries),
+  );
+  return {
+    metered: present.filter((a) => named.has(a)),
+    unmetered: present.filter((a) => !named.has(a)),
+    missing: [...named].filter((e) => !present.includes(e as ApproachName)),
+  };
+}
+
+/** V3.0 W2: Default 2-phase plan and clearance timings for metered roundabouts. */
+export function defaultEntryMetering(
+  docOrArms: ScenarioDocument | ApproachName[],
+): EntryMeteringSpec {
+  const armNames: string[] = Array.isArray(docOrArms)
+    ? docOrArms
+    : presentApproaches(docOrArms);
+  const ns = ["north", "south"].filter((a) =>
+    armNames.includes(a as ApproachName),
+  );
+  const ew = ["east", "west"].filter((a) =>
+    armNames.includes(a as ApproachName),
+  );
+  const phases: MeteredPhaseSpec[] = [];
+  if (ns.length > 0) {
+    phases.push({ entries: ns, green: 20 });
+  }
+  if (ew.length > 0) {
+    phases.push({ entries: ew, green: 20 });
+  }
+  if (phases.length === 0) {
+    phases.push({ entries: [...armNames], green: 20 });
+  }
+  return {
+    phases,
+    yellow: 3.0,
+    allRed: 2.0,
+    offset: 0.0,
+    spillbackGuard: { enabled: false, stoppedThreshold: 2, maxHold: 10.0 },
+    queueCap: { enabled: false, vehicles: 8 },
+  };
 }

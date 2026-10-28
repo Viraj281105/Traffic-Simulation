@@ -326,6 +326,8 @@ export interface ScenarioFacts {
   greenEw: number;
   cycleSeconds: number;
   criticalGap: number;
+  /** V3.0 W2: the roundabout has signals on its entries (absent: it has none). */
+  meteredEntry?: boolean;
   /** V1.3: the signal responds to traffic (null/absent: fixed timetable). */
   adaptive?: {
     minGreen: number;
@@ -386,7 +388,9 @@ export function explanations(
   );
   out.push({
     title: "How the roundabout decides who goes",
-    body: `Nobody gets a red light at the roundabout. Drivers give way to traffic already circling and go when they see a gap of at least ${seconds(facts.criticalGap, 1)}. When traffic is light, most drivers barely stop; as it gets busier, gaps become rarer and queues build at the entries.`,
+    body: facts.meteredEntry
+      ? `This roundabout has signals on its entries. A red can hold a driver back, but a green never sends one in: drivers still give way to traffic already circling and go only when they see a gap of at least ${seconds(facts.criticalGap, 1)}. Nothing inside the ring is signalled. The signal timings are an assumption of this simulation, not measured at a real site.`
+      : `Nobody gets a red light at the roundabout. Drivers give way to traffic already circling and go when they see a gap of at least ${seconds(facts.criticalGap, 1)}. When traffic is light, most drivers barely stop; as it gets busier, gaps become rarer and queues build at the entries.`,
   });
 
   if (s.idleGreenPct !== null && s.idleGreenPct >= 5) {
@@ -466,7 +470,7 @@ export function trustNotes(f: TrustFacts): TrustNote[] {
   const notes: TrustNote[] = [
     {
       tone: "info",
-      text: `Fair test: both controls got exactly the same vehicles, arriving at the same moments (traffic pattern #${String(f.seed)}). Only the way the junction is controlled changed.`,
+      text: `Fair test: every strategy got exactly the same vehicles, arriving at the same moments (traffic pattern #${String(f.seed)}). Only the way the junction is controlled changed.`,
     },
   ];
   if (f.warmupSeconds !== null) {
@@ -510,22 +514,22 @@ export function trustNotes(f: TrustFacts): TrustNote[] {
   if (f.vehicleLimitReached) {
     notes.push({
       tone: "caution",
-      text: `Vehicle generation reached its limit${f.vehicleLimit ? ` of ${String(f.vehicleLimit)} vehicles` : ""}, so traffic stopped arriving before the run ended. Both controls received the same shortened demand, but the results describe less traffic than the scenario asks for. Shorten the run or lower the traffic level to compare the full demand.`,
+      text: `Vehicle generation reached its limit${f.vehicleLimit ? ` of ${String(f.vehicleLimit)} vehicles` : ""}, so traffic stopped arriving before the run ended. Every strategy received the same shortened demand, but the results describe less traffic than the scenario asks for. Shorten the run or lower the traffic level to compare the full demand.`,
     });
   }
   if (f.lowReliabilitySample) {
     notes.push({
       tone: "caution",
-      text: "Fewer than 20 vehicles got through on at least one side, so the spread of journey times rests on very few drivers.",
+      text: "Fewer than 20 vehicles got through under at least one strategy, so the spread of journey times rests on very few drivers.",
     });
   }
   notes.push({
     tone: "info",
-    text: "How much traffic each of the four roads carries is set by the traffic pattern too, so some roads are busier than others; it is the same for both controls. Per-road figures such as fairness and the longest queue reflect that.",
+    text: "How much traffic each of the four roads carries is set by the traffic pattern too, so some roads are busier than others; it is the same for every strategy. Per-road figures such as fairness and the longest queue reflect that.",
   });
   notes.push({
     tone: "info",
-    text: "One run is one traffic pattern. A different pattern of arrivals could shift the numbers — the reliability check below repeats the comparison to find out whether the difference holds.",
+    text: "One run is one traffic pattern. A different pattern of arrivals could shift the numbers; repeating the comparison over new patterns (the reliability check, or Statistical validation in the Research lab) shows whether a difference holds.",
   });
   notes.push({
     tone: "info",

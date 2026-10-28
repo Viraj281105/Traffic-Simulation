@@ -28,7 +28,7 @@ from src.vehicles.vehicle_types import configured_mix
 CALIBRATED_LANES_PER_APPROACH = 1
 
 # What the engine builds when a config omits ``roads.lanesPerApproach``
-# (core/engine.py). An unspecified config is therefore NOT the calibrated one.
+# (engine/simulation_engine.py). An unspecified config is therefore NOT the calibrated one.
 ENGINE_DEFAULT_LANES_PER_APPROACH = 2
 
 CALIBRATED_NOTE = (

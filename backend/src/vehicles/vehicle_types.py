@@ -50,7 +50,7 @@ MOTORCYCLE = "motorcycle"
 #: (the order is part of the seeded random stream, so it must never change).
 VEHICLE_CLASSES: Tuple[str, ...] = (CAR, SUV, BUS, TRUCK, MOTORCYCLE)
 
-# Same tolerance as the other sum-to-one rules (core/config_validation.py).
+# Same tolerance as the other sum-to-one rules (scenario/config_validation.py).
 MIX_SUM_TOLERANCE: float = 0.01
 
 # The longest vehicle the V1.0 geometry constants were sized for (the legacy
@@ -366,6 +366,14 @@ def resolve_vehicle_population(
         overrides = overrides_by_type.get(type_id)
         if isinstance(overrides, Mapping):
             profile = _apply_overrides(profile, overrides)
+
+        # Imported here: driver_aggression imports this module.
+        from src.vehicles.driver_aggression import (
+            apply_aggression_to_profile,
+            resolve_aggression_name,
+        )
+
+        profile = apply_aggression_to_profile(profile, resolve_aggression_name(config))
 
         # Desired speed relative to the scenario's car range: with no
         # explicit desiredSpeed that is exactly factor x speed limit; with an

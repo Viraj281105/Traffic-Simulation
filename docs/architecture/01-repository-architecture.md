@@ -27,9 +27,13 @@ Neither developer should ever need to inspect the other's implementation directo
 ```
 Traffic-Simulation/                 (product name: UrbanFlow)
 ├── backend/                        Simulation engine, metrics, studies, API, persistence
-│   ├── src/                        core/ roads/ vehicles/ controllers/ intersection/ metrics/
-│   │                               snapshot/ study/ database/ · main.py · auth.py
-│   ├── tests/                      pytest suite mirroring src/ (+ api/, integration/)
+│   ├── src/                        main.py (composition root) · api/ (auth, API key, errors, limits)
+│   │                               application: live/ simulations/ study/ replays/ suites/ history/
+│   │                               calibration/ networks/ planning/ experiments/ uncertainty/
+│   │                               simulation domain (strict stack): core/ roads/ vehicles/ intersection/
+│   │                               controllers/ metrics/ scenario/ engine/ snapshot/
+│   │                               persistence: database/ access.py (+ each feature's store.py)
+│   ├── tests/                      pytest suite mirroring src/ (+ api/, integration/, test_architecture.py)
 │   ├── Dockerfile · docker-entrypoint.py · pyproject.toml · requirements.txt · README.md
 ├── frontend/                       Landing page + dashboard (React 19, TypeScript, Vite)
 │   ├── src/                        landing/ components/ (guided/, analytics/, ui/) hooks/ services/
@@ -38,6 +42,7 @@ Traffic-Simulation/                 (product name: UrbanFlow)
 │   ├── index.html · app.html · vite.config.ts · package.json · Dockerfile · README.md
 ├── shared/
 │   ├── schemas/                    config.schema.json · snapshot.schema.json · vehicle_state.json
+│   │                               v2/ (planning, calibration, network) · v3/ (experiment, uncertainty, OpenAPI)
 │   └── README.md
 ├── scripts/                        run_full_study.py · validate_schemas.py (+ .sh) · setup_cognito.py ·
 │                                   GitHub automation (setup_github.py, assign_issues.py, …) · README.md
@@ -46,8 +51,9 @@ Traffic-Simulation/                 (product name: UrbanFlow)
 │   ├── decisions/ reports/ future-scope/ resources/ roadmap/ (V2.0 audit, V3.0 plans)
 │   ├── ROADMAP.md · operations.md · bug-fix-report.md
 │   └── project-management/ issues/ code-review/   (historical)
+├── fallback-pack/                  Precomputed rehearsal and preview packs for V3.0 Robustness Lab
 ├── landingpage/                    Legacy prototype workspace (pnpm) — not built, deployed or referenced
-├── .github/                        CI workflows (ci.yml, docker.yml), issue/PR templates, CODEOWNERS, Dependabot
+├── .github/                        CI workflows (ci.yml, docker.yml, deploy.yml), templates, CODEOWNERS, Dependabot
 ├── .husky/pre-commit               Runs the frontend linter
 ├── docker-compose.yml              Production stack (nginx + FastAPI + volume)
 ├── docker-compose.dev.yml          Development stack (Vite + uvicorn --reload)

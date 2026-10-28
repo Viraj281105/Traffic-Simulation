@@ -55,6 +55,9 @@ class TrafficSection(BaseModel):
     approaches: Optional[List[TrafficApproachItem]] = None
     unstructuredTraffic: bool = Field(False)
     aggressiveTwoWheelers: bool = Field(False)
+    driverAggression: Optional[Literal["standard", "moderate", "high"]] = Field(
+        "standard"
+    )
 
 
 class IntersectionCenter(BaseModel):
@@ -187,6 +190,33 @@ class AdaptiveSignalSection(BaseModel):
     demandThreshold: int = Field(1, ge=1, le=20)
 
 
+class SpillbackGuardSection(BaseModel):
+    enabled: bool = False
+    stoppedThreshold: int = Field(2, ge=1, le=20)
+    maxHold: float = Field(10.0, ge=0, le=60)
+
+
+class QueueCapSection(BaseModel):
+    enabled: bool = False
+    vehicles: int = Field(8, ge=1, le=50)
+
+
+class MeteredPhaseSection(BaseModel):
+    entries: List[str]
+    green: float = Field(..., gt=5, le=120)
+    minGreen: Optional[float] = Field(None, ge=5, le=60)
+    maxGreen: Optional[float] = Field(None, ge=10, le=180)
+
+
+class EntryMeteringSection(BaseModel):
+    phases: List[MeteredPhaseSection]
+    yellow: float = Field(3.0, gt=2, le=8)
+    allRed: float = Field(2.0, ge=0, le=5)
+    offset: float = Field(0.0, ge=0)
+    spillbackGuard: Optional[SpillbackGuardSection] = None
+    queueCap: Optional[QueueCapSection] = None
+
+
 class ControllerSection(BaseModel):
     greenTime: float = Field(30.0, gt=5, le=120)
     leftDuration: float = Field(5.0, gt=0, le=60)
@@ -194,11 +224,11 @@ class ControllerSection(BaseModel):
     allRedTime: float = Field(2.0, ge=0, le=5)
     # Canonical aliases used internally by FixedTimeSignalController (see
     # its __init__) and by the legacy live-dashboard config path
-    # (backend/src/main.py DEFAULT_CONFIG / update_simulation_config).
+    # (src/live/dashboard_config.py DEFAULT_CONFIG / compile_dashboard_config).
     # Optional and unset by default so a config that only sets greenTime/
     # yellowTime/allRedTime behaves exactly as before; when one of these
     # IS provided, ScenarioConfiguration.model_dump(exclude_none=True)
-    # (see create_simulation_v2 in main.py) keeps it in the dict passed to
+    # (see create_simulation_v2 in src/simulations/router.py) keeps it in the dict passed to
     # the controller, instead of silently dropping it the way an
     # undeclared Pydantic field previously would have. See
     # FixedTimeSignalController.__init__ for the exact precedence between
@@ -229,6 +259,9 @@ class ControllerSection(BaseModel):
     # config that never mentions it dumps (and runs) exactly as before.
     signalControl: Optional[Literal["fixed_time", "adaptive"]] = None
     adaptive: Optional[AdaptiveSignalSection] = None
+    # V3.0 W2: roundabout entry metering control mode and parameters.
+    entryControl: Optional[Literal["metered_entry", "none"]] = None
+    entryMetering: Optional[EntryMeteringSection] = None
 
 
 class MetricsSection(BaseModel):

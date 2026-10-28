@@ -5,13 +5,12 @@ import ast
 import json
 from pathlib import Path
 
-from src.planning.models import PlanningStudy
-from src.planning.report import Report
+from src.planning.export_schemas import MODELS
 
 ROOT = Path(__file__).resolve().parents[3]
 PKG = ROOT / "backend" / "src" / "planning"
 ALLOWED = {
-    "src.core.scenario",
+    "src.scenario.documents",
     "src.core.provenance",
     "src.core.limits",
     "src.study.runner",
@@ -21,7 +20,7 @@ ALLOWED = {
     "src.study.calibration",
     "src.study.jobs",
     "src.database.db",
-    "src.auth",
+    "src.api.auth",
     # V2.0 integration: the attached V1.8 run and the V1.9 network model.
     "src.calibration",
     "src.calibration.models",  # schema export only
@@ -54,7 +53,7 @@ def test_planning_imports_only_the_allowed_surface() -> None:
 
 
 def test_checked_in_schemas_match_models() -> None:
-    for name, model in (("planning-study", PlanningStudy), ("planning-report", Report)):
+    for name, model in MODELS:
         path = ROOT / "shared" / "schemas" / "v2" / f"{name}.schema.json"
         assert (
             json.loads(path.read_text(encoding="utf-8")) == model.model_json_schema()

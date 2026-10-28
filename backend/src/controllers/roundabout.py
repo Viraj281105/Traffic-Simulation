@@ -2,7 +2,7 @@ import math
 from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple
 
 from src.controllers.base import BaseController
-from src.controllers.virtual_obstacle import VirtualObstacle
+from src.controllers.entry_gate import AlwaysOpen, EntryGate
 from src.core.enums import Direction, TurnIntent
 from src.roads.lane_config import (
     MAX_CIRCULATING_LANES,
@@ -18,6 +18,7 @@ from src.roads.network import (
 from src.vehicles.body import LONG_VEHICLE_THRESHOLD
 from src.vehicles.vehicle import Vehicle
 from src.vehicles.vehicle_types import long_vehicle_allowance
+from src.vehicles.virtual_obstacle import VirtualObstacle
 
 # Distance from the entry point (lane end) within which a vehicle is
 # considered "at the roundabout entry" for follow-up-time bookkeeping below.
@@ -140,9 +141,18 @@ _TURN_BY_NAME: Dict[str, TurnIntent] = {t.value: t for t in TurnIntent}
 class RoundaboutController(BaseController):
     """Manages entry yielding logic and circulating traffic flow inside a roundabout intersection."""
 
-    def __init__(self, config: Dict[str, Any], network: RoadNetwork) -> None:
+    def __init__(
+        self,
+        config: Dict[str, Any],
+        network: RoadNetwork,
+        entry_gate: Optional[EntryGate] = None,
+    ) -> None:
         self.config: Dict[str, Any] = config
         self.network: RoadNetwork = network
+        # The one extension point for entry control (ADR-014); open by default.
+        self.entry_gate: EntryGate = (
+            entry_gate if entry_gate is not None else AlwaysOpen()
+        )
 
         ctrl_cfg = config.get("controller", {})
         self.inner_radius: float = ctrl_cfg.get("innerRadius", 10.0)
@@ -616,11 +626,24 @@ class RoundaboutController(BaseController):
                     ):
                         should_yield = True
 
+                    # Entry gate (ADR-014): consulted only once the rules above
+                    # have said "go", so it can add a yield but never lift one;
+                    # the committed-long-vehicle override below still wins.
+                    if (
+                        not should_yield
+                        and not self.entry_gate.allows(
+                            d, lane, self.time_in_current_state
+                        ).open
+                    ):
+                        should_yield = True
+
                     if should_yield and self._committed_long_entry(lane):
                         should_yield = False
 
                     if should_yield:
-                        lane.virtual_obstacle = VirtualObstacle(position=lane.length)
+                        lane.virtual_obstacle = VirtualObstacle(
+                            position=lane.length, stop_line=True
+                        )
                     else:
                         lane.virtual_obstacle = None
 

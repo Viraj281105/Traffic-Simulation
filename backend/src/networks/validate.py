@@ -5,7 +5,6 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from pydantic import ValidationError
 
 from src.core.limits import MAX_TOTAL_VEHICLES, demand_vehicle_limit
-from src.core.scenario import ScenarioDocument, validate_scenario
 from src.networks.models import (
     NETWORK_FORMAT,
     NETWORK_VERSION,
@@ -17,6 +16,7 @@ from src.networks.models import (
     network_fingerprint,
     serialize_network,
 )
+from src.scenario.documents import ScenarioDocument, validate_scenario
 
 MAX_ARM_VPH = 7200.0  # ApproachSpec.vehiclesPerHour ceiling
 MIX_TOLERANCE = 0.01

@@ -7,7 +7,6 @@ route free-flow times. It does not simulate anything.
 
 from typing import Any, Dict, List, Tuple
 
-from src.core.scenario import ScenarioDocument, scenario_fingerprint, validate_scenario
 from src.networks.models import (
     EXECUTION_MODEL,
     NetworkDocument,
@@ -18,6 +17,11 @@ from src.networks.validate import (
     node_adjacency,
     resolve_route,
     topological_order,
+)
+from src.scenario.documents import (
+    ScenarioDocument,
+    scenario_fingerprint,
+    validate_scenario,
 )
 
 PLAN_FORMAT = "urbanflow-network-plan"

@@ -169,6 +169,16 @@ class SimulationRunDAO:
         return (False, None) if row is None else (True, row["user_id"])
 
     @staticmethod
+    def owner_and_suite(
+        conn: sqlite3.Connection, run_id: str
+    ) -> Optional[tuple[Optional[str], Optional[str]]]:
+        """(owner, suite id) of a run, or None when it does not exist."""
+        row = conn.execute(
+            "SELECT user_id, suite_id FROM simulation_runs WHERE id = ?;", (run_id,)
+        ).fetchone()
+        return None if row is None else (row["user_id"], row["suite_id"])
+
+    @staticmethod
     def get_visible(
         conn: sqlite3.Connection, run_id: str, caller: Caller
     ) -> Optional[Dict[str, Any]]:
@@ -552,6 +562,14 @@ class ScenarioSuiteDAO:
         return None
 
     @staticmethod
+    def owner_of(conn: sqlite3.Connection, suite_id: str) -> Optional[str]:
+        """The suite's owner; None when it has none or does not exist."""
+        row = conn.execute(
+            "SELECT user_id FROM scenario_suites WHERE id = ?;", (suite_id,)
+        ).fetchone()
+        return row["user_id"] if row else None
+
+    @staticmethod
     def is_visible(
         conn: sqlite3.Connection, suite_id: str, user_id: str, is_admin: bool
     ) -> bool:
@@ -591,3 +609,40 @@ class ScenarioSuiteDAO:
             }
             for r in cursor.fetchall()
         ]
+
+
+class UserDAO:
+    """DAO for the ``users`` registry (rows written by ``auth.upsert_user``)."""
+
+    @staticmethod
+    def upsert(conn: sqlite3.Connection, sub: str, email: str, username: str) -> None:
+        """Record a sign-in: insert the user, or refresh their email, username
+        and ``last_seen``. ``sub`` (the Cognito subject) is the key."""
+        conn.execute(
+            """
+            INSERT INTO users (sub, email, username, first_seen, last_seen)
+            VALUES (:sub, :email, :username, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            ON CONFLICT(sub) DO UPDATE SET
+                email    = excluded.email,
+                username = excluded.username,
+                last_seen = CURRENT_TIMESTAMP
+            """,
+            {"sub": sub, "email": email, "username": username},
+        )
+        conn.commit()
+
+    @staticmethod
+    def list_with_run_counts(conn: sqlite3.Connection) -> list[Dict[str, Any]]:
+        """Every user who has signed in, most recently seen first, with the
+        number of simulation runs saved under their id."""
+        rows = conn.execute(
+            """
+            SELECT u.sub, u.email, u.username, u.first_seen, u.last_seen,
+                   COUNT(DISTINCT r.id) AS run_count
+            FROM users u
+            LEFT JOIN simulation_runs r ON r.user_id = u.sub
+            GROUP BY u.sub
+            ORDER BY u.last_seen DESC
+            """
+        ).fetchall()
+        return [dict(row) for row in rows]

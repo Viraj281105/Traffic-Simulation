@@ -1,12 +1,13 @@
 import json
 import queue
 import threading
+import time
 
-from src.controllers.factory import build_tick_callback
 from src.controllers.fixed_time_signal import FixedTimeSignalController
 from src.core.clock import Clock
-from src.core.engine import SimulationEngine
-from src.core.enums import TurnIntent, VehicleState
+from src.core.enums import SimulationStatus, TurnIntent, VehicleState
+from src.engine.simulation_engine import SimulationEngine
+from src.engine.tick_callback import build_tick_callback
 from src.metrics.collector import MetricCollector
 from src.roads.lane import Lane
 from src.snapshot.buffer import SnapshotBuffer
@@ -164,9 +165,17 @@ def test_snapshot_buffer_no_deadlock_with_real_engine_tick_pattern() -> None:
 
     def reader() -> None:
         try:
-            for i in range(500):
+            reads = 0
+            # Read repeatedly while the engine is actively ticking.
+            # Ensures concurrency across both initial empty buffer and subsequent appends,
+            # avoiding a race where reader completes before engine thread's first tick.
+            while reads < 200 or len(buffer.get_all()) < 5:
                 buffer.get_all()
-                buffer.get_frame(i)
+                buffer.get_frame(reads)
+                reads += 1
+                if engine.status == SimulationStatus.ERROR or reads > 1000:
+                    break
+                time.sleep(0.001)
         except BaseException as exc:  # noqa: BLE001 - must capture every failure mode
             errors.put(exc)
 
@@ -183,6 +192,10 @@ def test_snapshot_buffer_no_deadlock_with_real_engine_tick_pattern() -> None:
 
     if not errors.empty():
         raise errors.get()
+
+    assert engine.status != SimulationStatus.ERROR, (
+        "engine encountered an error during ticks"
+    )
 
     # The engine was genuinely ticking (and appending) throughout the read
     # loop, not merely idle -- otherwise this test would prove nothing.

@@ -5,13 +5,17 @@ from src.core.config_models import (
     ApproachItem,
     ControllerSection,
     DirectionalSplit,
+    EntryMeteringSection,
     GeometrySection,
     IntersectionCenter,
+    MeteredPhaseSection,
     MetricsSection,
     MinMaxRange,
+    QueueCapSection,
     RoadsSection,
     ScenarioConfiguration,
     SimulationSection,
+    SpillbackGuardSection,
     TrafficSection,
     TurnProbabilities,
     VehicleGenerationSection,
@@ -164,3 +168,73 @@ def test_controller_section_ns_ew_green_duration_serialization_round_trip() -> N
     dumped_default = without_override.model_dump(exclude_none=True)
     assert "nsGreenDuration" not in dumped_default
     assert "ewGreenDuration" not in dumped_default
+
+
+def test_controller_section_entry_metering_instantiation() -> None:
+    phase = MeteredPhaseSection(
+        entries=["north", "south"], green=20.0, minGreen=8.0, maxGreen=40.0
+    )
+    sg = SpillbackGuardSection(enabled=True, stoppedThreshold=3, maxHold=15.0)
+    qc = QueueCapSection(enabled=True, vehicles=10)
+    metering = EntryMeteringSection(
+        phases=[phase],
+        yellow=3.5,
+        allRed=2.0,
+        offset=5.0,
+        spillbackGuard=sg,
+        queueCap=qc,
+    )
+    ctrl = ControllerSection(
+        entryControl="metered_entry",
+        entryMetering=metering,
+    )
+    assert ctrl.entryControl == "metered_entry"
+    assert ctrl.entryMetering is not None
+    assert len(ctrl.entryMetering.phases) == 1
+    assert ctrl.entryMetering.phases[0].green == 20.0
+    assert ctrl.entryMetering.spillbackGuard is not None
+    assert ctrl.entryMetering.spillbackGuard.stoppedThreshold == 3
+    assert ctrl.entryMetering.queueCap is not None
+    assert ctrl.entryMetering.queueCap.vehicles == 10
+
+
+def test_controller_section_entry_metering_serialization_round_trip() -> None:
+    phase = MeteredPhaseSection(entries=["north"], green=20.0)
+    ctrl = ControllerSection(
+        entryControl="metered_entry",
+        entryMetering=EntryMeteringSection(phases=[phase]),
+    )
+    dumped = ctrl.model_dump(exclude_none=True)
+    assert dumped["entryControl"] == "metered_entry"
+    assert "entryMetering" in dumped
+    assert dumped["entryMetering"]["phases"][0]["green"] == 20.0
+
+    unmetered = ControllerSection()
+    dumped_unmetered = unmetered.model_dump(exclude_none=True)
+    assert "entryControl" not in dumped_unmetered
+    assert "entryMetering" not in dumped_unmetered
+
+
+def test_controller_section_entry_metering_bounds_rejection() -> None:
+    # green must be > 5 and <= 120
+    for bad_green in (0.0, 5.0, 121.0):
+        with pytest.raises(ValidationError):
+            MeteredPhaseSection(entries=["north"], green=bad_green)
+
+    # yellow must be > 2 and <= 8
+    for bad_yellow in (1.0, 2.0, 9.0):
+        with pytest.raises(ValidationError):
+            EntryMeteringSection(
+                phases=[MeteredPhaseSection(entries=["north"], green=20.0)],
+                yellow=bad_yellow,
+            )
+
+    # stoppedThreshold must be in 1..20
+    for bad_st in (0, 21):
+        with pytest.raises(ValidationError):
+            SpillbackGuardSection(stoppedThreshold=bad_st)
+
+    # vehicles must be in 1..50
+    for bad_v in (0, 51):
+        with pytest.raises(ValidationError):
+            QueueCapSection(vehicles=bad_v)

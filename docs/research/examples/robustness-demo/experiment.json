@@ -1,0 +1,146 @@
+{
+  "alternatives": [
+    {
+      "id": "fixed",
+      "label": "Fixed-time signal",
+      "strategy": "fixed_time"
+    },
+    {
+      "id": "adaptive",
+      "label": "Adaptive signal",
+      "strategy": "adaptive"
+    },
+    {
+      "id": "roundabout",
+      "label": "Conventional roundabout",
+      "strategy": "roundabout"
+    }
+  ],
+  "baseline": "fixed",
+  "format": "urbanflow-experiment",
+  "name": "Demo: does the preferred control survive uncertainty?",
+  "scenario": {
+    "approaches": {
+      "east": {
+        "lanes": 1,
+        "turning": {
+          "left": 0.2,
+          "right": 0.2,
+          "straight": 0.6
+        },
+        "vehiclesPerHour": 600
+      },
+      "north": {
+        "lanes": 1,
+        "turning": {
+          "left": 0.2,
+          "right": 0.2,
+          "straight": 0.6
+        },
+        "vehiclesPerHour": 600
+      },
+      "south": {
+        "lanes": 1,
+        "turning": {
+          "left": 0.2,
+          "right": 0.2,
+          "straight": 0.6
+        },
+        "vehiclesPerHour": 600
+      },
+      "west": {
+        "lanes": 1,
+        "turning": {
+          "left": 0.2,
+          "right": 0.2,
+          "straight": 0.6
+        },
+        "vehiclesPerHour": 600
+      }
+    },
+    "format": "urbanflow-scenario",
+    "junction": {
+      "type": "fixed_time_signal"
+    },
+    "name": "Demo junction (600 veh/h per arm)",
+    "simulation": {
+      "duration": 120,
+      "seed": 5,
+      "warmup": 15
+    },
+    "vehicles": {
+      "mix": {
+        "bus": 0.05,
+        "car": 0.7,
+        "motorcycle": 0.05,
+        "suv": 0.1,
+        "truck": 0.1
+      }
+    },
+    "version": 1
+  },
+  "uncertainty": {
+    "conditions": 24,
+    "factors": [
+      {
+        "basis": "assumed",
+        "bounds": [
+          0.7,
+          1.3
+        ],
+        "distribution": {
+          "kind": "uniform"
+        },
+        "id": "demand",
+        "kind": "demand_scale",
+        "rationale": "Peak-hour flow varies by about 30 % either way between days."
+      },
+      {
+        "basis": "assumed",
+        "bounds": [
+          -0.3,
+          0.3
+        ],
+        "distribution": {
+          "kind": "triangular",
+          "mode": 0.0
+        },
+        "id": "turning",
+        "kind": "turning_shift",
+        "rationale": "Turning shares drift with local events; most days stay near the counted split."
+      },
+      {
+        "basis": "assumed",
+        "bounds": [
+          -0.4,
+          0.4
+        ],
+        "distribution": {
+          "kind": "uniform"
+        },
+        "id": "heavy",
+        "kind": "mix_shift",
+        "rationale": "The share of buses and trucks changes between weekdays."
+      },
+      {
+        "basis": "assumed",
+        "bounds": [
+          0.8,
+          1.3
+        ],
+        "distribution": {
+          "kind": "triangular",
+          "mode": 1.0
+        },
+        "id": "headway",
+        "kind": "headway_scale",
+        "rationale": "Driver behaviour is uncertain; headway scale is a proxy, not a measured reaction time."
+      }
+    ],
+    "name": "Peak-hour uncertainty (assumed ranges)",
+    "primaryIndicator": "averageDelay",
+    "replications": 2,
+    "seed": 2026
+  },
+  "version": 1
+}

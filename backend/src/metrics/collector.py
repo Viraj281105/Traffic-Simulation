@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from src.core.enums import Direction
 from src.core.limits import DEFAULT_TOTAL_VEHICLES
+from src.core.speed_thresholds import resolve_speed_threshold
 from src.metrics.definitions.approach_breakdown import calculate_approach_breakdown
 from src.metrics.definitions.derived_metrics import (
     calculate_average_travel_speed,
@@ -44,24 +45,6 @@ if TYPE_CHECKING:
     from src.intersection.conflict_manager import ConflictManager
 
 _DIRECTIONS = ("north", "south", "east", "west")
-
-
-def resolve_speed_threshold(config: Dict[str, Any], key: str, default: float) -> float:
-    """Read ``waitSpeedThreshold`` / ``stopSpeedThreshold`` from a config.
-
-    The scenario contract, the JSON schema and the typed ``MetricsSection``
-    all place these under ``metrics``; the runtime used to read them only from
-    ``vehicleGeneration``, so a value set where the contract says to set it was
-    silently ignored (and on the typed route, where ``VehicleGenerationSection``
-    has no such fields, there was no way to set it at all). ``metrics`` now
-    wins; ``vehicleGeneration`` is still honoured as the legacy location the
-    dashboard and study presets use.
-    """
-    metrics_cfg = config.get("metrics") or {}
-    if key in metrics_cfg and metrics_cfg[key] is not None:
-        return float(metrics_cfg[key])
-    veh_gen = config.get("vehicleGeneration") or {}
-    return float(veh_gen.get(key, default))
 
 
 class MetricCollector:

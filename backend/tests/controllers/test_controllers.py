@@ -590,7 +590,7 @@ def test_fixed_time_signal_ns_ew_duration_invalid_values_rejected_by_schema() ->
     schema/Pydantic layer, exercised here directly against CONFIG_SCHEMA."""
     import jsonschema
 
-    from src.main import CONFIG_SCHEMA
+    from src.core.schema import CONFIG_SCHEMA
 
     base_config = {
         "simulation": {"duration": 60, "timeStep": 0.1},
@@ -980,7 +980,7 @@ def test_roundabout_approach_cap_does_not_force_emergency_braking() -> None:
     free-road term lags a falling desired speed), well clear of the limit."""
     from src.controllers.factory import create_controller
     from src.core.clock import Clock
-    from src.core.engine import SimulationEngine
+    from src.engine.simulation_engine import SimulationEngine
 
     for seed in (1, 2, 3):
         config = {

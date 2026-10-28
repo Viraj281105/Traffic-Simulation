@@ -18,6 +18,13 @@ This directory contains historical **Architecture Decision Records (ADRs)**. The
 | **[ADR-010](adr-010-documentation-organization.md)** | Documentation Organization | Accepted | 2026-07-23 |
 | **[ADR-011](adr-011-versioning-strategy.md)** | Versioning Strategy | Accepted | 2026-07-23 |
 | **[ADR-012](adr-012-future-controller-extensibility.md)** | Future Controller Extensibility | Accepted | 2026-07-23 |
+| **[ADR-013](adr-013-v3-integration-contract-and-versioning.md)** | V3.0 Integration Contract and Versioning | Accepted | 2026-10-15 |
+| **[ADR-014](adr-014-strategy-registry-and-entry-gate-seam.md)** | Strategy Registry and Entry-Gate Seam | Accepted | 2026-10-19 |
+| **[ADR-015](adr-015-robustness-lab-uncertainty-design.md)** | Robustness Lab Uncertainty Design | Accepted | 2026-10-15 |
+| **[ADR-016](adr-016-driver-aggression-profile.md)** | Driver Aggression Profile | Proposed (draft for G-D) | 2026-10-14 |
+| **[ADR-017](adr-017-ai-validation-boundary.md)** | AI Validation Boundary | Proposed (draft for G-D) | 2026-10-14 |
+| **[ADR-018](adr-018-backend-layering-and-resource-routers.md)** | Backend Layering and Resource Routers | Accepted | 2026-10-16 |
+| **[ADR-019](adr-019-stop-line-position-under-driver-aggression.md)** | Stop-Line Position Under Driver Aggression | Proposed | 2026-10-22 |
 
 ## ADR Structure
 

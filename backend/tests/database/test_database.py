@@ -1,14 +1,14 @@
 import sqlite3
 
+import src.database.db as db
 from src.database.dao import ConfigurationDAO, RunMetricsDAO, SimulationRunDAO
-from src.database.db import DB_PATH, get_db_connection, init_db
 
 
 def test_database_crud_operations() -> None:
     """Verifies that we can insert, select, and delete configurations, runs, and metrics from SQLite."""
-    init_db()
+    db.init_db()
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(db.DB_PATH)
     conn.row_factory = sqlite3.Row
 
     try:
@@ -42,8 +42,8 @@ def test_database_crud_operations() -> None:
 def test_database_save_commits_immediately() -> None:
     """Verifies DAO save() methods commit their own write (callers no longer
     need to remember to call conn.commit() themselves — see dao.py)."""
-    init_db()
-    conn = sqlite3.connect(DB_PATH)
+    db.init_db()
+    conn = sqlite3.connect(db.DB_PATH)
 
     # First ensure rollback_run_1 doesn't exist
     conn.execute("DELETE FROM simulation_runs WHERE id = 'rollback_run_1';")
@@ -57,7 +57,7 @@ def test_database_save_commits_immediately() -> None:
 
     # Verify the write is visible from a brand new connection, proving it
     # was actually committed rather than left pending on the closed one.
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(db.DB_PATH)
     conn.row_factory = sqlite3.Row
     try:
         run = SimulationRunDAO.get(conn, "rollback_run_1")
@@ -69,8 +69,8 @@ def test_database_save_commits_immediately() -> None:
 
 def test_database_save_rolls_back_on_failure() -> None:
     """Verifies a failed DAO save() does not leave a partially-written row."""
-    init_db()
-    conn = sqlite3.connect(DB_PATH)
+    db.init_db()
+    conn = sqlite3.connect(db.DB_PATH)
     conn.row_factory = sqlite3.Row
 
     conn.execute("DELETE FROM configurations WHERE id = 'bad_cfg';")
@@ -95,8 +95,8 @@ def test_database_save_rolls_back_on_failure() -> None:
 
 
 def test_get_db_connection_and_missing_records() -> None:
-    init_db()
-    with get_db_connection() as conn:
+    db.init_db()
+    with db.get_db_connection() as conn:
         # Missing config returns None
         missing_cfg = ConfigurationDAO.get(conn, "nonexistent_config_id_123")
         assert missing_cfg is None

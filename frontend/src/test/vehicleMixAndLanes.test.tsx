@@ -21,6 +21,13 @@ import {
 } from "../vehicles/vehicleClasses";
 import { VehicleLegend, VehicleMixBar } from "../components/VehicleLegend";
 import { ScenarioSetup } from "../components/guided/ScenarioSetup";
+
+// The strategy cards load from GET /api/strategies.
+vi.mock("../services/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../services/api")>()),
+  listStrategies: () =>
+    import("./strategyCatalogFixture").then((m) => m.STRATEGY_CATALOG),
+}));
 import type { LiveSnapshot, SnapshotVehicle } from "../types/simulation";
 
 const city = MIX_PRESETS.find((p) => p.id === "city")?.mix ?? null;
@@ -215,7 +222,7 @@ describe("guided setup", () => {
       screen.getByText(/the junction is laid out for them/),
     ).toBeInTheDocument();
     await userEvent.click(
-      screen.getByRole("button", { name: /Run the comparison/ }),
+      await screen.findByRole("button", { name: /Run 2 strategies/ }),
     );
     expect(onRun).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -134,6 +134,44 @@ describe("scenario model", () => {
     expect(text).toMatch(/heaviest from the north/);
   });
 
+  it("takes the driver-aggression profile from the document, never the previous answers", () => {
+    const legacy = scenarioFromPreset("heavy-commuter");
+    const prev = {
+      ...DEFAULT_CONFIG_VALUES,
+      driverAggression: "high" as const,
+    };
+    // A document without a profile runs as "standard" (ADR-016).
+    expect(configValuesFromScenario(legacy, prev).driverAggression).toBe(
+      "standard",
+    );
+    const moderate = {
+      ...legacy,
+      traffic: { driverAggression: "moderate" as const },
+    };
+    expect(configValuesFromScenario(moderate, prev).driverAggression).toBe(
+      "moderate",
+    );
+  });
+
+  it("names a non-standard driver-aggression profile in the description", () => {
+    const doc = scenarioFromPreset("heavy-commuter");
+    expect(describeScenario(doc)).not.toMatch(/aggression/);
+    expect(
+      describeScenario({ ...doc, traffic: { driverAggression: "standard" } }),
+    ).not.toMatch(/aggression/);
+    expect(
+      describeScenario({ ...doc, traffic: { driverAggression: "high" } }),
+    ).toMatch(/; high driver aggression\.$/);
+  });
+
+  it("sends the quick-setup profile in the flat dashboard payload", () => {
+    const payload = dashboardPayload(
+      { ...DEFAULT_CONFIG_VALUES, driverAggression: "high" },
+      "fixed_time_signal",
+    );
+    expect(payload.driverAggression).toBe("high");
+  });
+
   it("bridges to the dashboard config and back", () => {
     const doc = scenarioFromPreset("heavy-commuter");
     const config = configValuesFromScenario(doc, DEFAULT_CONFIG_VALUES);
@@ -312,8 +350,24 @@ describe("per-approach results", () => {
     render(
       <ApproachResults
         scenario={doc}
-        signal={side(31.2)}
-        roundabout={side(18.4)}
+        columns={[
+          {
+            strategy: {
+              id: "fixed_time_signal",
+              name: "Fixed-time signal",
+              color: "var(--series-fixed)",
+            },
+            breakdown: side(31.2),
+          },
+          {
+            strategy: {
+              id: "conventional_roundabout",
+              name: "Roundabout",
+              color: "var(--series-conventional)",
+            },
+            breakdown: side(18.4),
+          },
+        ]}
       />,
     );
     const north = screen.getByRole("row", { name: /North/ });

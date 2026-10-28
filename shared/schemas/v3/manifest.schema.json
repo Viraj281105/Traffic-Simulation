@@ -1,0 +1,255 @@
+{
+  "$defs": {
+    "ManifestAssumptions": {
+      "additionalProperties": false,
+      "description": "Assumptions block of an experiment manifest.",
+      "properties": {
+        "disclaimer": {
+          "title": "Disclaimer",
+          "type": "string"
+        },
+        "driverAggression": {
+          "title": "Driveraggression",
+          "type": "string"
+        },
+        "driverAggressionHash": {
+          "title": "Driveraggressionhash",
+          "type": "string"
+        },
+        "factors": {
+          "items": {
+            "$ref": "#/$defs/ManifestFactor"
+          },
+          "title": "Factors",
+          "type": "array"
+        }
+      },
+      "required": [
+        "driverAggression",
+        "driverAggressionHash",
+        "disclaimer"
+      ],
+      "title": "ManifestAssumptions",
+      "type": "object"
+    },
+    "ManifestFactor": {
+      "additionalProperties": false,
+      "description": "Factor assumptions recorded in the manifest.",
+      "properties": {
+        "basis": {
+          "default": "assumed",
+          "enum": [
+            "assumed",
+            "observed",
+            "user"
+          ],
+          "title": "Basis",
+          "type": "string"
+        },
+        "bounds": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "title": "Bounds",
+          "type": "array"
+        },
+        "distribution": {
+          "additionalProperties": true,
+          "title": "Distribution",
+          "type": "object"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,31}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "rationale": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Rationale",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "distribution",
+        "bounds"
+      ],
+      "title": "ManifestFactor",
+      "type": "object"
+    },
+    "SidecarMetadata": {
+      "additionalProperties": false,
+      "description": "Metadata descriptor for a sidecar file bundled within a package (.ufpkg).",
+      "properties": {
+        "kind": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "path": {
+          "description": "Relative path inside the package using '/' separators; absolute paths and '.', '..' or empty segments are rejected.",
+          "maxLength": 256,
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[a-fA-F0-9]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "path",
+        "sha256"
+      ],
+      "title": "SidecarMetadata",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "UrbanFlow experiment reproducibility manifest (v1).\n\nAdheres to ADR-013 (Decision 2, 3, 6): format + integer version, extra='forbid',\nstrictly backward-compatible with pre-W7 manifests through defaulted optional\n`kind` and `sidecars` fields.",
+  "properties": {
+    "assumptions": {
+      "$ref": "#/$defs/ManifestAssumptions"
+    },
+    "createdAt": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Createdat"
+    },
+    "dirty": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Dirty"
+    },
+    "format": {
+      "const": "urbanflow-experiment-manifest",
+      "default": "urbanflow-experiment-manifest",
+      "title": "Format",
+      "type": "string"
+    },
+    "gitCommit": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Gitcommit"
+    },
+    "kind": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": "robustness_experiment",
+      "title": "Kind"
+    },
+    "packageChecksums": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Packagechecksums"
+    },
+    "pythonVersion": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Pythonversion"
+    },
+    "resultFingerprint": {
+      "title": "Resultfingerprint",
+      "type": "string"
+    },
+    "scenarioFingerprint": {
+      "title": "Scenariofingerprint",
+      "type": "string"
+    },
+    "sidecars": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/SidecarMetadata"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Sidecars"
+    },
+    "specFingerprint": {
+      "title": "Specfingerprint",
+      "type": "string"
+    },
+    "version": {
+      "const": 1,
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "scenarioFingerprint",
+    "specFingerprint",
+    "resultFingerprint",
+    "assumptions"
+  ],
+  "title": "ExperimentManifest",
+  "type": "object"
+}

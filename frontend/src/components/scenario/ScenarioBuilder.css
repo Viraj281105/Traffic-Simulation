@@ -23,6 +23,7 @@
   flex-direction: column;
   gap: 16px;
   min-width: 0;
+  container-type: inline-size;
 }
 
 /* Section index: a completeness indicator that doubles as navigation. */
@@ -85,10 +86,23 @@
   font-weight: 650;
 }
 
+/* One card per approach (up to four). Balanced rows — two by two, or four
+   across when the column is wide enough — rather than auto-fill, which left
+   the fourth approach alone on a row of three. */
 .sb-approach-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+@container (max-width: 540px) {
+  .sb-approach-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@container (min-width: 1100px) {
+  .sb-approach-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 .approach-card {
@@ -338,9 +352,30 @@
   font-weight: 650;
   color: var(--color-text-2);
 }
+/* Step 1: how vehicles enter the roundabout — a bare group laid out like
+   .sb-field, so the browser's fieldset border never shows. */
+.sb-entry-control {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sb-entry-control legend {
+  padding: 0;
+  margin-bottom: 6px;
+}
 .sb-unit {
   font-size: 12px;
   color: var(--color-text-3);
+}
+/* A parameter readout under a choice (driver-aggression levers). */
+.sb-figure {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-accent);
 }
 .sb-check {
   display: flex;

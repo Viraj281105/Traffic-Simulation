@@ -4,6 +4,7 @@ The autouse fixture here stops real-time engine threads that a test leaves
 running. See its docstring for why that is not merely tidiness.
 """
 
+from pathlib import Path
 from typing import Any, Iterator, List
 
 import pytest
@@ -13,12 +14,8 @@ from src.core.enums import SimulationStatus
 
 def _running_engines() -> List[Any]:
     """Every engine currently held by the app that is still stepping."""
-    from src.main import (
-        _live_sessions,
-        _live_sessions_lock,
-        simulations_db,
-        simulations_lock,
-    )
+    from src.live.sessions import live_sessions, live_sessions_lock
+    from src.simulations.registry import simulations_db, simulations_lock
 
     engines: List[Any] = []
 
@@ -28,8 +25,8 @@ def _running_engines() -> List[Any]:
             if engine is not None:
                 engines.append(engine)
 
-    with _live_sessions_lock:
-        for session in list(_live_sessions.values()):
+    with live_sessions_lock:
+        for session in list(live_sessions.values()):
             live = getattr(session, "live_sim_data", None)
             if isinstance(live, dict) and live.get("engine") is not None:
                 engines.append(live["engine"])
@@ -91,6 +88,20 @@ def inline_study_runs(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("STUDY_WORKERS", "0")
 
 
+@pytest.fixture(autouse=True)
+def isolate_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Isolate database operations to a fresh temporary sqlite file per test.
+
+    Prevents tests from mutating the repository's root simulation.db or
+    colliding during parallel runs or test reruns.
+    """
+    import src.database.db as db_mod
+
+    test_db = str(tmp_path / "test_sim.db")
+    monkeypatch.setenv("DB_PATH", test_db)
+    monkeypatch.setattr(db_mod, "DB_PATH", test_db)
+
+
 TEST_USER_ID = "test-user-sub"
 TEST_USER_EMAIL = "test-user@example.com"
 
@@ -100,13 +111,13 @@ def signed_in_user() -> Iterator[str]:
     """Authenticate API requests as one Cognito user.
 
     Saved replays belong to the signed-in user: their endpoints resolve the
-    user from a verified Cognito token (``src.auth``). Tests have no Cognito
+    user from a verified Cognito token (``src.api.auth``). Tests have no Cognito
     pool to issue one, so this overrides the identity dependencies with a
     fixed, non-admin user, the standard FastAPI way to test a protected route. Token
     verification itself is left in place for every test that does not ask
     for this fixture, so the unauthenticated behaviour stays covered.
     """
-    from src.auth import (
+    from src.api.auth import (
         get_current_user_email,
         get_current_user_id,
         get_current_user_is_admin,
