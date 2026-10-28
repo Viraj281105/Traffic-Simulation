@@ -21,8 +21,23 @@
 .planning-header-title h1 {
   font-size: 1.85rem;
   font-weight: 700;
-  margin: 0 0 0.35rem;
+  margin: 0.25rem 0 0.35rem;
   letter-spacing: -0.02em;
+}
+
+/* A compact labelled control in a card header (seeds per scenario). */
+.planning-card-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.planning-inline-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-text-2);
+  font-size: 0.85rem;
+  font-weight: 500;
 }
 
 .planning-header-title p {
