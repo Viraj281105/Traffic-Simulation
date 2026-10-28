@@ -20,7 +20,7 @@ export function JunctionStudyPage() {
     <div className="guided-page junction-study">
       <header className="guided-intro">
         <p className="guided-eyebrow">Research lab</p>
-        <h1>Your own junction: a controlled study</h1>
+        <h1>Custom junction study</h1>
         <p>
           Build any junction the model supports, or import one, then run it
           under the controls you choose.

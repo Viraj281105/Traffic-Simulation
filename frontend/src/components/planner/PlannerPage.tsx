@@ -920,7 +920,7 @@ export function PlannerPage() {
     <div className="guided-page planner">
       <header className="guided-intro planner-intro">
         <div className="planner-intro__text">
-          <p className="guided-eyebrow">Plan</p>
+          <p className="guided-eyebrow">Experiments</p>
           <h1 id="planner-title">Plan a junction study</h1>
           <p>
             Compare control alternatives for one junction on the same simulated

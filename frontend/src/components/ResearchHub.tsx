@@ -37,7 +37,7 @@ const TOOL_GROUPS: { id: string; title: string; tools: Tool[] }[] = [
       {
         href: VIEW_ROUTES.junction,
         icon: PencilRuler,
-        title: "Your own junction",
+        title: "Custom junction study",
         body: "Build or import a junction and compare the controls on it.",
         use: "How do the controls compare on my junction?",
       },
