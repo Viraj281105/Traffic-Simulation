@@ -18,10 +18,16 @@ import {
   mixPresetFor,
 } from "../../vehicles/vehicleClasses";
 import { VehicleMixBar } from "../VehicleLegend";
+import { scenarioAdaptiveSentence } from "../../signals/signalControl";
+import { StrategyPicker } from "../../strategies/StrategyPicker";
 import {
-  SIGNAL_CONTROL_CHOICES,
-  scenarioAdaptiveSentence,
-} from "../../signals/signalControl";
+  selectedStrategies,
+  strategyInfo,
+  useStrategyCatalog,
+} from "../../strategies/strategyCatalog";
+import { ResearchLink } from "../research/LabSection";
+import "../research/ResearchLab.css";
+import { VIEW_ROUTES } from "../../routing";
 import { ScenarioBuilder } from "../scenario/ScenarioBuilder";
 import { useScenarioValidation } from "../scenario/useScenarioValidation";
 import {
@@ -39,8 +45,21 @@ import {
   type Strategy,
 } from "../../scenario/scenarioTypes";
 
-/** A guided run; `isBatch` asks the parent for a batch experiment instead. */
-export type GuidedRunRequest = SimulationConfigValues & { isBatch?: boolean };
+/** A guided run: the configuration to compare, with its strategies. */
+export type GuidedRunRequest = SimulationConfigValues;
+
+/** The scenario check validates the junction for each family it will run
+ *  as (the builder's strategy names); the metered roundabout is checked as
+ *  a roundabout, since it runs the default plan when none is drawn. */
+function builderStrategies(ids: string[]): Strategy[] {
+  const out = new Set<Strategy>();
+  for (const id of ids) {
+    if (id === "adaptive_signal") out.add("adaptive");
+    else if (strategyInfo(id).family === "roundabout") out.add("roundabout");
+    else out.add("fixed_time");
+  }
+  return out.size ? [...out] : ["fixed_time", "roundabout"];
+}
 
 const LANE_CHOICES = [1, 2, 3];
 
@@ -60,7 +79,7 @@ export function ScenarioSetup({
   const [prevConfig, setPrevConfig] = useState(config);
   const [draft, setDraft] = useState(config);
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [isBatchMode, setIsBatchMode] = useState(false);
+  const catalog = useStrategyCatalog();
   // V1.4: answer the quick questions, or build the junction in full.
   const [mode, setMode] = useState<"quick" | "custom">(
     config.scenario ? "custom" : "quick",
@@ -68,14 +87,27 @@ export function ScenarioSetup({
   const [scenario, setScenario] = useState<ScenarioDocument>(() =>
     scenarioFromConfigValues(config),
   );
-  const signalStrategy: Strategy =
-    scenario.junction.type === "adaptive_signal" ? "adaptive" : "fixed_time";
-  const customStrategies: Strategy[] = [signalStrategy, "roundabout"];
+  const chosen = selectedStrategies(
+    draft.strategies,
+    catalog.status === "ready" ? catalog.catalog : null,
+  );
+  const chosenNames = chosen.map((id) => strategyInfo(id).name);
+  const comparing =
+    chosenNames.length === 0
+      ? "no strategy yet"
+      : chosenNames.length === 1
+        ? chosenNames[0]
+        : `${chosenNames.slice(0, -1).join(", ")} and ${chosenNames[chosenNames.length - 1]}`;
+  const canRun = catalog.status === "ready" && chosen.length > 0;
+  const runLabel =
+    chosen.length > 1
+      ? `Run ${String(chosen.length)} strategies →`
+      : "Run the simulation →";
+  const customStrategies = builderStrategies(chosen);
   const scenarioCheck = useScenarioValidation(scenario, customStrategies);
   const demandName = useId();
   const lanesName = useId();
   const mixName = useId();
-  const controlName = useId();
   const lengthName = useId();
   const aggressionName = useId();
   const aggressionHeadingId = useId();
@@ -86,6 +118,21 @@ export function ScenarioSetup({
     if (config.scenario) setScenario(scenarioFromConfigValues(config));
   }
 
+  const strategyDetails: Record<string, React.ReactNode> = {
+    fixed_time_signal: `Timetable: ${
+      (draft.nsGreenDuration ?? draft.greenDuration) ===
+      (draft.ewGreenDuration ?? draft.greenDuration)
+        ? `${String(draft.nsGreenDuration ?? draft.greenDuration)} s`
+        : `${String(draft.nsGreenDuration ?? draft.greenDuration)} s / ${String(draft.ewGreenDuration ?? draft.greenDuration)} s`
+    } green each way, a ${String(signalCycleSeconds(draft))} s cycle.`,
+    adaptive_signal: scenarioAdaptiveSentence(draft),
+    conventional_roundabout: `${draft.lanes === 1 ? "One circulating lane" : "Two circulating lanes"}; drivers enter at gaps of at least ${draft.criticalGap.toFixed(1)} s.`,
+    metered_entry_roundabout:
+      mode === "custom" && isMeteredEntry(scenario)
+        ? "Entry signals: the plan set in the junction builder."
+        : "Entry signals: north–south, then east–west, 20 s greens.",
+  };
+
   const set = <K extends keyof SimulationConfigValues>(
     key: K,
     value: SimulationConfigValues[K],
@@ -95,11 +142,8 @@ export function ScenarioSetup({
 
   const level = demandLevelFor(draft.arrivalRate, draft.lanes);
   const lengthKnown = RUN_LENGTHS.some((l) => l.seconds === draft.duration);
-  const ns = draft.nsGreenDuration ?? draft.greenDuration;
-  const ew = draft.ewGreenDuration ?? draft.greenDuration;
   const unchanged = JSON.stringify(draft) === JSON.stringify(config);
   const mixPreset = mixPresetFor(draft.vehicleMix);
-  const adaptive = draft.signalControl === "adaptive";
 
   return (
     <div className="guided-page">
@@ -107,10 +151,10 @@ export function ScenarioSetup({
         <p className="guided-eyebrow">Step 1 of 3</p>
         <h1>Describe the junction you want to test</h1>
         <p>
-          UrbanFlow will run a <strong>traffic signal</strong> and a{" "}
-          <strong>roundabout</strong> on this junction side by side, with
-          exactly the same vehicles arriving at exactly the same moments. You
-          watch both, then read the results in plain language.
+          Pick the ways of controlling the junction you want to compare.
+          UrbanFlow runs them side by side with exactly the same vehicles
+          arriving at exactly the same moments; you watch them, then read the
+          results in plain language.
         </p>
         <div
           className="seg setup-mode"
@@ -142,6 +186,15 @@ export function ScenarioSetup({
         </div>
       </header>
 
+      <StrategyPicker
+        catalog={catalog}
+        value={chosen}
+        onChange={(next) => {
+          set("strategies", next);
+        }}
+        details={strategyDetails}
+      />
+
       {mode === "custom" ? (
         <>
           <ScenarioBuilder
@@ -151,35 +204,21 @@ export function ScenarioSetup({
             validation={scenarioCheck}
             junctionNote={
               <>
-                The comparison always runs a{" "}
-                <strong>
-                  {signalStrategy === "adaptive"
-                    ? "signal that responds to traffic"
-                    : "fixed-time signal"}
-                </strong>{" "}
-                and a{" "}
-                <strong>
-                  {isMeteredEntry(scenario)
-                    ? "metered-entry roundabout"
-                    : "roundabout"}
-                </strong>{" "}
-                on these roads with the same traffic. Choose “Adaptive signal”
-                to compare the responsive signal instead; three-way studies are
-                in the Research Lab.
+                The comparison runs the strategies chosen above on these roads
+                with the same traffic; the junction type here sets the layout
+                you preview. A metered roundabout uses the entry-signal plan set
+                below
+                {isMeteredEntry(scenario)
+                  ? ""
+                  : " once you add one, or a default north–south / east–west plan"}
+                .
               </>
             }
           />
           <div className="guided-cta">
             <p>
-              Comparing a{" "}
-              {signalStrategy === "adaptive"
-                ? "traffic signal that responds to traffic"
-                : "traffic signal"}{" "}
-              with a{" "}
-              {isMeteredEntry(scenario)
-                ? "metered-entry roundabout"
-                : "roundabout"}
-              : <strong>{describeScenario(scenario)}</strong> For{" "}
+              Comparing <strong>{comparing}</strong>:{" "}
+              <strong>{describeScenario(scenario)}</strong> For{" "}
               {duration(scenario.simulation.duration)} of traffic, seed{" "}
               {scenario.simulation.seed}.
             </p>
@@ -187,17 +226,21 @@ export function ScenarioSetup({
               type="button"
               className="guided-primary-btn"
               disabled={
+                !canRun ||
                 !(scenarioCheck.status === "done" && scenarioCheck.result.valid)
               }
               onClick={() => {
-                onRun(configValuesFromScenario(scenario, draft));
+                onRun({
+                  ...configValuesFromScenario(scenario, draft),
+                  strategies: chosen,
+                });
               }}
             >
               {runInProgress &&
               config.scenario &&
               sameScenario(config.scenario, scenario)
                 ? "Continue watching →"
-                : "Run the comparison →"}
+                : runLabel}
             </button>
             {!(
               scenarioCheck.status === "done" && scenarioCheck.result.valid
@@ -364,45 +407,7 @@ export function ScenarioSetup({
 
           <fieldset className="guided-question">
             <legend>
-              <span className="q-number">4</span> How should the signal respond
-              to traffic?
-            </legend>
-            <div className="choice-grid">
-              {SIGNAL_CONTROL_CHOICES.map((choice) => {
-                const selected =
-                  (draft.signalControl ?? "fixed_time") === choice.id;
-                return (
-                  <label
-                    key={choice.id}
-                    className={`choice-card${selected ? " is-selected" : ""}`}
-                  >
-                    <input
-                      type="radio"
-                      name={controlName}
-                      checked={selected}
-                      onChange={() => {
-                        set(
-                          "signalControl",
-                          choice.id === "adaptive" ? "adaptive" : undefined,
-                        );
-                      }}
-                    />
-                    <span className="choice-title">{choice.label}</span>
-                    <span className="choice-desc">{choice.description}</span>
-                  </label>
-                );
-              })}
-            </div>
-            <p className="q-help">
-              {adaptive
-                ? `${scenarioAdaptiveSentence(draft)} Yellow and all-red clearances are never shortened. The roundabout is unchanged.`
-                : "Most signals in towns run a fixed timetable. A signal that responds to traffic uses detectors to give green where vehicles are actually waiting."}
-            </p>
-          </fieldset>
-
-          <fieldset className="guided-question">
-            <legend>
-              <span className="q-number">5</span> How do drivers behave?
+              <span className="q-number">4</span> How do drivers behave?
             </legend>
             <div className="choice-grid">
               <label
@@ -499,7 +504,7 @@ export function ScenarioSetup({
 
           <fieldset className="guided-question">
             <legend>
-              <span className="q-number">6</span> How long should we watch?
+              <span className="q-number">5</span> How long should we watch?
             </legend>
             <div className="choice-grid choice-grid--levels">
               {RUN_LENGTHS.map((l) => (
@@ -533,63 +538,25 @@ export function ScenarioSetup({
             </p>
           </fieldset>
 
-          <section className="guided-question" aria-labelledby="options-title">
-            <h2 id="options-title" className="as-legend">
-              The two options being compared
-            </h2>
-            <div className="option-pair">
-              <div className="option-card is-signal">
-                <h3>
-                  {adaptive ? "Traffic signal that responds" : "Traffic signal"}
-                </h3>
-                {adaptive ? (
-                  <p>
-                    Detectors at each stop line decide how long each green
-                    lasts; north–south and east–west take turns, with the usual
-                    yellow and all-red in between.
-                  </p>
-                ) : (
-                  <p>
-                    Fixed timetable:{" "}
-                    {ns === ew
-                      ? `${String(ns)} s`
-                      : `${String(ns)} s / ${String(ew)} s`}{" "}
-                    of green for each direction in turn, a{" "}
-                    {String(signalCycleSeconds(draft))} s cycle.
-                  </p>
-                )}
-              </div>
-              <div className="option-card is-roundabout">
-                <h3>Roundabout</h3>
-                <p>
-                  {draft.lanes === 1
-                    ? "One circulating lane."
-                    : "Two circulating lanes."}{" "}
-                  Drivers give way to circulating traffic and enter at gaps of
-                  at least {draft.criticalGap.toFixed(1)} s.
-                </p>
-              </div>
-            </div>
+          <div className="setup-advanced">
             <button
               type="button"
-              className="guided-link-btn"
+              className="pb-btn pb-secondary"
               onClick={() => {
                 setAdvancedOpen(true);
               }}
               aria-haspopup="dialog"
             >
-              Advanced settings — signal timing, driver behaviour, lane width,
-              traffic pattern
+              Advanced settings
             </button>
-          </section>
+            <span className="q-help">
+              Signal timing, gap acceptance, lane width and the traffic pattern.
+            </span>
+          </div>
 
           <div className="guided-cta">
             <p>
-              Comparing a{" "}
-              {adaptive
-                ? "traffic signal that responds to traffic"
-                : "traffic signal"}{" "}
-              with a roundabout at{" "}
+              Comparing <strong>{comparing}</strong> at{" "}
               <strong>
                 ≈ {vehiclesPerHour(draft.arrivalRate).toLocaleString()} vehicles
                 per hour
@@ -613,55 +580,26 @@ export function ScenarioSetup({
             <button
               type="button"
               className="guided-primary-btn"
+              disabled={!canRun}
               onClick={() => {
-                if (isBatchMode) {
-                  // In a real app we'd open a modal to select parameters.
-                  // For now, we'll just inform the parent to do a batch run.
-                  onRun({ ...draft, scenario: null, isBatch: true });
-                } else {
-                  onRun({ ...draft, scenario: null });
-                }
+                onRun({ ...draft, scenario: null, strategies: chosen });
               }}
             >
               {runInProgress && unchanged && !config.scenario
                 ? "Continue watching →"
-                : isBatchMode
-                  ? "Enqueue Batch Experiment →"
-                  : "Run the comparison →"}
+                : runLabel}
             </button>
-            <div className="batch-toggle" style={{ marginTop: "1rem" }}>
-              <label
-                className="checkbox-label"
-                style={{
-                  display: "flex",
-                  gap: "0.5rem",
-                  alignItems: "center",
-                  cursor: "pointer",
-                  justifyContent: "center",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={isBatchMode}
-                  onChange={(e) => {
-                    setIsBatchMode(e.target.checked);
-                  }}
-                  style={{
-                    width: "1.2rem",
-                    height: "1.2rem",
-                    accentColor: "#e5a910",
-                  }}
-                />
-                <span className="choice-title" style={{ fontSize: "1rem" }}>
-                  Run as Batch Experiment (Sweeping Demand Levels)
-                </span>
-              </label>
-            </div>
-            {runInProgress && !unchanged && !isBatchMode && (
+            {runInProgress && !unchanged && (
               <p className="q-help">
                 Running with new settings starts a fresh comparison.
               </p>
             )}
+            <p className="q-help">
+              Want every traffic level at once?{" "}
+              <ResearchLink to={VIEW_ROUTES.volume}>
+                Traffic-level sweep
+              </ResearchLink>
+            </p>
           </div>
         </>
       )}

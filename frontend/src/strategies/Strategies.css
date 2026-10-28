@@ -1,0 +1,514 @@
+/* Control strategies: the picker, legend marks, the live map grid and the
+   per-strategy readouts. Each strategy's colour arrives as --strategy-color
+   (strategies/strategyCatalog.ts); everything else comes from
+   styles/tokens.css, so both themes follow. */
+
+/* ── Legend mark ────────────────────────────────────────────────────────── */
+.strategy-dot {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--strategy-color, var(--series-neutral));
+  box-shadow: 0 0 0 2px
+    color-mix(in srgb, var(--strategy-color) 22%, transparent);
+}
+.strategy-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.strategy-glyph {
+  flex-shrink: 0;
+  display: block;
+}
+
+/* ── Picker ─────────────────────────────────────────────────────────────── */
+.strategy-picker__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 12px;
+}
+.strategy-picker__count {
+  margin: 0;
+  color: var(--color-text-2);
+  font-size: 13px;
+}
+.strategy-picker__count strong {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+.strategy-picker__shortcuts {
+  display: flex;
+  gap: 6px;
+}
+.strategy-chip {
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text-2);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+.strategy-chip:hover {
+  color: var(--color-text);
+  border-color: var(--color-text-3);
+}
+.strategy-chip[aria-pressed="true"] {
+  background: var(--color-accent-soft);
+  border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
+  color: var(--color-accent);
+}
+.strategy-picker__loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-text-2);
+}
+.strategy-picker__need {
+  color: var(--color-warning);
+}
+
+.strategy-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.strategy-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out);
+}
+/* The strategy's colour as a band along the top: present when selected,
+   a hint of it otherwise, so cards are told apart without colour alone
+   (each also has its own drawing and name). */
+.strategy-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--strategy-color);
+  opacity: 0.25;
+  transition: opacity var(--dur-base) var(--ease-out);
+}
+.strategy-card:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-float);
+  transform: translateY(-1px);
+}
+.strategy-card.is-selected {
+  border-color: color-mix(
+    in srgb,
+    var(--strategy-color) 70%,
+    var(--color-border)
+  );
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--strategy-color) 9%, transparent),
+      transparent 60%
+    ),
+    var(--color-surface);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--strategy-color) 55%, transparent),
+    0 6px 20px -12px color-mix(in srgb, var(--strategy-color) 70%, transparent);
+}
+.strategy-card.is-selected::before {
+  opacity: 1;
+}
+.strategy-card.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.strategy-card__input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.strategy-card:has(.strategy-card__input:focus-visible) {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+.strategy-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.strategy-card__check {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-border-strong);
+  color: transparent;
+  transition:
+    background var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out),
+    color var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-spring);
+}
+.strategy-card.is-selected .strategy-card__check {
+  background: var(--strategy-color);
+  border-color: var(--strategy-color);
+  color: var(--color-bg);
+  transform: scale(1.05);
+}
+.strategy-card__family {
+  color: var(--color-text-3);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.strategy-card__name {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--color-text);
+}
+.strategy-card__summary {
+  color: var(--color-text-2);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.strategy-card__detail {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--color-border);
+  color: var(--color-text-2);
+  font-size: 12.5px;
+}
+
+/* ── Live maps: one tile per strategy ───────────────────────────────────── */
+.strategy-maps {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+}
+.strategy-maps[data-count="1"] {
+  grid-template-columns: 1fr;
+}
+.strategy-maps[data-count="2"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.strategy-maps[data-count="3"] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+/* Four (and any later count) as a 2-column grid of equal rows. */
+.strategy-maps[data-count="4"],
+.strategy-maps[data-count="many"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+}
+.strategy-map {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-2);
+  overflow: hidden;
+  transition:
+    border-color var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out);
+}
+.strategy-map.is-focused {
+  border-color: color-mix(
+    in srgb,
+    var(--strategy-color) 70%,
+    var(--color-border)
+  );
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--strategy-color) 22%, transparent);
+}
+.strategy-map__head {
+  position: absolute;
+  z-index: 3;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  pointer-events: none;
+}
+.strategy-map__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  margin: 0;
+  padding: 5px 10px 5px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--shadow-raised);
+  font-size: 12.5px;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.strategy-map__inspect {
+  pointer-events: auto;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+  color: var(--color-text-2);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.strategy-map__inspect:hover,
+.strategy-map__inspect[aria-pressed="true"] {
+  color: var(--color-text);
+  border-color: color-mix(
+    in srgb,
+    var(--strategy-color) 60%,
+    var(--glass-border)
+  );
+}
+.strategy-map .canvas-wrapper {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── Live readout table ─────────────────────────────────────────────────── */
+.strategy-live-table th[scope="col"] {
+  vertical-align: bottom;
+}
+.strategy-live-table td {
+  font-variant-numeric: tabular-nums;
+  transition: color var(--dur-base) var(--ease-out);
+}
+.strategy-live-table .strategy-label {
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+/* ── Result bars ────────────────────────────────────────────────────────── */
+.pair-bar.is-strategy {
+  grid-template-columns: minmax(112px, 148px) 1fr auto;
+}
+.pair-bar.is-strategy .pair-side {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pair-bar .pair-extreme {
+  margin-left: 6px;
+  color: var(--color-text-3);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ── At a glance: one card per strategy ─────────────────────────────────── */
+.strategy-glance {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+}
+.strategy-glance__card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--strategy-color) 8%, transparent),
+      transparent 55%
+    ),
+    var(--color-surface-2);
+  overflow: hidden;
+}
+.strategy-glance__card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--strategy-color);
+}
+.strategy-glance__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.strategy-glance__name {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 650;
+}
+.strategy-glance dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  margin: 0;
+}
+.strategy-glance dt {
+  color: var(--color-text-3);
+  font-size: 11.5px;
+}
+.strategy-glance dd {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.strategy-glance dd small {
+  margin-left: 3px;
+  color: var(--color-text-3);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+/* ── Inspect one strategy (results) ─────────────────────────────────────── */
+.strategy-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.strategy-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-2);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.strategy-tab[aria-selected="true"] {
+  color: var(--color-text);
+  border-color: color-mix(
+    in srgb,
+    var(--strategy-color) 70%,
+    var(--color-border)
+  );
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--strategy-color) 45%, transparent);
+}
+
+@media (max-width: 1024px) {
+  .strategy-maps[data-count="3"],
+  .strategy-maps[data-count="4"],
+  .strategy-maps[data-count="many"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: auto;
+  }
+  .strategy-map {
+    min-height: min(58vh, 460px);
+  }
+}
+@media (max-width: 640px) {
+  .strategy-maps[data-count] {
+    grid-template-columns: 1fr;
+  }
+  .strategy-map {
+    min-height: min(70vh, 420px, 100vw);
+  }
+  .strategy-glance dl {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Three or more maps: each control's status panel shows its headline only,
+   opening in full while the map is hovered or focused (or in Inspect), so
+   the small tiles keep their junction visible. */
+.strategy-maps:is([data-count="3"], [data-count="4"], [data-count="many"])
+  :is(.adaptive-status, .metered-status) {
+  top: 46px;
+  right: 10px;
+  max-width: calc(100% - 20px);
+  padding: 6px 10px;
+}
+.strategy-maps:is([data-count="3"], [data-count="4"], [data-count="many"])
+  .strategy-map:not(:hover, :focus-within)
+  :is(.adaptive-status, .metered-status)
+  > :not(:first-child) {
+  display: none;
+}
+
+/* The live readout: one row per strategy, so any number of them fits the
+   side panel. */
+.strategy-live-table th[scope="row"] {
+  white-space: nowrap;
+}
+.strategy-live-table td {
+  text-align: right;
+}
+
+/* Phones: two cards a row, keeping the drawing, name and one-line summary;
+   each scenario's settings line stays in Advanced settings. */
+@media (max-width: 640px) {
+  .strategy-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .strategy-card {
+    padding: 12px;
+  }
+  .strategy-card .strategy-glyph {
+    width: 34px;
+    height: 34px;
+  }
+  .strategy-card__family,
+  .strategy-card__detail {
+    display: none;
+  }
+  .strategy-card__name {
+    font-size: 14px;
+  }
+  .strategy-card__summary {
+    font-size: 12px;
+  }
+}

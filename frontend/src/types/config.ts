@@ -83,6 +83,10 @@ export interface SimulationConfigValues {
   unstructuredTraffic: boolean;
   aggressiveTwoWheelers: boolean;
   driverAggression?: DriverAggression;
+  /** The strategies the guided comparison runs: canonical strategy ids
+   *  (GET /api/strategies), in the order chosen. Absent = the backend's
+   *  default selection. */
+  strategies?: string[];
 }
 
 /** Field-by-field equality, comparing the vehicle mix by value. */
@@ -110,6 +114,11 @@ export function sameConfigValues(
       return (
         JSON.stringify(adaptiveSettings(a)) ===
         JSON.stringify(adaptiveSettings(b))
+      );
+    if (k === "strategies")
+      return (
+        JSON.stringify(a.strategies ?? null) ===
+        JSON.stringify(b.strategies ?? null)
       );
     if (k === "driverAggression")
       return (
@@ -307,6 +316,7 @@ export function dashboardPayload(
     ...(config.driverAggression
       ? { driverAggression: config.driverAggression }
       : {}),
+    ...(config.strategies?.length ? { strategies: config.strategies } : {}),
   };
 }
 

@@ -7,13 +7,17 @@
 import type { Geometry, MetricContext } from "../metrics/catalog";
 import type { RunRecord, RunReproducibility } from "../services/api";
 import type { RunningMetrics } from "../types/simulation";
+import { strategyInfo } from "../strategies/strategyCatalog";
 
 /** One column of metrics: a single run, or one side of a comparison run. */
 export interface RunColumn {
   /** Unique within a comparison, e.g. "<runId>" or "<runId>:signal". */
   key: string;
   runId: string;
-  side: "signal" | "roundabout" | null;
+  /** Which side of a comparison run: "signal" or "roundabout" for a
+   *  signal-vs-roundabout run, a strategy id for a strategy comparison,
+   *  null for a single run. */
+  side: string | null;
   /** Short heading, e.g. "Signal" for one side of a comparison run. */
   label: string;
   ctx: MetricContext;
@@ -31,9 +35,24 @@ function isObject(v: unknown): v is Record<string, unknown> {
 export function isComparisonRun(
   record: Pick<RunRecord, "runMode" | "summaryMetrics">,
 ): boolean {
-  if (record.runMode === "dual") return true;
+  if (record.runMode === "dual" || record.runMode === "comparison") return true;
   const m = record.summaryMetrics;
-  return isObject(m.signal) && isObject(m.roundabout);
+  return (
+    (isObject(m.signal) && isObject(m.roundabout)) || isObject(m.strategies)
+  );
+}
+
+/** The per-strategy metrics of a strategy comparison, in the order run;
+ *  null for any other run. */
+export function strategyMetrics(
+  record: Pick<RunRecord, "summaryMetrics">,
+): [string, RunningMetrics | null][] | null {
+  const byStrategy = record.summaryMetrics.strategies;
+  if (!isObject(byStrategy)) return null;
+  return Object.entries(byStrategy).map(([id, m]) => [
+    id,
+    isObject(m) ? (m as unknown as RunningMetrics) : null,
+  ]);
 }
 
 /** Geometry of a single-intersection run for metric applicability. */
@@ -63,6 +82,24 @@ export function capturedInWarmup(
 /** The metric columns of a stored run: one, or two for a comparison run. */
 export function metricColumns(record: RunRecord): RunColumn[] {
   const inWarmup = capturedInWarmup(record.timing, record.config) === true;
+  const byStrategy = strategyMetrics(record);
+  if (byStrategy) {
+    return byStrategy.map(([id, metrics], i) => {
+      const info = strategyInfo(id, undefined, i);
+      return {
+        key: `${record.runId}:${id}`,
+        runId: record.runId,
+        side: id,
+        label: info.name,
+        ctx: {
+          metrics,
+          geometry:
+            info.family === "roundabout" ? "roundabout" : "fixed_time_signal",
+          inWarmup,
+        },
+      };
+    });
+  }
   if (isComparisonRun(record)) {
     const m = record.summaryMetrics;
     return (["signal", "roundabout"] as const).map((side) => ({
@@ -102,7 +139,7 @@ export function intersectionLabel(type: string | null | undefined): string {
     case "roundabout":
       return "Roundabout";
     case "comparative":
-      return "Signal vs roundabout";
+      return "Strategy comparison";
     case null:
     case undefined:
     case "unknown":

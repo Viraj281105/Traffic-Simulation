@@ -1468,3 +1468,25 @@
   flex-direction: column;
   gap: 12px;
 }
+
+/* "Take it further": the studies that go deeper than one comparison. */
+.next-links {
+  align-items: center;
+  margin-top: 16px;
+}
+.next-links .rl-small-label {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+/* Specialist settings beside the questions: a plain secondary action with
+   a line on what it holds. */
+.setup-advanced {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.setup-advanced .q-help {
+  margin: 0;
+}

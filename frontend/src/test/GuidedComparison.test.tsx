@@ -1,16 +1,20 @@
 /**
- * The guided comparison, end to end in the dashboard shell: describe the
- * junction, run it (the config reaches the backend before Play), read the
- * results in plain language, check reliability on the same scenario, and
- * open the specialist layer. Hooks and services are mocked as in
- * App.test.tsx; the metric values are fixtures, not simulated results.
+ * The guided comparison, end to end in the dashboard shell: pick the
+ * strategies, describe the junction, run it (the config and the strategies
+ * reach the backend before Play), watch every strategy, read the results in
+ * plain language, check reliability on the same scenario, and open the
+ * specialist layer. Hooks and services are mocked as in App.test.tsx; the
+ * metric values are fixtures, not simulated results.
  */
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RunningMetrics } from "../types/simulation";
+import { STRATEGY_CATALOG } from "./strategyCatalogFixture";
+import { resetStrategyCatalog } from "../strategies/strategyCatalog";
 
 const updateSimulationConfig = vi.fn();
+const listStrategies = vi.fn();
 const runReliabilityCheck = vi.fn();
 
 // The reliability check runs as a backend study job; its result is what the
@@ -28,6 +32,7 @@ vi.mock("../services/studyJobs", () => ({
 vi.mock("../services/api", () => ({
   updateSimulationConfig: (payload: unknown) =>
     updateSimulationConfig(payload) as Promise<void>,
+  listStrategies: () => listStrategies() as Promise<unknown>,
   saveReplay: vi.fn().mockResolvedValue({ runId: "run_9" }),
   listReplays: vi.fn().mockResolvedValue([]),
   getRunRecord: vi.fn(),
@@ -150,24 +155,58 @@ function side(type: "fixed_time_signal" | "roundabout", m: RunningMetrics) {
 const COMPLETED = {
   tick: 3000,
   elapsed: 300,
-  signal: side(
-    "fixed_time_signal",
-    metrics({ averageDelay: 30, maxQueueLength: 12 }),
-  ),
-  roundabout: side(
-    "roundabout",
-    metrics({ averageDelay: 22, maxQueueLength: 6, idleOpportunityLoss: 0 }),
-  ),
+  runs: [
+    {
+      strategy: "fixed_time_signal",
+      snapshot: side(
+        "fixed_time_signal",
+        metrics({ averageDelay: 30, maxQueueLength: 12 }),
+      ),
+    },
+    {
+      strategy: "conventional_roundabout",
+      snapshot: side(
+        "roundabout",
+        metrics({
+          averageDelay: 22,
+          maxQueueLength: 6,
+          idleOpportunityLoss: 0,
+        }),
+      ),
+    },
+  ],
+};
+
+/** All four strategies, each with its own delay so each is attributable. */
+const FOUR_WAY = {
+  tick: 3000,
+  elapsed: 300,
+  runs: (
+    [
+      ["fixed_time_signal", "fixed_time_signal", 30, 200],
+      ["adaptive_signal", "fixed_time_signal", 26, 204],
+      ["conventional_roundabout", "roundabout", 22, 206],
+      ["metered_entry_roundabout", "roundabout", 24, 198],
+    ] as const
+  ).map(([strategy, type, delay, served]) => ({
+    strategy,
+    snapshot: side(type, metrics({ averageDelay: delay, throughput: served })),
+  })),
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  resetStrategyCatalog();
+  listStrategies.mockResolvedValue(STRATEGY_CATALOG);
   updateSimulationConfig.mockResolvedValue(undefined);
   wsState.snapshot = null;
   wsState.isPlaying = false;
   sessionStorage.clear();
   window.history.replaceState(null, "", "/app/comparative");
 });
+
+const picker = () =>
+  screen.findByRole("group", { name: /which strategies should we compare/i });
 
 describe("Guided comparison", () => {
   it("starts by asking about the junction, in everyday terms", () => {
@@ -180,7 +219,7 @@ describe("Guided comparison", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: /busy/i })).toBeChecked();
     expect(screen.getByRole("radio", { name: /1 lane/i })).toBeChecked();
-    // No research jargon on the first screen.
+    // No research jargon on the first screen (the seed is in Advanced).
     expect(screen.queryByText(/veh\/s|seed|tick/i)).not.toBeInTheDocument();
   });
 
@@ -204,7 +243,78 @@ describe("Guided comparison", () => {
     expect(screen.getByText(/1,970 vehicles \/ hour/)).toBeInTheDocument();
   });
 
-  it("sends the chosen scenario to the backend before playing it", async () => {
+  it("shows every strategy as its own card, with two chosen to start", async () => {
+    render(<App />);
+    const group = await picker();
+    expect(within(group).getAllByRole("checkbox")).toHaveLength(4);
+    expect(
+      within(group).getByRole("checkbox", { name: /fixed-time signal/i }),
+    ).toBeChecked();
+    expect(
+      within(group).getByRole("checkbox", { name: /^roundabout$/i }),
+    ).toBeChecked();
+    expect(
+      within(group).getByRole("checkbox", { name: /adaptive signal/i }),
+    ).not.toBeChecked();
+    expect(
+      within(group).getByRole("checkbox", { name: /metered roundabout/i }),
+    ).not.toBeChecked();
+    expect(group).toHaveTextContent(/2 of 4 selected/);
+  });
+
+  it("lets any combination be chosen, and the run follows the choice", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    const group = await picker();
+
+    await user.click(within(group).getByRole("button", { name: /all 4/i }));
+    expect(group).toHaveTextContent(/4 of 4 selected/);
+    expect(
+      screen.getByRole("button", { name: /run 4 strategies/i }),
+    ).toBeEnabled();
+
+    // Down to one: still runnable (watch one strategy on its own).
+    for (const name of [
+      /fixed-time signal/i,
+      /^roundabout$/i,
+      /metered roundabout/i,
+    ]) {
+      await user.click(within(group).getByRole("checkbox", { name }));
+    }
+    expect(group).toHaveTextContent(/1 of 4 selected/);
+    expect(
+      screen.getByRole("button", { name: /run the simulation/i }),
+    ).toBeEnabled();
+
+    // None: nothing to run, and the picker says why.
+    await user.click(
+      within(group).getByRole("checkbox", { name: /adaptive signal/i }),
+    );
+    expect(group).toHaveTextContent(/pick at least one/i);
+    expect(
+      screen.getByRole("button", { name: /run the simulation/i }),
+    ).toBeDisabled();
+  });
+
+  it("never offers strategies it could not load", async () => {
+    const user = userEvent.setup();
+    listStrategies.mockRejectedValueOnce(new Error("offline"));
+    render(<App />);
+    expect(
+      await screen.findByText(/list of strategies could not be loaded/i),
+    ).toBeInTheDocument();
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    expect(
+      screen.getByRole("button", { name: /run the simulation/i }),
+    ).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: /try again/i }));
+    expect(
+      await screen.findByRole("checkbox", { name: /adaptive signal/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("sends the chosen scenario and strategies to the backend before playing", async () => {
     const user = userEvent.setup();
     let resolveSync: () => void = () => undefined;
     render(<App />);
@@ -220,12 +330,12 @@ describe("Guided comparison", () => {
     );
     await user.click(screen.getByRole("radio", { name: /near capacity/i }));
     await user.click(
-      screen.getByRole("button", { name: /run the comparison/i }),
+      await screen.findByRole("button", { name: /run 2 strategies/i }),
     );
 
     // The watch step is shown straight away…
     expect(
-      screen.getByRole("heading", { name: /watch the comparison/i }),
+      screen.getByRole("heading", { name: /watch both run/i }),
     ).toBeInTheDocument();
 
     // Wait for the debounced config call with the "Near capacity" arrivalRate.
@@ -234,9 +344,14 @@ describe("Guided comparison", () => {
       const payload = updateSimulationConfig.mock.lastCall?.[0] as {
         arrivalRate: number;
         intersectionType: string;
+        strategies: string[];
       };
       expect(payload.arrivalRate).toBeCloseTo(1130 / 3600, 9);
       expect(payload.intersectionType).toBe("fixed_time_signal");
+      expect(payload.strategies).toEqual([
+        "fixed_time_signal",
+        "conventional_roundabout",
+      ]);
     });
 
     // …but Play waits for the backend to hold the new scenario.
@@ -257,11 +372,15 @@ describe("Guided comparison", () => {
     expect(
       screen.getByRole("heading", { name: /results for your junction/i }),
     ).toBeInTheDocument();
-    const inShort = screen.getByRole("region", { name: /in short/i });
-    expect(inShort).toHaveTextContent(
-      /Drivers lost less time at the roundabout: 8 s less per driver/,
-    );
-    expect(inShort).toHaveTextContent(/does not pick a winner/);
+    const glance = screen.getByRole("region", { name: /at a glance/i });
+    expect(glance).toHaveTextContent(/Fixed-time signal.*30 s/);
+    expect(glance).toHaveTextContent(/Roundabout.*22 s/);
+    expect(glance).toHaveTextContent(/does not pick a winner/);
+    expect(
+      screen.getByText(
+        /Least time lost with the roundabout, most with the fixed-time signal: 8 s apart/,
+      ),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: /how much time do drivers lose\?/i }),
     ).toBeInTheDocument();
@@ -279,6 +398,12 @@ describe("Guided comparison", () => {
     ).toBeInTheDocument();
     expect(
       within(specialist).getByRole("rowheader", { name: /minimum ttc/i }),
+    ).toBeInTheDocument();
+    // A signal/roundabout pair keeps its charts.
+    expect(
+      within(specialist).getByRole("button", {
+        name: /charts & user-weighted scoring/i,
+      }),
     ).toBeInTheDocument();
   });
 
@@ -298,7 +423,7 @@ describe("Guided comparison", () => {
     expect(screen.queryByText(/how long do drivers wait/i)).toBeNull();
     expect(screen.queryByText(/is that a long wait/i)).toBeNull();
 
-    // The fixed-weight composite is not in the signal-vs-roundabout table.
+    // The fixed-weight composite is not in the comparison table.
     const specialist = screen
       .getByText(/all measurements & method/i)
       .closest("details") as HTMLElement;
@@ -310,14 +435,78 @@ describe("Guided comparison", () => {
   it("tells the user when vehicle generation was cut off", async () => {
     const user = userEvent.setup();
     const capped = structuredClone(COMPLETED);
-    capped.signal.metrics.vehicleLimitReached = true;
-    capped.signal.metrics.vehicleLimit = 200;
+    capped.runs[0].snapshot.metrics.vehicleLimitReached = true;
+    capped.runs[0].snapshot.metrics.vehicleLimit = 200;
     wsState.snapshot = capped;
     render(<App />);
     await user.click(screen.getByRole("button", { name: /results/i }));
     expect(
       screen.getByText(/Vehicle generation reached its limit of 200 vehicles/i),
     ).toBeInTheDocument();
+  });
+
+  it("attributes each result to its own strategy in a four-way comparison", async () => {
+    const user = userEvent.setup();
+    wsState.snapshot = FOUR_WAY;
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: /results/i }));
+
+    const glance = screen.getByRole("region", { name: /at a glance/i });
+    const card = (name: RegExp) =>
+      within(glance).getByRole("heading", { name }).closest("article");
+    expect(card(/^fixed-time signal$/i)).toHaveTextContent(/30 s.*200/);
+    expect(card(/^adaptive signal$/i)).toHaveTextContent(/26 s.*204/);
+    expect(card(/^roundabout$/i)).toHaveTextContent(/22 s.*206/);
+    expect(card(/^metered roundabout$/i)).toHaveTextContent(/24 s.*198/);
+
+    // Bars name every strategy for every measure.
+    const delayRow = screen.getByRole("group", {
+      name: "Time lost per driver, on average",
+    });
+    expect(within(delayRow).getAllByText(/^\d+ s$/)).toHaveLength(4);
+    expect(
+      screen.getByText(
+        /The roundabout got 8 more vehicles through than the metered roundabout/i,
+      ),
+    ).toBeInTheDocument();
+
+    // One strategy in full, without leaving the comparison.
+    await user.click(screen.getByRole("tab", { name: /metered roundabout/i }));
+    expect(screen.getByRole("tabpanel")).toHaveAccessibleName(
+      "Metered roundabout",
+    );
+    // A signal/roundabout pair's charts are not offered for four.
+    expect(
+      screen.queryByRole("button", { name: /charts & user-weighted/i }),
+    ).toBeNull();
+  });
+
+  it("shows a map per strategy and inspects one without losing the others", async () => {
+    const user = userEvent.setup();
+    wsState.snapshot = FOUR_WAY;
+    render(<App />);
+    // The step names how many strategies are running.
+    await user.click(screen.getByRole("button", { name: /watch all 4 run/i }));
+
+    for (const name of [
+      /^fixed-time signal$/i,
+      /^adaptive signal$/i,
+      /^roundabout$/i,
+      /^metered roundabout$/i,
+    ]) {
+      expect(screen.getByRole("region", { name })).toBeInTheDocument();
+    }
+    const adaptiveMap = screen.getByRole("region", {
+      name: /^adaptive signal$/i,
+    });
+    await user.click(
+      within(adaptiveMap).getByRole("button", { name: /inspect/i }),
+    );
+    expect(
+      screen.getByRole("button", { name: /back to the comparison/i }),
+    ).toBeInTheDocument();
+    // Every map stays on screen.
+    expect(screen.getAllByRole("button", { name: /inspect/i })).toHaveLength(4);
   });
 
   it("checks reliability by repeating the same scenario", async () => {

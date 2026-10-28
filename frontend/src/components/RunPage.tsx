@@ -293,7 +293,7 @@ function RunDetails({
         </div>
         <p className="run-hint">
           {record.savedReplay
-            ? "Open in simulator restores this run's settings and seed; press Play to run it again and Save to History to keep the new run separately. This run is never changed."
+            ? "Open in simulator restores this run's settings and seed; press Play to run it again and save it to keep the new run separately. This run is never changed."
             : "This run was not saved from the dashboard, so its settings cannot be loaded into the dashboard controls. Headless reproduction below re-runs its stored configuration."}
         </p>
         {openError && (
@@ -347,11 +347,13 @@ function RunDetails({
             <span title={config.title}>{config.text}</span>
           </Fact>
           <Fact label="Run type">
-            {record.runMode === "dual"
-              ? "Signal and roundabout in lockstep, same seed"
-              : record.runMode === "single"
-                ? "Single intersection"
-                : "—"}
+            {record.runMode === "comparison"
+              ? `${String(columns.length)} strategies in lockstep, same seed: ${columns.map((c) => c.label).join(", ")}`
+              : record.runMode === "dual"
+                ? "Signal and roundabout in lockstep, same seed"
+                : record.runMode === "single"
+                  ? "Single intersection"
+                  : "—"}
           </Fact>
           <Fact label="Time step">{formatSeconds(record.timing.timeStep)}</Fact>
           <Fact label="Duration">{formatSeconds(record.timing.duration)}</Fact>

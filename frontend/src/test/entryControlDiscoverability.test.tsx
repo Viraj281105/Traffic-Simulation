@@ -12,7 +12,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ScenarioBuilder } from "../components/scenario/ScenarioBuilder";
 import { EntryControlChoice } from "../components/scenario/EntryControlChoice";
 import type { ValidationState } from "../components/scenario/useScenarioValidation";
-import { LiveGuide } from "../components/guided/LiveGuide";
+import { LiveComparison } from "../components/guided/StrategyLive";
 import { buildStudyRequest } from "../components/planner/plannerRequest";
 import {
   cloneScenario,
@@ -372,13 +372,17 @@ describe("text that describes the roundabout", () => {
 
   const guide = (meteredEntry?: boolean) =>
     render(
-      <LiveGuide
+      <LiveComparison
         snapshot={null}
-        meteredEntry={meteredEntry}
+        strategies={[
+          meteredEntry ? "metered_entry_roundabout" : "conventional_roundabout",
+        ]}
         durationSeconds={120}
         connectionStatus="connected"
         onSeeResults={() => {}}
-        detailedPanel={null}
+        inspected={null}
+        onInspect={() => {}}
+        isRunning={false}
       />,
     );
 

@@ -99,6 +99,50 @@ export async function updateSimulationConfig(
   await post("/api/simulation/config", config);
 }
 
+/** Start / resume the comparison of the chosen strategies. */
+export async function playComparison(): Promise<void> {
+  await post("/api/simulation/comparison/play");
+}
+
+/** Pause the comparison of the chosen strategies. */
+export async function pauseComparison(): Promise<void> {
+  await post("/api/simulation/comparison/pause");
+}
+
+/** Reset the comparison (a fresh run of the same strategies). */
+export async function resetComparison(): Promise<void> {
+  await post("/api/simulation/comparison/reset");
+}
+
+/** Set the speed multiplier for the comparison. */
+export async function setComparisonSpeed(multiplier: number): Promise<void> {
+  await post("/api/simulation/comparison/speed", { multiplier });
+}
+
+/** One registered control strategy, as GET /api/strategies describes it. */
+export interface StrategyDescriptorDto {
+  id: string;
+  name: string;
+  status: string;
+  description: string;
+  family: "signal" | "roundabout";
+  controlPolicy: string;
+  adaptation: string;
+  notModelled: string[];
+  liveComparison: boolean;
+}
+
+export interface StrategyCatalogDto {
+  strategies: StrategyDescriptorDto[];
+  aliases: Record<string, string>;
+  liveComparison: { defaultSelection: string[]; maxStrategies: number };
+}
+
+/** The registered strategies and what the live comparison can run. */
+export async function listStrategies(): Promise<StrategyCatalogDto> {
+  return get<StrategyCatalogDto>("/api/strategies");
+}
+
 /** Reset/stop lockstep dual simulation. */
 export async function stopDualSimulation(): Promise<void> {
   await post("/api/simulation/dual/reset");
@@ -145,7 +189,7 @@ export interface RunReproducibility {
   status: string | null;
   intersectionType: string | null;
   provenanceRecorded: boolean;
-  runMode: "single" | "dual" | null;
+  runMode: "single" | "dual" | "comparison" | null;
   seed: number | null;
   /** "unknown" when the backend could not read its git state. */
   gitCommitHash: string | null;
@@ -167,7 +211,7 @@ export async function saveReplay(payload: {
   name: string;
   config: Record<string, unknown>;
   metrics: Record<string, unknown>;
-  mode?: "single" | "dual";
+  mode?: "single" | "dual" | "comparison";
 }): Promise<{
   status: string;
   replay_id: string;

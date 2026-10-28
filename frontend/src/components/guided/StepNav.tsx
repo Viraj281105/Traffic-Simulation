@@ -3,11 +3,12 @@ import { useNavIndicator } from "../ui/useNavIndicator";
 
 export type GuidedStage = "setup" | "watch" | "results";
 
-const STEPS: { stage: GuidedStage; label: string }[] = [
-  { stage: "setup", label: "Your junction" },
-  { stage: "watch", label: "Watch both run" },
-  { stage: "results", label: "Results" },
-];
+/** "Watch it run", "Watch both run", "Watch all 3 run", … */
+function watchLabel(count: number): string {
+  if (count === 1) return "Watch it run";
+  if (count === 2) return "Watch both run";
+  return `Watch all ${String(count)} run`;
+}
 
 /** The three steps of a comparison. Any step can be revisited; Results
  *  unlocks once there is something to read. */
@@ -15,11 +16,19 @@ export function StepNav({
   stage,
   onChange,
   resultsAvailable,
+  strategyCount = 2,
 }: {
   stage: GuidedStage;
   onChange: (stage: GuidedStage) => void;
   resultsAvailable: boolean;
+  /** How many strategies the comparison runs (names the watch step). */
+  strategyCount?: number;
 }) {
+  const STEPS: { stage: GuidedStage; label: string }[] = [
+    { stage: "setup", label: "Configure" },
+    { stage: "watch", label: watchLabel(strategyCount) },
+    { stage: "results", label: "Results" },
+  ];
   const ref = useNavIndicator<HTMLElement>(stage);
   const currentIndex = STEPS.findIndex((s) => s.stage === stage);
   return (

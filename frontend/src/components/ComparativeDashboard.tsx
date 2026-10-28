@@ -365,11 +365,11 @@ export function ComparisonPanel({
             disabled={!canSave}
             title={
               canSave
-                ? "Save this comparison to History"
+                ? "Keep this comparison under Saved"
                 : "Pause or finish the run (after it has started) to save it"
             }
           >
-            Save to History
+            Save comparison
           </button>
         )}
       </div>

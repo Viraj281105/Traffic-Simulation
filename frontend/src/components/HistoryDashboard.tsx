@@ -5,6 +5,7 @@ import type { RunReproducibility } from "../services/api";
 import { commitLabel, configLabel } from "../runs/savedRun";
 import {
   MAX_COMPARE_RUNS,
+  VIEW_ROUTES,
   comparePath,
   followLink,
   navigate,
@@ -18,6 +19,7 @@ import type { SimulationConfigValues } from "../types/config";
 import { parseStoredTimestamp } from "../utils/time";
 import { LoaderMark } from "./ui/Loader";
 import { StatusState } from "./ui/StatusState";
+import { strategyName } from "../strategies/strategyCatalog";
 
 export interface SavedReplay {
   id: string;
@@ -54,8 +56,20 @@ function num(v: number | undefined, decimals: number): string {
   return v === undefined || !Number.isFinite(v) ? "—" : v.toFixed(decimals);
 }
 
+/** The per-strategy metrics of a strategy comparison, in run order. */
+function strategiesOf(
+  r: SavedReplay,
+): [string, Partial<RunningMetrics>][] | null {
+  const byStrategy = (r.metrics as Record<string, unknown>).strategies;
+  if (!byStrategy || typeof byStrategy !== "object") return null;
+  return Object.entries(byStrategy as Record<string, Partial<RunningMetrics>>);
+}
+
 function kindOf(r: SavedReplay): "comparative" | "roundabout" | "signal" {
-  if (r.metrics.signal !== undefined && r.metrics.roundabout !== undefined) {
+  if (
+    strategiesOf(r) ||
+    (r.metrics.signal !== undefined && r.metrics.roundabout !== undefined)
+  ) {
     return "comparative";
   }
   return r.config.geometry?.intersectionType === "roundabout"
@@ -76,12 +90,17 @@ const KIND_LABEL = {
   signal: "Signal",
 } as const;
 
-/** "S / R" for a comparison, the single value otherwise. */
+/** One value per strategy ("a / b / …", in run order) for a comparison,
+ *  the single value otherwise. */
 function pair(
   r: SavedReplay,
   pick: (m: Partial<RunningMetrics>) => number | undefined,
   decimals: number,
 ): string {
+  const byStrategy = strategiesOf(r);
+  if (byStrategy) {
+    return byStrategy.map(([, m]) => num(pick(m), decimals)).join(" / ");
+  }
   if (r.metrics.signal && r.metrics.roundabout) {
     return `${num(pick(r.metrics.signal), decimals)} / ${num(pick(r.metrics.roundabout), decimals)}`;
   }
@@ -224,15 +243,16 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
           title="No saved runs yet."
         >
           <p className="hint">
-            Run a simulation, pause it or let it finish, then choose “Save to
-            History”.
+            Run a simulation, pause it or let it finish, then choose “Save run”
+            (or “Save this comparison” on the results page).
           </p>
         </StatusState>
       ) : (
         <div className="history-table-wrap">
           <table className="history-table">
             <caption className="sr-only">
-              Saved runs. For comparisons, values read signal / roundabout.
+              Saved runs. For comparisons, values read one per strategy, in the
+              order the Type column lists them.
             </caption>
             <thead>
               <tr>
@@ -313,7 +333,13 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
                       </a>
                       <Tags tags={r.reproducibility?.tags ?? []} />
                     </th>
-                    <td>{KIND_LABEL[kind]}</td>
+                    <td>
+                      {strategiesOf(r)
+                        ? strategiesOf(r)
+                            ?.map(([id]) => strategyName(id))
+                            .join(" / ")
+                        : KIND_LABEL[kind]}
+                    </td>
                     <td className="mono">{seedOf(r)}</td>
                     <td className="mono" title={commit.title}>
                       {commit.text}
@@ -362,6 +388,8 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
         </div>
       )}
 
+      <SavedElsewhere />
+
       {deletingId && (
         <div className="modal-overlay">
           <div
@@ -402,3 +430,64 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({
     </div>
   );
 };
+
+/** Work that each tool keeps in its own list. Saved points to it rather
+ *  than copying it, so there is one place each kind of work lives. */
+const ELSEWHERE: { href: string; title: string; body: string }[] = [
+  {
+    href: VIEW_ROUTES.planner,
+    title: "Planner studies",
+    body: "Open one in the Planner by its study ID; a study’s address can be bookmarked and shared.",
+  },
+  {
+    href: VIEW_ROUTES.scenarios,
+    title: "Planning scenarios",
+    body: "Saved baseline and intervention scenarios open from Scenario planning.",
+  },
+  {
+    href: VIEW_ROUTES.copilot,
+    title: "Experiments",
+    body: "Each experiment has its own page, linked when you confirm a Copilot proposal.",
+  },
+  {
+    href: VIEW_ROUTES.discovery,
+    title: "Discovery searches",
+    body: "Listed in the Discovery Lab with their results and packages.",
+  },
+  {
+    href: VIEW_ROUTES.stress,
+    title: "Stress and breakpoint jobs",
+    body: "Listed in the Stress Lab with their results.",
+  },
+  {
+    href: VIEW_ROUTES.volume,
+    title: "Traffic-level sweeps",
+    body: "Listed in the Traffic-level sweep, newest first.",
+  },
+];
+
+function SavedElsewhere() {
+  return (
+    <aside
+      className="related-tools is-inline"
+      aria-labelledby="saved-elsewhere-title"
+    >
+      <h2 id="saved-elsewhere-title">Saved in other tools</h2>
+      <ul>
+        {ELSEWHERE.map((item) => (
+          <li key={item.href}>
+            <a
+              href={item.href}
+              onClick={(event) => {
+                followLink(event, item.href);
+              }}
+            >
+              <span className="related-tools__label">{item.title}</span>
+              <span className="related-tools__body">{item.body}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </aside>
+  );
+}
