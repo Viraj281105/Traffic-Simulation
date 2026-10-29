@@ -49,8 +49,8 @@ Traffic-Simulation/                 (product name: UrbanFlow)
 ├── docs/                           Documentation — start at docs/README.md
 │   ├── architecture/ simulation/ research/ api/ product/ deployment/ testing/
 │   ├── decisions/ reports/ future-scope/ resources/ roadmap/ (V2.0 audit, V3.0 plans)
-│   ├── ROADMAP.md · operations.md · bug-fix-report.md
-│   └── project-management/ issues/ code-review/   (historical)
+│   ├── plan/                       Delivery plan V3.1 – V6.1 (overview, weekly plan, feature specifications)
+│   └── ROADMAP.md · operations.md · bug-fix-report.md
 ├── fallback-pack/                  Precomputed rehearsal and preview packs for V3.0 Robustness Lab
 ├── landingpage/                    Legacy prototype workspace (pnpm) — not built, deployed or referenced
 ├── .github/                        CI workflows (ci.yml, docker.yml, deploy.yml), templates, CODEOWNERS, Dependabot

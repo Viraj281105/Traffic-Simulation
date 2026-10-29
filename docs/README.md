@@ -106,19 +106,15 @@ flowchart TB
 
 | Document | Status | Purpose |
 | --- | --- | --- |
-| [ROADMAP.md](ROADMAP.md) | **Authoritative** | V0.1 → V1.0 history, the V1.1 → V2.0 roadmap, and the proposed V3.0 plan (§7) |
+| [plan/README.md](plan/README.md) | **Authoritative** | Delivery plan V3.1 – V6.1 (W31 – W60): principles, calendar, gates, demo protocol, risks |
+| [plan/WEEKLY_PLAN.md](plan/WEEKLY_PLAN.md) | **Authoritative** | Week-by-week plan with Viraj and Khushi columns |
+| [plan/FEATURE_SPECIFICATIONS.md](plan/FEATURE_SPECIFICATIONS.md) | **Authoritative** | Scope and acceptance checks for the 20 planned features |
+| [ROADMAP.md](ROADMAP.md) | Record | V0.1 → V1.0 history, the V1.1 → V2.0 roadmap and the V3.0 plan (§7); later work is planned in [plan/](plan/README.md) |
 | [roadmap/V2_COMPLETION_AUDIT.md](roadmap/V2_COMPLETION_AUDIT.md) | Record | V2.0 completion audit — release gate G-V2 passed 2026-10-13 |
 | [roadmap/V3_PRODUCT_STRATEGY.md](roadmap/V3_PRODUCT_STRATEGY.md) | Proposed | V3.0 strategy: signalised roundabouts and composable strategies, high-aggression default, two AI features, Robustness Lab contract |
 | [roadmap/V3_WEEKLY_SPRINT_PLAN.md](roadmap/V3_WEEKLY_SPRINT_PLAN.md) | Proposed | Capacity model, one major feature per week, gates, GitHub issue map |
 | [roadmap/V3_PRESENTATION_PLAN.md](roadmap/V3_PRESENTATION_PLAN.md) | Proposed | Preview (29 Oct), interim (26 Nov) and final (7 Jan 2027) presentations |
-| [future-scope/future_scope.md](future-scope/future_scope.md) | **Authoritative** | Research frontiers beyond the roadmap (FS-1 … FS-13) |
-| [future-scope/next-generation-requirements.md](future-scope/next-generation-requirements.md) | Planning | Guided Scenario Builder, Visual City Studio, AI Traffic Analyst: users, journeys, requirements with stable IDs, MVPs, open questions |
-| [future-scope/next-generation-architecture.md](future-scope/next-generation-architecture.md) | Planning | Reusable capabilities, component boundaries, shared contracts, risks, ADR candidates |
-| [future-scope/next-generation-roadmap.md](future-scope/next-generation-roadmap.md) | Planning | Dependency-ordered phases, gates, parallel-work policy |
-| [future-scope/ui_ux_and_nextgen_innovations.md](future-scope/ui_ux_and_nextgen_innovations.md) | Archived | Early UI brainstorm, mapped to roadmap/future scope |
-| [project-management/](project-management/README.md) | Historical | Original milestone plan, labels, Kanban |
-| [issues/](issues/README.md) | Historical | Original atomic issue breakdown |
-| [code-review/](code-review/01_initialization.md) | Historical | Code-review walkthroughs (2026-09) |
+| [future-scope/future_scope.md](future-scope/future_scope.md) | Historical | Research frontiers FS-1 … FS-13; kept because ROADMAP and other pages cite the FS identifiers. Scheduling now lives in [plan/](plan/README.md) |
 | [stitch_live_metrics_specification.md](stitch_live_metrics_specification.md) | Historical | Original live-metrics design brief |
 | [resources/](resources/README.md) | Record | Proposal decks, reference papers, images |
 

@@ -9,7 +9,6 @@ This directory contains the headless study runner, schema validation, Cognito pr
 ```
 scripts/
 ├── assign_issues.py              # Automation to assign GitHub Issues to developers
-├── push_everything_to_github.py # Git orchestration helper to sync commits/branches
 ├── run_full_study.py             # Headless validated study: volume sweep + Monte Carlo → CSV/JSON report
 ├── setup_cognito.py              # One-off Cognito user-pool provisioning (needs boto3 + AWS credentials)
 ├── set_milestone_deadlines.py    # GitHub Milestone timeline configuration runner
@@ -105,17 +104,4 @@ Configures start and target dates for project milestones on GitHub.
 - **Execution**:
   ```bash
   python scripts/set_milestone_deadlines.py
-  ```
-
----
-
-### 3. Remote Git Sync Automation
-
-#### Orchestrator: [`push_everything_to_github.py`](./push_everything_to_github.py)
-
-A powerful wrapper that automates checking for local files, staging files, creating structured commits complying with conventional guidelines, creating local staging branches, resolving remote conflicts, and pushing everything cleanly to the upstream GitHub remote.
-
-- **Execution**:
-  ```bash
-  python scripts/push_everything_to_github.py
   ```

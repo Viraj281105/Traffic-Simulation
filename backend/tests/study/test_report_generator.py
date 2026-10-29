@@ -35,7 +35,7 @@ def test_study_report_generation(tmp_path, monkeypatch) -> None:
 #
 # Regression coverage for the executive recommendation no longer being a
 # hard-coded "roundabouts are superior below X / signals above X" template
-# (see docs/future-scope audit). Synthetic sweep dicts are used instead of
+# (see docs/future-scope/future_scope.md). Synthetic sweep dicts are used instead of
 # running real simulations, since _summarize_sweep_verdict only consumes the
 # already-computed `winner`/`curves` fields that run_volume_sweep_experiment
 # produces -- it does not re-derive them.
