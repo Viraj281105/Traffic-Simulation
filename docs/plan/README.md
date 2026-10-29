@@ -47,8 +47,8 @@ The V3.0 final showcase (Thursday 7 January 2027) falls in W40 and is a fixed co
 
 | Person | Owns |
 | --- | --- |
-| **Viraj** | Simulation core, data, ML, backend, infrastructure, platform |
-| **Khushi** | Frontend, analytics, dashboards, reports, demo scripts |
+| **Viraj** | Simulation core, data, backend, infrastructure, platform, and the complex simulation-facing UI: multi-junction map viewer, congestion heatmap, network-level metric views, canvas markers |
+| **Khushi** | ML and reinforcement learning (F18: environment, training, MLflow, registry, evaluation), frontend, analytics, dashboards, reports, demo scripts |
 
 The last week of each phase is a **release week**: hardening, documentation, ADRs, reproducibility audit, demo build tag. Nothing new starts in release week.
 
@@ -102,7 +102,7 @@ A gate that does not pass moves scope inside its release. The release date does 
 | Risk | Affects | Mitigation |
 | --- | --- | --- |
 | Review time is the real limit, not coding speed | All | Short ADRs, automated gates, slack weeks (W45, W53, W59) |
-| Viraj's column is much denser than Khushi's | Phases 5 – 6 | Move analytics, dashboards and UI to Khushi; rebalance at each phase start |
+| Khushi's RL work (W34 – W44) depends on the engine and platform, which Viraj owns | F18 | Engine interface frozen with F5's ADR in W39; Viraj keeps Airflow, cluster and run store; check at each phase start whether the split still balances |
 | Open traffic data hard to find | F11, F14 | Choose the city and datasets before W39 |
 | No live traffic feed source | F14 | Decide by W46; replay mode remains the fallback inside the same feature |
 | AWS account or budget not approved | F2, F17, F7 | Confirm owner and cap by W35; use local stand-ins until then |

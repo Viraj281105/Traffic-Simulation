@@ -10,3 +10,8 @@
 /.github/                   @virajjadhao @khushikashyap-sas
 /scripts/                   @virajjadhao @khushikashyap-sas
 /examples/                  @virajjadhao @khushikashyap-sas
+/services/                  @virajjadhao
+/infra/                     @virajjadhao
+/pipelines/                 @virajjadhao
+/backend/src/rl/            @khushikashyap-sas
+/pipelines/rl/              @khushikashyap-sas

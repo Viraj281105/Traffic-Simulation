@@ -5,7 +5,7 @@ Detailed scope for every feature in the V3.1 – V6.1 plan. The week-by-week sch
 **Conventions**
 
 - **Origin:** `Director` (the Director's brief: Go, AWS, cloud/DevOps, Kubernetes, Airflow, AI evals, harder pytest, beyond a single junction), `Confluence` (the future-scope list), `New` (added during planning).
-- **Owner split:** Viraj = simulation / data / backend / infrastructure; Khushi = frontend / analytics.
+- **Owner split:** Viraj = simulation / data / backend / infrastructure / network and canvas UI; Khushi = ML and reinforcement learning / frontend / analytics.
 - **Done** means every acceptance item is ticked, the evidence (commands, CI run, fingerprints) is recorded on the GitHub issue, and the claim is added to the claims register only if it is allowed there.
 - Existing delivered work (V1.0 – V3.0) is **extended, not rebuilt**. Where a feature overlaps something that already exists, the overlap is named.
 - The product stays **advisory-only**: nothing in this plan controls live signals.
@@ -99,7 +99,7 @@ Detailed scope for every feature in the V3.1 – V6.1 plan. The week-by-week sch
 
 ### F5 – Large-scale network engine
 
-**Origin:** Director + Confluence · **Weeks:** W39 – W45 · **Owner:** Viraj (engine) / Khushi (viewer, network metrics)
+**Origin:** Director + Confluence · **Weeks:** W39 – W45 · **Owner:** Viraj (engine, map viewer, network-level metric views, congestion heatmap)
 
 **Goal.** Go beyond one junction: corridors and grids with vehicles travelling between junctions.
 
@@ -245,7 +245,7 @@ Detailed scope for every feature in the V3.1 – V6.1 plan. The week-by-week sch
 
 ### F13 – Incidents, disruptions and weather
 
-**Origin:** Confluence · **Weeks:** W47, W48, W49 · **Owner:** Viraj / Khushi (setup screen, charts)
+**Origin:** Confluence · **Weeks:** W47, W48, W49 · **Owner:** Viraj (simulation, incident markers on the canvas) / Khushi (setup screen, charts)
 
 **Goal.** Stress cases: crashes, blocked lanes, closures, event surges and bad weather.
 
@@ -330,7 +330,7 @@ Detailed scope for every feature in the V3.1 – V6.1 plan. The week-by-week sch
 
 ### F18 – Reinforcement-learning signal control with MLOps
 
-**Origin:** Confluence · **Weeks:** W34 – W37, W39 – W41, W44 · **Owner:** Viraj / Khushi (comparison charts)
+**Origin:** Confluence · **Weeks:** W34 – W37, W39 – W41, W44 · **Owner:** Khushi (environment, training, MLOps, evaluation, charts); Viraj supplies the simulation engine interface, the F3 pipeline platform (Airflow, cluster) and the F7 run store
 
 **Goal.** Learned controllers compared honestly against fixed-time and adaptive ones.
 
