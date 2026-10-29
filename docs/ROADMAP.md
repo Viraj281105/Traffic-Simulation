@@ -1,6 +1,8 @@
 # UrbanFlow Roadmap
 
-> **This is the single authoritative roadmap.** It supersedes every earlier roadmap, deferred-features log and V1.1/V2/V3 plan in this repository (preserved in git history).
+> **Update:** work after V3.0 (V3.1 – V6.1, W31 – W60) is planned in [plan/](plan/README.md). This page remains the record of V0.1 – V3.0.
+
+> **This is the single authoritative roadmap for V0.1 – V3.0.** It supersedes every earlier roadmap, deferred-features log and V1.1/V2/V3 plan in this repository (preserved in git history).
 > **Current version:** **V2.0 ✅ COMPLETE** — the V2.0 release gate (G-V2) passed on 2026-10-13 (gate commit `6b609ce`, CI green; production deployment left to the product owner, manual) · V1.6–V1.9 are delivered *partially*, as each milestone states · evidence: [V2.0 completion audit](roadmap/V2_COMPLETION_AUDIT.md) · **Last updated:** 2026-10-13 (release status; scope and planned dates unchanged)
 > **After V2.0:** [§7 V3.0](#7-v30--composable-ai-assisted-traffic-control-experimentation-in-development) — composable, AI-assisted traffic-control experimentation (🟢 **IN DEVELOPMENT** — design-approval gate G-D passed 2026-10-14, recorded on [#150](https://github.com/Viraj281105/Traffic-Simulation/issues/150); W1 Robustness Lab vertical slice implemented 2026-10-15; W2–W9 planned; detail in [`roadmap/`](roadmap/V3_PRODUCT_STRATEGY.md)). **Beyond that:** [Future Scope](future-scope/future_scope.md) — research frontiers only.
 

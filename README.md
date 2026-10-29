@@ -559,7 +559,7 @@ UrbanFlow is designed for comparative analysis under stated assumptions. It is *
 
 ## Roadmap & Version Status
 
-UrbanFlow's roadmap is maintained exclusively in [docs/ROADMAP.md](docs/ROADMAP.md):
+UrbanFlow's history through V3.0 is recorded in [docs/ROADMAP.md](docs/ROADMAP.md). The delivery plan after V3.0 (V3.1 – V6.1, W31 – W60: week-by-week plan and feature specifications) is in [docs/plan/](docs/plan/README.md):
 
 ```mermaid
 flowchart LR
