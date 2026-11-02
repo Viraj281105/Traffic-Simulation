@@ -1,5 +1,5 @@
 # ── Dependencies ────────────────────────────────────────────────────────────
-FROM node:26.12.1-alpine AS deps
+FROM node:26.13.0-alpine AS deps
 
 WORKDIR /app
 
