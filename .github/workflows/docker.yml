@@ -12,6 +12,10 @@ concurrency:
   group: docker-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Every job only reads the repository.
+permissions:
+  contents: read
+
 jobs:
   validate-compose:
     name: Validate Docker Compose Configurations
