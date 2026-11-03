@@ -9,7 +9,7 @@ services:
         GIT_COMMIT: ${GIT_COMMIT:-}
     # No `ports:` mapping — the backend is reachable from the frontend
     # container over the compose-internal network at http://backend:8000
-    # (see frontend/nginx.conf's proxy_pass blocks), and does not need to
+    # (see the proxy_pass blocks in frontend/templates/default.conf.template), and does not need to
     # be published to the host/internet: nginx already proxies /api/,
     # /ws/, and /health for it. For direct host access during local
     # development, use docker-compose.dev.yml instead, which publishes
@@ -21,6 +21,13 @@ services:
       - PORT=8000
       - PYTHONPATH=/app
       - DB_PATH=/app/data/simulation.db
+      # One JSON object per log line, with the request id
+      # (docs/operations.md, "Logs and metrics").
+      - LOG_FORMAT=json
+      # Bearer token a scraper must present on GET /metrics (inside the
+      # Docker network; nginx does not proxy /metrics). Empty: /metrics
+      # answers loopback clients only, i.e. nobody outside the container.
+      - METRICS_TOKEN=${METRICS_TOKEN:-}
       # Comma-separated list of allowed CORS origins (never combined with
       # a wildcard when credentials are enabled). Defaults to the local
       # Vite dev server; override via a real .env file or shell export for
@@ -29,7 +36,8 @@ services:
       # Minimal bearer-token protection for mutating/compute-heavy
       # endpoints. Empty by default (auth disabled) to keep local
       # development frictionless; set API_KEY in your environment/.env to
-      # require `Authorization: Bearer <API_KEY>` on those routes.
+      # require it (as `X-API-Key`, which nginx injects, or
+      # `Authorization: Bearer <API_KEY>`) on those routes.
       - API_KEY=${API_KEY:-}
       # Study worker processes (backend/src/study/runner.py). Empty = one per
       # CPU, at most 8; lower it on small hosts (each worker is ~40 MB).
