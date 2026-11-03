@@ -370,6 +370,10 @@ class VehiclePool:
                 vehicle_lat = max_lateral_accel
                 vehicle_decel = curve_decel
 
+            # Persistent driver traits (ADR-020); a no-op unless the model is on.
+            if vehicle.driver_factors is not None:
+                vehicle_idm = vehicle.driver_idm(vehicle_idm)
+
             # A stop line is a marking, not a vehicle: under a driver-
             # aggression profile the vehicle still stops where standard would
             # (ADR-019). Never taken for standard, which is left bit for bit.

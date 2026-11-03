@@ -107,6 +107,8 @@ def persist_completed_run(
                     time_step=engine.clock.time_step,
                     duration=engine.duration,
                     warmup_time=collector.warmup_time,
+                    config=config,
+                    seed=seed,
                 ),
             )
     except Exception:

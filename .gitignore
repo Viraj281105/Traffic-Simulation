@@ -282,3 +282,4 @@ study_report.json
 # ================================
 .venv/
 venv/
+frontend/coverage/

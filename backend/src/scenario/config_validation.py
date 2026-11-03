@@ -28,6 +28,7 @@ from src.roads.lane_config import shortest_approach_length
 from src.roads.network import lane_counts, resolve_lanes_per_approach
 from src.scenario.lane_validation import lane_configuration_errors
 from src.strategies.validator import validate_scenario_strategy_compatibility
+from src.vehicles.variability import validate_variability
 from src.vehicles.vehicle_types import vehicle_mix_errors
 
 # §5: "Must sum to 1.0 (±0.01 tolerance)".
@@ -116,6 +117,8 @@ def semantic_config_errors(config: Dict[str, Any]) -> List[str]:
             f"traffic.driverAggression {aggression!r} is invalid; "
             "expected 'standard', 'moderate', or 'high'"
         )
+    # ADR-020: the opt-in variability blocks, checked strictly when enabled.
+    errors.extend(validate_variability(config))
 
     ctrl = _section(config, "controller")
     inner = ctrl.get("innerRadius")

@@ -1,5 +1,5 @@
 import math
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
 from src.core.enums import TurnIntent, VehicleState
 from src.roads.lane import Lane
@@ -112,6 +112,11 @@ class Vehicle:
         # vehicle of the class. None for a legacy vehicle, which then uses the
         # engine-wide IDM and defaults exactly as in V1.0.
         self.params: Optional["VehicleParams"] = params
+        # Persistent driver traits (headway, acceleration, deceleration
+        # multipliers), set at spawn only when traffic.driverHeterogeneity is
+        # on (ADR-020). None: drives exactly the class baseline.
+        self.driver_factors: Optional[Tuple[float, float, float]] = None
+        self._driver_idm: Optional[Tuple[Any, Any]] = None
         # Lane change in progress (V1.2), or None.
         self.lane_change: Optional[LaneChangeManeuver] = None
 
@@ -190,6 +195,19 @@ class Vehicle:
             self._body_position = position
             self._body_route = self.route
         return self._body_value
+
+    def driver_idm(self, base: Any) -> Any:
+        """``base`` with this driver's multipliers applied (ADR-020), built
+        once per base model; ``base`` itself when the model is off."""
+        if self.driver_factors is None:
+            return base
+        cached = self._driver_idm
+        if cached is None or cached[0] is not base:
+            from src.vehicles.variability import scaled_idm
+
+            cached = (base, scaled_idm(base, self.driver_factors))
+            self._driver_idm = cached
+        return cached[1]
 
     @property
     def vehicle_type(self) -> str:

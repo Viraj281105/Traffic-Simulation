@@ -15,6 +15,12 @@ from src.vehicles.driver_aggression import (
     resolve_aggression_name,
 )
 from src.vehicles.speed_profile import resolve_desired_speed_range
+from src.vehicles.variability import (
+    DemandFactors,
+    DriverDraws,
+    parse_demand_variability,
+    parse_driver_heterogeneity,
+)
 from src.vehicles.vehicle import Vehicle
 from src.vehicles.vehicle_types import (
     VehicleParams,
@@ -76,6 +82,13 @@ class VehicleSpawner:
             # history and reproduce endpoints in history/router.py).
             sim_cfg["randomSeed"] = self.random_seed
         self.rng: random.Random = random.Random(self.random_seed)
+
+        # Opt-in variability (ADR-020), each on its own stream so enabling it
+        # cannot shift any draw above or below. None = off = bit-identical.
+        self._driver_model = parse_driver_heterogeneity(traffic_cfg)
+        self._demand_model = parse_demand_variability(traffic_cfg)
+        self._driver_draws: Optional[DriverDraws] = None
+        self._demand_factors: Optional[DemandFactors] = None
 
         self.total_vehicles_limit: int = traffic_cfg.get(
             "totalVehicles", DEFAULT_TOTAL_VEHICLES
@@ -229,6 +242,16 @@ class VehicleSpawner:
         # unstructuredTraffic did not reproduce a fresh one. seed() puts the
         # generator in exactly the state random.Random(seed) starts in.
         self.rng.seed(self.random_seed)
+        self._driver_draws = (
+            DriverDraws(self._driver_model, self.random_seed)
+            if self._driver_model is not None
+            else None
+        )
+        self._demand_factors = (
+            DemandFactors(self._demand_model, self.random_seed)
+            if self._demand_model is not None
+            else None
+        )
         self.spawned_count = 0
         self._elapsed_time = 0.0
         self.timers.clear()
@@ -275,6 +298,8 @@ class VehicleSpawner:
     def _generate_next_arrival_time(self, direction: Direction) -> float:
         split = self.directional_split.get(direction.value, 0.25)
         dir_rate = self.arrival_rate * split
+        if self._demand_factors is not None:
+            dir_rate *= self._demand_factors.factor_at(self._elapsed_time)
         if dir_rate <= 0:
             return float("inf")
 
@@ -685,6 +710,8 @@ class VehicleSpawner:
             wait_speed_threshold=self.wait_speed_threshold,
             params=params,
         )
+        if self._driver_draws is not None:
+            vehicle.driver_factors = self._driver_draws.next_factors()
 
         return vehicle
 

@@ -99,6 +99,27 @@
           },
           "additionalProperties": false
         },
+        "driverHeterogeneity": {
+          "type": "object",
+          "description": "Opt-in persistent per-driver multipliers on desired time headway, maximum acceleration and comfortable deceleration, uniform on [1 - spread, 1 + spread] (ADR-020). Off unless enabled=true with a non-zero spread. Assumed ranges, not calibrated.",
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "headwaySpread": { "type": "number", "minimum": 0, "maximum": 0.5 },
+            "accelerationSpread": { "type": "number", "minimum": 0, "maximum": 0.5 },
+            "decelerationSpread": { "type": "number", "minimum": 0, "maximum": 0.5 }
+          },
+          "additionalProperties": false
+        },
+        "demandVariability": {
+          "type": "object",
+          "description": "Opt-in seeded multiplier on arrivalRate, uniform on [1 - spread, 1 + spread], one per run or per intervalSeconds block (ADR-020). Off unless enabled=true with a non-zero spread. Assumed ranges, not calibrated.",
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "spread": { "type": "number", "minimum": 0, "maximum": 0.8 },
+            "intervalSeconds": { "type": ["number", "null"], "minimum": 30, "maximum": 3600 }
+          },
+          "additionalProperties": false
+        },
         "driverAggression": {
           "type": "string",
           "enum": ["standard", "moderate", "high"],

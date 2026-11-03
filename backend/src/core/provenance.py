@@ -104,7 +104,10 @@ PYTHON_VERSION: str = get_python_version()
 
 
 # Version of the per-run provenance record below; bump if its shape changes.
-RUN_PROVENANCE_SCHEMA_VERSION = 1
+# 2 (V3.1 W31) adds the ``manifest`` key, present only when the caller passed
+# the configuration; a record without it is still version 1 in shape.
+RUN_PROVENANCE_SCHEMA_VERSION = 2
+_LEGACY_SCHEMA_VERSION = 1
 
 
 def build_run_provenance(
@@ -114,6 +117,11 @@ def build_run_provenance(
     time_step: Optional[float],
     duration: Optional[float],
     warmup_time: Optional[float],
+    config: Optional[Dict[str, Any]] = None,
+    seed: Optional[int] = None,
+    scenario_fingerprint: Optional[str] = None,
+    base_seed: Optional[int] = None,
+    seed_scheme: Optional[str] = None,
 ) -> Dict[str, Any]:
     """The reproducibility record stored with each saved run (V1.1).
 
@@ -124,16 +132,37 @@ def build_run_provenance(
     (the lockstep signal-vs-roundabout comparison). The timing fields are
     the values the engine actually used, not config defaults re-derived
     later; None when they could not be read.
+
+    With ``config`` the record also carries the run manifest
+    (``src/core/run_manifest.py``): seed, configuration hash, commit and
+    interpreter, so the run can be re-run and checked.
     """
-    return {
-        "schemaVersion": RUN_PROVENANCE_SCHEMA_VERSION,
+    timing = {
+        "timeStep": time_step,
+        "duration": duration,
+        "warmupTime": warmup_time,
+    }
+    record: Dict[str, Any] = {
+        "schemaVersion": _LEGACY_SCHEMA_VERSION,
         "gitCommitHash": GIT_COMMIT_HASH,
         "pythonVersion": PYTHON_VERSION,
         "configSource": config_source,
         "runMode": run_mode,
-        "timing": {
-            "timeStep": time_step,
-            "duration": duration,
-            "warmupTime": warmup_time,
-        },
+        "timing": timing,
     }
+    if config is not None:
+        from src.core.run_manifest import build_run_manifest
+
+        record["schemaVersion"] = RUN_PROVENANCE_SCHEMA_VERSION
+        record["manifest"] = build_run_manifest(
+            config=config,
+            seed=seed,
+            run_mode=run_mode,
+            git_commit=GIT_COMMIT_HASH,
+            python_version=PYTHON_VERSION,
+            timing=timing,
+            scenario_fingerprint=scenario_fingerprint,
+            base_seed=base_seed,
+            seed_scheme=seed_scheme,
+        )
+    return record

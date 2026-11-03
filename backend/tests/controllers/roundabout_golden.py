@@ -375,6 +375,10 @@ def _build(config: Dict[str, Any], path: str) -> Any:
             orch.collector_roundabout,
             orch.builder_roundabout,
         )
+    if path == "study-signal":
+        # The signal side of the same orchestrator (signal_golden.py).
+        orch = DualSimulationOrchestrator(config)
+        return orch.engine_signal, orch.collector_signal, orch.builder_signal
     raise ValueError(f"unknown path {path!r}")
 
 

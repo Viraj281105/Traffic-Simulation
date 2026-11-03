@@ -264,6 +264,8 @@ def run_volume_sweep_experiment(
                 time_step=sig["timeStep"],
                 duration=sig["engineDuration"],
                 warmup_time=sig["warmupTime"],
+                config=sig_config,
+                seed=random_seed,
             )
             round_provenance = build_run_provenance(
                 config_source="engine",
@@ -271,6 +273,8 @@ def run_volume_sweep_experiment(
                 time_step=rnd["timeStep"],
                 duration=rnd["engineDuration"],
                 warmup_time=rnd["warmupTime"],
+                config=round_config,
+                seed=random_seed,
             )
 
             SimulationRunDAO.save(

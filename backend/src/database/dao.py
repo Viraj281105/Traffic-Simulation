@@ -334,6 +334,8 @@ def describe_reproducibility(
         seed = config_seed
 
     timing = (provenance or {}).get("timing") or {}
+    # Present on runs saved from V3.1 (provenance schema 2); None before.
+    manifest = (provenance or {}).get("manifest") or None
     record: Dict[str, Any] = {
         "runId": run.get("id"),
         "name": run.get("name"),
@@ -351,6 +353,10 @@ def describe_reproducibility(
         "configSource": (provenance or {}).get("configSource"),
         "configAvailable": config_available,
         "exactConfig": (provenance or {}).get("configSource") == "engine",
+        "configHash": (manifest or {}).get("configHash"),
+        "gitDirty": (manifest or {}).get("gitDirty"),
+        "engineVersion": (manifest or {}).get("engineVersion"),
+        "manifest": manifest,
         "timing": {
             "timeStep": timing.get("timeStep"),
             "duration": timing.get("duration"),

@@ -134,7 +134,18 @@ export default defineConfig({
     },
     coverage: {
       reporter: ["text", "lcov"],
-      include: ["src/components/**", "src/services/**"],
+      include: [
+        "src/metrics/**",
+        "src/hooks/**",
+        "src/utils/**",
+        "src/services/**",
+        "src/components/**",
+      ],
+      // Measured 2026-11-03: statements/lines 76.18, branches 79.69,
+      // functions 62.03. A floor about two points under each, so a real
+      // regression fails while normal fluctuation does not. Ratchet up as
+      // coverage improves; never lower to make a run pass.
+      thresholds: { statements: 74, lines: 74, branches: 77, functions: 60 },
     },
   },
 });

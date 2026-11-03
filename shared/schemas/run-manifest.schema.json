@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urbanflow-run-manifest",
+  "title": "UrbanFlow run manifest",
+  "description": "What a saved run records so it can be re-run and checked (backend/src/core/run_manifest.py). Holds no user identifier or credential.",
+  "type": "object",
+  "required": ["format", "version", "configHash", "gitCommit", "gitDirty", "pythonVersion", "engineVersion", "runMode", "timing"],
+  "properties": {
+    "format": { "const": "urbanflow-run-manifest" },
+    "version": { "const": 1 },
+    "seed": { "type": ["integer", "null"] },
+    "configHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "gitCommit": { "type": "string" },
+    "gitDirty": { "enum": [true, false, "unknown"] },
+    "pythonVersion": { "type": "string" },
+    "engineVersion": { "type": "string" },
+    "runMode": { "type": "string" },
+    "timing": {
+      "type": "object",
+      "properties": {
+        "timeStep": { "type": ["number", "null"] },
+        "duration": { "type": ["number", "null"] },
+        "warmupTime": { "type": ["number", "null"] }
+      }
+    },
+    "scenarioFingerprint": { "type": "string" },
+    "baseSeed": { "type": "integer" },
+    "seedScheme": { "type": ["string", "null"] },
+    "createdAt": { "type": "string" }
+  },
+  "additionalProperties": false
+}
