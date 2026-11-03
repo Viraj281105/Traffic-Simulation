@@ -5,7 +5,7 @@ import { Reveal } from "../components/Reveal";
 import { VIEW_ROUTES } from "../../routing";
 import { useSceneData } from "../scene/SceneContext";
 import { SimCanvas } from "../scene/SimCanvas";
-import { HERO_CAMERA, useSimClock } from "../scene/clock";
+import { HERO_CAMERA, useOnScreen, useSimClock } from "../scene/clock";
 import type { Camera } from "../scene/render";
 import { formatClock } from "../scene/sceneData";
 import { useHud } from "../scene/useHud";
@@ -18,18 +18,32 @@ export function Hero() {
   const section = useRef<HTMLElement | null>(null);
   const clock = useSimClock(!reduced, 1, reduced ? 21 : 0);
   const camera = useRef<Camera>({ ...HERO_CAMERA });
-  const hud = useHud(data, "fixed_time", clock);
+  const visible = useOnScreen(section);
+  const hud = useHud(data, "fixed_time", clock, visible);
 
   // Slow camera drift, pointer parallax and a pull-back as the page scrolls.
   useEffect(() => {
     const target = { x: 0, y: 0 };
     let raf = 0;
     const narrow = () => window.innerWidth < 900;
-    const apply = () => {
+    // The section's page offset and height, re-read only when it resizes:
+    // reading its rect every frame forced a layout on every frame.
+    let top = Infinity;
+    let span = 1;
+    const measure = () => {
       const el = section.current;
-      const rect = el?.getBoundingClientRect();
-      const span = rect ? Math.max(1, rect.height) : 1;
-      const p = rect ? Math.max(0, Math.min(1, -rect.top / span)) : 0;
+      if (!el) return;
+      top = el.getBoundingClientRect().top + window.scrollY;
+      span = Math.max(1, el.offsetHeight);
+    };
+    measure();
+    const ro =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(measure);
+    if (section.current) ro?.observe(section.current);
+    const apply = () => {
+      const p = Math.max(0, Math.min(1, (window.scrollY - top) / span));
       const c = camera.current;
       const t = performance.now() / 1000;
       const drift = reduced ? 0 : Math.sin(t / 9) * 3;
@@ -44,7 +58,7 @@ export function Hero() {
       target.y = (e.clientY / window.innerHeight - 0.5) * 2;
     };
     const loop = () => {
-      apply();
+      if (visible.current && !document.hidden) apply();
       raf = requestAnimationFrame(loop);
     };
     apply();
@@ -57,11 +71,12 @@ export function Hero() {
     }
     return () => {
       cancelAnimationFrame(raf);
+      ro?.disconnect();
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("scroll", apply);
       window.removeEventListener("resize", apply);
     };
-  }, [reduced]);
+  }, [reduced, visible]);
 
   return (
     <section

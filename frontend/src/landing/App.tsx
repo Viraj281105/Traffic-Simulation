@@ -12,12 +12,7 @@ import { Evidence } from "./sections/Evidence";
 import { Platform } from "./sections/Platform";
 import { Developers, FinalCta, Limits } from "./sections/Closing";
 import "./cinematic.css";
-
-declare global {
-  interface Window {
-    openAuthModal: () => void;
-  }
-}
+import { SIGN_IN_HREF } from "../routing";
 
 /** True while the header sits over one of the dark, full-bleed scenes, so it
  *  can switch to light-on-dark and the page reads as one continuous story. */
@@ -97,16 +92,12 @@ function App() {
                   {isLight ? <Moon size={16} /> : <Sun size={16} />}
                 </span>
               </button>
-              <button
-                type="button"
-                className="header-signin"
-                onClick={() => {
-                  window.openAuthModal();
-                }}
-              >
+              {/* Sign-in is the app's Cognito dialog (F-18): the landing
+                  page used to open a placeholder form that sent nothing. */}
+              <a className="header-signin" href={SIGN_IN_HREF}>
                 <LogIn size={15} aria-hidden="true" />
                 Login
-              </button>
+              </a>
             </nav>
           </header>
 

@@ -4,7 +4,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Reveal } from "../components/Reveal";
 import { useSceneData } from "../scene/SceneContext";
 import { SimCanvas } from "../scene/SimCanvas";
-import { seekClock, useSimClock } from "../scene/clock";
+import { seekClock, useOnScreen, useSimClock } from "../scene/clock";
 import type { Camera } from "../scene/render";
 import {
   STRATEGY_IDS,
@@ -42,6 +42,8 @@ function Tile({
   onFocus: (id: StrategyId | null) => void;
 }) {
   const camera = useRef<Camera>({ ...TILE_CAMERA });
+  const self = useRef<HTMLButtonElement | null>(null);
+  const shown = useOnScreen(self);
   const [queued, setQueued] = useState(0);
   useEffect(() => {
     const run = data.runs[id];
@@ -52,14 +54,15 @@ function Tile({
     };
     read();
     const timer = window.setInterval(() => {
-      if (!document.hidden) read();
+      if (!document.hidden && shown.current) read();
     }, 300);
     return () => {
       window.clearInterval(timer);
     };
-  }, [data, id, clock]);
+  }, [data, id, clock, shown]);
   return (
     <button
+      ref={self}
       type="button"
       className={`tile${focus === id ? " is-focus" : ""}${focus && focus !== id ? " is-dim" : ""}`}
       onMouseEnter={() => {
@@ -82,6 +85,10 @@ function Tile({
         clock={clock}
         camera={camera}
         maxDpr={1.5}
+        // F-14: the four tiles already ran at ~32 fps under load; capping at
+        // 30 (in step, on the shared frame clock) cut the section's idle
+        // main-thread time from 435 to 323 ms/s in interleaved A/B runs.
+        maxFps={30}
         label={`${STRATEGY_SHORT[id]} control, replayed from the engine.`}
         className="tile__canvas"
       />
@@ -106,19 +113,21 @@ export function CompareStudio() {
   const [metric, setMetric] = useState(0);
   const [focus, setFocus] = useState<StrategyId | null>(null);
   const clock = useSimClock(playing, speed, 8);
+  const section = useRef<HTMLElement | null>(null);
+  const shown = useOnScreen(section);
   const [scrub, setScrub] = useState(8);
   const len = data ? windowLength(data) : 60;
 
-  // Keep the scrubber in step with the clock while it plays.
+  // Keep the scrubber in step with the clock while it plays on screen.
   useEffect(() => {
     if (!playing) return;
     const timer = window.setInterval(() => {
-      setScrub(((clock.current.t % len) + len) % len);
+      if (shown.current) setScrub(((clock.current.t % len) + len) % len);
     }, 250);
     return () => {
       window.clearInterval(timer);
     };
-  }, [playing, clock, len]);
+  }, [playing, clock, len, shown]);
 
   const m = METRIC_VIEW[metric] ?? METRIC_VIEW[0];
   const values = data
@@ -135,6 +144,7 @@ export function CompareStudio() {
     <section
       className="studio section-wrap"
       id="compare"
+      ref={section}
       aria-labelledby="studio-title"
     >
       <Reveal width="100%">
