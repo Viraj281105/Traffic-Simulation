@@ -1,5 +1,9 @@
 import { useEffect, useRef } from "react";
-import { dashboardPayload, type SimulationConfigValues } from "../types/config";
+import {
+  dashboardPayload,
+  normalEntryQueue,
+  type SimulationConfigValues,
+} from "../types/config";
 import { updateSimulationConfig } from "../services/api";
 
 /**
@@ -46,6 +50,7 @@ export function useLiveConfigSync(
     unstructuredTraffic,
     aggressiveTwoWheelers,
     driverAggression,
+    entryQueue,
     strategies,
   } = configValues;
   // Object-valued: compared by content in the sync effect below.
@@ -53,6 +58,7 @@ export function useLiveConfigSync(
   const adaptiveKey = JSON.stringify(adaptive ?? null);
   const scenarioKey = JSON.stringify(scenario ?? null);
   const strategiesKey = JSON.stringify(strategies ?? null);
+  const entryQueueKey = JSON.stringify(normalEntryQueue(entryQueue));
 
   useEffect(() => {
     const intersectionType =
@@ -83,6 +89,7 @@ export function useLiveConfigSync(
             unstructuredTraffic,
             aggressiveTwoWheelers,
             driverAggression,
+            entryQueue: JSON.parse(entryQueueKey) as typeof entryQueue,
             strategies: (JSON.parse(strategiesKey) ?? undefined) as
               string[] | undefined,
           },
@@ -128,6 +135,7 @@ export function useLiveConfigSync(
     unstructuredTraffic,
     aggressiveTwoWheelers,
     driverAggression,
+    entryQueueKey,
     strategiesKey,
   ]);
 

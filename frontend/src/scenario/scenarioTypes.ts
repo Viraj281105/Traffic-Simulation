@@ -209,7 +209,29 @@ export interface ScenarioDocument {
   };
   traffic?: {
     driverAggression?: DriverAggression | null;
+    /** Opt-in point queue outside the network. Absent or disabled = the
+     *  default entry model, which holds an arrival back at a blocked entry. */
+    entryQueue?: EntryQueueSpec | null;
   } | null;
+}
+
+/** How arrivals that cannot enter yet are modelled (backend
+ *  scenario/documents.py EntryQueueSpec, vehicles/spawner.py). */
+export interface EntryQueueSpec {
+  enabled: boolean;
+  /** Per approach; null/absent = bounded only by the run's vehicle limit.
+   *  Arrivals that find the queue full are counted as rejected. */
+  capacity?: number | null;
+}
+
+/** The largest per-approach capacity the backend accepts. */
+export const ENTRY_QUEUE_CAPACITY_MAX = 5000;
+
+/** True when a document or dashboard setting runs the point queue. */
+export function entryQueueEnabled(
+  spec: EntryQueueSpec | null | undefined,
+): boolean {
+  return spec?.enabled === true;
 }
 
 /** What the backend says it will build (POST /api/v1/scenarios/validate). */

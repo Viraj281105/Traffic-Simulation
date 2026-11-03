@@ -36,6 +36,10 @@ import {
   type SuiteResult,
 } from "../../services/v3/stress";
 import { failureSums } from "./stressStats";
+import { EntryModelChoice } from "../scenario/EntryModelChoice";
+import { entryModelSentence } from "../../metrics/entryModel";
+import { normalEntryQueue } from "../../types/config";
+import type { EntryQueueSpec } from "../../scenario/scenarioTypes";
 import { ExperimentsApiError } from "../../services/v3/experiments";
 import { CHART_AXIS, CHART_GRID, TOOLTIP_STYLE } from "../../theme/chart";
 import {
@@ -91,6 +95,10 @@ export function StressLabPage() {
     "demand_scale",
   );
   const [levels, setLevels] = useState("0.6, 0.8, 1.0, 1.2, 1.4");
+  // One entry model for both tools: generated suites and the default
+  // breakpoint junction run it; omitted from requests while it is the default.
+  const [entryQueue, setEntryQueue] = useState<EntryQueueSpec | null>(null);
+  const queue = normalEntryQueue(entryQueue);
   const [jobs, setJobs] = useState<StressJob[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [job, setJob] = useState<StressJob | null>(null);
@@ -184,6 +192,20 @@ export function StressLabPage() {
         demand or incidents, so these are stationary extremes.
       </PageHero>
 
+      <Panel
+        id="stress-entry"
+        title="Traffic that cannot get in"
+        subtitle="Applies to the generated suite and to the breakpoint junction."
+      >
+        <fieldset className="entry-model-fieldset" disabled={running}>
+          <EntryModelChoice
+            variant="builder"
+            value={entryQueue}
+            onChange={setEntryQueue}
+          />
+        </fieldset>
+      </Panel>
+
       <div className="dash-grid-2">
         <Panel
           id="stress-suite"
@@ -221,7 +243,14 @@ export function StressLabPage() {
               className="pb-btn pb-primary"
               disabled={running}
               onClick={() => {
-                begin(startSuite({ seed, count, seedsPerRun: 2 }));
+                begin(
+                  startSuite({
+                    seed,
+                    count,
+                    seedsPerRun: 2,
+                    ...(queue ? { entryQueue: queue } : {}),
+                  }),
+                );
               }}
             >
               <Activity size={15} aria-hidden="true" />
@@ -281,6 +310,7 @@ export function StressLabPage() {
                     factor,
                     levels: parseLevels(levels, factor),
                     seedsPerLevel: 3,
+                    ...(queue ? { entryQueue: queue } : {}),
                   }),
                 );
               }}
@@ -413,6 +443,11 @@ function SuiteView({ result }: { result: SuiteResult }) {
             {result.generator}, seed {result.seed.toString()}, suite{" "}
             <code>{result.suiteFingerprint}</code>. {result.note}
           </p>
+          {entryModelSentence(result.entryModel, "not-shown") && (
+            <p className="dash-panel__sub">
+              {entryModelSentence(result.entryModel, "not-shown")}
+            </p>
+          )}
         </div>
       </div>
 
@@ -567,7 +602,15 @@ function SuiteView({ result }: { result: SuiteResult }) {
           <tbody>
             {result.scenarios.map((row) => (
               <tr key={row.index}>
-                <th scope="row">{row.name}</th>
+                <th scope="row">
+                  {row.name}
+                  {row.lowestDelayServedLess && (
+                    <span className="metric-key">
+                      The lowest-delay strategy here served less of the demand;
+                      that may explain part of its lower delay.
+                    </span>
+                  )}
+                </th>
                 {result.strategies.map((s, i) => {
                   const cell = row.results[s];
                   if (!cell) return <td key={s}>—</td>;
@@ -602,7 +645,7 @@ function SuiteView({ result }: { result: SuiteResult }) {
   );
 }
 
-function BreakpointView({ result }: { result: BreakpointResult }) {
+export function BreakpointView({ result }: { result: BreakpointResult }) {
   const data = result.table.map((row) => ({
     level: String(row.level),
     ...Object.fromEntries(
@@ -636,6 +679,11 @@ function BreakpointView({ result }: { result: BreakpointResult }) {
             Factor: <strong>{prettyName(result.factor)}</strong>, with{" "}
             {result.seedsPerLevel.toString()} seeds per level.
           </p>
+          {entryModelSentence(result.entryModel, "not-shown") && (
+            <p className="dash-panel__sub">
+              {entryModelSentence(result.entryModel, "not-shown")}
+            </p>
+          )}
         </div>
       </div>
 
@@ -817,7 +865,14 @@ function BreakpointView({ result }: { result: BreakpointResult }) {
                       : "—"}
                   </td>
                 ))}
-                <td>{row.preferred ?? "—"}</td>
+                <td>
+                  {row.preferred ?? "—"}
+                  {row.preferredServedLess && (
+                    <span className="metric-key">
+                      served less of the demand; may explain its lower delay
+                    </span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

@@ -29,6 +29,7 @@ import { ResearchLink } from "../research/LabSection";
 import "../research/ResearchLab.css";
 import { VIEW_ROUTES } from "../../routing";
 import { ScenarioBuilder } from "../scenario/ScenarioBuilder";
+import { EntryModelChoice } from "../scenario/EntryModelChoice";
 import { useScenarioValidation } from "../scenario/useScenarioValidation";
 import {
   configValuesFromScenario,
@@ -296,6 +297,12 @@ export function ScenarioSetup({
                 per hour (set in advanced settings).
               </p>
             )}
+            <EntryModelChoice
+              value={draft.entryQueue}
+              onChange={(next) => {
+                set("entryQueue", next);
+              }}
+            />
           </fieldset>
 
           <fieldset className="guided-question">
@@ -575,6 +582,11 @@ export function ScenarioSetup({
                     <strong>{draft.driverAggression} driver aggression</strong>
                   </>
                 )}
+              {draft.entryQueue?.enabled && (
+                <>
+                  , <strong>arrivals queue outside the map</strong>
+                </>
+              )}
               , for <strong>{duration(draft.duration)}</strong> of traffic.
             </p>
             <button

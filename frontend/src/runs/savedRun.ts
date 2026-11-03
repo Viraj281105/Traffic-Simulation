@@ -263,6 +263,33 @@ export function configDifferences(
   return rows;
 }
 
+/** The entry model a stored configuration ran under: "queue" when
+ *  traffic.entryQueue (or a scenario document's) is enabled, "suspend"
+ *  otherwise, null when no configuration was stored. Configurations saved
+ *  before the option existed ran "suspend". */
+export function entryModelOfConfig(
+  config: Record<string, unknown> | null | undefined,
+): "suspend" | "queue" | null {
+  if (!config) return null;
+  const enabled = (traffic: unknown): boolean => {
+    if (typeof traffic !== "object" || traffic === null) return false;
+    const queue = (traffic as Record<string, unknown>).entryQueue;
+    return (
+      typeof queue === "object" &&
+      queue !== null &&
+      (queue as Record<string, unknown>).enabled === true
+    );
+  };
+  const scenario = config.scenario;
+  const scenarioTraffic =
+    typeof scenario === "object" && scenario !== null
+      ? (scenario as Record<string, unknown>).traffic
+      : undefined;
+  return enabled(config.traffic) || enabled(scenarioTraffic)
+    ? "queue"
+    : "suspend";
+}
+
 export function formatSeconds(value: number | null | undefined): string {
   if (value === null || value === undefined) return "—";
   return `${Number(value.toFixed(2)).toString()} s`;

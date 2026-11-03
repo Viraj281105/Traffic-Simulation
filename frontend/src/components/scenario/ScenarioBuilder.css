@@ -703,3 +703,96 @@
   color: var(--color-text-3);
   font-size: 12px;
 }
+
+/* The entry model (EntryModelChoice): radio rows in the builder, and the
+   population glossary both variants open. */
+.sb-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sb-radio {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 8px;
+  align-items: start;
+  font-size: 13px;
+  cursor: pointer;
+}
+.sb-radio input {
+  margin: 2px 0 0;
+  grid-row: span 2;
+  accent-color: var(--color-accent);
+}
+.sb-radio-title {
+  font-weight: 600;
+}
+.sb-details summary,
+.q-details summary {
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--color-text-2);
+}
+.sb-details,
+.q-details {
+  font-size: 12.5px;
+  color: var(--color-text-2);
+}
+.entry-populations {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0;
+}
+.entry-populations div {
+  display: grid;
+  grid-template-columns: minmax(0, 9.5em) 1fr;
+  gap: 8px;
+}
+.entry-populations dt {
+  font-weight: 650;
+  color: var(--color-text);
+}
+.entry-populations dd {
+  margin: 0;
+}
+.q-inline-field {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13.5px;
+}
+.q-inline-field input[type="number"] {
+  width: 96px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  font: inherit;
+}
+@media (max-width: 420px) {
+  .entry-populations div {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}
+
+/* EntryModelChoice wrapped in a fieldset on a lab page (disabled while a
+   job runs): no browser fieldset border. */
+.entry-model-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.entry-model-fieldset input[type="number"] {
+  width: 96px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  font: inherit;
+}

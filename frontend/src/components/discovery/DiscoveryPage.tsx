@@ -53,6 +53,8 @@ import {
   type Tone,
 } from "../dashboard/Dashboard";
 import { first, prettyName, seriesColour } from "../dashboard/format";
+import { EntryModelChoice } from "../scenario/EntryModelChoice";
+import { entryModelSentence } from "../../metrics/entryModel";
 
 const POLL_MS = 2000;
 
@@ -286,6 +288,15 @@ export function DiscoveryPage() {
             />
             Uneven directional demand
           </label>
+          <fieldset className="entry-model-fieldset discovery-entry">
+            <EntryModelChoice
+              variant="builder"
+              value={spec.regime.entryQueue}
+              onChange={(next) => {
+                regime({ entryQueue: next });
+              }}
+            />
+          </fieldset>
           <label>
             Population
             <input
@@ -681,6 +692,11 @@ function DiscoveryResult({
           ? ""
           : " This search did not finish: the result is incomplete."}
       </p>
+      {entryModelSentence(result.entryModel, "objective") && (
+        <p className="copilot-muted">
+          {entryModelSentence(result.entryModel, "objective")}
+        </p>
+      )}
 
       {held ? (
         <>
@@ -804,6 +820,12 @@ function DiscoveryResult({
                           {v?.meanDifference != null && v.ci95
                             ? `${fmt(v.meanDifference)} [${fmt(v.ci95[0])}, ${fmt(v.ci95[1])}]`
                             : "—"}
+                          {v?.lowerDelayServedLess && (
+                            <span className="metric-key">
+                              served less of the demand; may explain part of the
+                              difference
+                            </span>
+                          )}
                         </td>
                       );
                     })}

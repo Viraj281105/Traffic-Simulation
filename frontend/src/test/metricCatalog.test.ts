@@ -58,6 +58,8 @@ const CONTEXT_KEYS = new Set([
   "vehicleTypeBreakdown",
   "approachBreakdown",
   "signalTiming",
+  // Object: offered vs admitted demand (shown in the capacity card).
+  "demandAccounting",
   "travelTimeReliabilityLowSampleSize",
   "ttcThresholdSeconds",
   "petThresholdSeconds",
