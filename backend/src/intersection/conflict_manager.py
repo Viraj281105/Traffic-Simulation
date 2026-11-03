@@ -5,7 +5,8 @@ reservation table so that at most one vehicle occupies each conflict zone at
 any time.  Priority rules mirror real-world right-hand-traffic conventions:
     - Right-turners yield to straight-goers.
     - Left-turners yield to everyone.
-    - Equal-priority ties are broken by vehicle-ID (lower ID wins).
+    - Equal-priority ties are broken by vehicle id, compared as text (the
+      lower id wins, so "veh_10" goes before "veh_9"; see F-42).
 """
 
 from __future__ import annotations
@@ -661,7 +662,9 @@ class ConflictManager:
             if other_priority > my_priority:
                 return "blocked"
             if other_priority == my_priority and other_id < vehicle_id:
-                # Tiebreak: lower vehicle ID wins
+                # Tiebreak: the lower vehicle id wins, compared as text
+                # ("veh_10" < "veh_9"). Deterministic and total; not spawn
+                # order. Changing it changes signal results (F-42).
                 return "blocked"
 
         return "free"

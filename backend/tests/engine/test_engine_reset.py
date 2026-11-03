@@ -170,6 +170,29 @@ def test_run_after_reset_reproduces_the_original_run() -> None:
     assert first == second
 
 
+def test_run_after_reset_reproduces_the_original_run_with_stochastic_drivers() -> None:
+    """unstructuredTraffic: the stochastic IDM draws from the spawner's
+    generator. Reset used to give the spawner a new generator while the IDM
+    kept the old one, already advanced by the first run, so the rerun's
+    arrivals and driver noise both diverged (17 vs 26 vehicles at 30 s)."""
+    config = _config()
+    config["traffic"]["unstructuredTraffic"] = True
+    engine, _, _ = _build(config)
+
+    def positions() -> list[tuple[str, float, float]]:
+        return [
+            (v.vehicle_id, v.position, v.speed) for v in engine.pool.active_vehicles
+        ]
+
+    _run(engine, 300)
+    first = positions()
+    engine.reset()
+    _run(engine, 300)
+    assert positions() == first
+    assert engine.idm is not None and engine.spawner is not None
+    assert getattr(engine.idm, "rng") is engine.spawner.rng
+
+
 def test_reset_is_idempotent() -> None:
     engine, _, _ = _build(_config())
     _run(engine, 100)
@@ -205,3 +228,21 @@ def test_engine_can_start_again_after_reset() -> None:
     engine.step()
 
     assert engine.clock.get_tick_count() == 1
+
+
+def test_reset_clears_the_deadlock_detector() -> None:
+    """Snapshots report the detector's insight as ``deadlockInsight``; a reset
+    run used to keep reporting the previous run's deadlock, and the stopped
+    times of its vehicle ids, which the new run reuses."""
+    config = _config()
+    config["traffic"]["unstructuredTraffic"] = True
+    engine, _, _ = _build(config)
+    detector = engine.deadlock_detector
+    assert detector is not None
+    detector.has_occurred = True
+    detector.last_insight = "Natural deadlock emerged at 79.2s involving 5 vehicles."
+    detector.stopped_durations["veh_0"] = 30.0
+    engine.reset()
+    assert detector.get_insight() is None
+    assert not detector.has_occurred
+    assert detector.stopped_durations == {}

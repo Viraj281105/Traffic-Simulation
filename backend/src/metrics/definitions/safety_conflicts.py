@@ -27,11 +27,10 @@ PET (Post-Encroachment Time)
 ------------------------------
 Only implemented where the simulation already has a geometrically
 validated notion of a shared conflict area: `ConflictManager`'s
-pre-computed lane-pair crossing points, which exist only for
-fixed_time_signal geometry (see VehiclePool.update's own comment on why a
-straight-chord conflict point is geometrically wrong for a roundabout's
-curved connection lanes -- reusing that reasoning here rather than
-inventing new geometry for roundabouts). PET is therefore only measurable
+pre-computed lane-pair crossing points, which only the signalised junction
+uses (a roundabout runs without ConflictManager; see VehiclePool.update for
+why), so no conflict areas are defined for a roundabout and none are invented
+here. PET is therefore only measurable
 for signal geometry; callers must treat `petApplicable=False` runs
 (roundabout) as "not measured", never as "zero conflicts".
 """
@@ -101,19 +100,29 @@ def compute_ttc(va: Vehicle, vb: Vehicle) -> Optional[float]:
     ax, ay = va.coords
     bx, by = vb.coords
     dpx, dpy = bx - ax, by - ay
+    bvx, bvy = _velocity_vector(vb)
+    avx, avy = _velocity_vector(va)
+    return _ttc(
+        dpx,
+        dpy,
+        dpx * dpx + dpy * dpy,
+        bvx - avx,
+        bvy - avy,
+        _effective_radius(va) + _effective_radius(vb),
+    )
 
-    r = _effective_radius(va) + _effective_radius(vb)
-    c = dpx * dpx + dpy * dpy - r * r
+
+def _ttc(
+    dpx: float, dpy: float, dist_sq: float, dvx: float, dvy: float, r: float
+) -> Optional[float]:
+    """TTC from the relative position (``dist_sq`` = its squared length),
+    relative velocity and combined radius; see :func:`compute_ttc`."""
+    c = dist_sq - r * r
     if c <= 0.0:
         # Envelopes already overlap right now -- true regardless of
         # velocity direction, so this is checked before the closing test
         # below (which is degenerate when Δp is exactly zero).
         return 0.0
-
-    dvx, dvy = _velocity_vector(vb)
-    avx, avy = _velocity_vector(va)
-    dvx -= avx
-    dvy -= avy
 
     closing_dot = dpx * dvx + dpy * dvy
     if closing_dot >= 0.0:
@@ -165,29 +174,36 @@ def find_ttc_events(
     # implements the handful of attributes an unrelated metric needs) is
     # silently skipped for TTC instead of raising -- this metric must not
     # be able to break unrelated callers that never asked for it.
-    positioned: List[Tuple[Vehicle, float, float]] = []
+    #
+    # Each vehicle's velocity and radius are worked out once per call rather
+    # than once per pair (F-44): nothing moves a vehicle during the scan, and
+    # the arithmetic is compute_ttc's, so the events are identical.
+    positioned: List[Tuple[Vehicle, float, float, float, float, float]] = []
     for v in active_vehicles:
         if v.lane is None:
             continue
         coords = getattr(v, "coords", None)
         if coords is None:
             continue
-        positioned.append((v, coords[0], coords[1]))
+        vx, vy = _velocity_vector(v)
+        positioned.append((v, coords[0], coords[1], vx, vy, _effective_radius(v)))
 
     n = len(positioned)
     for i in range(n):
-        va, ax, ay = positioned[i]
+        va, ax, ay, avx, avy, ra = positioned[i]
+        lane_a = va.lane
 
         for j in range(i + 1, n):
-            vb, bx, by = positioned[j]
-            if va.lane is vb.lane:
+            vb, bx, by, bvx, bvy, rb = positioned[j]
+            if lane_a is vb.lane:
                 continue
 
             dx, dy = bx - ax, by - ay
-            if dx * dx + dy * dy > search_radius_sq:
+            dist_sq = dx * dx + dy * dy
+            if dist_sq > search_radius_sq:
                 continue
 
-            ttc = compute_ttc(va, vb)
+            ttc = _ttc(dx, dy, dist_sq, bvx - avx, bvy - avy, ra + rb)
             if ttc is not None:
                 events.append((va.vehicle_id, vb.vehicle_id, ttc))
 

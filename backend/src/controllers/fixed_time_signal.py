@@ -442,9 +442,15 @@ class FixedTimeSignalController(BaseController):
 
     def update(self, delta_time: float, active_vehicles: List[Vehicle]) -> None:
         self.time_in_current_state += delta_time
-        phase = self.current_phase
 
-        if self.time_in_current_state >= phase.duration:
+        # Every phase whose time is used up ends in this tick, so a zero-length
+        # one (allRedTime: 0) is passed through rather than shown for a tick
+        # (F-40). A phase of at least one tick still ends exactly as before.
+        # Bounded by the plan length: the plan always has a positive green.
+        for _ in range(len(self.phases)):
+            phase = self.current_phase
+            if self.time_in_current_state < phase.duration:
+                break
             self.time_in_current_state -= phase.duration
             old_idx = self.current_phase_idx
             self.current_phase_idx = (self.current_phase_idx + 1) % len(self.phases)

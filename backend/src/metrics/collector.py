@@ -328,6 +328,7 @@ class MetricCollector:
         exited_vehicles: List[Vehicle],
         total_spawned: int,
         collision_count: int = 0,
+        demand: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Calculates and aggregates the complete metrics snapshot.
 
@@ -338,6 +339,9 @@ class MetricCollector:
         to 0 so existing callers that don't pass it (e.g. internal
         study/validation tooling) still get a well-defined, honest value
         rather than a missing key.
+
+        ``demand`` is ``VehicleSpawner.demand_accounting()``, reported as
+        ``demandAccounting``; None (no spawner) reports it as None.
         """
         # Filter exited vehicles that completed their journey post-warmup
         post_warmup_exited = [
@@ -358,6 +362,14 @@ class MetricCollector:
         post_warmup_spawned_count = sum(
             1
             for v in itertools.chain(active_vehicles, exited_vehicles)
+            if getattr(v, "spawn_time", 0.0) >= self.warmup_time
+        )
+        # Of those, the ones still in the network at this reading: their
+        # trips are unfinished, so they are absent from every exited-vehicle
+        # figure (delay, wait, stops, throughput).
+        post_warmup_active_count = sum(
+            1
+            for v in active_vehicles
             if getattr(v, "spawn_time", 0.0) >= self.warmup_time
         )
 
@@ -524,6 +536,20 @@ class MetricCollector:
 
         base_metrics = {
             "averageWaitTime": avg_wait_time,
+            # Mean time the same exited vehicles waited outside the network
+            # before entering (Vehicle.entry_wait). Delay and wait time start
+            # at entry, so under the entry-queue model this is the part of a
+            # trip they cannot see; add it to averageDelay for the delay from
+            # arrival. Near 0 under the default model.
+            "averageEntryWait": (
+                round(
+                    sum(getattr(v, "entry_wait", 0.0) for v in post_warmup_exited)
+                    / len(post_warmup_exited),
+                    2,
+                )
+                if post_warmup_exited
+                else 0.0
+            ),
             "averageDelay": avg_delay,
             "medianDelay": med_delay,
             "minDelay": min_delay,
@@ -553,7 +579,26 @@ class MetricCollector:
             # further vehicles were offered, so demand after that moment was
             # truncated and totalVehiclesSpawned is not the offered demand.
             "vehicleLimit": self.vehicle_limit,
-            "vehicleLimitReached": total_spawned >= self.vehicle_limit,
+            # Under the entry-queue model the cap applies to arrivals
+            # (generation stops there while queued vehicles still enter).
+            "vehicleLimitReached": total_spawned >= self.vehicle_limit
+            or (
+                demand is not None
+                and demand.get("entryModel") == "queue"
+                and demand["arrivals"] >= self.vehicle_limit
+            ),
+            # Share of the vehicles admitted at or after warm-up end that are
+            # still in the network: the part of the post-warm-up population
+            # the exited-vehicle figures above cannot describe. None until a
+            # vehicle has been admitted after warm-up.
+            "unfinishedShare": (
+                round(post_warmup_active_count / post_warmup_spawned_count, 4)
+                if post_warmup_spawned_count
+                else None
+            ),
+            # Offered vs admitted demand from the spawner (whole run); see
+            # VehicleSpawner.demand_accounting.
+            "demandAccounting": demand,
             "averageTravelSpeed": calculate_average_travel_speed(active_vehicles),
             "queueStabilityIndex": qsi,
             "congestionRecoveryTime": round(self.congestion_recovery_time, 2),

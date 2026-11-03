@@ -27,6 +27,7 @@ from src.vehicles.lane_change import (
     origin_lane_leader,
     resolve_lane_change_settings,
 )
+from src.vehicles.proximity import ProximityGrid
 from src.vehicles.router import _conn_lane_index, find_leader
 from src.vehicles.speed_profile import (
     curve_speed_ceiling,
@@ -213,28 +214,23 @@ class VehiclePool:
         if idm is None:
             idm = _idm_from_config(config)
 
-        # ConflictManager pre-computes conflict/crossing points from straight
-        # chords between each connection lane's start/end coordinates (see
-        # ConflictManager.compute_conflict_points). That approximation holds
-        # for fixed-time-signal connection lanes (short straight or gently
-        # curved turn paths near the intersection box), so it is enabled
-        # there — it is what makes permissive lefts (e.g. an "ns_green"
-        # phase where NORTH/SOUTH share a green and left-turners cross
-        # opposing straight traffic) safe once phaseSequence-driven paired
-        # phases are used (see FixedTimeSignalController).
+        # ConflictManager arbitrates the signalised junction: it finds where
+        # each pair of connection lanes shares road by sampling their actual
+        # paths (ConflictManager.compute_conflict_points) and admits a vehicle
+        # into the box only when every zone on its path is free. That is what
+        # makes permissive lefts (an "ns_green" phase where NORTH/SOUTH share
+        # a green and left-turners cross opposing straight traffic) safe.
         #
-        # For roundabouts, connection lanes are long curved circulating arcs
-        # (see RoadNetwork._get_or_create_connection_lane) that can span most
-        # of the circle; a straight chord between their endpoints cuts
-        # across the roundabout and would produce geometrically incorrect
-        # conflict points (spurious crossings with lanes that never actually
-        # meet, and missed real crossings). Rather than force an
-        # incompatible model onto curved geometry, multi-lane roundabout
-        # cross-conflicts (vehicles in different circulating lane indices,
-        # e.g. weaving between inner/outer rings near entries and exits) are
-        # instead caught by the emergency-proximity check in
-        # router.find_leader (Layer 4), which works on live Euclidean
-        # positions and needs no lane-geometry assumptions.
+        # A roundabout runs without it. Its connection lanes are long arcs
+        # around one shared ring, where vehicles follow one another rather
+        # than cross: following on a ring lane is find_leader's arc-length
+        # logic (Layer 1), entry is the controller's gap acceptance, the
+        # exits of a two-lane ring are the controller's convergence zones,
+        # and other cross-ring conflicts are the predictive layer's below,
+        # with find_leader's proximity check (Layer 4) as the last resort.
+        # (An earlier ConflictManager worked on the straight chord between
+        # each lane's endpoints, which was wrong for arcs; the reason above
+        # is the current one.)
         geom_type = config.get("geometry", {}).get(
             "intersectionType", "fixed_time_signal"
         )
@@ -324,6 +320,10 @@ class VehiclePool:
 
         # Update each vehicle
         to_remove: List[Vehicle] = []
+        # find_leader's proximity check (Layer 4) looks only at nearby
+        # vehicles through this index, kept live as each vehicle moves below:
+        # same result as scanning every vehicle, at a fraction of the cost.
+        proximity = ProximityGrid(self.active_vehicles)
 
         for vehicle in self.active_vehicles:
             if vehicle.state == VehicleState.EXITED:
@@ -331,6 +331,7 @@ class VehiclePool:
                 continue
 
             self._attempt_lane_change(vehicle, current_time, engine)
+            proximity.move(vehicle)
 
             # Leader detection with all safety layers
             leader, gap = find_leader(
@@ -339,6 +340,7 @@ class VehiclePool:
                 self.active_vehicles,
                 conflict_manager=conflict_manager,
                 current_time=current_time,
+                proximity=proximity,
             )
 
             # Fold in the predictive constraint, keeping whichever of the two
@@ -401,6 +403,7 @@ class VehiclePool:
 
             # Update kinematics
             vehicle.update_state(acc, dt)
+            proximity.move(vehicle)
 
             if vehicle.state == VehicleState.EXITED:  # type: ignore[comparison-overlap]
                 vehicle.exit_time = current_time

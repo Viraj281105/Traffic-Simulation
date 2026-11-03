@@ -1,7 +1,10 @@
 import random
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from src.vehicles.idm import IntelligentDriverModel
+
+if TYPE_CHECKING:
+    from src.vehicles.vehicle_types import VehicleTypeProfile
 
 
 class StochasticIDM(IntelligentDriverModel):
@@ -35,20 +38,25 @@ class StochasticIDM(IntelligentDriverModel):
             self._minimum_gap = self._minimum_gap * 1.5
             self._desired_time_headway = self._desired_time_headway * 1.5
 
-        # Nudge forward: occasionally inch forward if stopped to break deadlocks
-        if speed < 0.1 and gap is not None and gap < 5.0:
-            if self.rng.random() < 0.05:
-                return self._max_acceleration * 0.4
+        # The scaled gap and headway apply to this call only. They are
+        # restored however the call ends: the two early returns below used to
+        # skip the restore, so each one compounded the scaling into the shared
+        # model and the configured values drifted for the rest of the run
+        # (2.0 m / 1.5 s to 0.2 m / 0.3 s within 120 s).
+        try:
+            # Nudge forward: occasionally inch forward if stopped to break deadlocks
+            if speed < 0.1 and gap is not None and gap < 5.0:
+                if self.rng.random() < 0.05:
+                    return self._max_acceleration * 0.4
 
-        # Stochastic hesitation: occasionally hesitate when speed is very low
-        if speed < 2.0 and speed >= 0.1 and self.rng.random() < 0.005:
-            return -self._max_deceleration
+            # Stochastic hesitation: occasionally hesitate when speed is very low
+            if speed < 2.0 and speed >= 0.1 and self.rng.random() < 0.005:
+                return -self._max_deceleration
 
-        acc = super().calculate_acceleration(speed, desired_speed, lead_speed, gap)
-
-        # Restore gaps
-        self._minimum_gap = temp_min_gap
-        self._desired_time_headway = temp_time_headway
+            acc = super().calculate_acceleration(speed, desired_speed, lead_speed, gap)
+        finally:
+            self._minimum_gap = temp_min_gap
+            self._desired_time_headway = temp_time_headway
 
         # Add occasional random hard braking or abrupt acceleration (chaos factor)
         if self.rng.random() < 0.005:
@@ -59,3 +67,22 @@ class StochasticIDM(IntelligentDriverModel):
             acc += self.rng.uniform(-0.5, 0.5)
 
         return acc
+
+
+def stochastic_idm_for(
+    profile: "VehicleTypeProfile", rng: random.Random
+) -> StochasticIDM:
+    """The stochastic model with one vehicle class's own IDM parameters.
+
+    Under unstructuredTraffic every class drives with the same imperfections
+    (hesitation, variable reaction, blocking) around its own baseline, so a
+    bus stays a bus: longer headway, gentler acceleration (F-38).
+    """
+    return StochasticIDM(
+        max_acceleration=profile.max_acceleration,
+        comfort_deceleration=profile.comfort_deceleration,
+        desired_time_headway=profile.desired_time_headway,
+        minimum_gap=profile.minimum_gap,
+        idm_delta=profile.idm_delta,
+        rng=rng,
+    )

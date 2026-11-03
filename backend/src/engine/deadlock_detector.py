@@ -98,5 +98,14 @@ class DeadlockDetector:
                     )
                 logger.info(self.last_insight)
 
+    def reset(self) -> None:
+        """Forget the previous run: stopped times (keyed by vehicle ids that
+        a new run reuses), the deadlock flag and the insight that snapshots
+        report as ``deadlockInsight``."""
+        self.stopped_durations.clear()
+        self.active_deadlocks.clear()
+        self.last_insight = None
+        self.has_occurred = False
+
     def get_insight(self) -> Optional[str]:
         return self.last_insight

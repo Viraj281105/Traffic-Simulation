@@ -253,11 +253,16 @@ def find_leader(
     active_vehicles: Optional[List[Vehicle]] = None,
     conflict_manager: Any = None,
     current_time: float = 0.0,
+    proximity: Any = None,
 ) -> Tuple[Optional[Any], float]:
     """Find the effective leader (or virtual obstacle) for *vehicle*.
 
     Returns ``(leader_object, gap)`` where *gap* is bumper-to-bumper distance.
     If no obstacle is found the gap is ``float('inf')``.
+
+    ``proximity`` (a vehicles/proximity.ProximityGrid kept live by the pool)
+    narrows Layer 4 to the vehicles near enough to matter, in the same order;
+    without it Layer 4 scans every active vehicle. The result is identical.
     """
     if vehicle.lane is None or not vehicle.route:
         return None, float("inf")
@@ -525,7 +530,8 @@ def find_leader(
         if a_is_conn:
             idx_a = ring_index(vehicle.lane)
 
-        for other in active_vehicles:
+        others = active_vehicles if proximity is None else proximity.near(vehicle)
+        for other in others:
             if other is vehicle or other.lane is None:
                 continue
 
@@ -540,10 +546,10 @@ def find_leader(
                 # braking. Vehicles on DIFFERENT circulating lane indices
                 # (e.g. weaving between inner/outer rings near entries and
                 # exits) are NOT covered by Layer 1's same-lane-index
-                # restriction and are not handled by ConflictManager either
-                # (its straight-chord conflict points don't apply to curved
-                # circulating arcs — see engine/vehicle_pool.py) — let this
-                # Euclidean proximity scan catch those cross-lane conflicts.
+                # restriction and not by ConflictManager either (a roundabout
+                # runs without it, see engine/vehicle_pool.py); the
+                # predictive layer and the exit zones arbitrate them, and
+                # this Euclidean proximity scan is the last resort.
                 if a_is_conn and b_is_conn:
                     if idx_a is not None and idx_a == idx_b:
                         continue

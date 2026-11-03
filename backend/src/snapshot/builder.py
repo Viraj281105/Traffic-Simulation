@@ -226,6 +226,7 @@ class SnapshotBuilder:
             self.engine.pool.exited_vehicles,
             self.engine.spawner.spawned_count if self.engine.spawner else 0,
             self.engine.pool.collision_count,
+            self.engine.spawner.demand_accounting() if self.engine.spawner else None,
         )
 
         deadlock_detector = getattr(self.engine, "deadlock_detector", None)
