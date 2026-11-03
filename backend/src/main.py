@@ -27,6 +27,8 @@ from src.api.security import require_api_key
 from src.api.tokens_router import router as tokens_router
 from src.calibration import api as calibration_api
 from src.copilot.router import create_router as build_copilot_router
+from src.core.provenance import GIT_COMMIT_HASH
+from src.core.run_manifest import ENGINE_VERSION
 from src.database.db import init_db
 from src.discovery.router import create_router as build_discovery_router
 from src.experiments.router import create_router as build_experiments_router
@@ -34,6 +36,9 @@ from src.history import router as history_router
 from src.live import router as live_router
 from src.live.sessions import live_session_middleware
 from src.networks.api import router as networks_router
+from src.observability import router as observability_router
+from src.observability.logging_setup import configure_logging
+from src.observability.middleware import ObservabilityMiddleware
 from src.planning.router import create_router as build_planning_router
 from src.replays import router as replays_router
 from src.simulations import router as simulations_router
@@ -42,19 +47,28 @@ from src.study import router as study_router
 from src.study.runner import shutdown_pool
 from src.suites import router as suites_router
 
-logging.basicConfig(level=logging.INFO)
+# Structured (LOG_FORMAT=json) or plain logs, with token redaction and the
+# request id on every line (src/observability/logging_setup.py).
+configure_logging()
 logger = logging.getLogger(__name__)
 
 
 @contextlib.asynccontextmanager
 async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    yield
-    # Stop the study worker processes (study/runner.py) with the server.
-    shutdown_pool()
+    logger.info(
+        "application started",
+        extra={"event": "startup", "git_commit": GIT_COMMIT_HASH},
+    )
+    try:
+        yield
+    finally:
+        # Stop the study worker processes (study/runner.py) with the server.
+        shutdown_pool()
+        logger.info("application stopped", extra={"event": "shutdown"})
 
 
 app = FastAPI(
-    title="Traffic Simulation Framework API", version="1.0.0", lifespan=_lifespan
+    title="Traffic Simulation Framework API", version=ENGINE_VERSION, lifespan=_lifespan
 )
 
 # Middleware runs outermost-last-added: the live-session middleware sees each
@@ -70,6 +84,9 @@ app.add_middleware(
 app.add_middleware(BodySizeLimitMiddleware)
 # Resolves each /api/simulation/* request's live session (src/live/sessions.py).
 app.middleware("http")(live_session_middleware)
+# Outermost: request id, request metrics and the request log line, around
+# everything else (src/observability/middleware.py).
+app.add_middleware(ObservabilityMiddleware, routes=app.router.routes)
 
 app.exception_handler(HTTPException)(http_exception_handler)
 
@@ -144,11 +161,13 @@ app.include_router(history_router.router)
 try:
     init_db()
     logger.info("Database initialized successfully.")
-except Exception as e:
-    logger.error(f"Failed to initialize database: {e}")
+except Exception:
+    logger.exception("Failed to initialize database", extra={"event": "db_init_failed"})
 
 # /health, /api/version, /api/me, /api/users (src/api/meta.py).
 app.include_router(meta.router)
+# /metrics: Prometheus text, token-protected (src/observability/router.py).
+app.include_router(observability_router.router)
 # /api/simulation/* and /ws/simulation/*: the live dashboard (src/live/router.py).
 app.include_router(live_router.router)
 # /api/v1/simulations, /api/simulation/new, /ws/v1/stream and config/scenario

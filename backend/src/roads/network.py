@@ -868,6 +868,17 @@ class RoadNetwork:
         incoming_approach = self.get_incoming_approach(origin_direction)
         incoming_lane = incoming_approach.get_lanes()[lane_index]
 
+        # validate_scenario refuses turning shares into a missing arm; a
+        # caller that compiled a document without it got a bare KeyError from
+        # deep inside the connection-lane builder instead (F-39).
+        exit_direction = self._resolve_target_direction(origin_direction, turn_intent)
+        if exit_direction not in self._outgoing:
+            raise ValueError(
+                f"No {turn_intent.value} route from the {origin_direction.value} "
+                f"arm: this junction has no {exit_direction.value} arm. "
+                "validate_scenario rejects turning shares into a missing arm."
+            )
+
         connection_lane = self._get_or_create_connection_lane(
             origin_direction, lane_index, turn_intent
         )

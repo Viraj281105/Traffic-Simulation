@@ -45,6 +45,7 @@ htmlcov/
 .cache
 nosetests.xml
 coverage.xml
+coverage.json
 *.cover
 *.py.cover
 .hypothesis/
@@ -281,3 +282,4 @@ study_report.json
 # ================================
 .venv/
 venv/
+frontend/coverage/

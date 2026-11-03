@@ -14,9 +14,32 @@ export class ApiError extends Error {
   }
 }
 
+/** The API did not answer in time; the request was abandoned. */
+export class ApiTimeoutError extends Error {
+  readonly timeoutMs: number;
+  constructor(path: string, timeoutMs: number) {
+    super(
+      `No response from ${path} within ${String(Math.round(timeoutMs / 1000))} s`,
+    );
+    this.name = "ApiTimeoutError";
+    this.timeoutMs = timeoutMs;
+  }
+}
+
+/** How long a request may wait for its response before it is abandoned
+ *  (F-28: a stalled backend used to leave the page waiting forever). Long
+ *  work runs as study jobs (202, then polled), so every ordinary call
+ *  answers well within this; a call that computes synchronously passes
+ *  `timeoutMs: null`. */
+export const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
+
 import { getAuthToken } from "../auth/cognito";
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(
+  path: string,
+  init?: RequestInit,
+  timeoutMs: number | null = DEFAULT_REQUEST_TIMEOUT_MS,
+): Promise<T> {
   // Live/comparison calls must land in the same backend session as the
   // stream (see liveSession.ts).
   if (path.startsWith("/api/simulation")) await ensureLiveSession();
@@ -28,27 +51,62 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(`${BASE}${path}`, {
-    ...init,
-    headers,
-  });
+  // The caller's own signal still cancels; the timeout adds a second reason.
+  const controller = new AbortController();
+  const outer = init?.signal;
+  const onOuterAbort = () => {
+    controller.abort(outer?.reason);
+  };
+  if (outer?.aborted) onOuterAbort();
+  else outer?.addEventListener("abort", onOuterAbort, { once: true });
+  const timedOut = new Error("timeout");
+  const timer =
+    timeoutMs === null
+      ? undefined
+      : setTimeout(() => {
+          controller.abort(timedOut);
+        }, timeoutMs);
 
-  if (!response.ok) {
-    throw new ApiError(response.status, response.statusText);
+  try {
+    const response = await fetch(`${BASE}${path}`, {
+      ...init,
+      headers,
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new ApiError(response.status, response.statusText);
+    }
+    return (await response.json()) as T;
+  } catch (err) {
+    if (timeoutMs !== null && controller.signal.reason === timedOut)
+      throw new ApiTimeoutError(path, timeoutMs);
+    throw err;
+  } finally {
+    clearTimeout(timer);
+    outer?.removeEventListener("abort", onOuterAbort);
   }
-  return response.json() as Promise<T>;
 }
 
-export async function post<T>(path: string, body?: unknown): Promise<T> {
-  return request<T>(path, {
-    method: "POST",
-    ...(body === undefined
-      ? {}
-      : {
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        }),
-  });
+export async function post<T>(
+  path: string,
+  body?: unknown,
+  options: { timeoutMs?: number | null } = {},
+): Promise<T> {
+  return request<T>(
+    path,
+    {
+      method: "POST",
+      ...(body === undefined
+        ? {}
+        : {
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          }),
+    },
+    options.timeoutMs === undefined
+      ? DEFAULT_REQUEST_TIMEOUT_MS
+      : options.timeoutMs,
+  );
 }
 
 export async function get<T>(path: string): Promise<T> {
@@ -277,7 +335,8 @@ export interface ReproductionResult {
 }
 
 export async function reproduceRun(runId: string): Promise<ReproductionResult> {
-  return post(`${runUrl(runId)}/reproduce`);
+  // Re-runs the whole simulation before answering: no client timeout.
+  return post(`${runUrl(runId)}/reproduce`, undefined, { timeoutMs: null });
 }
 
 /** Download URL of a run export (served as an attachment). */

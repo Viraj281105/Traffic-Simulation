@@ -90,6 +90,36 @@
           "type": "boolean",
           "default": false
         },
+        "entryQueue": {
+          "type": "object",
+          "description": "How an approach handles arrivals while its entry is full. Omitted or enabled=false: one arrival waits and that approach's arrivals are suspended until it enters (the default model). enabled=true: arrivals keep coming and wait in a first-in-first-out point queue outside the network, entering as space allows; beyond capacity (per approach) they are rejected and counted. See metric contract 7.10a.",
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "capacity": { "type": ["integer", "null"], "minimum": 1, "maximum": 5000 }
+          },
+          "additionalProperties": false
+        },
+        "driverHeterogeneity": {
+          "type": "object",
+          "description": "Opt-in persistent per-driver multipliers on desired time headway, maximum acceleration and comfortable deceleration, uniform on [1 - spread, 1 + spread] (ADR-020). Off unless enabled=true with a non-zero spread. Assumed ranges, not calibrated.",
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "headwaySpread": { "type": "number", "minimum": 0, "maximum": 0.5 },
+            "accelerationSpread": { "type": "number", "minimum": 0, "maximum": 0.5 },
+            "decelerationSpread": { "type": "number", "minimum": 0, "maximum": 0.5 }
+          },
+          "additionalProperties": false
+        },
+        "demandVariability": {
+          "type": "object",
+          "description": "Opt-in seeded multiplier on arrivalRate, uniform on [1 - spread, 1 + spread], one per run or per intervalSeconds block (ADR-020). Off unless enabled=true with a non-zero spread. Assumed ranges, not calibrated.",
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "spread": { "type": "number", "minimum": 0, "maximum": 0.8 },
+            "intervalSeconds": { "type": ["number", "null"], "minimum": 30, "maximum": 3600 }
+          },
+          "additionalProperties": false
+        },
         "driverAggression": {
           "type": "string",
           "enum": ["standard", "moderate", "high"],

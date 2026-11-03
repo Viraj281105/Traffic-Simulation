@@ -24,7 +24,12 @@ from src.database.dao import SweepSessionDAO
 from src.database.db import ensure_db_initialized, get_db_connection
 from src.live.dashboard_config import compile_dashboard_config
 from src.scenario.config_validation import semantic_config_errors
-from src.scenario.documents import STRATEGIES, parse_scenario, validate_scenario
+from src.scenario.documents import (
+    STRATEGIES,
+    EntryQueueSpec,
+    parse_scenario,
+    validate_scenario,
+)
 from src.study.control_comparison import (
     run_control_comparison,
     run_scenario_comparison,
@@ -40,11 +45,13 @@ from src.study.limits import (
     StudyArrivalRate,
     check_study_time_step,
 )
+from src.study.multiseed import run_multi_seed
 from src.study.report_generator import (
     generate_study_report_csv,
     generate_study_report_json,
 )
 from src.study.runner import Progress
+from src.study.seeds import MAX_SEED
 from src.study.validation import (
     SUPPORTED_CONFIDENCE_LEVELS,
     run_invariant_checks,
@@ -81,6 +88,10 @@ class MonteCarloValidationRequest(BaseModel):
         default=30.0, ge=MIN_STUDY_DURATION_SECONDS, le=MAX_STUDY_DURATION_SECONDS
     )
     customConfig: Dict[str, Any] | None = None
+    # Base seed the repetitions' seeds are derived from (study/seeds.py). The
+    # same value repeats the study exactly; omitted, one is drawn and returned
+    # as ``baseSeed``.
+    seed: int | None = Field(default=None, ge=0, le=MAX_SEED)
     # The dashboard's own scenario payload (the body of /api/simulation/config).
     # When given, the study repeats exactly that scenario — same geometry,
     # demand, timings, warm-up and duration — over fresh seeds, so a
@@ -96,6 +107,28 @@ class MonteCarloValidationRequest(BaseModel):
             raise ValueError(
                 f"confidenceLevel must be one of {list(SUPPORTED_CONFIDENCE_LEVELS)}"
             )
+        if self.scenario is not None and self.customConfig is not None:
+            raise ValueError("Send either scenario or customConfig, not both")
+        return self
+
+
+class MultiSeedRequest(BaseModel):
+    """One scenario on one geometry over N seeds derived from a base seed."""
+
+    geometry: Literal["signal", "roundabout"] = "signal"
+    numSeeds: int = Field(default=5, ge=1, le=MAX_MONTE_CARLO_SEEDS)
+    duration: float = Field(
+        default=30.0, ge=MIN_STUDY_DURATION_SECONDS, le=MAX_STUDY_DURATION_SECONDS
+    )
+    seed: int | None = Field(default=None, ge=0, le=MAX_SEED)
+    customConfig: Dict[str, Any] | None = None
+    # As for Monte Carlo: the dashboard's scenario payload; its own duration
+    # applies and ``duration`` / ``customConfig`` are not used with it.
+    scenario: Dict[str, Any] | None = None
+
+    @model_validator(mode="after")
+    def _valid(self) -> "MultiSeedRequest":
+        check_study_time_step(self.customConfig)
         if self.scenario is not None and self.customConfig is not None:
             raise ValueError("Send either scenario or customConfig, not both")
         return self
@@ -124,6 +157,9 @@ class ControlComparisonRequest(BaseModel):
     # controller.adaptive settings for the adaptive side; defaults if omitted.
     adaptive: Dict[str, Any] | None = None
     vehicleMix: Dict[str, float] | None = None
+    # The entry model (traffic.entryQueue); omitted keeps the default. With a
+    # scenario, set it in the scenario's traffic block instead.
+    entryQueue: EntryQueueSpec | None = None
     confidenceLevel: float = Field(default=0.95)
     # V1.4: study a scenario document instead of the built-in junction. Its
     # own approaches, lanes, traffic, vehicles, duration and seed are used;
@@ -145,7 +181,14 @@ class ControlComparisonRequest(BaseModel):
         if self.scenario is not None:
             built_in = sorted(
                 key
-                for key in ("lanes", "levels", "duration", "adaptive", "vehicleMix")
+                for key in (
+                    "lanes",
+                    "levels",
+                    "duration",
+                    "adaptive",
+                    "vehicleMix",
+                    "entryQueue",
+                )
                 if key in self.model_fields_set
             )
             if built_in:
@@ -311,6 +354,47 @@ def start_monte_carlo_job(
     )
 
 
+@router.post(
+    "/api/v1/study/multi-seed",
+    dependencies=[Depends(require_api_key), Depends(compute_slot)],
+)
+def run_multi_seed_endpoint(payload: MultiSeedRequest | None = None) -> Dict[str, Any]:
+    """One scenario on one geometry over N derived seeds, run synchronously."""
+    return _run_multi_seed(payload or MultiSeedRequest())
+
+
+@router.post(
+    "/api/v1/study/multi-seed/jobs",
+    status_code=202,
+    dependencies=[Depends(require_api_key)],
+)
+def start_multi_seed_job(payload: MultiSeedRequest | None = None) -> Dict[str, Any]:
+    req = payload or MultiSeedRequest()
+    return start_job("multi-seed", lambda progress: _run_multi_seed(req, progress))
+
+
+def _run_multi_seed(
+    req: MultiSeedRequest, progress: Optional[Progress] = None
+) -> Dict[str, Any]:
+    config = req.customConfig
+    duration = req.duration
+    if req.scenario is not None:
+        # Compiled as the Monte Carlo study compiles it; the seed placeholder
+        # is replaced by each repetition's own.
+        config = compile_dashboard_config(
+            {**req.scenario, "intersectionType": "fixed_time_signal"}, seed_val=0
+        )
+        duration = float(config["simulation"]["duration"])
+    return run_multi_seed(
+        config=config,
+        geometry=req.geometry,
+        num_seeds=req.numSeeds,
+        duration=duration,
+        base_seed=req.seed,
+        progress=progress,
+    )
+
+
 def _run_monte_carlo(req: MonteCarloValidationRequest, **extra: Any) -> Dict[str, Any]:
     if req.scenario is not None:
         # Compiled as the comparison view compiles it: the signal side's
@@ -325,6 +409,7 @@ def _run_monte_carlo(req: MonteCarloValidationRequest, **extra: Any) -> Dict[str
             num_seeds=req.numSeeds,
             duration=float(config["simulation"]["duration"]),
             confidence_level=req.confidenceLevel,
+            base_seed=req.seed,
             **extra,
         )
     return run_statistical_validation(
@@ -332,6 +417,7 @@ def _run_monte_carlo(req: MonteCarloValidationRequest, **extra: Any) -> Dict[str
         num_seeds=req.numSeeds,
         duration=req.duration,
         confidence_level=req.confidenceLevel,
+        base_seed=req.seed,
         **extra,
     )
 
@@ -362,6 +448,7 @@ def _run_control_comparison(
         vehicle_mix=req.vehicleMix,
         confidence_level=req.confidenceLevel,
         progress=progress,
+        entry_queue=req.entryQueue.model_dump() if req.entryQueue else None,
     )
 
 

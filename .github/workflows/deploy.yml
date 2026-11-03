@@ -29,6 +29,10 @@ concurrency:
   group: production-ec2-deployment
   cancel-in-progress: false
 
+# Checkout only; the deployment authenticates to EC2 with its own SSH key.
+permissions:
+  contents: read
+
 jobs:
   deploy-to-ec2:
     name: Deploy to AWS EC2
@@ -69,6 +73,11 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_PORT: ${{ secrets.EC2_SSH_PORT || '22' }}
+          # The instance's host key line(s), in known_hosts format, obtained
+          # over a trusted channel (see docs/deployment/production-cicd-setup.md, F-16).
+          EC2_KNOWN_HOSTS: ${{ secrets.EC2_KNOWN_HOSTS }}
+          # Explicit, logged opt-out for a host whose key is not pinned yet.
+          ALLOW_UNPINNED_HOST_KEY: ${{ vars.ALLOW_UNPINNED_EC2_HOST_KEY || 'false' }}
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
@@ -77,10 +86,32 @@ jobs:
           echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/ec2_deploy_key
           chmod 600 ~/.ssh/ec2_deploy_key
 
-          # Fetch and register EC2 host public key to avoid interactive prompt
-          echo "Scanning host keys for $EC2_HOST:$EC2_PORT..."
-          ssh-keyscan -p "$EC2_PORT" -H "$EC2_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          # Host-key verification contract (F-16): every ssh/scp below
+          # connects only to a host whose key is in known_hosts, and a key
+          # that differs is refused (StrictHostKeyChecking yes). The key is
+          # pinned from the EC2_KNOWN_HOSTS secret; scanning the host at
+          # deploy time would trust whatever answers, so it is allowed only
+          # when the repository variable ALLOW_UNPINNED_EC2_HOST_KEY is
+          # "true", and then annotated as a warning on the run.
+          if [ "$EC2_PORT" = "22" ]; then HOST_ENTRY="$EC2_HOST"; else HOST_ENTRY="[$EC2_HOST]:$EC2_PORT"; fi
+          if [ -n "$EC2_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$EC2_KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
+            if ! ssh-keygen -F "$HOST_ENTRY" -f ~/.ssh/known_hosts > /dev/null; then
+              echo "::error::EC2_KNOWN_HOSTS has no entry for ${HOST_ENTRY}."
+              exit 1
+            fi
+            echo "Host key pinned from EC2_KNOWN_HOSTS."
+          elif [ "$ALLOW_UNPINNED_HOST_KEY" = "true" ]; then
+            echo "::warning::EC2_KNOWN_HOSTS is not set; trusting the host key presented now (ALLOW_UNPINNED_EC2_HOST_KEY=true). A network attacker could impersonate the instance. Pin the key and remove the variable."
+            ssh-keyscan -p "$EC2_PORT" -H "$EC2_HOST" > ~/.ssh/known_hosts 2>/dev/null
+            ssh-keygen -l -f ~/.ssh/known_hosts
+          else
+            echo "::error::Missing required GitHub Actions Secret: EC2_KNOWN_HOSTS (the instance's SSH host key). See docs/deployment/production-cicd-setup.md."
+            exit 1
+          fi
           chmod 644 ~/.ssh/known_hosts
+          printf 'Host *\n  StrictHostKeyChecking yes\n  UserKnownHostsFile ~/.ssh/known_hosts\n' > ~/.ssh/config
+          chmod 600 ~/.ssh/config
 
       - name: Verify SSH Connectivity
         shell: bash

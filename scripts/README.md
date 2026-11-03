@@ -1,6 +1,6 @@
 # Automation & Development Scripts
 
-This directory contains the headless study runner, schema validation, Cognito provisioning and optional GitHub project-management utilities. None are required to run the API or frontend.
+This directory holds study runners, evidence generators, deployment and provisioning tools, schema validation and engineering tooling. None are required to run the API or frontend. Python scripts that import the engine add `backend/` to `sys.path` themselves; run them from the repository root with the backend virtual environment.
 
 ---
 
@@ -8,16 +8,29 @@ This directory contains the headless study runner, schema validation, Cognito pr
 
 ```
 scripts/
-├── assign_issues.py              # Automation to assign GitHub Issues to developers
-├── push_everything_to_github.py # Git orchestration helper to sync commits/branches
-├── run_full_study.py             # Headless validated study: volume sweep + Monte Carlo → CSV/JSON report
-├── setup_cognito.py              # One-off Cognito user-pool provisioning (needs boto3 + AWS credentials)
-├── set_milestone_deadlines.py    # GitHub Milestone timeline configuration runner
-├── setup_github.py               # Creates GitHub labels, milestones, and issues
-├── validate-schemas.sh           # Bash wrapper for CI/CD schema validation
-├── validate_schemas.py           # Validates top-level shared schema files for JSON syntax and $schema presence
-└── README.md                     # This documentation file
+├── run_full_study.py                   # Headless validated study: volume sweep + Monte Carlo → CSV/JSON report
+├── v2_demo.py                          # End-to-end V2.0 demo against a running backend
+├── v3_demo.py                          # V3.0 Robustness Lab demo; --offline verifies a saved pack
+├── build_fallback_pack.py              # Preview fallback pack (planning studies + checksums); --verify checks one
+├── w2_baseline_study.py                # V3.0 W2 metered-roundabout baseline study → docs/research/examples/
+├── w2_safety_matrix.py                 # V3.0 W2 signalised-roundabout safety matrix evidence
+├── benchmark_signalised_roundabout.py  # Runtime/memory of metered vs conventional roundabout
+├── roundabout_lane_experiment.py       # Third-lane capacity experiment (V2.0 release gate)
+├── sampler_condition_table.py          # Prints the Robustness Lab's sampled conditions (no simulation)
+├── record_landing_scene.py             # Records engine runs for the landing page (frontend/src/landing/data/)
+├── export_strategy_schema.py           # Regenerates shared/schemas/v3/strategy-descriptor.schema.json
+├── validate_schemas.py                 # Checks the hand-written shared/schemas/*.json (CI)
+├── validate-schemas.sh                 # Shell wrapper for validate_schemas.py
+├── setup_cognito.py                    # One-off Cognito user-pool provisioning (needs boto3 + AWS credentials)
+├── deploy-ec2.sh                       # Runs on EC2: fetch, build and restart the stack (deploy.yml)
+├── run-remote-deploy.sh                # Runs in CI: launches deploy-ec2.sh detached over SSH and polls it
+├── landing_perf.mjs                    # Landing-page performance probe (docs/engineering/PERFORMANCE_BASELINE.md)
+├── check_bundle_budgets.mjs            # Production bundle-size budgets (CI; docs/engineering/PERFORMANCE_BUDGETS.md)
+├── repo_inventory.py                   # Generates/checks docs/engineering/REPOSITORY_INVENTORY.md
+└── README.md                           # This file
 ```
+
+The repository root's `src/__init__.py` extends the `src` package to `backend/src`, so scripts run from the root can `import src....`.
 
 ---
 
@@ -59,7 +72,7 @@ Checks that top-level JSON Schema files in `shared/schemas/*.json` (`config.sche
 
 #### CI/CD Entry Point: [`validate-schemas.sh`](./validate-schemas.sh)
 
-A Unix shell wrapper that checks if Python is available, installs temporary dependencies, and runs `validate_schemas.py`. Excellent for pre-commit hooks and GitHub Actions workflows.
+A Unix shell wrapper that finds `python3` or `python` and runs `validate_schemas.py`; it installs nothing.
 
 - **Execution**:
   ```bash
@@ -69,53 +82,8 @@ A Unix shell wrapper that checks if Python is available, installs temporary depe
 
 ---
 
-### 2. GitHub Project Automation
-
-Automates project management overhead using the GitHub REST API.
-
-#### Repository Bootstrap: [`setup_github.py`](./setup_github.py)
-
-Creates the repository's configured GitHub labels, milestones, and issue definitions. Review the script before running it because it makes remote changes.
-
-- **Requirements**: `requests`
-- **Environment Setup**:
-  Requires a GitHub Personal Access Token (PAT) with repository scopes:
-  ```bash
-  set GITHUB_TOKEN=your_token_here
-  set GITHUB_REPO=your_username/your_repo_name
-  ```
-- **Execution**:
-  ```bash
-  python scripts/setup_github.py
-  ```
-
-#### Issue Assigner: [`assign_issues.py`](./assign_issues.py)
-
-Assigns configured GitHub issues to the users defined by the script.
-
-- **Execution**:
-  ```bash
-  python scripts/assign_issues.py
-  ```
-
-#### Milestone Deadlines: [`set_milestone_deadlines.py`](./set_milestone_deadlines.py)
-
-Configures start and target dates for project milestones on GitHub.
-
-- **Execution**:
-  ```bash
-  python scripts/set_milestone_deadlines.py
-  ```
-
 ---
 
-### 3. Remote Git Sync Automation
+### 2. GitHub Project Automation
 
-#### Orchestrator: [`push_everything_to_github.py`](./push_everything_to_github.py)
-
-A powerful wrapper that automates checking for local files, staging files, creating structured commits complying with conventional guidelines, creating local staging branches, resolving remote conflicts, and pushing everything cleanly to the upstream GitHub remote.
-
-- **Execution**:
-  ```bash
-  python scripts/push_everything_to_github.py
-  ```
+Removed in the 2026-10-29 refactor: `setup_github.py`, `assign_issues.py` and `set_milestone_deadlines.py` created the V1 issues from `docs/issues/`, which was deleted in `d17cf2d`; they are in git history if needed.

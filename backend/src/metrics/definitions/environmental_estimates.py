@@ -16,7 +16,8 @@ instantaneous speed (v, m/s) and positive acceleration (a, m/s^2):
 
 where:
     a0 = 0.00060   -- baseline idle consumption (~2.16 L/hour)
-    a1 = 0.000045  -- speed-dependent term (~12 L/100 km at 60 km/h cruise)
+    a1 = 0.000045  -- speed-dependent term (~4.5 L/100 km of the ~8.1 L/100 km
+                      total at a 60 km/h cruise)
     a2 = 0.00025   -- acceleration penalty (extra fuel for positive accel)
 
 Deceleration (a < 0) is assumed to incur only the idle rate (engine braking /
@@ -56,10 +57,10 @@ from __future__ import annotations
 # 0.00060 L/s ≈ 2.16 L/hour, a typical petrol idle figure.
 _IDLE_FUEL_RATE: float = 0.00060
 
-# Speed coefficient (L/s per m/s). Tuned so that at 60 km/h (16.67 m/s)
-# the speed term alone gives ~0.75 L/s * 3600 = 2.70 L/h, totalling
-# ~0.45 + 2.70 + 0 = 3.15 L/h at steady cruise, within the ~8-12 L/100 km
-# (3-4.5 L/h at 60 km/h) ballpark for a compact petrol car.
+# Speed coefficient (L/s per m/s). At 60 km/h (16.67 m/s) the speed term
+# alone gives 0.00075 L/s * 3600 = 2.70 L/h; with the 2.16 L/h idle term that
+# is 4.86 L/h at steady cruise, about 8.1 L/100 km: inside the ~8-12 L/100 km
+# (4.8-7.2 L/h at 60 km/h) ballpark for a compact petrol car.
 _SPEED_COEFF: float = 0.000045
 
 # Acceleration penalty (L/s per m/s^2). Only applied for positive

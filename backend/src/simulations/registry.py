@@ -22,6 +22,7 @@ from src.database.db import get_db_connection
 from src.engine.simulation_engine import SimulationEngine
 from src.engine.tick_callback import build_tick_callback
 from src.metrics.collector import MetricCollector
+from src.observability.metrics import SIMULATIONS_FINISHED
 from src.snapshot.buffer import SnapshotBuffer
 from src.snapshot.builder import SnapshotBuilder
 from src.strategies.resolution import (
@@ -79,6 +80,7 @@ def persist_completed_run(
                 engine.pool.exited_vehicles,
                 engine.spawner.spawned_count if engine.spawner else 0,
                 engine.pool.collision_count,
+                engine.spawner.demand_accounting() if engine.spawner else None,
             )
         except Exception:
             logger.exception(
@@ -105,6 +107,8 @@ def persist_completed_run(
                     time_step=engine.clock.time_step,
                     duration=engine.duration,
                     warmup_time=collector.warmup_time,
+                    config=config,
+                    seed=seed,
                 ),
             )
     except Exception:
@@ -182,6 +186,16 @@ def register_simulation(config: Dict[str, Any]) -> Dict[str, Any]:
                 if has_persisted:
                     return
                 has_persisted = True
+            outcome = new_status.value.lower()
+            SIMULATIONS_FINISHED.inc(outcome)
+            logger.log(
+                logging.INFO
+                if new_status == SimulationStatus.COMPLETED
+                else logging.WARNING,
+                "simulation %s",
+                outcome,
+                extra={"event": f"simulation_{outcome}", "sim_id": sim_id},
+            )
             try:
                 persist_completed_run(
                     sim_id,

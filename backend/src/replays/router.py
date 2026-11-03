@@ -76,6 +76,8 @@ def save_replay(
             time_step=captured["timeStep"],
             duration=duration,
             warmup_time=captured["warmupTime"],
+            config=run_config,
+            seed=seed,
         )
     else:
         # No engine to read from: keep the client's summary, as before, and
@@ -90,6 +92,8 @@ def save_replay(
             time_step=client_sim.get("timeStep"),
             duration=client_sim.get("duration"),
             warmup_time=client_sim.get("warmupTime"),
+            config=run_config,
+            seed=seed,
         )
     itype = (
         "comparative"

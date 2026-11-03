@@ -1,0 +1,2715 @@
+{
+  "cases": [
+    {
+      "config": {
+        "controller": {
+          "allRedDuration": 2.0,
+          "phaseSequence": [
+            "ns_green",
+            "ns_yellow",
+            "all_red",
+            "ew_green",
+            "ew_yellow",
+            "all_red"
+          ],
+          "straightRightDuration": 30.0,
+          "yellowDuration": 4.0
+        },
+        "geometry": {
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "fixed_time_signal"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 1,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 1,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "1689e5bd52561c84",
+          "format": "urbanflow-scenario",
+          "name": "fixed-1lane-4arm-low",
+          "strategy": "fixed_time",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 90.0,
+          "randomSeed": 11,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.16666666666666666,
+          "directionalSplit": {
+            "east": 0.25,
+            "north": 0.25,
+            "south": 0.25,
+            "west": 0.25
+          },
+          "totalVehicles": 200,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {}
+      },
+      "exact": {
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "a60ba74468e0a94327421136adbc9549179d4997c55ec15adbb5b35d3569b0fe",
+          "snapshots": "553d86b1b2c84b8d7e7f58267e92b1d8f951e92a8180ecce36cb8de6c4f5d58e",
+          "trajectory": "29715cdee75baa61590cf3da813f0b7c2dd1cec606b3b50e92fb8a81491e2154"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 8,
+        "metrics": "c2764d54e1215ef75b18d93b497649e80f0cf888aa712f89ce542ca66278ef7b",
+        "snapshots": "a6bf5565358e939d349971f03337948d27eefbcd83e79f6444600fe0efb8989d",
+        "ticks": 900,
+        "trajectory": "a17699d9bbaa072db6fcb99ad9b2bbbe80d477969477409e29beb59fa0bfd2fe"
+      },
+      "fast": true,
+      "id": "fixed-1lane-4arm-low",
+      "path": "direct",
+      "strategy": "fixed_time"
+    },
+    {
+      "config": {
+        "controller": {
+          "allRedDuration": 2.0,
+          "phaseSequence": [
+            "ns_green",
+            "ns_yellow",
+            "all_red",
+            "ew_green",
+            "ew_yellow",
+            "all_red"
+          ],
+          "straightRightDuration": 30.0,
+          "yellowDuration": 4.0
+        },
+        "geometry": {
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "fixed_time_signal"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 1,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 1,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "96e72680aaedab8b",
+          "format": "urbanflow-scenario",
+          "name": "fixed-1lane-4arm-medium",
+          "strategy": "fixed_time",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 90.0,
+          "randomSeed": 12,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.3888888888888889,
+          "directionalSplit": {
+            "east": 0.25,
+            "north": 0.25,
+            "south": 0.25,
+            "west": 0.25
+          },
+          "totalVehicles": 200,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {}
+      },
+      "exact": {
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "5f7446b812c77118468a37ee45f7261f95a4312170056bf65ea4604a48195868",
+          "snapshots": "84c0bff97e8a86a89b4440b3ef88f1be02b663ffd14c04142c9b660b0b892abf",
+          "trajectory": "a9807f901eeabac25f7eebcee0252281d90e42520fa35a65ec4b4c9bf5a55500"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 8,
+        "metrics": "e36494347a817562298f61409dfc23e11e21ad2008a1e3c74cfcfe5c1e856a0c",
+        "snapshots": "de7de3a218274ebab049c65afacb2dfff31f6d47b73fbbd27698c8b19dbd1149",
+        "ticks": 900,
+        "trajectory": "1421a742f721fe06321ab6a5efb3d3831e71abf08e72a10b6861458c28ab76ec"
+      },
+      "fast": true,
+      "id": "fixed-1lane-4arm-medium",
+      "path": "direct",
+      "strategy": "fixed_time"
+    },
+    {
+      "config": {
+        "controller": {
+          "allRedDuration": 2.0,
+          "phaseSequence": [
+            "ns_green",
+            "ns_yellow",
+            "all_red",
+            "ew_green",
+            "ew_yellow",
+            "all_red"
+          ],
+          "straightRightDuration": 30.0,
+          "yellowDuration": 4.0
+        },
+        "geometry": {
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "fixed_time_signal"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 2,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 2,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "8ca941e49bc17d39",
+          "format": "urbanflow-scenario",
+          "name": "fixed-2lane-4arm-medium",
+          "strategy": "fixed_time",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 90.0,
+          "randomSeed": 13,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.5555555555555556,
+          "directionalSplit": {
+            "east": 0.25,
+            "north": 0.25,
+            "south": 0.25,
+            "west": 0.25
+          },
+          "totalVehicles": 200,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {}
+      },
+      "exact": {
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "dafecf91e14e780a2df80cab53f1c83eff77ceaac7e685c2d99e6c03de3577c5",
+          "snapshots": "e06c52fbeda86a599bd1f459a144348609aae5d1247ff6343fd0751439e85033",
+          "trajectory": "a1b879a4d6f03216ca75acf44fd54b038bb76f051d6b4c72e3a831fc732168df"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 24,
+        "metrics": "b7cd271c93e5ffadc70f3cd00f83451a301d2a2cd5b7ec01d78ed7128320960b",
+        "snapshots": "d47c5217e47c140750ad4158217da894cf7e6cf13994f86669cd22310f5a7f94",
+        "ticks": 900,
+        "trajectory": "00d068f42fc947ede2bda7cbaa7e1136746baa7d17bd674448c45f89366ded13"
+      },
+      "fast": true,
+      "id": "fixed-2lane-4arm-medium",
+      "path": "direct",
+      "strategy": "fixed_time"
+    },
+    {
+      "config": {
+        "controller": {
+          "allRedDuration": 2.0,
+          "phaseSequence": [
+            "ns_green",
+            "ns_yellow",
+            "all_red",
+            "ew_green",
+            "ew_yellow",
+            "all_red"
+          ],
+          "straightRightDuration": 30.0,
+          "yellowDuration": 4.0
+        },
+        "geometry": {
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "fixed_time_signal"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 2,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 2,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "c9cf947f3544d4f4",
+          "format": "urbanflow-scenario",
+          "name": "fixed-2lane-4arm-urban-mix",
+          "strategy": "fixed_time",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 90.0,
+          "randomSeed": 14,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.5555555555555556,
+          "directionalSplit": {
+            "east": 0.25,
+            "north": 0.25,
+            "south": 0.25,
+            "west": 0.25
+          },
+          "totalVehicles": 200,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {
+          "vehicleMix": {
+            "bus": 0.05,
+            "car": 0.7,
+            "motorcycle": 0.05,
+            "suv": 0.15,
+            "truck": 0.05
+          }
+        }
+      },
+      "exact": {
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "78b0b40a5c003950b1af1675d683862ecce0404b74b322b6d364c55a924e747c",
+          "snapshots": "019be63779cdfeae2c706b6ccda8680c4f06329c173616f3f21632a39b65f0ef",
+          "trajectory": "81f8265a3dcfd4ce68d0a6e30a07b1f03fff9c6b2df083664114d9230ed06bf8"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 14,
+        "metrics": "28919ccfb41c707ad68776a2ad8d7be88a86e045699be63579e84b6c5c591a9c",
+        "snapshots": "606a6f5c09f740609df67646e2ef097328f3ea4a155115540aab3a83ae56e0c0",
+        "ticks": 900,
+        "trajectory": "fe62099db996f2c1eed6068c932da2e6867f5f2b5aa5075776583fd9a982f25f"
+      },
+      "fast": true,
+      "id": "fixed-2lane-4arm-urban-mix",
+      "path": "direct",
+      "strategy": "fixed_time"
+    },
+    {
+      "config": {
+        "controller": {
+          "allRedDuration": 2.0,
+          "phaseSequence": [
+            "ns_green",
+            "ns_yellow",
+            "all_red",
+            "ew_green",
+            "ew_yellow",
+            "all_red"
+          ],
+          "straightRightDuration": 30.0,
+          "yellowDuration": 4.0
+        },
+        "geometry": {
+          "arms": [
+            "north",
+            "south",
+            "east"
+          ],
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "fixed_time_signal"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 1,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 1,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "dc4ee95aef73fd5a",
+          "format": "urbanflow-scenario",
+          "name": "fixed-3arm-low",
+          "strategy": "fixed_time",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 90.0,
+          "randomSeed": 15,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.5,
+                "right": 0.0,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.0,
+                "right": 0.5,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.5,
+                "right": 0.5,
+                "straight": 0.0
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.125,
+          "directionalSplit": {
+            "east": 0.3333333333333333,
+            "north": 0.3333333333333333,
+            "south": 0.3333333333333333,
+            "west": 0.0
+          },
+          "totalVehicles": 200,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {}
+      },
+      "exact": {
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "83b448211526bce08633c00ae8c547bcf879271357db1e0273704c1cd84902bb",
+          "snapshots": "fc2aac91c240a4f7fdae973db2339a9ca7f57fcfee9528e3ba0655dcd65fdfbe",
+          "trajectory": "fce1477a8a1a8428425b8b000b9c0cc0d6d3af2edbececff590b63e1019bb11a"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 7,
+        "metrics": "75b14e03466d57a77acf152ad5a05daa3ea6d1f3e7bf63824d4990e3392cc71c",
+        "snapshots": "ff19da376acadf919d81b58b738764ac9e85dcdbf644ecf09092d3d7d12c7426",
+        "ticks": 900,
+        "trajectory": "57f8a886a4bc5090c1a56d086962698a98e00fe9db193df8fb50b5f81fdfc084"
+      },
+      "fast": true,
+      "id": "fixed-3arm-low",
+      "path": "direct",
+      "strategy": "fixed_time"
+    },
+    {
+      "config": {
+        "controller": {
+          "allRedDuration": 2.0,
+          "ewGreenDuration": 20.0,
+          "nsGreenDuration": 40.0,
+          "phaseSequence": [
+            "ns_green",
+            "ns_yellow",
+            "all_red",
+            "ew_green",
+            "ew_yellow",
+            "all_red"
+          ],
+          "straightRightDuration": 30.0,
+          "yellowDuration": 3.0
+        },
+        "geometry": {
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "fixed_time_signal"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 1,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 1,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "ca709bc1f1d4f7c7",
+          "format": "urbanflow-scenario",
+          "name": "fixed-custom-timing-uneven",
+          "strategy": "fixed_time",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 90.0,
+          "randomSeed": 16,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.3611111111111111,
+          "directionalSplit": {
+            "east": 0.15384615384615385,
+            "north": 0.34615384615384615,
+            "south": 0.34615384615384615,
+            "west": 0.15384615384615385
+          },
+          "totalVehicles": 200,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {}
+      },
+      "exact": {
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "cff3b4e775680b7336b822b4cb9501f8bf7bd361b75f7c2757d58e48c69fa389",
+          "snapshots": "0e5935d38f78a7fb7c9bf1a2a664074b9455dcd498d318adb23c3452abd43c7b",
+          "trajectory": "23b0753a40def98df3bd688121665bbadb6cd7724006b4bf3ac024a84f238e36"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 10,
+        "metrics": "1ded3acdb218e880fcd6ae48805643273ee05abd7280e86d76d9e132fe0ff0d4",
+        "snapshots": "e46bc022cfddaaca4ecb9c6aa722e6712d6d0b863d9c37d3f81ae7249ddd5764",
+        "ticks": 900,
+        "trajectory": "3be50a5b0150dbc12d8baac59528fed2e0fc0a4f08f22145f1fd517136937446"
+      },
+      "fast": true,
+      "id": "fixed-custom-timing-uneven",
+      "path": "direct",
+      "strategy": "fixed_time"
+    },
+    {
+      "config": {
+        "controller": {
+          "adaptive": {
+            "demandThreshold": 1,
+            "detectionDistance": 30.0,
+            "extensionStep": 2.5,
+            "maxGreen": 50.0,
+            "minGreen": 10.0
+          },
+          "allRedDuration": 2.0,
+          "phaseSequence": [
+            "ns_green",
+            "ns_yellow",
+            "all_red",
+            "ew_green",
+            "ew_yellow",
+            "all_red"
+          ],
+          "signalControl": "adaptive",
+          "straightRightDuration": 30.0,
+          "yellowDuration": 4.0
+        },
+        "geometry": {
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "fixed_time_signal"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 1,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 1,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "354f6598f0f58864",
+          "format": "urbanflow-scenario",
+          "name": "adaptive-1lane-4arm-medium",
+          "strategy": "adaptive",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 90.0,
+          "randomSeed": 17,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.3888888888888889,
+          "directionalSplit": {
+            "east": 0.25,
+            "north": 0.25,
+            "south": 0.25,
+            "west": 0.25
+          },
+          "totalVehicles": 200,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {}
+      },
+      "exact": {
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "f25eb3205ba78f5386202d57ec05c1450cacdce0b47f6f40ed5af1134c9ded9c",
+          "snapshots": "6cfccfeea7e9a344683e75ea209021c7cb4166e23083912307a8e70ddb8f9568",
+          "trajectory": "19f795b68d8d68cff18e6c1f29ae5327bc576ca15673fb887c2df0b5f90e351e"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 13,
+        "metrics": "265fa7505052eb3e33babcca91c0dfd0f638b7955411561b92e8bf58e738f07c",
+        "snapshots": "d5a69eea9660002f02e6c2a48f3c62d21f6d257e2500d748f08209a0fafd9dce",
+        "ticks": 900,
+        "trajectory": "c9a420e40e302f7c8d22b3cf4bfa42e511a005470ca15c0a5915644f3302e7e8"
+      },
+      "fast": true,
+      "id": "adaptive-1lane-4arm-medium",
+      "path": "direct",
+      "strategy": "adaptive"
+    },
+    {
+      "config": {
+        "controller": {
+          "adaptive": {
+            "demandThreshold": 1,
+            "detectionDistance": 30.0,
+            "extensionStep": 2.5,
+            "maxGreen": 50.0,
+            "minGreen": 10.0
+          },
+          "allRedDuration": 2.0,
+          "phaseSequence": [
+            "ns_green",
+            "ns_yellow",
+            "all_red",
+            "ew_green",
+            "ew_yellow",
+            "all_red"
+          ],
+          "signalControl": "adaptive",
+          "straightRightDuration": 30.0,
+          "yellowDuration": 4.0
+        },
+        "geometry": {
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "fixed_time_signal"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 2,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 2,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "21cfb26830a0dead",
+          "format": "urbanflow-scenario",
+          "name": "adaptive-2lane-4arm-medium",
+          "strategy": "adaptive",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 90.0,
+          "randomSeed": 18,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.5555555555555556,
+          "directionalSplit": {
+            "east": 0.25,
+            "north": 0.25,
+            "south": 0.25,
+            "west": 0.25
+          },
+          "totalVehicles": 200,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {}
+      },
+      "exact": {
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "7aefcfa0439065c936138296c2e0acad1e7a54c5e7636d1710000c46433aae68",
+          "snapshots": "622c75f35ab420b64e7ed5e1d71ff65c8d40b4753be12e966fddd4ff7546dcb3",
+          "trajectory": "2fd17756c31fadb0cc4d69fe1d2b0a419a7654a0bda31b41a69a4c50ad5177f9"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 21,
+        "metrics": "0cf76508eec35f047a3dff0a17df2703ec838e6d767aeb4721b4e2fb0ecf698b",
+        "snapshots": "082412f6dfa4433349d62d04d7b2b9a50f5ef1369a2ff46791e71eb11b4c2633",
+        "ticks": 900,
+        "trajectory": "e1be9da206715efa3e678b1135efd4e891b24885d14d1d1debbaa72b236a8ce3"
+      },
+      "fast": true,
+      "id": "adaptive-2lane-4arm-medium",
+      "path": "direct",
+      "strategy": "adaptive"
+    },
+    {
+      "config": {
+        "controller": {
+          "adaptive": {
+            "demandThreshold": 1,
+            "detectionDistance": 30.0,
+            "extensionStep": 2.5,
+            "maxGreen": 50.0,
+            "minGreen": 10.0
+          },
+          "allRedDuration": 2.0,
+          "phaseSequence": [
+            "ns_green",
+            "ns_yellow",
+            "all_red",
+            "ew_green",
+            "ew_yellow",
+            "all_red"
+          ],
+          "signalControl": "adaptive",
+          "straightRightDuration": 30.0,
+          "yellowDuration": 4.0
+        },
+        "geometry": {
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "fixed_time_signal"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 2,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 2,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "fa2decf33c9c10de",
+          "format": "urbanflow-scenario",
+          "name": "adaptive-2lane-urban-mix",
+          "strategy": "adaptive",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 90.0,
+          "randomSeed": 19,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.5555555555555556,
+          "directionalSplit": {
+            "east": 0.25,
+            "north": 0.25,
+            "south": 0.25,
+            "west": 0.25
+          },
+          "totalVehicles": 200,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {
+          "vehicleMix": {
+            "bus": 0.05,
+            "car": 0.7,
+            "motorcycle": 0.05,
+            "suv": 0.15,
+            "truck": 0.05
+          }
+        }
+      },
+      "exact": {
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "fb42f1a52916f70fb51001dab7a00c831f37e57e0508bc5eac6aa6dc5d362854",
+          "snapshots": "bf177a36b8a067655c6bf6204d37846e3575defa184c3445b010977e40ed595c",
+          "trajectory": "3214422622e619f970a918189aed23898c686ba626153e09ab1a5ab7b1cfd8b3"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 16,
+        "metrics": "88a7ac258f3cf8a6f0ee7b2fc3f8854fca33b223353cd962558d88df82493938",
+        "snapshots": "abc6d3e7a9d3d762b3c7c4ec7836d08ff3a5aa313f7e193fc9ab326fc4ae69b7",
+        "ticks": 900,
+        "trajectory": "a77b344b678fcee426f4900a7ca016dbdea984992cb9392b181ff0381efba2c1"
+      },
+      "fast": true,
+      "id": "adaptive-2lane-urban-mix",
+      "path": "direct",
+      "strategy": "adaptive"
+    },
+    {
+      "config": {
+        "controller": {
+          "adaptive": {
+            "demandThreshold": 1,
+            "detectionDistance": 30.0,
+            "extensionStep": 2.5,
+            "maxGreen": 50.0,
+            "minGreen": 10.0
+          },
+          "allRedDuration": 2.0,
+          "phaseSequence": [
+            "ns_green",
+            "ns_yellow",
+            "all_red",
+            "ew_green",
+            "ew_yellow",
+            "all_red"
+          ],
+          "signalControl": "adaptive",
+          "straightRightDuration": 30.0,
+          "yellowDuration": 4.0
+        },
+        "geometry": {
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "fixed_time_signal"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 1,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 1,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "0f3c8b1da92c6af4",
+          "format": "urbanflow-scenario",
+          "name": "adaptive-skewed-demand",
+          "strategy": "adaptive",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 90.0,
+          "randomSeed": 20,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.3888888888888889,
+          "directionalSplit": {
+            "east": 0.07142857142857142,
+            "north": 0.42857142857142855,
+            "south": 0.42857142857142855,
+            "west": 0.07142857142857142
+          },
+          "totalVehicles": 200,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {}
+      },
+      "exact": {
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "bf42004ac1b1f81ef5ad7642bb0d997ef0c5acf99cd264f0f186f4ed1a9c4bc6",
+          "snapshots": "694b92fac746b3212bace48fd1ff796a87a72c021c8e46cecabeb3f07599bb08",
+          "trajectory": "c38acee0c16e4b01633a6d68fd2942d60744fe4d0e269dcb6d69e0b51afbde6c"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 17,
+        "metrics": "4c1f6f111c9307483e5bf6e740080bca6a1e121ce55bbe2e29bd5ebda52ec82f",
+        "snapshots": "ba7b3188afa20d8fa45fe6eb3d7261fcf44f798d76832a3044621eaa32e12182",
+        "ticks": 900,
+        "trajectory": "ba205639c0a6acb2500cdf7475045c6dea3ae0f12c77ac130d605700957cceb7"
+      },
+      "fast": true,
+      "id": "adaptive-skewed-demand",
+      "path": "direct",
+      "strategy": "adaptive"
+    },
+    {
+      "config": {
+        "controller": {
+          "adaptive": {
+            "demandThreshold": 1,
+            "detectionDistance": 30.0,
+            "extensionStep": 2.5,
+            "maxGreen": 50.0,
+            "minGreen": 10.0
+          },
+          "allRedDuration": 2.0,
+          "phaseSequence": [
+            "ns_green",
+            "ns_yellow",
+            "all_red",
+            "ew_green",
+            "ew_yellow",
+            "all_red"
+          ],
+          "signalControl": "adaptive",
+          "straightRightDuration": 30.0,
+          "yellowDuration": 4.0
+        },
+        "geometry": {
+          "arms": [
+            "north",
+            "south",
+            "east"
+          ],
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "fixed_time_signal"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 1,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 1,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "57b84422c7701c7a",
+          "format": "urbanflow-scenario",
+          "name": "adaptive-3arm-low",
+          "strategy": "adaptive",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 90.0,
+          "randomSeed": 21,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.5,
+                "right": 0.0,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.0,
+                "right": 0.5,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.5,
+                "right": 0.5,
+                "straight": 0.0
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.125,
+          "directionalSplit": {
+            "east": 0.3333333333333333,
+            "north": 0.3333333333333333,
+            "south": 0.3333333333333333,
+            "west": 0.0
+          },
+          "totalVehicles": 200,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {}
+      },
+      "exact": {
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "033a558769750667a446dd7d701925a48f08ed8320da994d482585a465ffa1f4",
+          "snapshots": "deb7e31cdfaff037eb5cd6b1052a339bc294e1f6fc3e6b65445931dd96f6bcc7",
+          "trajectory": "a067f034f8d148b74357418bc270d50e086562421b6e8c7fa9b3cd5956fd899b"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 5,
+        "metrics": "5358d3e49a07bb5812e2416e5d34b2b3113abbcdf670cfff50a3cc517d2cb053",
+        "snapshots": "f0e2ceea309849357b4080ed82deded76e002527bb3b4a03ec47ef3d814d30af",
+        "ticks": 900,
+        "trajectory": "b3db6372579662d936fa0421e9ead429280e3e38a8b4bd22f4bbc246685d5e33"
+      },
+      "fast": true,
+      "id": "adaptive-3arm-low",
+      "path": "direct",
+      "strategy": "adaptive"
+    },
+    {
+      "config": {
+        "controller": {
+          "allRedDuration": 2.0,
+          "phaseSequence": [
+            "ns_green",
+            "ns_yellow",
+            "all_red",
+            "ew_green",
+            "ew_yellow",
+            "all_red"
+          ],
+          "straightRightDuration": 30.0,
+          "yellowDuration": 4.0
+        },
+        "geometry": {
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "fixed_time_signal"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 2,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 2,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "4ecda1e3c589d8fe",
+          "format": "urbanflow-scenario",
+          "name": "study-path-fixed-2lane-medium",
+          "strategy": "fixed_time",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 90.0,
+          "randomSeed": 22,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.5555555555555556,
+          "directionalSplit": {
+            "east": 0.25,
+            "north": 0.25,
+            "south": 0.25,
+            "west": 0.25
+          },
+          "totalVehicles": 200,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {}
+      },
+      "exact": {
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "553049a941b2a6281bd62dc4649504b4d79fc3b8b3085f5d3af2f086cea41894",
+          "snapshots": "7581fbac22af80299e7e0c3f6a12ccbf51529c19844b46537627b6caeab93124",
+          "trajectory": "7dd786e6dad4ddc83c8c75d4e9f97e5e91344dfce43a12ce0731e197a649c5d0"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 16,
+        "metrics": "da225a2fa83fbf0b7b411b4237612fc8ec262195098dc9812b041c1bf893ca9c",
+        "snapshots": "c3e56f403e7cca1226089e73543d6cece522778247baf43093e2f64ec8d99cb7",
+        "ticks": 900,
+        "trajectory": "ae84fc14ff8dd42961eb33762ebccc415b2fe6668f1972784bc4c374739221e0"
+      },
+      "fast": true,
+      "id": "study-path-fixed-2lane-medium",
+      "path": "study-signal",
+      "strategy": "fixed_time"
+    },
+    {
+      "config": {
+        "controller": {
+          "adaptive": {
+            "demandThreshold": 1,
+            "detectionDistance": 30.0,
+            "extensionStep": 2.5,
+            "maxGreen": 50.0,
+            "minGreen": 10.0
+          },
+          "allRedDuration": 2.0,
+          "phaseSequence": [
+            "ns_green",
+            "ns_yellow",
+            "all_red",
+            "ew_green",
+            "ew_yellow",
+            "all_red"
+          ],
+          "signalControl": "adaptive",
+          "straightRightDuration": 30.0,
+          "yellowDuration": 4.0
+        },
+        "geometry": {
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "fixed_time_signal"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 1,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 1,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "2e44cef2edb155a2",
+          "format": "urbanflow-scenario",
+          "name": "study-path-adaptive-1lane-medium",
+          "strategy": "adaptive",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 90.0,
+          "randomSeed": 23,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.3888888888888889,
+          "directionalSplit": {
+            "east": 0.25,
+            "north": 0.25,
+            "south": 0.25,
+            "west": 0.25
+          },
+          "totalVehicles": 200,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {}
+      },
+      "exact": {
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "4ac86db6ca8c3d322cb01e9e7c868487794871ddbe8ce88be996aa79a648d3ff",
+          "snapshots": "158c7b1cde787013135735da1cbab0ff015850adc76e983f0b498b64b2b6fe8b",
+          "trajectory": "83189c3dba327a3d987b34649f93c0caef0d8dc7fcddcc51d2c597462eea975b"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 12,
+        "metrics": "e11379e5c745b03404a503a4c8bfba5a6b8d2ead362d0a947699e6751eb0d3c5",
+        "snapshots": "3db1abfaf4da2287c03f4ea34c4c37efb9ac1ae1f81c2958acfa07019b78e9dc",
+        "ticks": 900,
+        "trajectory": "9b465ee57987f45496e5e14eebe933e8c03b80af468deb395e60ac9911e3a06f"
+      },
+      "fast": true,
+      "id": "study-path-adaptive-1lane-medium",
+      "path": "study-signal",
+      "strategy": "adaptive"
+    },
+    {
+      "config": {
+        "controller": {
+          "allRedDuration": 2.0,
+          "phaseSequence": [
+            "ns_green",
+            "ns_yellow",
+            "all_red",
+            "ew_green",
+            "ew_yellow",
+            "all_red"
+          ],
+          "straightRightDuration": 30.0,
+          "yellowDuration": 4.0
+        },
+        "geometry": {
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "fixed_time_signal"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 1,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 1,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "366771def86d6fa9",
+          "format": "urbanflow-scenario",
+          "name": "fixed-1lane-saturated",
+          "strategy": "fixed_time",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 240.0,
+          "randomSeed": 31,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.7777777777777778,
+          "directionalSplit": {
+            "east": 0.25,
+            "north": 0.25,
+            "south": 0.25,
+            "west": 0.25
+          },
+          "totalVehicles": 330,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {}
+      },
+      "exact": {
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "7bd91a7a7a177c5aeb0091a52652e576a3a40c977e65a4321c688b61fa5551fe",
+          "snapshots": "22f5d30d76c5cf9c029611cf01d35d245494ca0918c901760247cf008efdecae",
+          "trajectory": "a0348fabcce1851478f57cb4d59b15f71d892019544ae9bae040ab2bc3cdc2c8"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 62,
+        "metrics": "640d28e866bfea150b8faf75b1d52048881e94217628a8ef26dd873e5b04c464",
+        "snapshots": "d6b5fd4a8a472a21271e0220daf0e986cb7b8f8631f4572be1b1afd0c50d4ea6",
+        "ticks": 2400,
+        "trajectory": "92aab760bf9ecdbcf38e805c06af5d3b3f9e51642e9c18c6d1595f53422ea124"
+      },
+      "fast": false,
+      "id": "fixed-1lane-saturated",
+      "path": "direct",
+      "strategy": "fixed_time"
+    },
+    {
+      "config": {
+        "controller": {
+          "allRedDuration": 2.0,
+          "phaseSequence": [
+            "ns_green",
+            "ns_yellow",
+            "all_red",
+            "ew_green",
+            "ew_yellow",
+            "all_red"
+          ],
+          "straightRightDuration": 30.0,
+          "yellowDuration": 4.0
+        },
+        "geometry": {
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "fixed_time_signal"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 2,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 2,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "4c4a2b45234fc96a",
+          "format": "urbanflow-scenario",
+          "name": "fixed-2lane-heavy-mix-saturated",
+          "strategy": "fixed_time",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 240.0,
+          "randomSeed": 32,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 1.0,
+          "directionalSplit": {
+            "east": 0.25,
+            "north": 0.25,
+            "south": 0.25,
+            "west": 0.25
+          },
+          "totalVehicles": 410,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {
+          "vehicleMix": {
+            "bus": 0.15,
+            "car": 0.6,
+            "suv": 0.1,
+            "truck": 0.15
+          }
+        }
+      },
+      "exact": {
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "7eae6b021d74c700474d3528419517f8bdae6c6b00173fe73e1544f64d739062",
+          "snapshots": "a0f02b9b2a0d63cd73a3edab2827b24aa398e33e4ebfbcf84a534e428e2bf1b7",
+          "trajectory": "1629f5f72c947f041d3d618be082484f5077daf776e8599bda1051071c447063"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 62,
+        "metrics": "7df540e5ca669e46f9435028f9c5fb530c603bc79dccea4c9dd07117f5e8b2ad",
+        "snapshots": "728ece7acb577e4ebfd22af20e4b74629c64b4f9fec8e607b89883e1c9ef7ae5",
+        "ticks": 2400,
+        "trajectory": "f0cc5c727571d8b9194b77d8bb6d460e067a210d781e45d16a7efe947108728c"
+      },
+      "fast": false,
+      "id": "fixed-2lane-heavy-mix-saturated",
+      "path": "direct",
+      "strategy": "fixed_time"
+    },
+    {
+      "config": {
+        "controller": {
+          "adaptive": {
+            "demandThreshold": 1,
+            "detectionDistance": 30.0,
+            "extensionStep": 2.5,
+            "maxGreen": 50.0,
+            "minGreen": 10.0
+          },
+          "allRedDuration": 2.0,
+          "phaseSequence": [
+            "ns_green",
+            "ns_yellow",
+            "all_red",
+            "ew_green",
+            "ew_yellow",
+            "all_red"
+          ],
+          "signalControl": "adaptive",
+          "straightRightDuration": 30.0,
+          "yellowDuration": 4.0
+        },
+        "geometry": {
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "fixed_time_signal"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 1,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 1,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "8feb95de593c9682",
+          "format": "urbanflow-scenario",
+          "name": "adaptive-1lane-saturated",
+          "strategy": "adaptive",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 240.0,
+          "randomSeed": 33,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.7777777777777778,
+          "directionalSplit": {
+            "east": 0.25,
+            "north": 0.25,
+            "south": 0.25,
+            "west": 0.25
+          },
+          "totalVehicles": 330,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {}
+      },
+      "exact": {
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "6fb3178aef6df1a85f391b4b6eab43c9f23ffc9668a437a74d0d4ccecef75fad",
+          "snapshots": "8fef99b07b4b9266f54dd62035b87d648f5c984d907d424b1a0be79ac6c0a07a",
+          "trajectory": "b2ee6f1ae88f797213b85d29d9585ba39f8dae0ea1725ab34668040c11341556"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 78,
+        "metrics": "b83ec647e124dde68ad981cfb8f3fdfb0c461183bbafa3a9666e943786da7dea",
+        "snapshots": "4e38dcb866c0178cf3b76c5fc4313688d1e79950a95b23424f0a1c8f29db2b90",
+        "ticks": 2400,
+        "trajectory": "00248c4040abf07a61b80ba7edb46a4ba9a8d546183a2e8696a2cd7dae4c6f57"
+      },
+      "fast": false,
+      "id": "adaptive-1lane-saturated",
+      "path": "direct",
+      "strategy": "adaptive"
+    },
+    {
+      "config": {
+        "controller": {
+          "adaptive": {
+            "demandThreshold": 1,
+            "detectionDistance": 30.0,
+            "extensionStep": 2.5,
+            "maxGreen": 50.0,
+            "minGreen": 10.0
+          },
+          "allRedDuration": 2.0,
+          "phaseSequence": [
+            "ns_green",
+            "ns_yellow",
+            "all_red",
+            "ew_green",
+            "ew_yellow",
+            "all_red"
+          ],
+          "signalControl": "adaptive",
+          "straightRightDuration": 30.0,
+          "yellowDuration": 4.0
+        },
+        "geometry": {
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "fixed_time_signal"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 2,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 2,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "d78569ebf0c422d5",
+          "format": "urbanflow-scenario",
+          "name": "adaptive-2lane-saturated-urban",
+          "strategy": "adaptive",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 240.0,
+          "randomSeed": 34,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 1.0,
+          "directionalSplit": {
+            "east": 0.25,
+            "north": 0.25,
+            "south": 0.25,
+            "west": 0.25
+          },
+          "totalVehicles": 410,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {
+          "vehicleMix": {
+            "bus": 0.05,
+            "car": 0.7,
+            "motorcycle": 0.05,
+            "suv": 0.15,
+            "truck": 0.05
+          }
+        }
+      },
+      "exact": {
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "2e939239c91bd44864dfc211f07dd3bf0db20e8772d210c9cf6a3fe01f76100d",
+          "snapshots": "f712f137a27f941f529afbbe29158647df3a044d88cb42321a00634cb862d3a4",
+          "trajectory": "94bcda6669a153bd3c67eed79535f4004833feb8c1ca87516ce27540fcf819c9"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 93,
+        "metrics": "97debd1a1336a76f5bdea9c81b0286d23fd404894b6380e1068a413927dbd904",
+        "snapshots": "ffd05d302773c195a453f4fa4deff7dd4b0a3ec276b8fda171fdab345aad1570",
+        "ticks": 2400,
+        "trajectory": "ea1b68adf9c22429fdf1afb2498e2e54bb01860854e33ea08c38668639df6f92"
+      },
+      "fast": false,
+      "id": "adaptive-2lane-saturated-urban",
+      "path": "direct",
+      "strategy": "adaptive"
+    },
+    {
+      "config": {
+        "controller": {
+          "allRedDuration": 2.0,
+          "phaseSequence": [
+            "ns_green",
+            "ns_yellow",
+            "all_red",
+            "ew_green",
+            "ew_yellow",
+            "all_red"
+          ],
+          "straightRightDuration": 30.0,
+          "yellowDuration": 4.0
+        },
+        "geometry": {
+          "arms": [
+            "north",
+            "south",
+            "east"
+          ],
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "fixed_time_signal"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 1,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 1,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 1,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "b4e05c9164056ae3",
+          "format": "urbanflow-scenario",
+          "name": "fixed-3arm-saturated",
+          "strategy": "fixed_time",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 240.0,
+          "randomSeed": 35,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.5,
+                "right": 0.0,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.0,
+                "right": 0.5,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.5,
+                "right": 0.5,
+                "straight": 0.0
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.5,
+          "directionalSplit": {
+            "east": 0.3333333333333333,
+            "north": 0.3333333333333333,
+            "south": 0.3333333333333333,
+            "west": 0.0
+          },
+          "totalVehicles": 230,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {}
+      },
+      "exact": {
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "19c84e34af4276c989a114c21c947d4dc9937910c74e96e0dac2b463809ee5b2",
+          "snapshots": "9c1f1240dd0d4c2d13c0c072326fb7c894e0a382283d5de25251e228396dd870",
+          "trajectory": "55dbf2cd8cba1959af631c7b76797340f694e28e08506d371fcf0f7a93f0393b"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 59,
+        "metrics": "20d306d0d1531f7cc2fce2f80889bba105d0023a5e376ab73dd5e11a01159a5c",
+        "snapshots": "a4c46682999edb3c68d32fa5068b9c3e62d3b544f08be2b5158e677f8eb323c9",
+        "ticks": 2400,
+        "trajectory": "6c32ceaf7201fd9947e42c1a230c2df41413009ddf75d019ea9f80856b254591"
+      },
+      "fast": false,
+      "id": "fixed-3arm-saturated",
+      "path": "direct",
+      "strategy": "fixed_time"
+    },
+    {
+      "config": {
+        "controller": {
+          "adaptive": {
+            "demandThreshold": 1,
+            "detectionDistance": 30.0,
+            "extensionStep": 2.5,
+            "maxGreen": 50.0,
+            "minGreen": 10.0
+          },
+          "allRedDuration": 2.0,
+          "phaseSequence": [
+            "ns_green",
+            "ns_yellow",
+            "all_red",
+            "ew_green",
+            "ew_yellow",
+            "all_red"
+          ],
+          "signalControl": "adaptive",
+          "straightRightDuration": 30.0,
+          "yellowDuration": 4.0
+        },
+        "geometry": {
+          "intersectionCenter": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "intersectionType": "fixed_time_signal"
+        },
+        "roads": {
+          "approachLength": 200.0,
+          "approaches": [
+            {
+              "direction": "north",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "south",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "east",
+              "lanes": 2,
+              "length": 200.0
+            },
+            {
+              "direction": "west",
+              "lanes": 2,
+              "length": 200.0
+            }
+          ],
+          "laneChange": {
+            "enabled": true
+          },
+          "laneWidth": 3.5,
+          "lanesPerApproach": 2,
+          "speedLimit": 13.89
+        },
+        "scenario": {
+          "fingerprint": "fbba114a1cc8793c",
+          "format": "urbanflow-scenario",
+          "name": "study-path-adaptive-saturated",
+          "strategy": "adaptive",
+          "version": 1
+        },
+        "simulation": {
+          "duration": 240.0,
+          "randomSeed": 36,
+          "timeStep": 0.1,
+          "warmupTime": 20.0
+        },
+        "traffic": {
+          "approaches": [
+            {
+              "direction": "north",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "south",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "east",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            },
+            {
+              "direction": "west",
+              "turnProbabilities": {
+                "left": 0.25,
+                "right": 0.25,
+                "straight": 0.5
+              }
+            }
+          ],
+          "arrivalDistribution": "poisson",
+          "arrivalRate": 0.8888888888888888,
+          "directionalSplit": {
+            "east": 0.25,
+            "north": 0.25,
+            "south": 0.25,
+            "west": 0.25
+          },
+          "totalVehicles": 370,
+          "turnProbabilities": {
+            "left": 0.2,
+            "right": 0.2,
+            "straight": 0.6
+          }
+        },
+        "vehicleGeneration": {}
+      },
+      "exact": {
+        "CPython-3.14.7-Windows-AMD64-10.0.26200": {
+          "metrics": "d0b8f83a0a2ac681c598567d3270b7c6ea072945a1fce0eb7bd108c5284e385a",
+          "snapshots": "ac39978b1328c694c892860083f5a67bb79b1a671a2291c8e7b5d24ad254d22a",
+          "trajectory": "e9fdc2a671e97d40c54d1b31ee9f86fac2dc65847ed7d07913398107f039b8f5"
+        }
+      },
+      "expected": {
+        "collisions": 0,
+        "exited": 152,
+        "metrics": "90bc94b71d0c80029d6c1fb12995d4fab3d4c4d45884cfb5e2843b8931a62721",
+        "snapshots": "f517ed1dbc4481879253f8630d4e798033e555067f98bf0d99aa698f4a0f79c6",
+        "ticks": 2400,
+        "trajectory": "cf4eec7aff428995d4def1569bf212dce6fd3f4757a78453892407bd09201c72"
+      },
+      "fast": false,
+      "id": "study-path-adaptive-saturated",
+      "path": "study-signal",
+      "strategy": "adaptive"
+    }
+  ],
+  "description": "Fixed-time and adaptive signal fingerprints. See tests/controllers/signal_golden.py.",
+  "floatDigits": 12,
+  "format": "urbanflow-signal-golden",
+  "recordedFrom": "3c75956",
+  "snapshotEvery": 10,
+  "sourceDigest": "2f7263cfc5e9d70993f535bd676c740839a828d125145f3038e015a2219f5f38",
+  "trajectoryDecimals": 6,
+  "version": 1
+}

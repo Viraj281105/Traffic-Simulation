@@ -232,8 +232,17 @@ class JunctionSpec(_Strict):
     type: Literal["fixed_time_signal", "adaptive_signal", "roundabout"]
 
 
+class EntryQueueSpec(_Strict):
+    """Opt-in point queue outside the network (traffic.entryQueue)."""
+
+    enabled: bool = False
+    # Per approach; unset: bounded only by the run's vehicle limit.
+    capacity: Optional[int] = Field(None, ge=1, le=5000)
+
+
 class TrafficSpec(_Strict):
     driverAggression: Optional[DriverAggression] = None
+    entryQueue: Optional[EntryQueueSpec] = None
 
 
 class ScenarioDocument(_Strict):
@@ -295,6 +304,14 @@ def scenario_fingerprint(document: ScenarioDocument) -> str:
         body["traffic"] = {
             "driverAggression": profile,
             "driverAggressionHash": compute_aggression_parameter_hash(profile),
+        }
+    # The entry queue changes what runs, so an enabled one is part of the
+    # identity; absent or disabled keeps every earlier fingerprint.
+    queue = traffic.get("entryQueue") if isinstance(traffic, dict) else None
+    if isinstance(queue, dict) and queue.get("enabled"):
+        body.setdefault("traffic", {})["entryQueue"] = {
+            "enabled": True,
+            "capacity": queue.get("capacity"),
         }
     canonical = json.dumps(body, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode()).hexdigest()[:16]
@@ -416,6 +433,12 @@ def compile_scenario(document: ScenarioDocument, strategy: str) -> Dict[str, Any
     }
     if document.traffic and document.traffic.driverAggression is not None:
         config["traffic"]["driverAggression"] = document.traffic.driverAggression
+    if document.traffic and document.traffic.entryQueue is not None:
+        if document.traffic.entryQueue.enabled:
+            config["traffic"]["entryQueue"] = {
+                "enabled": True,
+                "capacity": document.traffic.entryQueue.capacity,
+            }
     if len(arms) < len(Direction):
         # V1.5: only the slots that have an arm.
         config["geometry"]["arms"] = [d.value for d in arms]
@@ -486,6 +509,28 @@ def scenario_driver_aggression(document: ScenarioDocument) -> str:
     """
     config = compile_scenario(document, JUNCTION_STRATEGY[document.junction.type])
     return resolve_aggression_name(config)
+
+
+def config_entry_model(config: Dict[str, Any]) -> Dict[str, Any]:
+    """The entry model an engine config runs (vehicles/spawner.py):
+    ``{"model": "queue", "capacity": ...}`` when ``traffic.entryQueue`` is
+    enabled, else ``{"model": "suspend", "capacity": None}``."""
+    queue = (config.get("traffic") or {}).get("entryQueue") or {}
+    if isinstance(queue, dict) and queue.get("enabled"):
+        return {"model": "queue", "capacity": queue.get("capacity")}
+    return {"model": "suspend", "capacity": None}
+
+
+def scenario_entry_model(document: ScenarioDocument) -> Dict[str, Any]:
+    """The entry model the engine runs *document* with.
+
+    Read from the compiled config, so an ``advanced.traffic.entryQueue``
+    override wins over ``traffic.entryQueue`` exactly as it does in the
+    engine (the same rule as scenario_driver_aggression). The model does not
+    depend on the strategy, so the document's own is used.
+    """
+    config = compile_scenario(document, JUNCTION_STRATEGY[document.junction.type])
+    return config_entry_model(config)
 
 
 def compile_live_comparison(
@@ -905,6 +950,8 @@ __all__ = [
     "create_scenario",
     "parse_scenario",
     "scenario_driver_aggression",
+    "scenario_entry_model",
+    "config_entry_model",
     "scenario_fingerprint",
     "scenario_warnings",
     "total_vehicles_per_hour",

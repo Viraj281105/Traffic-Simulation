@@ -3,8 +3,11 @@ import { sameMix } from "../vehicles/vehicleClasses";
 import type {
   ScenarioDocument,
   DriverAggression,
+  EntryQueueSpec,
 } from "../scenario/scenarioTypes";
+import { entryQueueEnabled } from "../scenario/scenarioTypes";
 export type { DriverAggression };
+export type { EntryQueueSpec };
 
 /** V1.3: how a signal times its greens. */
 export type SignalControl = "fixed_time" | "adaptive";
@@ -83,6 +86,9 @@ export interface SimulationConfigValues {
   unstructuredTraffic: boolean;
   aggressiveTwoWheelers: boolean;
   driverAggression?: DriverAggression;
+  /** How arrivals that cannot enter yet are modelled. null/absent or
+   *  disabled = hold them back (the default entry model). */
+  entryQueue?: EntryQueueSpec | null;
   /** The strategies the guided comparison runs: canonical strategy ids
    *  (GET /api/strategies), in the order chosen. Absent = the backend's
    *  default selection. */
@@ -120,6 +126,11 @@ export function sameConfigValues(
         JSON.stringify(a.strategies ?? null) ===
         JSON.stringify(b.strategies ?? null)
       );
+    if (k === "entryQueue")
+      return (
+        JSON.stringify(normalEntryQueue(a.entryQueue)) ===
+        JSON.stringify(normalEntryQueue(b.entryQueue))
+      );
     if (k === "driverAggression")
       return (
         (a.driverAggression ?? "standard") ===
@@ -127,6 +138,16 @@ export function sameConfigValues(
       );
     return (a[k] ?? null) === (b[k] ?? null);
   });
+}
+
+/** The entry queue as the backend runs it: null unless enabled, with the
+ *  capacity null when unset. A disabled queue runs exactly as no setting. */
+export function normalEntryQueue(
+  spec: EntryQueueSpec | null | undefined,
+): EntryQueueSpec | null {
+  return entryQueueEnabled(spec)
+    ? { enabled: true, capacity: spec?.capacity ?? null }
+    : null;
 }
 
 /** The scenario the dashboard starts with and "Reset defaults" restores.
@@ -268,6 +289,9 @@ export interface DashboardScenarioPayload {
   unstructuredTraffic: boolean;
   aggressiveTwoWheelers: boolean;
   driverAggression?: DriverAggression;
+  /** Sent only when the point queue is on; a scenario document carries it
+   *  in its own traffic block instead. */
+  entryQueue?: EntryQueueSpec;
 }
 
 export function dashboardPayload(
@@ -279,6 +303,7 @@ export function dashboardPayload(
   perRoadLanes = false,
 ): DashboardScenarioPayload {
   const { lanes, laneWidth, nsGreenDuration, ewGreenDuration } = config;
+  const entryQueue = normalEntryQueue(config.entryQueue);
   const lanesEW =
     perRoadLanes && intersectionType === "fixed_time_signal"
       ? (config.lanesEastWest ?? lanes)
@@ -311,6 +336,7 @@ export function dashboardPayload(
     ...(config.laneChanging === false ? { laneChanging: false as const } : {}),
     ...(isAdaptive(config) ? adaptivePayload(config.adaptive) : {}),
     ...(config.scenario ? { scenario: config.scenario } : {}),
+    ...(!config.scenario && entryQueue ? { entryQueue } : {}),
     unstructuredTraffic: config.unstructuredTraffic,
     aggressiveTwoWheelers: config.aggressiveTwoWheelers,
     ...(config.driverAggression

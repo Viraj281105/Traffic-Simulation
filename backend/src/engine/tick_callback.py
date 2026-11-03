@@ -26,12 +26,11 @@ def build_tick_callback(
     engine.register_collector(collector)
 
     def tick_callback() -> None:
-        # PET (see metrics/definitions/safety_conflicts.py) is only
-        # geometrically valid for fixed_time_signal -- a roundabout's
-        # curved connection lanes make ConflictManager's straight-chord
-        # crossing points wrong, the same reason VehiclePool.update itself
-        # never uses conflict_manager for roundabout geometry. Mirror that
-        # gate here rather than passing it through unconditionally.
+        # PET (see metrics/definitions/safety_conflicts.py) is measured on
+        # ConflictManager's conflict points, which only the signalised
+        # junction uses: VehiclePool.update never uses conflict_manager for
+        # roundabout geometry. Mirror that gate here rather than passing it
+        # through unconditionally.
         signal_conflict_manager = (
             engine.conflict_manager
             if isinstance(controller, FixedTimeSignalController)

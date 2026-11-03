@@ -28,7 +28,7 @@ flowchart LR
 | FS-8 | Incident & Disruption Simulation | 2–3 months | Lane model and routing (V1.2) | Crashes, blockages, closures, rerouting and recovery |
 | FS-9 | Large-Scale Traffic Network Simulation | 3–6 months | Network-level foundations (V1.8/V1.9) | City-scale networks, corridors, congestion propagation |
 | FS-10 | Digital Twin Integration | 4–6+ months | Real-world inputs and calibration (V1.8/V1.9) | Continuously updated, live representation of real junctions/networks |
-| FS-11 | Guided Scenario Builder *(planning only; [series](next-generation-requirements.md))* | relative M | Junction builder (V1.4/V1.5), planner (V2.0), V3.0 strategy registry | Guided lens, recipes and round-trip/parity guarantees over the existing scenario document |
+| FS-11 | Guided Scenario Builder *(planning only; series removed in `d17cf2d`, superseded by [docs/plan](../plan/README.md))* | relative M | Junction builder (V1.4/V1.5), planner (V2.0), V3.0 strategy registry | Guided lens, recipes and round-trip/parity guarantees over the existing scenario document |
 | FS-12 | Visual City Studio *(planning only)* | relative M + M (+ L, separate decision) | Network document and endpoints (V1.8/V1.9) | Visual editing model, accessible projection, stable network validation codes; running a network only after its own decision |
 | FS-13 | AI Traffic Analyst *(planning only)* | relative M + M | V3.0 Copilot, validation boundary, Robustness Lab | Network-derived assessment with a six-class evidence taxonomy and reproducible candidate scenarios |
 
@@ -133,7 +133,7 @@ This frontier is no longer Future Scope: it is the **Robustness Lab** in the pro
 
 ## Next-generation user experience — FS-11 · FS-12 · FS-13
 
-*Added 2026-10-21 as **planning only**; none exists and none is scheduled. They are one progression — describe or build a network → configure → validate → simulate → compare → understand → refine — over one set of documents, so they are specified together: [requirements](next-generation-requirements.md) · [architecture and dependencies](next-generation-architecture.md) · [phased roadmap, gates and parallel-work policy](next-generation-roadmap.md).*
+*Added 2026-10-21 as **planning only**; none exists and none is scheduled. They are one progression — describe or build a network → configure → validate → simulate → compare → understand → refine — over one set of documents, so they were specified together in a requirements, architecture and roadmap series (removed in `d17cf2d`; superseded by [docs/plan](../plan/README.md)).*
 
 ## FS-11 · Guided Scenario Builder
 

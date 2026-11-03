@@ -433,242 +433,235 @@ class RoundaboutController(BaseController):
         self._note_heads_at_line()
 
         for d in Direction:
+            # Only the lookup may fail, for a slot with no arm (V1.5). The
+            # whole approach used to sit inside this handler, so any other
+            # KeyError would silently skip that approach's entry decisions
+            # for the tick, as the id lookups above once did (F-45).
             try:
                 approach = self.network.get_incoming_approach(d)
-                total_in_lanes = len(approach.get_lanes())
-                for lane in approach.get_lanes():
-                    # Uses last tick's decision (still on the lane): a long
-                    # vehicle that crossed an open line is committed.
-                    self._note_long_entries(lane)
+            except KeyError:
+                continue
+            total_in_lanes = len(approach.get_lanes())
+            for lane in approach.get_lanes():
+                # Uses last tick's decision (still on the lane): a long
+                # vehicle that crossed an open line is committed.
+                self._note_long_entries(lane)
 
-                    # Calculate if there is an oncoming circulating vehicle that blocks entry.
-                    # We check circulating vehicles approaching this direction's entry node.
-                    # The entry point of this lane is lane.end_coords.
-                    entry_pt = lane.end_coords
-                    theta_entry = math.atan2(entry_pt[1], entry_pt[0])
+                # Calculate if there is an oncoming circulating vehicle that blocks entry.
+                # We check circulating vehicles approaching this direction's entry node.
+                # The entry point of this lane is lane.end_coords.
+                entry_pt = lane.end_coords
+                theta_entry = math.atan2(entry_pt[1], entry_pt[0])
 
-                    should_yield = False
+                should_yield = False
 
-                    # Gap the vehicle at the head of this entry needs. The
-                    # critical gap is a passenger-car value; a longer vehicle
-                    # (V1.1: bus, truck) occupies the conflict point for as
-                    # much longer as its extra length takes to pass it at
-                    # entry speed, so it needs that much more gap. Zero for
-                    # every vehicle up to the 5 m reference car.
-                    head = max(
-                        lane.get_vehicles(), key=lambda hv: hv.position, default=None
+                # Gap the vehicle at the head of this entry needs. The
+                # critical gap is a passenger-car value; a longer vehicle
+                # (V1.1: bus, truck) occupies the conflict point for as
+                # much longer as its extra length takes to pass it at
+                # entry speed, so it needs that much more gap. Zero for
+                # every vehicle up to the 5 m reference car.
+                head = max(
+                    lane.get_vehicles(), key=lambda hv: hv.position, default=None
+                )
+
+                # Ring lane this entry joins (V1.4): the head vehicle's
+                # own, since one entry lane may feed several ring lanes;
+                # the lane's home ring lane when nobody is waiting. With
+                # as many ring lanes as entry lanes both are the entry
+                # lane itself, exactly as in V1.0-V1.3.
+                entering_lane_idx = self._entry_ring_lane(lane, head, total_in_lanes)
+                lane_radius = self._ring_radius(entering_lane_idx)
+                required_gap = self.critical_gap
+                if head is not None:
+                    required_gap += long_vehicle_allowance(head.length) / max(
+                        self.entry_speed, 1.0
                     )
 
-                    # Ring lane this entry joins (V1.4): the head vehicle's
-                    # own, since one entry lane may feed several ring lanes;
-                    # the lane's home ring lane when nobody is waiting. With
-                    # as many ring lanes as entry lanes both are the entry
-                    # lane itself, exactly as in V1.0-V1.3.
-                    entering_lane_idx = self._entry_ring_lane(
-                        lane, head, total_in_lanes
-                    )
-                    lane_radius = self._ring_radius(entering_lane_idx)
-                    required_gap = self.critical_gap
-                    if head is not None:
-                        required_gap += long_vehicle_allowance(head.length) / max(
-                            self.entry_speed, 1.0
-                        )
+                # Widest distance any circulating vehicle could cover in
+                # one critical gap, used only to prune obviously-distant
+                # traffic before the exact per-vehicle test below. The
+                # real decision is made on each vehicle's own speed, so
+                # this is deliberately generous rather than exact.
+                scan_radius = max(15.0, required_gap * self.circulating_speed * 2.0)
 
-                    # Widest distance any circulating vehicle could cover in
-                    # one critical gap, used only to prune obviously-distant
-                    # traffic before the exact per-vehicle test below. The
-                    # real decision is made on each vehicle's own speed, so
-                    # this is deliberately generous rather than exact.
-                    scan_radius = max(15.0, required_gap * self.circulating_speed * 2.0)
+                for cv in circulating_vehicles:
+                    # Ring the circulating vehicle is on; defaults to the
+                    # entering lane's own ring for hand-built lanes whose
+                    # id doesn't carry an index (see the except below).
+                    cv_ring_radius = lane_radius
 
-                    for cv in circulating_vehicles:
-                        # Ring the circulating vehicle is on; defaults to the
-                        # entering lane's own ring for hand-built lanes whose
-                        # id doesn't carry an index (see the except below).
-                        cv_ring_radius = lane_radius
-
-                        # Match circulating lane index and ignore downstream/exiting vehicles
-                        if cv.lane is not None:
-                            try:
-                                cv_parts = cv.lane.lane_id.split("_")
-                                if len(cv_parts) >= 4 and cv_parts[0] == "conn":
-                                    cv_origin_dir_str = cv_parts[1]
-                                    cv_ring = getattr(cv.lane, "ring_lane", None)
-                                    cv_lane_idx = (
-                                        int(cv_ring)
-                                        if cv_ring is not None
-                                        else int(cv_parts[2])
-                                    )
-                                    cv_turn_str = cv_parts[3]
-
-                                    # 1. Skip if the vehicle entered from the same approach (it is downstream)
-                                    if cv_origin_dir_str == d.value:
-                                        continue
-
-                                    # 2. Skip only circulating lanes this
-                                    #    entry path does NOT cross.
-                                    #
-                                    #    Ring radius grows with lane index
-                                    #    (see lane_radius above), so a
-                                    #    vehicle entering towards ring
-                                    #    `entering_lane_idx` comes from
-                                    #    outside and must cut across every
-                                    #    ring with an index >= its own.
-                                    #    Rings further in (a lower index)
-                                    #    are never crossed and are correctly
-                                    #    ignored.
-                                    #
-                                    #    This previously required an exact
-                                    #    index match, so a vehicle entering
-                                    #    towards an inner ring ignored the
-                                    #    outer ring(s) it had to drive
-                                    #    straight through, and pulled out in
-                                    #    front of circulating traffic.
-                                    if cv_lane_idx < entering_lane_idx:
-                                        continue
-
-                                    # The gap must be judged on the ring the
-                                    # circulating vehicle is actually on, not
-                                    # on the entering vehicle's destination
-                                    # ring.
-                                    cv_ring_radius = self._ring_radius(cv_lane_idx)
-
-                                    # 3. Skip if the vehicle is exiting at this approach
-                                    cv_origin = _DIRECTION_BY_NAME[cv_origin_dir_str]
-                                    cv_turn = _TURN_BY_NAME[cv_turn_str]
-                                    cv_target = self.network._resolve_target_direction(
-                                        cv_origin, cv_turn
-                                    )
-                                    if cv_target == d:
-                                        continue
-                            except (ValueError, IndexError, KeyError):
-                                # An unrecognised connection-lane id means we
-                                # cannot tell where this vehicle is heading, so
-                                # fall through and treat it as conflicting
-                                # traffic rather than ignoring it.
-                                pass
-
-                        cv_x, cv_y = cv.coords
-                        dist_to_entry_euclidean = (
-                            (cv_x - entry_pt[0]) ** 2 + (cv_y - entry_pt[1]) ** 2
-                        ) ** 0.5
-
-                        if dist_to_entry_euclidean < scan_radius:
-                            theta_cv = math.atan2(cv_y, cv_x)
-                            # Angular distance from circulating vehicle to entry point (counter-clockwise)
-                            angular_gap = (theta_entry - theta_cv) % (2 * math.pi)
-
-                            # A vehicle that leaves the ring before it gets
-                            # here is not conflicting traffic. Only the exit
-                            # at this entry's own arm used to be excluded
-                            # (check 3 above), so an entering driver also gave
-                            # way to vehicles about to turn off at an earlier
-                            # exit — at low demand roughly one first stop in
-                            # four was for a vehicle that never arrived, at a
-                            # junction that looked empty. The exit angle is
-                            # read from the vehicle's own path, so this holds
-                            # for every ring and turn.
-                            if cv.lane is not None and cv.lane.lane_id.startswith(
-                                "conn"
-                            ):
-                                ex, ey = cv.lane.end_coords
-                                angle_to_exit = (math.atan2(ey, ex) - theta_cv) % (
-                                    2 * math.pi
+                    # Match circulating lane index and ignore downstream/exiting vehicles
+                    if cv.lane is not None:
+                        try:
+                            cv_parts = cv.lane.lane_id.split("_")
+                            if len(cv_parts) >= 4 and cv_parts[0] == "conn":
+                                cv_origin_dir_str = cv_parts[1]
+                                cv_ring = getattr(cv.lane, "ring_lane", None)
+                                cv_lane_idx = (
+                                    int(cv_ring)
+                                    if cv_ring is not None
+                                    else int(cv_parts[2])
                                 )
-                                past_ring = (
-                                    cv.lane.length - cv.position
-                                    <= ROUNDABOUT_ENTRY_SETBACK
-                                )
-                                if angle_to_exit < angular_gap or past_ring:
+                                cv_turn_str = cv_parts[3]
+
+                                # 1. Skip if the vehicle entered from the same approach (it is downstream)
+                                if cv_origin_dir_str == d.value:
                                     continue
 
-                            # If angular_gap < pi, it is upstream / approaching the entry point
-                            if angular_gap < math.pi:
-                                dist_along_circle = cv_ring_radius * angular_gap
-
-                                # Judge the gap purely on how long THIS vehicle
-                                # will take to arrive.
+                                # 2. Skip only circulating lanes this
+                                #    entry path does NOT cross.
                                 #
-                                # A fixed distance window derived from the
-                                # nominal circulatingSpeed used to gate this
-                                # test, so a vehicle travelling faster than
-                                # nominal was simply not seen: it sat outside
-                                # the window yet still arrived inside the
-                                # critical gap. Time-to-arrival is the quantity
-                                # the critical gap is actually defined against,
-                                # so comparing it directly removes the
-                                # inconsistency rather than papering over it.
-                                eff_speed = max(cv.speed, self.circulating_speed)
-                                time_gap = dist_along_circle / eff_speed
-                                if time_gap < required_gap:
-                                    should_yield = True
-                                    break
+                                #    Ring radius grows with lane index
+                                #    (see lane_radius above), so a
+                                #    vehicle entering towards ring
+                                #    `entering_lane_idx` comes from
+                                #    outside and must cut across every
+                                #    ring with an index >= its own.
+                                #    Rings further in (a lower index)
+                                #    are never crossed and are correctly
+                                #    ignored.
+                                #
+                                #    This previously required an exact
+                                #    index match, so a vehicle entering
+                                #    towards an inner ring ignored the
+                                #    outer ring(s) it had to drive
+                                #    straight through, and pulled out in
+                                #    front of circulating traffic.
+                                if cv_lane_idx < entering_lane_idx:
+                                    continue
 
-                    # followUpTime: "Time between consecutive entering
-                    # vehicles" — even once a circulating gap is accepted,
-                    # hold the lane for follow_up_time after the previous
-                    # entry from it, modeling the minimum headway queued
-                    # vehicles need between each other (HCM roundabout
-                    # capacity: critical gap + follow-up time).
-                    last_entry = self._last_entry_time.get(lane.lane_id)
-                    if last_entry is not None and (
-                        self.time_in_current_state - last_entry < self.follow_up_time
-                    ):
-                        should_yield = True
+                                # The gap must be judged on the ring the
+                                # circulating vehicle is actually on, not
+                                # on the entering vehicle's destination
+                                # ring.
+                                cv_ring_radius = self._ring_radius(cv_lane_idx)
 
-                    if not should_yield and (
-                        self._mouth_shared_with_long_vehicle(d, lane, active_vehicles)
-                        or self._yields_to_earlier_neighbour(approach, lane)
-                        or self._merging_entry_must_wait(
-                            d, approach, lane, active_vehicles
-                        )
-                        or self._keep_clear(lane, head, circulating_vehicles)
-                    ):
-                        should_yield = True
+                                # 3. Skip if the vehicle is exiting at this approach
+                                cv_origin = _DIRECTION_BY_NAME[cv_origin_dir_str]
+                                cv_turn = _TURN_BY_NAME[cv_turn_str]
+                                cv_target = self.network._resolve_target_direction(
+                                    cv_origin, cv_turn
+                                )
+                                if cv_target == d:
+                                    continue
+                        except (ValueError, IndexError, KeyError):
+                            # An unrecognised connection-lane id means we
+                            # cannot tell where this vehicle is heading, so
+                            # fall through and treat it as conflicting
+                            # traffic rather than ignoring it.
+                            pass
 
-                    # Entry gate (ADR-014): consulted only once the rules above
-                    # have said "go", so it can add a yield but never lift one;
-                    # the committed-long-vehicle override below still wins.
-                    if (
-                        not should_yield
-                        and not self.entry_gate.allows(
-                            d, lane, self.time_in_current_state
-                        ).open
-                    ):
-                        should_yield = True
+                    cv_x, cv_y = cv.coords
+                    dist_to_entry_euclidean = (
+                        (cv_x - entry_pt[0]) ** 2 + (cv_y - entry_pt[1]) ** 2
+                    ) ** 0.5
 
-                    if should_yield and self._committed_long_entry(lane):
-                        should_yield = False
+                    if dist_to_entry_euclidean < scan_radius:
+                        theta_cv = math.atan2(cv_y, cv_x)
+                        # Angular distance from circulating vehicle to entry point (counter-clockwise)
+                        angular_gap = (theta_entry - theta_cv) % (2 * math.pi)
 
-                    if should_yield:
-                        lane.virtual_obstacle = VirtualObstacle(
-                            position=lane.length, stop_line=True
-                        )
-                    else:
-                        lane.virtual_obstacle = None
+                        # A vehicle that leaves the ring before it gets
+                        # here is not conflicting traffic. Only the exit
+                        # at this entry's own arm used to be excluded
+                        # (check 3 above), so an entering driver also gave
+                        # way to vehicles about to turn off at an earlier
+                        # exit — at low demand roughly one first stop in
+                        # four was for a vehicle that never arrived, at a
+                        # junction that looked empty. The exit angle is
+                        # read from the vehicle's own path, so this holds
+                        # for every ring and turn.
+                        if cv.lane is not None and cv.lane.lane_id.startswith("conn"):
+                            ex, ey = cv.lane.end_coords
+                            angle_to_exit = (math.atan2(ey, ex) - theta_cv) % (
+                                2 * math.pi
+                            )
+                            past_ring = (
+                                cv.lane.length - cv.position <= ROUNDABOUT_ENTRY_SETBACK
+                            )
+                            if angle_to_exit < angular_gap or past_ring:
+                                continue
 
-                    # Detect a completed entry: a vehicle that was within
-                    # _ENTRY_ZONE last tick and has now left this lane
-                    # entirely (crossed into the roundabout). Using actual
-                    # departure from the lane — rather than mere continued
-                    # presence in the zone — avoids a vehicle re-arming its
-                    # own follow-up timer every tick it is held waiting
-                    # right at the entry, which would otherwise deadlock it.
-                    current_lane_vehicle_ids = {
-                        v.vehicle_id for v in lane.get_vehicles()
-                    }
-                    prev_zone_occupants = self._prev_zone_occupants.get(
-                        lane.lane_id, set()
+                        # If angular_gap < pi, it is upstream / approaching the entry point
+                        if angular_gap < math.pi:
+                            dist_along_circle = cv_ring_radius * angular_gap
+
+                            # Judge the gap purely on how long THIS vehicle
+                            # will take to arrive.
+                            #
+                            # A fixed distance window derived from the
+                            # nominal circulatingSpeed used to gate this
+                            # test, so a vehicle travelling faster than
+                            # nominal was simply not seen: it sat outside
+                            # the window yet still arrived inside the
+                            # critical gap. Time-to-arrival is the quantity
+                            # the critical gap is actually defined against,
+                            # so comparing it directly removes the
+                            # inconsistency rather than papering over it.
+                            eff_speed = max(cv.speed, self.circulating_speed)
+                            time_gap = dist_along_circle / eff_speed
+                            if time_gap < required_gap:
+                                should_yield = True
+                                break
+
+                # followUpTime: "Time between consecutive entering
+                # vehicles" — even once a circulating gap is accepted,
+                # hold the lane for follow_up_time after the previous
+                # entry from it, modeling the minimum headway queued
+                # vehicles need between each other (HCM roundabout
+                # capacity: critical gap + follow-up time).
+                last_entry = self._last_entry_time.get(lane.lane_id)
+                if last_entry is not None and (
+                    self.time_in_current_state - last_entry < self.follow_up_time
+                ):
+                    should_yield = True
+
+                if not should_yield and (
+                    self._mouth_shared_with_long_vehicle(d, lane, active_vehicles)
+                    or self._yields_to_earlier_neighbour(approach, lane)
+                    or self._merging_entry_must_wait(d, approach, lane, active_vehicles)
+                    or self._keep_clear(lane, head, circulating_vehicles)
+                ):
+                    should_yield = True
+
+                # Entry gate (ADR-014): consulted only once the rules above
+                # have said "go", so it can add a yield but never lift one;
+                # the committed-long-vehicle override below still wins.
+                if (
+                    not should_yield
+                    and not self.entry_gate.allows(
+                        d, lane, self.time_in_current_state
+                    ).open
+                ):
+                    should_yield = True
+
+                if should_yield and self._committed_long_entry(lane):
+                    should_yield = False
+
+                if should_yield:
+                    lane.virtual_obstacle = VirtualObstacle(
+                        position=lane.length, stop_line=True
                     )
-                    if prev_zone_occupants - current_lane_vehicle_ids:
-                        self._last_entry_time[lane.lane_id] = self.time_in_current_state
-                    self._prev_zone_occupants[lane.lane_id] = {
-                        v.vehicle_id
-                        for v in lane.get_vehicles()
-                        if (lane.length - v.position) <= _ENTRY_ZONE
-                    }
-            except KeyError:
-                pass
+                else:
+                    lane.virtual_obstacle = None
+
+                # Detect a completed entry: a vehicle that was within
+                # _ENTRY_ZONE last tick and has now left this lane
+                # entirely (crossed into the roundabout). Using actual
+                # departure from the lane — rather than mere continued
+                # presence in the zone — avoids a vehicle re-arming its
+                # own follow-up timer every tick it is held waiting
+                # right at the entry, which would otherwise deadlock it.
+                current_lane_vehicle_ids = {v.vehicle_id for v in lane.get_vehicles()}
+                prev_zone_occupants = self._prev_zone_occupants.get(lane.lane_id, set())
+                if prev_zone_occupants - current_lane_vehicle_ids:
+                    self._last_entry_time[lane.lane_id] = self.time_in_current_state
+                self._prev_zone_occupants[lane.lane_id] = {
+                    v.vehicle_id
+                    for v in lane.get_vehicles()
+                    if (lane.length - v.position) <= _ENTRY_ZONE
+                }
 
         self._update_exit_yields(circulating_vehicles, active_vehicles)
 

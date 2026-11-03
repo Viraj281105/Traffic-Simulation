@@ -44,24 +44,36 @@ export class SimulationWebSocket {
   connect(): void {
     this.shouldReconnect = true;
     this.retryCount = 0;
+    this._clearRetry();
     this._connect();
   }
 
-  disconnect(): void {
-    this.shouldReconnect = false;
+  private _clearRetry(): void {
     if (this.retryTimer) {
       clearTimeout(this.retryTimer);
       this.retryTimer = null;
     }
+  }
+
+  /** Close a socket that is being replaced or dropped without letting its
+   *  handlers act: a late "close" from it would otherwise null the current
+   *  socket and schedule a second reconnect. */
+  private static _retire(ws: WebSocket, code?: number, reason?: string): void {
+    ws.onopen = null;
+    ws.onmessage = null;
+    ws.onerror = null;
+    ws.onclose = null;
+    ws.close(code, reason);
+  }
+
+  disconnect(): void {
+    this.shouldReconnect = false;
+    this._clearRetry();
     if (this.ws) {
       // Detach first: closing a socket that is still connecting fires
       // "error", which would surface a spurious connection error for what
       // is an intentional disconnect (view change, unmount).
-      this.ws.onopen = null;
-      this.ws.onmessage = null;
-      this.ws.onerror = null;
-      this.ws.onclose = null;
-      this.ws.close(1000, "Client disconnect");
+      SimulationWebSocket._retire(this.ws, 1000, "Client disconnect");
       this.ws = null;
     }
     this._setStatus("disconnected");
@@ -73,25 +85,27 @@ export class SimulationWebSocket {
 
   private _connect(): void {
     if (this.ws) {
-      this.ws.close();
+      SimulationWebSocket._retire(this.ws);
       this.ws = null;
     }
 
     this._setStatus(this.retryCount === 0 ? "connecting" : "reconnecting");
 
+    let socket: WebSocket;
     try {
-      this.ws = new WebSocket(this.url);
+      socket = new WebSocket(this.url);
     } catch {
       this._scheduleReconnect();
       return;
     }
+    this.ws = socket;
 
-    this.ws.onopen = () => {
+    socket.onopen = () => {
       this.retryCount = 0;
       this._setStatus("connected");
     };
 
-    this.ws.onmessage = (event: MessageEvent) => {
+    socket.onmessage = (event: MessageEvent) => {
       try {
         const snapshot = JSON.parse(event.data as string) as
           LiveSnapshot | DualSnapshot | ComparisonSnapshot;
@@ -101,7 +115,8 @@ export class SimulationWebSocket {
       }
     };
 
-    this.ws.onclose = (event: CloseEvent) => {
+    socket.onclose = (event: CloseEvent) => {
+      if (this.ws !== socket) return; // a socket already replaced
       this.ws = null;
       if (!this.shouldReconnect) return;
       if (event.code === 1000) return; // clean close
@@ -109,7 +124,8 @@ export class SimulationWebSocket {
       this._scheduleReconnect();
     };
 
-    this.ws.onerror = () => {
+    socket.onerror = () => {
+      if (this.ws !== socket) return;
       this.callbacks.onError("WebSocket connection error");
       this._setStatus("error");
     };
@@ -122,7 +138,9 @@ export class SimulationWebSocket {
         Math.min(this.retryCount, BACKOFF_DELAYS_MS.length - 1)
       ];
     this.retryCount++;
+    this._clearRetry();
     this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
       this._connect();
     }, delay);
   }

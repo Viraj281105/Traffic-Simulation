@@ -7,6 +7,7 @@ import {
 } from "../../scenario/scenarioTypes";
 import { setEntryControl } from "../../scenario/scenarioModel";
 import { NumberField } from "./fields";
+import { EntryModelChoice } from "./EntryModelChoice";
 
 export function AdvancedSettings({
   value,
@@ -534,6 +535,21 @@ export function AdvancedSettings({
         <p className="config-hint" role="note">
           {DRIVER_AGGRESSION_DISCLAIMER}
         </p>
+      </fieldset>
+      <fieldset>
+        <legend>Traffic that cannot get in</legend>
+        <EntryModelChoice
+          variant="builder"
+          value={value.traffic?.entryQueue}
+          onChange={(next) => {
+            update((d) => {
+              const traffic = { ...d.traffic };
+              if (next) traffic.entryQueue = next;
+              else delete traffic.entryQueue;
+              d.traffic = traffic;
+            });
+          }}
+        />
       </fieldset>
     </div>
   );

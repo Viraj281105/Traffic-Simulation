@@ -128,11 +128,31 @@ def canonical_comparison_strategies(requested: Any) -> List[str]:
     return out
 
 
+def _without_declared_strategy(config: Dict[str, Any]) -> Dict[str, Any]:
+    """*config* without the comparison block and without any strategy it
+    declares by name (``strategy`` at the root, in ``controller`` or in the
+    ``scenario`` metadata).
+
+    The derivation decides the strategy, and the result is checked against
+    the registry. A declared name would override it: a compiled fixed-time
+    scenario carries ``scenario.strategy: "fixed_time"``, so the adaptive run
+    derived from it failed the compatibility check (F-49). The live
+    dashboard's own configs declare ``"<signal>+roundabout"``, which strategy
+    resolution already ignores, so they derive exactly as before.
+    """
+    source = {k: v for k, v in config.items() if k not in ("comparison", "strategy")}
+    for key in ("controller", "scenario"):
+        section = source.get(key)
+        if isinstance(section, dict) and "strategy" in section:
+            source[key] = {k: v for k, v in section.items() if k != "strategy"}
+    return source
+
+
 def strategy_engine_config(config: Dict[str, Any], strategy_id: str) -> Dict[str, Any]:
     """The engine configuration that runs the live scenario *config* under
     *strategy_id* (canonical), verified against the registry."""
     base, apply = _DERIVATIONS[strategy_id]
-    source = {k: v for k, v in config.items() if k != "comparison"}
+    source = _without_declared_strategy(config)
     signal, roundabout = signal_and_roundabout_configs(source)
     derived = signal if base == "signal" else roundabout
     apply(derived, source)
@@ -161,11 +181,13 @@ class StrategyComparisonOrchestrator(LockstepOrchestrator):
 
     def get_snapshot(self) -> Dict[str, Any]:
         lead = self.runs[0]
-        return {
-            "tick": lead.clock.get_tick_count(),
-            "elapsed": round(lead.clock.get_elapsed_time(), 2),
-            "runs": [
-                {"strategy": run.key, "snapshot": run.builder.build()}
-                for run in self.runs
-            ],
-        }
+        # One frame, one tick: see LockstepOrchestrator.snapshot_lock (F-51).
+        with self.snapshot_lock():
+            return {
+                "tick": lead.clock.get_tick_count(),
+                "elapsed": round(lead.clock.get_elapsed_time(), 2),
+                "runs": [
+                    {"strategy": run.key, "snapshot": run.builder.build()}
+                    for run in self.runs
+                ],
+            }

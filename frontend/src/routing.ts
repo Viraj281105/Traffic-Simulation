@@ -35,6 +35,12 @@ export type RoutedView = keyof typeof VIEW_ROUTES;
 
 export const DEFAULT_VIEW: RoutedView = "comparative";
 
+/** Query flag that opens the dashboard's sign-in dialog on arrival. */
+export const SIGN_IN_PARAM = "signin";
+/** The landing page's "Login": the dashboard, with its Cognito sign-in
+ *  dialog open (hooks/useAuthSession). */
+export const SIGN_IN_HREF = `/app/comparative?${SIGN_IN_PARAM}=1`;
+
 /** Where the dashboard lived before it had routes (and bare /app): these
  *  redirect to the default view rather than being "not found". */
 const DASHBOARD_ENTRY_PATHS = new Set(["/app", "/app.html"]);

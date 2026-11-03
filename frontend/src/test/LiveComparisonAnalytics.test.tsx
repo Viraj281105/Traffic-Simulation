@@ -330,6 +330,49 @@ describe("Live Comparison Analytics Visualizers", () => {
     expect(screen.getByText("Junction Footprint")).toBeInTheDocument();
   });
 
+  it("shows the admitted share of configured demand once it is meaningful", () => {
+    const accounting = (nominal: number, share: number) => ({
+      entryModel: "suspend" as const,
+      arrivals: 60,
+      admitted: 58,
+      waitingAtEntry: 2,
+      rejected: 0,
+      entryBlockedSeconds: 140,
+      meanEntryWaitSeconds: 4.2,
+      maxEntryWaitSeconds: 31,
+      oldestWaitingSeconds: 6,
+      nominalDemand: nominal,
+      estimatedSuppressedArrivals: 30,
+      admittedShareOfNominal: share,
+      demandFiguresAreEstimates: true as const,
+      byApproach: {},
+    });
+    render(
+      <CapacityDemandVisualizer
+        signalCtx={{
+          ...signalCtx,
+          metrics: {
+            ...mockSignalSnapshot.metrics,
+            demandAccounting: accounting(94, 0.617),
+          },
+        }}
+        roundaboutCtx={{
+          ...roundaboutCtx,
+          metrics: {
+            ...mockRoundaboutSnapshot.metrics,
+            // Too few expected arrivals: the share is arrival noise.
+            demandAccounting: accounting(5, 1.4),
+          },
+        }}
+        compact={false}
+      />,
+    );
+
+    expect(screen.getByText("62% of configured demand")).toBeInTheDocument();
+    expect(screen.queryByText("140% of configured demand")).toBeNull();
+    expect(screen.getAllByText(/admitted$/).length).toBe(2);
+  });
+
   it("renders DistributionDiagnosticsVisualizer with delay spread and no side-by-side composite", () => {
     render(
       <DistributionDiagnosticsVisualizer

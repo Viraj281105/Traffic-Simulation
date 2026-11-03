@@ -16,6 +16,9 @@ import { getAuthToken } from "../../auth/cognito";
 
 const PREFIX = "/api/v3";
 
+/** Longest an /api/v3 request may wait for its answer. */
+export const V3_REQUEST_TIMEOUT_MS = 120_000;
+
 // ── Status ─────────────────────────────────────────────────────────────────
 
 export type ExperimentState =
@@ -217,8 +220,17 @@ async function send(
       method: init.method ?? "GET",
       headers,
       body: init.body,
+      // F-28 for the /api/v3 clients: a stalled server no longer leaves a lab
+      // page waiting forever. Long work runs as jobs, so every call here
+      // answers quickly; 120 s also covers package downloads and uploads.
+      signal: AbortSignal.timeout(V3_REQUEST_TIMEOUT_MS),
     });
-  } catch {
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "TimeoutError") {
+      throw new ExperimentsApiError(0, [
+        "The server did not answer in time. Try again.",
+      ]);
+    }
     throw new ExperimentsApiError(0, ["The server could not be reached."]);
   }
   if (!response.ok) {

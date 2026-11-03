@@ -213,6 +213,21 @@ export interface RenderOptions {
   /** Simulated seconds, for light pulses. */
   clock: number;
   theme: SceneTheme;
+  /** Per-canvas cache for the flat ground layer; omit to draw it each time. */
+  ground?: GroundLayer;
+}
+
+/** A canvas-sized image of the ground layer and the view it was drawn for. */
+export interface GroundLayer {
+  /** View key of the cached image. */
+  key: string;
+  /** View key of the previous frame. */
+  seen: string;
+  canvas: HTMLCanvasElement | null;
+}
+
+export function createGroundLayer(): GroundLayer {
+  return { key: "", seen: "", canvas: null };
 }
 
 export function drawScene(
@@ -249,23 +264,31 @@ export function drawScene(
     return Y * ce - z * se;
   };
 
-  ctx.clearRect(0, 0, w, h);
-
-  const poly = (pts: P[], fill: string, stroke?: string, lw = 1) => {
-    ctx.beginPath();
-    pts.forEach((p, i) => {
-      if (i === 0) ctx.moveTo(p[0], p[1]);
-      else ctx.lineTo(p[0], p[1]);
-    });
-    ctx.closePath();
-    ctx.fillStyle = fill;
-    ctx.fill();
-    if (stroke) {
-      ctx.strokeStyle = stroke;
-      ctx.lineWidth = lw;
-      ctx.stroke();
-    }
-  };
+  const polyOn =
+    (g: CanvasRenderingContext2D) =>
+    (pts: P[], fill: string, stroke?: string, lw = 1) => {
+      g.beginPath();
+      pts.forEach((p, i) => {
+        if (i === 0) g.moveTo(p[0], p[1]);
+        else g.lineTo(p[0], p[1]);
+      });
+      g.closePath();
+      g.fillStyle = fill;
+      g.fill();
+      if (stroke) {
+        g.strokeStyle = stroke;
+        g.lineWidth = lw;
+        g.stroke();
+      }
+    };
+  const poly = polyOn(ctx);
+  // True when every point lies beyond the same canvas edge (with a margin
+  // for strokes), so the convex shape they bound cannot touch the canvas.
+  const offCanvas = (pts: P[]): boolean =>
+    pts.every((p) => p[0] < -2) ||
+    pts.every((p) => p[0] > w + 2) ||
+    pts.every((p) => p[1] < -2) ||
+    pts.every((p) => p[1] > h + 2);
   const flat = (pts: [number, number][], z: number): P[] =>
     pts.map(([x, y]) => project(x, y, z));
   const rect = (
@@ -285,81 +308,132 @@ export function drawScene(
       z,
     );
 
-  // Ground and a faint survey grid.
-  poly(rect(-420, -420, 420, 420, 0), pal.ground);
-  ctx.strokeStyle = pal.grid;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let g = -180; g <= 180; g += 30) {
-    const a = project(g, -180, 0);
-    const b = project(g, 180, 0);
-    ctx.moveTo(a[0], a[1]);
-    ctx.lineTo(b[0], b[1]);
-    const c = project(-180, g, 0);
-    const d = project(180, g, 0);
-    ctx.moveTo(c[0], c[1]);
-    ctx.lineTo(d[0], d[1]);
-  }
-  ctx.stroke();
+  // The flat ground layer: everything below the depth-sorted items. It only
+  // changes with the camera, size, theme and layout, so a still camera can
+  // reuse it from `o.ground` instead of re-tracing ~110 paths every frame.
+  const drawGround = (g: CanvasRenderingContext2D) => {
+    const poly = polyOn(g);
+    // Ground and a faint survey grid.
+    poly(rect(-420, -420, 420, 420, 0), pal.ground);
+    g.strokeStyle = pal.grid;
+    g.lineWidth = 1;
+    g.beginPath();
+    for (let gl = -180; gl <= 180; gl += 30) {
+      const a = project(gl, -180, 0);
+      const b = project(gl, 180, 0);
+      g.moveTo(a[0], a[1]);
+      g.lineTo(b[0], b[1]);
+      const c = project(-180, gl, 0);
+      const d = project(180, gl, 0);
+      g.moveTo(c[0], c[1]);
+      g.lineTo(d[0], d[1]);
+    }
+    g.stroke();
 
-  // Roads.
-  const road = pal.road;
-  const edge = pal.edge;
-  if (ring) {
-    const r1 = o.outerRadius;
-    poly(rect(-ARM, -ROAD_HALF, ARM, ROAD_HALF, 0.02), road);
-    poly(rect(-ROAD_HALF, -ARM, ROAD_HALF, ARM, 0.02), road);
-    const disc = (r: number, z: number): P[] => {
-      const pts: [number, number][] = [];
-      for (let i = 0; i < 56; i++) {
-        const a = (i / 56) * Math.PI * 2;
-        pts.push([Math.cos(a) * r, Math.sin(a) * r]);
+    // Roads.
+    const road = pal.road;
+    const edge = pal.edge;
+    if (ring) {
+      const r1 = o.outerRadius;
+      poly(rect(-ARM, -ROAD_HALF, ARM, ROAD_HALF, 0.02), road);
+      poly(rect(-ROAD_HALF, -ARM, ROAD_HALF, ARM, 0.02), road);
+      const disc = (r: number, z: number): P[] => {
+        const pts: [number, number][] = [];
+        for (let i = 0; i < 56; i++) {
+          const a = (i / 56) * Math.PI * 2;
+          pts.push([Math.cos(a) * r, Math.sin(a) * r]);
+        }
+        return flat(pts, z);
+      };
+      poly(disc(r1 + 0.6, 0.03), road, edge, 1.2);
+      poly(disc(o.innerRadius, 0.05), pal.ringIsland);
+      poly(disc(o.innerRadius - 1.2, 0.5), pal.island[1]);
+      poly(disc(o.innerRadius - 3, 0.55), pal.island[2]);
+    } else {
+      poly(rect(-ARM, -ROAD_HALF, ARM, ROAD_HALF, 0.02), road);
+      poly(rect(-ROAD_HALF, -ARM, ROAD_HALF, ARM, 0.02), road);
+    }
+    // Road edges and centre dashes.
+    g.strokeStyle = edge;
+    g.lineWidth = 1;
+    g.beginPath();
+    for (const s of [-1, 1]) {
+      const reach = ring ? o.outerRadius + 1 : STOP + 3;
+      for (const sign of [-1, 1]) {
+        let a = project(sign * ARM, s * ROAD_HALF, 0.05);
+        let b = project(sign * reach, s * ROAD_HALF, 0.05);
+        g.moveTo(a[0], a[1]);
+        g.lineTo(b[0], b[1]);
+        a = project(s * ROAD_HALF, sign * ARM, 0.05);
+        b = project(s * ROAD_HALF, sign * reach, 0.05);
+        g.moveTo(a[0], a[1]);
+        g.lineTo(b[0], b[1]);
       }
-      return flat(pts, z);
-    };
-    poly(disc(r1 + 0.6, 0.03), road, edge, 1.2);
-    poly(disc(o.innerRadius, 0.05), pal.ringIsland);
-    poly(disc(o.innerRadius - 1.2, 0.5), pal.island[1]);
-    poly(disc(o.innerRadius - 3, 0.55), pal.island[2]);
-  } else {
-    poly(rect(-ARM, -ROAD_HALF, ARM, ROAD_HALF, 0.02), road);
-    poly(rect(-ROAD_HALF, -ARM, ROAD_HALF, ARM, 0.02), road);
-  }
-  // Road edges and centre dashes.
-  ctx.strokeStyle = edge;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (const s of [-1, 1]) {
-    const reach = ring ? o.outerRadius + 1 : STOP + 3;
-    for (const sign of [-1, 1]) {
-      let a = project(sign * ARM, s * ROAD_HALF, 0.05);
-      let b = project(sign * reach, s * ROAD_HALF, 0.05);
-      ctx.moveTo(a[0], a[1]);
-      ctx.lineTo(b[0], b[1]);
-      a = project(s * ROAD_HALF, sign * ARM, 0.05);
-      b = project(s * ROAD_HALF, sign * reach, 0.05);
-      ctx.moveTo(a[0], a[1]);
-      ctx.lineTo(b[0], b[1]);
     }
-  }
-  ctx.stroke();
-  ctx.fillStyle = pal.dash;
-  const dashFrom = (ring ? o.outerRadius : STOP) + 6;
-  for (let d = dashFrom; d < ARM; d += 9) {
-    for (const sign of [-1, 1]) {
-      poly(rect(sign * d, -0.12, sign * (d + 4), 0.12, 0.06), ctx.fillStyle);
-      poly(rect(-0.12, sign * d, 0.12, sign * (d + 4), 0.06), ctx.fillStyle);
+    g.stroke();
+    // One fill per dash: a single path would antialias far dashes that
+    // share pixels differently.
+    const dashFrom = (ring ? o.outerRadius : STOP) + 6;
+    for (let d = dashFrom; d < ARM; d += 9) {
+      for (const sign of [-1, 1]) {
+        poly(rect(sign * d, -0.12, sign * (d + 4), 0.12, 0.06), pal.dash);
+        poly(rect(-0.12, sign * d, 0.12, sign * (d + 4), 0.06), pal.dash);
+      }
     }
-  }
 
-  // Stop lines (signals) or give-way lines (ring).
-  const lineAt = ring ? o.outerRadius + 0.4 : STOP;
-  for (let q = 0; q < 4; q++) {
-    const p0 = turnQuarter([-ROAD_HALF, lineAt], q);
-    const p1 = turnQuarter([0, lineAt], q);
-    const p2 = turnQuarter([0, lineAt + 0.7], q);
-    const p3 = turnQuarter([-ROAD_HALF, lineAt + 0.7], q);
-    poly(flat([p0, p1, p2, p3], 0.07), ring ? pal.giveWay : pal.stopLine);
+    // Stop lines (signals) or give-way lines (ring).
+    const lineAt = ring ? o.outerRadius + 0.4 : STOP;
+    for (let q = 0; q < 4; q++) {
+      const p0 = turnQuarter([-ROAD_HALF, lineAt], q);
+      const p1 = turnQuarter([0, lineAt], q);
+      const p2 = turnQuarter([0, lineAt + 0.7], q);
+      const p3 = turnQuarter([-ROAD_HALF, lineAt + 0.7], q);
+      poly(flat([p0, p1, p2, p3], 0.07), ring ? pal.giveWay : pal.stopLine);
+    }
+  };
+
+  ctx.clearRect(0, 0, w, h);
+  const layer = o.ground;
+  if (layer) {
+    // Built only once the same view has been drawn twice in a row, so a
+    // camera that moves every frame (hero, finale) never pays for a cache.
+    const key = [
+      cam.yaw,
+      cam.elev,
+      cam.zoom,
+      cam.shiftX,
+      cam.shiftY,
+      w,
+      h,
+      ctx.canvas.width,
+      ctx.canvas.height,
+      o.theme,
+      ring,
+      o.innerRadius,
+      o.outerRadius,
+    ].join("|");
+    if (key === layer.seen && key !== layer.key) {
+      const c = (layer.canvas ??= document.createElement("canvas"));
+      c.width = ctx.canvas.width;
+      c.height = ctx.canvas.height;
+      const g = c.getContext("2d");
+      if (g) {
+        g.setTransform(ctx.getTransform());
+        drawGround(g);
+        layer.key = key;
+      }
+    }
+    layer.seen = key;
+    if (layer.canvas && layer.key === key) {
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(layer.canvas, 0, 0);
+      ctx.restore();
+    } else {
+      drawGround(ctx);
+    }
+  } else {
+    drawGround(ctx);
   }
 
   // Everything with height is depth sorted, far to near.
@@ -396,9 +470,10 @@ export function drawScene(
       const dy = -hgt * 0.4;
       shadows.push(() => {
         const fill = pal.shadow ?? "transparent";
-        ctx.globalAlpha = shadowAlpha;
         const foot = base.map(([x, y]) => project(x, y, 0.06));
         const cast = base.map(([x, y]) => project(x + dx, y + dy, 0.06));
+        if (offCanvas(foot.concat(cast))) return;
+        ctx.globalAlpha = shadowAlpha;
         poly(foot, fill);
         poly(cast, fill);
         for (let i = 0; i < 4; i++) {
@@ -413,6 +488,7 @@ export function drawScene(
       draw: () => {
         const lo = base.map(([x, y]) => project(x, y, 0.05));
         const hi = base.map(([x, y]) => project(x, y, hgt));
+        if (offCanvas(lo.concat(hi))) return;
         const faces: { d: number; pts: P[]; fill: string }[] = [];
         for (let i = 0; i < 4; i++) {
           const j = (i + 1) % 4;

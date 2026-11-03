@@ -60,7 +60,9 @@ def test_another_users_replay_is_forbidden_and_unlisted(act_as) -> None:
     assert client.get(f"/api/v1/replays/{replay_id}").status_code == 200
 
     act_as("bob")
-    assert client.get(f"/api/v1/replays/{replay_id}").status_code == 403
+    denied = client.get(f"/api/v1/replays/{replay_id}")
+    assert denied.status_code == 403
+    assert denied.json()["error"]["code"] == "FORBIDDEN"
     assert client.delete(f"/api/v1/replays/{replay_id}").status_code == 403
     assert all(r["id"] != replay_id for r in client.get("/api/v1/replays").json())
 

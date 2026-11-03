@@ -19,6 +19,7 @@ import { ControlStrategies } from "./research/ControlStrategies";
 import { MetricGallery } from "./research/MetricGallery";
 import { ComparisonExplainer } from "./research/ComparisonExplainer";
 import { EvidenceLadder } from "./research/EvidenceLadder";
+import { MetricGlossary } from "./research/MetricGlossary";
 
 interface Tool {
   href: string;
@@ -241,6 +242,10 @@ export function ResearchHub() {
               </tbody>
             </table>
           </div>
+        </details>
+        <details className="rl-more">
+          <summary>Glossary of every measure, in plain words</summary>
+          <MetricGlossary />
         </details>
       </LabSection>
 

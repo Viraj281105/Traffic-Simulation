@@ -8,6 +8,7 @@ import {
   DEV_AUTH_PROFILE,
   getCurrentUser,
 } from "../auth/cognito";
+import { SIGN_IN_PARAM } from "../routing";
 
 export interface UserProfile {
   name?: string;
@@ -25,7 +26,13 @@ export function useAuthSession() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(
     () => DEV_AUTH_BYPASS || !!getCurrentUser(),
   );
-  const [showLogin, setShowLogin] = useState<boolean>(false);
+  // Arriving from the landing page's "Login" (SIGN_IN_HREF) opens the
+  // sign-in dialog, unless the visitor is already signed in.
+  const [showLogin, setShowLogin] = useState<boolean>(
+    () =>
+      !(DEV_AUTH_BYPASS || getCurrentUser()) &&
+      new URLSearchParams(window.location.search).has(SIGN_IN_PARAM),
+  );
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(
     DEV_AUTH_BYPASS ? DEV_AUTH_PROFILE : null,

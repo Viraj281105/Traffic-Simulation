@@ -43,6 +43,7 @@ def simulate_once(config: Dict[str, Any], strategy: str) -> Dict[str, Any]:
         engine.pool.exited_vehicles,
         engine.spawner.spawned_count if engine.spawner else 0,
         engine.pool.collision_count,
+        engine.spawner.demand_accounting() if engine.spawner else None,
     )
 
     flow: Dict[str, int] = {}

@@ -1,5 +1,10 @@
 import { useEffect, useRef, type RefObject } from "react";
-import { drawScene, type Camera, type SceneTheme } from "./render";
+import {
+  createGroundLayer,
+  drawScene,
+  type Camera,
+  type SceneTheme,
+} from "./render";
 import { useSceneTheme } from "./SceneContext";
 import { useOnScreen, type SimClock } from "./clock";
 import { sampleRun, type SceneData, type StrategyId } from "./sceneData";
@@ -13,6 +18,10 @@ interface SimCanvasProps {
   className?: string;
   /** Upper bound on the canvas pixel ratio. */
   maxDpr?: number;
+  /** Repaint at most this often (frames per second); every frame when
+   *  unset. Frames are gated on the shared animation-frame time, so canvases
+   *  with the same cap repaint on the same frames and stay in step. */
+  maxFps?: number;
   /** Pin the canvas to one theme (the dark hero and finale); by default
    *  it follows the page. */
   theme?: SceneTheme;
@@ -28,6 +37,7 @@ export function SimCanvas({
   label,
   className,
   maxDpr = 2,
+  maxFps,
   theme: pinned,
 }: SimCanvasProps) {
   const pageTheme = useSceneTheme();
@@ -41,11 +51,13 @@ export function SimCanvas({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const run = data.runs[strategy];
+    const ground = createGroundLayer();
     let width = 0;
     let height = 0;
     let dpr = 1;
     let lastKey = "";
     let raf = 0;
+    let lastSlot = -1;
 
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
@@ -61,9 +73,14 @@ export function SimCanvas({
       typeof ResizeObserver === "undefined" ? null : new ResizeObserver(resize);
     ro?.observe(canvas);
 
-    const frame = () => {
+    const frame = (now: number) => {
       raf = requestAnimationFrame(frame);
       if (!visible.current || document.hidden) return;
+      if (maxFps) {
+        const slot = Math.floor(now / (1000 / maxFps));
+        if (slot === lastSlot) return;
+        lastSlot = slot;
+      }
       const cam = camera.current;
       const key = `${clock.current.t.toFixed(3)}|${cam.yaw.toFixed(2)}|${cam.elev.toFixed(2)}|${cam.zoom.toFixed(3)}|${cam.shiftY.toFixed(3)}|${cam.shiftX.toFixed(3)}|${width.toString()}x${height.toString()}`;
       if (key === lastKey) return;
@@ -79,14 +96,17 @@ export function SimCanvas({
         outerRadius: run.geometry.outerRadius ?? 20,
         clock: s.clock,
         theme,
+        ground,
       });
     };
     raf = requestAnimationFrame(frame);
     return () => {
       cancelAnimationFrame(raf);
       ro?.disconnect();
+      // Release the cached ground image's backing store now, not at GC.
+      if (ground.canvas) ground.canvas.width = 0;
     };
-  }, [data, strategy, clock, camera, visible, maxDpr, theme]);
+  }, [data, strategy, clock, camera, visible, maxDpr, maxFps, theme]);
 
   return (
     <canvas ref={ref} className={className} role="img" aria-label={label} />

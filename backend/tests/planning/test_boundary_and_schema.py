@@ -21,6 +21,7 @@ ALLOWED = {
     "src.study.jobs",
     "src.database.db",
     "src.api.auth",
+    "src.csv_safety",
     # V2.0 integration: the attached V1.8 run and the V1.9 network model.
     "src.calibration",
     "src.calibration.models",  # schema export only

@@ -1,0 +1,3173 @@
+{
+  "_comment": "Review records for scripts/repo_inventory.py. 'inspection' is FULL or PARTIAL only for files actually read; patterns carry recommendations and never mark a file inspected.",
+  "files": {
+    ".claude/launch.json": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Added frontend-preview (vite preview on :4173) for production-build profiling."
+    },
+    ".dockerignore": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "First 60 lines read; excludes docs, scripts, frontend and landingpage from the backend context."
+    },
+    ".github/workflows/ci.yml": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "permissions: contents read; Node 20 -> 26; build + bundle budgets step; installs requirements-dev.txt. YAML parses; test_ci_slow_matrix passes. CP12 F-65: 'Copilot evaluation (deterministic)' step with job summary."
+    },
+    "README.md": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "Node prerequisite (20 -> 24+, CI/image 26) and requirements-dev install corrected."
+    },
+    "package.json": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Root only installs husky."
+    },
+    "src/__init__.py": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Import shim redirecting to backend/src; purpose to confirm (F-10)."
+    },
+    "frontend/Dockerfile": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Multi-stage; non-root nginx-unprivileged; envsubst filtered to BACKEND_API_KEY."
+    },
+    "frontend/package.json": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED"
+    },
+    "frontend/vite.config.ts": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Two-document MPA build; react/recharts chunk groups."
+    },
+    "frontend/templates/default.conf.template": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Static-asset location now repeats the security headers (CSP via $csp variable). Verified with nginx-unprivileged 1.31.6: JS gets nosniff + CSP; HEAD template did not."
+    },
+    "frontend/src/main.tsx": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED"
+    },
+    "frontend/src/landing/main.tsx": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED"
+    },
+    "frontend/src/landing/App.tsx": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Header scroll check is rAF-throttled and passive. CP10 F-18: Login links to SIGN_IN_HREF; window.openAuthModal removed."
+    },
+    "frontend/src/landing/components/Reveal.tsx": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED"
+    },
+    "frontend/src/landing/scene/SceneContext.ts": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED"
+    },
+    "frontend/src/landing/scene/sceneData.ts": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Scene JSON is a lazy chunk fetched after first paint."
+    },
+    "frontend/src/landing/scene/clock.ts": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED"
+    },
+    "frontend/src/landing/scene/render.ts": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Ground layer cached while the camera is still; off-canvas boxes and shadows skipped. Pixel-identical (PERFORMANCE_BASELINE.md)."
+    },
+    "frontend/src/landing/scene/SimCanvas.tsx": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Owns and releases the per-canvas ground cache. CP11 F-14: read in full; repaints only on screen and only when clock/camera moved. CP12 F-14: optional maxFps gated on the shared frame time."
+    },
+    "frontend/src/landing/scene/useHud.ts": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Optional 'active' ref pauses the readout off screen."
+    },
+    "frontend/src/landing/sections/Hero.tsx": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "No per-frame getBoundingClientRect; camera loop idles off screen."
+    },
+    "frontend/src/landing/sections/CompareStudio.tsx": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Tile queue readouts and scrubber pause off screen. CP12 F-14: compare tiles maxFps=30 (measured -26 % main-thread time)."
+    },
+    "frontend/src/landing/sections/Story.tsx": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "HUD pauses while the pinned story is off screen."
+    },
+    "frontend/src/landing/sections/Closing.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "FinalCta (lines 170-230) read."
+    },
+    "frontend/src/landing/sections/Platform.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Lines 1-40 read (typing effect interval)."
+    },
+    "frontend/src/test/landing.test.tsx": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Added unit tests for the ground-layer cache (built once a view repeats, blitted after, never for a moving camera) and off-canvas culling. 10 tests pass. CP10 F-18: Login link and no password field asserted."
+    },
+    "landingpage/package.json": {
+      "inspection": "FULL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype; not built, deployed or imported; cannot build as committed (lib/ packages absent).",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/pnpm-workspace.yaml": {
+      "inspection": "FULL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype; not built, deployed or imported; cannot build as committed (lib/ packages absent).",
+      "action": "F-03 (needs owner approval)"
+    },
+    "scripts/README.md": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Index listed 7 of 20 scripts and documented removed GitHub scripts; rewritten index, wrapper description corrected."
+    },
+    "scripts/landing_perf.mjs": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "Headless landing-page probe used for the baseline. CP12: used for the F-14 A/B; header read."
+    },
+    "scripts/check_bundle_budgets.mjs": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "Bundle-size budgets (PERFORMANCE_BUDGETS.md); not yet in CI (F-13)."
+    },
+    "docs/engineering/PERFORMANCE_BUDGETS.md": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "Bundle check wired into CI; simulation step-time budget."
+    },
+    "scripts/repo_inventory.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "Inventory generator/checker; now with a profile column (stated purpose, backend coverage) and a deleted-files table."
+    },
+    "docs/future-scope/future_scope.md": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "Two links to docs removed in d17cf2d repointed (F-12)."
+    },
+    "docs/planning/w2-closure-audit-and-w3-execution-plan.md": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "One link to a removed doc unlinked (F-12)."
+    },
+    "docs/product/ux-audit-v3-w2-followup.md": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "Two links to removed docs unlinked (F-12)."
+    },
+    "docs/architecture/00-system-overview.md": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "\u00a71 diagram checked against nginx template and Dockerfile."
+    },
+    "docs/architecture/02-backend-architecture.md": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "\u00a72 dependency rules and \u00a75a debt read."
+    },
+    "docs/architecture/03-frontend-architecture.md": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "action": "Describe the landing scene pipeline (ARCHITECTURE_AUDIT.md \u00a72)."
+    },
+    "docs/engineering/REPOSITORY_INVENTORY.md": {
+      "inspection": "FULL",
+      "disposition": "GENERATED_AND_VALIDATED"
+    },
+    "docs/engineering/inventory_review.json": {
+      "inspection": "FULL",
+      "disposition": "ADDED"
+    },
+    "docs/engineering/ARCHITECTURE_AUDIT.md": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "Drift table and audit coverage updated for checkpoint 2."
+    },
+    "docs/engineering/REFACTOR_FINDINGS.md": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "F-01..F-33."
+    },
+    "docs/engineering/PERFORMANCE_BASELINE.md": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "Checkpoint 2: canvas-diff script, Compare two-face trial, simulation timing/profile, dashboard limits."
+    },
+    "docs/engineering/REFACTOR_COMPLETION_AUDIT.md": {
+      "inspection": "FULL",
+      "disposition": "ADDED"
+    },
+    ".gitattributes": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Forces LF for all text files."
+    },
+    ".husky/pre-commit": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Runs frontend lint before commit."
+    },
+    "frontend/.prettierrc": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "endOfLine auto; .gitattributes enforces LF."
+    },
+    ".github/ISSUE_TEMPLATE/config.yml": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Contact links to docs/architecture and docs/decisions."
+    },
+    ".github/ISSUE_TEMPLATE/feature_request.md": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Standard template; refers to existing schema names."
+    },
+    ".github/ISSUE_TEMPLATE/bug_report.md": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Standard template."
+    },
+    "AWS_DEPLOYMENT_GUIDE.md": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Redirect stub to docs/deployment; links resolve."
+    },
+    "frontend/public/theme-init.js": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Pre-paint theme switch; same-origin for the CSP."
+    },
+    "frontend/tsconfig.node.json": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Types vite.config.ts only."
+    },
+    ".github/CODEOWNERS": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Lists planned dirs (/services, /infra, /pipelines, backend/src/rl) that do not exist yet; harmless."
+    },
+    "frontend/.dockerignore": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Keeps tests, docs and lint config out of the image context."
+    },
+    ".github/PULL_REQUEST_TEMPLATE.md": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Named a non-existent script (npm run format:check); now npm run format."
+    },
+    "frontend/tsconfig.json": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Strict, bundler resolution, noUnused*."
+    },
+    "frontend/eslint.config.js": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "strictTypeChecked + react-hooks; one rule relaxed (non-null assertion)."
+    },
+    "frontend/app.html": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Dashboard document; pre-paint background, font preconnect."
+    },
+    "backend/docker-entrypoint.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Fixes volume ownership as root, then setgid/setuid to appuser before exec."
+    },
+    "backend/pyproject.toml": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "ruff, mypy strict, pytest with 85% coverage floor."
+    },
+    "backend/requirements.txt": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Runtime-only (dev tools moved to requirements-dev.txt; image 420 -> 274 MB); certifi 2026.7.22 -> 2026.10.19 for PYSEC-2026-4320 (F-32). CP10 F-33: PyJWT==2.15.1 replaces python-jose[cryptography]; ecdsa, rsa, pyasn1, six dropped (dry-run resolve: 48 packages; OSV: PyJWT 2.15.1 none)."
+    },
+    "backend/requirements-dev.txt": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "Runtime pins + pinned pytest, pytest-cov, pytest-xdist, ruff, mypy; used by CI and local setup."
+    },
+    ".github/dependabot.yml": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "pip/npm/docker/actions weekly; Python minor bumps blocked (3.11 policy). Covers requirements-dev.txt via /backend directory."
+    },
+    "backend/Dockerfile": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Multi-stage; runtime drops to appuser via entrypoint; healthcheck. Image rebuilt and smoke-tested."
+    },
+    "docker-compose.yml": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Comments named frontend/nginx.conf (absent) and only Bearer auth; corrected. `docker compose config` OK. CP12 F-64: LOG_FORMAT=json, METRICS_TOKEN."
+    },
+    "docker-compose.dev.yml": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Dev targets, bind mounts, DEV_AUTH_BYPASS only here. `docker compose config` OK."
+    },
+    ".github/workflows/docker.yml": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "permissions: contents read."
+    },
+    ".github/workflows/deploy.yml": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "permissions: contents read. CP10 F-16: host key pinned from EC2_KNOWN_HOSTS (fail-closed), StrictHostKeyChecking yes, logged opt-out ALLOW_UNPINNED_EC2_HOST_KEY."
+    },
+    ".gitignore": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Adds coverage.json (generated by `coverage json`; read by scripts/repo_inventory.py)."
+    },
+    "start.ps1": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Header, env validation, clean (volume delete needs typed confirmation) and dispatch read (~250 of 880 lines)."
+    },
+    "backend/README.md": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "Dev install uses requirements-dev.txt."
+    },
+    "docs/architecture/10-repository-bootstrap.md": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "Node 18+ -> 24+; requirements-dev.txt."
+    },
+    "frontend/index.html": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Landing document: meta/OG tags, Google Fonts, theme-init, placeholder auth modal markup (F-18). CP10 F-18: placeholder auth modal markup and script tag removed."
+    },
+    "scripts/validate_schemas.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checks the 3 hand-written top-level schemas only; generated v2/v3 schemas are guarded by backend contract tests. Run in CI."
+    },
+    "scripts/validate-schemas.sh": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Finds python3/python and runs the validator."
+    },
+    "scripts/roundabout_lane_experiment.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Reuses the slow test's harness; paired-difference CI with small-sample t quantiles."
+    },
+    "scripts/sampler_condition_table.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Design prototype; prints sampled conditions, no simulation."
+    },
+    "scripts/setup_cognito.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "App client no longer enables ALLOW_USER_PASSWORD_AUTH (frontend uses SRP); .env update kept comments/blank lines only by rewriting the file, now edits keys in place (tested on a temp file); unused import removed."
+    },
+    "scripts/build_fallback_pack.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Writes LF and hashes with CRLF normalised (repo convention from d43e877); new --verify mode. Covered by backend/tests/planning/test_fallback_pack.py."
+    },
+    "scripts/export_strategy_schema.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Regenerates strategy-descriptor.schema.json from the Pydantic model."
+    },
+    "scripts/w2_baseline_study.py": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "Head, writes and hashing read. Now writes LF and hashes normalised, so a Windows run produces a pack that verifies on Linux. Committed pack already LF-consistent."
+    },
+    "scripts/w2_safety_matrix.py": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Header and runner read; reuses the slow test's _simulate so evidence and gate cannot drift."
+    },
+    "scripts/v2_demo.py": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Header and request setup read; dev-bypass token only."
+    },
+    "scripts/v3_demo.py": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Header and function map read; offline verifier normalises line endings (d43e877) and is tested."
+    },
+    "scripts/record_landing_scene.py": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Header and function map read; writes the landing scene with provenance."
+    },
+    "scripts/benchmark_signalised_roundabout.py": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Header and function map read; timing and tracemalloc passes separated."
+    },
+    "scripts/run_full_study.py": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Args and main sweep/validation flow read; wording avoids over-claiming."
+    },
+    "scripts/run-remote-deploy.sh": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Validates commit SHA and run key, %q-quotes remote args, detaches and polls the remote deploy."
+    },
+    "scripts/deploy-ec2.sh": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Options, lock (flock), resource checks, fetch/reset/rollback and health checks read."
+    },
+    "docs/architecture/01-repository-architecture.md": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "scripts/ line named the removed GitHub automation."
+    },
+    "fallback-pack/SHA256SUMS": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Hashes were of CRLF files (Windows build) so 9 of 10 failed on an LF checkout; regenerated with LF-normalised hashes after proving every old hash matched the committed content."
+    },
+    "fallback-pack/MANIFEST.json": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Commit 886742f, Python 3.14.7, both studies reproduced. Checksum verified."
+    },
+    "backend/tests/planning/test_fallback_pack.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "Committed pack verifies; LF and CRLF copies verify; an edited file is caught."
+    },
+    "fallback-pack/ONE_PAGER_DRAFT.md": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Dated preview draft (2026-10-14); its example figure matches finding F6 of the medium report (+6.33, CI 1.16 to 11.5). \"V3.0 nothing built yet\" is historical, kept as written."
+    },
+    "fallback-pack/small-live/study.json": {
+      "inspection": "FULL",
+      "disposition": "GENERATED_AND_VALIDATED",
+      "note": "Study request; checksum verified."
+    },
+    "fallback-pack/medium-precomputed/study.json": {
+      "inspection": "PARTIAL",
+      "disposition": "GENERATED_AND_VALIDATED",
+      "note": "Same generator as small-live; checksum verified."
+    },
+    "fallback-pack/small-live/report.json": {
+      "inspection": "PARTIAL",
+      "disposition": "GENERATED_AND_VALIDATED",
+      "note": "Planner export; parses, top-level keys checked; checksum verified."
+    },
+    "fallback-pack/small-live/report.csv": {
+      "inspection": "PARTIAL",
+      "disposition": "GENERATED_AND_VALIDATED",
+      "note": "43 rows, header checked; checksum verified."
+    },
+    "fallback-pack/small-live/report.md": {
+      "inspection": "PARTIAL",
+      "disposition": "GENERATED_AND_VALIDATED",
+      "note": "Executive summary read; checksum verified."
+    },
+    "fallback-pack/medium-precomputed/report.json": {
+      "inspection": "PARTIAL",
+      "disposition": "GENERATED_AND_VALIDATED",
+      "note": "Parses; checksum verified."
+    },
+    "fallback-pack/medium-precomputed/report.csv": {
+      "inspection": "PARTIAL",
+      "disposition": "GENERATED_AND_VALIDATED",
+      "note": "127 rows; cross-checked against report.md; checksum verified."
+    },
+    "fallback-pack/medium-precomputed/report.md": {
+      "inspection": "PARTIAL",
+      "disposition": "GENERATED_AND_VALIDATED",
+      "note": "Findings and statistics tables checked against the CSV and the one-pager; checksum verified."
+    },
+    "shared/README.md": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Tree and table omitted v3/manifest.schema.json and v3/strategy-descriptor.schema.json; added (claims checked against export code and tests)."
+    },
+    "shared/schemas/config.schema.json": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "Hand-written, enforced at runtime; meta-validated (Draft 2020-12) and $schema present. CP9: traffic.entryQueue."
+    },
+    "shared/schemas/snapshot.schema.json": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "Hand-written contract; meta-validated (Draft 2020-12). CP8: unfinishedShare and demandAccounting (additive). CP9: demandAccounting entryModel, rejected, entry-wait fields."
+    },
+    "shared/schemas/vehicle_state.json": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Legacy single-vehicle payload; meta-validated."
+    },
+    "shared/schemas/v2/calibration-observations.schema.json": {
+      "inspection": "PARTIAL",
+      "disposition": "GENERATED_AND_VALIDATED",
+      "note": "Regenerated from the Pydantic model: byte-identical; meta-validated."
+    },
+    "shared/schemas/v2/calibration-options.schema.json": {
+      "inspection": "PARTIAL",
+      "disposition": "GENERATED_AND_VALIDATED",
+      "note": "Regenerated: byte-identical; meta-validated."
+    },
+    "shared/schemas/v2/network.schema.json": {
+      "inspection": "PARTIAL",
+      "disposition": "GENERATED_AND_VALIDATED",
+      "note": "Regenerated: byte-identical; meta-validated. CP9: regenerated by src.planning.export_schemas (EntryQueueSpec, +38 lines); the other four v2 schemas regenerate byte-identical."
+    },
+    "shared/schemas/v2/planning-report.schema.json": {
+      "inspection": "PARTIAL",
+      "disposition": "GENERATED_AND_VALIDATED",
+      "note": "Regenerated: byte-identical; meta-validated."
+    },
+    "shared/schemas/v2/planning-study.schema.json": {
+      "inspection": "PARTIAL",
+      "disposition": "GENERATED_AND_VALIDATED",
+      "note": "Regenerated: byte-identical; meta-validated."
+    },
+    "shared/schemas/v3/experiment.schema.json": {
+      "inspection": "PARTIAL",
+      "disposition": "GENERATED_AND_VALIDATED",
+      "note": "Regenerated: byte-identical; meta-validated."
+    },
+    "shared/schemas/v3/manifest.schema.json": {
+      "inspection": "PARTIAL",
+      "disposition": "GENERATED_AND_VALIDATED",
+      "note": "Regenerated: byte-identical; meta-validated."
+    },
+    "shared/schemas/v3/uncertainty-spec.schema.json": {
+      "inspection": "PARTIAL",
+      "disposition": "GENERATED_AND_VALIDATED",
+      "note": "Regenerated: byte-identical; meta-validated."
+    },
+    "shared/schemas/v3/openapi.v3.snapshot.json": {
+      "inspection": "PARTIAL",
+      "disposition": "GENERATED_AND_VALIDATED",
+      "note": "Regenerated: byte-identical; OpenAPI 3.1.0, 30 paths. CP11: regenerated (export_schemas): additive entryQueue on Regime, SuiteRequest, BreakpointRequest and EntryQueueSpec; regeneration idempotent."
+    },
+    "shared/schemas/v3/strategy-descriptor.schema.json": {
+      "inspection": "PARTIAL",
+      "disposition": "GENERATED_AND_VALIDATED",
+      "note": "Regenerated by scripts/export_strategy_schema.py: byte-identical; Draft-07 (set by the exporter)."
+    },
+    "sdk/python/pyproject.toml": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Stdlib-only package, console script, ruff config."
+    },
+    "sdk/python/urbanflow_client/__init__.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Public exports."
+    },
+    "sdk/python/urbanflow_client/__main__.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "python -m entry."
+    },
+    "sdk/python/urbanflow_client/errors.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Typed HTTP errors; no credentials in messages."
+    },
+    "sdk/python/urbanflow_client/client.py": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Transport, secrets, request/retry loop and method map read (~270 of 610 lines): HTTPS-only except loopback, no redirects, size cap, GET-only bounded retries. ruff, mypy --strict and 34 tests pass."
+    },
+    "sdk/python/urbanflow_client/py.typed": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "PEP 561 marker (empty)."
+    },
+    "sdk/python/README.md": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Install, token scopes and usage read."
+    },
+    "sdk/python/tests/test_client.py": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Run: 34 passed."
+    },
+    "sdk/python/urbanflow_client/cli.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "argparse CLI over Client; exit codes 0/1/2; local 10 MiB package check."
+    },
+    "landingpage/.npmrc": {
+      "inspection": "FULL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype; not built, deployed or imported; cannot build as committed (lib/ packages absent).",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/api-server/.replit-artifact/artifact.toml": {
+      "inspection": "FULL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype; not built, deployed or imported; cannot build as committed (lib/ packages absent).",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/api-server/build.mjs": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/api-server/package.json": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/api-server/src/app.ts": {
+      "inspection": "FULL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype; not built, deployed or imported; cannot build as committed (lib/ packages absent).",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/api-server/src/index.ts": {
+      "inspection": "FULL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype; not built, deployed or imported; cannot build as committed (lib/ packages absent).",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/api-server/src/middlewares/.gitkeep": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/api-server/src/routes/health.ts": {
+      "inspection": "FULL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype; not built, deployed or imported; cannot build as committed (lib/ packages absent).",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/api-server/src/routes/index.ts": {
+      "inspection": "FULL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype; not built, deployed or imported; cannot build as committed (lib/ packages absent).",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/api-server/tsconfig.json": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/mockup-sandbox/.replit-artifact/artifact.toml": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/mockup-sandbox/components.json": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/mockup-sandbox/index.html": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/mockup-sandbox/mockupPreviewPlugin.ts": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/mockup-sandbox/package.json": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/mockup-sandbox/src/.generated/mockup-components.ts": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/mockup-sandbox/src/App.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/accordion.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/alert-dialog.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/alert.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/aspect-ratio.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/avatar.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/badge.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/breadcrumb.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/button-group.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/button.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/calendar.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/card.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/carousel.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/chart.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/checkbox.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/collapsible.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/command.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/context-menu.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/dialog.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/drawer.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/dropdown-menu.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/empty.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/field.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/form.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/hover-card.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/input-group.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/input-otp.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/input.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/item.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/kbd.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/label.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/menubar.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/navigation-menu.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/pagination.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/popover.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/progress.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/radio-group.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/resizable.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/scroll-area.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/select.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/separator.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/sheet.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/sidebar.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/skeleton.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/slider.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/sonner.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/spinner.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/switch.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/table.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/tabs.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/textarea.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/toast.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/toaster.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/toggle-group.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/toggle.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/components/ui/tooltip.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/mockup-sandbox/src/hooks/use-mobile.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/mockup-sandbox/src/hooks/use-toast.ts": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/mockup-sandbox/src/index.css": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/mockup-sandbox/src/main.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/mockup-sandbox/tsconfig.json": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/mockup-sandbox/vite.config.ts": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/traffic-control-landing/.replit-artifact/artifact.toml": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/traffic-control-landing/components.json": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/traffic-control-landing/index.html": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/traffic-control-landing/package.json": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/traffic-control-landing/public/favicon.svg": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/traffic-control-landing/public/robots.txt": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/traffic-control-landing/src/App.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/error-boundary.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/accordion.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/alert-dialog.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/alert.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/aspect-ratio.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/avatar.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/badge.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/breadcrumb.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/button-group.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/button.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/calendar.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/card.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/carousel.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/chart.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/checkbox.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/collapsible.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/command.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/context-menu.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/dialog.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/drawer.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/dropdown-menu.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/empty.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/field.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/form.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/hover-card.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/input-group.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/input-otp.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/input.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/item.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/kbd.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/label.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/menubar.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/navigation-menu.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/pagination.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/popover.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/progress.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/radio-group.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/resizable.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/scroll-area.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/select.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/separator.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/sheet.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/sidebar.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/skeleton.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/slider.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/sonner.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/spinner.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/switch.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/table.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/tabs.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/textarea.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/toast.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/toaster.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/toggle-group.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/toggle.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/components/ui/tooltip.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "Generated shadcn/ui component (two copies differ only in formatting/import order); unreferenced outside landingpage/.",
+      "action": "Part of F-03: remove with landingpage/ after owner approval."
+    },
+    "landingpage/artifacts/traffic-control-landing/src/hooks/use-mobile.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/traffic-control-landing/src/hooks/use-toast.ts": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/traffic-control-landing/src/index.css": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/traffic-control-landing/src/main.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/traffic-control-landing/src/pages/not-found.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/traffic-control-landing/tsconfig.json": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/artifacts/traffic-control-landing/vite.config.ts": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/pnpm-lock.yaml": {
+      "inspection": "PARTIAL",
+      "disposition": "EXTERNAL_OR_VENDOR_MANAGED",
+      "note": "pnpm lockfile, machine-managed; not used by any build.",
+      "action": "F-03"
+    },
+    "landingpage/scripts/package.json": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/scripts/post-merge.sh": {
+      "inspection": "FULL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype; not built, deployed or imported; cannot build as committed (lib/ packages absent).",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/scripts/src/hello.ts": {
+      "inspection": "FULL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype; not built, deployed or imported; cannot build as committed (lib/ packages absent).",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/scripts/tsconfig.json": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/tsconfig.base.json": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "landingpage/tsconfig.json": {
+      "inspection": "PARTIAL",
+      "disposition": "PENDING",
+      "note": "Legacy Replit prototype file (structure/headers read); superseded by frontend/src/landing/.",
+      "action": "F-03 (needs owner approval)"
+    },
+    "docs/reports/Repo state.docx": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Binary project document/image; type and size validated with file(1); not used at runtime; indexed in docs/resources/README.md."
+    },
+    "docs/resources/Images/Architecture Diagram v2.png": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Binary project document/image; type and size validated with file(1); not used at runtime; indexed in docs/resources/README.md."
+    },
+    "docs/resources/Images/Architecture Diagram.png": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Binary project document/image; type and size validated with file(1); not used at runtime; indexed in docs/resources/README.md."
+    },
+    "docs/resources/Images/Screenshot 2026-08-21 110159.png": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Binary project document/image; type and size validated with file(1); not used at runtime; indexed in docs/resources/README.md."
+    },
+    "docs/resources/Images/Screenshot 2026-08-21 110216.png": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Binary project document/image; type and size validated with file(1); not used at runtime; indexed in docs/resources/README.md."
+    },
+    "docs/resources/Images/Screenshot 2026-08-21 110229.png": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Binary project document/image; type and size validated with file(1); not used at runtime; indexed in docs/resources/README.md."
+    },
+    "docs/resources/Images/Screenshot 2026-08-21 110240.png": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Binary project document/image; type and size validated with file(1); not used at runtime; indexed in docs/resources/README.md."
+    },
+    "docs/resources/Images/simulation_pipeline_overview.png": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Binary project document/image; type and size validated with file(1); not used at runtime; indexed in docs/resources/README.md."
+    },
+    "docs/resources/Internship Project proposal - 2026.pptx": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Binary project document/image; type and size validated with file(1); not used at runtime; indexed in docs/resources/README.md."
+    },
+    "docs/resources/Internship Project proposal ver1.pptx": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Binary project document/image; type and size validated with file(1); not used at runtime; indexed in docs/resources/README.md."
+    },
+    "docs/resources/Project-Documentation-v1 (1).pdf": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Binary project document/image; type and size validated with file(1); not used at runtime; indexed in docs/resources/README.md."
+    },
+    "docs/resources/Project_Documentation.docx": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Binary project document/image; type and size validated with file(1); not used at runtime; indexed in docs/resources/README.md."
+    },
+    "docs/resources/References/Federal Highway Administration (FHWA). Traffic Signal Timing Manual. U.S. Department of Transportation..pdf": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Binary: third-party PDF; type/size validated, not read by any code or build; indexed in docs/resources/README.md.",
+      "action": "F-04: licence check / move out of the repo (owner decision)."
+    },
+    "docs/resources/References/Highway Capacity Manual (HCM).pdf": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Binary: third-party PDF; type/size validated, not read by any code or build; indexed in docs/resources/README.md.",
+      "action": "F-04: licence check / move out of the repo (owner decision)."
+    },
+    "docs/resources/References/MEASURE EFFECTIVENESS OF ROUNDABOUTS IN URBAN AREAS AND THEIR COMPARISON WITH SIGNALIZED INTERSECTIONS.pdf": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Binary: third-party PDF; type/size validated, not read by any code or build; indexed in docs/resources/README.md.",
+      "action": "F-04: licence check / move out of the repo (owner decision)."
+    },
+    "docs/resources/References/Metrics.pdf": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Binary: third-party PDF; type/size validated, not read by any code or build; indexed in docs/resources/README.md.",
+      "action": "F-04: licence check / move out of the repo (owner decision)."
+    },
+    "docs/resources/References/Mobility and traffic models for VANETs.pdf": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Binary: third-party PDF; type/size validated, not read by any code or build; indexed in docs/resources/README.md.",
+      "action": "F-04: licence check / move out of the repo (owner decision)."
+    },
+    "docs/resources/References/Transportation Research Board. Highway Capacity Manual (HCM) \u2014 Roundabout Methodology..pdf": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Binary: third-party PDF; type/size validated, not read by any code or build; indexed in docs/resources/README.md.",
+      "action": "F-04: licence check / move out of the repo (owner decision)."
+    },
+    "docs/resources/References/Transportation reliability methodology (general practice; project-specific implementation).pdf": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Binary: third-party PDF; type/size validated, not read by any code or build; indexed in docs/resources/README.md.",
+      "action": "F-04: licence check / move out of the repo (owner decision)."
+    },
+    "docs/resources/References/Treiber, M., Hennecke, A., & Helbing, D. (2000). Congested traffic states in empirical observations and microscopic simulations. Physical Review E, 62(2), 1805\u20131824..pdf": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Binary: third-party PDF; type/size validated, not read by any code or build; indexed in docs/resources/README.md.",
+      "action": "F-04: licence check / move out of the repo (owner decision)."
+    },
+    "docs/resources/Simulation_Parameters_Reference.md.pdf": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Binary project document/image; type and size validated with file(1); not used at runtime; indexed in docs/resources/README.md."
+    },
+    "docs/resources/Technical Documentation.docx": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Binary project document/image; type and size validated with file(1); not used at runtime; indexed in docs/resources/README.md."
+    },
+    "docs/resources/pune-traffic-sim-analysis.md.pdf": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Binary project document/image; type and size validated with file(1); not used at runtime; indexed in docs/resources/README.md."
+    },
+    "docs/resources/worlds-craziest-intersections-and-traffic-management.md.pdf": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Binary project document/image; type and size validated with file(1); not used at runtime; indexed in docs/resources/README.md."
+    },
+    "recordings/urbanflow-final-demo.mp4": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Binary: MP4 (ISO 14496), 21 MB demo video; not referenced by code or docs.",
+      "action": "F-05: publish as a release asset (owner decision)."
+    },
+    "docs/resources/README.md": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Indexed 6 of 22 files; now lists every file, and flags the third-party PDFs (F-04). CP10 F-04: licensing caveat re-checked. CP11 F-04: per-file purpose and redistribution status of the reference PDFs."
+    },
+    "frontend/public/favicon.svg": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Site icon, referenced by both HTML entries."
+    },
+    "backend/src/main.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Composition root: middleware order, every /api/v2+/api/v3 router behind API key + identity (checked by test_v2_route_auth.py); init_db failure is logged and retried lazily. CP12 F-64: configure_logging, startup/shutdown log events, ObservabilityMiddleware (outermost, with the route table), /metrics router; db-init failure logged with traceback. Read in full."
+    },
+    "backend/src/access.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Single ownership rule; owner_filter column is a trusted identifier; 404 for invisible records."
+    },
+    "backend/src/csv_safety.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: OWASP formula injection sanitization (spreadsheet_safe)."
+    },
+    "backend/src/api/__init__.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Package map."
+    },
+    "backend/src/api/origins.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CORS list from env; \"*\" disables credentials; generic WebSocket close reason."
+    },
+    "backend/src/api/security.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Constant-time API-key check via X-API-Key or Bearer."
+    },
+    "backend/src/api/errors.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Error envelope. 403 maps to INTERNAL_ERROR, which the contract documents as the fallback; changing it is a contract change (F-21). CP10 F-21: 403 -> FORBIDDEN (status unchanged). Read in full."
+    },
+    "backend/src/api/ws_origin.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Cross-site WebSocket hijacking guard (same host or allowed origin)."
+    },
+    "backend/src/api/validation.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Schema + semantic config errors as 400s."
+    },
+    "backend/src/api/auth.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "~500 of 560 lines read. .env loader no longer aborts on a malformed line (extracted _load_env_file, tested); token-verification failures no longer return internal exception text (generic \"Invalid token\", cause logged; tested). JWKS cache never refreshes after key rotation (F-22). CP8 F-22: JWKS refetch on unknown kid with 300 s cooldown; failed refetch keeps keys; lock. CP9: JWKS max age 3600 s (withdrawn keys stop verifying); refetch shared by max-age and unknown-kid paths under one lock. CP10: read in full (620 lines). F-33 PyJWT (python-jose removed); F-59 iss required; F-58 15 s cold-start JWKS failure backoff. PAT, scope, rate-limit and dev-bypass paths reviewed unchanged. CP12 F-64: auth failures counted by reason and logged without any credential."
+    },
+    "backend/src/api/request_limits.py": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Body-size middleware (declared and streamed), pagination bounds, trusted-proxy parsing read (~170 of 300 lines)."
+    },
+    "backend/src/api/meta.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "/health, /api/version, /api/me, admin-only /api/users."
+    },
+    "backend/src/api/tokens_router.py": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Create (browser sessions only, scope validation, quota, audit) read."
+    },
+    "backend/src/api/store.py": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Token secret 256-bit token_urlsafe, stored as SHA-256 with an index; lookup by hash."
+    },
+    "backend/src/database/db.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Schema, additive migrations, WAL/busy timeout/foreign keys; connections always closed (closing()/finally)."
+    },
+    "backend/src/database/dao.py": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "All six f-string SQL sites checked: constant column lists, generated placeholders or owner_filter; values always bound."
+    },
+    "backend/src/calibration/store.py": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "f-string SQL site checked: owner_filter fragment, values bound."
+    },
+    "backend/src/discovery/search.py": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "ruff B023 (closure over loop variables) is a false positive: make() is called synchronously inside the same iteration. CP11 F-61: entryModel, servedDemand and lowerDelayServedLess in held-out results. Lines 60-145 and 370-500 read."
+    },
+    "backend/tests/api/test_env_file_loading.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": ".env loader: fills only missing keys; malformed line does not drop later settings; missing file ignored."
+    },
+    "backend/tests/api/test_cognito_token_verification.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Added: refusals carry no internal exception text. Existing forgery tests read. CP10: PyJWT signing; issuer and refusal-reason tests; error-code mapping test."
+    },
+    "backend/tests/api/test_suite_privacy.py": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "sqlite connections now closed (closing(...) as conn, conn) \u00e2\u20ac\u201d was a ResourceWarning."
+    },
+    "backend/tests/calibration/test_calibration_ownership.py": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "sqlite connections now closed."
+    },
+    "backend/tests/experiments/test_persistence.py": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "sqlite connections now closed."
+    },
+    "backend/tests/planning/test_study_persistence.py": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "sqlite connections now closed."
+    },
+    "backend/tests/experiments/test_manifest_sidecar_hardening.py": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "Invalid escape \"\\w\" (SyntaxWarning, future error) now a raw string with the same value."
+    },
+    "backend/src/vehicles/router.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "find_leader (all four layers) and its helpers read (~450 of 602 lines). O(n\u00c2\u00b2) per step (F-30); decisions now pinned by tests/vehicles/test_leader_trace_pins.py. Checkpoint 7: read in full; Layer 4 comment no longer claims straight-chord conflict points (F-46). CP11 F-62: find_leader(proximity=) narrows Layer 4; identical result. Lines 30-45 and 200-605 read."
+    },
+    "backend/src/engine/vehicle_pool.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "update() loop, removal and collision audit read (~330 of 607 lines). Only the vehicle being processed (and conflict-manager reservations) change mid-loop. Audit exempts same-path pairs (F-37). Checkpoint 6: preamble (predictive gating, controller stop limits) and exit path re-read; audit exempts any pair sharing a route lane, so also same-exit merges (F-37). Checkpoint 7: rest read (lane-change model, per-class IDM, stop-line margin, exit). Top comment rewritten: ConflictManager samples real paths; why the roundabout runs without it (F-46). CP11 F-62: ProximityGrid built per update, re-filed after lane-change attempts and moves. Lines 208-445 read."
+    },
+    "frontend/src/config.ts": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "API/WS base URLs: relative in the browser, env overrides."
+    },
+    "frontend/src/auth/cognito.ts": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Cognito pool; dev bypass gated on import.meta.env.DEV \u00e2\u20ac\u201d confirmed absent from the production bundle (no dev token string in dist)."
+    },
+    "frontend/src/services/api.ts": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "request()/post()/get() and the simulation/study calls read (~140 of 348 lines); ids URL-encoded; no request timeout (F-28). CP10 F-28: request timeout (60 s default, ApiTimeoutError, caller abort kept); reproduce without timeout."
+    },
+    "scripts/landing_canvas_diff.mjs": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "Reproducible pixel comparison of the seven landing canvases between two builds; self-compare reports 0 px."
+    },
+    "backend/src/core/speed_thresholds.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "metrics section wins over the legacy vehicleGeneration location."
+    },
+    "backend/src/core/schema.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Single loader; a missing schema is an error."
+    },
+    "backend/src/core/enums.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Direction, turn, status and vehicle-state enums."
+    },
+    "backend/src/core/clock.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Tick count is the source of truth; ticks_for_duration matches the engine's stop rule."
+    },
+    "backend/src/core/limits.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Vehicle and tick caps; iterative depth check."
+    },
+    "backend/src/core/provenance.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Reads .git without subprocess; degrades to \"unknown\" (a .git file in a worktree also degrades, then GIT_COMMIT)."
+    },
+    "backend/src/core/config_models.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "~200 of 307 lines; bounds per field; min<=max ranges are checked in scenario/config_validation.py. Checkpoint 7: rest read; bounds agree with strategy descriptors. controller.circulatingLanes defaults to 1 in the typed dump but semantic validation reads the unset-excluded dump, and the engine ignores the reserved field. CP9: EntryQueueSection; TrafficSection.entryQueue. CP10: EntryQueueSection and TrafficSection read."
+    },
+    "backend/src/roads/approach.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Lane container."
+    },
+    "backend/src/roads/lane.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Precomputed segments, bisection lookup, degenerate-lane guard; ring metadata documented."
+    },
+    "backend/src/vehicles/vehicle.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Pose memoised per (lane, position); one lane transition per tick with clamped overflow; lane-change bookkeeping. Comment says \"clamp displacement\" where only the carried overflow is clamped (wording only). CP9: entry_wait attribute (set by spawner; not part of in-network figures). CP10: working copy had CRLF line endings; normalised to LF (diff against HEAD unchanged: 4 insertions)."
+    },
+    "backend/src/vehicles/idm.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "IDM with validated parameters; gap <= 0 returns max deceleration."
+    },
+    "backend/src/vehicles/stochastic_idm.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "F-34 restore in finally (checkpoint 3); F-38 stochastic_idm_for(profile, rng) builds the stochastic model around one class's parameters."
+    },
+    "backend/src/vehicles/spawner.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Lines 50-400 read: seeded draws in a fixed order, blocked insertions keep their pending turn/type. reset() now re-seeds in place so the stochastic IDM keeps sharing the stream (F-35). Tested. Checkpoint 7: read in full; a blocked entry holds one arrival per approach and generates no more, so excess demand is never admitted (F-50, documented). CP8 F-50: demand_accounting() and counters (no RNG draws, timers untouched); golden pins unchanged. CP9: opt-in entry queue (traffic.entryQueue): point queue outside the network, FIFO, optional per-approach capacity with counted rejections, arrivals capped by totalVehicles; _draw_turn/_draw_type helpers (default draw order unchanged, golden pins pass); entry waits; demand_accounting adds entryModel, rejected, entry-wait fields. CP10 F-57: queue-model arrival clock exact (leftover carried, every due arrival generated, due time recorded); suspend model unchanged (bit-identical). Lines 195-495 re-read."
+    },
+    "backend/src/vehicles/virtual_obstacle.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Slotted obstacle record."
+    },
+    "backend/src/vehicles/speed_profile.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Speed-limit-based desired speed; curve speed envelope cached per lane (~150 of 185 lines). Checkpoint 7: read in full."
+    },
+    "backend/src/vehicles/driver_aggression.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Profiles, invariants, strict profile names, stop-line margin (~150 of 196 lines). Checkpoint 7: read in full."
+    },
+    "backend/src/engine/simulation_engine.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "F-36 detector reset (checkpoint 3); F-38: under unstructuredTraffic every class in the spawner's populations drives stochastic_idm_for(...) on the spawner's stream."
+    },
+    "backend/src/engine/deadlock_detector.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Added reset() (F-36)."
+    },
+    "backend/src/engine/tick_callback.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Feeds collector; conflict manager only for fixed-time signals. Checkpoint 7: PET gate comment corrected (F-46)."
+    },
+    "backend/src/engine/readout.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Metrics under the engine lock. CP8: passes spawner.demand_accounting() to get_metrics."
+    },
+    "backend/tests/vehicles/test_leader_trace_pins.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "Pins every find_leader decision in three runs; portable across Windows/3.14 and Linux/3.11; detects a 15 m candidate filter."
+    },
+    "backend/tests/engine/test_engine_reset.py": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "Added stochastic-traffic rerun test (F-35) and detector reset test (F-36)."
+    },
+    "backend/tests/core/test_unstructured_traffic.py": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "Added no-drift test (F-34); fails on HEAD's IDM."
+    },
+    "backend/tests/controllers/test_roundabout_golden_fingerprints.py": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Exact and portable pin pattern read (used for the leader-trace design)."
+    },
+    "backend/src/roads/network.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "generate_route raises a clear ValueError for a turn into a missing arm (F-39); permitted_turns and route building read. Checkpoint 6: read in full (lane layout, lane use, connection-lane geometry, U-turn and skewed paths, routes)."
+    },
+    "backend/src/vehicles/lane_change.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "attempt(), _miss_turn and settings read; unstructuredTraffic gates aggressiveTwoWheelers. Missed-turn re-route cannot reach a missing arm in validated layouts (0 of 72 lanes). Checkpoint 7: read in full; aggressive two-wheelers may enter a lane that does not permit their turn and are re-routed by a missed turn (intended)."
+    },
+    "backend/src/controllers/fixed_time_signal.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "update() now ends every phase whose time is used up in the same tick, bounded by the plan length (F-40); positive-duration plans unchanged. Checkpoint 6: rest of file read (phase building, lane marking, offset, get_state); _mark_lane_use idempotent on reset."
+    },
+    "backend/src/controllers/roundabout.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "reset() and exit-window cache read: reset clears all per-run maps and lane obstacles; caches are geometry. Checkpoint 6: read in full. Entry gap acceptance, follow-up, approach taper, spillback latch, long-vehicle and merging-entry rules, exit zones, keep-clear. Per-approach `except KeyError` swallows any KeyError in the block (F-45, no current trigger). Checkpoint 7: KeyError handler narrowed to the approach lookup (F-45); AST of the rest identical to HEAD."
+    },
+    "backend/src/controllers/signalised_roundabout.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "reset() resets cursor, gate, spillback guard, queue cap and inner roundabout. Checkpoint 6: read in full: composition order cursor -> queue cap -> spillback -> gate -> roundabout; reset covers all parts. __getattr__ recursion latent (F-48)."
+    },
+    "backend/src/controllers/entry_metering.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Cursor advance loops past used-up phases (positive durations only) and the plan builder omits zero-length yellow/all-red: no F-40 there. Reset paths read (checkpoint 4). Checkpoint 6: read in full: validator, plan builder (zero-length phases omitted), cursor carry-over, gate yellow latch, spillback guard sectors and per-cycle budget, queue cap. No defect found."
+    },
+    "backend/src/controllers/adaptive_signal.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "update() + _after_clearance read; a used-up clearance hands over in the same tick, stopping at a green (F-40). Checkpoint 6: rest of file read (stages, termination, clearance hand-over, snapshot)."
+    },
+    "backend/src/intersection/conflict_manager.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "reset_reservations() clears the only run state; the rest is geometry. Checkpoint 6: read in full: sampled-path conflict points, all-or-nothing admission, stalled-body and committed-long checks. Tie-break compares ids as text (F-42). Zone order from a set but every use is order-independent. Checkpoint 7: tie-break wording now says ids compare as text (F-42); behaviour unchanged. CP10 F-42: text-ordered tie-break confirmed as the documented contract."
+    },
+    "backend/src/metrics/collector.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "get_metrics delay/throughput/queue populations read and tabulated under F-41; reset complete. Checkpoint 6: read in full; every population tabulated (F-41 checkpoint 6). Rescans exited vehicles per call (F-43). CP8 F-41/F-50: unfinishedShare; demand kwarg reported as demandAccounting. Existing fields unchanged (golden pins). CP9: vehicleLimitReached counts arrivals under the queue model."
+    },
+    "docs/research/metrics-reference.md": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "averageDelay row now states that vehicles still in the network are excluded, with a measured example (F-41). Definition unchanged. Checkpoint 6: travelTimeReliability window and collisionCount exemptions stated (F-47, F-37). Checkpoint 7: totalVehiclesSpawned row: admitted, not offered demand (F-50). CP8: totalVehiclesSpawned row corrected; demandAccounting, unfinishedShare rows. CP9: demandAccounting row covers entry models."
+    },
+    "backend/tests/engine/test_reset_matches_fresh_run.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "New in checkpoint 4. Reset rerun equals a fresh run for fixed-time, adaptive, roundabout, metered roundabout, stochastic cars-only (F-35) and, since checkpoint 5, stochastic mixed traffic (F-38). CP8: also compares demand accounting after reset."
+    },
+    "backend/tests/roads/test_route_continuity.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "New in checkpoint 4. 40 layouts: every route continuous and finite; checkpoint 5 adds the F-39 clear-error test."
+    },
+    "backend/src/vehicles/vehicle_types.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Profiles, VehicleParams (one deterministic IDM per class per simulation), populations rebuilt per engine (no cross-engine sharing), mix validation. Root of F-38: classed vehicles never consulted the engine-wide stochastic IDM."
+    },
+    "backend/src/live/dashboard_config.py": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "unstructuredTraffic / aggressiveTwoWheelers flag handling (boolean check, set only when true). CP10 F-60: flat payload accepts entryQueue {enabled, capacity}; enabled only is compiled, malformed is a 400, absent/disabled byte-identical (tested). Lines 97-400 read."
+    },
+    "backend/tests/vehicles/test_unstructured_mixed_traffic.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "F-38: every class stochastic with its own parameters; structured keeps deterministic models; mixed trajectories change (signal, roundabout); seed reproducible and seed-sensitive; cars-only unchanged; plausibility bounds over 4 runs."
+    },
+    "backend/tests/controllers/test_zero_duration_phases.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "F-40: zero all-red never shown (both controllers), positive all-red exact, phase durations over the cycle."
+    },
+    "frontend/src/metrics/catalog.ts": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "averageDelay entry already names the exited-after-warm-up population (F-41). CP8 F-53: 'Vehicles admitted' wording; unfinishedShare row."
+    },
+    "frontend/src/components/guided/ScenarioSetup.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "\"Unstructured / Chaotic \u00e2\u20ac\u201d realistic driver imperfections (hesitation, variable reaction, blocking)\": the promise F-38 stage 1 now keeps under a vehicle mix. CP10: entry-model control under question 1; summary names the queue. Lines 1-600 read."
+    },
+    "backend/src/controllers/base.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 6: read in full."
+    },
+    "backend/src/controllers/entry_gate.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 6: read in full; AlwaysOpen draws no random numbers."
+    },
+    "backend/src/controllers/factory.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 6: read in full; derive_signals_state: roundabout all green, metered via signals_state()."
+    },
+    "backend/src/controllers/signal_detection.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 6: read in full."
+    },
+    "backend/src/intersection/predictive_conflicts.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Checkpoint 6: read in full: grid broad phase, box test for stopped vehicles, structural yielder rules, remembered decisions cleared by reset. Module docstring still says ConflictManager is chord-based (F-46). Checkpoint 7: module docstring corrected (F-46). CP11 F-63: per-call route lane-id sets for _vehicle_lane_on_other_route; _same_physical_path now an instance method."
+    },
+    "backend/src/metrics/efficiency.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 6: read in full."
+    },
+    "backend/src/metrics/definitions/approach_breakdown.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 6: read in full; aligned with averageDelay delays."
+    },
+    "backend/src/metrics/definitions/derived_metrics.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 6: read in full; arrivalRate is the junction total, consistent with throughput."
+    },
+    "backend/src/metrics/definitions/fairness.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 6: read in full."
+    },
+    "backend/src/metrics/definitions/idle_loss.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 6: read in full."
+    },
+    "backend/src/metrics/definitions/queue_length.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 6: read in full; single-letter lane prefixes match RoadNetwork."
+    },
+    "backend/src/metrics/definitions/safety_conflicts.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Checkpoint 6: read in full; TTC symmetric, quadratic per tick (F-44); docstring chord wording (F-46). Checkpoint 7: TTC scan computes each vehicle's velocity and radius once per call; events identical to HEAD at every tick of four runs; scan 2.0-2.35x faster (F-44). PET docstring corrected (F-46)."
+    },
+    "backend/src/metrics/definitions/signal_timing.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 6: read in full."
+    },
+    "backend/src/metrics/definitions/speed_variance.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 6: read in full."
+    },
+    "backend/src/metrics/definitions/stop_count.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 6: read in full."
+    },
+    "backend/src/metrics/definitions/throughput.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 6: read in full."
+    },
+    "backend/src/metrics/definitions/travel_time.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 6: read in full; whole-trip travel time, not clipped at warm-up (F-47, documented)."
+    },
+    "backend/src/metrics/definitions/vehicle_mix.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 6: read in full."
+    },
+    "backend/src/metrics/definitions/wait_time.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 6: read in full."
+    },
+    "backend/src/metrics/definitions/environmental_estimates.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Checkpoint 6: read in full. Comment arithmetic corrected (cruise 4.86 L/h = 8.1 L/100 km; speed term 4.5 L/100 km); constants and outputs unchanged (F-46)."
+    },
+    "backend/src/roads/junction_geometry.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 6: read in full; crossing clearance never divides by zero for validated neighbours (>= 45 deg apart)."
+    },
+    "backend/src/roads/lane_config.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 6: read in full."
+    },
+    "backend/src/vehicles/body.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 6: read in full; coords and the predictive layer use the same body pose."
+    },
+    "backend/src/snapshot/builder.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Checkpoint 6: build() read to the metrics call (~260 of the file): exited list capped at 50, get_metrics once per snapshot (F-43). Checkpoint 7: rest read: whole build under the engine lock, so one tick; no simulation state written (memoised coords only); exited list capped at 50; strict-JSON clean in 304 fuzzed runs. CP8: passes demand accounting to get_metrics."
+    },
+    "backend/tests/engine/test_no_hidden_overlaps.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "Checkpoint 6: every pair SAT-tested every tick in two busy 60 s runs (F-37 guard); fails when same-lane leaders are dropped."
+    },
+    "backend/src/snapshot/buffer.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 7: read in full; lock nesting inside the engine lock only."
+    },
+    "backend/src/snapshot/dual_orchestrator.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Checkpoint 7: read in full; get_dual_snapshot now holds the orchestrator lock so both runs are at one tick (F-51)."
+    },
+    "backend/src/snapshot/lockstep.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Checkpoint 7: read in full; snapshot_lock() added for whole-frame consistency (F-51)."
+    },
+    "backend/src/snapshot/strategy_comparison.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Checkpoint 7: read in full; get_snapshot holds the orchestrator lock (F-51); derivation ignores declared strategy names, which broke deriving from a compiled single-strategy scenario (F-49)."
+    },
+    "backend/src/strategies/__init__.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 7: read in full."
+    },
+    "backend/src/strategies/limits.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 7: read in full."
+    },
+    "backend/src/strategies/models.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 7: read in full."
+    },
+    "backend/src/strategies/registry.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 7: read in full; lazy singleton not locked (two threads could build equal registries; harmless)."
+    },
+    "backend/src/strategies/resolution.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 7: read in full; explicit names win over inference (F-49 context)."
+    },
+    "backend/src/strategies/validator.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 7: read in full; unknown geometry and adaptive-on-roundabout rejected."
+    },
+    "backend/src/strategies/builtins.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 7: read in full; defaults equal engine defaults; bounds never narrower than the schema."
+    },
+    "backend/src/scenario/__init__.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 7: read in full."
+    },
+    "backend/src/scenario/documents.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "Checkpoint 7: read in full: strict models, compile per strategy, validate_scenario per strategy (schema + semantic). 304 random valid documents compiled and ran 40 s without an exception. CP9: TrafficSpec.entryQueue; compiled to traffic.entryQueue; fingerprinted only when enabled. CP10: EntryQueueSpec, TrafficSpec, scenario_fingerprint read. CP11 F-61: config_entry_model, scenario_entry_model (effective model from the compiled config, advanced overrides included)."
+    },
+    "backend/src/scenario/config_validation.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 7: read in full; non-finite values rejected anywhere in the config."
+    },
+    "backend/src/scenario/lane_validation.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 7: read in full; per-approach turning sums, missing-arm demand, lane use, ring width, U-turn radius."
+    },
+    "backend/tests/metrics/test_ttc_scan_pins.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "Checkpoint 7: scan equals per-pair compute_ttc and a digest recorded with the HEAD scan (F-44)."
+    },
+    "backend/tests/controllers/test_roundabout_entry_errors.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "Checkpoint 7: a KeyError inside entry evaluation surfaces; a missing arm is still skipped (F-45). Fails on HEAD."
+    },
+    "backend/tests/strategies/test_comparison_derivation.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "Checkpoint 7: every live strategy derives from compiled and live sources (F-49)."
+    },
+    "backend/tests/integration/test_comparison_snapshot_coherence.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "Checkpoint 7: a frame built mid-step shows every run at one tick (F-51); torn without the lock."
+    },
+    "backend/tests/intersection/test_conflict_tie_break_order.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "Checkpoint 7: pins text-order tie-break (F-42)."
+    },
+    "backend/src/engine/__init__.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "Checkpoint 7: docstring only (layering rule)."
+    },
+    "backend/src/calibration/simulate.py": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP8: passes demand accounting to get_metrics."
+    },
+    "backend/src/simulations/registry.py": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP8: passes demand accounting to get_metrics. CP12 F-64: finished registered simulations counted and logged in the existing status hook. Lines 1-215 read."
+    },
+    "backend/src/study/runner.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "CP8: passes demand accounting to get_metrics. CP11: read in full. Process pool (spawn), progress routing, BrokenProcessPool recovery, isolated runner honours cancellation; the all-or-nothing runner ignores it, consistent with study/planning jobs exposing no cancel."
+    },
+    "backend/src/study/validation.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "CP8: demand conservation (arrivals = admitted + waiting) checked every tick under massConservation."
+    },
+    "backend/src/study/control_comparison.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "CP8 F-52: unfinishedShare/admittedShareOfNominal summarised; servedDemand per pair; method text. CP10 F-60: run_control_comparison(entry_queue=); entryModel in both study outputs and method; servedDemand adds averageEntryWaitDifference and entryWaitReversesDelay. Lines 34-520 read. CP11: _entry_model delegates to config_entry_model."
+    },
+    "backend/src/study/tolerances.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "CP8 F-52: SERVED_DEMAND_TOLERANCE and lower_delay_served_less. CP10: entry_wait_reverses_delay (delay + entry wait over the same vehicles reverses the order). Read in full."
+    },
+    "backend/src/planning/runner.py": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP8 F-52: servedDemand per result row; validity.servedDemandDiffers."
+    },
+    "backend/src/planning/findings.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "CP8 F-52: reliability finding when the lower-delay option served less."
+    },
+    "backend/tests/vehicles/test_demand_accounting.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP8 F-50/F-41: identities every tick, saturated/light, RNG neutrality, reset, vehicle limit, unfinishedShare."
+    },
+    "backend/tests/study/test_served_demand_caveat.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP8 F-52: served-demand rule, planning flag/finding, real scenario comparison."
+    },
+    "backend/tests/api/test_jwks_rotation.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP8 F-22: rotation, cooldown, failed refetch; 3 of 4 fail with refresh disabled. CP9: max age, unreachable pool, 16 concurrent unknown kids -> one fetch. CP10: cold-start backoff test added. Lines 1-120 read."
+    },
+    "backend/tests/controllers/roundabout_golden.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "CP8: ADDED_METRICS excluded from metrics/snapshot hashes; original pins still match bit-for-bit."
+    },
+    "backend/tests/study/test_runner.py": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP8: lockstep helper passes demand accounting like the runner."
+    },
+    "backend/tests/database/test_run_reproducibility.py": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP8: expected metrics include demand accounting like engine_metrics."
+    },
+    "frontend/src/types/simulation.ts": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP8: unfinishedShare, DemandAccounting types; totalVehiclesSpawned comment corrected. CP9: entryModel, rejected, entry-wait fields."
+    },
+    "frontend/src/components/analytics/CapacityDemandVisualizer.tsx": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "CP8 F-53: admitted wording; admitted share of configured demand (>= 20 expected arrivals). CP10: waiting-outside and rejected counts under the queue model."
+    },
+    "frontend/src/test/LiveComparisonAnalytics.test.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP8: admitted share shown / suppressed when noisy. CP9: fixture carries new accounting fields."
+    },
+    "frontend/src/test/metricCatalog.test.ts": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP8: demandAccounting is a context (object) key. CP10: CRLF working copy normalised to LF (diff unchanged)."
+    },
+    "docs/architecture/07-metric-contract.md": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP8: section 7.10a demand accounting, comparisons. CP9: 7.10a entry models and fields. CP10: 7.10a exact queue clock, suspend clock bias, entry-wait comparison fields, entryModel, run-comparison warning."
+    },
+    "backend/src/stress/lab.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "CP11: Added entryModel metadata to breakpoint results for UI transparency. CP11 F-61: with_entry_queue; run_suite(entry_queue=); per-strategy served shares and lowestDelayServedLess; entryModel from the compiled config. Kept another actor's breakpoint entryModel/servedDemand edits (Oct 30 18:24)."
+    },
+    "backend/src/stress/classify.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP9: gridlock rule uses admitted-based counts consistently; spillback rule approximates blocked entries; no change."
+    },
+    "backend/src/discovery/evaluator.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "CP9: throughput is a maximised objective beside delay, so serving less is traded off on the Pareto front, not hidden. CP11 F-61: delay objective from arrival under the queue; served-demand means reported. Read in full."
+    },
+    "docs/architecture/06-scenario-configuration-contract.md": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP9: traffic.entryQueue row."
+    },
+    "backend/tests/vehicles/test_entry_queue.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP9: conservation every tick, all demand generated, capacity, default bit-identity, FIFO, vehicle limit, reproducibility, reset, document fingerprint, config validation. CP10: read in full; unchanged, passes with the exact clock."
+    },
+    "backend/tests/integration/test_entry_queue_end_to_end.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP9: HTTP compile/validate, simulations endpoint, snapshot schema validation, study per-seed accounting."
+    },
+    "backend/tests/experiments/test_stress_served_demand.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP9 F-54: planted preference bought by serving less."
+    },
+    "frontend/src/metrics/servedDemand.ts": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP9: shared caution text for lowerDelayServedLess. CP10: averageEntryWaitDifference, entryWaitReversesDelay; note joins both cautions."
+    },
+    "frontend/src/components/scenario/ScenarioStudy.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP9: caution under a flagged delay reading. CP10: entryModel sentence and wait-to-enter column for queue results."
+    },
+    "frontend/src/components/ControlComparisonStudy.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP9: caution under a flagged delay reading. CP10: entry-model choice, request entryQueue, model sentence, wait-to-enter column and CSV column for queue results."
+    },
+    "frontend/src/components/stress/StressLabPage.tsx": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "CP9: BreakpointView exported; preferredServedLess note. CP11 F-61: shared entry-model control; model sentences; served-less row caution. Read in full. CP12: sentence no longer promises a wait-to-enter column."
+    },
+    "frontend/src/services/v3/stress.ts": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "CP9: preferredServedLess type. CP11 F-61: entryQueue on both requests; EntryModelUsed; suite served shares and lowestDelayServedLess."
+    },
+    "frontend/src/test/servedDemand.test.ts": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP9."
+    },
+    "frontend/src/test/stressServedDemand.test.tsx": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP9."
+    },
+    "frontend/src/test/adaptiveSignal.test.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP9: caution rendered on the flagged pair only. CP10: lines 1-120 and 320-420 read."
+    },
+    "backend/src/study/router.py": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP10: ControlComparisonRequest.entryQueue (strict EntryQueueSpec; built-in junction only, rejected beside a scenario). Lines 1-160 and 336-395 read."
+    },
+    "backend/src/history/router.py": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP10 F-60: compare_runs reports entryModels and warns when the two runs used different entry models (deltas kept). Lines 143-220 and 330-400 read."
+    },
+    "backend/src/experiments/manifest.py": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP10: lines 120-330 read; the scenario document (with traffic.entryQueue) and its fingerprint travel in experiment.json and the manifest, so no manifest field was added."
+    },
+    "backend/src/stress/generator.py": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP10: builds fresh documents; always the default entry model (documented limitation). CP11: lines 1-140 read; deterministic in (seed, index, duration); the entry model is applied on top by lab.with_entry_queue."
+    },
+    "backend/src/discovery/space.py": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP10: builds fresh documents; always the default entry model (documented limitation). CP11 F-61: regime_scenario writes traffic.entryQueue beside the aggression profile. Lines 140-265 read."
+    },
+    "backend/src/copilot/proposer.py": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP10: lines 250-270 read; proposals use the default entry model. CP11: lines 225-270 read; proposals use the default entry model (the experiment keeps any model the user sets)."
+    },
+    "backend/tests/integration/test_entry_model_propagation.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP10 F-60: 25 tests (dashboard payload, live engine, three-way and scenario studies, request model, entry-wait caution, stored-run warning, experiment package)."
+    },
+    "backend/tests/vehicles/test_entry_invariants.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP10 F-57: 11 tests (exact clock uniform and Poisson at the maximum rate, due times, zero-length steps, memory bound, completion accounting, reset). 3 fail on the old clock."
+    },
+    "backend/tests/api/test_pat_tokens.py": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP10 F-21: PAT-creates-PAT 403 asserts code FORBIDDEN."
+    },
+    "backend/tests/api/test_replay_ownership.py": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP10 F-21: foreign replay 403 asserts code FORBIDDEN."
+    },
+    "backend/tests/experiments/conftest.py": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP10: SCENARIO, experiment(), FakeExecutor, make_service read."
+    },
+    "backend/tests/experiments/test_package.py": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP10: lines 1-80 read."
+    },
+    "frontend/src/scenario/scenarioTypes.ts": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP10: EntryQueueSpec, ENTRY_QUEUE_CAPACITY_MAX, entryQueueEnabled."
+    },
+    "frontend/src/types/config.ts": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "CP10: SimulationConfigValues.entryQueue, normalEntryQueue, sameConfigValues and dashboardPayload carry it (flat only without a scenario document). Read in full."
+    },
+    "frontend/src/scenario/scenarioModel.ts": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP10: entry model in sameScenario, configValuesFromScenario, scenarioFromConfigValues, describeScenario/describeEntryModel."
+    },
+    "frontend/src/components/scenario/EntryModelChoice.tsx": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP10 F-60: the entry-model control (guided and builder variants), optional per-road limit, population glossary; axe-clean."
+    },
+    "frontend/src/metrics/entryModel.ts": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP10: entry-model texts, population glossary, entryModelSentence, outsideNetworkText. CP12: entryModelChip; context-specific entryModelSentence."
+    },
+    "frontend/src/components/scenario/ScenarioBuilder.css": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP10: entry-model control styles (sb-radio, glossary, q-inline-field). CP11: entry-model-fieldset for lab pages."
+    },
+    "frontend/src/components/scenario/AdvancedSettings.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP10: 'Traffic that cannot get in' fieldset writes traffic.entryQueue."
+    },
+    "frontend/src/hooks/useLiveConfigSync.ts": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP10 F-60: entryQueue added to the field-by-field payload rebuild (would otherwise be dropped)."
+    },
+    "frontend/src/runs/savedRun.ts": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP10: entryModelOfConfig."
+    },
+    "frontend/src/components/ComparePage.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP10: caution when saved runs used different entry models."
+    },
+    "frontend/src/components/guided/Guided.css": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP10: control-study__entry. CP12: scenario chip caution style."
+    },
+    "frontend/src/landing/index.css": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP10 F-18: placeholder sign-in dialog styles removed."
+    },
+    "frontend/src/routing.ts": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP10 F-18: SIGN_IN_PARAM, SIGN_IN_HREF."
+    },
+    "frontend/src/hooks/useAuthSession.ts": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "CP10 F-18: ?signin=1 opens the Cognito dialog unless signed in. Read in full."
+    },
+    "frontend/src/test/entryModel.test.tsx": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP10: 17 tests (payload, documents, control incl. axe, builder, capacity card, saved runs, study rendering)."
+    },
+    "frontend/src/test/apiTimeout.test.ts": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP10 F-28: 3 tests."
+    },
+    "frontend/src/test/signInLink.test.ts": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP10 F-18: 3 tests."
+    },
+    "docs/architecture/08-communication-contract.md": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP10 F-21: FORBIDDEN 403; 413 and 422 rows."
+    },
+    "docs/deployment/production-cicd-setup.md": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP10 F-16: EC2_KNOWN_HOSTS secret and how to obtain it; opt-out variable."
+    },
+    "docs/reports/comparative_report.md": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP10 F-17: root copy removed."
+    },
+    "backend/src/simulations/router.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "CP11: Added spreadsheet_safe formula injection sanitization to CSV simulation reports; explicit LF lineterminator. CP11 reconciliation: CSV report hardened with spreadsheet_safe by another actor (Oct 30 18:21); reviewed, kept."
+    },
+    "backend/tests/api/test_csv_safety.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP11: Direct and integration tests for spreadsheet_safe and CSV report formula injection escaping. CP11 reconciliation: added by another actor (CSV formula injection); first 60 lines read; passes in the full suite."
+    },
+    "backend/src/api/audit.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Audit metadata sanitization and event recording."
+    },
+    "backend/src/api/contracts_v3.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: V3 token contracts, rate limits, package import/export schemas."
+    },
+    "backend/src/database/replay_dao.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: SQLite replay DAO with parameterised queries and limit clamps."
+    },
+    "backend/src/replays/router.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Replay routes, user ownership checks, provenance headers."
+    },
+    "backend/src/history/reproduce.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Exact simulation reproduction and seed checking."
+    },
+    "backend/src/study/jobs.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "CP11: In-memory ThreadPoolExecutor job registry, TTL eviction. CP12 F-64: job lifecycle logs and metrics (outcome cancelled from the job's cancel flag), refused-job counter, active-jobs gauge across registries. Read in full."
+    },
+    "backend/src/study/limits.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Study arrival rate constraints, time step bounds, max batch limits."
+    },
+    "backend/src/study/volume_sweep.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Volume sweep parameter execution, crossover analysis."
+    },
+    "backend/src/study/batch.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Suite batch runner, user isolation, run DAO integration."
+    },
+    "backend/src/study/calibration.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Baseline single-lane calibrated models."
+    },
+    "backend/src/study/report_generator.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Volume sweep verdicts, suite CSV exports with spreadsheet_safe."
+    },
+    "backend/src/live/capture.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Engine snapshot capture and seed verification."
+    },
+    "backend/src/live/sessions.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Live simulation sessions, TTL + LRU eviction, graceful termination."
+    },
+    "backend/src/live/single_vehicle.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Sprint 2 compatibility dummy vehicle state."
+    },
+    "backend/src/live/router.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Live simulation REST/WebSocket routes, origin verification, speed clamping. CP12: comparison status and WebSocket stream read (lines 560-600); origin check confirmed working in the browser."
+    },
+    "backend/src/networks/models.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Network v1 data models, graph node/edge/route contracts, fingerprinting."
+    },
+    "backend/src/networks/validate.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Kahn's topological sort, cycle detection, lane metadata, route validation."
+    },
+    "backend/src/networks/compile.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Compiles network graph to execution plan without modifying base scenarios."
+    },
+    "backend/src/networks/execution.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: One-way coupled execution protocol and result contract."
+    },
+    "backend/src/networks/from_scenario.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Converts scenario to single-junction network graph."
+    },
+    "backend/src/networks/api.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Stateless /api/v2/networks validation, compilation, and fingerprinting."
+    },
+    "backend/src/planning/models.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Planning study v1 contracts, MAX_TOTAL_RUNS=240 bounding, merge-patch validation."
+    },
+    "backend/src/planning/alternatives.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: RFC 7386 merge-patch, forbidden root prevention, demand shift warnings."
+    },
+    "backend/src/planning/comparison.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Paired Student-t comparisons, tie tolerance handling."
+    },
+    "backend/src/planning/indicators.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Metric registry, unavailable first-class reporting, grouping."
+    },
+    "backend/src/planning/links.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Calibration and single-junction network attachments, scenario fingerprint matching."
+    },
+    "backend/src/planning/export_schemas.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Schema generator for shared/schemas/v2."
+    },
+    "backend/src/planning/report.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "CP11: Added spreadsheet_safe formula injection sanitization to CSV planning reports. CP11 reconciliation: CSV formula-injection hardening by another actor (Oct 30 18:48); reviewed by diff stat, kept."
+    },
+    "backend/src/planning/store.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: SQLite persistence, user isolation, interruption recovery (mark_interrupted)."
+    },
+    "backend/src/planning/service.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Recursion stack overflow defense (nested_deeper_than), execution and reproduction."
+    },
+    "backend/src/planning/router.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: /api/v2/planning decoupled router factory, user dependency injection."
+    },
+    "backend/src/uncertainty/__init__.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Robustness Lab module exports."
+    },
+    "backend/src/uncertainty/spec.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Uncertainty spec v1 contracts, parameter bounds for 4 distributions, mass checks."
+    },
+    "backend/src/uncertainty/sampler.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Pure Python Latin-hypercube stratified sampler, deterministic seed derivation."
+    },
+    "backend/src/uncertainty/apply.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Structural and vehicle-generation perturbations without modifying base scenario."
+    },
+    "backend/src/uncertainty/stats.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Wilson score interval, percentile bootstrap, one-way ANOVA variance decomposition."
+    },
+    "backend/src/uncertainty/analysis.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Robustness Lab analysis core, split-half stability cross-validation, exclusion accounting."
+    },
+    "backend/src/uncertainty/runner.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Common random numbers ensemble runner, checkpointing, cancellation recovery."
+    },
+    "backend/src/calibration/__init__.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Calibration module exports."
+    },
+    "backend/src/calibration/models.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Calibration observations v1 contracts, flow/turning/mix/queue/travel-time models."
+    },
+    "backend/src/calibration/compare.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Observed vs simulated comparison, GEH calculation."
+    },
+    "backend/src/calibration/rating.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Presentation rating rules (GOOD, MODERATE, POOR), zero-denominator safeguards."
+    },
+    "backend/src/calibration/runner.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Validation, deterministic simulation seeds, transparent caveats."
+    },
+    "backend/src/calibration/api.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Auth-protected /api/v2/calibration routes, compute slot rate-limiting."
+    },
+    "backend/src/copilot/models.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Copilot proposal intent, issue, and reproducibility contracts."
+    },
+    "backend/src/copilot/llm.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Groq LLM wrapper, budget gating, JSON repair retries, zero tool access. CP12: model_available and propose_with_model read (lines 49-117)."
+    },
+    "backend/src/copilot/catalog.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Proposer capability catalog, catalog hash."
+    },
+    "backend/src/copilot/evaluation.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Automated evaluation harness against copilot-eval-v1.json. CP12: read in full; scorer reused by the gate."
+    },
+    "backend/src/copilot/interpretation.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Anti-hallucination grounding check, mandatory sections."
+    },
+    "backend/src/copilot/validation.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Validation boundary, quota checks, deterministic suggestion generator."
+    },
+    "backend/src/copilot/service.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Proposal lifecycle, daily quotas, timing attack defense via secrets.compare_digest."
+    },
+    "backend/src/copilot/router.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: /api/v3/copilot routes, scoped token validation, audit logging."
+    },
+    "backend/src/ai/__init__.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: AI module exports."
+    },
+    "backend/src/ai/schemas.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Request/response models for /api/ai/summary, chat, patch."
+    },
+    "backend/src/ai/budget.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Process-local daily spend and per-client rate limiters."
+    },
+    "backend/src/ai/groq_client.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Groq client wrapper, API key security, 30s timeout, input truncation."
+    },
+    "backend/src/ai/prompts.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: System prompts, safety rules, output schemas."
+    },
+    "backend/src/ai/fallback.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Deterministic rule-based fallbacks for summary, chat, and config patching."
+    },
+    "backend/src/ai/router.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: /api/ai/* routes, input limits, auth protection, script-tag sanitization."
+    },
+    "backend/src/discovery/models.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "CP11: Multi-objective search contracts, budget caps, regime definitions. CP11 F-61: Regime.entryQueue; fingerprint drops an absent/disabled queue; describe_objectives explains the queue objective. Read in full."
+    },
+    "backend/src/discovery/service.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Background search runner, quota reservations, package assembly."
+    },
+    "backend/src/discovery/router.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: /api/v3/discovery routes, scope checks, audit logging."
+    },
+    "backend/src/discovery/nsga2.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: NSGA-II constrained non-dominated sort, crowding distance, hypervolume."
+    },
+    "backend/src/stress/router.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: /api/v3/stress routes, scope checks, suites and breakpoints endpoints."
+    },
+    "backend/src/stress/service.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "CP11: Stress service, strict Pydantic models, concurrency clamps, quota reservations. CP11 F-61: SuiteRequest.entryQueue; BreakpointRequest.entryQueue (default junction only)."
+    },
+    "backend/src/suites/router.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: /api/suites endpoints, user ownership checks, batch execution, CSV exports."
+    },
+    "backend/src/experiments/limits.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: /api/v3/experiments quotas, step limits, package limits, quota registry."
+    },
+    "backend/src/experiments/models.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Experiment request/status/result contracts (urbanflow-experiment v1)."
+    },
+    "backend/src/experiments/preparation.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Preflight validation, depth bounding, cost estimation."
+    },
+    "backend/src/experiments/package.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "CP11: .ufpkg build, verify, zip slip/bomb defenses, timing-safe checksum verification. CP11 F-61: manifestSummary.entryModel read from experiment.json."
+    },
+    "backend/src/experiments/store.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: Experiment SQLite persistence, user isolation, interruption recovery."
+    },
+    "backend/src/experiments/service.py": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "CP11: Experiment service, quota reservation, background runner, cancellation/resume. CP11 F-61: provenance.entryModel (outside the hashed evidence)."
+    },
+    "backend/src/experiments/router.py": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP11: /api/v3/experiments routes, capabilities, package verify, scoped permissions."
+    },
+    "backend/src/vehicles/proximity.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP11 F-62: live uniform grid for find_leader's Layer 4 (exact: radius bound, 3x3 cells, active-list order). CP12: non-finite positions are not filed (the full scan never acted on them; math.floor raised)."
+    },
+    "backend/tests/planning/test_boundary_and_schema.py": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP11 reconciliation: src.csv_safety added to the planning import allow-list by another actor."
+    },
+    "backend/tests/integration/test_entry_model_labs.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP11 F-61: 15 tests (real Discovery search and Stress suite drivers with a recording executor; one real engine run; experiment provenance and package summary)."
+    },
+    "backend/tests/vehicles/test_proximity_index.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP11 F-62: brute-force check of every Layer 4 query in three busy scenarios; unit test of moves and removals."
+    },
+    "frontend/src/services/v3/discovery.ts": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "CP11 F-61: Regime.entryQueue; entryModel; servedDemand; lowerDelayServedLess."
+    },
+    "frontend/src/components/discovery/DiscoveryPage.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP11 F-61: entry-model control in the regime form; result sentence; served-less caution on comparisons. CP12: objective-specific entry-model sentence."
+    },
+    "frontend/src/test/labEntryModel.test.tsx": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP11 F-61: 4 tests (Discovery and Stress requests and result cautions). CP12: expectations follow the context-specific sentences."
+    },
+    "backend/src/observability/__init__.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP12 F-64: package overview."
+    },
+    "backend/src/observability/logging_setup.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP12 F-64: JSON/plain formatters, request id, redaction of bearer/PAT/JWT in messages, args (shape kept) and tracebacks; uvicorn loggers covered."
+    },
+    "backend/src/observability/metrics.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP12 F-64: thread-safe counters, histograms, callback gauges; Prometheus text; MAX_SERIES cap."
+    },
+    "backend/src/observability/middleware.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP12 F-64: request id, route-template metrics (also for pre-routing refusals), 413/429 counter, request log line."
+    },
+    "backend/src/observability/router.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP12 F-64: GET /metrics (METRICS_TOKEN bearer, else loopback only); gauges for jobs, registered simulations, live sessions."
+    },
+    "backend/src/copilot/eval_gate.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP12 F-65: deterministic copilot-eval-v1 gate (schema, regression baseline, held-out aggregate, ambiguity, adversarial, claims, determinism, entry model, robustness); --live opt-in."
+    },
+    "backend/src/copilot/eval/copilot-eval-v1.baseline.json": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP12 F-65: per-item development baseline and recall of the deterministic proposer."
+    },
+    "backend/tests/vehicles/test_proximity_reference.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP12 F-62: exhaustive find_leader reference in 7 scenarios incl. maximum demand; stale/duplicate-entry invariant; reproducibility; unit edge cases."
+    },
+    "backend/tests/observability/__init__.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP12: package marker."
+    },
+    "backend/tests/observability/test_observability.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP12 F-64: 22 tests incl. uvicorn AccessFormatter regression."
+    },
+    "backend/tests/experiments/test_copilot_eval_gate.py": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP12 F-65: 9 tests, each check failing on its defect."
+    },
+    "frontend/src/services/v3/experiments.ts": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "CP12 F-66: 120 s request timeout with a clear message. Read in full."
+    },
+    "frontend/src/services/websocket.ts": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "CP12 F-67: handlers act only for their own socket; replaced sockets detached; pending retry cleared on connect. Read in full."
+    },
+    "frontend/src/services/studyJobs.ts": {
+      "inspection": "FULL",
+      "disposition": "MODIFIED",
+      "note": "CP12 F-68: wait() removes its abort listener when it resolves. Read in full."
+    },
+    "frontend/src/hooks/useStudyJob.ts": {
+      "inspection": "FULL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP12: read in full; aborts on unmount and new run."
+    },
+    "frontend/src/hooks/useWebSocketSnapshot.ts": {
+      "inspection": "PARTIAL",
+      "disposition": "VERIFIED_UNCHANGED",
+      "note": "CP12: effect and cleanup read (lines 80-140); one client per mode, disconnected on cleanup."
+    },
+    "frontend/src/components/guided/StrategyResults.tsx": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP12: entry-model chip from the model the engines report; mismatch flagged. Lines 221-320 read."
+    },
+    "frontend/src/test/resultsEntryModel.test.tsx": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP12: chip and sentence tests (7)."
+    },
+    "frontend/src/test/simCanvasFrameCap.test.tsx": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP12 F-14: cap and in-step repaint tests (2)."
+    },
+    "frontend/src/test/studyJobsPolling.test.ts": {
+      "inspection": "FULL",
+      "disposition": "ADDED",
+      "note": "CP12 F-68: listener removal and prompt abort (2)."
+    },
+    "frontend/src/test/websocket.test.ts": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP12 F-67: two regression tests added."
+    },
+    "docs/operations.md": {
+      "inspection": "PARTIAL",
+      "disposition": "MODIFIED",
+      "note": "CP12 F-64: 'Logs and metrics' section."
+    }
+  },
+  "patterns": {
+    "landingpage/*": {
+      "action": "Legacy Replit prototype, not built or deployed (docs/architecture/01) \u2014 removal candidate, needs owner approval (F-03)."
+    },
+    "docs/resources/References/*": {
+      "action": "Third-party reference PDF committed to git \u2014 check licence / move out of the repo, needs approval (F-04)."
+    },
+    "recordings/*": {
+      "action": "21 MB video in git \u2014 consider a release asset or LFS, needs approval (F-05)."
+    },
+    "frontend/src/landing/data/scene.json": {
+      "action": "1.4 MB recording; ships as a lazy 683 kB (76 kB gzip) chunk."
+    }
+  },
+  "deleted": {
+    "scripts/setup_github.py": "Created V1 labels/milestones/issues from docs/issues/, which d17cf2d deleted; superseded by docs/plan/. Kept in git history.",
+    "scripts/assign_issues.py": "Assigned the V1 issues created by setup_github.py from docs/issues/ (deleted in d17cf2d). Kept in git history.",
+    "scripts/set_milestone_deadlines.py": "Set V1 milestone dates (Aug 2026) on a hard-coded old repository name; the V1 plan is finished and superseded by docs/plan/. Kept in git history.",
+    "frontend/public/auth-modal.js": "F-18 (checkpoint 10): the landing page's placeholder sign-in behaviour (alerted the email, faked reset and social notices). Login now opens the dashboard's Cognito dialog. Kept in git history.",
+    "study_report.csv": "F-17 (checkpoint 10): byte-identical duplicate of docs/reports/study_report.csv at the script's gitignored default output path; read by nothing. Kept in git history."
+  }
+}

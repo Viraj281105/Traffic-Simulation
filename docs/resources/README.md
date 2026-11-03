@@ -12,3 +12,30 @@ This directory contains source assets and historical reference material. The fil
 | **[Technical Documentation.docx](Technical%20Documentation.docx)** | Word Document | Specifications detailing simulation parameters, algorithms, and classes. |
 | **[Simulation_Parameters_Reference.md.pdf](Simulation_Parameters_Reference.md.pdf)** | PDF Document | Reference guide covering simulation parameters, lanes constraints, and IDM constants. |
 | **[simulation_pipeline_overview.png](Images/simulation_pipeline_overview.png)** | PNG Image | Pipeline flowchart visual outlining how state data flows from the simulator loop to the canvas visualization. |
+
+### Further project material
+
+| File | Type | Purpose |
+|------|------|---------|
+| [Project-Documentation-v1 (1).pdf](Project-Documentation-v1%20%281%29.pdf) | PDF, 8 pages | Early project documentation (export of an earlier draft). |
+| [pune-traffic-sim-analysis.md.pdf](pune-traffic-sim-analysis.md.pdf) | PDF, 5 pages | Background note on traffic conditions in Pune. |
+| [worlds-craziest-intersections-and-traffic-management.md.pdf](worlds-craziest-intersections-and-traffic-management.md.pdf) | PDF, 8 pages | Background note on unusual intersections. |
+| [Images/Architecture Diagram.png](Images/Architecture%20Diagram.png), [Images/Architecture Diagram v2.png](Images/Architecture%20Diagram%20v2.png) | PNG | Early architecture diagrams; the current architecture is in [docs/architecture](../architecture/00-system-overview.md). |
+| `Images/Screenshot 2026-08-21 *.png` (4 files) | PNG | Screenshots from the August 2026 prototype. |
+
+### Third-party references (`References/`)
+
+Eight published documents, about 44 MB in total. They are kept for reference only: nothing in the build, the Docker images or the application reads them (`.dockerignore` excludes `docs/`), and they are not project deliverables. Their redistribution rights have not been checked. See finding F-04 in [docs/engineering/REFACTOR_FINDINGS.md](../engineering/REFACTOR_FINDINGS.md) before sharing the repository outside the team.
+
+| File | Size | Used by | Redistribution |
+|------|-----:|---------|----------------|
+| Federal Highway Administration (FHWA). Traffic Signal Timing Manual…pdf | 3.6 MB | background for signal timing | US federal publication; usually public domain, but third-party figures may carry their own rights — unverified |
+| Highway Capacity Manual (HCM).pdf | 4.3 MB | capacity background | TRB copyright; redistribution normally not permitted — unverified |
+| Transportation Research Board. Highway Capacity Manual (HCM) — Roundabout Methodology…pdf | 25.7 MB | roundabout gap-acceptance background | TRB copyright — unverified |
+| Treiber, M., Hennecke, A., & Helbing, D. (2000)…pdf | 0.6 MB | cited by [simulation/methodology.md](../simulation/methodology.md) for the IDM | APS journal article; publisher copyright — unverified |
+| MEASURE EFFECTIVENESS OF ROUNDABOUTS IN URBAN AREAS…pdf | 1.0 MB | background | unknown publisher — unverified |
+| Metrics.pdf | 5.7 MB | background | unknown source — unverified |
+| Mobility and traffic models for VANETs.pdf | 4.4 MB | background | publisher copyright likely — unverified |
+| Transportation reliability methodology (general practice…).pdf | 0.4 MB | travel-time reliability background | unknown source — unverified |
+
+Before the repository is made public, replace each "unverified" file with a citation and link (the methodology already cites Treiber et al. by name), or keep it only after confirming the right to redistribute it. Removing a file from the working tree does not remove it from git history.

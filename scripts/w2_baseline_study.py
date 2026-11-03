@@ -121,7 +121,12 @@ def build_study(seeds: int, duration: float) -> Dict[str, Any]:
 
 
 def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    """Line endings normalised to LF, as scripts/v3_demo.py does."""
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+
+def _write(path: Path, text: str) -> None:
+    path.write_text(text, encoding="utf-8", newline="\n")
 
 
 def main() -> int:
@@ -149,15 +154,13 @@ def main() -> int:
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    (out / "study.json").write_text(json.dumps(payload, indent=2) + "\n")
-    (out / "result.json").write_text(
-        json.dumps(result, indent=2, sort_keys=True) + "\n"
-    )
-    (out / "report.md").write_text(export(result, "markdown")["content"])
+    _write(out / "study.json", json.dumps(payload, indent=2) + "\n")
+    _write(out / "result.json", json.dumps(result, indent=2, sort_keys=True) + "\n")
+    _write(out / "report.md", export(result, "markdown")["content"])
     lines = [
         f"{_sha256(out / n)}  {n}" for n in ("study.json", "result.json", "report.md")
     ]
-    (out / "SHA256SUMS").write_text("\n".join(lines) + "\n")
+    _write(out / "SHA256SUMS", "\n".join(lines) + "\n")
 
     print(f"result fingerprint {result['meta']['resultFingerprint']}")
     print(f"written to {out}")

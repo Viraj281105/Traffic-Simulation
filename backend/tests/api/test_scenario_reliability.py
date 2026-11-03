@@ -48,9 +48,11 @@ def captured(monkeypatch) -> List[Dict[str, Any]]:
         duration=30.0,
         time_step=0.1,
         confidence_level=0.95,
+        base_seed=None,
     ):
         calls.append(
             {
+                "base_seed": base_seed,
                 "config": config,
                 "num_seeds": num_seeds,
                 "duration": duration,
@@ -142,3 +144,25 @@ def test_scenario_study_really_runs_both_controls() -> None:
     assert len(body["seedRuns"]) == 2
     for key in ("delay", "throughput", "queue"):
         assert key in body["comparison"]
+
+
+def test_seed_is_passed_through_as_the_base_seed(captured) -> None:
+    res = client.post(
+        "/api/v1/study/validate/monte-carlo",
+        json={"numSeeds": 3, "scenario": SCENARIO, "seed": 7},
+    )
+    assert res.status_code == 200
+    assert captured[0]["base_seed"] == 7
+
+
+def test_omitted_seed_is_passed_as_none(captured) -> None:
+    res = client.post("/api/v1/study/validate/monte-carlo", json={"numSeeds": 3})
+    assert res.status_code == 200
+    assert captured[0]["base_seed"] is None
+
+
+def test_out_of_range_seed_is_rejected(captured) -> None:
+    for bad in (-1, 2**31):
+        res = client.post("/api/v1/study/validate/monte-carlo", json={"seed": bad})
+        assert res.status_code == 422
+    assert captured == []

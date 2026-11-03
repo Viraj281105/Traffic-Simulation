@@ -10,7 +10,7 @@ A brief description of what this PR does, what issues it addresses (e.g. `Closes
 *Please verify compliance with the following guidelines before converting this PR to ready-for-review:*
 - [ ] **Directory Boundaries**: Code in `backend/` does not import from `frontend/`, and code in `frontend/` does not import from `backend/`.
 - [ ] **Typings**: Code compiles with zero strict typescript warnings in `frontend/` and passes strict MyPy checks in `backend/`.
-- [ ] **Formatting**: Code formatting passes `ruff format .` (Python) and `npm run format:check` (TypeScript) successfully.
+- [ ] **Formatting**: Code formatting passes `ruff format .` (Python) and `npm run format` (TypeScript) successfully.
 - [ ] **Shared Directory Reviews**: If this PR modifies anything inside the `shared/` directory, reviews have been requested and approved by **both** Developer A and Developer B.
 - [ ] **Testing**: Unit and integration tests have been run and passed successfully.
 - [ ] **No Secrets**: No environment variables, passwords, or credentials have been committed.

@@ -293,4 +293,36 @@ describe("SimulationWebSocket", () => {
 
     expect(snapshots).toEqual([{ tick: 1 }, { tick: 2 }]);
   });
+
+  it("does not open a second socket when connect() runs during a pending retry", () => {
+    const { callbacks } = makeCallbacks();
+    const ws = new SimulationWebSocket(callbacks, "ws://test");
+    ws.connect();
+    FakeWebSocket.latest().drop(); // retry scheduled
+    ws.connect(); // e.g. a view re-mount
+    const afterConnect = FakeWebSocket.instances.length;
+    vi.advanceTimersByTime(60_000);
+    // The cancelled retry never fires: no further socket is created.
+    expect(FakeWebSocket.instances.length).toBe(afterConnect);
+  });
+
+  it("ignores a late close from a socket it has replaced", () => {
+    const { callbacks, snapshots, statuses } = makeCallbacks();
+    const ws = new SimulationWebSocket(callbacks, "ws://test");
+    ws.connect();
+    const first = FakeWebSocket.latest();
+    const lateClose = first.onclose;
+    ws.connect(); // replaces the first socket
+    const second = FakeWebSocket.latest();
+    expect(first.closed).toBe(true);
+    expect(first.onclose).toBeNull();
+    second.open();
+    // The browser delivers the first socket's close after the replacement.
+    lateClose?.({ code: 1006 } as CloseEvent);
+    vi.advanceTimersByTime(60_000);
+    expect(FakeWebSocket.instances).toHaveLength(2);
+    second.emit({ tick: 3 });
+    expect(snapshots).toEqual([{ tick: 3 }]);
+    expect(statuses[statuses.length - 1]).toBe("connected");
+  });
 });

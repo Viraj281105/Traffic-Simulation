@@ -9,7 +9,7 @@ import {
 } from "framer-motion";
 import { useSceneData, useSceneTheme } from "../scene/SceneContext";
 import { SimCanvas } from "../scene/SimCanvas";
-import { useSimClock } from "../scene/clock";
+import { useOnScreen, useSimClock } from "../scene/clock";
 import type { Camera } from "../scene/render";
 import { STRATEGY_IDS, type StrategyId } from "../scene/sceneData";
 import {
@@ -91,7 +91,8 @@ export function Story() {
     shiftY: 0.02,
     shiftX: 0.02,
   });
-  const hud = useHud(data, chapter.strategy, clock);
+  const onScreen = useOnScreen(track);
+  const hud = useHud(data, chapter.strategy, clock, onScreen);
 
   const { scrollYProgress } = useScroll({
     target: track,

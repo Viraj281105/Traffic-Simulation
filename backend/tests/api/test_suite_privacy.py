@@ -7,6 +7,7 @@ that belong to another user, so its run list cannot be used to read them.
 """
 
 import sqlite3
+from contextlib import closing
 from typing import Any, Iterator
 
 import pytest
@@ -98,7 +99,7 @@ def test_admin_sees_all_and_legacy_suites_are_admin_only(
     act_as("alice")
     alice_suite = _create().json()["id"]
     legacy_suite = _create().json()["id"]
-    with sqlite3.connect(isolated_db) as conn:
+    with closing(sqlite3.connect(isolated_db)) as conn, conn:
         conn.execute(
             "UPDATE scenario_suites SET user_id = NULL WHERE id = ?", (legacy_suite,)
         )
@@ -140,7 +141,7 @@ def test_a_suites_table_from_before_ownership_is_migrated(
     tmp_path: Any, monkeypatch: pytest.MonkeyPatch, act_as: Any
 ) -> None:
     old = str(tmp_path / "old.db")
-    with sqlite3.connect(old) as conn:
+    with closing(sqlite3.connect(old)) as conn, conn:
         conn.execute(
             """CREATE TABLE scenario_suites (
                 id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT,

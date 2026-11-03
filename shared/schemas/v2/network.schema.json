@@ -432,6 +432,33 @@
       "title": "EntryMeteringSpec",
       "type": "object"
     },
+    "EntryQueueSpec": {
+      "additionalProperties": false,
+      "description": "Opt-in point queue outside the network (traffic.entryQueue).",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "capacity": {
+          "anyOf": [
+            {
+              "maximum": 5000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Capacity"
+        }
+      },
+      "title": "EntryQueueSpec",
+      "type": "object"
+    },
     "JunctionSpec": {
       "additionalProperties": false,
       "properties": {
@@ -1117,6 +1144,17 @@
           ],
           "default": null,
           "title": "Driveraggression"
+        },
+        "entryQueue": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntryQueueSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "title": "TrafficSpec",

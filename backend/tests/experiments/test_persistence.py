@@ -1,6 +1,7 @@
 """Persistence and the additive migration of ``uf_experiments``."""
 
 import sqlite3
+from contextlib import closing
 
 from src.database import db
 from src.experiments.service import ExperimentService
@@ -10,7 +11,7 @@ from .conftest import as_user, build_client, submit, wait_for
 
 
 def _schema(path: str) -> dict:
-    with sqlite3.connect(path) as conn:
+    with closing(sqlite3.connect(path)) as conn, conn:
         return dict(conn.execute("SELECT name, sql FROM sqlite_master").fetchall())
 
 
@@ -50,7 +51,7 @@ def test_delete_removes_the_row_from_disk(make_service):
         f"/api/v3/experiments/{done['id']}", headers=as_user("alice")
     )
     assert response.status_code == 200
-    with sqlite3.connect(db.DB_PATH) as conn:
+    with closing(sqlite3.connect(db.DB_PATH)) as conn, conn:
         assert conn.execute("SELECT COUNT(*) FROM uf_experiments").fetchone()[0] == 0
     reopened = build_client(make_service(persist=True))
     gone = reopened.get(f"/api/v3/experiments/{done['id']}", headers=as_user("alice"))
@@ -96,7 +97,7 @@ def test_migration_is_additive_and_idempotent(tmp_path, monkeypatch):
     before = _schema(path)
     assert "uf_experiments" not in before
 
-    with sqlite3.connect(path) as conn:
+    with closing(sqlite3.connect(path)) as conn, conn:
         ensure_table(conn)
         ensure_table(conn)  # running it again changes nothing
     after = _schema(path)
@@ -111,7 +112,7 @@ def test_migration_is_additive_and_idempotent(tmp_path, monkeypatch):
 
 
 def test_migration_keeps_rows_already_written(tmp_path):
-    with sqlite3.connect(str(tmp_path / "rows.db")) as conn:
+    with closing(sqlite3.connect(str(tmp_path / "rows.db"))) as conn, conn:
         ensure_table(conn)
         conn.execute(
             "INSERT INTO uf_experiments (id, user_id, name, status) "

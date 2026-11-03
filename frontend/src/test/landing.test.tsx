@@ -11,7 +11,13 @@ import {
   windowLength,
   type SceneData,
 } from "../landing/scene/sceneData";
-import { drawScene, type SceneTheme } from "../landing/scene/render";
+import {
+  createGroundLayer,
+  drawScene,
+  type Camera,
+  type GroundLayer,
+  type SceneTheme,
+} from "../landing/scene/render";
 import { Evidence } from "../landing/sections/Evidence";
 import App from "../landing/App";
 
@@ -148,6 +154,97 @@ describe("scene themes", () => {
   });
 });
 
+/** A recording 2D context: fill colours and drawImage calls, in order. */
+function recorder() {
+  const fills: string[] = [];
+  const images: unknown[] = [];
+  const noop = () => undefined;
+  const ctx = new Proxy(
+    {},
+    {
+      get: (_t, prop) => {
+        if (prop === "canvas") return { width: 800, height: 500 };
+        if (prop === "getTransform") return () => ({});
+        if (prop === "drawImage")
+          return (img: unknown) => {
+            images.push(img);
+          };
+        if (prop === "createRadialGradient")
+          return () => ({ addColorStop: noop });
+        return noop;
+      },
+      set: (_t, prop, value) => {
+        if (prop === "fillStyle" && typeof value === "string")
+          fills.push(value);
+        return true;
+      },
+    },
+  ) as unknown as CanvasRenderingContext2D;
+  return { ctx, fills, images };
+}
+
+function draw(
+  ctx: CanvasRenderingContext2D,
+  camera: Camera,
+  ground?: GroundLayer,
+): void {
+  const s = sampleRun(data.runs.fixed_time, data, 20);
+  drawScene(ctx, 800, 500, {
+    strategy: "fixed_time",
+    vehicles: s.vehicles,
+    control: s.control,
+    camera,
+    innerRadius: 10,
+    outerRadius: 20,
+    clock: s.clock,
+    theme: "dark",
+    ground,
+  });
+}
+
+const STILL: Camera = { yaw: -30, elev: 40, zoom: 1, shiftX: 0, shiftY: 0 };
+
+describe("scene renderer work", () => {
+  it("caches the ground once a view repeats and blits it afterwards", () => {
+    const layerCtx = recorder();
+    const spy = vi
+      .spyOn(HTMLCanvasElement.prototype, "getContext")
+      .mockImplementation(() => layerCtx.ctx);
+    try {
+      const ground = createGroundLayer();
+      const page = recorder();
+      draw(page.ctx, STILL, ground); // first sight of this view: drawn directly
+      draw(page.ctx, STILL, ground); // repeated: cached, then blitted
+      draw(page.ctx, STILL, ground); // still repeated: blitted, no redraw
+      expect(page.images).toHaveLength(2);
+      // The ground fill went to the page once and to the cache once.
+      expect(page.fills.filter((f) => f === "#0a1626")).toHaveLength(1);
+      expect(layerCtx.fills.filter((f) => f === "#0a1626")).toHaveLength(1);
+      // A moving camera never uses the cache.
+      const moving = recorder();
+      const fresh = createGroundLayer();
+      draw(moving.ctx, STILL, fresh);
+      draw(moving.ctx, { ...STILL, yaw: STILL.yaw + 1 }, fresh);
+      expect(moving.images).toHaveLength(0);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("skips vehicles and buildings that project entirely off the canvas", () => {
+    const on = recorder();
+    draw(on.ctx, STILL);
+    const off = recorder();
+    draw(off.ctx, { ...STILL, shiftX: 50 }); // scene centre far to the right
+    // Vehicle faces are rgba() with a three-decimal alpha and buildings are
+    // rgb(); palette colours (dashes, stop lines) are neither.
+    const boxFills = (f: string[]) =>
+      f.filter((c) => /^rgb\(|^rgba\(\d+,\d+,\d+,\d\.\d{3}\)$/.test(c)).length;
+    expect(boxFills(on.fills)).toBeGreaterThan(50);
+    expect(boxFills(off.fills)).toBe(0);
+  });
+});
+
 describe("evidence section", () => {
   it("reports the study's own verdicts and counts", () => {
     render(<Evidence />);
@@ -180,6 +277,13 @@ describe("landing page", () => {
       "href",
       "/app/planner",
     );
+    // "Login" is the dashboard's real (Cognito) sign-in, opened on arrival;
+    // the landing page no longer carries a placeholder form (F-18).
+    expect(screen.getByRole("link", { name: "Login" })).toHaveAttribute(
+      "href",
+      "/app/comparative?signin=1",
+    );
+    expect(document.querySelector('input[type="password"]')).toBeNull();
     // The chapter navigation is there for keyboard users of the pinned story.
     expect(
       screen.getByRole("navigation", { name: "Story chapters" }),

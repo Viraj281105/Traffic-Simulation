@@ -48,6 +48,17 @@ mypy src/
 | Ruff rules | `E`, `F`, `I`, `N` | Correctness, imports, naming |
 | mypy | `strict = true` | The engine is large and stateful; types catch interface drift |
 
+### Markers
+
+Every test carries exactly one layout marker, applied by path in
+`backend/tests/conftest.py` (no per-file edits; an explicit marker on a test
+wins): `integration` under `tests/integration/`, `tests/api/` and
+`tests/v2_integration/`; `architecture` for `test_architecture.py`; `unit`
+everywhere else. `slow` is separate and combines with any of them.
+`--strict-markers` is on, so a misspelt marker fails collection instead of
+silently selecting nothing. `pytest -m unit`, `-m integration` and
+`-m architecture` partition the suite (3172 collected: 1983 / 1184 / 5).
+
 ### What each test area protects
 
 | Directory | Protects |
@@ -65,6 +76,18 @@ mypy src/
 | `tests/api/` | Routes, API-key auth, development auth bypass, replay ownership, study jobs and limits, reliability scenario |
 | `tests/integration/` | Full runs, dual simulation, WebSocket integration, snapshot contract, config validation and ordering, live session limits, stress, DB concurrency |
 | `tests/test_architecture.py` | The backend's layer rules: the simulation domain is a strict import stack, uses no web or database library, nothing imports `main.py`, and SQL stays in `database/` and the feature stores |
+
+### Fixed-seed golden fingerprints
+
+`tests/controllers/signal_golden.py` (signals) and `roundabout_golden.py` (roundabout) run a corpus of seeded scenarios and hash every tick's vehicle positions and speeds, the final metrics and periodic snapshots. Two pins per case: **exact** (raw bits, for one interpreter and platform) and **portable** (1 µm, 12 significant digits, checked everywhere). A changed fingerprint means behaviour changed; do not re-record to make a test pass. Re-record only on purpose:
+
+```bash
+cd backend
+python -m tests.controllers.signal_golden --record --force      # new baseline; update BASELINE_DIGEST in the same diff, state why
+python -m tests.controllers.signal_golden --add-environment     # add this machine's exact pins (same source as the recording only)
+```
+
+The signal baseline was recorded on Windows / Python 3.14.7. CI (Linux / Python 3.11) enforces the portable pins; add its exact pins with `--add-environment` from the recording commit.
 
 ### Slow simulation regression
 
@@ -84,6 +107,7 @@ Marked `@pytest.mark.slow`; excluded from the PR gate, run nightly (02:30 UTC) a
 | vehicle-types-and-lanes | `tests/integration/test_vehicle_types_and_lanes.py` | Mixed classes and lanes |
 | roundabout-lane-capacity | `tests/integration/test_roundabout_lane_capacity.py` | Multi-lane roundabout capacity scaling across demand |
 | randomized-invariants | `tests/integration/test_randomized_invariants.py` | 48 random valid scenarios: conservation, speeds, greens, collisions, bit-identical rerun |
+| signal-golden | `tests/controllers/test_signal_golden_fingerprints.py` | Fixed-seed whole-run fingerprints of the fixed-time and adaptive signals (6 saturated / long cases; the 13 fast cases run in the PR job) |
 
 The last seven were added to the CI matrix during the V2.0 release-gate audit. `tests/test_ci_slow_matrix.py`, which runs in the ordinary PR job, now fails if any file with `@pytest.mark.slow` tests is missing from this matrix.
 
@@ -96,6 +120,7 @@ Stack: **Vitest** + Testing Library (jsdom), **TypeScript** (`tsc`), **ESLint**,
 ```bash
 cd frontend
 npm run test          # vitest run
+npm run test:ci       # vitest run --coverage (what CI runs; thresholds below)
 npm run type-check    # tsc --noEmit
 npm run lint          # eslint .
 npm run format        # prettier --check .
@@ -106,9 +131,11 @@ npm run build         # tsc && vite build
 | --- | --- |
 | `GuidedComparison.test.tsx`, `App.test.tsx`, `routing.test.tsx` | The planner journey end to end against mocked hooks; navigation; nginx route list kept in step with the router |
 | `plainLanguage.test.ts`, `metricCatalog.test.ts` | Plain-language readings, tie rules, bands; **every backend metric has a catalog entry** |
+| `metricGlossary.test.tsx` | The glossary lists every catalog metric, filters, is axe-clean, matches `docs/product/metric-glossary.md` (regenerate with `UPDATE_GLOSSARY=1`), and the catalog covers every numeric key in `shared/metrics/collector-metric-keys.json` (kept equal to the collector by `backend/tests/metrics/test_metric_key_parity.py`) |
 | `useWebSocketSnapshot.test.tsx`, `websocket.test.ts`, `liveSession.test.ts`, `snapshotInterpolator.test.ts` | Streaming, reconnection, session-cookie ordering, smooth interpolation |
 | `HistoryDashboard`, `RunPage`, `ComparePage`, `savedRun` tests | Saved runs, reproduction display, multi-run comparison |
 | `VolumeAnalysisDashboard`, `ValidationDashboard`, `WeightedScoringPanel`, `IntegrityCheck` tests | Research Lab tools and their wording |
+| Coverage thresholds (`vite.config.ts`) | Over `src/metrics`, `hooks`, `utils`, `services`, `components`; measured 2026-11-03 at 76.2 % statements/lines, 79.7 % branches, 62.0 % functions; thresholds 74 / 74 / 77 / 60 (about two points under). Raise as coverage improves; never lower to pass. `lcov` is uploaded as the `frontend-coverage` artifact |
 | `devAuthBypass.test.ts`, `DevAuthApp.test.tsx` | The development sign-in bypass can never reach a production build |
 | geometry / map / logo / time / container-size tests | Rendering helpers |
 | `App`, `planner`, `RunPage` tests marked *(axe)* | Automated accessibility (axe-core, `src/test/axe.ts`): no violation axe can detect from the DOM. Colour contrast is **not** checked there (jsdom has no layout) and must be checked in a browser; passing axe does not prove keyboard or screen-reader usability |

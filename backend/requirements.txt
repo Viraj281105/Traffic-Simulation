@@ -1,9 +1,11 @@
+# Runtime dependencies of the API image (backend/Dockerfile).
+# Test, lint and type-check tools are in requirements-dev.txt.
+
 annotated-doc==0.0.5
 annotated-types==0.8.0
 anyio==4.14.2
-ast_serialize==0.8.0
 attrs==26.1.0
-certifi==2026.7.22
+certifi==2026.10.19
 click==8.4.2
 colorama==0.4.6
 fastapi==0.141.1
@@ -11,23 +13,12 @@ h11==0.16.0
 httpcore==1.0.9
 httpx==0.28.1
 idna==3.18
-iniconfig==2.3.0
 jsonschema==4.26.0
 jsonschema-specifications==2025.9.1
-librt==0.15.0
-mypy==2.3.1
-mypy_extensions==1.1.0
-packaging==26.3
-pathspec==1.1.1
-pluggy==1.6.0
 pydantic==2.13.4
 pydantic_core==2.46.4
-Pygments==2.20.0
-pytest==9.1.1
-pytest-cov==7.1.0
 referencing==0.37.0
 rpds-py==2026.6.3
-ruff==0.16.3
 starlette==1.6.0
 typing-inspection==0.4.4
 typing_extensions==4.16.0
@@ -36,17 +27,15 @@ websockets==17.0.1
 # AI Copilot: Groq SDK (Phase 1)
 groq==1.7.0
 
-python-jose[cryptography]==3.5.0
+# Cognito token verification (src/api/auth.py). Replaced python-jose, whose
+# algorithm-confusion advisory (GHSA-3qf3-8w2g-rqmx) and ecdsa dependency
+# (GHSA-wj6h-64fc-37mp) have no fixed release (F-33).
+PyJWT==2.15.1
 requests==2.33.1
-# Runtime dependencies of python-jose and requests, pinned so every image
-# build resolves the same versions (they were unpinned before the V2.0
-# release-gate audit; values are those of the tested 3.11 dev image).
+# Runtime dependencies of PyJWT (RSA via cryptography) and requests, pinned
+# so every image build resolves the same versions.
 cffi==2.1.1
 charset-normalizer==3.5.1
 cryptography==50.0.1
-ecdsa==0.19.2
-pyasn1==0.6.4
 pycparser==3.0
-rsa==4.9.1
-six==1.17.0
 urllib3==2.8.0

@@ -19,6 +19,7 @@ from src.core.clock import Clock
 from src.core.enums import SimulationStatus
 from src.core.limits import MAX_SIMULATION_TICKS
 from src.core.provenance import GIT_COMMIT_HASH, PYTHON_VERSION
+from src.core.run_manifest import verify_manifest
 from src.engine.readout import engine_metrics
 from src.engine.simulation_engine import SimulationEngine
 from src.metrics.collector import MetricCollector
@@ -309,6 +310,14 @@ def reproduce_run(run: Dict[str, Any]) -> Dict[str, Any]:
         "discrepancies": discrepancies,
         "limitations": _reproduction_limitations(provenance, compared),
         "recordedGitCommitHash": (provenance or {}).get("gitCommitHash"),
+        # Why a difference could be expected, by cause (config / code /
+        # interpreter); {"recorded": False} for runs saved before manifests.
+        "manifestCheck": verify_manifest(
+            (provenance or {}).get("manifest"),
+            config,
+            current_commit=GIT_COMMIT_HASH,
+            current_python=PYTHON_VERSION,
+        ),
         # Best-effort provenance (src/core/provenance.py): "unknown"
         # rather than a failure wherever .git isn't available, e.g. the
         # production Docker image.

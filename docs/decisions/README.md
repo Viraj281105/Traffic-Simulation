@@ -25,6 +25,7 @@ This directory contains historical **Architecture Decision Records (ADRs)**. The
 | **[ADR-017](adr-017-ai-validation-boundary.md)** | AI Validation Boundary | Proposed (draft for G-D) | 2026-10-14 |
 | **[ADR-018](adr-018-backend-layering-and-resource-routers.md)** | Backend Layering and Resource Routers | Accepted | 2026-10-16 |
 | **[ADR-019](adr-019-stop-line-position-under-driver-aggression.md)** | Stop-Line Position Under Driver Aggression | Proposed | 2026-10-22 |
+| **[ADR-020](adr-020-opt-in-driver-heterogeneity-and-demand-variability.md)** | Opt-In Driver Heterogeneity and Demand Variability | Accepted | 2026-11-03 |
 
 ## ADR Structure
 
