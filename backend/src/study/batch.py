@@ -99,6 +99,8 @@ def run_suite_batch_experiment(
                     time_step=res["timeStep"],
                     duration=res["engineDuration"],
                     warmup_time=res["warmupTime"],
+                    config=config,
+                    seed=config["simulation"]["randomSeed"],
                 ),
                 commit=False,
             )

@@ -55,6 +55,23 @@ class EntryQueueSection(BaseModel):
     capacity: Optional[int] = Field(None, ge=1, le=5000)
 
 
+class DriverHeterogeneitySection(BaseModel):
+    """Opt-in persistent per-driver IDM multipliers (ADR-020, variability.py)."""
+
+    enabled: bool = Field(False)
+    headwaySpread: float = Field(0.0, ge=0, le=0.5)
+    accelerationSpread: float = Field(0.0, ge=0, le=0.5)
+    decelerationSpread: float = Field(0.0, ge=0, le=0.5)
+
+
+class DemandVariabilitySection(BaseModel):
+    """Opt-in seeded multiplier on the arrival rate (ADR-020, variability.py)."""
+
+    enabled: bool = Field(False)
+    spread: float = Field(0.0, ge=0, le=0.8)
+    intervalSeconds: Optional[float] = Field(None, ge=30, le=3600)
+
+
 class TrafficSection(BaseModel):
     totalVehicles: int = Field(200, gt=0, le=5000)
     arrivalRate: float = Field(0.5, gt=0, le=10.0)
@@ -65,6 +82,8 @@ class TrafficSection(BaseModel):
     unstructuredTraffic: bool = Field(False)
     aggressiveTwoWheelers: bool = Field(False)
     entryQueue: Optional[EntryQueueSection] = None
+    driverHeterogeneity: Optional[DriverHeterogeneitySection] = None
+    demandVariability: Optional[DemandVariabilitySection] = None
     driverAggression: Optional[Literal["standard", "moderate", "high"]] = Field(
         "standard"
     )

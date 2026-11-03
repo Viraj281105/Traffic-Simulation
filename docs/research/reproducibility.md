@@ -60,6 +60,21 @@ Where runs come from:
 | Volume sweep | Every tier, both strategies | `engine` (including injected controller settings) |
 | Runs saved before provenance existed | — | fields are `null` |
 
+#### Run manifest (provenance schema 2, V3.1)
+
+Runs saved from V3.1 carry a `manifest` inside the same provenance record (no new table; older rows read as before, with these fields `null`). The record view exposes `configHash`, `gitDirty`, `engineVersion` and the whole `manifest`.
+
+| Manifest field | Meaning |
+| --- | --- |
+| `format`, `version` | `urbanflow-run-manifest`, `1` |
+| `seed` | Seed the run used |
+| `configHash` | Full SHA-256 of the configuration's canonical JSON. Only `simulation.randomSeed` is left out (it has its own field), so one configuration under two seeds shares a hash |
+| `gitCommit`, `pythonVersion`, `engineVersion` | Code, interpreter and project version |
+| `gitDirty` | Always `"unknown"`: uncommitted edits cannot be detected reliably without running `git`, and a false "clean" would be worse than no answer |
+| `runMode`, `timing`, `createdAt` | As recorded; `baseSeed` and `seedScheme` for multi-seed runs, `scenarioFingerprint` when a scenario produced the run |
+
+The manifest holds no user identifier or credential. `/reproduce` returns a `manifestCheck` that says, by cause, why a re-run could differ: configuration no longer matches its hash, code at another commit, or another Python. A comparison that cannot be made (an `"unknown"` version) is `null`, never a match.
+
 > **Docker note.** The image excludes `.git`. Pass the commit at build time — `GIT_COMMIT=$(git rev-parse HEAD) docker compose up -d --build` — or saved runs record `"unknown"`. `start.ps1` does this automatically (and deliberately records `"unknown"` when backend image inputs have uncommitted changes). `GET /api/version` shows what the running backend will record.
 
 ---
@@ -165,7 +180,29 @@ curl -X POST http://localhost:8000/api/v1/study/validate/monte-carlo/jobs \
   -d '{"numSeeds":5,"confidenceLevel":0.95,"duration":240}'
 ```
 
-Monte Carlo draws **fresh seeds each time** and records them in `seeds` and `seedRuns`. The statistics are therefore not bit-identical across invocations — by design, each check is a new sample. Any individual seed can be reproduced by running that seed through a sweep or the versioned API with the same configuration.
+Monte Carlo derives its per-run `seeds` from one **base seed** (`seed` in the request, `src/study/seeds.py`). Without `seed` a base seed is drawn for you, so each check is a new sample, but it is always reported as `baseSeed`: send it back as `seed` with the same configuration to repeat the study exactly. Any individual seed can also be reproduced by running it through a sweep or the versioned API with the same configuration.
+
+### 5.3a Multi-seed runs with driver and demand variability (opt-in, V3.1)
+
+`POST /api/v1/study/multi-seed` runs one scenario over N seeds derived from `seed` (reported as `baseSeed`). Two optional `traffic` blocks add variation that arrival noise alone does not (ADR-020); both are off unless `enabled` is true, and the ranges are **assumed, not calibrated**:
+
+```jsonc
+"traffic": {
+  "driverHeterogeneity": {"enabled": true, "headwaySpread": 0.3, "accelerationSpread": 0.2, "decelerationSpread": 0.2},
+  "demandVariability":   {"enabled": true, "spread": 0.4, "intervalSeconds": 60}
+}
+```
+
+Each driver keeps persistent multipliers on time headway, maximum acceleration and comfortable deceleration; the arrival rate is scaled by a seeded factor per 60 s block. Each model has its own random stream, so switching one on does not move any other draw, and a model that is off changes nothing (the golden fingerprints enforce it).
+
+Worked example (signal junction, default study configuration, `duration` 120, 8 seeds, `seed` 20261103, run from the code at this commit):
+
+| Models | Mean delay (s) | SD of delay (s) | Mean throughput | SD of throughput |
+| --- | --- | --- | --- | --- |
+| off | 11.70 | 3.13 | 17.4 | 4.6 |
+| on (block above) | 11.49 | 3.41 | 20.8 | 3.7 |
+
+The same `seed` reproduces both rows exactly (`tests/study/test_multiseed_variability.py` pins the repeat). With eight seeds the difference between the rows is **not** established: these are descriptive spreads, and intervals and tests arrive in W32. The point of the models is that the spread now includes driver and demand variation; do not read the table as a measured effect. The result's `manifest.configHash` differs between the rows because the configuration does.
 
 ### 5.4 Invariant and determinism check
 

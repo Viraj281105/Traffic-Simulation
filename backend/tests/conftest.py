@@ -11,6 +11,34 @@ import pytest
 
 from src.core.enums import SimulationStatus
 
+# Layout markers, applied by path so no test file needs editing. A test that
+# already carries one of these keeps it; `slow` is orthogonal and never
+# replaced. `pytest -m unit` and `pytest -m integration` therefore partition
+# the suite (architecture tests sit in their own third group).
+_LAYOUT_MARKERS = ("unit", "integration", "architecture")
+_INTEGRATION_DIRS = ("integration", "api", "v2_integration")
+_ARCHITECTURE_FILES = ("test_architecture.py",)
+
+
+def _layout_marker(path: Path) -> str:
+    parts = path.parts
+    if "tests" in parts:
+        below = parts[len(parts) - 1 - parts[::-1].index("tests") + 1 :]
+    else:
+        below = parts
+    if below and below[-1] in _ARCHITECTURE_FILES:
+        return "architecture"
+    if len(below) > 1 and below[0] in _INTEGRATION_DIRS:
+        return "integration"
+    return "unit"
+
+
+def pytest_collection_modifyitems(items: List[pytest.Item]) -> None:
+    for item in items:
+        if any(item.get_closest_marker(m) for m in _LAYOUT_MARKERS):
+            continue
+        item.add_marker(getattr(pytest.mark, _layout_marker(Path(str(item.fspath)))))
+
 
 def _running_engines() -> List[Any]:
     """Every engine currently held by the app that is still stepping."""

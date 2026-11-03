@@ -2,7 +2,9 @@ name: Continuous Integration
 
 on:
   push:
-    branches: [ main, develop, backend, "backend*", "feature/*", viraj-dev ]
+    # Every branch, not a list of names: a branch outside the old list (for
+    # example a teammate's) got no CI until a pull request was opened.
+    branches: [ "**" ]
   pull_request:
     branches: [ main, develop, backend, "backend*" ]
   # The slow simulation sweeps are excluded from every PR/push run above and
@@ -161,7 +163,18 @@ jobs:
       - name: Run Backend Tests (fast suite)
         env:
           PYTHONPATH: .
-        run: pytest -m "not slow" -n auto --dist loadfile --durations=25
+        run: pytest -m "not slow" -n auto --dist loadfile --durations=25 --cov-report=xml:coverage.xml
+
+      # The measured figure, kept so the coverage floor in pyproject.toml is
+      # ratcheted from a Python 3.11 / Linux number rather than a local one.
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage.xml
+          if-no-files-found: ignore
+          retention-days: 14
 
       # copilot-eval-v1 against the deterministic proposer: no network, no AI
       # key, no cost. Fails on any schema, regression, safety, claim,
@@ -178,6 +191,17 @@ jobs:
           status=${PIPESTATUS[0]}
           { echo '### Copilot evaluation'; echo '```'; cat copilot-eval.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           exit $status
+
+      - name: Upload Copilot evaluation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: copilot-eval-report
+          path: |
+            backend/copilot-eval-report.json
+            backend/copilot-eval.txt
+          if-no-files-found: ignore
+          retention-days: 14
 
   # Not part of the PR/push gate: manual (workflow_dispatch) and nightly only.
   # Split by file because the two modules memoise their simulation runs
@@ -230,6 +254,10 @@ jobs:
           # golden fingerprints, full corpus (the fast cases run above).
           - name: roundabout-golden
             path: tests/controllers/test_roundabout_golden_fingerprints.py
+          # V3.1 W31 (F4): fixed-time and adaptive signal fixed-seed
+          # fingerprints, full corpus (the fast cases run above).
+          - name: signal-golden
+            path: tests/controllers/test_signal_golden_fingerprints.py
           # V3.0 W2 S7 (SR-17, SR-18, SR-22, D-W2-9d): signalised roundabout
           # safety matrix (seeds 1..8 x demand {low, medium, saturated} x 4 layouts).
           - name: signalised-roundabout
@@ -303,8 +331,19 @@ jobs:
       - name: Run Prettier Format Checker
         run: npm run format
 
-      - name: Run Frontend Tests
-        run: npm run test
+      # Tests plus coverage (thresholds in vite.config.ts). The longer test
+      # timeout is for the instrumented run, which is slower than `npm test`.
+      - name: Run Frontend Tests with Coverage
+        run: npm run test:ci
+
+      - name: Upload frontend coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/lcov.info
+          if-no-files-found: ignore
+          retention-days: 14
 
       # The production bundle and its size budgets
       # (docs/engineering/PERFORMANCE_BUDGETS.md).

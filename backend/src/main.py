@@ -28,6 +28,7 @@ from src.api.tokens_router import router as tokens_router
 from src.calibration import api as calibration_api
 from src.copilot.router import create_router as build_copilot_router
 from src.core.provenance import GIT_COMMIT_HASH
+from src.core.run_manifest import ENGINE_VERSION
 from src.database.db import init_db
 from src.discovery.router import create_router as build_discovery_router
 from src.experiments.router import create_router as build_experiments_router
@@ -67,7 +68,7 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(
-    title="Traffic Simulation Framework API", version="1.0.0", lifespan=_lifespan
+    title="Traffic Simulation Framework API", version=ENGINE_VERSION, lifespan=_lifespan
 )
 
 # Middleware runs outermost-last-added: the live-session middleware sees each

@@ -29,6 +29,8 @@ how to run and check it, and what is still open. Detailed pages are linked from 
 | "Replay class from recorded provenance" | That verification re-ran the experiment |
 | "Stationary extremes" stress scenarios | Surges, incidents, lane closures (not modelled) |
 | Safety proxies (near misses, collisions in the model) | Predictions of real crashes |
+| "Driver and demand variability under assumed ranges" (ADR-020, opt-in, off by default) | Measured or calibrated driver behaviour, or real-world demand variation |
+| "Reproducible from the recorded seed, configuration hash and commit" (run manifest) | That a run is clean of uncommitted edits (`gitDirty` is always `unknown`) |
 
 ## Runbook
 

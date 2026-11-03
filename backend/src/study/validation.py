@@ -1,12 +1,13 @@
-import json
 import math
 import random
 from typing import Any, Dict, List, Optional
 
-from src.core.limits import demand_vehicle_limit
+from src.core.run_manifest import build_study_manifest
 from src.snapshot.dual_orchestrator import DualSimulationOrchestrator
-from src.study.calibration import calibration_status, demand_vph, study_warmup
+from src.study.calibration import calibration_status
+from src.study.multiseed import default_study_config, seeded_run_config
 from src.study.runner import GEOMETRY_TITLES, Progress, SimTask, run_simulation_tasks
+from src.study.seeds import MAX_SEED, SEED_SCHEME, derive_run_seeds
 
 # Confidence levels the study accepts. The significance threshold is always
 # alpha = 1 - confidence, so a confidence interval and the significance flag
@@ -280,35 +281,17 @@ def run_statistical_validation(
     time_step: float = 0.1,
     confidence_level: float = DEFAULT_CONFIDENCE_LEVEL,
     progress: Optional[Progress] = None,
+    base_seed: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
-    Executes a multi-seed Monte Carlo experiment across N randomized seeds to compute
+    Executes a multi-seed Monte Carlo experiment across N seeds to compute
     robust confidence intervals and statistical repeatability for both Signal and Roundabout.
+
+    The N engine seeds are derived from ``base_seed`` (study/seeds.py), so the
+    same base seed repeats the study exactly. When it is omitted one is drawn
+    (once, before any simulation) and reported in the result as ``baseSeed``.
     """
-    base_config = config or {
-        "simulation": {
-            "timeStep": time_step,
-            "duration": duration,
-            "warmupTime": study_warmup(duration),
-        },
-        "roads": {
-            "approachLength": 200.0,
-            "laneWidth": 3.5,
-            # One lane per approach: the calibrated comparison
-            # (study/calibration.py).
-            "lanesPerApproach": {"north": 1, "south": 1, "east": 1, "west": 1},
-        },
-        # "Busy": 75% of the measured 1-lane reference capacity.
-        "traffic": {
-            "arrivalRate": demand_vph("busy", 1) / 3600.0,
-            "arrivalDistribution": "poisson",
-        },
-        "vehicleGeneration": {
-            "stopSpeedThreshold": 0.1,
-            "waitSpeedThreshold": 0.5,
-            # Engine defaults: the calibrated study\'s vehicles (see live/dashboard_config.py).
-        },
-    }
+    base_config = config or default_study_config(duration, time_step)
 
     if confidence_level not in SUPPORTED_CONFIDENCE_LEVELS:
         raise ValueError(
@@ -316,8 +299,12 @@ def run_statistical_validation(
         )
     alpha = round(1.0 - confidence_level, 2)
 
-    # Fresh random seeds each call (recorded in the result, not user-settable).
-    seeds = [random.randint(1000, 999999) for _ in range(num_seeds)]
+    if base_seed is None:
+        # One draw per study, recorded as ``baseSeed`` below so the study can
+        # be repeated. The module-level generator is kept (not an OS-seeded
+        # one) so a caller that seeds it still gets a repeatable study.
+        base_seed = random.randint(0, MAX_SEED)
+    seeds = derive_run_seeds(base_seed, num_seeds)
     vehicle_limit_seeds: List[int] = []
 
     sig_delays: List[float] = []
@@ -329,22 +316,7 @@ def run_statistical_validation(
 
     seed_runs: List[Dict[str, Any]] = []
 
-    run_configs: List[Dict[str, Any]] = []
-    for seed in seeds:
-        run_cfg = json.loads(json.dumps(base_config))
-        run_cfg.setdefault("simulation", {})
-        run_cfg["simulation"]["randomSeed"] = seed
-        # As in the volume sweep: the validated request duration is the one
-        # the engines run, and ticks are counted on their own clock.
-        run_cfg["simulation"]["duration"] = duration
-        # Size the vehicle limit to the scenario (unless set) so the default
-        # cap cannot silently truncate the demand being repeated.
-        run_traffic = run_cfg.setdefault("traffic", {})
-        run_traffic.setdefault(
-            "totalVehicles",
-            demand_vehicle_limit(float(run_traffic.get("arrivalRate", 0.5)), duration),
-        )
-        run_configs.append(run_cfg)
+    run_configs = [seeded_run_config(base_config, seed, duration) for seed in seeds]
 
     # Every seed x geometry is an independent simulation (study/runner.py),
     # run in parallel and returned in this order.
@@ -402,6 +374,16 @@ def run_statistical_validation(
 
     return {
         "numSeeds": num_seeds,
+        "baseSeed": base_seed,
+        "seedScheme": SEED_SCHEME,
+        "manifest": build_study_manifest(
+            config=base_config,
+            run_mode="monte-carlo",
+            base_seed=base_seed,
+            seed_scheme=SEED_SCHEME,
+            duration=duration,
+            time_step=time_step,
+        ),
         "seeds": seeds,
         "duration": duration,
         "confidenceLevel": confidence_level,
