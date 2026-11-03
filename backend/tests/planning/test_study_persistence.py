@@ -8,6 +8,7 @@ marks studies an earlier process left unfinished as failed, with a reason.
 """
 
 import sqlite3
+from contextlib import closing
 from typing import Any
 
 import pytest
@@ -74,7 +75,7 @@ def test_completed_studies_are_untouched_by_recovery() -> None:
 
 def test_a_table_from_before_the_status_columns_is_migrated(isolated_db: str) -> None:
     """Rows written before this change were only ever completed studies."""
-    with sqlite3.connect(isolated_db) as conn:
+    with closing(sqlite3.connect(isolated_db)) as conn, conn:
         conn.execute(
             "CREATE TABLE uf_planning_studies (id TEXT PRIMARY KEY, user_id TEXT "
             "NOT NULL, name TEXT, schema_version INTEGER, request_json TEXT, "

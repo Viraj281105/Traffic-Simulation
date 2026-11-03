@@ -14,13 +14,20 @@ import json
 import random
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from src.scenario.documents import ScenarioDocument, compile_scenario, validate_scenario
+from src.scenario.documents import (
+    ScenarioDocument,
+    compile_scenario,
+    parse_scenario,
+    scenario_entry_model,
+    validate_scenario,
+)
 from src.study.runner import (
     CancelledRun,
     Progress,
     SimTask,
     run_simulation_tasks_isolated,
 )
+from src.study.tolerances import lower_delay_served_less
 
 from .classify import FAILURES, classify, rules
 from .generator import GENERATOR_VERSION, generate, suite_fingerprint
@@ -102,6 +109,23 @@ def _run(
 # ---------------------------------------------------------------------------------------------------
 # Suite
 # ---------------------------------------------------------------------------------------------------
+def with_entry_queue(
+    scenario: Dict[str, Any], entry_queue: Optional[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """The scenario with the requested entry model. None or disabled leaves
+    the document untouched (the default model, so generated suites and their
+    fingerprints are exactly as before); enabled is merged into its traffic
+    block, keeping whatever else it sets (the driver-aggression profile)."""
+    if not entry_queue or not entry_queue.get("enabled"):
+        return scenario
+    doc = copy.deepcopy(scenario)
+    doc["traffic"] = {
+        **(doc.get("traffic") or {}),
+        "entryQueue": {"enabled": True, "capacity": entry_queue.get("capacity")},
+    }
+    return doc
+
+
 def run_suite(
     seed: int,
     count: int,
@@ -110,8 +134,14 @@ def run_suite(
     duration: float,
     executor: Executor = run_simulation_tasks_isolated,
     progress: Optional[Progress] = None,
+    entry_queue: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    scenarios = generate(seed, count, duration)
+    # The generator stays deterministic in (seed, index, duration); the entry
+    # model is applied on top, so every strategy of every scenario runs it.
+    scenarios = [
+        {**item, "scenario": with_entry_queue(item["scenario"], entry_queue)}
+        for item in generate(seed, count, duration)
+    ]
     run_seeds = _seeds(seed, seeds_per_run)
     tasks: List[SimTask] = []
     plan: List[Tuple[int, str]] = []  # (scenario index, strategy) per block of seeds
@@ -142,6 +172,7 @@ def run_suite(
     for item in scenarios:
         length = _approach_length(item["scenario"])
         per_strategy: Dict[str, Any] = {}
+        served: Dict[str, Dict[str, List[float]]] = {}
         for strategy in strategies:
             key = (item["index"], strategy)
             if key in skipped:
@@ -150,6 +181,7 @@ def run_suite(
             failures: Dict[str, int] = {}
             delays: List[float] = []
             errors = 0
+            served[strategy] = _served_values(by_block[key])
             for res in by_block[key]:
                 if isinstance(res, Exception):
                     errors += 1
@@ -165,6 +197,10 @@ def run_suite(
                 "failures": failures,
                 "runErrors": errors,
                 "meanDelay": round(sum(delays) / len(delays), 4) if delays else None,
+                "admittedShareOfNominal": _mean_or_none(
+                    served[strategy]["admittedShareOfNominal"]
+                ),
+                "unfinishedShare": _mean_or_none(served[strategy]["unfinishedShare"]),
             }
         rows.append(
             {
@@ -172,6 +208,9 @@ def run_suite(
                 "family": item["family"],
                 "name": item["scenario"]["name"],
                 "results": per_strategy,
+                # The lowest-delay strategy served less of the demand than
+                # another (the F-54 rule); its delay may reflect that.
+                "lowestDelayServedLess": _lowest_delay_served_less(served),
             }
         )
     return {
@@ -180,6 +219,7 @@ def run_suite(
         "generator": GENERATOR_VERSION,
         "seed": seed,
         "suiteFingerprint": suite_fingerprint(scenarios),
+        "entryModel": _entry_model(scenarios[0]["scenario"] if scenarios else {}),
         "seedsPerRun": len(run_seeds),
         "strategies": list(strategies),
         "rules": rules(),
@@ -229,6 +269,64 @@ def preference_shares(
     return {n: round(w / resamples, 4) for n, w in wins.items()}
 
 
+_SERVED_KEYS = ("averageDelay", "admittedShareOfNominal", "unfinishedShare")
+
+
+def _served_values(results: Sequence[Any]) -> Dict[str, List[float]]:
+    """Per-seed delay, admitted share and unfinished share of one block."""
+    out: Dict[str, List[float]] = {k: [] for k in _SERVED_KEYS}
+    for r in results:
+        if isinstance(r, Exception):
+            continue
+        m = r.get("metrics") or {}
+        values = {
+            "averageDelay": m.get("averageDelay"),
+            "admittedShareOfNominal": (m.get("demandAccounting") or {}).get(
+                "admittedShareOfNominal"
+            ),
+            "unfinishedShare": m.get("unfinishedShare"),
+        }
+        for k, v in values.items():
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                out[k].append(float(v))
+    return out
+
+
+def _mean_or_none(values: List[float]) -> Optional[float]:
+    return round(sum(values) / len(values), 4) if values else None
+
+
+def _entry_model(scenario: Dict[str, Any]) -> Dict[str, Any]:
+    """The entry model the engine runs the scenario with, read from the
+    compiled config so an ``advanced.traffic`` override counts as it does in
+    the engine; the document's own block for a document that does not parse."""
+    parsed, _ = parse_scenario(scenario) if scenario else (None, [])
+    if parsed is not None:
+        return scenario_entry_model(parsed)
+    queue = (scenario.get("traffic") or {}).get("entryQueue") or {}
+    if isinstance(queue, dict) and queue.get("enabled"):
+        return {"model": "queue", "capacity": queue.get("capacity")}
+    return {"model": "suspend", "capacity": None}
+
+
+def _lowest_delay_served_less(served: Dict[str, Dict[str, List[float]]]) -> bool:
+    """True when the strategy with the lowest mean delay served less of the
+    demand than another one (study/tolerances.lower_delay_served_less)."""
+    means = {
+        st: sum(v["averageDelay"]) / len(v["averageDelay"])
+        for st, v in served.items()
+        if v["averageDelay"]
+    }
+    if len(means) < 2:
+        return False
+    best = min(means, key=lambda st: means[st])
+    return any(
+        lower_delay_served_less(served[best], served[other])
+        for other in means
+        if other != best
+    )
+
+
 def run_breakpoints(
     scenario: Dict[str, Any],
     factor: str,
@@ -268,9 +366,11 @@ def run_breakpoints(
     table: List[Dict[str, Any]] = []
     for li, level in enumerate(levels):
         delays: Dict[str, List[Optional[float]]] = {}
+        served: Dict[str, Dict[str, List[float]]] = {}
         for strategy in strategies:
             if (li, strategy) in skipped:
                 continue
+            served[strategy] = _served_values(by_block[(li, strategy)])
             delays[strategy] = [
                 float(r["metrics"]["averageDelay"])
                 if not isinstance(r, Exception)
@@ -301,6 +401,20 @@ def run_breakpoints(
                 "meanDelay": means,
                 "preferred": preferred,
                 "preferenceShare": shares,
+                # Delay averages only vehicles that finished: the preferred
+                # (lowest-delay) strategy is flagged when it served less of
+                # the demand than another one (study/tolerances.py), since
+                # its advantage may come from the traffic it did not serve.
+                "servedDemand": {
+                    st: {k: _mean_or_none(v) for k, v in vals.items()}
+                    for st, vals in served.items()
+                },
+                "preferredServedLess": preferred is not None
+                and any(
+                    lower_delay_served_less(served[preferred], served[other])
+                    for other in served
+                    if other != preferred
+                ),
                 "skipped": {s: r for (i, s), r in skipped.items() if i == li},
             }
         )
@@ -342,11 +456,14 @@ def run_breakpoints(
         "levels": list(levels),
         "strategies": list(strategies),
         "seedsPerLevel": seeds_per_level,
+        "entryModel": _entry_model(scenario),
         "specFingerprint": hashlib.sha256(canonical.encode()).hexdigest()[:16],
         "table": table,
         "breakpoints": breakpoints,
         "tooFewToAssess": too_few or None,
         "note": "The breakpoint lies somewhere between the two levels shown; 'confidence' is the smaller "
         "of the two bootstrap preference shares (over seeds) and is not a probability that the real "
-        "junction behaves this way. Sampling grid only: a change between two grid points can be missed.",
+        "junction behaves this way. Sampling grid only: a change between two grid points can be missed. "
+        "'preferredServedLess' marks a level whose lowest-delay strategy admitted less of the demand or "
+        "left more of it unfinished (by more than 5 points) than another strategy.",
     }

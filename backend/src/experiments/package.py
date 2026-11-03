@@ -40,7 +40,11 @@ from src.api.contracts_v3 import (
 from src.core.limits import nested_deeper_than
 from src.core.provenance import GIT_COMMIT_HASH, PYTHON_VERSION
 from src.planning.models import fingerprint_of
-from src.scenario.documents import parse_scenario, scenario_fingerprint
+from src.scenario.documents import (
+    parse_scenario,
+    scenario_entry_model,
+    scenario_fingerprint,
+)
 from src.uncertainty.spec import UncertaintySpec, fingerprint
 from src.vehicles.driver_aggression import compute_aggression_parameter_hash
 
@@ -598,6 +602,17 @@ def _replay_class(manifest: Dict[str, Any], out: _Read) -> str:
     return "comparable"
 
 
+def _package_entry_model(out: _Read) -> Optional[Dict[str, Any]]:
+    """The entry model of the packaged experiment's scenario (read from
+    experiment.json), or None when that member is missing or unreadable."""
+    try:
+        request = json.loads(out.members[EXPERIMENT_NAME])
+        parsed, _ = parse_scenario(request.get("scenario"))
+    except (KeyError, ValueError, TypeError, AttributeError):
+        return None
+    return scenario_entry_model(parsed) if parsed is not None else None
+
+
 def _summary(manifest: Dict[str, Any], out: _Read) -> Dict[str, Any]:
     assumptions = manifest.get("assumptions")
     assumptions = assumptions if isinstance(assumptions, dict) else {}
@@ -617,6 +632,7 @@ def _summary(manifest: Dict[str, Any], out: _Read) -> Dict[str, Any]:
     }
     summary["driverAggression"] = assumptions.get("driverAggression")
     summary["driverAggressionHash"] = assumptions.get("driverAggressionHash")
+    summary["entryModel"] = _package_entry_model(out)
     summary["members"] = [
         {
             "name": name,

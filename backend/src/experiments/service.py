@@ -22,6 +22,7 @@ from src.experiments.manifest import build_experiment_manifest
 from src.planning.models import fingerprint_of
 from src.scenario.documents import (
     STRATEGIES,
+    scenario_entry_model,
     scenario_fingerprint,
 )
 from src.study.jobs import JobRegistry, TooManyJobsError
@@ -516,6 +517,11 @@ class ExperimentService:
                 "seedRule": "sha256('urbanflow-uncertainty-v1:<seed>:<condition>:<replication>')[:4] & 0x7fffffff",
                 "driverAggression": manifest["assumptions"]["driverAggression"],
                 "driverAggressionHash": manifest["assumptions"]["driverAggressionHash"],
+                # Every alternative runs the base scenario's entry model; it
+                # is part of the scenario fingerprint, and of experiment.json
+                # in the package. Outside the evidence, so result
+                # fingerprints are unchanged.
+                "entryModel": scenario_entry_model(base),
                 "note": "Download the .ufpkg package to verify this result elsewhere: it carries the manifest and checksums (integrity, not authenticity).",
             },
             "manifest": manifest,

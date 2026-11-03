@@ -44,7 +44,7 @@ def _manifest(sidecars: Any) -> Dict[str, Any]:
 
 UNSAFE_PATHS = [
     "/etc/passwd",
-    "\windows\system32",
+    r"\windows\system32",
     "C:/Windows/win.ini",
     "c:relative",
     "//server/share/file",

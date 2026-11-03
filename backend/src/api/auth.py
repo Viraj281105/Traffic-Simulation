@@ -8,11 +8,10 @@ from collections import deque
 from datetime import timezone
 from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, cast
 
+import jwt
 import requests
 from fastapi import Depends, HTTPException, Request, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import jwk, jwt
-from jose.utils import base64url_decode
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.api.request_limits import client_key
@@ -20,6 +19,7 @@ from src.api.store import AuditStore, TokenStore, hash_token_secret
 from src.database.dao import UserDAO
 from src.database.db import get_db_connection
 from src.experiments.limits import PER_TOKEN_REQUESTS_PER_MINUTE
+from src.observability.metrics import AUTH_FAILURES
 
 # ── Personal Access Token (PAT) Scopes and Unified Identity (W7 / ADR-013) ───
 PAT_SCOPES: frozenset[str] = frozenset(
@@ -74,21 +74,29 @@ security = HTTPBearer()
 # Same scheme, but an absent Authorization header yields None instead of 401.
 optional_security = HTTPBearer(auto_error=False)
 
+
+def _load_env_file(env_path: str) -> None:
+    """Set KEY=VALUE lines from ``env_path`` that the environment lacks.
+
+    A line without ``=`` is skipped; it used to raise and silently drop every
+    setting after it.
+    """
+    try:
+        with open(env_path) as f:
+            for line in f:
+                if line.strip() and not line.startswith("#") and "=" in line:
+                    key, val = line.strip().split("=", 1)
+                    if key not in os.environ:
+                        os.environ[key] = val
+    except OSError:
+        pass
+
+
 # Load from .env if variables are not set
-try:
-    env_path = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "..", "..", "backend", ".env")
-    )
-    if not os.path.exists(env_path):
-        env_path = ".env"
-    with open(env_path) as f:
-        for line in f:
-            if line.strip() and not line.startswith("#"):
-                key, val = line.strip().split("=", 1)
-                if key not in os.environ:
-                    os.environ[key] = val
-except Exception:
-    pass
+_env_path = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "backend", ".env")
+)
+_load_env_file(_env_path if os.path.exists(_env_path) else ".env")
 
 REGION = os.getenv("AWS_REGION", "us-east-1")
 USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID", "")
@@ -105,8 +113,33 @@ ADMIN_EMAILS: frozenset[str] = frozenset(
 # The only algorithm a Cognito user-pool token is accepted with.
 _TOKEN_ALGORITHM = "RS256"
 
-# Cache the keys so we don't fetch them on every request
-_JWKS_CACHE = None
+
+def _pool_issuer() -> str:
+    """The ``iss`` every token of this user pool carries."""
+    return f"https://cognito-idp.{REGION}.amazonaws.com/{USER_POOL_ID}"
+
+
+# Cache the keys so we don't fetch them on every request. A token signed with
+# a key not in the cache (Cognito rotated its signing keys) triggers one
+# refetch, at most once per JWKS_REFRESH_COOLDOWN_SECONDS, so tokens with
+# made-up kids cannot turn every request into a fetch (F-22).
+_JWKS_CACHE: Optional[List[Dict[str, Any]]] = None
+_JWKS_FETCHED_AT: Optional[float] = None  # time.monotonic() of the last fetch
+_JWKS_LOCK = threading.Lock()
+JWKS_REFRESH_COOLDOWN_SECONDS = 300.0
+# A key the pool has withdrawn must stop verifying even if no token with an
+# unknown kid ever arrives, so the set is also refetched once it is this old.
+# If that refetch fails the cached set stays in use (it was the pool's
+# published set; failing closed would lock every user out during an
+# outage); the clock restarts at the attempt, so the next one comes after
+# another max age, or after a cooldown if an unknown kid arrives.
+JWKS_MAX_AGE_SECONDS = 3600.0
+# With no keys held yet (a cold start while the pool is unreachable), a
+# failed fetch is not retried for this long: every token is refused either
+# way, and without the pause each request waited behind its own 10 s fetch
+# under the lock.
+JWKS_INITIAL_FAILURE_BACKOFF_SECONDS = 15.0
+_JWKS_FAILED_AT: Optional[float] = None
 
 # ── Local development auth bypass ──────────────────────────────────────────
 # Cognito is not connected in local development. The Vite dev server sends
@@ -126,17 +159,84 @@ def dev_auth_bypass_enabled() -> bool:
     return os.getenv("DEV_AUTH_BYPASS", "").strip().lower() in {"1", "true", "yes"}
 
 
-def get_jwks() -> List[Dict[str, Any]]:
-    global _JWKS_CACHE
-    if _JWKS_CACHE is None:
-        if not USER_POOL_ID or not REGION:
-            raise ValueError("COGNITO_USER_POOL_ID or AWS_REGION is not set")
+def _fetch_jwks() -> List[Dict[str, Any]]:
+    if not USER_POOL_ID or not REGION:
+        raise ValueError("COGNITO_USER_POOL_ID or AWS_REGION is not set")
 
-        keys_url = f"https://cognito-idp.{REGION}.amazonaws.com/{USER_POOL_ID}/.well-known/jwks.json"
-        response = requests.get(keys_url, timeout=10)
-        response.raise_for_status()
-        _JWKS_CACHE = response.json()["keys"]
-    return cast(List[Dict[str, Any]], _JWKS_CACHE)
+    keys_url = f"https://cognito-idp.{REGION}.amazonaws.com/{USER_POOL_ID}/.well-known/jwks.json"
+    response = requests.get(keys_url, timeout=10)
+    response.raise_for_status()
+    return cast(List[Dict[str, Any]], response.json()["keys"])
+
+
+def get_jwks() -> List[Dict[str, Any]]:
+    global _JWKS_CACHE, _JWKS_FETCHED_AT, _JWKS_FAILED_AT
+    with _JWKS_LOCK:
+        if _JWKS_CACHE is None:
+            if (
+                _JWKS_FAILED_AT is not None
+                and time.monotonic() - _JWKS_FAILED_AT
+                < JWKS_INITIAL_FAILURE_BACKOFF_SECONDS
+            ):
+                raise RuntimeError("JWKS unavailable; retrying after a backoff")
+            try:
+                _JWKS_CACHE = _fetch_jwks()
+            except Exception:
+                _JWKS_FAILED_AT = time.monotonic()
+                raise
+            _JWKS_FETCHED_AT = time.monotonic()
+            _JWKS_FAILED_AT = None
+        elif (
+            _JWKS_FETCHED_AT is not None
+            and time.monotonic() - _JWKS_FETCHED_AT >= JWKS_MAX_AGE_SECONDS
+        ):
+            _refetch_locked()
+        return _JWKS_CACHE
+
+
+def _refetch_locked() -> bool:
+    """Replace the cached set with a fresh fetch; caller holds _JWKS_LOCK.
+
+    The attempt restarts the clock whether or not it succeeds, so a failing
+    endpoint is retried at most once per cooldown. A failed fetch keeps the
+    keys already held. True when new keys were stored.
+    """
+    global _JWKS_CACHE, _JWKS_FETCHED_AT
+    _JWKS_FETCHED_AT = time.monotonic()
+    try:
+        _JWKS_CACHE = _fetch_jwks()
+    except Exception:
+        # Old keys kept: a token still needs a valid signature from a key the
+        # pool published; nothing is accepted without one.
+        logging.getLogger(__name__).warning(
+            "JWKS refetch failed; keeping the cached keys", exc_info=True
+        )
+        return False
+    return True
+
+
+def _refresh_jwks_for_unknown_kid() -> bool:
+    """Refetch the key set once a token names a kid the cache lacks.
+
+    Only when the cached set is older than the cooldown, so tokens with
+    made-up kids cause at most one fetch per cooldown, however many arrive
+    concurrently (the check and the fetch run under one lock).
+    """
+    with _JWKS_LOCK:
+        if _JWKS_FETCHED_AT is None:
+            return False
+        if time.monotonic() - _JWKS_FETCHED_AT < JWKS_REFRESH_COOLDOWN_SECONDS:
+            return False
+        return _refetch_locked()
+
+
+def reset_jwks_cache() -> None:
+    """Forget the cached key set. Intended for test fixtures."""
+    global _JWKS_CACHE, _JWKS_FETCHED_AT, _JWKS_FAILED_AT
+    with _JWKS_LOCK:
+        _JWKS_CACHE = None
+        _JWKS_FETCHED_AT = None
+        _JWKS_FAILED_AT = None
 
 
 # ── Failed authentication rate limiting ──────────────────────────────────────
@@ -177,6 +277,13 @@ def _fail_auth(
     value is ever written.
     """
     count = record_auth_failure(key)
+    AUTH_FAILURES.inc(reason)
+    # The reason is a fixed vocabulary; no credential, token or claim is logged.
+    logging.getLogger(__name__).warning(
+        "authentication failed: %s",
+        reason,
+        extra={"event": "auth_failed", "reason": reason, "failures_in_window": count},
+    )
     if user_id is not None or count == MAX_AUTH_FAILURES:
         try:
             AuditStore.record_event(
@@ -246,53 +353,77 @@ def reset_auth_failures() -> None:
 
 
 def verify_cognito_jwt(token: str) -> Dict[str, Any]:
-    """Verify an RS256 Cognito user pool JWT and return its claims."""
+    """Verify an RS256 Cognito user pool JWT and return its claims.
+
+    The key is the pool's published JWK named by the token's ``kid``; the
+    token cannot choose the algorithm (RS256 only, checked on the header
+    and again by PyJWT). ``exp`` is required, ``iss`` must be this pool,
+    and the token must be for this app client (``aud`` on ID tokens,
+    ``client_id`` on access tokens). Verified with PyJWT (F-33): python-jose
+    and its ecdsa dependency carried unfixed advisories.
+    """
     if not USER_POOL_ID:
         raise HTTPException(
             status_code=500, detail="Cognito User Pool ID not configured on server"
         )
 
     try:
-        headers = jwt.get_unverified_headers(token)
+        headers = jwt.get_unverified_header(token)
         if headers.get("alg") != _TOKEN_ALGORITHM:
             raise HTTPException(status_code=401, detail="Unsupported token algorithm")
         kid = headers.get("kid")
 
         keys = get_jwks()
-        key_index = -1
-        for i in range(len(keys)):
-            if kid == keys[i]["kid"]:
-                key_index = i
-                break
+        key_index = next((i for i, k in enumerate(keys) if k["kid"] == kid), -1)
+        if key_index == -1 and _refresh_jwks_for_unknown_kid():
+            keys = get_jwks()
+            key_index = next((i for i, k in enumerate(keys) if k["kid"] == kid), -1)
 
         if key_index == -1:
             raise HTTPException(
                 status_code=401, detail="Public key not found in jwks.json"
             )
 
-        public_key = jwk.construct(keys[key_index], algorithm=_TOKEN_ALGORITHM)
-
-        message, encoded_signature = str(token).rsplit(".", 1)
-        decoded_signature = base64url_decode(encoded_signature.encode("utf-8"))
-
-        if not public_key.verify(message.encode("utf8"), decoded_signature):
-            raise HTTPException(status_code=401, detail="Signature verification failed")
-
-        claims = jwt.get_unverified_claims(token)
-        if time.time() > claims["exp"]:
+        public_key = jwt.PyJWK(keys[key_index], algorithm=_TOKEN_ALGORITHM)
+        try:
+            claims = jwt.decode(
+                token,
+                key=public_key,
+                algorithms=[_TOKEN_ALGORITHM],
+                issuer=_pool_issuer(),
+                # The audience is checked below (ID and access tokens name the
+                # client differently). iat is not checked, as before: a
+                # server clock slightly behind Cognito's must not refuse a
+                # fresh token.
+                options={
+                    "require": ["exp", "iss"],
+                    "verify_aud": False,
+                    "verify_iat": False,
+                },
+            )
+        except jwt.ExpiredSignatureError:
             raise HTTPException(status_code=401, detail="Token is expired")
+        except jwt.InvalidSignatureError:
+            raise HTTPException(status_code=401, detail="Signature verification failed")
+        except jwt.InvalidIssuerError:
+            raise HTTPException(
+                status_code=401, detail="Token was not issued by this user pool"
+            )
 
         if claims.get("aud") != CLIENT_ID and claims.get("client_id") != CLIENT_ID:
             raise HTTPException(
                 status_code=401, detail="Token was not issued for this audience"
             )
 
-        return cast(Dict[str, Any], claims)
+        return claims
 
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Authentication error: {str(e)}")
+    except Exception:
+        # Malformed tokens, missing claims and JWKS fetch failures. The cause
+        # is logged; the client gets no internal exception text.
+        logging.getLogger(__name__).info("token verification failed", exc_info=True)
+        raise HTTPException(status_code=401, detail="Invalid token")
 
 
 def verify_token(
@@ -399,7 +530,7 @@ def get_current_identity(
             raise _fail_auth(key, "invalid_jwt", str(err.detail)) from err
         raise
     except Exception as e:
-        raise _fail_auth(key, "invalid_jwt", f"Authentication error: {str(e)}") from e
+        raise _fail_auth(key, "invalid_jwt", "Invalid token") from e
 
     sub = _subject(claims)
     upsert_user(claims)

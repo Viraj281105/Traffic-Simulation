@@ -20,6 +20,10 @@ from fastapi.responses import JSONResponse
 STATUS_ERROR_CODES: Dict[int, str] = {
     400: "VALIDATION_ERROR",
     401: "UNAUTHORIZED",
+    # Authenticated but not allowed (token scope, admin-only, a PAT that may
+    # not mint PATs). Fell through to INTERNAL_ERROR before (F-21); clients
+    # branch on the status, which is unchanged.
+    403: "FORBIDDEN",
     404: "NOT_FOUND",
     409: "INVALID_STATE_TRANSITION",
     413: "PAYLOAD_TOO_LARGE",

@@ -8,6 +8,8 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from src.scenario.documents import EntryQueueSpec
+
 SEARCH_FORMAT = "urbanflow-discovery-search"
 RESULT_FORMAT = "urbanflow-discovery-result"
 SEARCH_VERSION = 1
@@ -48,6 +50,10 @@ class Regime(_Strict):
     mix: Literal["default", "heavy_vehicles", "two_wheelers"] = "default"
     duration: float = Field(150.0, ge=60, le=600)
     warmup: float = Field(30.0, ge=0, le=120)
+    # The entry model every candidate and baseline runs (scenario documents'
+    # traffic.entryQueue); omitted: the default, so earlier specs are
+    # unchanged, fingerprints included.
+    entryQueue: Optional[EntryQueueSpec] = None
 
     @model_validator(mode="after")
     def _warmup(self) -> "Regime":
@@ -81,11 +87,13 @@ class SearchSpec(_Strict):
     )
 
     def fingerprint(self) -> str:
-        canonical = json.dumps(
-            self.model_dump(mode="json", exclude={"name"}),
-            sort_keys=True,
-            separators=(",", ":"),
-        )
+        body = self.model_dump(mode="json", exclude={"name"})
+        # Absent or disabled runs the default model: keep every earlier
+        # specification's fingerprint.
+        queue = body["regime"].pop("entryQueue", None)
+        if isinstance(queue, dict) and queue.get("enabled"):
+            body["regime"]["entryQueue"] = queue
+        canonical = json.dumps(body, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(canonical.encode()).hexdigest()[:16]
 
 
@@ -120,5 +128,10 @@ def describe_objectives() -> Dict[str, Any]:
         "objectives": list(OBJECTIVES),
         "directions": OBJECTIVE_DIRECTIONS,
         "constraint": "a run with any collision makes the candidate infeasible",
+        "entryModel": "With regime.entryQueue enabled, arrivals that cannot enter wait outside the "
+        "network and the averageDelay objective is the delay from arrival (in-network delay plus "
+        "averageEntryWait), so no candidate gains by keeping traffic out; inNetworkDelay is reported "
+        "beside it. Otherwise it is the in-network delay. averageEntryWait, admittedShareOfNominal and "
+        "unfinishedShare are reported for every candidate and never optimised.",
         "note": "Safety proxies are model outputs, not predictions of real crashes.",
     }

@@ -17,10 +17,12 @@ import logging
 import threading
 import time
 import uuid
+import weakref
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Iterator, Optional, Tuple
 
+from src.observability.metrics import JOB_DURATION, JOBS, JOBS_REJECTED
 from src.study.runner import Progress
 
 logger = logging.getLogger(__name__)
@@ -48,6 +50,7 @@ class StudyJob:
     result: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
     finished_at: Optional[float] = None
+    started_at: Optional[float] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -60,10 +63,26 @@ class StudyJob:
         }
 
 
+# Every registry in the process (the study one below and each lab's), for
+# the active-jobs gauge; weak, so a registry built in a test can go away.
+_REGISTRIES: "weakref.WeakSet[JobRegistry]" = weakref.WeakSet()
+
+
+def active_jobs_by_kind() -> Iterator[Tuple[Tuple[str], float]]:
+    """(kind,) -> jobs queued or running, across every registry."""
+    counts: Dict[str, int] = {}
+    for registry in list(_REGISTRIES):
+        for kind in registry.active_kinds():
+            counts[kind] = counts.get(kind, 0) + 1
+    for kind, n in sorted(counts.items()):
+        yield (kind,), float(n)
+
+
 class JobRegistry:
     def __init__(self) -> None:
         self._jobs: Dict[str, StudyJob] = {}
         self._lock = threading.Lock()
+        _REGISTRIES.add(self)
         # Threads only coordinate (submit to the process pool, aggregate,
         # write the database); the simulations run in worker processes.
         self._executor = ThreadPoolExecutor(
@@ -75,6 +94,12 @@ class JobRegistry:
             self._evict_finished()
             active = sum(j.finished_at is None for j in self._jobs.values())
             if active >= MAX_ACTIVE_JOBS:
+                JOBS_REJECTED.inc(kind)
+                logger.warning(
+                    "job refused: %d already active",
+                    active,
+                    extra={"event": "job_rejected", "job_kind": kind},
+                )
                 raise TooManyJobsError(
                     f"{active} studies are already running; try again when one finishes"
                 )
@@ -87,18 +112,55 @@ class JobRegistry:
         with self._lock:
             return self._jobs.get(job_id)
 
+    def active_kinds(self) -> list[str]:
+        with self._lock:
+            return [j.kind for j in self._jobs.values() if j.finished_at is None]
+
     def _run(self, job: StudyJob, work: Callable[[Progress], Dict[str, Any]]) -> None:
         job.status = "running"
+        job.started_at = time.monotonic()
+        logger.info(
+            "job started",
+            extra={"event": "job_started", "job_id": job.id, "job_kind": job.kind},
+        )
         try:
             job.result = work(job.progress)
             job.status = "completed"
         except Exception as exc:
-            logger.exception("Study job %s (%s) failed", job.id, job.kind)
+            logger.exception(
+                "Study job %s (%s) failed",
+                job.id,
+                job.kind,
+                extra={"event": "job_failed", "job_id": job.id, "job_kind": job.kind},
+            )
             job.error = str(exc) or type(exc).__name__
             job.status = "failed"
         finally:
             job.progress.set_phase("done")
             job.finished_at = time.monotonic()
+            # A lab that honours a cancel request returns normally; its
+            # progress records the request, so it is counted as cancelled.
+            outcome = (
+                "failed"
+                if job.status == "failed"
+                else "cancelled"
+                if job.progress.cancelled
+                else "completed"
+            )
+            seconds = job.finished_at - job.started_at
+            JOBS.inc(job.kind, outcome)
+            JOB_DURATION.observe(seconds, job.kind)
+            if outcome != "failed":
+                logger.info(
+                    "job %s",
+                    outcome,
+                    extra={
+                        "event": f"job_{outcome}",
+                        "job_id": job.id,
+                        "job_kind": job.kind,
+                        "duration_s": round(seconds, 3),
+                    },
+                )
 
     def _evict_finished(self) -> None:
         now = time.monotonic()

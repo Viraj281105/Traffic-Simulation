@@ -14,6 +14,8 @@ from typing import Any, Dict, List, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.csv_safety import spreadsheet_safe
+
 SECTION_IDS = (
     "executive-summary",
     "scenario",
@@ -368,6 +370,10 @@ def to_csv(result: Dict[str, Any]) -> str:
     buf = io.StringIO()
     w = csv.writer(buf, lineterminator="\n")
     w.writerow(CSV_COLUMNS)
+
+    def _row(items: List[Any]) -> List[Any]:
+        return [spreadsheet_safe(c) if isinstance(c, str) else c for c in items]
+
     for r in result["results"]:
         for group in ("performance", "safety", "environmental", "reliability"):
             g = r.get(group)
@@ -375,43 +381,47 @@ def to_csv(result: Dict[str, Any]) -> str:
                 continue
             for key, v in g["values"].items():
                 w.writerow(
-                    [
-                        fp,
-                        r["alternativeId"],
-                        strategy[r["alternativeId"]],
-                        r["demandScale"],
-                        group,
-                        key,
-                        g["status"],
-                        v["unit"],
-                        v["mean"],
-                        v["std"],
-                        v["min"],
-                        v["max"],
-                        v["ciLow"],
-                        v["ciHigh"],
-                        v["n"],
-                    ]
+                    _row(
+                        [
+                            fp,
+                            r["alternativeId"],
+                            strategy[r["alternativeId"]],
+                            r["demandScale"],
+                            group,
+                            key,
+                            g["status"],
+                            v["unit"],
+                            v["mean"],
+                            v["std"],
+                            v["min"],
+                            v["max"],
+                            v["ciLow"],
+                            v["ciHigh"],
+                            v["n"],
+                        ]
+                    )
                 )
             for u in g["unavailable"]:
                 w.writerow(
-                    [
-                        fp,
-                        r["alternativeId"],
-                        strategy[r["alternativeId"]],
-                        r["demandScale"],
-                        group,
-                        u["key"],
-                        "unavailable",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                        "",
-                    ]
+                    _row(
+                        [
+                            fp,
+                            r["alternativeId"],
+                            strategy[r["alternativeId"]],
+                            r["demandScale"],
+                            group,
+                            u["key"],
+                            "unavailable",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                        ]
+                    )
                 )
     return buf.getvalue()
 
