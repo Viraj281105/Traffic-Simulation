@@ -567,6 +567,43 @@ Measurement-only diagnostics (`backend/src/metrics/definitions/safety_conflicts.
 
 `traffic.totalVehicles` caps the vehicles generated per run (default 200; schema maximum 5000). Once reached, generation stops and later demand is not offered, so `totalVehiclesSpawned` is no longer the offered demand. `vehicleLimitReached` is `true` once `totalVehiclesSpawned ≥ vehicleLimit`. The dashboard compiler and the study runners size the limit to the scenario (`demand_vehicle_limit`: expected arrivals × 1.5 + 50, bounded to [200, 5000]) unless the caller sets one; any run that still reaches its limit is flagged and, in sweeps, marked *inconclusive*.
 
+### 7.10a Demand Accounting (`demandAccounting`, `unfinishedShare`, 2026-10-30)
+
+Additive fields; no existing field changed meaning or value.
+
+**Entry model** (`entryModel`). When every permitted entry lane of an approach is full:
+
+- `"suspend"` (default): the due arrival waits at the edge (at most one per approach) and that approach's arrival process is **suspended** until it is placed: the next arrival is drawn only afterwards. Demand that would have arrived meanwhile is never generated.
+- `"queue"` (opt-in, `traffic.entryQueue.enabled`; scenario documents `traffic.entryQueue`): the arrival process keeps running and arrivals wait in a first-in-first-out **point queue outside the network** (it occupies no road), entering as space allows, at most one per approach per tick as before. Beyond `capacity` (per approach; unset: bounded only by `totalVehicles`, which here caps arrivals) an arrival is **rejected** and counted. Turn and class are drawn on arrival, so the random sequence differs from the default model and seeded results are not comparable across the two models. `vehicleLimitReached` is true once arrivals reach the cap. The arrival clock is exact (checkpoint 10, F-57): each inter-arrival time is added to the time left over when the previous arrival fell due, every arrival due within a tick is generated, and each records the moment it fell due, so arrivals match the configured rate at every supported rate.
+
+The `suspend` model restarts an approach's arrival clock at the tick in which the previous arrival was placed, so each gap is rounded up to a whole tick: in expectation about half a tick (0.05 s) is added per arrival. The effect is about 0.3 % fewer arrivals than configured at 940 veh/h in total, about 1 % at 900 veh/h per arm and about 11 % at the 10 veh/s maximum, and it also lowers `admittedShareOfNominal` by that much on an unblocked run. Kept unchanged so every earlier result and golden pin reproduces.
+
+`demandAccounting` (whole run from t = 0, like `totalVehiclesSpawned`; `null` when the caller has no spawner):
+
+| Field | Kind | Definition |
+| --- | --- | --- |
+| `arrivals` | count | Arrivals the source generated |
+| `admitted` | count | Of those, placed on an entry lane (= `totalVehiclesSpawned`) |
+| `entryModel` | `"suspend"` / `"queue"` | How a full entry is handled (above) |
+| `waitingAtEntry` | count | Generated but not yet placed (≤ number of arms under `suspend`) |
+| `rejected` | count | Turned away by a full entry queue (0 under `suspend`) |
+| `entryBlockedSeconds` | measured, approach-seconds | Time approaches spent with an arrival unable to enter |
+| `nominalDemand` | **expectation** | Configured rate × time the source ran (stops at `vehicleLimit`) |
+| `estimatedSuppressedArrivals` | **expectation** | Rate × blocked time: for Poisson arrivals, the expected number the suspended process did not generate (0 under `queue`) |
+| `meanEntryWaitSeconds`, `maxEntryWaitSeconds` | measured | Arrival-to-entry wait of admitted vehicles (both models; not part of `averageDelay` or `averageWaitTime`, which start at entry) |
+| `oldestWaitingSeconds` | measured | Wait so far of the oldest arrival still outside; `null` when none waits |
+| `admittedShareOfNominal` | ratio of the two | `admitted ÷ nominalDemand`; `null` when the nominal demand is 0. Under `suspend` it is also lowered slightly by the tick-rounded arrival clock (above) |
+| `demandFiguresAreEstimates` | always `true` | Marks the two expectation fields as model-derived, not counted |
+| `byApproach` | per arm with demand | The same fields per approach |
+
+Exact identity at every tick: `arrivals = admitted + waitingAtEntry + rejected`, and `admitted = active + exited`. In expectation, `arrivals + estimatedSuppressedArrivals ≈ nominalDemand` (Poisson noise only). `admittedShareOfNominal` well below 1 means the junction's entries, not its demand, set how much traffic the run describes.
+
+`averageEntryWait`: mean arrival-to-entry wait of the vehicles that exited at or after warm-up end (the `averageDelay` population). Delay and wait time start at entry, so under the `queue` model `averageDelay + averageEntryWait` is the delay from arrival; near 0 under `suspend`.
+
+`unfinishedShare`: of the vehicles admitted at or after warm-up end, the share still in the network at the reading (`null` until one is admitted). Delay, wait, stops, throughput and travel-time reliability describe only vehicles that **exited**; this is the share of the post-warm-up population they leave out. The count of vehicles still in the network at the end is `activeVehicleCount` read at the final tick.
+
+**Comparisons.** Every paired delay comparison in the scenario and control studies carries `servedDemand`: `admittedShareOfNominalDifference` and `unfinishedShareDifference` (first minus second), `comparable` (false when either differs by more than 5 percentage points) and `lowerDelayServedLess` (true when the side with the lower mean delay admitted less or left more unfinished by more than that, so its delay advantage may come from traffic it did not serve; `study/tolerances.py`). A planning study lists such alternatives in `validity.servedDemandDiffers` and adds a reliability finding. The delay `reading` is unchanged. Since checkpoint 10 each `servedDemand` also carries `averageEntryWaitDifference` (first minus second, seconds) and `entryWaitReversesDelay`: true when adding `averageEntryWait` to `averageDelay` reverses which side is lower (the two cover the same vehicles). Both are cautions, never verdicts. Study outputs carry `entryModel` (`{model: "suspend" | "queue", capacity}`): every strategy in one study runs the same model by construction, and the three-way study accepts `entryQueue` for the built-in junction. The stored-run comparison (`POST /api/v1/study/history/runs/compare`) reports `entryModels` and a `warnings` entry when the two runs used different entry models; the saved-run comparison page shows the same caution. Measured (two-lane signal scenario, mixed traffic, 600 s, 5 seeds): at 300 veh/h per arm the roundabout's 25 s lower delay came with a 10-point *lower* unfinished share (not flagged: it served more); at 600-900 veh/h per arm all three strategies admitted only 50-81 % of the nominal demand.
+
 ### 7.11 Vehicle Type Breakdown (`vehicleTypeBreakdown`, V1.1)
 
 Per vehicle class breakdown (`backend/src/metrics/definitions/vehicle_mix.py`). Returns a dictionary mapping each active or exited vehicle class (`car`, `suv`, `bus`, `truck`, `motorcycle`) to:

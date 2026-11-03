@@ -233,7 +233,7 @@ Traffic-Simulation/
 │   ├── tests/                     # Test suite mirroring src/ (+ integration/, test_architecture.py)
 │   ├── Dockerfile                 # Multi-stage image (dev target with bind-mount; prod target with appuser)
 │   ├── pyproject.toml             # Ruff, Mypy strict, and Pytest configuration (85% coverage floor)
-│   ├── requirements.txt           # Pinned Python dependencies
+│   ├── requirements.txt           # Pinned runtime dependencies (requirements-dev.txt adds test/lint tools)
 │   └── README.md                  # Backend architecture and local test guide
 ├── frontend/                      # User interface and visual analytics (React 19 + TypeScript + Vite)
 │   ├── src/                       # Application source
@@ -286,7 +286,7 @@ Traffic-Simulation/
 ### System Prerequisites
 
 * **Python:** Version 3.11 or newer (Python 3.11 is the tested runtime in CI and Docker).
-* **Node.js:** Node.js 20.x or newer (CI uses Node 20; npm is the package manager).
+* **Node.js:** Node.js 24 or newer (CI and the production image use Node 26; npm is the package manager).
 * **Docker:** Docker Engine with Compose v2 (`docker compose version` must succeed).
 * **Git:** For cloning, submodules, and recording build commit metadata.
 
@@ -364,8 +364,8 @@ python -m venv .venv
 .venv\Scripts\activate          # Windows PowerShell / CMD
 # source .venv/bin/activate     # macOS / Linux
 
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies (runtime + test/lint tools; the image uses requirements.txt only)
+pip install -r requirements-dev.txt
 
 # Run FastAPI with hot-reload and dev auth bypass enabled
 DEV_AUTH_BYPASS=1 uvicorn src.main:app --reload --host 0.0.0.0 --port 8000

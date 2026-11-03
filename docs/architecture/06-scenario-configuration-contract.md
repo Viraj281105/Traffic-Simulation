@@ -50,6 +50,7 @@ The versioned API accepts this configuration over REST and validates it against 
 | 4 | `directionalSplit` | `object` | ❌ | See below | Fraction of vehicles from each direction | Values sum to 1.0 |
 | 5 | `turnProbabilities` | `object` | ❌ | See below | Turn intent probabilities | Values sum to 1.0 per direction |
 | 6 | `approaches` | `array<TrafficApproachConfig>` | ❌ | absent | **V1.4** per-approach traffic: `{direction, turnProbabilities?, vehicleMix?}`. `turnProbabilities` replaces field 5 for that approach; `vehicleMix` replaces `vehicleGeneration.vehicleMix` for that approach (a junction serving a bus route on one road only). How busy each approach is stays `arrivalRate × directionalSplit`. | each approach at most once; each object sums to 1 (±0.01); never normalised |
+| 7 | `entryQueue` | `object` | ❌ | absent (suspend) | `{enabled, capacity?}`. Enabled: arrivals that find their entry full wait in a point queue outside the network instead of suspending that approach's arrivals; `capacity` (per approach) rejects and counts the excess; `totalVehicles` then caps arrivals. Scenario documents take the same object as `traffic.entryQueue` (in the fingerprint only when enabled). See metric contract §7.10a | `capacity` 1-5000 or null |
 
 #### Default `directionalSplit`
 ```json

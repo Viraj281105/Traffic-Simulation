@@ -576,8 +576,11 @@ Error responses raised via `HTTPException` follow this format:
 |------|------------|-------------|
 | `VALIDATION_ERROR` | 400 | Configuration/request validation failed (raised via `HTTPException`, e.g. schema validation) |
 | `UNAUTHORIZED` | 401 | Missing or invalid `API_KEY` bearer token |
+| `FORBIDDEN` | 403 | Authenticated, but not allowed: insufficient token scope, an admin-only action, a personal access token used where a browser session is required. Until checkpoint 10 these responses carried the `INTERNAL_ERROR` fallback; the status code was always 403 |
 | `NOT_FOUND` | 404 | Requested resource does not exist — **generic for every resource type** (simulations, history frames, sweeps, runs, replays all use this same code; there is no resource-specific variant like `SIMULATION_NOT_FOUND` today) |
 | `INVALID_STATE_TRANSITION` | 409 | Invalid control action for current simulation state |
+| `PAYLOAD_TOO_LARGE` | 413 | Request body or upload over its size limit |
+| `VALIDATION_ERROR` | 422 | Raised explicitly with `HTTPException(422)` (the framework's own request-validation 422 keeps FastAPI's `{"detail": [...]}` shape, below) |
 | `SIMULATION_LIMIT_REACHED` | 429 | Maximum concurrent simulations reached |
 | `INTERNAL_ERROR` | 500 | Unexpected server error (also the fallback for any status code not in this table) |
 

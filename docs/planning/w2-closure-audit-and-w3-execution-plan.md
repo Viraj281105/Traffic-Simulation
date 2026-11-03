@@ -107,7 +107,7 @@ flowchart TD
 
 ### 4. Authoritative Scope Alignment
 
-The proposed W3 tasks have been cross-referenced against `ROADMAP.md` §7, `V3_WEEKLY_SPRINT_PLAN.md` §3.4, `V3_PRODUCT_STRATEGY.md` §13, [ADR-012](../decisions/adr-012-future-controller-extensibility.md), [ADR-013](../decisions/adr-013-v3-integration-contract-and-versioning.md), [ADR-014](../decisions/adr-014-strategy-registry-and-entry-gate-seam.md), and [Next-Generation Architecture](../future-scope/next-generation-architecture.md) §8.
+The proposed W3 tasks have been cross-referenced against `ROADMAP.md` §7, `V3_WEEKLY_SPRINT_PLAN.md` §3.4, `V3_PRODUCT_STRATEGY.md` §13, [ADR-012](../decisions/adr-012-future-controller-extensibility.md), [ADR-013](../decisions/adr-013-v3-integration-contract-and-versioning.md), [ADR-014](../decisions/adr-014-strategy-registry-and-entry-gate-seam.md), and Next-Generation Architecture §8 (since removed, `d17cf2d`).
 
 ```mermaid
 flowchart LR
