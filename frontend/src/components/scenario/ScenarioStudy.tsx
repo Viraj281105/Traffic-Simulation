@@ -21,6 +21,14 @@ import {
   type Strategy,
 } from "../../scenario/scenarioTypes";
 import { VEHICLE_CLASSES } from "../../vehicles/vehicleClasses";
+import {
+  entryModelSentence,
+  type EntryModelUsed,
+} from "../../metrics/entryModel";
+import {
+  servedDemandNote,
+  type ServedDemand,
+} from "../../metrics/servedDemand";
 
 type Reading = "lower" | "higher" | "tie" | "inconclusive";
 
@@ -34,6 +42,8 @@ interface PairResult {
   ciLow: number | null;
   ciHigh: number | null;
   reading: Reading;
+  /** Served-population difference (absent in results saved before it). */
+  servedDemand?: ServedDemand;
 }
 
 interface SeedSide {
@@ -68,6 +78,8 @@ export interface ScenarioStudyResult {
   tieTolerance: { absSeconds: number; relative: number };
   collisionCount: Partial<Record<Strategy, number>>;
   compiledConfigs: Partial<Record<Strategy, Record<string, unknown>>>;
+  /** Absent in results saved before it (those ran "suspend"). */
+  entryModel?: EntryModelUsed;
   method: { design: string; interval: string; delayComparison: string };
   results: {
     demandScale: number;
@@ -389,6 +401,8 @@ function ScenarioStudyResultView({
   pairs: { a: Strategy; b: Strategy; key: string }[];
 }) {
   const controls = result.controls;
+  // Only under the point queue does the wait to enter change how delay reads.
+  const queued = result.entryModel?.model === "queue";
   const title = (s: Strategy) => strategyTitle(s, result.scenario);
   const shownPairs = pairs.filter(
     (p) => controls.includes(p.a) && controls.includes(p.b),
@@ -423,6 +437,11 @@ function ScenarioStudyResultView({
         <p className="q-note" role="note">
           {result.calibration.note} {result.method.design}
         </p>
+        {entryModelSentence(result.entryModel) && (
+          <p className="q-note is-assumption" role="note">
+            {entryModelSentence(result.entryModel)}
+          </p>
+        )}
       </div>
 
       <div className="multi-run-scroll">
@@ -462,6 +481,15 @@ function ScenarioStudyResultView({
                 {shownPairs.map((p) => (
                   <td key={p.key}>
                     {reading(level.delayComparisons[p.key], p.a, p.b, title)}
+                    {servedDemandNote(
+                      level.delayComparisons[p.key]?.servedDemand,
+                    ) && (
+                      <span className="metric-key">
+                        {servedDemandNote(
+                          level.delayComparisons[p.key]?.servedDemand,
+                        )}
+                      </span>
+                    )}
                   </td>
                 ))}
               </tr>
@@ -480,6 +508,7 @@ function ScenarioStudyResultView({
               <th scope="col">Vehicles served</th>
               <th scope="col">Mean queue</th>
               <th scope="col">Max queue</th>
+              {queued && <th scope="col">Wait to enter (s)</th>}
             </tr>
           </thead>
           <tbody>
@@ -493,6 +522,7 @@ function ScenarioStudyResultView({
                     <td>{stat(st.throughput, 0)}</td>
                     <td>{stat(st.averageQueueLength)}</td>
                     <td>{stat(st.maxQueueLength, 0)}</td>
+                    {queued && <td>{stat(st.averageEntryWait)}</td>}
                   </tr>
                 );
               }),

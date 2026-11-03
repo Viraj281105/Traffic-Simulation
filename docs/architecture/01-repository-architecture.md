@@ -45,7 +45,7 @@ Traffic-Simulation/                 (product name: UrbanFlow)
 │   │                               v2/ (planning, calibration, network) · v3/ (experiment, uncertainty, OpenAPI)
 │   └── README.md
 ├── scripts/                        run_full_study.py · validate_schemas.py (+ .sh) · setup_cognito.py ·
-│                                   GitHub automation (setup_github.py, assign_issues.py, …) · README.md
+│                                   deployment, demo and evidence scripts · README.md
 ├── docs/                           Documentation — start at docs/README.md
 │   ├── architecture/ simulation/ research/ api/ product/ deployment/ testing/
 │   ├── decisions/ reports/ future-scope/ resources/ roadmap/ (V2.0 audit, V3.0 plans)

@@ -24,7 +24,12 @@ from src.database.dao import SweepSessionDAO
 from src.database.db import ensure_db_initialized, get_db_connection
 from src.live.dashboard_config import compile_dashboard_config
 from src.scenario.config_validation import semantic_config_errors
-from src.scenario.documents import STRATEGIES, parse_scenario, validate_scenario
+from src.scenario.documents import (
+    STRATEGIES,
+    EntryQueueSpec,
+    parse_scenario,
+    validate_scenario,
+)
 from src.study.control_comparison import (
     run_control_comparison,
     run_scenario_comparison,
@@ -124,6 +129,9 @@ class ControlComparisonRequest(BaseModel):
     # controller.adaptive settings for the adaptive side; defaults if omitted.
     adaptive: Dict[str, Any] | None = None
     vehicleMix: Dict[str, float] | None = None
+    # The entry model (traffic.entryQueue); omitted keeps the default. With a
+    # scenario, set it in the scenario's traffic block instead.
+    entryQueue: EntryQueueSpec | None = None
     confidenceLevel: float = Field(default=0.95)
     # V1.4: study a scenario document instead of the built-in junction. Its
     # own approaches, lanes, traffic, vehicles, duration and seed are used;
@@ -145,7 +153,14 @@ class ControlComparisonRequest(BaseModel):
         if self.scenario is not None:
             built_in = sorted(
                 key
-                for key in ("lanes", "levels", "duration", "adaptive", "vehicleMix")
+                for key in (
+                    "lanes",
+                    "levels",
+                    "duration",
+                    "adaptive",
+                    "vehicleMix",
+                    "entryQueue",
+                )
                 if key in self.model_fields_set
             )
             if built_in:
@@ -362,6 +377,7 @@ def _run_control_comparison(
         vehicle_mix=req.vehicleMix,
         confidence_level=req.confidenceLevel,
         progress=progress,
+        entry_queue=req.entryQueue.model_dump() if req.entryQueue else None,
     )
 
 

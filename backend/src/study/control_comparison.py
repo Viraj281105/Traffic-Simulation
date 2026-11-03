@@ -33,7 +33,13 @@ from src.study.calibration import (
     study_warmup,
 )
 from src.study.runner import Progress, SimTask, run_simulation_tasks
-from src.study.tolerances import delays_are_tied, tie_tolerance
+from src.study.tolerances import (
+    SERVED_DEMAND_TOLERANCE,
+    delays_are_tied,
+    entry_wait_reverses_delay,
+    lower_delay_served_less,
+    tie_tolerance,
+)
 from src.study.validation import (
     DEFAULT_CONFIDENCE_LEVEL,
     _calculate_stats,
@@ -59,6 +65,42 @@ _MEASURES = (
     "maxQueueLength",
     "averageStopsPerVehicle",
     "travelTimeReliability",
+    # Time spent waiting outside the network before entry (entry-queue model).
+    "averageEntryWait",
+    # Served demand (F-41, F-50): the population the measures above describe.
+    "unfinishedShare",
+    "admittedShareOfNominal",
+)
+_SERVED_DEMAND = ("admittedShareOfNominal", "unfinishedShare")
+_SERVED_DEMAND_METHOD = (
+    "Mean delay averages only vehicles that finished their trip. Each pair "
+    "also reports how far the two strategies' admitted share of the nominal "
+    "demand and unfinished share differ (first minus second); 'comparable' is "
+    f"false when either differs by more than {SERVED_DEMAND_TOLERANCE:.0%}. "
+    "'lowerDelayServedLess' is true when the strategy with the lower delay "
+    "admitted less or left more unfinished by more than that: its delay "
+    "advantage may then come from the traffic it did not serve. "
+    "'averageEntryWaitDifference' is the difference in the mean wait before "
+    "entry over the same vehicles, and 'entryWaitReversesDelay' is true when "
+    "adding it to the delay reverses which strategy is lower."
+)
+
+
+def _entry_model(config: Dict[str, Any]) -> Dict[str, Any]:
+    """The entry model an engine config runs, for the study output: every
+    strategy in a study shares it by construction."""
+    from src.scenario.documents import config_entry_model
+
+    return config_entry_model(config)
+
+
+_ENTRY_MODEL_METHOD = (
+    "Delay is measured from entry into the network. Under the 'queue' entry "
+    "model arrivals wait outside the network until they can enter; that wait "
+    "is reported separately as averageEntryWait. Under 'suspend' (the "
+    "default) an approach whose entry is blocked generates no further "
+    "arrivals until it clears, so demand that never arrived is only "
+    "estimated (demandAccounting.estimatedSuppressedArrivals)."
 )
 # Signal-only green-time measures (metrics.signalTiming).
 _SIGNAL_MEASURES = (
@@ -101,6 +143,50 @@ def _paired_delay(
         "ciHigh": round(high, 2) if math.isfinite(high) else None,
         "reading": reading,
     }
+
+
+def _measure(metrics: Dict[str, Any], key: str) -> Any:
+    """A summarised measure from one run's metrics."""
+    if key == "admittedShareOfNominal":
+        return (metrics.get("demandAccounting") or {}).get(key)
+    return metrics.get(key)
+
+
+def _served_demand(
+    a: Dict[str, List[float]], b: Dict[str, List[float]]
+) -> Dict[str, Any]:
+    """How far two controls' served populations differ (a - b, mean over seeds).
+
+    Mean delay averages only vehicles that finished, so a control that admits
+    less of the offered demand, or leaves more of it in the network at the
+    end, can show a lower mean delay for that reason alone.
+    ``comparable`` is False when either share differs by more than
+    SERVED_DEMAND_TOLERANCE (descriptive: the two populations differ).
+    ``lowerDelayServedLess`` is True when the lower-delay control is the one
+    that served less (study/tolerances.py): its delay advantage may then
+    reflect the vehicles it kept out or left unfinished.
+    """
+    out: Dict[str, Any] = {}
+    comparable = True
+    for key in _SERVED_DEMAND:
+        xa, xb = a.get(key) or [], b.get(key) or []
+        if not xa or not xb:
+            out[f"{key}Difference"] = None
+            continue
+        diff = sum(xa) / len(xa) - sum(xb) / len(xb)
+        out[f"{key}Difference"] = round(diff, 4)
+        if abs(diff) > SERVED_DEMAND_TOLERANCE + 1e-9:
+            comparable = False
+    out["comparable"] = comparable
+    out["lowerDelayServedLess"] = lower_delay_served_less(a, b)
+    # The wait before entry, over the same vehicles as the delay (F-50):
+    # under the point queue it can reverse the in-network delay reading.
+    wa, wb = a.get("averageEntryWait") or [], b.get("averageEntryWait") or []
+    out["averageEntryWaitDifference"] = (
+        round(sum(wa) / len(wa) - sum(wb) / len(wb), 2) if wa and wb else None
+    )
+    out["entryWaitReversesDelay"] = entry_wait_reverses_delay(a, b)
+    return out
 
 
 def _control_config(base: Dict[str, Any], control: str) -> Dict[str, Any]:
@@ -192,7 +278,7 @@ def run_scenario_comparison(
                 collisions[strategy] += int(m.get("collisionCount") or 0)
                 limit_hit = limit_hit or bool(m.get("vehicleLimitReached"))
                 for key in _MEASURES:
-                    v = m.get(key)
+                    v = _measure(m, key)
                     if isinstance(v, (int, float)):
                         values[strategy][key].append(float(v))
                 timing = m.get("signalTiming") or {}
@@ -206,6 +292,8 @@ def run_scenario_comparison(
                     "averageQueueLength": m.get("averageQueueLength"),
                     "collisionCount": m.get("collisionCount"),
                     "activeVehicleCount": m.get("activeVehicleCount"),
+                    "unfinishedShare": m.get("unfinishedShare"),
+                    "demandAccounting": m.get("demandAccounting"),
                     "vehicleTypeBreakdown": m.get("vehicleTypeBreakdown"),
                     "approachBreakdown": m.get("approachBreakdown"),
                     "signalTiming": m.get("signalTiming"),
@@ -223,7 +311,10 @@ def run_scenario_comparison(
         comparisons = {}
         if all(len(delays[s]) == len(seeds) for s in strategies):
             comparisons = {
-                f"{a}_vs_{b}": _paired_delay(delays[a], delays[b], confidence_level)
+                f"{a}_vs_{b}": {
+                    **_paired_delay(delays[a], delays[b], confidence_level),
+                    "servedDemand": _served_demand(values[a], values[b]),
+                }
                 for a, b in pairs
             }
         rows.append(
@@ -249,6 +340,7 @@ def run_scenario_comparison(
         "confidenceLevel": confidence_level,
         "calibration": calibration_status(any_config),
         "tieTolerance": tie_tolerance(),
+        "entryModel": _entry_model(any_config),
         "collisionCount": collisions,
         # The exact engine configuration each strategy ran (first seed, first
         # demand scale), so a reader can see that only the control differs.
@@ -269,6 +361,8 @@ def run_scenario_comparison(
                 "tolerance; otherwise 'inconclusive'. No multiple-comparison "
                 "correction."
             ),
+            "servedDemand": _SERVED_DEMAND_METHOD,
+            "entryModel": _ENTRY_MODEL_METHOD,
         },
         "results": rows,
         "perSeed": per_seed,
@@ -285,6 +379,7 @@ def run_control_comparison(
     vehicle_mix: Optional[Dict[str, float]] = None,
     confidence_level: float = DEFAULT_CONFIDENCE_LEVEL,
     progress: Optional[Progress] = None,
+    entry_queue: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     levels = list(levels or DEFAULT_LEVELS)
     unknown = [lv for lv in levels if lv not in DEMAND_LEVEL_RATIOS]
@@ -311,6 +406,12 @@ def run_control_comparison(
     }
     if vehicle_mix:
         base["vehicleGeneration"]["vehicleMix"] = dict(vehicle_mix)
+    # Omitted or disabled keeps every run's config exactly as before.
+    if entry_queue and entry_queue.get("enabled"):
+        base["traffic"]["entryQueue"] = {
+            "enabled": True,
+            "capacity": entry_queue.get("capacity"),
+        }
 
     tasks: List[SimTask] = []
     keys: List[tuple[str, int, str]] = []
@@ -352,7 +453,7 @@ def run_control_comparison(
                 collisions[control] += int(m.get("collisionCount") or 0)
                 limit_hit = limit_hit or bool(m.get("vehicleLimitReached"))
                 for key in _MEASURES:
-                    v = m.get(key)
+                    v = _measure(m, key)
                     if isinstance(v, (int, float)):
                         values[control][key].append(float(v))
                 timing = m.get("signalTiming") or {}
@@ -366,6 +467,8 @@ def run_control_comparison(
                     "averageQueueLength": m.get("averageQueueLength"),
                     "collisionCount": m.get("collisionCount"),
                     "activeVehicleCount": m.get("activeVehicleCount"),
+                    "unfinishedShare": m.get("unfinishedShare"),
+                    "demandAccounting": m.get("demandAccounting"),
                     "signalTiming": m.get("signalTiming"),
                 }
                 if control == "adaptive":
@@ -386,7 +489,10 @@ def run_control_comparison(
         comparisons = {}
         if all(len(delays[c]) == len(seeds) for c in CONTROLS):
             comparisons = {
-                f"{a}_vs_{b}": _paired_delay(delays[a], delays[b], confidence_level)
+                f"{a}_vs_{b}": {
+                    **_paired_delay(delays[a], delays[b], confidence_level),
+                    "servedDemand": _served_demand(values[a], values[b]),
+                }
                 for a, b in _PAIRS
             }
         level_rows.append(
@@ -415,6 +521,7 @@ def run_control_comparison(
         "vehicleMix": vehicle_mix,
         "calibration": calibration_status(base),
         "tieTolerance": tie_tolerance(),
+        "entryModel": _entry_model(base),
         "collisionCount": collisions,
         "method": {
             "design": (
@@ -432,6 +539,8 @@ def run_control_comparison(
                 "tolerance; otherwise 'inconclusive'. Several levels and pairs "
                 "are read without multiple-comparison correction."
             ),
+            "servedDemand": _SERVED_DEMAND_METHOD,
+            "entryModel": _ENTRY_MODEL_METHOD,
         },
         "results": level_rows,
         "perSeed": per_seed,

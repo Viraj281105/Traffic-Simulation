@@ -71,6 +71,7 @@ def _final_metrics(sim) -> dict:
         engine.pool.exited_vehicles,
         engine.spawner.spawned_count,
         engine.pool.collision_count,
+        engine.spawner.demand_accounting(),
     )
 
 

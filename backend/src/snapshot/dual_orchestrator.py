@@ -170,9 +170,11 @@ class DualSimulationOrchestrator(LockstepOrchestrator):
         return self._roundabout.builder
 
     def get_dual_snapshot(self) -> Dict[str, Any]:
-        return {
-            "tick": self.clock_signal.get_tick_count(),
-            "elapsed": round(self.clock_signal.get_elapsed_time(), 2),
-            "signal": self.builder_signal.build(),
-            "roundabout": self.builder_roundabout.build(),
-        }
+        # One frame, one tick: see LockstepOrchestrator.snapshot_lock (F-51).
+        with self.snapshot_lock():
+            return {
+                "tick": self.clock_signal.get_tick_count(),
+                "elapsed": round(self.clock_signal.get_elapsed_time(), 2),
+                "signal": self.builder_signal.build(),
+                "roundabout": self.builder_roundabout.build(),
+            }

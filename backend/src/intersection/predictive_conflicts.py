@@ -2,17 +2,15 @@
 
 Why this exists
 ---------------
-:class:`~src.intersection.conflict_manager.ConflictManager` reserves conflict
-zones derived from the *straight chord* between each connection lane's
-endpoints. That approximation is fine for the short, nearly-straight paths
-through a signalised intersection box, but it breaks down completely on a
-roundabout, whose connection lanes are long curved arcs: a chord between the
-endpoints of a 270-degree left-turn arc cuts straight across the middle of the
-roundabout, producing crossings that do not exist and missing the ones that
-do. For that reason the roundabout path deliberately runs with no
-ConflictManager at all (see :mod:`src.engine.vehicle_pool`), which left only the
+:class:`~src.intersection.conflict_manager.ConflictManager` reserves the
+conflict zones of a signalised junction's box. A roundabout runs without it
+(see :mod:`src.engine.vehicle_pool` for the reasons: its arcs share one ring,
+where following, entry and the exits are handled elsewhere). When this layer
+was written, ConflictManager worked on the straight chord between each
+connection lane's endpoints, which is wrong for arcs; it now samples the real
+paths, but the roundabout still does not use it. Without this layer, only the
 reactive 2.5 m emergency-proximity scan in :func:`src.vehicles.router.find_leader`
-standing between circulating vehicles and each other.
+stood between vehicles on different ring lanes.
 
 That is not enough. A reactive check that triggers 2.5 m out cannot prevent a
 conflict between two vehicles converging from different directions — by the
@@ -172,11 +170,24 @@ _MIN_SPEED_FOR_ETA: float = 0.5
 _BROAD_PHASE_RADIUS: float = 40.0
 
 
-def _vehicle_lane_on_other_route(leader: Vehicle, follower: Vehicle) -> bool:
-    """True when ``leader`` sits on a lane ``follower`` still has to travel."""
+def _vehicle_lane_on_other_route(
+    leader: Vehicle,
+    follower: Vehicle,
+    route_lane_ids: Optional[Dict[int, FrozenSet[str]]] = None,
+) -> bool:
+    """True when ``leader`` sits on a lane ``follower`` still has to travel.
+
+    ``route_lane_ids`` (vehicle ``id()`` -> its route's lane ids, built once
+    per compute_braking_distances call, during which no route changes)
+    replaces the scan of the follower's route; the answer is the same.
+    """
     if leader.lane is None or not follower.route:
         return False
     leader_lane_id = leader.lane.lane_id
+    if route_lane_ids is not None:
+        ids = route_lane_ids.get(id(follower))
+        if ids is not None:
+            return leader_lane_id in ids
     return any(lane.lane_id == leader_lane_id for lane in follower.route)
 
 
@@ -303,6 +314,9 @@ class PredictiveConflictResolver:
 
         # Monotonic call counter; orders junction entries (see _entry_order).
         self._tick: int = 0
+        # Route lane ids per vehicle for the current compute call (see there);
+        # empty outside one, when the route scan is used instead.
+        self._route_lane_ids: Dict[int, FrozenSet[str]] = {}
         # Vehicles currently counted as stopped, with hysteresis
         # (_STOPPED_SPEED to enter, _MOVING_SPEED to leave).
         self._stopped: Set[str] = set()
@@ -377,6 +391,14 @@ class PredictiveConflictResolver:
         already, correctly, accepted.
         """
         constraints: Dict[str, float] = {}
+        # Every pair below asks whether one vehicle is on the other's route;
+        # each route's lane ids are collected once for this call instead of
+        # once per pair (about a fifth of this layer's time at saturation).
+        self._route_lane_ids = {
+            id(v): frozenset(lane.lane_id for lane in v.route)
+            for v in active_vehicles
+            if v.route
+        }
 
         movers = [
             v
@@ -807,8 +829,7 @@ class PredictiveConflictResolver:
     # Pair filters
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _same_physical_path(va: Vehicle, vb: Vehicle) -> bool:
+    def _same_physical_path(self, va: Vehicle, vb: Vehicle) -> bool:
         """True when both vehicles occupy one continuous physical channel.
 
         Two vehicles on the identical lane object are plainly following each
@@ -841,7 +862,10 @@ class PredictiveConflictResolver:
         # approaches do not satisfy it while they are still on their own
         # approaches, so a genuine merge is still arbitrated; it only exempts
         # them once the leader is demonstrably ahead on the shared path.
-        if _vehicle_lane_on_other_route(va, vb) or _vehicle_lane_on_other_route(vb, va):
+        ids = self._route_lane_ids
+        if _vehicle_lane_on_other_route(va, vb, ids) or _vehicle_lane_on_other_route(
+            vb, va, ids
+        ):
             return True
 
         id_a = va.lane.lane_id.lower()

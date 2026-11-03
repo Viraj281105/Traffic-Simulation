@@ -46,6 +46,15 @@ class TrafficApproachItem(BaseModel):
     vehicleMix: Optional[ApproachMix] = None
 
 
+class EntryQueueSection(BaseModel):
+    """Opt-in point queue outside the network (vehicles/spawner.py)."""
+
+    enabled: bool = Field(False)
+    # Per approach; unset: bounded only by totalVehicles. Arrivals that find
+    # the queue full are counted as rejected.
+    capacity: Optional[int] = Field(None, ge=1, le=5000)
+
+
 class TrafficSection(BaseModel):
     totalVehicles: int = Field(200, gt=0, le=5000)
     arrivalRate: float = Field(0.5, gt=0, le=10.0)
@@ -55,6 +64,7 @@ class TrafficSection(BaseModel):
     approaches: Optional[List[TrafficApproachItem]] = None
     unstructuredTraffic: bool = Field(False)
     aggressiveTwoWheelers: bool = Field(False)
+    entryQueue: Optional[EntryQueueSection] = None
     driverAggression: Optional[Literal["standard", "moderate", "high"]] = Field(
         "standard"
     )

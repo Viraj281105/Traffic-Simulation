@@ -18,7 +18,10 @@ server {
     # breaking the app while still blocking injected <script> execution.
     # connect-src covers both the proxied REST calls and the /ws/*
     # WebSocket streams (same-origin, see the proxy blocks below).
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' ws: wss: https://cognito-idp.ap-south-1.amazonaws.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none';" always;
+    # Held in a variable so the static-asset location below can repeat the
+    # header without a second copy of the policy.
+    set $csp "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' ws: wss: https://cognito-idp.ap-south-1.amazonaws.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none';";
+    add_header Content-Security-Policy $csp always;
 
     # Gzip Compression for fast delivery over network
     gzip on;
@@ -41,6 +44,13 @@ server {
     location ~* \.(?:css|js|jpg|jpeg|gif|png|ico|cur|gz|svg|svgz|mp4|ogg|ogv|webm|htc|woff|woff2)$ {
         expires 1y;
         add_header Cache-Control "public, immutable";
+        # Any add_header in a location replaces every server-level one for
+        # its responses, so the security headers are repeated here; without
+        # them scripts and stylesheets were served without nosniff.
+        add_header X-Frame-Options "DENY" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Content-Security-Policy $csp always;
         try_files $uri =404;
     }
 

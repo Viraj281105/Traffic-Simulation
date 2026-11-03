@@ -39,6 +39,7 @@ from src.scenario.documents import (
     total_vehicles_per_hour,
 )
 from src.study.runner import Progress
+from src.study.tolerances import lower_delay_served_less
 
 ComparisonFn = Callable[..., Dict[str, Any]]
 
@@ -196,6 +197,52 @@ def _reliability_flags(results: List[Dict[str, Any]], n: int) -> List[Dict[str, 
     return flags
 
 
+_SERVED_KEYS = ("averageDelay", "admittedShareOfNominal", "unfinishedShare")
+
+
+def _served_demand(row: Dict[str, Any], strategy: str) -> Dict[str, Any]:
+    """Mean delay, admitted share of the nominal demand and unfinished share."""
+    stats = (row.get("controls") or {}).get(strategy) or {}
+    return {key: (stats.get(key) or {}).get("mean") for key in _SERVED_KEYS}
+
+
+def _served_demand_differs(
+    rows: List[Dict[str, Any]], baseline_id: str
+) -> List[Dict[str, Any]]:
+    """Alternatives whose delay difference from the baseline may come from
+    serving a different share of the demand (study/tolerances.py).
+
+    Flags a row when, at its demand scale, the one of {alternative,
+    baseline} with the lower mean delay admitted less or left more
+    unfinished by more than SERVED_DEMAND_TOLERANCE.
+    """
+    base = {
+        r["demandScale"]: r["servedDemand"]
+        for r in rows
+        if r["alternativeId"] == baseline_id
+    }
+    out: List[Dict[str, Any]] = []
+    for r in rows:
+        ref = base.get(r["demandScale"])
+        if r["alternativeId"] == baseline_id or ref is None:
+            continue
+        mine = r["servedDemand"]
+        as_lists = [
+            {k: [v[k]] for k in _SERVED_KEYS if v.get(k) is not None}
+            for v in (mine, ref)
+        ]
+        if lower_delay_served_less(*as_lists):
+            out.append(
+                {
+                    "alternativeId": r["alternativeId"],
+                    "demandScale": r["demandScale"],
+                    "servedDemand": mine,
+                    "baselineServedDemand": ref,
+                }
+            )
+    return out
+
+
 def run_study(
     study: PlanningStudy,
     *,
@@ -289,10 +336,12 @@ def run_study(
                     "perVehicleType": ind.per_vehicle_type(seed_rows, strategy),
                     "signalTiming": ind.signal_timing(row, strategy),
                     "seriesBySeed": series,
+                    "servedDemand": _served_demand(row, strategy),
                 }
             )
 
     comparisons = vs_baseline(result_rows, baseline_id, confidence)
+    served_differs = _served_demand_differs(result_rows, baseline_id)
 
     caveats = []
     for aid, cal in calibration.items():
@@ -318,6 +367,10 @@ def run_study(
         "fieldCalibrationDetail": cal_block,
         "engineCapacityCalibration": calibration,
         "vehicleLimitReached": vehicle_limit,
+        # Alternatives (and demand scales) where the lower-delay side of
+        # {alternative, baseline} served less of the demand: the delay
+        # difference may come from the traffic it did not serve.
+        "servedDemandDiffers": served_differs,
         "exploratory": True,
         "caveats": caveats,
     }

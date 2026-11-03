@@ -168,8 +168,16 @@ def regime_scenario(regime: Regime) -> Dict[str, Any]:
         },
         "simulation": {"duration": regime.duration, "warmup": regime.warmup, "seed": 1},
     }
+    traffic: Dict[str, Any] = {}
     if regime.aggression is not None:
-        doc["traffic"] = {"driverAggression": regime.aggression}
+        traffic["driverAggression"] = regime.aggression
+    if regime.entryQueue is not None and regime.entryQueue.enabled:
+        traffic["entryQueue"] = {
+            "enabled": True,
+            "capacity": regime.entryQueue.capacity,
+        }
+    if traffic:
+        doc["traffic"] = traffic
     if regime.mix == "heavy_vehicles":
         doc["vehicles"] = {
             "mix": {

@@ -215,6 +215,19 @@ class LockstepOrchestrator:
         for run in self.runs:
             run.engine.step()
 
+    def snapshot_lock(self) -> threading.Lock:
+        """Held while a comparison frame is assembled from every run (F-51).
+
+        The loop advances the runs one after another under this lock, while
+        each snapshot builder holds only its own engine's lock. A frame built
+        from another thread without it could catch the first run on tick N+1
+        and the next still on tick N. Taking it waits at most one tick, and
+        keeps the lock order the loop uses (this lock, then an engine's).
+        Never call it from inside ``step()`` or a tick callback: it is not
+        reentrant.
+        """
+        return self._lock
+
     def get_status(self) -> str:
         if any(run.engine.status == SimulationStatus.ERROR for run in self.runs):
             return "error"

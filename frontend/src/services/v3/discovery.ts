@@ -3,6 +3,8 @@
  * Every number shown comes from the server; candidates are EXPERIMENTAL.
  */
 import { downloadFile, getJson, postJson } from "./experiments";
+import type { EntryQueueSpec } from "../../scenario/scenarioTypes";
+import type { EntryModelUsed } from "../../metrics/entryModel";
 
 const PREFIX = "/api/v3/discovery";
 
@@ -15,6 +17,9 @@ export interface Regime {
   mix: "default" | "heavy_vehicles" | "two_wheelers";
   duration: number;
   warmup: number;
+  /** The entry model every candidate and baseline runs; null/absent = the
+   *  default. With the queue, the delay objective is the delay from arrival. */
+  entryQueue?: EntryQueueSpec | null;
 }
 
 export interface SearchBudget {
@@ -53,6 +58,18 @@ export interface Versus {
   ci95: [number, number] | null;
   n: number;
   lowerDelayInSeeds?: number;
+  /** The candidate's lower delay came with less of the demand served
+   *  (absent in results saved before it). */
+  lowerDelayServedLess?: boolean;
+}
+
+/** Served-demand means beside the objectives (reported, never optimised). */
+export interface ServedDemandMeans {
+  averageEntryWait?: number;
+  admittedShareOfNominal?: number;
+  unfinishedShare?: number;
+  /** Present under the queue model, where averageDelay is from arrival. */
+  inNetworkDelay?: number;
 }
 
 export interface SearchResult {
@@ -62,6 +79,8 @@ export interface SearchResult {
   method: string;
   specFingerprint: string;
   traceFingerprint: string;
+  /** Absent in results saved before it (those ran "suspend"). */
+  entryModel?: EntryModelUsed;
   runs: { planned: number; used: number };
   rejected: Record<string, number>;
   seedPools: {
@@ -84,13 +103,18 @@ export interface SearchResult {
       {
         genome: Record<string, unknown>;
         objectives: ObjectiveRow;
+        servedDemand?: ServedDemandMeans | null;
         infeasible: string | null;
         versusBaselines: Record<string, Versus>;
       }
     >;
     baselines: Record<
       string,
-      { objectives: ObjectiveRow; infeasible: string | null }
+      {
+        objectives: ObjectiveRow;
+        servedDemand?: ServedDemandMeans | null;
+        infeasible: string | null;
+      }
     >;
   } | null;
   bestOnTuningLosesOnHeldOut: boolean | null;

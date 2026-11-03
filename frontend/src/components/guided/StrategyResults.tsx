@@ -38,6 +38,7 @@ import {
   type Similarity,
 } from "../../metrics/plainLanguage";
 import type { MetricDef } from "../../metrics/catalog";
+import { entryModelChip } from "../../metrics/entryModel";
 import { MetricSections, MultiRunSections } from "../MetricSections";
 import { ReliabilityCheck } from "./ReliabilityCheck";
 import { ResearchLink } from "../research/LabSection";
@@ -285,6 +286,11 @@ export function StrategyResults({
         : "Results so far — run paused before the end";
 
   const strategyList = runs.map((r) => r.strategy.name).join(", ");
+  // The entry model the engines report having run (not only the request).
+  const entryChip = entryModelChip(
+    config.entryQueue,
+    runs.map((r) => r.ctx.metrics?.demandAccounting?.entryModel),
+  );
 
   return (
     <div className="guided-page results-page">
@@ -305,6 +311,11 @@ export function StrategyResults({
           </li>
           <li>{duration(config.duration)} of traffic</li>
           <li>Traffic pattern #{config.randomSeed}</li>
+          {entryChip && (
+            <li className={entryChip.caution ? "is-caution" : undefined}>
+              {entryChip.text}
+            </li>
+          )}
         </ul>
         <p
           className={`results-status${complete || replayName ? "" : " is-partial"}`}

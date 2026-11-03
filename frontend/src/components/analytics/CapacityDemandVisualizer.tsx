@@ -1,6 +1,8 @@
 import type { MetricContext } from "../../metrics/catalog";
+import type { RunningMetrics } from "../../types/simulation";
 import { formatMetric, metricState, METRICS } from "../../metrics/catalog";
 import { SERIES, CHART_GRID } from "../../theme/chart";
+import { outsideNetworkText } from "../../metrics/entryModel";
 
 interface CapacityDemandVisualizerProps {
   signalCtx: MetricContext;
@@ -14,6 +16,23 @@ const idleLossDef = METRICS.find((m) => m.key === "idleOpportunityLoss")!;
 const footprintDef = METRICS.find((m) => m.key === "spaceFootprintConsumed")!;
 const spawnedDef = METRICS.find((m) => m.key === "totalVehiclesSpawned")!;
 const activeDef = METRICS.find((m) => m.key === "activeVehicleCount")!;
+
+// Below this many expected arrivals the admitted share is mostly arrival
+// noise (early in a run, 3 admitted of 2.1 expected reads as 143 %).
+const MIN_NOMINAL_FOR_SHARE = 20;
+
+/** "62 % of configured demand", or null while it is not meaningful. The
+ *  nominal demand is an expectation from the configured rate (metric
+ *  contract 7.10a); an entry that stays full suspends further arrivals, so
+ *  a share well below 100 % is demand that never got in. */
+function admittedShareText(
+  m: RunningMetrics | undefined | null,
+): string | null {
+  const acc = m?.demandAccounting;
+  if (!acc || acc.admittedShareOfNominal === null) return null;
+  if (acc.nominalDemand < MIN_NOMINAL_FOR_SHARE) return null;
+  return `${String(Math.round(acc.admittedShareOfNominal * 100))}% of configured demand`;
+}
 
 export function CapacityDemandVisualizer({
   signalCtx,
@@ -30,12 +49,17 @@ export function CapacityDemandVisualizer({
   const sigThroughput = signalCtx.inWarmup ? 0 : (sigM?.throughput ?? 0);
   const rndThroughput = roundaboutCtx.inWarmup ? 0 : (rndM?.throughput ?? 0);
 
+  const sigShare = admittedShareText(sigM);
+  const rndShare = admittedShareText(rndM);
+  const sigOutside = outsideNetworkText(sigM);
+  const rndOutside = outsideNetworkText(rndM);
+
   const sigActive = sigM?.activeVehicleCount ?? 0;
   const rndActive = rndM?.activeVehicleCount ?? 0;
 
-  // Share of generated vehicles that have exited, over ONE window (the whole
+  // Share of admitted vehicles that have exited, over ONE window (the whole
   // run, warm-up included). Exited vehicles are never removed from the pool,
-  // so exited = generated - still in the network, and the two segments below
+  // so exited = admitted - still in the network, and the two segments below
   // add up to 100 %. (Dividing post-warm-up exits by all-time spawns would mix
   // two windows and understate the served share.)
   const sigExited = Math.max(0, sigSpawned - sigActive);
@@ -67,7 +91,7 @@ export function CapacityDemandVisualizer({
         <div className="capacity-card-header">
           <span className="card-title">Demand vs. Served Balance</span>
           <span className="card-subtitle">
-            Vehicles generated vs. exited, over the whole run (warm-up included)
+            Vehicles admitted vs. exited, over the whole run (warm-up included)
           </span>
         </div>
 
@@ -85,7 +109,7 @@ export function CapacityDemandVisualizer({
             </div>
             <div
               className="balance-track"
-              title={`Exited (whole run): ${String(sigExited)}, still in network: ${String(sigActive)}, generated: ${String(sigSpawned)}. Vehicles served after warm-up: ${String(sigThroughput)}`}
+              title={`Exited (whole run): ${String(sigExited)}, still in network: ${String(sigActive)}, admitted: ${String(sigSpawned)}. Vehicles served after warm-up: ${String(sigThroughput)}`}
             >
               <div
                 className="balance-fill served signal"
@@ -99,7 +123,9 @@ export function CapacityDemandVisualizer({
             <div className="balance-numbers">
               <span>{String(sigExited)} exited (whole run)</span>
               <span>{formatMetric(activeDef, signalCtx)} in network</span>
-              <span>{formatMetric(spawnedDef, signalCtx)} generated</span>
+              <span>{formatMetric(spawnedDef, signalCtx)} admitted</span>
+              {sigShare && <span>{sigShare}</span>}
+              {sigOutside && <span>{sigOutside}</span>}
             </div>
           </div>
 
@@ -116,7 +142,7 @@ export function CapacityDemandVisualizer({
             </div>
             <div
               className="balance-track"
-              title={`Exited (whole run): ${String(rndExited)}, still in network: ${String(rndActive)}, generated: ${String(rndSpawned)}. Vehicles served after warm-up: ${String(rndThroughput)}`}
+              title={`Exited (whole run): ${String(rndExited)}, still in network: ${String(rndActive)}, admitted: ${String(rndSpawned)}. Vehicles served after warm-up: ${String(rndThroughput)}`}
             >
               <div
                 className="balance-fill served roundabout"
@@ -130,7 +156,9 @@ export function CapacityDemandVisualizer({
             <div className="balance-numbers">
               <span>{String(rndExited)} exited (whole run)</span>
               <span>{formatMetric(activeDef, roundaboutCtx)} in network</span>
-              <span>{formatMetric(spawnedDef, roundaboutCtx)} generated</span>
+              <span>{formatMetric(spawnedDef, roundaboutCtx)} admitted</span>
+              {rndShare && <span>{rndShare}</span>}
+              {rndOutside && <span>{rndOutside}</span>}
             </div>
           </div>
         </div>

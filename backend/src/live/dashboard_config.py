@@ -383,6 +383,25 @@ def compile_dashboard_config(payload: Dict[str, Any], seed_val: int) -> Dict[str
     if driver_aggression is not None:
         config["traffic"]["driverAggression"] = driver_aggression
 
+    # The entry model (F-50): an enabled point queue outside the network.
+    # Omitted, null or disabled keeps the config exactly as before (arrivals
+    # held back at a blocked entry); the schema bounds the capacity below.
+    entry_queue = payload.get("entryQueue")
+    if entry_queue is not None:
+        if not isinstance(entry_queue, dict) or not isinstance(
+            entry_queue.get("enabled", False), bool
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid configuration: entryQueue must be an object "
+                "with enabled true or false",
+            )
+        if entry_queue.get("enabled"):
+            config["traffic"]["entryQueue"] = {
+                "enabled": True,
+                "capacity": entry_queue.get("capacity"),
+            }
+
     # The coercions above only reject values that are not numbers at all.
     # Range checks were missing entirely, so lanesNorth=0 or -1, a negative or
     # NaN arrivalRate, a negative yellow/all-red or a negative critical gap

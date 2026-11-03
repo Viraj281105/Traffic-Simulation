@@ -26,14 +26,14 @@ Link to docs/architecture/ for detailed specifications.
 
 ### Prerequisites
 - Python 3.11+
-- Node.js 18+
+- Node.js 24+ (CI and the production image use Node 26)
 - npm 9+
 
 ### Backend Setup
 $ cd backend
 $ python -m venv .venv
 $ source .venv/bin/activate  (or .venv\Scripts\activate on Windows)
-$ pip install -r requirements.txt
+$ pip install -r requirements-dev.txt
 $ .venv/Scripts/python.exe -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 
 ### Frontend Setup

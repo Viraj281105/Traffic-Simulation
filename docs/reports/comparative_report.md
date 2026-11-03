@@ -123,8 +123,10 @@ shares of the mean of both controls' maximum served flow per lane count:
 1,250 / 2,180 / 2,620 veh/h for 1 / 2 / 3 lanes
 (`study/calibration.py::REFERENCE_CAPACITY_VPH`).
 
-`docs/reports/study_report.csv` (and the identical root copy) is one run of
-`scripts/run_full_study.py` at its defaults: one lane, 240 s sweep tiers and
+`docs/reports/study_report.csv` is one run of
+`scripts/run_full_study.py` at its defaults (an identical copy that used to
+sit at the repository root, the script's default output path, was removed:
+`.gitignore` already excludes that path, F-17): one lane, 240 s sweep tiers and
 validation runs, 30 s warm-up. It is one sample of that scenario, and its
 own "Evidence summary" row states what it supports.
 

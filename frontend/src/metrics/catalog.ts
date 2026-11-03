@@ -334,13 +334,36 @@ export const METRICS: MetricDef[] = [
   // ── Capacity & demand ────────────────────────────────────────────────────
   {
     key: "totalVehiclesSpawned",
-    label: "Vehicles generated",
+    label: "Vehicles admitted",
     unit: "veh",
     decimals: 0,
     group: "capacity",
     description:
-      "All vehicles generated since the run began, including warm-up. This is the offered demand unless generation hit the per-run vehicle limit, in which case later demand was not offered.",
+      "All vehicles that entered the network since the run began, including warm-up. Not the offered demand: while an entry is full its next arrival waits at the edge and no further demand arrives on that approach, and generation also stops at the per-run vehicle limit.",
     postWarmup: false,
+  },
+  {
+    key: "averageEntryWait",
+    needsExits: true,
+    label: "Wait to enter",
+    unit: "s",
+    decimals: 1,
+    group: "capacity",
+    description:
+      "Mean time vehicles that exited after warm-up waited outside the network before entering, because their entry was full. Delay and wait time start at entry, so this is the part they cannot see. Near 0 unless the scenario queues arrivals outside the network (traffic.entryQueue).",
+    postWarmup: true,
+  },
+  {
+    key: "unfinishedShare",
+    label: "Unfinished after warm-up",
+    unit: "%",
+    decimals: 1,
+    scale: 100,
+    group: "capacity",
+    description:
+      "Of the vehicles admitted after warm-up, the share still in the network. Delay, wait, stops and throughput describe only vehicles that exited, so this is the part of the traffic they leave out.",
+    postWarmup: true,
+    nullText: "N/A",
   },
   {
     key: "activeVehicleCount",

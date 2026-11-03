@@ -126,6 +126,10 @@ class Vehicle:
         # Timing metadata
         self.spawn_time: float = spawn_time
         self.exit_time: Optional[float] = None
+        # Time the vehicle waited outside the network before spawn_time
+        # because its entry was full (set by VehicleSpawner; not part of any
+        # in-network figure such as delay or wait time).
+        self.entry_wait: float = 0.0
 
         # Wait threshold speed — vehicles below this speed are considered
         # "waiting" for wait-time accounting. Matches the project-wide

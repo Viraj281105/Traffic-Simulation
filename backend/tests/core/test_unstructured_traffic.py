@@ -75,3 +75,26 @@ def test_stochastic_idm_returns_finite_acceleration() -> None:
     for speed in (0.0, 0.05, 1.0, 10.0):
         acc = idm.calculate_acceleration(speed, 13.9, lead_speed=0.0, gap=3.0)
         assert acc == acc and abs(acc) < 100.0
+
+
+def test_stochastic_idm_parameters_do_not_drift() -> None:
+    """Each call scales the gap and headway for itself only. The nudge and
+    hesitation early returns used to skip the restore, so the shared model's
+    parameters compounded towards 0.2 m / 0.3 s (or grew without bound)."""
+    import random
+
+    idm = StochasticIDM(
+        max_acceleration=2.0,
+        comfort_deceleration=3.0,
+        desired_time_headway=1.5,
+        minimum_gap=2.0,
+        idm_delta=4.0,
+        rng=random.Random(7),
+    )
+    for _ in range(5000):
+        # Stopped close behind a leader (the nudge branch) and crawling (the
+        # hesitation branch), alternately.
+        idm.calculate_acceleration(0.05, 13.0, lead_speed=0.0, gap=1.0)
+        idm.calculate_acceleration(1.0, 13.0, lead_speed=0.0, gap=10.0)
+    assert idm._minimum_gap == 2.0
+    assert idm._desired_time_headway == 1.5

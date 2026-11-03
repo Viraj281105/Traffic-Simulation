@@ -423,6 +423,61 @@ provenance with this server and is not a re-run.
 
 `shared/schemas/config.schema.json` is the validation schema for versioned configuration payloads. `snapshot.schema.json` and `vehicle_state.json` describe shared snapshot and vehicle shapes, although runtime route validation is currently centered on configuration validation. The authoritative metric names and formulas are implemented under `backend/src/metrics/definitions/` and aggregated by `MetricCollector`; the API exposes the resulting dictionary rather than a separate metric envelope.
 
+## Logs and metrics
+
+**Logs.** `LOG_FORMAT=json` (set in `docker-compose.yml`) writes one JSON
+object per line with `ts`, `level`, `logger`, `message`, the `request_id` of
+the request being handled and event fields such as `event`, `job_kind`,
+`job_id`, `route`, `status` and `duration_ms`. Without it, logs are plain text
+with `[request_id=…]` appended. `LOG_LEVEL` sets the level (default `INFO`).
+Every response carries `X-Request-ID`; send your own (letters, digits, `.`,
+`_`, `-`, at most 64) to correlate a client call with its log lines.
+
+Bearer tokens, personal access tokens (`uf_pat_…`) and JWT-shaped strings are
+replaced in every log line, including uvicorn's and exception tracebacks.
+Request bodies are never logged. Events logged: startup and shutdown, each
+request (health and metrics scrapes at DEBUG), unhandled request errors with
+their traceback, authentication failures (reason only), job start, completion,
+cancellation and failure, refused jobs, and finished registered simulations.
+Nothing is logged per simulation tick.
+
+```bash
+docker compose logs backend | grep '"event": "job_failed"'
+```
+
+**Metrics.** `GET /metrics` returns the Prometheus text format:
+
+| Metric | Labels |
+| --- | --- |
+| `urbanflow_http_requests_total` | `method`, `route` (template), `status` (`2xx`…) |
+| `urbanflow_http_request_duration_seconds` (histogram) | `method`, `route` |
+| `urbanflow_http_unhandled_exceptions_total` | `route` |
+| `urbanflow_limit_events_total` | `status` (`413`, `429`), `route` |
+| `urbanflow_auth_failures_total` | `reason` |
+| `urbanflow_jobs_total` | `kind`, `outcome` (`completed`, `cancelled`, `failed`) |
+| `urbanflow_job_duration_seconds` (histogram) | `kind` |
+| `urbanflow_jobs_rejected_total`, `urbanflow_jobs_active` | `kind` |
+| `urbanflow_simulations_finished_total` | `outcome` |
+| `urbanflow_simulations_registered` | `status` |
+| `urbanflow_live_sessions` | — |
+
+Routes are templates (`/api/v3/experiments/{experiment_id}`), never raw paths;
+no user, id or error message is ever a label. Values reset when the process
+restarts and are per process.
+
+Access: with `METRICS_TOKEN` set, send `Authorization: Bearer $METRICS_TOKEN`;
+without it, only loopback clients are answered (local development). nginx does
+not proxy `/metrics`, so in Docker a scraper reaches it inside the Compose
+network:
+
+```bash
+curl -s http://127.0.0.1:8000/metrics | head
+```
+
+```bash
+docker compose exec backend python -c "import os,urllib.request as u; r=u.Request('http://127.0.0.1:8000/metrics'); print(u.urlopen(r).read().decode()[:400])"
+```
+
 ## Troubleshooting
 
 - If the dashboard cannot reach the backend in native mode, confirm port `8000` is listening and use the Vite proxy or set `VITE_API_URL` and `VITE_WS_URL` explicitly.

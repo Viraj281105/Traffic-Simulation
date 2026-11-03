@@ -34,7 +34,7 @@ from src.roads.network import (
 from src.vehicles.driver_aggression import aggression_multipliers_for
 from src.vehicles.idm import IntelligentDriverModel
 from src.vehicles.spawner import VehicleSpawner
-from src.vehicles.stochastic_idm import StochasticIDM
+from src.vehicles.stochastic_idm import StochasticIDM, stochastic_idm_for
 from src.vehicles.vehicle_types import design_vehicle_allowance, has_vehicle_mix
 
 logger = logging.getLogger(__name__)
@@ -151,6 +151,20 @@ class SimulationEngine:
                 idm_kwargs["rng"] = self.spawner.rng
             idm_cls = StochasticIDM if is_unstructured else IntelligentDriverModel
             self.idm = idm_cls(**idm_kwargs)
+            if is_unstructured:
+                # self.idm drives only vehicles without a class (no vehicle
+                # mix). With a mix every vehicle drives its class's own IDM,
+                # so each class gets the stochastic model too, around its own
+                # parameters and on the same random stream (F-38).
+                populations = [self.spawner.population]
+                populations += list(self.spawner.approach_populations.values())
+                for population in populations:
+                    if population is None:
+                        continue
+                    for params, _ in population.entries:
+                        params.idm = stochastic_idm_for(
+                            params.profile, self.spawner.rng
+                        )
 
             self.deadlock_detector: Optional[DeadlockDetector] = None
             cfg_dict = self.config or {}
@@ -326,6 +340,12 @@ class SimulationEngine:
             # simulation time, which has just gone back to zero; stale entries
             # would block the new run's vehicles out of zones nobody occupies.
             self.conflict_manager.reset_reservations()
+
+            # The deadlock detector's stopped times are keyed by vehicle ids
+            # the new run reuses, and its insight is reported in snapshots.
+            detector = getattr(self, "deadlock_detector", None)
+            if detector is not None:
+                detector.reset()
 
             if self.controller is not None:
                 self.controller.reset()

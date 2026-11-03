@@ -119,11 +119,11 @@ Priority: **P0** prevents a confusing or inaccurate workflow · **P1** small, hi
 
 | Item | Why deferred | Where it goes |
 | --- | --- | --- |
-| Per-alternative control selection in the Planner (O7) | UX decision on where timings come from; new request content; backend already supports it | Open question OQ-7; [requirements](../future-scope/next-generation-requirements.md#10-open-questions-for-the-product-owner) |
+| Per-alternative control selection in the Planner (O7) | UX decision on where timings come from; new request content; backend already supports it | Open question OQ-7; next-generation requirements §10 (removed in `d17cf2d`) |
 | Level-of-service bands for metered entry (O8) | Metric interpretation, research decision | OQ-8 |
 | Quick mode and metering (O9) | Navigation/UX decision | Guided Scenario Builder (FS-11) |
 | Editing which roads a phase holds | A real editor; today rebuild-and-edit-greens is enough | With the registry/strategy summary (V3.0 W3) |
-| Metered note in Research Lab strategy descriptions (O10) | Text should come from one source once W3's registry holds it | W3 descriptor amendment ([architecture §8](../future-scope/next-generation-architecture.md#8-decisions-that-need-an-adr--and-decisions-that-can-be-deferred)) |
+| Metered note in Research Lab strategy descriptions (O10) | Text should come from one source once W3's registry holds it | W3 descriptor amendment (next-generation architecture §8, removed in `d17cf2d`) |
 | Signal heads in the builder's plan preview | Drawing change, no usability evidence | Not planned |
 
 ---

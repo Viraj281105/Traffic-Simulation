@@ -16,12 +16,12 @@ from src.experiments.service import (
     NotFound,
     QuotaExceeded,
 )
-from src.scenario.documents import parse_scenario
+from src.scenario.documents import EntryQueueSpec, parse_scenario
 from src.study.jobs import JobRegistry, TooManyJobsError
 from src.study.runner import Progress, run_simulation_tasks_isolated
 
 from .generator import MAX_SCENARIOS
-from .lab import Cancelled, Executor, run_breakpoints, run_suite
+from .lab import Cancelled, Executor, run_breakpoints, run_suite, with_entry_queue
 
 StrategyName = Literal["fixed_time", "adaptive", "roundabout", "signalised_roundabout"]
 
@@ -54,6 +54,9 @@ class SuiteRequest(_Strict):
     )
     seedsPerRun: int = Field(2, ge=1, le=5)
     duration: float = Field(120.0, ge=60, le=600)
+    # The entry model every generated scenario runs; omitted: the default
+    # (arrivals held back at a blocked entry), exactly as before.
+    entryQueue: Optional[EntryQueueSpec] = None
 
     def runs(self) -> int:
         return self.count * len(self.strategies) * self.seedsPerRun
@@ -73,9 +76,17 @@ class BreakpointRequest(_Strict):
     )
     seed: int = Field(1, ge=0, le=2**31 - 1)
     seedsPerLevel: int = Field(3, ge=1, le=6)
+    # The entry model of the default junction. With a scenario, set it in the
+    # scenario's own traffic block instead.
+    entryQueue: Optional[EntryQueueSpec] = None
 
     @model_validator(mode="after")
     def _levels(self) -> "BreakpointRequest":
+        if self.scenario is not None and self.entryQueue is not None:
+            raise ValueError(
+                "entryQueue applies to the default junction; with a scenario, set "
+                "traffic.entryQueue in the scenario instead"
+            )
         if self.factor == "demand_scale":
             if not all(
                 isinstance(v, (int, float)) and 0.1 <= float(v) <= 3.0
@@ -215,13 +226,17 @@ class StressService:
                 req.duration,
                 self.executor,
                 progress,
+                req.entryQueue.model_dump() if req.entryQueue else None,
             ),
         )
 
     def submit_breakpoints(
         self, user_id: str, req: BreakpointRequest
     ) -> Dict[str, Any]:
-        scenario = req.scenario or default_scenario()
+        scenario = req.scenario or with_entry_queue(
+            default_scenario(),
+            req.entryQueue.model_dump() if req.entryQueue else None,
+        )
         parsed, errors = parse_scenario(scenario)
         if parsed is None:
             raise ConflictError("the scenario is not valid: " + "; ".join(errors[:3]))

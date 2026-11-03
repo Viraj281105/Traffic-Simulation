@@ -16,6 +16,8 @@ import random
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence, Tuple
 
+from src.study.tolerances import lower_delay_served_less
+
 from . import nsga2
 from .models import (
     BASELINES,
@@ -140,6 +142,44 @@ def _objectives_dict(values: Optional[Tuple[float, ...]]) -> Optional[Dict[str, 
     out = dict(zip(OBJECTIVES, values))
     out["throughput"] = -out["throughput"]  # reported in its natural direction
     return {k: round(v, 6) for k, v in out.items()}
+
+
+_SERVED_KEYS = ("averageEntryWait", "admittedShareOfNominal", "unfinishedShare")
+
+
+def _served(outcome: Outcome) -> Optional[Dict[str, float]]:
+    """The served-demand means of an outcome (reported, never optimised);
+    None for an infeasible one or results without the measures."""
+    if outcome.objectives is None:
+        return None
+    out = {k: outcome.metrics[k] for k in _SERVED_KEYS if k in outcome.metrics}
+    if "inNetworkDelay" in outcome.metrics:
+        out["inNetworkDelay"] = round(outcome.metrics["inNetworkDelay"], 6)
+    return out or None
+
+
+def _served_less(candidate: Outcome, baseline: Outcome) -> bool:
+    """The candidate's lower delay came with less of the demand served
+    (study/tolerances.lower_delay_served_less, on the seed means)."""
+    if candidate.objectives is None or baseline.objectives is None:
+        return False
+
+    def side(o: Outcome) -> Dict[str, List[float]]:
+        assert o.objectives is not None
+        out: Dict[str, List[float]] = {"averageDelay": [o.objectives[0]]}
+        for k in ("admittedShareOfNominal", "unfinishedShare"):
+            if k in o.metrics:
+                out[k] = [o.metrics[k]]
+        return out
+
+    return lower_delay_served_less(side(candidate), side(baseline))
+
+
+def _regime_entry_model(regime: Any) -> Dict[str, Any]:
+    queue = regime.entryQueue
+    if queue is not None and queue.enabled:
+        return {"model": "queue", "capacity": queue.capacity}
+    return {"model": "suspend", "capacity": None}
 
 
 def _bootstrap_ci(diffs: List[float], seed: str) -> Tuple[float, float]:
@@ -393,6 +433,9 @@ class Search:
             "with crowding distance); not a learned model.",
             "specFingerprint": self.spec.fingerprint(),
             "traceFingerprint": trace,
+            # Every candidate and baseline ran this entry model; with
+            # "queue" the delay objective is the delay from arrival.
+            "entryModel": _regime_entry_model(self.spec.regime),
             "runs": {"planned": self.planned, "used": self.state.runs_used},
             "budgetExhausted": self.state.budget_exhausted,
             "rejected": dict(self.state.rejected),
@@ -443,11 +486,15 @@ class Search:
                     ),
                     "n": len(diffs),
                     "lowerDelayInSeeds": sum(1 for d in diffs if d < 0),
+                    # A caution, not a verdict: the lower delay came with
+                    # less of the demand admitted or more left unfinished.
+                    "lowerDelayServedLess": _served_less(out, base),
                 }
             rows[key] = {
                 "genome": relevant(genome),
                 "patch": candidate_patch(genome),
                 "objectives": _objectives_dict(out.objectives),
+                "servedDemand": _served(out),
                 "infeasible": out.infeasible_reason,
                 "versusBaselines": versus,
             }
@@ -459,6 +506,7 @@ class Search:
             "baselines": {
                 name: {
                     "objectives": _objectives_dict(o.objectives),
+                    "servedDemand": _served(o),
                     "infeasible": o.infeasible_reason,
                 }
                 for name, o in baselines.items()

@@ -1,0 +1,91 @@
+{
+  "format": "urbanflow-copilot-eval-baseline",
+  "dataset": "copilot-eval-v1",
+  "note": "Per-item matched checklist elements of the deterministic proposer on the 20 development items, and recall on both sets, recorded 2026-11-02. src/copilot/eval_gate.py fails if any development item matches fewer, or recall falls. Held-out items are recorded only in aggregate. Raise a value only after a reviewed improvement.",
+  "development": {
+    "in-01": {
+      "matched": 8,
+      "required": 8
+    },
+    "in-02": {
+      "matched": 5,
+      "required": 5
+    },
+    "in-03": {
+      "matched": 5,
+      "required": 5
+    },
+    "in-04": {
+      "matched": 5,
+      "required": 5
+    },
+    "in-05": {
+      "matched": 4,
+      "required": 5
+    },
+    "in-06": {
+      "matched": 6,
+      "required": 6
+    },
+    "in-07": {
+      "matched": 5,
+      "required": 5
+    },
+    "in-08": {
+      "matched": 6,
+      "required": 6
+    },
+    "in-09": {
+      "matched": 5,
+      "required": 6
+    },
+    "in-10": {
+      "matched": 6,
+      "required": 6
+    },
+    "in-11": {
+      "matched": 5,
+      "required": 5
+    },
+    "in-12": {
+      "matched": 6,
+      "required": 6
+    },
+    "in-13": {
+      "matched": 5,
+      "required": 5
+    },
+    "in-14": {
+      "matched": 6,
+      "required": 6
+    },
+    "in-15": {
+      "matched": 6,
+      "required": 6
+    },
+    "in-16": {
+      "matched": 5,
+      "required": 5
+    },
+    "in-17": {
+      "matched": 5,
+      "required": 5
+    },
+    "in-18": {
+      "matched": 5,
+      "required": 5
+    },
+    "in-19": {
+      "matched": 5,
+      "required": 5
+    },
+    "in-20": {
+      "matched": 6,
+      "required": 6
+    }
+  },
+  "recall": {
+    "development": 0.982,
+    "heldOut": 0.9508
+  }
+}

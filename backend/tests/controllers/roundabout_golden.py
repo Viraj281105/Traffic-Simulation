@@ -104,6 +104,12 @@ FIXTURE = (
 FIXTURE_FORMAT = "urbanflow-roundabout-golden"
 FIXTURE_VERSION = 1
 SNAPSHOT_EVERY = 10  # ticks (1 s at the default 0.1 s step)
+# Reported metrics added after the fixture was recorded (2026-10-30, F-41 and
+# F-50: additive fields, computed from counters that draw no random numbers).
+# They are left out of the metrics and snapshot fingerprints, so every field
+# the pins were recorded with is still compared against the original pins;
+# tests/vehicles/test_demand_accounting.py covers the new fields.
+ADDED_METRICS = ("unfinishedShare", "demandAccounting", "averageEntryWait")
 FLOAT_DIGITS = 12  # significant digits kept in the portable metrics/snapshots
 TRAJECTORY_DECIMALS = 6  # 1 µm and 1 µm/s in the portable trajectory
 
@@ -399,9 +405,13 @@ def fingerprint_run(config: Dict[str, Any], path: str) -> Dict[str, Any]:
         if tick % SNAPSHOT_EVERY == 0:
             snap = builder.build()
             snap.pop("wallClockTime", None)
+            for key in ADDED_METRICS:
+                snap["metrics"].pop(key)
             snap_portable.update(_portable_json(snap).encode() + b"\n")
             snap_exact.update(canonical_json(snap).encode() + b"\n")
     metrics = engine_metrics(engine, collector)
+    for key in ADDED_METRICS:
+        metrics.pop(key)
     return {
         "portable": {
             "trajectory": traj_portable.hexdigest(),

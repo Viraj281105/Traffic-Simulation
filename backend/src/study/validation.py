@@ -463,6 +463,7 @@ def _final_metrics(orch: DualSimulationOrchestrator, geometry: str) -> Dict[str,
         engine.pool.exited_vehicles,
         engine.spawner.spawned_count if engine.spawner else 0,
         engine.pool.collision_count,
+        engine.spawner.demand_accounting() if engine.spawner else None,
     )
     return metrics
 
@@ -474,7 +475,8 @@ def run_invariant_checks(
 ) -> Dict[str, Any]:
     """
     Validates core physical and kinematic invariants on BOTH geometries:
-    1. Conservation of mass (spawned == active + exited), every tick, for the
+    1. Conservation of mass (spawned == active + exited, and generated
+       arrivals == admitted + waiting at the entry), every tick, for the
        signal and the roundabout engine.
     2. Zero negative speeds (v >= 0), every tick, for both engines.
     3. Conflicting signal green exclusivity (signal only: a north/south and an
@@ -537,6 +539,16 @@ def run_invariant_checks(
                     f"Tick {tick}: {geometry} vehicle conservation violated: "
                     f"spawned({spawned}) != active({active}) + exited({exited})",
                 )
+            if engine.spawner is not None:
+                demand = engine.spawner.demand_accounting()
+                if demand["arrivals"] != demand["admitted"] + demand["waitingAtEntry"]:
+                    record(
+                        "massConservation",
+                        geometry,
+                        f"Tick {tick}: {geometry} demand conservation violated: "
+                        f"arrivals({demand['arrivals']}) != admitted"
+                        f"({demand['admitted']}) + waiting({demand['waitingAtEntry']})",
+                    )
             for v in engine.pool.active_vehicles:
                 if v.speed < -0.01:
                     record(
@@ -596,6 +608,7 @@ def run_invariant_checks(
         },
         "checked": [
             "vehicle conservation (both geometries)",
+            "demand conservation: arrivals = admitted + waiting (both geometries)",
             "non-negative speeds (both geometries)",
             "conflicting signal greens (signal)",
             "same-seed reproduction of delay and throughput (both geometries)",

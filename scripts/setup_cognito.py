@@ -5,7 +5,6 @@ credentials. Needs boto3, which the backend itself does not use:
 """
 
 import boto3
-import json
 import os
 import sys
 
@@ -55,8 +54,9 @@ def setup_cognito(pool_name="TrafficSimulationUserPool"):
             UserPoolId=user_pool_id,
             ClientName=client_name,
             GenerateSecret=False, # Web apps generally don't use client secrets
+            # SRP only: the frontend signs in with authenticateUser (SRP), so
+            # the plain-password flow would only widen what the client accepts.
             ExplicitAuthFlows=[
-                'ALLOW_USER_PASSWORD_AUTH',
                 'ALLOW_REFRESH_TOKEN_AUTH',
                 'ALLOW_USER_SRP_AUTH'
             ]
@@ -97,24 +97,23 @@ def setup_cognito(pool_name="TrafficSimulationUserPool"):
 
 def update_env_file(filepath, updates):
     path = os.path.join(os.path.dirname(__file__), filepath)
-    env_vars = {}
-    
-    # Read existing
+    lines = []
     if os.path.exists(path):
         with open(path, 'r') as f:
-            for line in f:
-                if '=' in line:
-                    k, v = line.strip().split('=', 1)
-                    env_vars[k] = v
-                    
-    # Update
-    env_vars.update(updates)
-    
-    # Write back
+            lines = f.read().splitlines()
+
+    # Replace existing keys in place and keep every other line (comments,
+    # blanks, unrelated settings) as it was; append keys that were missing.
+    pending = dict(updates)
+    for i, line in enumerate(lines):
+        key = line.split('=', 1)[0].strip()
+        if '=' in line and not line.lstrip().startswith('#') and key in pending:
+            lines[i] = f"{key}={pending.pop(key)}"
+    lines += [f"{k}={v}" for k, v in pending.items()]
+
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w') as f:
-        for k, v in env_vars.items():
-            f.write(f"{k}={v}\n")
+        f.write("\n".join(lines) + "\n")
     print(f"Updated {os.path.abspath(path)}")
 
 if __name__ == "__main__":

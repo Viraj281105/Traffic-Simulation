@@ -817,6 +817,16 @@
   box-shadow: var(--shadow-raised);
 }
 
+/* An entry model that differs from the request, or between strategies. */
+.scenario-chips li.is-caution {
+  border-color: color-mix(in srgb, var(--color-warning) 50%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--color-warning) 10%,
+    var(--color-surface)
+  );
+}
+
 .guided-intro p.results-status,
 .results-status {
   display: inline-flex;
@@ -1461,6 +1471,15 @@
   gap: 4px;
   font-size: 13px;
   color: var(--color-text-2);
+}
+
+/* The entry-model choice under the study form: a bare group, so the
+   browser's fieldset border never shows (disabled while a study runs). */
+.control-study__entry {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
 }
 
 .control-study__result {

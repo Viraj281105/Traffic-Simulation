@@ -140,6 +140,27 @@ def _delta(a: Optional[float], b: Optional[float], digits: int) -> Optional[floa
     return None if a is None or b is None else round(b - a, digits)
 
 
+def _entry_model(config: Any) -> Optional[str]:
+    """The entry model a stored configuration ran under: "queue" when its
+    traffic (or its scenario document's) enables traffic.entryQueue,
+    "suspend" otherwise, None when no configuration was stored. Runs saved
+    before the option existed ran "suspend"."""
+    if not isinstance(config, dict) or not config:
+        return None
+
+    def enabled(traffic: Any) -> bool:
+        queue = traffic.get("entryQueue") if isinstance(traffic, dict) else None
+        return isinstance(queue, dict) and queue.get("enabled") is True
+
+    scenario = config.get("scenario")
+    scenario_traffic = scenario.get("traffic") if isinstance(scenario, dict) else None
+    return (
+        "queue"
+        if enabled(config.get("traffic")) or enabled(scenario_traffic)
+        else "suspend"
+    )
+
+
 def compare_runs(
     run_a: Dict[str, Any], run_b: Dict[str, Any], id_a: str, id_b: str
 ) -> Dict[str, Any]:
@@ -182,6 +203,19 @@ def compare_runs(
         winner = run_b.get("intersection_type") or id_b
 
     stops_delta = _delta(stops_a, stops_b, 0)
+    # Unlike entry models measure different populations (F-50): say so
+    # rather than compare them silently. The deltas stay for older clients.
+    model_a = _entry_model(run_a.get("config"))
+    model_b = _entry_model(run_b.get("config"))
+    warnings: list[str] = []
+    if model_a is not None and model_b is not None and model_a != model_b:
+        warnings.append(
+            f"The runs use different entry models (A: {model_a}, B: {model_b}). "
+            "Under 'suspend' a blocked entry stops further arrivals; under "
+            "'queue' they wait outside the network and that wait is not in "
+            "the delay. Delay, throughput and admitted counts describe "
+            "different populations, so the deltas are not like for like."
+        )
     return {
         "runA": {
             "id": id_a,
@@ -212,6 +246,8 @@ def compare_runs(
                 "only: not a significance test."
             ),
         },
+        "entryModels": {"runA": model_a, "runB": model_b},
+        "warnings": warnings,
         "identicalSeed": run_a.get("random_seed") == run_b.get("random_seed"),
         "seed": run_a.get("random_seed")
         if run_a.get("random_seed") == run_b.get("random_seed")

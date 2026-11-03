@@ -15,6 +15,7 @@ import {
   SLOT_BEARING,
   SCENARIO_FORMAT,
   SCENARIO_VERSION,
+  entryQueueEnabled,
   type ApproachName,
   type ApproachSpec,
   type DriverAggression,
@@ -89,12 +90,20 @@ export function sameScenario(
 ): boolean {
   const strip = (d: ScenarioDocument) => {
     const aggression = d.traffic?.driverAggression ?? "standard";
+    // A disabled queue runs exactly as no setting (the default model).
+    const queue = d.traffic?.entryQueue;
     return JSON.stringify({
       ...d,
       name: "",
       description: "",
       preset: null,
-      traffic: { ...(d.traffic ?? {}), driverAggression: aggression },
+      traffic: {
+        ...(d.traffic ?? {}),
+        driverAggression: aggression,
+        entryQueue: entryQueueEnabled(queue)
+          ? { enabled: true, capacity: queue?.capacity ?? null }
+          : null,
+      },
     });
   };
   return strip(a) === strip(b);
@@ -421,7 +430,19 @@ export function describeDemand(doc: ScenarioDocument): string {
 }
 
 export function describeScenario(doc: ScenarioDocument): string {
-  return `${describeRoads(doc)}; ${describeDemand(doc)}; ${describeMix(doc.vehicles.mix ?? null)}${describeAggression(doc.traffic?.driverAggression)}.`;
+  return `${describeRoads(doc)}; ${describeDemand(doc)}; ${describeMix(doc.vehicles.mix ?? null)}${describeAggression(doc.traffic?.driverAggression)}${describeEntryModel(doc.traffic?.entryQueue)}.`;
+}
+
+/** "; arrivals queue outside the map" when the point queue is on, so a
+ *  result never hides which entry model it ran under. */
+export function describeEntryModel(
+  spec: { enabled: boolean; capacity?: number | null } | null | undefined,
+): string {
+  if (!entryQueueEnabled(spec)) return "";
+  const limit = spec?.capacity;
+  return limit
+    ? `; arrivals queue outside the map (at most ${String(limit)} per road)`
+    : "; arrivals queue outside the map";
 }
 
 /** "; high driver aggression" when the profile is not standard, so a result
@@ -518,6 +539,13 @@ export function configValuesFromScenario(
     // The document is what runs: without a profile it is "standard", never
     // whatever the previous quick-setup answers held.
     driverAggression: doc.traffic?.driverAggression ?? "standard",
+    // Likewise the entry model: the document's, or the default.
+    entryQueue: entryQueueEnabled(doc.traffic?.entryQueue)
+      ? {
+          enabled: true,
+          capacity: doc.traffic?.entryQueue?.capacity ?? null,
+        }
+      : null,
   };
 }
 
@@ -568,6 +596,15 @@ export function scenarioFromConfigValues(
     base.traffic = {
       ...(base.traffic ?? {}),
       driverAggression: config.driverAggression,
+    };
+  }
+  if (entryQueueEnabled(config.entryQueue)) {
+    base.traffic = {
+      ...(base.traffic ?? {}),
+      entryQueue: {
+        enabled: true,
+        capacity: config.entryQueue?.capacity ?? null,
+      },
     };
   }
   return base;

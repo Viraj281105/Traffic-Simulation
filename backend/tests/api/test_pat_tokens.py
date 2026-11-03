@@ -116,6 +116,8 @@ def test_token_creation_rejected_for_pat(
     )
     assert res.status_code == 403
     assert error_message(res) == "A PAT cannot create a PAT"
+    # Its own code, not the INTERNAL_ERROR fallback (F-21).
+    assert res.json()["error"]["code"] == "FORBIDDEN"
 
 
 def test_token_creation_scope_validation(

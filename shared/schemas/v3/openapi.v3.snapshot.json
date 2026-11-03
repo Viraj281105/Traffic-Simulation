@@ -4,6 +4,16 @@
       "BreakpointRequest": {
         "additionalProperties": false,
         "properties": {
+          "entryQueue": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EntryQueueSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "factor": {
             "default": "demand_scale",
             "enum": [
@@ -193,6 +203,32 @@
           "scopes"
         ],
         "title": "CreateTokenRequest",
+        "type": "object"
+      },
+      "EntryQueueSpec": {
+        "additionalProperties": false,
+        "description": "Opt-in point queue outside the network (traffic.entryQueue).",
+        "properties": {
+          "capacity": {
+            "anyOf": [
+              {
+                "maximum": 5000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity"
+          },
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "title": "EntryQueueSpec",
         "type": "object"
       },
       "ExperimentIntent": {
@@ -851,6 +887,16 @@
             "title": "Duration",
             "type": "number"
           },
+          "entryQueue": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EntryQueueSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "lanesPerArm": {
             "default": 1,
             "maximum": 2.0,
@@ -1056,6 +1102,16 @@
             "minimum": 60.0,
             "title": "Duration",
             "type": "number"
+          },
+          "entryQueue": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EntryQueueSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "seed": {
             "default": 1,

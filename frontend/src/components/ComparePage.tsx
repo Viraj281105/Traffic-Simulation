@@ -16,6 +16,7 @@ import {
   commitLabel,
   configDifferences,
   configLabel,
+  entryModelOfConfig,
   formatSeconds,
   intersectionLabel,
   metricColumns,
@@ -457,6 +458,14 @@ function describeDifferences(records: RunRecord[]): string[] {
   if (distinct(records.map((r) => r.timing.elapsed))) {
     facts.push(
       "The runs were saved at different simulated times; accumulated counts (vehicles served, stops, events) are not normalised for that.",
+    );
+  }
+  const entryModels = records
+    .map((r) => entryModelOfConfig(r.config))
+    .filter((m) => m !== null);
+  if (new Set(entryModels).size > 1) {
+    facts.push(
+      "The runs use different entry models: some hold arrivals back at a blocked entry, others queue them outside the map. Delay, throughput and the admitted count then describe different populations, so read differences between them with care.",
     );
   }
   if (records.some((r) => !r.exactConfig)) {

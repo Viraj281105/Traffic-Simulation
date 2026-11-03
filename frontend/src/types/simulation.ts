@@ -236,6 +236,36 @@ export interface ApproachResult {
   maxQueueLength: number;
 }
 
+/** Arrivals offered to and admitted by one approach, or the junction. Counts
+ *  are exact (arrivals = admitted + waitingAtEntry + rejected);
+ *  `nominalDemand` and `estimatedSuppressedArrivals` are expectations from
+ *  the configured rate. */
+export interface DemandCounts {
+  arrivals: number;
+  admitted: number;
+  waitingAtEntry: number;
+  /** Turned away by a full entry queue (always 0 under "suspend"). */
+  rejected: number;
+  /** Time an approach had an arrival unable to enter. */
+  entryBlockedSeconds: number;
+  nominalDemand: number;
+  estimatedSuppressedArrivals: number;
+}
+
+export interface DemandAccounting extends DemandCounts {
+  /** "suspend": a full entry pauses that approach's arrivals (default).
+   *  "queue": arrivals wait in a point queue outside the network. */
+  entryModel: "suspend" | "queue";
+  /** Arrival-to-entry wait of admitted vehicles (s). */
+  meanEntryWaitSeconds: number | null;
+  maxEntryWaitSeconds: number;
+  /** How long the oldest arrival still outside has waited (s). */
+  oldestWaitingSeconds: number | null;
+  admittedShareOfNominal: number | null;
+  demandFiguresAreEstimates: true;
+  byApproach: Partial<Record<SignalDirection, DemandCounts>>;
+}
+
 /** V1.3 green-time measures, the same for fixed-time and adaptive signals. */
 export interface SignalTiming {
   signalControl: "fixed_time" | "adaptive";
@@ -308,13 +338,22 @@ export interface RunningMetrics {
   directionalFairnessIndex: number;
   /** Vehicles in the network right now (instantaneous). */
   activeVehicleCount: number;
-  /** All vehicles spawned since the run began (not warmup-limited). This is
-   *  the offered demand only while `vehicleLimitReached` is false. */
+  /** All vehicles admitted to the network since the run began (not
+   *  warmup-limited). Admitted, not offered: see `demandAccounting`. */
   totalVehiclesSpawned: number;
   /** Per-run cap on vehicles generated (traffic.totalVehicles). */
   vehicleLimit?: number;
   /** True once generation hit the cap: later demand was not offered. */
   vehicleLimitReached?: boolean;
+  /** Of the vehicles admitted after warm-up, the share (0-1) still in the
+   *  network: the part every exited-vehicle figure leaves out. Null until
+   *  one is admitted. */
+  unfinishedShare?: number | null;
+  /** Mean wait outside the network before entry (s), over the vehicles
+   *  that exited after warm-up (the averageDelay population). */
+  averageEntryWait?: number;
+  /** Offered vs admitted demand since t = 0 (metric contract §7.10a). */
+  demandAccounting?: DemandAccounting | null;
   /** Mean instantaneous speed (m/s) of vehicles in the network right now. */
   averageTravelSpeed: number;
   queueStabilityIndex: number;

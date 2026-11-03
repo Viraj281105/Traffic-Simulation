@@ -197,6 +197,18 @@ def generate_findings(
             ["validity.vehicleLimitReached"],
             [],
         )
+    if validity.get("servedDemandDiffers"):
+        add(
+            "reliability",
+            "In at least one comparison the option with the lower mean delay "
+            "admitted less of the offered demand, or left more of it unfinished, "
+            "by more than 5 percentage points. Its delay advantage may come from "
+            "the traffic it did not serve; read delay together with vehicles "
+            "served and the unfinished share.",
+            "high",
+            ["validity.servedDemandDiffers"],
+            [],
+        )
     if "environmental" in indicator_groups:
         add(
             "note",

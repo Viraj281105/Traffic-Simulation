@@ -17,11 +17,13 @@ export interface Hud {
 }
 
 /** Live readout of the replay, sampled a few times a second from the same
- *  recorded frames the canvas draws. */
+ *  recorded frames the canvas draws. While `active` is false (its section is
+ *  off screen) the readout holds still instead of re-rendering for nobody. */
 export function useHud(
   data: SceneData | null,
   strategy: StrategyId,
   clock: RefObject<SimClock>,
+  active?: RefObject<boolean>,
   everyMs = 250,
 ): Hud {
   const [hud, setHud] = useState<Hud>({
@@ -51,11 +53,11 @@ export function useHud(
     };
     read();
     const id = window.setInterval(() => {
-      if (!document.hidden) read();
+      if (!document.hidden && (active?.current ?? true)) read();
     }, everyMs);
     return () => {
       window.clearInterval(id);
     };
-  }, [data, strategy, clock, everyMs]);
+  }, [data, strategy, clock, active, everyMs]);
   return hud;
 }

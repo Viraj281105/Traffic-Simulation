@@ -252,9 +252,16 @@ class AdaptiveSignalController(FixedTimeSignalController):
         if phase.color == "green":
             self._update_green(delta_time)
         elif self.time_in_current_state >= phase.duration:
-            # Clearance phases run their full configured duration.
-            self.time_in_current_state -= phase.duration
-            self._after_clearance()
+            # Clearance phases run their full configured duration, and one
+            # that has used it up hands over in this tick: a zero-length
+            # all-red (allRedTime: 0) is passed through rather than shown for
+            # a tick (F-40). Entering a green ends the loop.
+            while (
+                self.current_phase.color != "green"
+                and self.time_in_current_state >= self.current_phase.duration
+            ):
+                self.time_in_current_state -= self.current_phase.duration
+                self._after_clearance()
         else:
             self._status = "clearance"
         self._apply_signals()

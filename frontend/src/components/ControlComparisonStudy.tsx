@@ -3,7 +3,11 @@ import { useStudyJob } from "../hooks/useStudyJob";
 import { STUDY_JOB_ROUTES } from "../services/studyJobs";
 import { StudyProgress } from "./ui/StudyProgress";
 import { downloadText } from "../metrics/catalog";
-import { ADAPTIVE_DEFAULTS } from "../types/config";
+import { ADAPTIVE_DEFAULTS, normalEntryQueue } from "../types/config";
+import { servedDemandNote, type ServedDemand } from "../metrics/servedDemand";
+import { EntryModelChoice } from "./scenario/EntryModelChoice";
+import { entryModelSentence, type EntryModelUsed } from "../metrics/entryModel";
+import type { EntryQueueSpec } from "../scenario/scenarioTypes";
 
 /** V1.3 three-way study result (backend study/control_comparison.py). */
 type Control = "fixed_time" | "adaptive" | "roundabout";
@@ -21,6 +25,8 @@ interface PairResult {
   ciLow: number | null;
   ciHigh: number | null;
   reading: Reading;
+  /** Served-population difference (absent in results saved before it). */
+  servedDemand?: ServedDemand;
 }
 
 interface LevelResult {
@@ -43,6 +49,9 @@ export interface ControlComparisonResult {
   calibration: { calibrated: boolean; note: string };
   tieTolerance: { absSeconds: number; relative: number };
   collisionCount: Record<Control, number>;
+  /** The entry model every run used (absent in results saved before it:
+   *  those ran "suspend"). */
+  entryModel?: EntryModelUsed;
   method: { design: string; interval: string; delayComparison: string };
   results: LevelResult[];
 }
@@ -102,6 +111,7 @@ function csvOf(result: ControlComparisonResult): string {
       "phase_changes_mean",
       "green_mean_s",
       "green_utilisation_mean",
+      "entry_wait_mean_s",
     ].join(","),
   ];
   for (const level of result.results) {
@@ -122,6 +132,7 @@ function csvOf(result: ControlComparisonResult): string {
           v("phaseChanges"),
           v("averageGreenDuration"),
           v("greenUtilisation"),
+          v("averageEntryWait"),
         ].join(","),
       );
     }
@@ -137,10 +148,14 @@ export function ControlComparisonStudy() {
   const [lanes, setLanes] = useState(1);
   const [seeds, setSeeds] = useState(5);
   const [duration, setDuration] = useState(300);
+  const [entryQueue, setEntryQueue] = useState<EntryQueueSpec | null>(null);
   const [result, setResult] = useState<ControlComparisonResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const study = useStudyJob();
+  // The wait to enter changes how delay reads only under the point queue;
+  // under the default model it is small and shown nowhere extra.
+  const queued = result?.entryModel?.model === "queue";
   const lanesId = useId();
   const seedsId = useId();
   const durationId = useId();
@@ -153,6 +168,10 @@ export function ControlComparisonStudy() {
         lanes,
         numSeeds: seeds,
         duration,
+        // Sent only when on, so a default study posts the body it always has.
+        ...(normalEntryQueue(entryQueue)
+          ? { entryQueue: normalEntryQueue(entryQueue) }
+          : {}),
       })
       .then((r) => {
         setResult(r);
@@ -232,6 +251,9 @@ export function ControlComparisonStudy() {
         passage {ADAPTIVE_DEFAULTS.extensionStep} s,{" "}
         {ADAPTIVE_DEFAULTS.detectionDistance} m zone).
       </p>
+      <fieldset className="control-study__entry" disabled={running}>
+        <EntryModelChoice value={entryQueue} onChange={setEntryQueue} />
+      </fieldset>
 
       {running && (
         <StudyProgress
@@ -255,6 +277,11 @@ export function ControlComparisonStudy() {
             {result.collisionCount.adaptive}, roundabout{" "}
             {result.collisionCount.roundabout}.
           </p>
+          {entryModelSentence(result.entryModel) && (
+            <p className="q-note is-assumption" role="note">
+              {entryModelSentence(result.entryModel)}
+            </p>
+          )}
           <div className="multi-run-scroll">
             <table className="plain-table">
               <caption>
@@ -292,6 +319,15 @@ export function ControlComparisonStudy() {
                     {PAIRS.map((p) => (
                       <td key={p.key}>
                         {readingText(level.delayComparisons[p.key], p.a, p.b)}
+                        {servedDemandNote(
+                          level.delayComparisons[p.key]?.servedDemand,
+                        ) && (
+                          <span className="metric-key">
+                            {servedDemandNote(
+                              level.delayComparisons[p.key]?.servedDemand,
+                            )}
+                          </span>
+                        )}
                       </td>
                     ))}
                   </tr>
@@ -313,6 +349,7 @@ export function ControlComparisonStudy() {
                   <th scope="col">Phase changes</th>
                   <th scope="col">Mean green (s)</th>
                   <th scope="col">Green used</th>
+                  {queued && <th scope="col">Wait to enter (s)</th>}
                 </tr>
               </thead>
               <tbody>
@@ -340,6 +377,7 @@ export function ControlComparisonStudy() {
                             ? `${(s.greenUtilisation.mean * 100).toFixed(0)} %`
                             : "—"}
                         </td>
+                        {queued && <td>{stat(s.averageEntryWait)}</td>}
                       </tr>
                     );
                   }),

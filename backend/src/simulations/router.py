@@ -23,6 +23,7 @@ from src.api.validation import (
 )
 from src.core.config_models import ScenarioConfiguration
 from src.core.enums import SimulationStatus
+from src.csv_safety import spreadsheet_safe
 from src.engine.readout import engine_metrics
 from src.metrics.collector import MetricCollector
 from src.scenario.config_validation import semantic_config_errors
@@ -293,15 +294,18 @@ def get_simulation_report(sim_id: str, format: str = "csv") -> Any:  # noqa: A00
         }
 
     output = io.StringIO()
-    writer = csv.writer(output)
+    writer = csv.writer(output, lineterminator="\n")
 
     # Write header
     writer.writerow(["Metric Name", "Value"])
     for key, value in final_metrics.items():
+        safe_key = spreadsheet_safe(str(key))
         if isinstance(value, dict):
-            writer.writerow([key, json.dumps(value)])
+            writer.writerow([safe_key, spreadsheet_safe(json.dumps(value))])
+        elif isinstance(value, str):
+            writer.writerow([safe_key, spreadsheet_safe(value)])
         else:
-            writer.writerow([key, value])
+            writer.writerow([safe_key, value])
 
     output.seek(0)
     return StreamingResponse(

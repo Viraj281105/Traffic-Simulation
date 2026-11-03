@@ -359,6 +359,13 @@ const STUDY = {
           ciLow: 3,
           ciHigh: 7,
           reading: "higher",
+          // The roundabout's lower delay came with less traffic served.
+          servedDemand: {
+            admittedShareOfNominalDifference: 0.3,
+            unfinishedShareDifference: 0,
+            comparable: false,
+            lowerDelayServedLess: true,
+          },
         },
         fixed_time_vs_roundabout: {
           meanDifference: 0.4,
@@ -403,6 +410,10 @@ describe("Research Lab three-way study", () => {
     expect(row).toHaveTextContent("Adaptive lower (-9.0 s, -11.0 to -7.0)");
     expect(row).toHaveTextContent("Roundabout lower");
     expect(row).toHaveTextContent("About the same");
+    // Only the pair whose lower-delay side served less carries the caution.
+    expect(within(row).getAllByText(/served less of the demand/)).toHaveLength(
+      1,
+    );
     expect(
       screen.getByRole("button", { name: "Download CSV" }),
     ).toBeInTheDocument();

@@ -7,6 +7,7 @@ including legacy rows stored before runs had an owner.
 
 import copy
 import sqlite3
+from contextlib import closing
 from functools import lru_cache
 from typing import Any, Dict, Iterator
 
@@ -100,7 +101,7 @@ def test_admin_sees_every_run_and_legacy_rows_only_admins_see(
 ) -> None:
     alice_run = _saved_by("alice")
     legacy_run = _saved_by("someone")
-    with sqlite3.connect(isolated_db) as conn:
+    with closing(sqlite3.connect(isolated_db)) as conn, conn:
         conn.execute(
             "UPDATE uf_calibration_runs SET user_id = NULL WHERE id = ?", (legacy_run,)
         )
@@ -115,7 +116,7 @@ def test_admin_sees_every_run_and_legacy_rows_only_admins_see(
 
 
 def test_a_table_from_before_ownership_is_migrated(isolated_db: str) -> None:
-    with sqlite3.connect(isolated_db) as conn:
+    with closing(sqlite3.connect(isolated_db)) as conn, conn:
         conn.execute(
             """CREATE TABLE uf_calibration_runs (
                 id TEXT PRIMARY KEY,

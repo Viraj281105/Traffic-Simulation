@@ -54,6 +54,7 @@ Khushi must create repository secrets in GitHub to allow GitHub Actions to authe
 | `EC2_HOST` | EC2 Public IP or DNS hostname | `KHUSHI ACTION:` Provide EC2 public IPv4 (e.g. `<EC2_PUBLIC_IP>` or `<EC2_PUBLIC_DNS>`) | **Required** |
 | `EC2_USER` | SSH username | `KHUSHI ACTION:` Typically `ubuntu` (for Ubuntu AMIs) or `ec2-user` (for Amazon Linux) | **Required** |
 | `EC2_SSH_PRIVATE_KEY` | Private SSH key (PEM format) | `KHUSHI ACTION:` Full contents of your `.pem` key file including `-----BEGIN RSA PRIVATE KEY-----` and `-----END RSA PRIVATE KEY-----` | **Required** |
+| `EC2_KNOWN_HOSTS` | The instance's SSH host key, pinned (F-16) | `KHUSHI ACTION:` One `known_hosts` line per host key, obtained over a trusted channel (see §3.E below). The deploy refuses to connect without it | **Required** |
 | `EC2_SSH_PORT` | SSH daemon port on EC2 | `22` (default unless custom port configured) | Optional (defaults to `22`) |
 | `EC2_DEPLOY_PATH` | Path where repo is cloned on EC2 | `/home/ubuntu/Traffic-Simulation` or `~/Traffic-Simulation` | Optional (defaults to `~/Traffic-Simulation`) |
 
@@ -157,6 +158,28 @@ Ensure permissions are strict:
 chmod 700 ~/.ssh
 chmod 600 ~/.ssh/authorized_keys
 ```
+
+**Pin the host key (`EC2_KNOWN_HOSTS`).** The workflow only connects to a
+host whose key it already knows (`StrictHostKeyChecking yes`); a deploy-time
+`ssh-keyscan` would trust whatever answered, so a network attacker could
+impersonate the instance and receive the deployment. Read the key over a
+channel that does not depend on that network path, for example the EC2
+console (**Instance → Connect → EC2 Instance Connect** or **Session
+Manager**), on the instance itself:
+
+```bash
+cat /etc/ssh/ssh_host_ed25519_key.pub
+```
+
+and store, as the `EC2_KNOWN_HOSTS` secret, the line
+`<EC2_HOST> ssh-ed25519 AAAA…` (with a non-22 port: `[<EC2_HOST>]:<port>
+ssh-ed25519 AAAA…`). Add one line per key type if several are offered. When
+the instance is replaced or its IP changes, update the secret.
+
+If a deploy is needed before the key can be pinned, set the repository
+**variable** (not secret) `ALLOW_UNPINNED_EC2_HOST_KEY` to `true`: the run
+then scans the key, prints its fingerprint and marks the run with a warning.
+Remove the variable once the secret is set.
 
 ### F. AWS Security Group Firewall Ports (`KHUSHI: VERIFY`)
 
