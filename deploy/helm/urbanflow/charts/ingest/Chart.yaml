@@ -1,0 +1,6 @@
+apiVersion: v2
+name: ingest
+description: UrbanFlow Go gRPC ingest service (F1)
+type: application
+version: 0.1.0
+appVersion: "3.6.0"

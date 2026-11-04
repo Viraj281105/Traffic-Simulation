@@ -1,0 +1,3 @@
+image: {repository: urbanflow-ingest, tag: dev, pullPolicy: IfNotPresent}
+service: {port: 9090}
+resources: {}

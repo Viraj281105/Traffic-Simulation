@@ -1,0 +1,60 @@
+# Top-level values; keys below `backend:`, `frontend:` and `ingest:` are passed
+# to the matching subchart. Override per environment with -f values-kind.yaml.
+backend:
+  enabled: true
+  image:
+    repository: urbanflow-backend
+    tag: dev
+    pullPolicy: IfNotPresent
+  # The frontend nginx config proxies to the hostname "backend", so this
+  # Service name must stay "backend" unless the nginx template changes too.
+  service:
+    name: backend
+    port: 8000
+  env:
+    LOG_FORMAT: json
+    CORS_ORIGINS: "http://localhost:8080,http://127.0.0.1:8080"
+    # Peers whose X-Real-IP is believed: the pod network (kind default shown).
+    TRUSTED_PROXY_IPS: "10.244.0.0/16"
+    STUDY_WORKERS: "2"
+  # Secrets come from an existing Secret if set; otherwise the chart creates
+  # one from these values (empty = auth disabled, as in docker-compose.yml).
+  existingSecret: ""
+  apiKey: ""
+  metricsToken: ""
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClass: ""
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {memory: 512Mi}
+
+frontend:
+  enabled: true
+  image:
+    repository: urbanflow-frontend
+    tag: dev
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+    nodePort: null
+  # Same value as backend.apiKey; nginx adds it to proxied requests.
+  existingSecret: ""
+  apiKey: ""
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {memory: 128Mi}
+
+ingest:
+  enabled: false
+  image:
+    repository: urbanflow-ingest
+    tag: dev
+    pullPolicy: IfNotPresent
+  service:
+    port: 9090
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {memory: 256Mi}

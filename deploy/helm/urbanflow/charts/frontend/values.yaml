@@ -1,0 +1,5 @@
+image: {repository: urbanflow-frontend, tag: dev, pullPolicy: IfNotPresent}
+service: {type: ClusterIP, port: 8080, nodePort: null}
+existingSecret: ""
+apiKey: ""
+resources: {}
