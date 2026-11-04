@@ -49,7 +49,11 @@ MAX_V2_BODY_BYTES = 1024 * 1024
 
 # Larger uploads that are still bounded: a .ufpkg package (W7) may be 10 MB.
 MAX_PACKAGE_UPLOAD_BYTES = 10 * 1024 * 1024
-PREFIX_LIMITS: Dict[str, int] = {"/api/v3/packages": MAX_PACKAGE_UPLOAD_BYTES}
+PREFIX_LIMITS: Dict[str, int] = {
+    "/api/v3/packages": MAX_PACKAGE_UPLOAD_BYTES,
+    # Network file validation (src/insights): the router also rejects over 50 MB.
+    "/api/v3/networks/validate": 50 * 1024 * 1024,
+}
 
 # Stateless compute that is cheap per request but takes arbitrary documents.
 LIMITED_PREFIXES: Sequence[str] = (

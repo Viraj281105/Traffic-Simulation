@@ -33,9 +33,11 @@ from src.database.db import init_db
 from src.discovery.router import create_router as build_discovery_router
 from src.experiments.router import create_router as build_experiments_router
 from src.history import router as history_router
+from src.insights.router import create_router as build_insights_router
 from src.live import router as live_router
 from src.live.sessions import live_session_middleware
 from src.networks.api import router as networks_router
+from src.networks.import_api import router as network_graphs_router
 from src.observability import router as observability_router
 from src.observability.logging_setup import configure_logging
 from src.observability.middleware import ObservabilityMiddleware
@@ -43,6 +45,7 @@ from src.planning.router import create_router as build_planning_router
 from src.replays import router as replays_router
 from src.simulations import router as simulations_router
 from src.stress.router import create_router as build_stress_router
+from src.study import metrics_router
 from src.study import router as study_router
 from src.study.runner import shutdown_pool
 from src.suites import router as suites_router
@@ -99,6 +102,13 @@ app.include_router(
     dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
 )
 
+# V3.9 /api/v2/network-graphs (src/networks/import_api.py): stateless graph import,
+# validation, SUMO export and mesoscopic network simulation.
+app.include_router(
+    network_graphs_router,
+    dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
+)
+
 # V1.8 /api/v2/calibration (src/calibration/api.py): runs belong to their creator.
 app.include_router(calibration_api.router)
 
@@ -147,6 +157,15 @@ app.include_router(
     )
 )
 
+# V3.2 /api/v3 result screens (src/insights/router.py): comparison, sensitivity, run metrics and diff,
+# nightly regression, report, RL comparison and network upload checks. Same guards as the other v3 routes.
+app.include_router(
+    build_insights_router(
+        user_dependency=get_current_identity,
+        dependencies=[Depends(require_api_key)],
+    )
+)
+
 # V3.0 /api/v3/tokens (src/api/tokens_router.py): Personal Access Tokens (W7 Stage 1).
 app.include_router(
     tokens_router,
@@ -175,6 +194,8 @@ app.include_router(live_router.router)
 app.include_router(simulations_router.router)
 # /api/v1/study/*: sweeps, validation, control comparison (src/study/router.py).
 app.include_router(study_router.router)
+# /api/v1/metrics/* and /api/v1/study/sensitivity* (src/study/metrics_router.py).
+app.include_router(metrics_router.router)
 # /api/v1/replays (src/replays/router.py).
 app.include_router(replays_router.router)
 # /api/suites (src/suites/router.py).
