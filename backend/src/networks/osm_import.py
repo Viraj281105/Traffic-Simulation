@@ -66,10 +66,18 @@ def _read_xml(text: str) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
     for el in root:
         tags = {t.get("k"): t.get("v") for t in el.findall("tag")}
         if el.tag == "node" and el.get("lat") and el.get("lon"):
-            nodes[el.get("id")] = (float(el.get("lat")), float(el.get("lon")), tags)
+            nodes[str(el.get("id"))] = (
+                float(str(el.get("lat"))),
+                float(str(el.get("lon"))),
+                tags,
+            )
         elif el.tag == "way":
             ways.append(
-                {"id": el.get("id"), "nds": [n.get("ref") for n in el.findall("nd")], "tags": tags}
+                {
+                    "id": el.get("id"),
+                    "nds": [n.get("ref") for n in el.findall("nd")],
+                    "tags": tags,
+                }
             )
     return nodes, ways
 
@@ -106,14 +114,16 @@ def import_osm(text: str) -> ImportResult:
         result.errors.append(str(err))
         return result
 
-    skipped: Counter = Counter()
+    skipped: Counter[str] = Counter()
     kept: List[Dict[str, Any]] = []
     for way in ways:
         tags = way["tags"]
         hw = tags.get("highway")
         if hw not in DRIVABLE:
             skipped[hw if hw else "not a road"] += 1
-        elif tags.get("access") in ("no", "private") or tags.get("motor_vehicle") == "no":
+        elif (
+            tags.get("access") in ("no", "private") or tags.get("motor_vehicle") == "no"
+        ):
             skipped["no motor access"] += 1
         elif len(way["nds"]) < 2:
             skipped["fewer than two nodes"] += 1
@@ -135,12 +145,16 @@ def import_osm(text: str) -> ImportResult:
             result.messages.append("Skipped: " + _summary(skipped))
         return result
 
-    lat0 = sum(nodes[n][0] for w in usable for n in w["nds"]) / sum(len(w["nds"]) for w in usable)
-    lon0 = sum(nodes[n][1] for w in usable for n in w["nds"]) / sum(len(w["nds"]) for w in usable)
+    lat0 = sum(nodes[n][0] for w in usable for n in w["nds"]) / sum(
+        len(w["nds"]) for w in usable
+    )
+    lon0 = sum(nodes[n][1] for w in usable for n in w["nds"]) / sum(
+        len(w["nds"]) for w in usable
+    )
     kx = EARTH_RADIUS * math.cos(math.radians(lat0)) * math.pi / 180.0
     ky = EARTH_RADIUS * math.pi / 180.0
 
-    usage: Counter = Counter()
+    usage: Counter[str] = Counter()
     for way in usable:
         for n in set(way["nds"]):
             usage[n] += 1
@@ -168,8 +182,10 @@ def import_osm(text: str) -> ImportResult:
         speed = min(max(speed, 1.0), 45.0)
         oneway = tags.get("oneway")
         forward, backward = True, True
-        if oneway in ("yes", "true", "1") or tags.get("junction") == "roundabout" or (
-            tags["highway"] == "motorway" and oneway != "no"
+        if (
+            oneway in ("yes", "true", "1")
+            or tags.get("junction") == "roundabout"
+            or (tags["highway"] == "motorway" and oneway != "no")
         ):
             backward = False
         elif oneway == "-1":
@@ -179,26 +195,52 @@ def import_osm(text: str) -> ImportResult:
             total = int(tags["lanes"])
             lanes = total if not (forward and backward) else max(1, total // 2)
         lanes = max(1, min(lanes, 8))
-        cuts = [0] + [
-            i for i in range(1, len(nds) - 1)
-            if usage[nds[i]] >= 2 or nodes[nds[i]][2].get("highway") == "traffic_signals"
-        ] + [len(nds) - 1]
+        cuts = (
+            [0]
+            + [
+                i
+                for i in range(1, len(nds) - 1)
+                if usage[nds[i]] >= 2
+                or nodes[nds[i]][2].get("highway") == "traffic_signals"
+            ]
+            + [len(nds) - 1]
+        )
         for s, (a, b) in enumerate(zip(cuts, cuts[1:])):
             seg = nds[a : b + 1]
-            length = sum(_haversine(nodes[p][:2], nodes[q][:2]) for p, q in zip(seg, seg[1:]))
+            length = sum(
+                _haversine(nodes[p][:2], nodes[q][:2]) for p, q in zip(seg, seg[1:])
+            )
             if length <= 0 or seg[0] == seg[-1]:
-                result.messages.append(f"Way {way['id']} segment {s} skipped: zero length or a closed loop")
+                result.messages.append(
+                    f"Way {way['id']} segment {s} skipped: zero length or a closed loop"
+                )
                 continue
             node(seg[0], usage[seg[0]] == 1 and a == 0)
             node(seg[-1], usage[seg[-1]] == 1 and b == len(nds) - 1)
             name = tags.get("name", "")
             base = f"{way['id']}:{s}"
             if forward:
-                links.append(GraphLink(id=base, **{"from": seg[0], "to": seg[-1]},
-                                       length=round(length, 3), lanes=lanes, speed=speed, name=name))
+                links.append(
+                    GraphLink(
+                        id=base,
+                        **{"from": seg[0], "to": seg[-1]},
+                        length=round(length, 3),
+                        lanes=lanes,
+                        speed=speed,
+                        name=name,
+                    )
+                )
             if backward:
-                links.append(GraphLink(id=base + "r", **{"from": seg[-1], "to": seg[0]},
-                                       length=round(length, 3), lanes=lanes, speed=speed, name=name))
+                links.append(
+                    GraphLink(
+                        id=base + "r",
+                        **{"from": seg[-1], "to": seg[0]},
+                        length=round(length, 3),
+                        lanes=lanes,
+                        speed=speed,
+                        name=name,
+                    )
+                )
     if skipped:
         result.messages.append("Skipped ways: " + _summary(skipped))
     result.graph = RoadGraph(
@@ -207,9 +249,14 @@ def import_osm(text: str) -> ImportResult:
         nodes=sorted(graph_nodes.values(), key=lambda n: n.id),
         links=links,
     )
-    result.stats = {"ways": len(ways), "waysImported": len(usable), "nodes": len(graph_nodes), "links": len(links)}
+    result.stats = {
+        "ways": len(ways),
+        "waysImported": len(usable),
+        "nodes": len(graph_nodes),
+        "links": len(links),
+    }
     return result
 
 
-def _summary(counter: Counter) -> str:
+def _summary(counter: Counter[str]) -> str:
     return ", ".join(f"{k} x{v}" for k, v in sorted(counter.items()))

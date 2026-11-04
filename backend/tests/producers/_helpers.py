@@ -51,7 +51,9 @@ def finished_experiment(experiment_id: str = EXPERIMENT) -> Dict[str, Dict[str, 
     return {experiment_id: {"userId": USER, "name": "Junction study", "result": result}}
 
 
-def client(root: Path, records: Optional[Dict[str, Dict[str, Any]]] = None) -> TestClient:
+def client(
+    root: Path, records: Optional[Dict[str, Dict[str, Any]]] = None
+) -> TestClient:
     app = FastAPI()
     app.exception_handler(HTTPException)(http_exception_handler)
     app.include_router(

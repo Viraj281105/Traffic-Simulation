@@ -80,7 +80,10 @@ class MaxPressurePolicy:
             pressure.append(stopped + self.moving_weight * max(0.0, total - stopped))
         current = int(info["active_green"])
         other = 1 - current
-        if info.get("in_transition") is False and info.get("time_in_phase", 1e9) < self.min_hold_s:
+        if (
+            info.get("in_transition") is False
+            and info.get("time_in_phase", 1e9) < self.min_hold_s
+        ):
             return current
         if pressure[other] > pressure[current] + self.switch_margin:
             return other

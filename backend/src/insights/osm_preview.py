@@ -102,7 +102,9 @@ def overpass_fetch(query: str) -> str:
     """POST the query to the configured Overpass server; the text of its reply."""
     url = os.environ.get(OVERPASS_URL_ENV, "")
     if not url:
-        raise PreviewUnavailableError("Road import from OpenStreetMap is not set up on this server")
+        raise PreviewUnavailableError(
+            "Road import from OpenStreetMap is not set up on this server"
+        )
     if not url.lower().startswith("https://"):
         raise PreviewUnavailableError("The configured Overpass server must use https")
     request = urllib.request.Request(  # noqa: S310 - https only, URL from the environment
@@ -133,7 +135,9 @@ def _lanes(tags: Dict[str, Any]) -> Optional[int]:
 
 
 def _speed_kmh(tags: Dict[str, Any]) -> Optional[float]:
-    mps = _parse_speed(tags.get("maxspeed") if isinstance(tags.get("maxspeed"), str) else None)
+    mps = _parse_speed(
+        tags.get("maxspeed") if isinstance(tags.get("maxspeed"), str) else None
+    )
     return round(mps * 3.6, 1) if mps is not None else None
 
 
@@ -174,13 +178,19 @@ def build_preview(
         tags: Dict[str, Any] = raw_tags if isinstance(raw_tags, dict) else {}
         road_class = _road_class(str(tags.get("highway", "")))
         refs = way.get("nodes")
-        if road_class is None or road_class not in classes or not isinstance(refs, list):
+        if (
+            road_class is None
+            or road_class not in classes
+            or not isinstance(refs, list)
+        ):
             continue
         if len(refs) < 2 or any(r not in nodes for r in refs):
             incomplete += 1
             continue
         pts = [nodes[r] for r in refs]
-        length = sum(_haversine((p[0], p[1]), (q[0], q[1])) for p, q in zip(pts, pts[1:]))
+        length = sum(
+            _haversine((p[0], p[1]), (q[0], q[1])) for p, q in zip(pts, pts[1:])
+        )
         for r in refs:
             used[r] = nodes[r]
         links.append(
@@ -194,7 +204,9 @@ def build_preview(
             }
         )
     if not links:
-        raise PreviewRequestError("No roads of the chosen classes were found in this area")
+        raise PreviewRequestError(
+            "No roads of the chosen classes were found in this area"
+        )
 
     messages: List[Dict[str, Any]] = []
     if incomplete:
@@ -247,16 +259,24 @@ def preview_area(
     fetch: Fetcher,
 ) -> Dict[str, Any]:
     if (place is None) == (bbox is None):
-        raise PreviewRequestError("Send either a place name or a bounding box, not both")
+        raise PreviewRequestError(
+            "Send either a place name or a bounding box, not both"
+        )
     checked: Optional[Tuple[float, float, float, float]] = None
     if bbox is not None:
         checked = check_bbox(bbox)
-        area = f"{checked[0]:.4f}, {checked[1]:.4f} to {checked[2]:.4f}, {checked[3]:.4f}"
+        area = (
+            f"{checked[0]:.4f}, {checked[1]:.4f} to {checked[2]:.4f}, {checked[3]:.4f}"
+        )
     else:
         assert place is not None
         if not place_is_valid(place):
-            raise PreviewRequestError("The place name has characters that cannot be searched")
+            raise PreviewRequestError(
+                "The place name has characters that cannot be searched"
+            )
         area = place.strip()
     if not classes:
         raise PreviewRequestError("Choose at least one road class")
-    return build_preview(fetch(build_query(place, checked, classes)), area, checked, classes)
+    return build_preview(
+        fetch(build_query(place, checked, classes)), area, checked, classes
+    )

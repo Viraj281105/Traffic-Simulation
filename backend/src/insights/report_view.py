@@ -71,7 +71,9 @@ def _summary_text(
             f"is {top['label']} (total index {top['total']:.2f}, first-order {top['firstOrder']:.2f})."
         )
     if not sentences:
-        return "No comparison or sensitivity result is available for this experiment yet."
+        return (
+            "No comparison or sensitivity result is available for this experiment yet."
+        )
     return " ".join(sentences)
 
 

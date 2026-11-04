@@ -201,7 +201,9 @@ def sobol_lite(
     }
 
 
-def apply_inputs(base_config: Mapping[str, Any], point: Mapping[str, float]) -> Dict[str, Any]:
+def apply_inputs(
+    base_config: Mapping[str, Any], point: Mapping[str, float]
+) -> Dict[str, Any]:
     """A copy of ``base_config`` with each named input written to its config path."""
     import copy
 

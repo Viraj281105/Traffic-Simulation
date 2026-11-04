@@ -62,7 +62,11 @@ def _policy_values(
 
 def _estimate(values: List[float]) -> Dict[str, Any]:
     interval = mean_confidence_interval(values, DEFAULT_CONFIDENCE)
-    return {"mean": interval.mean, "ci": [interval.lower, interval.upper], "n": interval.n}
+    return {
+        "mean": interval.mean,
+        "ci": [interval.lower, interval.upper],
+        "n": interval.n,
+    }
 
 
 def build_rl_comparison(
@@ -103,7 +107,9 @@ def build_rl_comparison(
     ):
         return None
     caveats_raw = doc.get("caveats", [])
-    if not isinstance(caveats_raw, list) or not all(isinstance(c, str) for c in caveats_raw):
+    if not isinstance(caveats_raw, list) or not all(
+        isinstance(c, str) for c in caveats_raw
+    ):
         return None
 
     lower_is_better: Optional[bool] = None

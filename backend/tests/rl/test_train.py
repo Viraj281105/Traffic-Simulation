@@ -48,10 +48,26 @@ def test_scripts_train_then_evaluate(tmp_path, monkeypatch):
     import rl_train
 
     common = ["--vph", "500", "--episode-seconds", "30"]
-    train_args = ["--algo", "dqn", "--timesteps", "36", "--out", str(tmp_path), "--run-name", "r"]
+    train_args = [
+        "--algo",
+        "dqn",
+        "--timesteps",
+        "36",
+        "--out",
+        str(tmp_path),
+        "--run-name",
+        "r",
+    ]
     assert rl_train.main(train_args + common) == 0
     out = tmp_path / "eval.json"
-    eval_args = ["--model", str(tmp_path / "r" / "model.zip"), "--seeds", "2", "--out", str(out)]
+    eval_args = [
+        "--model",
+        str(tmp_path / "r" / "model.zip"),
+        "--seeds",
+        "2",
+        "--out",
+        str(out),
+    ]
     assert rl_evaluate.main(eval_args + common) == 0
     data = json.loads(out.read_text(encoding="utf-8"))
     assert len(data["seeds"]) == 2

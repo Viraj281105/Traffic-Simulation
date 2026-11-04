@@ -2,11 +2,10 @@ import json
 from pathlib import Path
 from typing import Any, Dict
 
+import produce_paired_seeds as pp  # noqa: E402  (path set up by _helpers)
 import pytest
 
 from tests.producers import _helpers as h
-
-import produce_paired_seeds as pp  # noqa: E402  (path set up by _helpers)
 
 
 def _run(seeds, delay, thr, queue) -> Dict[str, Any]:
@@ -22,7 +21,9 @@ def _run(seeds, delay, thr, queue) -> Dict[str, Any]:
 def _runs() -> Dict[str, Dict[str, Any]]:
     return {
         "fixed": _run([1, 2, 3], [40.0, 42.0, 39.0], [100, 101, 99], [5.0, 6.0, 5.5]),
-        "adaptive": _run([1, 2, 3], [35.0, 36.0, 34.0], [110, 111, 109], [3.0, 3.5, 3.2]),
+        "adaptive": _run(
+            [1, 2, 3], [35.0, 36.0, 34.0], [110, 111, 109], [3.0, 3.5, 3.2]
+        ),
     }
 
 
@@ -49,7 +50,9 @@ def test_build_paired_doc_refuses_bad_input() -> None:
     with pytest.raises(ValueError, match="same seeds"):
         pp.build_paired_doc(runs, baseline="fixed")
     with pytest.raises(ValueError, match="alternative id"):
-        pp.build_paired_doc({"../x": _runs()["fixed"], "b": _runs()["adaptive"]}, baseline="b")
+        pp.build_paired_doc(
+            {"../x": _runs()["fixed"], "b": _runs()["adaptive"]}, baseline="b"
+        )
 
 
 def test_deep_merge_does_not_mutate_inputs() -> None:
@@ -61,7 +64,8 @@ def test_deep_merge_does_not_mutate_inputs() -> None:
 
 def test_parse_alternatives() -> None:
     out = pp.parse_alternatives(
-        ["fixed=signal", "ad=signal"], ['ad={"controller":{"signalControl":"adaptive"}}']
+        ["fixed=signal", "ad=signal"],
+        ['ad={"controller":{"signalControl":"adaptive"}}'],
     )
     assert out["fixed"] == {"geometry": "signal", "overrides": {}}
     assert out["ad"]["overrides"]["controller"]["signalControl"] == "adaptive"
@@ -75,16 +79,30 @@ def test_parse_alternatives() -> None:
         pp.parse_alternatives(["a=signal"], ["a={bad"])
 
 
-def test_cli_rejects_bad_arguments(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_cli_rejects_bad_arguments(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     code = pp.main(
-        ["--experiment-id", "../x", "--alt", "a=signal", "--alt", "b=signal", "--baseline", "a",
-         "--results-dir", str(tmp_path)]
+        [
+            "--experiment-id",
+            "../x",
+            "--alt",
+            "a=signal",
+            "--alt",
+            "b=signal",
+            "--baseline",
+            "a",
+            "--results-dir",
+            str(tmp_path),
+        ]
     )
     assert code == 2 and "experiment id" in capsys.readouterr().err
     assert not list(tmp_path.iterdir())
 
 
-def test_end_to_end_file_passes_the_comparison_and_report_endpoints(tmp_path: Path) -> None:
+def test_end_to_end_file_passes_the_comparison_and_report_endpoints(
+    tmp_path: Path,
+) -> None:
     path = pp.produce(
         h.EXPERIMENT,
         {
@@ -106,7 +124,10 @@ def test_end_to_end_file_passes_the_comparison_and_report_endpoints(tmp_path: Pa
     assert b"\r" not in path.read_bytes()
     doc = json.loads(path.read_text(encoding="utf-8"))
     assert doc["metricsRunId"] == f"{h.EXPERIMENT}-fixed"
-    assert doc["alternatives"]["fixed"]["seeds"] == doc["alternatives"]["adaptive"]["seeds"]
+    assert (
+        doc["alternatives"]["fixed"]["seeds"]
+        == doc["alternatives"]["adaptive"]["seeds"]
+    )
 
     api = h.client(tmp_path)
     res = api.get(f"/api/v3/experiments/{h.EXPERIMENT}/comparison")

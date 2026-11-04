@@ -23,11 +23,13 @@ def import_sumo(text: str) -> ImportResult:
         result.errors.append(str(err))
         return result
     if root.tag != "net":
-        result.errors.append(f"Not a SUMO net file: root element is <{root.tag}>, expected <net>")
+        result.errors.append(
+            f"Not a SUMO net file: root element is <{root.tag}>, expected <net>"
+        )
         return result
 
     nodes: Dict[str, GraphNode] = {}
-    skipped: Counter = Counter()
+    skipped: Counter[str] = Counter()
     for j in root.findall("junction"):
         jid, jtype = j.get("id", ""), j.get("type", "priority")
         if not jid or jid.startswith(":") or jtype == "internal":
@@ -45,7 +47,12 @@ def import_sumo(text: str) -> ImportResult:
             kind="gate" if jtype == "dead_end" else "junction",
             control="signal" if jtype.startswith("traffic_light") else None,
         )
-        if jtype not in ("priority", "dead_end", "traffic_light", "traffic_light_unregulated"):
+        if jtype not in (
+            "priority",
+            "dead_end",
+            "traffic_light",
+            "traffic_light_unregulated",
+        ):
             result.messages.append(
                 f"Junction {jid!r} has type {jtype!r}, treated as an ordinary junction"
             )
@@ -58,7 +65,9 @@ def import_sumo(text: str) -> ImportResult:
             continue
         a, b = e.get("from"), e.get("to")
         if a not in nodes or b not in nodes:
-            result.messages.append(f"Edge {eid!r} skipped: it connects an unknown junction")
+            result.messages.append(
+                f"Edge {eid!r} skipped: it connects an unknown junction"
+            )
             continue
         lanes = e.findall("lane")
         if not lanes:
@@ -68,10 +77,14 @@ def import_sumo(text: str) -> ImportResult:
             length = float(lanes[0].get("length", "0"))
             speed = float(lanes[0].get("speed", "13.89"))
         except ValueError:
-            result.messages.append(f"Edge {eid!r} skipped: lane length or speed is not a number")
+            result.messages.append(
+                f"Edge {eid!r} skipped: lane length or speed is not a number"
+            )
             continue
         if length <= 0 or speed <= 0:
-            result.messages.append(f"Edge {eid!r} skipped: lane length and speed must be positive")
+            result.messages.append(
+                f"Edge {eid!r} skipped: lane length and speed must be positive"
+            )
             continue
         links.append(
             GraphLink(
@@ -95,7 +108,9 @@ def import_sumo(text: str) -> ImportResult:
             "signals use the default two-phase timing"
         )
     if root.findall("roundabout"):
-        result.messages.append("Roundabout definitions ignored; their edges are imported as plain links")
+        result.messages.append(
+            "Roundabout definitions ignored; their edges are imported as plain links"
+        )
     if skipped:
         result.messages.append(
             "Skipped " + ", ".join(f"{v} {k}" for k, v in sorted(skipped.items()))
@@ -141,31 +156,33 @@ def export_sumo(graph: RoadGraph) -> str:
         )
         for i in range(link.lanes):
             out.append(
-                f"        <lane id={quoteattr(f'{link.id}_{i}')} index=\"{i}\" "
+                f'        <lane id={quoteattr(f"{link.id}_{i}")} index="{i}" '
                 f'speed="{_num(link.speed)}" length="{_num(link.length)}" '
                 f"shape={quoteattr(shape)}/>"
             )
         out.append("    </edge>")
     for node in sorted(graph.nodes, key=lambda n: n.id):
         jtype = (
-            "dead_end" if node.kind == "gate"
-            else "traffic_light" if node.control == "signal" else "priority"
+            "dead_end"
+            if node.kind == "gate"
+            else "traffic_light"
+            if node.control == "signal"
+            else "priority"
         )
-        inc = " ".join(
-            f"{k.id}_{i}" for k in incoming[node.id] for i in range(k.lanes)
-        )
+        inc = " ".join(f"{k.id}_{i}" for k in incoming[node.id] for i in range(k.lanes))
         out.append(
-            f"    <junction id={quoteattr(node.id)} type=\"{jtype}\" "
+            f'    <junction id={quoteattr(node.id)} type="{jtype}" '
             f'x="{_num(node.x)}" y="{_num(node.y)}" incLanes={quoteattr(inc)} intLanes=""/>'
         )
     outgoing = graph.outgoing()
     for node in sorted(graph.nodes, key=lambda n: n.id):
-        for i in incoming[node.id]:
-            for o in outgoing[node.id]:
-                if o.to == i.from_ and len(outgoing[node.id]) > 1:
+        for in_link in incoming[node.id]:
+            for out_link in outgoing[node.id]:
+                if out_link.to == in_link.from_ and len(outgoing[node.id]) > 1:
                     continue  # no U-turn when another way on exists
                 out.append(
-                    f"    <connection from={quoteattr(i.id)} to={quoteattr(o.id)} "
+                    f"    <connection from={quoteattr(in_link.id)} "
+                    f"to={quoteattr(out_link.id)} "
                     'fromLane="0" toLane="0"/>'
                 )
     out.append("</net>")

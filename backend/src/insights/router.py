@@ -73,7 +73,9 @@ class ImportPreviewRequest(BaseModel):
     source: str = Field("osm", pattern="^osm$")
     place: Optional[str] = Field(None, max_length=200)
     bbox: Optional[List[float]] = Field(None, min_length=4, max_length=4)
-    roadClasses: List[str] = Field(..., min_length=1, max_length=len(osm_preview.ROAD_CLASSES))
+    roadClasses: List[str] = Field(
+        ..., min_length=1, max_length=len(osm_preview.ROAD_CLASSES)
+    )
 
 
 def create_router(
@@ -130,7 +132,9 @@ def create_router(
             raise not_available() from err
         except (StorageError, OSError, RuntimeError) as err:
             logger.warning("run store unavailable", exc_info=True)
-            raise HTTPException(status_code=503, detail="The run store is not available") from err
+            raise HTTPException(
+                status_code=503, detail="The run store is not available"
+            ) from err
 
     def comparison_for(
         identity: UserIdentity,

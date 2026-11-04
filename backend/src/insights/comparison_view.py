@@ -34,12 +34,18 @@ def _metric_info(doc: Mapping[str, Any], metric_id: str) -> Optional[Dict[str, A
         return None
     label, unit = info.get("label"), info.get("unit")
     lower = info.get("lowerIsBetter")
-    if not isinstance(label, str) or not isinstance(unit, str) or not isinstance(lower, bool):
+    if (
+        not isinstance(label, str)
+        or not isinstance(unit, str)
+        or not isinstance(lower, bool)
+    ):
         return None
     return {"id": metric_id, "label": label, "unit": unit, "lowerIsBetter": lower}
 
 
-def _series(doc: Mapping[str, Any], alt: str, metric_id: str) -> Optional[Dict[int, float]]:
+def _series(
+    doc: Mapping[str, Any], alt: str, metric_id: str
+) -> Optional[Dict[int, float]]:
     entry = (doc.get("alternatives") or {}).get(alt)
     if not isinstance(entry, dict):
         return None
@@ -68,7 +74,9 @@ def choose_pair(
         return None
     names = list(alts)
     baseline = doc.get("baseline")
-    a_id: str = a or (baseline if isinstance(baseline, str) and baseline in alts else names[0])
+    a_id: str = a or (
+        baseline if isinstance(baseline, str) and baseline in alts else names[0]
+    )
     if a_id not in alts:
         return None
     if b is None:
@@ -129,9 +137,7 @@ def build_comparison(
     diffs = [x - y for x, y in zip(xs, ys)]
     mean_d = math.fsum(diffs) / len(diffs)
     sd = math.sqrt(math.fsum((d - mean_d) ** 2 for d in diffs) / (len(diffs) - 1))
-    effect = (
-        {"name": "Cohen's d (paired)", "value": mean_d / sd} if sd > 0.0 else None
-    )
+    effect = {"name": "Cohen's d (paired)", "value": mean_d / sd} if sd > 0.0 else None
     pct = round(result.confidence * 100)
     return {
         "experimentId": experiment_id,
@@ -152,4 +158,3 @@ def build_comparison(
         "verdict": _verdict(result.direction, info["lowerIsBetter"]),
         "eligibility": eligibility,
     }
-

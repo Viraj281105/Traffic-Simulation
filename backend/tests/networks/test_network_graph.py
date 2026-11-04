@@ -98,11 +98,15 @@ def test_conservation_property_under_load(seed: int, vph: float) -> None:
     # Nothing exceeds its storage.
     links = g.link_map()
     for lid, stat in res["perLink"].items():
-        assert stat["peakOccupancy"] <= max(1, int(links[lid].lanes * links[lid].length / 7.5))
+        assert stat["peakOccupancy"] <= max(
+            1, int(links[lid].lanes * links[lid].length / 7.5)
+        )
 
 
 def test_spillback_blocks_entry_when_overloaded() -> None:
-    res = simulate_network(build_two_junction_corridor(), [Flow("W", "E", 7200)], duration=300, seed=1)
+    res = simulate_network(
+        build_two_junction_corridor(), [Flow("W", "E", 7200)], duration=300, seed=1
+    )
     assert res["blockedAtEntry"] > 0 and res["conserved"]
 
 
@@ -114,8 +118,12 @@ def test_unroutable_flow_is_reported() -> None:
 
 def test_signal_gives_each_axis_turns() -> None:
     g = build_two_junction_corridor()
-    res = simulate_network(g, [Flow("W", "E", 900), Flow("N1", "S1", 900)], duration=600, seed=2)
-    assert res["perLink"]["W>J1"]["passed"] > 0 and res["perLink"]["N1>J1"]["passed"] > 0
+    res = simulate_network(
+        g, [Flow("W", "E", 900), Flow("N1", "S1", 900)], duration=600, seed=2
+    )
+    assert (
+        res["perLink"]["W>J1"]["passed"] > 0 and res["perLink"]["N1>J1"]["passed"] > 0
+    )
 
 
 # --- validation messages ---------------------------------------------------
@@ -133,11 +141,25 @@ def test_validation_messages_are_readable() -> None:
     out = validate_graph(bad)
     assert not out["valid"]
     text = " | ".join(out["errors"])
-    for needle in ("Duplicate node id 'A'", "unknown node 'Z'", "same node", "12 lanes", "Duplicate link id '2'", "limit is 20000"):
+    for needle in (
+        "Duplicate node id 'A'",
+        "unknown node 'Z'",
+        "same node",
+        "12 lanes",
+        "Duplicate link id '2'",
+        "limit is 20000",
+    ):
         assert needle in text
-    assert validate_graph({})["errors"] == ["The network has no nodes; nothing was imported"]
+    assert validate_graph({})["errors"] == [
+        "The network has no nodes; nothing was imported"
+    ]
     assert not validate_graph([1])["valid"]
-    assert validate_graph({"nodes": [{"id": "A"}], "links": [{"id": "x", "from": "A", "to": "A", "length": -1}]})["errors"]
+    assert validate_graph(
+        {
+            "nodes": [{"id": "A"}],
+            "links": [{"id": "x", "from": "A", "to": "A", "length": -1}],
+        }
+    )["errors"]
 
 
 def test_validation_warnings_for_split_networks() -> None:
@@ -166,7 +188,10 @@ def test_osm_xml_import() -> None:
     assert nodes["1"].kind == "gate" and nodes["5"].kind == "gate"
     # Main Street split at 2 and 3, both ways; maxspeed 30 mph, lanes 2 -> 1 per direction.
     assert {"100:0", "100:0r", "100:1", "100:2r"} <= set(links)
-    assert links["100:0"].speed == pytest.approx(13.41, abs=0.01) and links["100:0"].lanes == 1
+    assert (
+        links["100:0"].speed == pytest.approx(13.41, abs=0.01)
+        and links["100:0"].lanes == 1
+    )
     assert links["100:0"].length == pytest.approx(140.0, abs=3)
     assert links["100:0"].name == "Main Street"
     assert "400:0" in links and "400:0r" not in links  # oneway
@@ -221,14 +246,20 @@ def test_sumo_import_skips_internal_and_reports_unsupported() -> None:
 
 
 def test_sumo_round_trip_preserves_network() -> None:
-    for g in (build_two_junction_corridor(), import_osm((FIX / "small.osm").read_text()).graph):
+    for g in (
+        build_two_junction_corridor(),
+        import_osm((FIX / "small.osm").read_text()).graph,
+    ):
         assert g is not None
         xml = export_sumo(g)
         assert xml == export_sumo(g)  # deterministic
         back = import_sumo(xml)
         assert back.graph is not None and back.errors == []
         a, b = serialize_graph(g), serialize_graph(back.graph)
-        strip = lambda d: [{k: v for k, v in n.items() if k not in ("lat", "lon")} for n in d]  # noqa: E731
+
+        def strip(d: list) -> list:
+            return [{k: v for k, v in n.items() if k not in ("lat", "lon")} for n in d]
+
         assert strip(a["nodes"]) == strip(b["nodes"])
         assert a["links"] == b["links"]
 
@@ -252,7 +283,9 @@ def test_gtfs_import_routes_and_headway() -> None:
     route = res.stats["transit"]["routes"][0]
     assert route["id"] == "R1" and route["stops"] == ["S1", "S2", "S3"]
     assert route["trips"] == 3 and route["meanHeadwaySeconds"] == 600.0
-    assert any("Trip 'T9' skipped" in m for m in res.messages) is False  # T9 has no stop_times
+    assert (
+        any("Trip 'T9' skipped" in m for m in res.messages) is False
+    )  # T9 has no stop_times
     assert res.stats["stops"] == 3
 
 
@@ -275,7 +308,11 @@ def test_synchro_import() -> None:
     res = import_synchro((FIX / "synchro.csv").read_text())
     assert not res.errors
     (inter,) = res.stats["synchro"]["intersections"]
-    assert inter["id"] == "1" and inter["cycleSeconds"] == 90 and inter["offsetSeconds"] == 12
+    assert (
+        inter["id"] == "1"
+        and inter["cycleSeconds"] == 90
+        and inter["offsetSeconds"] == 12
+    )
     assert inter["lanes"]["NBT"] == 2 and inter["volumes"]["WBT"] == 210
     south = inter["approaches"]["south"]  # northbound traffic enters from the south
     assert south == {"lanes": 3.0, "vehiclesPerHour": 510.0}
@@ -303,35 +340,77 @@ def test_api_validate_import_export_simulate() -> None:
     corridor = client.get(f"{base}/corridor").json()
     v = client.post(f"{base}/validate", json={"graph": corridor["graph"]}).json()
     assert v["valid"] and v["stats"]["junctions"] == 2
-    assert client.post(f"{base}/validate", json={"graph": {"nodes": []}}).json()["valid"] is False
+    assert (
+        client.post(f"{base}/validate", json={"graph": {"nodes": []}}).json()["valid"]
+        is False
+    )
 
-    osm = client.post(f"{base}/import", json={"format": "osm", "content": (FIX / "small.osm").read_text()}).json()
+    osm = client.post(
+        f"{base}/import",
+        json={"format": "osm", "content": (FIX / "small.osm").read_text()},
+    ).json()
     assert osm["ok"] and osm["validation"]["valid"] and osm["graph"]["source"] == "osm"
     assert osm["messages"] and osm["stats"]["links"] > 0
-    sumo = client.post(f"{base}/import", json={"format": "sumo", "content": (FIX / "sample.net.xml").read_text()}).json()
+    sumo = client.post(
+        f"{base}/import",
+        json={"format": "sumo", "content": (FIX / "sample.net.xml").read_text()},
+    ).json()
     assert sumo["ok"]
-    bad = client.post(f"{base}/import", json={"format": "osm", "content": "garbage"}).json()
+    bad = client.post(
+        f"{base}/import", json={"format": "osm", "content": "garbage"}
+    ).json()
     assert bad["ok"] is False and bad["graph"] is None and bad["errors"]
-    assert client.post(f"{base}/import", json={"format": "sumo", "content": "  "}).json()["errors"] == ["The file is empty"]
-    assert client.post(f"{base}/import", json={"format": "nope", "content": "x"}).status_code == 422
+    assert client.post(
+        f"{base}/import", json={"format": "sumo", "content": "  "}
+    ).json()["errors"] == ["The file is empty"]
+    assert (
+        client.post(
+            f"{base}/import", json={"format": "nope", "content": "x"}
+        ).status_code
+        == 422
+    )
 
     gt = client.post(f"{base}/import", json={"format": "gtfs", "files": _gtfs()}).json()
     assert gt["ok"] and gt["graph"] is None
-    sy = client.post(f"{base}/import", json={"format": "synchro", "content": (FIX / "synchro.csv").read_text()}).json()
+    sy = client.post(
+        f"{base}/import",
+        json={"format": "synchro", "content": (FIX / "synchro.csv").read_text()},
+    ).json()
     assert sy["ok"] and sy["stats"]["intersections"] == 1
-    assert client.post(f"{base}/import", json={"format": "gtfs", "contentBase64": "!!!"}).json()["ok"] is False
+    assert (
+        client.post(
+            f"{base}/import", json={"format": "gtfs", "contentBase64": "!!!"}
+        ).json()["ok"]
+        is False
+    )
     zb = base64.b64encode(b"nope").decode()
-    assert "Not a valid zip" in client.post(f"{base}/import", json={"format": "gtfs", "contentBase64": zb}).json()["errors"][0]
+    assert (
+        "Not a valid zip"
+        in client.post(
+            f"{base}/import", json={"format": "gtfs", "contentBase64": zb}
+        ).json()["errors"][0]
+    )
 
     exp = client.post(f"{base}/export/sumo", json={"graph": corridor["graph"]}).json()
     assert exp["filename"] == "network.net.xml" and exp["content"].startswith("<?xml")
-    assert client.post(f"{base}/export/sumo", json={"graph": {"nodes": []}}).status_code == 400
+    assert (
+        client.post(f"{base}/export/sumo", json={"graph": {"nodes": []}}).status_code
+        == 400
+    )
 
     sim = client.post(f"{base}/simulate", json={"duration": 300, "seed": 5}).json()
-    assert sim["format"] == "urbanflow-graph-result" and sim["conserved"] and sim["completed"] > 0
+    assert (
+        sim["format"] == "urbanflow-graph-result"
+        and sim["conserved"]
+        and sim["completed"] > 0
+    )
     custom = client.post(
         f"{base}/simulate",
-        json={"graph": corridor["graph"], "flows": [{"origin": "W", "destination": "E", "vehiclesPerHour": 600}], "seed": 5},
+        json={
+            "graph": corridor["graph"],
+            "flows": [{"origin": "W", "destination": "E", "vehiclesPerHour": 600}],
+            "seed": 5,
+        },
     ).json()
     assert custom["conserved"] and custom["completed"] > 0
     net = client.post(f"{base}/to-network", json={"graph": corridor["graph"]}).json()

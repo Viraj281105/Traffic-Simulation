@@ -21,6 +21,13 @@ strict = true
 ignore_missing_imports = true
 mypy_path = "."
 
+# Optional RL stack (gymnasium, stable-baselines3, mlflow; requirements-rl.txt).
+# Its type stubs differ with and without those packages installed, so it is not
+# part of the strict gate.
+[[tool.mypy.overrides]]
+module = "src.rl.*"
+ignore_errors = true
+
 [tool.pytest.ini_options]
 minversion = "6.0"
 # Coverage floor is set below current measured project coverage (~94% at

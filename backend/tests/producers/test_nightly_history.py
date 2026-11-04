@@ -1,16 +1,17 @@
 import json
 from pathlib import Path
 
+import nightly_history as nh  # noqa: E402
 import pytest
 
 from tests.producers import _helpers as h
 
-import nightly_history as nh  # noqa: E402
-
 
 def _run(day: int, status_check: str = "pass"):
     checks = [nh.make_check("suite", "Suite", status_check)]
-    return nh.build_run(f"2026-11-0{day}", f"2026-11-0{day}T02:17:00Z", "abc", checks, 12.5)
+    return nh.build_run(
+        f"2026-11-0{day}", f"2026-11-0{day}T02:17:00Z", "abc", checks, 12.5
+    )
 
 
 def test_run_status_precedence() -> None:
@@ -33,7 +34,8 @@ def test_append_replaces_same_id_sorts_and_trims(tmp_path: Path) -> None:
     assert doc["runs"][1]["status"] == "fail"
     nh.append_run(path, _run(4), keep=2)
     assert [r["id"] for r in json.loads(path.read_text(encoding="utf-8"))["runs"]] == [
-        "2026-11-04", "2026-11-03"
+        "2026-11-04",
+        "2026-11-03",
     ]
     assert b"\r" not in path.read_bytes()
 
@@ -48,7 +50,9 @@ def test_a_damaged_history_is_set_aside_not_lost(tmp_path: Path) -> None:
 
 
 def test_checked_records_pass_fail_error_and_reraises(tmp_path: Path) -> None:
-    nh.checked(tmp_path, "d", "ok", "Ok", lambda: {"metric": "m", "actual": 2.0, "unit": "s"})
+    nh.checked(
+        tmp_path, "d", "ok", "Ok", lambda: {"metric": "m", "actual": 2.0, "unit": "s"}
+    )
 
     def failing():
         raise RuntimeError("command failed with exit status 1")
@@ -72,10 +76,15 @@ def test_checked_records_pass_fail_error_and_reraises(tmp_path: Path) -> None:
 def test_record_night_file_passes_the_nightly_endpoint(tmp_path: Path) -> None:
     nh.checked(tmp_path, "2026-11-04", "suite", "Suite", lambda: None)
     nh.checked(
-        tmp_path, "2026-11-04", "study", "Study",
+        tmp_path,
+        "2026-11-04",
+        "study",
+        "Study",
         lambda: {"metric": "mean_delay_s", "actual": 9.5, "unit": "s"},
     )
-    run = nh.record_night(tmp_path, "2026-11-04", [("suite", "Suite"), ("study", "Study")], h.REPO)
+    run = nh.record_night(
+        tmp_path, "2026-11-04", [("suite", "Suite"), ("study", "Study")], h.REPO
+    )
     assert run["status"] == "pass" and run["gitCommit"]
     body = h.client(tmp_path).get("/api/v3/regression/nightly").json()
     assert [r["id"] for r in body["runs"]] == ["2026-11-04"]

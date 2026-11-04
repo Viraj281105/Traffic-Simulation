@@ -209,7 +209,9 @@ def validate_graph(payload: Any) -> Dict[str, Any]:
                 f"{tag} is {k.length:g} m long; the limit is {MAX_LINK_METERS:g} m"
             )
         elif k.length < 3.0:
-            warnings.append(f"{tag} is only {k.length:g} m long; check for duplicate nodes")
+            warnings.append(
+                f"{tag} is only {k.length:g} m long; check for duplicate nodes"
+            )
         if k.lanes > MAX_LANES:
             errors.append(f"{tag} has {k.lanes} lanes; the limit is {MAX_LANES}")
         if k.speed > MAX_SPEED:
@@ -282,9 +284,7 @@ def graph_to_network(
             )
             return None, notes
         else:
-            nodes.append(
-                {"id": n.id, "kind": "origin" if out[n.id] else "destination"}
-            )
+            nodes.append({"id": n.id, "kind": "origin" if out[n.id] else "destination"})
     edges: List[Dict[str, Any]] = []
     for k in sorted(graph.links, key=lambda k: k.id):
         a, b = nodes_by_id[k.from_], nodes_by_id[k.to]

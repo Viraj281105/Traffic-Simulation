@@ -202,9 +202,7 @@ class SignalControlEnv(gym.Env):  # type: ignore[misc]
             "throughput": len(self.engine.pool.exited_vehicles),
         }
 
-    def step(
-        self, action: Any
-    ) -> Tuple[np.ndarray, float, bool, bool, Dict[str, Any]]:
+    def step(self, action: Any) -> Tuple[np.ndarray, float, bool, bool, Dict[str, Any]]:
         if self.engine is None or self.controller is None:
             raise RuntimeError("call reset() before step()")
         self.controller.request_green(int(action))

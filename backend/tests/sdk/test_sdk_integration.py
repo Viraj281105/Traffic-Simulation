@@ -262,7 +262,8 @@ def test_every_route_the_client_uses_is_in_the_openapi_snapshot():
 
 
 def test_every_documented_v3_operation_has_a_client_method_or_is_deliberately_omitted():
-    """POST /tokens needs a browser session, so the client (which holds a PAT) has no method for it."""
+    """POST /tokens needs a browser session, so the client (which holds a PAT) has no method for it;
+    POST /networks/validate is a multipart upload the client does not wrap."""
     snapshot = json.loads(
         (
             Path(__file__).resolve().parents[3]
@@ -282,7 +283,11 @@ def test_every_documented_v3_operation_has_a_client_method_or_is_deliberately_om
         (m, re.sub(r"\{[^{}]*\}", "{ID}", p).split("?")[0])
         for m, p in re.findall(r'"(GET|POST|DELETE)",\s*f?"(/api/v3[^"]*)"', source)
     }
-    assert operations - used == {("POST", "/api/v3/tokens")}
+    assert operations - used == {
+        ("POST", "/api/v3/tokens"),
+        # a multipart file upload, which the client does not wrap
+        ("POST", "/api/v3/networks/validate"),
+    }
 
 
 def test_copilot_proposal_confirm_and_interpretation_through_the_client(

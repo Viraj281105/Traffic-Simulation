@@ -19,7 +19,9 @@ MAX_ZIP_BYTES = 20_000_000
 
 def _rows(text: str) -> List[Dict[str, str]]:
     reader = csv.DictReader(io.StringIO(text.lstrip("﻿")))
-    return [{(k or "").strip(): (v or "").strip() for k, v in row.items()} for row in reader]
+    return [
+        {(k or "").strip(): (v or "").strip() for k, v in row.items()} for row in reader
+    ]
 
 
 def _seconds(value: str) -> Optional[int]:
@@ -35,7 +37,9 @@ def import_gtfs(files: Dict[str, str]) -> ImportResult:
     result = ImportResult(format="gtfs")
     missing = [f for f in GTFS_FILES if f not in files]
     if missing:
-        result.errors.append(f"GTFS feed is missing required file(s): {', '.join(missing)}")
+        result.errors.append(
+            f"GTFS feed is missing required file(s): {', '.join(missing)}"
+        )
         return result
     stops: Dict[str, Dict[str, Any]] = {}
     for r in _rows(files["stops.txt"]):
@@ -47,9 +51,15 @@ def import_gtfs(files: Dict[str, str]) -> ImportResult:
                 "lon": float(r["stop_lon"]),
             }
         except (KeyError, ValueError):
-            result.messages.append(f"Stop {r.get('stop_id', '?')!r} skipped: missing or bad coordinates")
+            result.messages.append(
+                f"Stop {r.get('stop_id', '?')!r} skipped: missing or bad coordinates"
+            )
     routes = {r["route_id"]: r for r in _rows(files["routes.txt"]) if r.get("route_id")}
-    trips = {r["trip_id"]: r["route_id"] for r in _rows(files["trips.txt"]) if r.get("trip_id")}
+    trips = {
+        r["trip_id"]: r["route_id"]
+        for r in _rows(files["trips.txt"])
+        if r.get("trip_id")
+    }
     by_trip: Dict[str, List[Dict[str, str]]] = {}
     for r in _rows(files["stop_times.txt"]):
         by_trip.setdefault(r.get("trip_id", ""), []).append(r)
@@ -67,7 +77,9 @@ def import_gtfs(files: Dict[str, str]) -> ImportResult:
             continue
         unknown = [r["stop_id"] for r in rows if r.get("stop_id") not in stops]
         if unknown:
-            result.messages.append(f"Trip {trip_id!r} skipped: unknown stop(s) {sorted(set(unknown))}")
+            result.messages.append(
+                f"Trip {trip_id!r} skipped: unknown stop(s) {sorted(set(unknown))}"
+            )
             continue
         times = [_seconds(r.get("arrival_time", "")) for r in rows]
         per_route.setdefault(route_id, []).append(
@@ -107,7 +119,10 @@ def import_gtfs(files: Dict[str, str]) -> ImportResult:
         "stops": len(stops),
         "routes": len(out_routes),
         "trips": sum(r["trips"] for r in out_routes),
-        "transit": {"stops": sorted(stops.values(), key=lambda s: s["id"]), "routes": out_routes},
+        "transit": {
+            "stops": sorted(stops.values(), key=lambda s: s["id"]),
+            "routes": out_routes,
+        },
     }
     return result
 
@@ -131,8 +146,26 @@ def import_gtfs_zip(data: bytes) -> ImportResult:
     return import_gtfs(files)
 
 
-MOVEMENTS = ("NBL", "NBT", "NBR", "SBL", "SBT", "SBR", "EBL", "EBT", "EBR", "WBL", "WBT", "WBR")
-_ARM_OF = {"N": "south", "S": "north", "E": "west", "W": "east"}  # NB traffic enters from the south arm
+MOVEMENTS = (
+    "NBL",
+    "NBT",
+    "NBR",
+    "SBL",
+    "SBT",
+    "SBR",
+    "EBL",
+    "EBT",
+    "EBR",
+    "WBL",
+    "WBT",
+    "WBR",
+)
+_ARM_OF = {
+    "N": "south",
+    "S": "north",
+    "E": "west",
+    "W": "east",
+}  # NB traffic enters from the south arm
 
 
 def _blocks(text: str) -> Dict[str, List[Dict[str, str]]]:
@@ -149,12 +182,18 @@ def _blocks(text: str) -> Dict[str, List[Dict[str, str]]]:
             fresh = True
             continue
         nonempty = [c for c in cells if c]
-        if len(nonempty) == 1 and header is None and not cells[0].upper() == "RECORDNAME":
+        if (
+            len(nonempty) == 1
+            and header is None
+            and not cells[0].upper() == "RECORDNAME"
+        ):
             if fresh:  # a second title line is only a description
                 name = nonempty[0]
                 fresh = False
             continue
-        if cells[0].upper() == "RECORDNAME" or (header is None and cells[0].upper() == "INTID"):
+        if cells[0].upper() == "RECORDNAME" or (
+            header is None and cells[0].upper() == "INTID"
+        ):
             header = [c.upper() for c in cells]
             blocks.setdefault(name or "", [])
             continue
@@ -190,7 +229,15 @@ def import_synchro(text: str) -> ImportResult:
         if target is None:
             continue
         entry = inters.setdefault(
-            iid, {"id": iid, "lanes": {}, "volumes": {}, "speeds": {}, "cycleSeconds": None, "offsetSeconds": None}
+            iid,
+            {
+                "id": iid,
+                "lanes": {},
+                "volumes": {},
+                "speeds": {},
+                "cycleSeconds": None,
+                "offsetSeconds": None,
+            },
         )
         for m in MOVEMENTS:
             if row.get(m, "") != "":
@@ -207,7 +254,9 @@ def import_synchro(text: str) -> ImportResult:
     unsupported = sorted(b for b in blocks if b not in ("Lanes", "Timeplans"))
     if unsupported:
         result.messages.append(
-            "Tables not read: " + ", ".join(unsupported) + " (phasing, layout and links need a later import)"
+            "Tables not read: "
+            + ", ".join(unsupported)
+            + " (phasing, layout and links need a later import)"
         )
     out = []
     for iid in sorted(inters, key=lambda s: (len(s), s)):
@@ -218,7 +267,11 @@ def import_synchro(text: str) -> ImportResult:
             a = approaches.setdefault(arm, {"lanes": 0.0, "vehiclesPerHour": 0.0})
             a["lanes"] += e["lanes"].get(m, 0.0)
             a["vehiclesPerHour"] += e["volumes"].get(m, 0.0)
-        e["approaches"] = {k: v for k, v in approaches.items() if v["lanes"] > 0 or v["vehiclesPerHour"] > 0}
+        e["approaches"] = {
+            k: v
+            for k, v in approaches.items()
+            if v["lanes"] > 0 or v["vehiclesPerHour"] > 0
+        }
         if not e["approaches"]:
             result.messages.append(f"Intersection {iid} has no lanes or volumes")
         out.append(e)

@@ -50,12 +50,17 @@ class TrackedRun:
         self.run_id: Optional[str] = None
 
     def log_params(self, params: Dict[str, Any]) -> None:
-        flat = {k: str(v) if not isinstance(v, (int, float, str)) else v for k, v in params.items()}
+        flat = {
+            k: str(v) if not isinstance(v, (int, float, str)) else v
+            for k, v in params.items()
+        }
         self.params.update(flat)
         if self.active:
             mlflow.log_params(flat)
 
-    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
+    def log_metrics(
+        self, metrics: Dict[str, float], step: Optional[int] = None
+    ) -> None:
         clean = {k: float(v) for k, v in metrics.items()}
         for k, v in clean.items():
             self.metrics.setdefault(k, []).append(v)
@@ -168,7 +173,9 @@ class ModelRegistry:
     def stage_of(self, name: str, version: int) -> str:
         return str(self._load()[name]["stages"][str(version)])
 
-    def resolve(self, name: str, stage_or_version: Union[str, int, None] = None) -> Path:
+    def resolve(
+        self, name: str, stage_or_version: Union[str, int, None] = None
+    ) -> Path:
         """Model file of a version number, a stage name, or the latest."""
         index = self._load()
         if name not in index or not index[name]["versions"]:
@@ -179,7 +186,9 @@ class ModelRegistry:
         elif isinstance(stage_or_version, int) or str(stage_or_version).isdigit():
             version = int(stage_or_version)
         else:
-            matches = [int(v) for v, s in entry["stages"].items() if s == stage_or_version]
+            matches = [
+                int(v) for v, s in entry["stages"].items() if s == stage_or_version
+            ]
             if not matches:
                 raise KeyError(f"{name} has no version in stage {stage_or_version!r}")
             version = max(matches)
@@ -189,6 +198,134 @@ class ModelRegistry:
         return path
 
     def metadata(self, name: str, version: int) -> Dict[str, Any]:
-        with open(self.root / name / f"v{version}" / "meta.json", encoding="utf-8") as f:
+        with open(
+            self.root / name / f"v{version}" / "meta.json", encoding="utf-8"
+        ) as f:
             data: Dict[str, Any] = json.load(f)
         return data
+
+    # -- additive: save/load objects, promotion (F18 W41 model registry) ----
+    def stage_version(self, name: str, stage: str = "production") -> Optional[int]:
+        """The version currently in ``stage`` (highest if several), or None."""
+        entry = self._load().get(name)
+        if not entry:
+            return None
+        found = [int(v) for v, s in entry["stages"].items() if s == stage]
+        return max(found) if found else None
+
+    def save_model(
+        self,
+        name: str,
+        model: Any,
+        algo: str,
+        metrics: Optional[Dict[str, float]] = None,
+        tags: Optional[Dict[str, str]] = None,
+        run_id: Optional[str] = None,
+    ) -> int:
+        """Save a trained object (anything with ``.save(path)``) as the next version."""
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "model.zip"
+            model.save(str(path))
+            return self.register(name, path, algo, metrics, tags, run_id)
+
+    def load_model(
+        self, name: str, stage_or_version: Union[str, int, None] = None
+    ) -> Any:
+        """Load a registered stable-baselines3 model by version, stage or latest."""
+        from src.rl.train import load_model
+
+        path = self.resolve(name, stage_or_version)
+        version = int(path.parent.name[1:])
+        return load_model(self.metadata(name, version)["algo"], path)
+
+    def update_metrics(
+        self, name: str, version: int, metrics: Dict[str, float]
+    ) -> None:
+        """Merge evaluation metrics into a version's ``meta.json``."""
+        meta = self.metadata(name, version)
+        meta["metrics"] = {
+            **meta.get("metrics", {}),
+            **{k: float(v) for k, v in metrics.items()},
+        }
+        with open(
+            self.root / name / f"v{version}" / "meta.json",
+            "w",
+            encoding="utf-8",
+            newline="\n",
+        ) as f:
+            json.dump(meta, f, indent=2, sort_keys=True)
+            f.write("\n")
+
+    def promote(
+        self, name: str, version: int, stage: str = "production", note: str = ""
+    ) -> None:
+        """Move ``version`` to ``stage`` (demoting any previous production) and log it."""
+        self.set_stage(name, version, stage)
+        index = self._load()
+        index[name].setdefault("history", []).append(
+            {
+                "version": int(version),
+                "stage": stage,
+                "note": note,
+                "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            }
+        )
+        self._save(index)
+
+    def history(self, name: str) -> List[Dict[str, Any]]:
+        return list(self._load().get(name, {}).get("history", []))
+
+    def promote_if_better(
+        self,
+        name: str,
+        version: int,
+        metric: str,
+        lower_is_better: bool = True,
+        stage: str = "production",
+    ) -> Dict[str, Any]:
+        """Promote ``version`` when it beats the incumbent on a stored metric.
+
+        With no incumbent in ``stage`` the candidate is promoted. A candidate
+        or incumbent without ``metric`` never wins (``promoted`` False).
+        """
+        cand = self.metadata(name, version).get("metrics", {}).get(metric)
+        inc_v = self.stage_version(name, stage)
+        inc = (
+            None
+            if inc_v is None
+            else self.metadata(name, inc_v).get("metrics", {}).get(metric)
+        )
+        if inc_v == version:
+            return {
+                "promoted": False,
+                "reason": "already in stage",
+                "candidate": cand,
+                "incumbent": inc,
+            }
+        if cand is None:
+            return {
+                "promoted": False,
+                "reason": f"candidate has no {metric}",
+                "candidate": None,
+                "incumbent": inc,
+            }
+        if inc_v is not None and inc is None:
+            return {
+                "promoted": False,
+                "reason": f"incumbent has no {metric}",
+                "candidate": cand,
+                "incumbent": None,
+            }
+        better = inc_v is None or (cand < inc if lower_is_better else cand > inc)
+        if better:
+            self.promote(name, version, stage, note=f"{metric}: {cand} vs {inc}")
+        return {
+            "promoted": bool(better),
+            "reason": "better than incumbent"
+            if better and inc_v is not None
+            else ("no incumbent" if better else "not better than incumbent"),
+            "candidate": cand,
+            "incumbent": inc,
+        }

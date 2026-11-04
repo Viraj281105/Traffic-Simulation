@@ -117,7 +117,9 @@ def validate_upload(filename: str, data: bytes, requested: str) -> Dict[str, Any
     name = filename or "upload"
     if not data:
         raise UnsupportedFileTypeError("The file is empty")
-    fmt: Optional[str] = requested if requested in FORMATS else detect_format(name, data)
+    fmt: Optional[str] = (
+        requested if requested in FORMATS else detect_format(name, data)
+    )
     if fmt is None:
         return {
             "uploadId": None,
@@ -156,9 +158,13 @@ def validate_upload(filename: str, data: bytes, requested: str) -> Dict[str, Any
     validation = payload["validation"] or {}
     messages: List[Dict[str, Any]] = []
     messages += [make_message("error", "import_error", e) for e in payload["errors"]]
-    messages += [make_message("error", "invalid_network", e) for e in validation.get("errors", [])]
     messages += [
-        make_message("warning", "network_warning", w) for w in validation.get("warnings", [])
+        make_message("error", "invalid_network", e)
+        for e in validation.get("errors", [])
+    ]
+    messages += [
+        make_message("warning", "network_warning", w)
+        for w in validation.get("warnings", [])
     ]
     messages += [make_message("info", "import_note", m) for m in payload["messages"]]
     stats = validation.get("stats") or {}
@@ -170,7 +176,9 @@ def validate_upload(filename: str, data: bytes, requested: str) -> Dict[str, Any
             "junctions": stats["junctions"],
             "totalLengthKm": stats["totalLengthMeters"] / 1000.0,
         }
-    valid = bool(payload["ok"]) and bool(validation.get("valid", payload["graph"] is None))
+    valid = bool(payload["ok"]) and bool(
+        validation.get("valid", payload["graph"] is None)
+    )
     return {
         "uploadId": None,
         "filename": name,
@@ -179,4 +187,3 @@ def validate_upload(filename: str, data: bytes, requested: str) -> Dict[str, Any
         "summary": summary,
         "messages": messages,
     }
-

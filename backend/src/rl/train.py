@@ -22,7 +22,9 @@ from src.rl.tracking import ModelRegistry, start_run
 ALGOS = ("dqn", "ppo")
 
 
-def default_hyperparams(algo: str, total_timesteps: int, hidden: int = 64) -> Dict[str, Any]:
+def default_hyperparams(
+    algo: str, total_timesteps: int, hidden: int = 64
+) -> Dict[str, Any]:
     """Hyper-parameters scaled to the budget (small budgets get small buffers)."""
     net = {"net_arch": [hidden, hidden]}
     if algo == "dqn":
@@ -53,7 +55,9 @@ def default_hyperparams(algo: str, total_timesteps: int, hidden: int = 64) -> Di
     raise ValueError(f"algo must be one of {ALGOS}")
 
 
-def make_model(algo: str, env: SignalControlEnv, seed: int, hyperparams: Dict[str, Any]) -> Any:
+def make_model(
+    algo: str, env: SignalControlEnv, seed: int, hyperparams: Dict[str, Any]
+) -> Any:
     from stable_baselines3 import DQN, PPO
 
     cls = {"dqn": DQN, "ppo": PPO}[algo]

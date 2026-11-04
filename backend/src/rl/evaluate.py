@@ -101,7 +101,15 @@ def compare(
         "env": probe.params,
         "baseline_fixed_green_s": fixed_green_s,
         "metrics": list(METRICS),
-        "lower_is_better": ["mean_wait_s", "total_wait_s", "stopped_veh_s", "mean_queue"],
+        "lower_is_better": [
+            "mean_wait_s",
+            "total_wait_s",
+            "stopped_veh_s",
+            "mean_queue",
+        ],
         "policies": results,
-        "environment": {"python": sys.version.split()[0], "platform": platform.platform()},
+        "environment": {
+            "python": sys.version.split()[0],
+            "platform": platform.platform(),
+        },
     }

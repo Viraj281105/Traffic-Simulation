@@ -78,17 +78,21 @@ def import_endpoint(payload: ImportRequest) -> Dict[str, Any]:
             result = import_gtfs(payload.files)
         elif payload.contentBase64:
             try:
-                result = import_gtfs_zip(base64.b64decode(payload.contentBase64, validate=True))
+                result = import_gtfs_zip(
+                    base64.b64decode(payload.contentBase64, validate=True)
+                )
             except ValueError:
                 return _fail(fmt, "The zip content is not valid base64")
         else:
-            return _fail(fmt, "Send the GTFS files as `files` or a zip as `contentBase64`")
+            return _fail(
+                fmt, "Send the GTFS files as `files` or a zip as `contentBase64`"
+            )
     else:
         if not payload.content or not payload.content.strip():
             return _fail(fmt, "The file is empty")
-        result = {"osm": import_osm, "sumo": import_sumo, "synchro": import_synchro}[fmt](
-            payload.content
-        )
+        result = {"osm": import_osm, "sumo": import_sumo, "synchro": import_synchro}[
+            fmt
+        ](payload.content)
     return result.to_json()
 
 
@@ -100,8 +104,14 @@ def export_sumo_endpoint(payload: GraphRequest) -> Dict[str, Any]:
     if graph is not None:
         errors = validate_graph(graph)["errors"]
     if graph is None or errors:
-        raise HTTPException(status_code=400, detail=f"Invalid graph: {'; '.join(errors)}")
-    return {"format": "sumo", "filename": "network.net.xml", "content": export_sumo(graph)}
+        raise HTTPException(
+            status_code=400, detail=f"Invalid graph: {'; '.join(errors)}"
+        )
+    return {
+        "format": "sumo",
+        "filename": "network.net.xml",
+        "content": export_sumo(graph),
+    }
 
 
 @router.post("/to-network")
@@ -109,7 +119,9 @@ def to_network_endpoint(payload: GraphRequest) -> Dict[str, Any]:
     """``{network|null, notes[]}``: the graph as an ``urbanflow-network``."""
     graph, errors = parse_graph(payload.graph)
     if graph is None:
-        raise HTTPException(status_code=400, detail=f"Invalid graph: {'; '.join(errors)}")
+        raise HTTPException(
+            status_code=400, detail=f"Invalid graph: {'; '.join(errors)}"
+        )
     network, notes = graph_to_network(graph)
     return {"network": network, "notes": notes}
 
@@ -120,7 +132,11 @@ def corridor_endpoint() -> Dict[str, Any]:
     return {
         "graph": serialize_graph(build_two_junction_corridor()),
         "flows": [
-            {"origin": f.origin, "destination": f.destination, "vehiclesPerHour": f.vehicles_per_hour}
+            {
+                "origin": f.origin,
+                "destination": f.destination,
+                "vehiclesPerHour": f.vehicles_per_hour,
+            }
             for f in corridor_flows()
         ],
     }
@@ -133,13 +149,18 @@ def simulate_endpoint(payload: SimulateRequest) -> Dict[str, Any]:
     if payload.graph is None:
         graph = build_two_junction_corridor()
     else:
-        graph, errors = parse_graph(payload.graph)
-        if graph is not None:
-            errors = validate_graph(graph)["errors"]
-        if graph is None or errors:
-            raise HTTPException(status_code=400, detail=f"Invalid graph: {'; '.join(errors)}")
+        parsed, errors = parse_graph(payload.graph)
+        if parsed is not None:
+            errors = validate_graph(parsed)["errors"]
+        if parsed is None or errors:
+            raise HTTPException(
+                status_code=400, detail=f"Invalid graph: {'; '.join(errors)}"
+            )
+        graph = parsed
     if payload.flows is None:
         flows = corridor_flows() if payload.graph is None else []
     else:
-        flows = [Flow(f.origin, f.destination, f.vehiclesPerHour) for f in payload.flows]
+        flows = [
+            Flow(f.origin, f.destination, f.vehiclesPerHour) for f in payload.flows
+        ]
     return simulate_network(graph, flows, duration=payload.duration, seed=payload.seed)

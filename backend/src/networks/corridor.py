@@ -61,7 +61,9 @@ def build_two_junction_corridor(
                 speed=arterial_speed if not side else 11.11,
             )
         )
-    return RoadGraph(name="Two-junction corridor", source="corridor", nodes=nodes, links=links)
+    return RoadGraph(
+        name="Two-junction corridor", source="corridor", nodes=nodes, links=links
+    )
 
 
 def corridor_flows(oneway: bool = False) -> List[Flow]:

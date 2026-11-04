@@ -13,7 +13,13 @@ SMALL = {"episode_seconds": 40.0, "decision_interval": 5.0, "vehicles_per_hour":
 
 def test_fixed_time_alternates():
     p = FixedTimePolicy(green_s=30.0)
-    assert [p.act(None, {"sim_time": t}) for t in (0, 29, 30, 59, 60)] == [0, 0, 1, 1, 0]
+    assert [p.act(None, {"sim_time": t}) for t in (0, 29, 30, 59, 60)] == [
+        0,
+        0,
+        1,
+        1,
+        0,
+    ]
     with pytest.raises(ValueError):
         FixedTimePolicy(0)
 

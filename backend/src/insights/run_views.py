@@ -28,9 +28,7 @@ from src.runstore import StoredRun
 
 from .numbers import finite
 
-DELAY_DEFINITION = (
-    "Time beyond the free-flow travel time of the same trip, per vehicle, never below zero."
-)
+DELAY_DEFINITION = "Time beyond the free-flow travel time of the same trip, per vehicle, never below zero."
 TRAVEL_DEFINITION = "Time from entering to leaving the network, per vehicle."
 EMISSIONS_MODEL = "Speed, idle and acceleration fuel model (generic petrol car)"
 
@@ -122,7 +120,13 @@ def _diff_rows(m: Mapping[str, Any]) -> List[_DiffRow]:
             True,
             m["travelTime"]["p95"]["value"],
         ),
-        ("vehicles_completed", "Vehicles completed", "vehicles", False, m["vehiclesCompleted"]),
+        (
+            "vehicles_completed",
+            "Vehicles completed",
+            "vehicles",
+            False,
+            m["vehiclesCompleted"],
+        ),
         (
             "min_ttc_s",
             "Smallest time-to-collision",
@@ -202,7 +206,9 @@ def run_diff(a: StoredRun, b: StoredRun) -> Dict[str, Any]:
     return {
         "a": _ref(a),
         "b": _ref(b),
-        "sameInputs": bool(same["seed"] and same["config_hash"] and same["input_version"]),
+        "sameInputs": bool(
+            same["seed"] and same["config_hash"] and same["input_version"]
+        ),
         "manifest": manifest,
         "metrics": metrics,
     }

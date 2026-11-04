@@ -579,6 +579,59 @@ class Client:
     def cancel_stress_job(self, job_id: str) -> Dict[str, Any]:
         return self._json("POST", f"/api/v3/stress/jobs/{self._id(job_id)}/cancel")
 
+    # ---- insights: comparison, sensitivity, run metrics, reports ---------------------------------
+    @staticmethod
+    def _query(**params: Optional[str]) -> str:
+        pairs = {k: v for k, v in params.items() if v is not None}
+        return "?" + urllib.parse.urlencode(pairs) if pairs else ""
+
+    def comparison(
+        self,
+        experiment_id: str,
+        *,
+        a: Optional[str] = None,
+        b: Optional[str] = None,
+        metric: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """A-vs-B result with confidence interval and p-value (404 until the paired data exists)."""
+        query = self._query(a=a, b=b, metric=metric)
+        return self._json(
+            "GET", f"/api/v3/experiments/{self._id(experiment_id)}/comparison" + query
+        )
+
+    def sensitivity(
+        self, experiment_id: str, *, metric: Optional[str] = None
+    ) -> Dict[str, Any]:
+        query = self._query(metric=metric)
+        return self._json(
+            "GET", f"/api/v3/experiments/{self._id(experiment_id)}/sensitivity" + query
+        )
+
+    def report(self, experiment_id: str) -> Dict[str, Any]:
+        return self._json(
+            "GET", f"/api/v3/experiments/{self._id(experiment_id)}/report"
+        )
+
+    def run_metrics(self, run_id: str) -> Dict[str, Any]:
+        return self._json("GET", f"/api/v3/runs/{self._id(run_id)}/metrics")
+
+    def compare_runs(self, a: str, b: str) -> Dict[str, Any]:
+        query = self._query(a=self._id(a), b=self._id(b))
+        return self._json("GET", "/api/v3/runs/compare" + query)
+
+    def nightly_regression(self, limit: Optional[int] = None) -> Dict[str, Any]:
+        query = self._query(limit=None if limit is None else str(int(limit)))
+        return self._json("GET", "/api/v3/regression/nightly" + query)
+
+    def rl_comparison(self, comparison_id: str) -> Dict[str, Any]:
+        return self._json("GET", f"/api/v3/rl/comparisons/{self._id(comparison_id)}")
+
+    def preview_road_import(self, request: Mapping[str, Any]) -> Dict[str, Any]:
+        """Preview an OpenStreetMap road import (needs a server Overpass setting)."""
+        return self._json(
+            "POST", "/api/v3/networks/import/preview", json_body=dict(request)
+        )
+
     # ---- tokens ------------------------------------------------------------------------------------
     def list_tokens(self) -> List[Dict[str, Any]]:
         """Your active tokens (needs the ``tokens:read`` scope). The secrets are never listed."""

@@ -135,9 +135,7 @@ class SensitivityRequest(BaseModel):
     output: Literal["delay", "throughput", "queue"] = "delay"
     # Keys must be among the supported inputs (GET .../sensitivity/inputs).
     ranges: Dict[str, InputRange]
-    duration: float = Field(
-        default=30.0, ge=1.0, le=MAX_SENSITIVITY_DURATION_SECONDS
-    )
+    duration: float = Field(default=30.0, ge=1.0, le=MAX_SENSITIVITY_DURATION_SECONDS)
     numSeeds: int = Field(default=2, ge=1, le=5)
     # Sobol only: base sample size n; the plan costs n * (k + 2) points.
     sobolSamples: int = Field(default=8, ge=2, le=32)

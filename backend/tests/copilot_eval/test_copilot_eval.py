@@ -110,7 +110,14 @@ def test_mock_client_scripted_pass_and_fail():
         return LLMResponse(tool_calls=(ToolCall(name, args),))
 
     cases = [
-        (tc("propose_experiment", alternatives=["adaptive", "fixed_time"], demand="peak"), True),
+        (
+            tc(
+                "propose_experiment",
+                alternatives=["adaptive", "fixed_time"],
+                demand="peak",
+            ),
+            True,
+        ),
         (tc("propose_experiment", alternatives=["adaptive"], demand="light"), False),
         (tc("run_simulation", alternatives=["adaptive"], demand="peak"), False),
         (LLMResponse(), False),
@@ -128,9 +135,13 @@ def test_facts_and_forbidden_checked_case_insensitively():
         "question": "q",
         "expected": {"facts": ["Cannot Prove"], "forbidden": ["guaranteed"]},
     }
-    ok = run_eval(_tiny([item]), MockLLMClient({"f": LLMResponse("It cannot prove this.")}))
+    ok = run_eval(
+        _tiny([item]), MockLLMClient({"f": LLMResponse("It cannot prove this.")})
+    )
     assert ok.pass_rate == 1.0
-    bad = run_eval(_tiny([item]), MockLLMClient({"f": LLMResponse("cannot prove; GUARANTEED")}))
+    bad = run_eval(
+        _tiny([item]), MockLLMClient({"f": LLMResponse("cannot prove; GUARANTEED")})
+    )
     assert "forbidden" in bad.results[0].failures[0]
 
 
@@ -138,7 +149,9 @@ def test_unscripted_item_and_client_crash_fail_the_item_not_the_run():
     def boom(_req):
         raise RuntimeError("provider down")
 
-    report = run_eval(_tiny([PROPOSAL, dict(PROPOSAL, id="y")]), MockLLMClient({"x": boom}))
+    report = run_eval(
+        _tiny([PROPOSAL, dict(PROPOSAL, id="y")]), MockLLMClient({"x": boom})
+    )
     assert report.total == 2 and report.passed == 0
     assert "provider down" in report.results[0].failures[0]
     assert "no scripted answer" in report.results[1].failures[0]
@@ -147,10 +160,17 @@ def test_unscripted_item_and_client_crash_fail_the_item_not_the_run():
 def test_summary_item_grounding_in_harness(qset):
     item = next(i for i in qset["items"] if i["id"] == "s-01")
     one = _tiny([item])
-    assert run_eval(one, MockLLMClient({"s-01": LLMResponse("Adaptive signal 24.8")})).pass_rate == 0.0
+    assert (
+        run_eval(
+            one, MockLLMClient({"s-01": LLMResponse("Adaptive signal 24.8")})
+        ).pass_rate
+        == 0.0
+    )
     full = "Adaptive signal: 24.8 s; difference -6.6 s; 144 runs. "
     assert run_eval(one, MockLLMClient({"s-01": LLMResponse(full)})).pass_rate == 1.0
-    bad = run_eval(one, MockLLMClient({"s-01": LLMResponse(full + "A 37% improvement.")}))
+    bad = run_eval(
+        one, MockLLMClient({"s-01": LLMResponse(full + "A 37% improvement.")})
+    )
     assert bad.pass_rate == 0.0 and "37%" in bad.results[0].failures[0]
 
 
@@ -180,7 +200,10 @@ RUBRIC_ITEM = {
 
 def test_mock_judge_keyword_scoring():
     client = MockLLMClient({"j": LLMResponse("compared with the baseline")})
-    assert run_eval(_tiny([RUBRIC_ITEM]), client, MockJudge(threshold=0.5)).pass_rate == 1.0
+    assert (
+        run_eval(_tiny([RUBRIC_ITEM]), client, MockJudge(threshold=0.5)).pass_rate
+        == 1.0
+    )
     strict = run_eval(_tiny([RUBRIC_ITEM]), client, MockJudge(threshold=1.0))
     assert strict.pass_rate == 0.0 and "judge rejected" in strict.results[0].failures[0]
 
@@ -209,12 +232,20 @@ def test_judge_called_only_for_rubric_items_that_pass_structure():
 
 
 def test_no_judge_skips_rubric():
-    assert run_eval(_tiny([RUBRIC_ITEM]), MockLLMClient({"j": LLMResponse("")})).pass_rate == 1.0
+    assert (
+        run_eval(_tiny([RUBRIC_ITEM]), MockLLMClient({"j": LLMResponse("")})).pass_rate
+        == 1.0
+    )
 
 
 def test_empty_rubric_passes():
     item = dict(RUBRIC_ITEM, expected={"rubric": "mention:"})
-    assert run_eval(_tiny([item]), MockLLMClient({"j": LLMResponse("")}), MockJudge()).pass_rate == 1.0
+    assert (
+        run_eval(
+            _tiny([item]), MockLLMClient({"j": LLMResponse("")}), MockJudge()
+        ).pass_rate
+        == 1.0
+    )
 
 
 # ---- grounded-summary checker
@@ -273,7 +304,9 @@ def test_exact_mode_disables_rounding():
 
 def test_allowed_numbers_and_sources():
     assert not check_grounded_summary("a 95% interval", NUMBERS).ok
-    report = check_grounded_summary("a 95% interval, 144 runs", NUMBERS, allowed_numbers=[95])
+    report = check_grounded_summary(
+        "a 95% interval, 144 runs", NUMBERS, allowed_numbers=[95]
+    )
     assert report.ok
     assert {f.source for f in report.grounded} == {"allowed", "$.runs"}
 
@@ -290,7 +323,9 @@ def test_template_summary_is_grounded(qset):
     for item in (i for i in qset["items"] if i["kind"] == "summary"):
         ctx = item["context"]
         text = template_summary(ctx["numbers"], ctx["preferred"])
-        assert check_grounded_summary(text, ctx["numbers"], allowed_numbers=[95]).ok, text
+        assert check_grounded_summary(text, ctx["numbers"], allowed_numbers=[95]).ok, (
+            text
+        )
 
 
 # ---- gate
