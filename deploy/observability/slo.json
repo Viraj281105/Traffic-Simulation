@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "window_days": 28,
+  "note": "Single source for the SLO evaluator (backend/src/observability/slo.py), the Prometheus alert thresholds, the Grafana panels and the k6 thresholds. Edit here, then update deploy/observability/prometheus/alerts.yml to match (docs/operations-observability.md).",
+  "slos": [
+    {
+      "id": "api_latency_p95",
+      "description": "95% of API requests complete within 2.5 seconds.",
+      "kind": "latency_quantile",
+      "histogram": "urbanflow_http_request_duration_seconds",
+      "quantile": 0.95,
+      "objective_seconds": 2.5
+    },
+    {
+      "id": "network_simulate_p95",
+      "description": "95% of network-metrics simulate calls (3x3 grid, 600 s) complete within 10 seconds.",
+      "kind": "latency_quantile",
+      "histogram": "urbanflow_http_request_duration_seconds",
+      "quantile": 0.95,
+      "objective_seconds": 10.0,
+      "match": { "route": "/api/v2/network-metrics/simulate" }
+    },
+    {
+      "id": "api_availability",
+      "description": "99.5% of API requests do not fail with a 5xx.",
+      "kind": "ratio",
+      "good": {
+        "metric": "urbanflow_http_requests_total",
+        "match": { "status": ["2xx", "3xx", "4xx"] }
+      },
+      "total": { "metric": "urbanflow_http_requests_total" },
+      "objective": 0.995
+    },
+    {
+      "id": "job_success_rate",
+      "description": "98% of background jobs that end, end completed (cancelled excluded).",
+      "kind": "ratio",
+      "good": { "metric": "urbanflow_jobs_total", "match": { "outcome": "completed" } },
+      "total": {
+        "metric": "urbanflow_jobs_total",
+        "match": { "outcome": ["completed", "failed"] }
+      },
+      "objective": 0.98
+    },
+    {
+      "id": "job_duration_p95",
+      "description": "95% of background jobs finish within 5 minutes.",
+      "kind": "latency_quantile",
+      "histogram": "urbanflow_job_duration_seconds",
+      "quantile": 0.95,
+      "objective_seconds": 300.0
+    },
+    {
+      "id": "run_success_rate",
+      "description": "99% of tracked simulation runs complete (cancelled excluded).",
+      "kind": "ratio",
+      "good": {
+        "metric": "urbanflow_runs_completed_total",
+        "match": { "outcome": "completed" }
+      },
+      "total": {
+        "metric": "urbanflow_runs_completed_total",
+        "match": { "outcome": ["completed", "failed"] }
+      },
+      "objective": 0.99
+    },
+    {
+      "id": "run_duration_p95",
+      "description": "95% of tracked simulation runs finish within 2 minutes.",
+      "kind": "latency_quantile",
+      "histogram": "urbanflow_run_duration_seconds",
+      "quantile": 0.95,
+      "objective_seconds": 120.0
+    }
+  ]
+}

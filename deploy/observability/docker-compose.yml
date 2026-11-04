@@ -1,0 +1,23 @@
+# Local Prometheus + Grafana next to the app stack (WRITTEN, not run).
+#   METRICS_TOKEN=devtoken docker compose -f docker-compose.yml -f deploy/observability/docker-compose.yml up -d
+# from the repo root. Joins the app stack's default network so `backend:8000` resolves.
+services:
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    volumes:
+      - ./deploy/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./deploy/observability/prometheus/metrics_token:/etc/prometheus/metrics_token:ro
+    ports:
+      - "127.0.0.1:9090:9090"
+  grafana:
+    image: grafana/grafana:11.2.0
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - ./deploy/observability/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
+      - ./deploy/observability/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./deploy/observability/grafana:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on: [prometheus]

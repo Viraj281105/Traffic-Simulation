@@ -1,0 +1,79 @@
+# Alert rules derived from deploy/observability/slo.json (WRITTEN, not run against a
+# live Prometheus; check with `promtool check rules alerts.yml`). Keep thresholds in
+# step with slo.json.
+groups:
+  - name: urbanflow-slo
+    rules:
+      - alert: UrbanflowBackendDown
+        expr: up{job="urbanflow-backend"} == 0
+        for: 2m
+        labels: { severity: page }
+        annotations:
+          summary: "Backend is not being scraped (down or token mismatch)"
+
+      - alert: UrbanflowApiLatencyP95High
+        # SLO api_latency_p95: 2.5 s
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(urbanflow_http_request_duration_seconds_bucket[5m]))) > 2.5
+        for: 10m
+        labels: { severity: ticket }
+        annotations:
+          summary: "API p95 latency above 2.5 s for 10 minutes"
+
+      - alert: UrbanflowNetworkSimulateP95High
+        # SLO network_simulate_p95: 10 s
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(urbanflow_http_request_duration_seconds_bucket{route="/api/v2/network-metrics/simulate"}[5m]))) > 10
+        for: 10m
+        labels: { severity: ticket }
+        annotations:
+          summary: "network-metrics simulate p95 above 10 s"
+
+      - alert: UrbanflowApiAvailabilityLow
+        # SLO api_availability: 99.5 %
+        expr: |
+          1 - (sum(rate(urbanflow_http_requests_total{status="5xx"}[5m]))
+               / sum(rate(urbanflow_http_requests_total[5m]))) < 0.995
+        for: 5m
+        labels: { severity: page }
+        annotations:
+          summary: "More than 0.5 % of API requests fail with 5xx"
+
+      - alert: UrbanflowJobSuccessLow
+        # SLO job_success_rate: 98 %
+        expr: |
+          sum(increase(urbanflow_jobs_total{outcome="completed"}[1h]))
+          / sum(increase(urbanflow_jobs_total{outcome=~"completed|failed"}[1h])) < 0.98
+        for: 15m
+        labels: { severity: ticket }
+        annotations:
+          summary: "Background job success rate below 98 % over the last hour"
+
+      - alert: UrbanflowJobDurationP95High
+        # SLO job_duration_p95: 300 s
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(urbanflow_job_duration_seconds_bucket[30m]))) > 300
+        for: 15m
+        labels: { severity: ticket }
+        annotations:
+          summary: "Background job p95 duration above 5 minutes"
+
+      - alert: UrbanflowRunSuccessLow
+        # SLO run_success_rate: 99 %
+        expr: |
+          sum(increase(urbanflow_runs_completed_total{outcome="completed"}[1h]))
+          / sum(increase(urbanflow_runs_completed_total{outcome=~"completed|failed"}[1h])) < 0.99
+        for: 15m
+        labels: { severity: ticket }
+        annotations:
+          summary: "Simulation run success rate below 99 % over the last hour"
+
+      - alert: UrbanflowQueueBacklog
+        expr: urbanflow_queue_depth > 20
+        for: 10m
+        labels: { severity: ticket }
+        annotations:
+          summary: "More than 20 jobs queued or running for 10 minutes"

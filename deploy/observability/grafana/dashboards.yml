@@ -1,0 +1,7 @@
+# Grafana provisioning: load every dashboard JSON in /var/lib/grafana/dashboards (WRITTEN, not run).
+apiVersion: 1
+providers:
+  - name: urbanflow
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards

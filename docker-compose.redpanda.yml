@@ -1,0 +1,48 @@
+# Redpanda (Kafka API) for replaying recorded observations (package 1D, #14). WRITTEN, not run.
+#   docker compose -f docker-compose.redpanda.yml up -d
+#   python scripts/replay_to_redpanda.py observations.csv --bootstrap localhost:19092
+#   docker compose -f docker-compose.redpanda.yml logs -f consumer
+# Host clients use localhost:19092; containers use redpanda:9092. Not for production use.
+services:
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.2.7
+    command:
+      - redpanda
+      - start
+      - --mode=dev-container
+      - --smp=1
+      - --memory=1G
+      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr=internal://redpanda:9092,external://localhost:19092
+    ports:
+      - "127.0.0.1:19092:19092"
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+
+  topic-init:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.2.7
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    entrypoint: ["rpk", "topic", "create", "urbanflow.observations", "-p", "3", "--brokers", "redpanda:9092"]
+    restart: "no"
+
+  consumer:
+    build:
+      context: services/consumer-go
+    depends_on:
+      topic-init:
+        condition: service_completed_successfully
+    environment:
+      - KAFKA_BROKERS=redpanda:9092
+      - KAFKA_TOPIC=urbanflow.observations
+      - KAFKA_GROUP=urbanflow-consumer
+      - STATS_INTERVAL=10s
+
+volumes:
+  redpanda-data:
