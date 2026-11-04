@@ -357,3 +357,97 @@ A single score out of 100 from throughput, queued time, stops, fairness and idle
 - Counts only after the warm-up period.
 - Shows “—” until a vehicle has exited after the warm-up.
 - Compare only between runs of the same layout and scenario.
+
+## Trip, safety and comparison analysis
+
+Measures worked out from per-vehicle records or from several seeded runs. Fuel and CO₂ are model estimates and time-to-collision is a proxy; none of these is a real-world measurement.
+
+### Total delay (vehicle-h)
+
+`totalDelayVehicleHours`
+
+All the lost time of all vehicles added up, in vehicle-hours. Ten vehicles each losing six minutes make one vehicle-hour. It rises with traffic volume as well as with congestion, so compare it only between runs with the same demand.
+
+### Delay ratio
+
+`delayRatio`
+
+The fraction of everyone's travel time that was lost. 0.25 means a quarter of all time on the road was delay. It does not depend on how many vehicles there were.
+
+### Planning time index
+
+`planningTimeIndex`
+
+How much extra time a careful traveller should allow. 1.5 means that to be on time 19 days out of 20 you need half as long again as a typical trip. Closer to 1 is more predictable. Shaky with fewer than 20 trips.
+
+### 95th-percentile travel time (s)
+
+`p95TravelTimeS`
+
+A slow-day travel time: 19 in 20 trips were faster than this. It shows the bad end of the spread that an average hides. Shaky with fewer than 20 trips.
+
+### Fuel used (estimate) (L)
+
+`fuelLiters`
+
+A rough model estimate of fuel burnt, assuming ordinary petrol cars. Use it to compare runs, not as a real fuel figure.
+
+### CO₂ (estimate) (kg)
+
+`co2Kg`
+
+A rough model estimate of CO₂, worked out from the fuel estimate. Use it to compare runs, not as a real emissions figure.
+
+### Idle share
+
+`idleShare`
+
+The fraction of vehicle time spent standing still. 0.2 means vehicles were stopped a fifth of the time they were in the simulation. Idling is also where the fuel estimate burns fuel for no distance.
+
+### Time-to-collision (proxy) (s)
+
+`minTtcS`
+
+How many seconds until a following vehicle would hit the one ahead if neither changed speed. Smaller is closer. It is a warning sign used to compare runs, not a prediction that a crash will happen.
+
+### Time exposed to low TTC (s)
+
+`timeExposedTtcS`
+
+How long, in total, vehicles spent in close-following situations. It measures how much time was spent near the edge, not how many separate close calls there were.
+
+### Time-integrated TTC (s²)
+
+`timeIntegratedTtcS`
+
+Like time exposed to low TTC, but a very close approach counts for more than a mild one. Larger means more time spent closer to a collision. A proxy for comparing runs.
+
+### Conflict events
+
+`conflictEvents`
+
+How many separate close calls there were. One long close call counts once, unlike the raw count of moments.
+
+### Confidence interval
+
+`confidenceInterval`
+
+A range for the true difference rather than a single number. A narrow range means the result is well pinned down; a wide one means more runs are needed. If it includes zero, the data cannot tell the two apart.
+
+### p-value
+
+`pValue`
+
+How surprising the result would be if there were no real difference. Small values (below 0.05, say) mean it is unlikely to be chance. It does not say the difference is big or useful: read it with the confidence interval.
+
+### Paired comparison
+
+`pairedComparison`
+
+Comparing two strategies on identical random traffic, seed by seed, and looking at the differences. Because both face the same traffic, the difference is much less muddied by luck.
+
+### Sensitivity (first-order / total index)
+
+`sensitivityIndex`
+
+Which input changes the result most. The first-order index is the share of the result's variation one input explains on its own; the total index also counts its effects in combination with other inputs. With few samples the figures are rough, so use them for ranking.

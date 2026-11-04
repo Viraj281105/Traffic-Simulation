@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react";
-import { METRIC_GROUPS } from "../../metrics/catalog";
-import { filterGlossary, glossaryEntries } from "../../metrics/glossary";
+import {
+  filterGlossary,
+  glossaryEntries,
+  GLOSSARY_GROUPS,
+} from "../../metrics/glossary";
 
 /** Every measure, in everyday words, searchable. Reads the metric catalog
  *  (metrics/glossary.ts), so it always matches the tables and the docs page. */
@@ -27,7 +30,7 @@ export function MetricGlossary() {
           ? "No measure matches that search."
           : `${String(shown.length)} of ${String(all.length)} measures`}
       </p>
-      {METRIC_GROUPS.map((group) => {
+      {GLOSSARY_GROUPS.map((group) => {
         const entries = shown.filter((e) => e.group === group.id);
         if (entries.length === 0) return null;
         return (

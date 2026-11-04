@@ -172,6 +172,12 @@ const EXPERIMENTS: SectionDef = {
           description:
             "Hard generated scenarios and the points where the best strategy changes.",
         },
+        {
+          view: "insights",
+          label: "Trust and reports",
+          description:
+            "Confidence intervals, metrics, run comparison, nightly checks, reports, RL and network import.",
+        },
       ],
     },
   ],

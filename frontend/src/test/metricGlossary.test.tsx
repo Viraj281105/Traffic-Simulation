@@ -14,7 +14,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { MetricGlossary } from "../components/research/MetricGlossary";
-import { METRICS } from "../metrics/catalog";
+import { ANALYSIS_METRICS, METRICS } from "../metrics/catalog";
 import {
   caveatsFor,
   filterGlossary,
@@ -36,8 +36,9 @@ describe("metric glossary", () => {
   it("lists every catalog metric once, in plain words", () => {
     render(<MetricGlossary />);
     const entries = glossaryEntries();
-    expect(entries).toHaveLength(METRICS.length);
-    expect(new Set(entries.map((e) => e.key)).size).toBe(METRICS.length);
+    const total = METRICS.length + ANALYSIS_METRICS.length;
+    expect(entries).toHaveLength(total);
+    expect(new Set(entries.map((e) => e.key)).size).toBe(total);
     for (const e of entries) {
       expect(e.text.trim().length).toBeGreaterThan(20);
       expect(screen.getByText(e.key, { selector: "code" })).toBeTruthy();

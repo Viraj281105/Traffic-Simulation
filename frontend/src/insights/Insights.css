@@ -1,0 +1,321 @@
+/* Result screens (comparison, sensitivity, KPIs, run compare, regression,
+   report, RL, network). Theme tokens only; no hard-coded colours except the
+   print sheet, which must be dark on white. */
+
+.ins-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 36px 24px 72px;
+  color: var(--color-text);
+  line-height: 1.55;
+}
+.ins-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ins-stack > p {
+  margin: 0;
+  max-width: var(--measure);
+}
+.ins-headline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+.ins-headline > svg {
+  color: var(--color-success);
+  flex: none;
+}
+.ins-muted {
+  margin: 0;
+  color: var(--color-text-2);
+  font-size: 13.5px;
+}
+.ins-facts {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--color-text-2);
+  font-size: 14px;
+  max-width: var(--measure);
+}
+.ins-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+.ins-row .uf-field {
+  min-width: 180px;
+}
+.ins-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+/* Tabs of the hub page */
+.ins-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  border-bottom: 1px solid var(--color-border);
+}
+.ins-tab {
+  padding: 9px 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--color-text-2);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ins-tab:hover {
+  color: var(--color-text);
+}
+.ins-tab[aria-selected="true"] {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+}
+.ins-tab:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* Interval plot */
+.ins-plot {
+  width: 100%;
+  height: auto;
+  max-width: 720px;
+  overflow: visible;
+}
+.ins-plot__label {
+  fill: var(--color-text);
+  font-size: 12.5px;
+}
+.ins-plot__tick {
+  fill: var(--color-text-3);
+  font-size: 11px;
+}
+.ins-plot__axis,
+.ins-plot__ref {
+  stroke: var(--color-border-strong);
+  stroke-width: 1;
+}
+.ins-plot__ref {
+  stroke-dasharray: 4 3;
+}
+.ins-plot__ci {
+  stroke-width: 2;
+}
+.ins-plot__ci.is-accent {
+  stroke: var(--color-accent);
+}
+.ins-plot__ci.is-good {
+  stroke: var(--color-success);
+}
+.ins-plot__ci.is-warn {
+  stroke: var(--color-warning);
+}
+.ins-plot__ci.is-muted {
+  stroke: var(--color-text-3);
+}
+.ins-plot__dot.is-accent {
+  fill: var(--color-accent);
+}
+.ins-plot__dot.is-good {
+  fill: var(--color-success);
+}
+.ins-plot__dot.is-warn {
+  fill: var(--color-warning);
+}
+.ins-plot__dot.is-muted {
+  fill: var(--color-text-3);
+}
+
+/* Message lists (network validation) */
+.ins-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ins-message {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-left-width: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  font-size: 14px;
+}
+.ins-message.is-error {
+  border-left-color: var(--color-danger);
+}
+.ins-message.is-warning {
+  border-left-color: var(--color-warning);
+}
+.ins-message.is-info {
+  border-left-color: var(--color-info);
+}
+.ins-message__where {
+  display: block;
+  color: var(--color-text-3);
+  font-size: 12.5px;
+}
+
+.ins-preview {
+  width: 100%;
+  max-width: 720px;
+  height: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+}
+.ins-preview__link {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ins-preview__node {
+  fill: var(--color-text);
+}
+
+/* Regression history strip */
+.ins-nights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ins-night {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: var(--color-text-3);
+}
+.ins-night.is-pass {
+  background: var(--color-success);
+}
+.ins-night.is-fail {
+  background: var(--color-danger);
+}
+.ins-night.is-error {
+  background: var(--color-warning);
+}
+
+/* Report document */
+.ins-report {
+  max-width: 820px;
+  padding: 28px 32px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.ins-report h1 {
+  margin: 0 0 4px;
+  font-size: 26px;
+}
+.ins-report h2 {
+  margin: 22px 0 8px;
+  font-size: 18px;
+}
+.ins-report section {
+  break-inside: avoid;
+}
+
+@media print {
+  /* Show only the report: hide everything else on the page, then place the
+     report at the top-left. Works for the browser's print-to-PDF. */
+  body * {
+    visibility: hidden;
+  }
+  .ins-report,
+  .ins-report * {
+    visibility: visible;
+  }
+  .ins-report {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: #fff;
+    color: #111;
+  }
+  .ins-report * {
+    color: #111 !important;
+    background: transparent !important;
+  }
+  .ins-report .ins-plot__ci,
+  .ins-report .ins-plot__axis,
+  .ins-report .ins-plot__ref {
+    stroke: #111 !important;
+  }
+  .ins-report .ins-plot__dot {
+    fill: #111 !important;
+  }
+  .ins-report .no-print {
+    display: none !important;
+  }
+  @page {
+    margin: 16mm;
+  }
+}
+
+/* Buttons */
+.ins-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ins-btn:hover:not(:disabled) {
+  background: var(--color-surface-3);
+}
+.ins-btn:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+.ins-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.ins-btn--primary {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.ins-btn--primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
