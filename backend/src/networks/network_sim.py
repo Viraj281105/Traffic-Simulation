@@ -17,7 +17,7 @@ cannot (it carries flow, not vehicles).
 import random
 from collections import deque
 from dataclasses import dataclass
-from typing import Any, Deque, Dict, List, Optional, Tuple
+from typing import Any, Callable, Deque, Dict, List, Optional, Tuple
 
 from src.networks.graph import GraphLink, RoadGraph, shortest_path
 
@@ -47,6 +47,13 @@ def _capacity(link: GraphLink) -> int:
     return max(1, int(link.lanes * link.length / VEHICLE_SPACE))
 
 
+# observer(t, queues, passed_per_link) is called once per step after all nodes
+# have moved; it must not mutate its arguments.
+Observer = Callable[
+    [float, Dict[str, Deque[Tuple["_Vehicle", float]]], Dict[str, int]], None
+]
+
+
 def simulate_network(
     graph: RoadGraph,
     flows: List[Flow],
@@ -54,8 +61,13 @@ def simulate_network(
     seed: int = 1,
     dt: float = 1.0,
     signal_cycle: float = SIGNAL_CYCLE,
+    observer: Optional[Observer] = None,
 ) -> Dict[str, Any]:
-    """Run the network for ``duration`` seconds. Deterministic under ``seed``."""
+    """Run the network for ``duration`` seconds. Deterministic under ``seed``.
+
+    ``observer`` (optional, read-only) sees the queues after every step; the
+    congestion analysis in ``src.netmetrics`` uses it. It does not affect
+    the run."""
     rng = random.Random(seed)
     nodes = graph.node_map()
     links = graph.link_map()
@@ -80,63 +92,95 @@ def simulate_network(
         a, b = nodes[k.from_], nodes[k.to]
         axis[k.id] = "ew" if abs(b.x - a.x) >= abs(b.y - a.y) else "ns"
 
+    # Per-run constants, hoisted out of the step loop (pure refactor: same
+    # arithmetic, same order of operations, same rng draws as before).
+    cap = {k: _capacity(v) for k, v in links.items()}
+    cross = {k: v.length / v.speed for k, v in links.items()}
+    lanes_f = {k: float(v.lanes) for k, v in links.items()}
+    refill = {k: v.lanes * SATURATION_PER_LANE * dt for k, v in links.items()}
+    live: List[Tuple[Flow, List[str], float, float]] = []
+    for f, path in zip(flows, routes):
+        if path is None or f.vehicles_per_hour <= 0:
+            continue
+        live.append(
+            (
+                f,
+                path,
+                min(1.0, f.vehicles_per_hour / 3600.0 * dt),
+                sum(cross[p] for p in path),
+            )
+        )
+    # (node id, is signal, ((link id, is east-west axis, queue, link) ...))
+    plan = [
+        (
+            nid,
+            nodes[nid].control == "signal",
+            tuple((k.id, axis[k.id] == "ew", queues[k.id], k) for k in incoming[nid]),
+        )
+        for nid in sorted(nodes)
+    ]
+    half_cycle = signal_cycle / 2.0
+
     generated = entered = blocked = completed = 0
     travel_total = delay_total = 0.0
     next_id = 0
+    rand = rng.random
     steps = int(round(duration / dt))
     for step in range(steps):
         t = step * dt
         # Gates: Bernoulli arrivals approximate Poisson at small dt.
-        for f, path in zip(flows, routes):
-            if path is None or f.vehicles_per_hour <= 0:
-                continue
-            if rng.random() < min(1.0, f.vehicles_per_hour / 3600.0 * dt):
+        for f, path, p_arrive, ff in live:
+            if rand() < p_arrive:
                 generated += 1
-                first = links[path[0]]
-                if len(queues[first.id]) >= _capacity(first):
+                first_id = path[0]
+                fq = queues[first_id]
+                if len(fq) >= cap[first_id]:
                     blocked += 1
                     continue
-                ff = sum(links[p].length / links[p].speed for p in path)
                 veh = _Vehicle(next_id, path, 0, t, ff)
                 next_id += 1
                 entered += 1
-                queues[first.id].append((veh, t + first.length / first.speed))
-                peak[first.id] = max(peak[first.id], len(queues[first.id]))
+                fq.append((veh, t + cross[first_id]))
+                if len(fq) > peak[first_id]:
+                    peak[first_id] = len(fq)
+        phase = int(t // half_cycle) % 2
         # Nodes in id order; a vehicle moved this tick is ready only later.
-        for node_id in sorted(nodes):
-            node = nodes[node_id]
-            for link in incoming[node_id]:
-                credit[link.id] = min(
-                    credit[link.id] + link.lanes * SATURATION_PER_LANE * dt,
-                    float(link.lanes),
-                )
-                if node.control == "signal":
-                    phase = int(t // (signal_cycle / 2.0)) % 2
-                    if (axis[link.id] == "ew") != (phase == 0):
-                        continue
-                q = queues[link.id]
-                while q and credit[link.id] >= 1.0 and q[0][1] <= t:
+        for node_id, is_signal, ins in plan:
+            for lid, is_ew, q, link in ins:
+                c = credit[lid] + refill[lid]
+                lim = lanes_f[lid]
+                if c > lim:
+                    c = lim
+                if is_signal and is_ew != (phase == 0):
+                    credit[lid] = c
+                    continue
+                while q and c >= 1.0 and q[0][1] <= t:
                     veh = q[0][0]
                     if veh.index == len(veh.path) - 1:  # arrives at its destination
                         q.popleft()
-                        credit[link.id] -= 1.0
-                        passed_link[link.id] += 1
+                        c -= 1.0
+                        passed_link[lid] += 1
                         passed_node[node_id] += 1
                         completed += 1
                         elapsed = t - veh.entered_at
                         travel_total += elapsed
                         delay_total += max(0.0, elapsed - veh.free_flow)
                         continue
-                    nxt = links[veh.path[veh.index + 1]]
-                    if len(queues[nxt.id]) >= _capacity(nxt):
+                    nid_ = veh.path[veh.index + 1]
+                    nq = queues[nid_]
+                    if len(nq) >= cap[nid_]:
                         break  # spillback: head of line waits
                     q.popleft()
-                    credit[link.id] -= 1.0
-                    passed_link[link.id] += 1
+                    c -= 1.0
+                    passed_link[lid] += 1
                     passed_node[node_id] += 1
                     veh.index += 1
-                    queues[nxt.id].append((veh, t + nxt.length / nxt.speed))
-                    peak[nxt.id] = max(peak[nxt.id], len(queues[nxt.id]))
+                    nq.append((veh, t + cross[nid_]))
+                    if len(nq) > peak[nid_]:
+                        peak[nid_] = len(nq)
+                credit[lid] = c
+        if observer is not None:
+            observer(t, queues, passed_link)
 
     active = sum(len(q) for q in queues.values())
     return {
@@ -152,6 +196,8 @@ def simulate_network(
         "conserved": entered == completed + active,
         "meanTravelSeconds": round(travel_total / completed, 3) if completed else None,
         "meanDelaySeconds": round(delay_total / completed, 3) if completed else None,
+        "totalTravelSeconds": round(travel_total, 3),
+        "totalDelaySeconds": round(delay_total, 3),
         "unroutable": unroutable,
         "routes": [
             {
@@ -167,7 +213,11 @@ def simulate_network(
             for f, p in zip(flows, routes)
         ],
         "perLink": {
-            k: {"passed": passed_link[k], "peakOccupancy": peak[k], "occupancy": len(queues[k])}
+            k: {
+                "passed": passed_link[k],
+                "peakOccupancy": peak[k],
+                "occupancy": len(queues[k]),
+            }
             for k in sorted(links)
         },
         "perNode": {n: {"passed": passed_node[n]} for n in sorted(nodes)},
