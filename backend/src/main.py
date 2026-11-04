@@ -26,6 +26,7 @@ from src.api.request_limits import BodySizeLimitMiddleware, compute_slot
 from src.api.security import require_api_key
 from src.api.tokens_router import router as tokens_router
 from src.calibration import api as calibration_api
+from src.calibration import network_calibration_router
 from src.copilot.router import create_router as build_copilot_router
 from src.core.provenance import GIT_COMMIT_HASH
 from src.core.run_manifest import ENGINE_VERSION
@@ -36,8 +37,10 @@ from src.history import router as history_router
 from src.insights.router import create_router as build_insights_router
 from src.live import router as live_router
 from src.live.sessions import live_session_middleware
+from src.netmetrics.router import router as network_metrics_router
 from src.networks.api import router as networks_router
 from src.networks.import_api import router as network_graphs_router
+from src.observability import prom_router
 from src.observability import router as observability_router
 from src.observability.logging_setup import configure_logging
 from src.observability.middleware import ObservabilityMiddleware
@@ -49,6 +52,7 @@ from src.study import metrics_router
 from src.study import router as study_router
 from src.study.runner import shutdown_pool
 from src.suites import router as suites_router
+from src.twin.router import router as twin_router
 
 # Structured (LOG_FORMAT=json) or plain logs, with token redaction and the
 # request id on every line (src/observability/logging_setup.py).
@@ -111,6 +115,21 @@ app.include_router(
 
 # V1.8 /api/v2/calibration (src/calibration/api.py): runs belong to their creator.
 app.include_router(calibration_api.router)
+# V4.1 /api/v2/calibration/network-fit* (src/calibration/network_calibration_router.py).
+app.include_router(network_calibration_router.router)
+
+# V4.1 /api/v2/network-metrics (src/netmetrics/router.py): grid, network metrics,
+# congestion spread and map data. Stateless.
+app.include_router(
+    network_metrics_router,
+    dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
+)
+
+# V4.2 /api/v2/twin (src/twin/router.py): prediction vs observation, what-if.
+app.include_router(
+    twin_router,
+    dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
+)
 
 # V2.0 /api/v2/planning (src/planning/router.py).
 app.include_router(
@@ -187,6 +206,8 @@ except Exception:
 app.include_router(meta.router)
 # /metrics: Prometheus text, token-protected (src/observability/router.py).
 app.include_router(observability_router.router)
+# GET /metrics/prom: Prometheus-format run, queue and latency metrics (src/observability/prom_router.py).
+app.include_router(prom_router.router)
 # /api/simulation/* and /ws/simulation/*: the live dashboard (src/live/router.py).
 app.include_router(live_router.router)
 # /api/v1/simulations, /api/simulation/new, /ws/v1/stream and config/scenario
