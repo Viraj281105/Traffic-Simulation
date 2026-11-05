@@ -28,7 +28,9 @@ check = api.validate(experiment_spec)
 assert check["valid"]
 
 # Submit and track experiment with live progress callback
-result = api.run(experiment_spec, on_progress=lambda s: print(f"Progress: {s.get('progress')}%"))
+result = api.run(
+    experiment_spec, on_progress=lambda s: print(f"Progress: {s.get('progress')}%")
+)
 
 # Export self-contained portable package with SHA-256 manifest
 api.export_package(result["id"], "experiment.ufpkg")
@@ -42,7 +44,9 @@ assert report["internallyConsistent"]
 ```python
 # Ingest natural language research queries and get validated experiment proposals
 catalogue = api.copilot_catalogue()
-proposal = api.propose("What happens if heavy trucks increase by 30% during evening peak?")
+proposal = api.propose(
+    "What happens if heavy trucks increase by 30% during evening peak?"
+)
 
 # Apply modification suggestions and confirm into a runnable experiment
 confirmed = api.confirm_proposal(proposal)
@@ -60,7 +64,7 @@ search_spec = {
     "networkId": "corridor-2j",
     "populationSize": 20,
     "generations": 10,
-    "objectives": ["delay", "stops", "emissions"]
+    "objectives": ["delay", "stops", "emissions"],
 }
 estimate = api.estimate_search(search_spec)
 
