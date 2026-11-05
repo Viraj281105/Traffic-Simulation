@@ -623,6 +623,10 @@ class Client:
         query = self._query(limit=None if limit is None else str(int(limit)))
         return self._json("GET", "/api/v3/regression/nightly" + query)
 
+    def loadtest_latest(self) -> Dict[str, Any]:
+        """The newest k6 load-test summary (404 until one is published)."""
+        return self._json("GET", "/api/v3/loadtests/latest")
+
     def rl_comparison(self, comparison_id: str) -> Dict[str, Any]:
         return self._json("GET", f"/api/v3/rl/comparisons/{self._id(comparison_id)}")
 

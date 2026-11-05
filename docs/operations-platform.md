@@ -104,6 +104,7 @@ of each module in `backend/src/insights/`.
 | `experiments/<id>/paired.json` | `urbanflow-paired-seeds`: per-seed values per alternative | `/experiments/{id}/comparison`, `/report` |
 | `experiments/<id>/sensitivity.json` | `urbanflow-sensitivity`: a `sobol_lite` result | `/experiments/{id}/sensitivity`, `/report` |
 | `nightly/history.json` | `urbanflow-nightly-history` | `GET /regression/nightly` |
+| `loadtests/latest.json` | `urbanflow-loadtest-summary`: a k6 run reduced to latency, error rate, VUs and thresholds | `GET /loadtests/latest` |
 | `rl/<id>.json` | `urbanflow-rl-comparison`, wrapping `urbanflow-rl-eval` documents | `GET /rl/comparisons/{id}` |
 
 `POST /networks/import/preview` asks an Overpass server named by `URBANFLOW_OVERPASS_URL` (https); without it the
@@ -147,6 +148,26 @@ a check (`nightly/parts/<ds>/`), and a final `record_history` task (runs even wh
 the night to `nightly/history.json` through `airflow/dags/nightly_history.py`. A rerun of the same date replaces
 that night; the newest 365 are kept; a skipped check means an earlier task failed. Locally, with no Airflow:
 `cd airflow/dags` then call `nightly_history.record_night(results_dir, ds, checks, repo)` after `checked(...)`.
+
+**Load-test summary** (`/loadtests/latest`). Run k6 with `--summary-export` (see `deploy/k6/README.md`; the
+thresholds in the scripts come from `deploy/observability/slo.json`), then convert the export. The k6 file has no
+target, scenario or run length, so those are arguments; `--vus-limit` is the configured VU cap (default: the peak).
+
+```bash
+k6 run -e BASE_URL=http://127.0.0.1:8000 --summary-export k6-summary.json deploy/k6/load.js
+backend/.venv/Scripts/python scripts/produce_loadtest_summary.py --input k6-summary.json \
+  --target http://127.0.0.1:8000 --scenario load.js --duration-seconds 390 --vus-limit 10 --tool-version 0.49.0
+```
+
+Mapping (k6 `metrics.<name>` to the summary): `vus_max.max` to `vus.peak`; `http_reqs.count` and `.rate` to
+`requests.total` and `ratePerSecond`; `http_req_failed.passes` and `.value` to `requests.failed` and `errorRate`;
+`http_req_duration` `avg, min, med, p(90), p(95), p(99), max` to `latencyMs` (milliseconds); `checks.passes` and
+`.fails` to `checks`; every entry of a metric's `thresholds` to a `thresholds` row (`name` and `metric` are the
+metric key, e.g. `http_req_duration{name:health}`; `expression` is the rule). A legacy export marks a threshold
+`true` when it failed, so `passed` is the opposite; the `{"ok": ...}` form is read as is. A figure k6 did not
+report is `null`. `endpoints` lists each `{name:...}` sub-metric of `http_req_duration` that also has an
+`http_reqs{name:...}` count. The file is written atomically to `loadtests/latest.json`; a malformed export exits
+with status 2 and writes nothing. The endpoint answers 404 until the file exists and when it is malformed.
 
 **RL against fixed-time** (`/rl/comparisons/{id}`). Evaluate each scenario with `scripts/rl_evaluate.py`, then wrap
 the outputs (needs `backend/requirements-rl.txt` for the model). `--rl-policy` is the policy name inside the eval

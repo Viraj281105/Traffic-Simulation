@@ -8,6 +8,7 @@ Everything is under one root, ``URBANFLOW_RESULTS_DIR`` (the same variable the A
     <root>/experiments/<experiment id>/sensitivity.json      a Sobol result for one metric
     <root>/nightly/history.json                              nightly regression history
     <root>/rl/<comparison id>.json                           RL against fixed-time, per scenario
+    <root>/loadtests/latest.json                             newest k6 load-test summary
 """
 
 from __future__ import annotations
@@ -71,6 +72,9 @@ class ResultsLocations:
 
     def nightly_file(self) -> Path:
         return self.root / "nightly" / "history.json"
+
+    def loadtest_file(self) -> Path:
+        return self.root / "loadtests" / "latest.json"
 
     def rl_file(self, comparison_id: str) -> Optional[Path]:
         cid = safe_id(comparison_id)

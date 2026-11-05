@@ -16,7 +16,7 @@ Routes are thin: they find the stored data and hand it to a view module in this 
   unknown or someone else's id is 404, like every v3 resource).
 * ``GET /runs/{id}/metrics`` and ``/runs/compare``: read the Parquet run store. Stored runs carry no owner,
   so any signed-in caller can read them; they hold aggregate trip rows and a manifest, nothing personal.
-* ``GET /regression/nightly``, ``/rl/comparisons/{id}``: read files written by the scripts.
+* ``GET /regression/nightly``, ``/loadtests/latest``, ``/rl/comparisons/{id}``: read files written by the scripts.
 * ``POST /networks/validate`` (multipart) and ``/networks/import/preview`` (JSON): stateless.
 
 404 means "not available yet" (no data, an unusable file, or an id that is not a plain token). Errors use
@@ -53,6 +53,7 @@ from src.runstore import (
 
 from . import network_view, osm_preview
 from .comparison_view import build_comparison
+from .loadtest_view import build_loadtest
 from .locations import ResultsLocations, read_json_object, safe_id
 from .regression_view import build_nightly
 from .report_view import build_report
@@ -235,6 +236,14 @@ def create_router(
     ) -> Dict[str, Any]:
         doc = read_json_object(where.nightly_file())
         out = build_nightly(doc, limit) if doc else None
+        if out is None:
+            raise not_available()
+        return out
+
+    @router.get("/loadtests/latest")
+    def loadtest_latest(identity: UserIdentity = Depends(reader)) -> Dict[str, Any]:
+        doc = read_json_object(where.loadtest_file())
+        out = build_loadtest(doc) if doc else None
         if out is None:
             raise not_available()
         return out

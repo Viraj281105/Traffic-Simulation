@@ -75,6 +75,7 @@ def test_snapshot_holds_only_v3_and_the_expected_operations():
         ("GET", "/api/v3/experiments/{experiment_id}/sensitivity"),
         ("POST", "/api/v3/networks/import/preview"),
         ("POST", "/api/v3/networks/validate"),
+        ("GET", "/api/v3/loadtests/latest"),
         ("GET", "/api/v3/regression/nightly"),
         ("GET", "/api/v3/rl/comparisons/{comparison_id}"),
         ("GET", "/api/v3/runs/compare"),

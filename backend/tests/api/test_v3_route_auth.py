@@ -37,6 +37,7 @@ def test_the_v3_family_is_mounted() -> None:
         "copilot",
         "discovery",
         "experiments",
+        "loadtests",
         "networks",
         "packages",
         "regression",
