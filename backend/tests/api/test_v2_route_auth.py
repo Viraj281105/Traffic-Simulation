@@ -38,11 +38,16 @@ def test_every_v2_family_is_mounted() -> None:
     families = {path.split("/")[3] for _, path in V2_ROUTES}
     assert families == {
         "calibration",
+        "incidents",
+        "jobs",
         "network-graphs",
         "network-metrics",
         "networks",
         "planning",
+        "priority",
+        "tenancy",
         "twin",
+        "v2x",
     }
     assert len(V2_ROUTES) >= 20
 

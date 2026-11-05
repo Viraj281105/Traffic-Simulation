@@ -34,7 +34,9 @@ from src.database.db import init_db
 from src.discovery.router import create_router as build_discovery_router
 from src.experiments.router import create_router as build_experiments_router
 from src.history import router as history_router
+from src.incidents.router import router as incidents_router
 from src.insights.router import create_router as build_insights_router
+from src.jobs.router import router as jobs_router
 from src.live import router as live_router
 from src.live.sessions import live_session_middleware
 from src.netmetrics.router import router as network_metrics_router
@@ -45,6 +47,7 @@ from src.observability import router as observability_router
 from src.observability.logging_setup import configure_logging
 from src.observability.middleware import ObservabilityMiddleware
 from src.planning.router import create_router as build_planning_router
+from src.priority.router import router as priority_router
 from src.replays import router as replays_router
 from src.simulations import router as simulations_router
 from src.stress.router import create_router as build_stress_router
@@ -52,7 +55,9 @@ from src.study import metrics_router
 from src.study import router as study_router
 from src.study.runner import shutdown_pool
 from src.suites import router as suites_router
+from src.tenancy.router import router as tenancy_router
 from src.twin.router import router as twin_router
+from src.v2x.router import router as v2x_router
 
 # Structured (LOG_FORMAT=json) or plain logs, with token redaction and the
 # request id on every line (src/observability/logging_setup.py).
@@ -122,6 +127,33 @@ app.include_router(network_calibration_router.router)
 # congestion spread and map data. Stateless.
 app.include_router(
     network_metrics_router,
+    dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
+)
+
+# V4.7+ stateless /api/v2 families (same auth as the networks router).
+# /api/v2 incidents, weather, surges and resilience (src/incidents).
+app.include_router(
+    incidents_router,
+    dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
+)
+# /api/v2 emergency and transit priority (src/priority).
+app.include_router(
+    priority_router,
+    dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
+)
+# /api/v2 vehicle messaging and cooperation experiments (src/v2x).
+app.include_router(
+    v2x_router,
+    dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
+)
+# /api/v2 job queue stats and enqueue dry run (src/jobs).
+app.include_router(
+    jobs_router,
+    dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
+)
+# /api/v2 tenant identity, roles and usage; needs an OIDC token (src/tenancy).
+app.include_router(
+    tenancy_router,
     dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
 )
 
