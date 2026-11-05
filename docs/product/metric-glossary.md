@@ -451,3 +451,111 @@ Comparing two strategies on identical random traffic, seed by seed, and looking 
 `sensitivityIndex`
 
 Which input changes the result most. The first-order index is the share of the result's variation one input explains on its own; the total index also counts its effects in combination with other inputs. With few samples the figures are rough, so use them for ranking.
+
+### Network throughput (veh/h)
+
+`throughputVph`
+
+How many vehicles got all the way through the network, per hour. Vehicles still travelling at the end of the run are not counted.
+
+### Vehicles in the network (vehicles)
+
+`meanVehiclesInNetwork`
+
+How many vehicles were on the roads at a typical moment of the run. More vehicles means a busier network.
+
+### Queued vehicles (vehicles)
+
+`meanQueuedVehicles`
+
+How many vehicles were waiting in queues at a typical moment, added up over every road in the network.
+
+### Blocked link time (link-s)
+
+`blockedLinkSeconds`
+
+Time that roads could not let vehicles through because the road ahead was full. Two roads blocked for ten seconds each count as twenty link-seconds.
+
+### Link fullness (fraction)
+
+`meanOccupancyRatio`
+
+How full a road was: 0 is empty and 1 is packed. The congestion screens colour roads and cells by this.
+
+### Density (veh/km/lane)
+
+`densityVehPerKmLane`
+
+How closely packed the vehicles were, per kilometre of lane. The sideways axis of the fundamental diagram.
+
+### Flow per lane (veh/h/lane)
+
+`flowVehPerHourLane`
+
+How many vehicles moved through each lane per hour. The upward axis of the fundamental diagram; its highest dot shows the busiest the network got.
+
+### Congestion onset (s)
+
+`congestionOnsetSeconds`
+
+The moment a road first became congested, counted from the start of the run. Roads are listed in the order they congested.
+
+### Spillback time (s)
+
+`spillbackSeconds`
+
+How long a queue was backed up into the road behind it because the road ahead had no room.
+
+### GEH
+
+`geh`
+
+A traffic-engineering score for how well the modelled flow on a road matches the count. Below 5 is generally accepted as a good match; larger is a miss.
+
+### Flow error (RMSE) (veh/h)
+
+`rmseVph`
+
+The typical size of the miss between modelled and counted flow, in vehicles per hour. Big misses count extra.
+
+### Flow error (MAPE) (%)
+
+`mapePercent`
+
+How far off the model is on average, as a percentage of the counted flow. Roads with very small counts are left out because a tiny denominator would give a meaningless percentage.
+
+### Twin error (MAE) (vehicles / window)
+
+`twinMae`
+
+On average, how many vehicles per time window the twin predicted wrongly, whether too many or too few.
+
+### Twin error (MAPE) (%)
+
+`twinMape`
+
+How wrong the twin was as a share of what really happened. Windows where nothing was observed are skipped.
+
+### Twin bias (vehicles / window)
+
+`twinBias`
+
+Whether the twin leans one way. A negative number means it usually predicts fewer vehicles than were seen; a positive number means more.
+
+### Mean wait per entered vehicle (network RL) (s)
+
+`mean_wait_s`
+
+Total time vehicles spent stopped, divided by the vehicles that entered the network. It is not the delay of a finished trip, so do not compare it with delay figures from other screens.
+
+### Response time, 95th percentile (ms)
+
+`loadTestP95Ms`
+
+How long the slowest 5% of requests took at least. If this is 400 ms, nineteen in twenty requests were faster than that.
+
+### Load-test error rate (fraction)
+
+`loadTestErrorRate`
+
+The fraction of requests that failed during the load test. 0.01 means one in a hundred.

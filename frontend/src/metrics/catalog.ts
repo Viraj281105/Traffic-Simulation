@@ -730,6 +730,168 @@ export const ANALYSIS_METRICS: AnalysisMetricDef[] = [
     plain:
       "Which input changes the result most. The first-order index is the share of the result's variation one input explains on its own; the total index also counts its effects in combination with other inputs. With few samples the figures are rough, so use them for ranking.",
   },
+  {
+    key: "throughputVph",
+    label: "Network throughput",
+    unit: "veh/h",
+    description:
+      "Vehicles that finished their trip, scaled to one hour, over the whole network (network-metrics simulate).",
+    plain:
+      "How many vehicles got all the way through the network, per hour. Vehicles still travelling at the end of the run are not counted.",
+  },
+  {
+    key: "meanVehiclesInNetwork",
+    label: "Vehicles in the network",
+    unit: "vehicles",
+    description:
+      "Time-averaged number of vehicles on all links of the network during the run.",
+    plain:
+      "How many vehicles were on the roads at a typical moment of the run. More vehicles means a busier network.",
+  },
+  {
+    key: "meanQueuedVehicles",
+    label: "Queued vehicles",
+    unit: "vehicles",
+    description:
+      "Time-averaged number of vehicles waiting at the front of a link, summed over all links.",
+    plain:
+      "How many vehicles were waiting in queues at a typical moment, added up over every road in the network.",
+  },
+  {
+    key: "blockedLinkSeconds",
+    label: "Blocked link time",
+    unit: "link-s",
+    description:
+      "Total time, summed over links, during which a link had a vehicle ready to leave but the next link was full.",
+    plain:
+      "Time that roads could not let vehicles through because the road ahead was full. Two roads blocked for ten seconds each count as twenty link-seconds.",
+  },
+  {
+    key: "meanOccupancyRatio",
+    label: "Link fullness",
+    unit: "fraction",
+    description:
+      "Mean number of vehicles on a link divided by the number it can store (length times lanes). 0 is empty, 1 is full.",
+    plain:
+      "How full a road was: 0 is empty and 1 is packed. The congestion screens colour roads and cells by this.",
+  },
+  {
+    key: "densityVehPerKmLane",
+    label: "Density",
+    unit: "veh/km/lane",
+    description:
+      "Vehicles per kilometre of lane, weighted by lane length over the network, one value per time bucket.",
+    plain:
+      "How closely packed the vehicles were, per kilometre of lane. The sideways axis of the fundamental diagram.",
+  },
+  {
+    key: "flowVehPerHourLane",
+    label: "Flow per lane",
+    unit: "veh/h/lane",
+    description:
+      "Vehicles passing per hour per lane, weighted by lane length over the network, one value per time bucket.",
+    plain:
+      "How many vehicles moved through each lane per hour. The upward axis of the fundamental diagram; its highest dot shows the busiest the network got.",
+  },
+  {
+    key: "congestionOnsetSeconds",
+    label: "Congestion onset",
+    unit: "s",
+    description:
+      "Time at which a link first stayed at or above the congestion threshold of fullness for the minimum hold time.",
+    plain:
+      "The moment a road first became congested, counted from the start of the run. Roads are listed in the order they congested.",
+  },
+  {
+    key: "spillbackSeconds",
+    label: "Spillback time",
+    unit: "s",
+    description:
+      "Duration of a run in which a link head vehicle was ready to leave but the next link was full.",
+    plain:
+      "How long a queue was backed up into the road behind it because the road ahead had no room.",
+  },
+  {
+    key: "geh",
+    label: "GEH",
+    unit: "",
+    description:
+      "GEH = sqrt(2 (M - C)^2 / (M + C)) for modelled hourly flow M and counted hourly flow C on a link. Below 5 is the usual acceptable fit.",
+    plain:
+      "A traffic-engineering score for how well the modelled flow on a road matches the count. Below 5 is generally accepted as a good match; larger is a miss.",
+  },
+  {
+    key: "rmseVph",
+    label: "Flow error (RMSE)",
+    unit: "veh/h",
+    description:
+      "Root mean square of simulated minus counted hourly flow over the counted links.",
+    plain:
+      "The typical size of the miss between modelled and counted flow, in vehicles per hour. Big misses count extra.",
+  },
+  {
+    key: "mapePercent",
+    label: "Flow error (MAPE)",
+    unit: "%",
+    description:
+      "Mean of absolute percentage errors over links whose counted flow is at least the minimum; links with tiny counts are skipped and reported.",
+    plain:
+      "How far off the model is on average, as a percentage of the counted flow. Roads with very small counts are left out because a tiny denominator would give a meaningless percentage.",
+  },
+  {
+    key: "twinMae",
+    label: "Twin error (MAE)",
+    unit: "vehicles / window",
+    description:
+      "Mean absolute difference between predicted and observed vehicle counts per window (digital twin comparison).",
+    plain:
+      "On average, how many vehicles per time window the twin predicted wrongly, whether too many or too few.",
+  },
+  {
+    key: "twinMape",
+    label: "Twin error (MAPE)",
+    unit: "%",
+    description:
+      "Mean absolute error as a percentage of the observed count, over windows where the observed count is above zero.",
+    plain:
+      "How wrong the twin was as a share of what really happened. Windows where nothing was observed are skipped.",
+  },
+  {
+    key: "twinBias",
+    label: "Twin bias",
+    unit: "vehicles / window",
+    description:
+      "Mean of predicted minus observed count per window. Negative means the twin predicts too few vehicles.",
+    plain:
+      "Whether the twin leans one way. A negative number means it usually predicts fewer vehicles than were seen; a positive number means more.",
+  },
+  {
+    key: "mean_wait_s",
+    label: "Mean wait per entered vehicle (network RL)",
+    unit: "s",
+    description:
+      "Stopped vehicle-seconds in the network divided by the number of vehicles that entered it, from the network RL evaluation.",
+    plain:
+      "Total time vehicles spent stopped, divided by the vehicles that entered the network. It is not the delay of a finished trip, so do not compare it with delay figures from other screens.",
+  },
+  {
+    key: "loadTestP95Ms",
+    label: "Response time, 95th percentile",
+    unit: "ms",
+    description:
+      "The response time that 95% of load-test requests beat (k6 http_req_duration p(95)).",
+    plain:
+      "How long the slowest 5% of requests took at least. If this is 400 ms, nineteen in twenty requests were faster than that.",
+  },
+  {
+    key: "loadTestErrorRate",
+    label: "Load-test error rate",
+    unit: "fraction",
+    description:
+      "Share of load-test requests that failed (k6 http_req_failed rate).",
+    plain:
+      "The fraction of requests that failed during the load test. 0.01 means one in a hundred.",
+  },
 ];
 
 export const METRICS_BY_GROUP: Record<MetricGroupId, MetricDef[]> =
