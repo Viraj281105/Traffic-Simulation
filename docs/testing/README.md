@@ -1,8 +1,8 @@
 # Testing & Quality Gates
 
-> **Status:** Current · V1.0 · verified against `.github/workflows/ci.yml`, `.github/workflows/docker.yml`, `backend/pyproject.toml`, `frontend/package.json` and `.husky/pre-commit`
+> **Status:** Current · Comprehensive testing guide across V1.0–V5.4 · verified against `.github/workflows/ci.yml`, `backend/pyproject.toml`, and `frontend/package.json`
 
-UrbanFlow's tests exist to protect **three things**: that the simulation is physically and logically correct, that its numbers are reproducible, and that what users see is a faithful presentation of what the backend measured. Tools are listed below by *what they protect*, not just by name.
+UrbanFlow's tests exist to protect **four core pillars**: that microscopic and network simulation physics are numerically correct and invariant, that results and statistical intervals are bit-identical and reproducible, that the API and delivery layers are secure and multi-tenant isolated, and that the browser interface renders an exact, accessible reflection of backend metrics.
 
 ---
 
@@ -10,11 +10,11 @@ UrbanFlow's tests exist to protect **three things**: that the simulation is phys
 
 ```mermaid
 flowchart BT
-    S["Static guarantees<br/>ruff · ruff format · mypy --strict · ESLint · tsc · Prettier · schema validator"]
-    U["Unit tests<br/>IDM · clock · lanes · spawner · controllers · metric formulas · statistics · UI helpers"]
-    I["Integration tests<br/>engine runs · dual orchestrator · API & WebSocket · persistence · config ordering"]
-    R["Simulation regression (slow)<br/>capacity curve pins · lock-up scans · conflict sweeps"]
-    D["Delivery checks<br/>production build · Docker images · compose smoke test"]
+    S["Static guarantees<br/>ruff check · ruff format · mypy --strict · ESLint · tsc · Prettier · validate_schemas"]
+    U["Unit & Invariant tests<br/>IDM · MOBIL · clock · spawner · controllers · Hypothesis property invariants · statistics"]
+    I["Integration & Boundary tests<br/>dual orchestrator · multi-junction grid · handoffs · API & WebSockets · OIDC tenancy · SQS queue"]
+    R["Simulation regression & Eval gates<br/>12 slow shards · G-CAL calibration · Copilot LLM judge gate · reproducibility audit"]
+    D["Delivery & Microservice checks<br/>production builds · Docker images · Kind/Helm deploy · Go ingest microservice"]
     S --> U --> I --> R --> D
 ```
 
@@ -64,18 +64,30 @@ silently selecting nothing. `pytest -m unit`, `-m integration` and
 | Directory | Protects |
 | --- | --- |
 | `tests/vehicles/` | IDM equations, vehicle state updates, spawner seeding and safe insertion, routing and leader finding, speed profiles |
-| `tests/controllers/` | Signal phase plans, asymmetric greens, offsets, roundabout gap acceptance, follow-up time, congestion hysteresis |
+| `tests/controllers/` | Signal phase plans, asymmetric greens, offsets, roundabout gap acceptance, signalised roundabouts, adaptive actuation |
 | `tests/intersection/` | Conflict-point geometry and predictive conflict resolution (including lock-up cases) |
 | `tests/roads/` | Lane geometry; cached lookups equal to uncached trajectories |
-| `tests/core/` | Clock, configuration models, provenance, snapshots, determinism |
-| `tests/engine/` | Engine lifecycle and reset, the vehicle pool |
+| `tests/core/` | Clock, configuration models, provenance, snapshots, determinism, Hypothesis property tests |
+| `tests/engine/` | Engine lifecycle and reset, vehicle pool, deadlock detector, SAT collision audit |
 | `tests/scenario/` | Scenario documents, lane configuration, cross-field configuration rules |
-| `tests/metrics/` | Every metric definition, warm-up clipping, composite score rules, safety measures, vehicle limit |
+| `tests/metrics/` | Every metric definition, warm-up clipping, fuel/CO2 emissions, TTC/PET safety proxies |
 | `tests/study/` | Statistics (CI, Welch, Cohen's d), sweep verdict direction and crossover, report generation, CLI |
 | `tests/database/` | Persistence, run reproducibility, history/labels, sweep persistence batching |
-| `tests/api/` | Routes, API-key auth, development auth bypass, replay ownership, study jobs and limits, reliability scenario |
-| `tests/integration/` | Full runs, dual simulation, WebSocket integration, snapshot contract, config validation and ordering, live session limits, stress, DB concurrency |
-| `tests/test_architecture.py` | The backend's layer rules: the simulation domain is a strict import stack, uses no web or database library, nothing imports `main.py`, and SQL stays in `database/` and the feature stores |
+| `tests/api/` | Routes, API-key auth, development auth bypass, replay ownership, study jobs, route-auth sweeps |
+| `tests/networks/` & `tests/netmetrics/` | Multi-junction graph model, 12-junction arterial grid, vehicle handoffs, congestion spread |
+| `tests/calibration/` | Turning-count loader, GEH/RMSE/MAPE statistics, Nelder-Mead fitting, continuous recalibration |
+| `tests/rl/` | Gymnasium environment wrappers, fixed-time and max-pressure baselines, PPO/DQN training |
+| `tests/observability/` | Tracing, Prometheus metrics (/metrics/prom), SLO evaluation, database failure resilience |
+| `tests/twin/` | Digital twin telemetry replay, prediction-vs-observation comparison, what-if branching |
+| `tests/incidents/` | Physical vehicle crashes, lane blockages, closures with Dijkstra rerouting, weather, resilience |
+| `tests/priority/` | Emergency signal pre-emption, civilian yielding, transit signal priority, audit logging |
+| `tests/v2x/` | Vehicle messaging channel, in-process and MQTT pub/sub bus, latency/drop models, cooperation |
+| `tests/tenancy/` | OIDC JWT verification, RBAC roles, tenant data isolation sweeps, quotas and rate limits |
+| `tests/jobs/` | Background task queue, AWS SQS adapter, worker daemon, cost allocation tags |
+| `tests/experiments/` & `tests/uncertainty/` | Robustness Lab, Sobol/LHS parameter uncertainty, bootstrap paired difference intervals |
+| `tests/copilot_eval/` | Copilot LLM evaluation score gate on gold question datasets |
+| `tests/integration/` | Full runs, dual simulation, WebSocket integration, snapshot contract, DB concurrency |
+| `tests/test_architecture.py` | Layer rules: the domain is a strict import stack, uses no web/DB library, nothing imports `main.py` |
 
 ### Fixed-seed golden fingerprints
 

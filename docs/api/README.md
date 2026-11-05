@@ -353,7 +353,7 @@ Taken from the app's OpenAPI document (`GET /openapi.json`), 2026-10-12. Request
 
 **Limits.** Bodies over 1 MiB are refused with 413 on `/api/v2/networks/*` and `/api/v2/planning/validate`. A planning study runs at most 240 simulations (alternatives × demand scales × seeds; ≤ 6 alternatives, ≤ 5 scales, ≤ 30 seeds); at most two planning jobs run at once (429 otherwise). There is no job cancellation.
 
-**What the results are and are not.** A planning study reports evidence (differences from a baseline with intervals, ties and inconclusive readings), never a ranking or a recommendation. A calibration run *compares* a simulation with observations a user supplies and rates the agreement; it does not fit model parameters, so no study is "field-calibrated" by it. Network documents are validated, compiled and fingerprinted; **multi-junction networks are not simulated** — a planning study accepts a network only when it has exactly one junction.
+**What the results are and are not.** A planning study reports evidence (differences from a baseline with intervals, ties and inconclusive readings), never a ranking or a recommendation. A calibration run *compares* a simulation with observations a user supplies and rates the agreement; it does not fit model parameters, so no study is "field-calibrated" by it. Single-junction planning studies accept one junction; multi-junction networks are simulated through the `/api/v2/network-graphs` and `/api/v2/network-metrics` pipelines.
 
 ### 10.1 Calibration — `/api/v2/calibration` 🔑 👤
 
@@ -366,19 +366,20 @@ Taken from the app's OpenAPI document (`GET /openapi.json`), 2026-10-12. Request
 | GET | `/runs/{run_id}` | One of the caller's runs | `{id, createdAt, request, result}` | 401, 404 |
 | DELETE | `/runs/{run_id}` | Delete one of the caller's runs and the observations it holds | `{id, deleted: true}` | 401, 404 |
 | GET | `/runs/{run_id}/scenario` | The scenario the run simulated (observed inputs written in), for use as a planning subject | `{id, scenario, fingerprint, originalFingerprint, appliedFit, fieldCalibration}` | 401, 404 |
+| POST | `/network-fit/validate` | Validate network turning counts against a multi-junction graph | `{valid, linkCount, intervalCount}` | 401, 422 |
+| POST | `/network-fit/fit` | Run Nelder-Mead optimization to calibrate demand and speed multipliers | `{geh, rmse, mape, optimalMultipliers, gCalPassed}` | 401, 422 |
+| POST | `/network-fit/recalibrate` | Warm-start continuous recalibration against recent count window | `{recalibrated, deltaGeh, updatedMultipliers}` | 401, 422 |
 
-### 10.2 Networks — `/api/v2/networks` 🔑 👤 (stateless, nothing stored)
+### 10.2 Networks & Network Graphs — `/api/v2/networks` & `/api/v2/network-graphs` 🔑 👤
 
-| Method | Route | Purpose |
-| --- | --- | --- |
-| POST | `/validate` | `{network}` → `{valid, errors, warnings, fingerprint}` (always 200 for a parseable body) |
-| POST | `/compile` | Execution plan: junction order, route-implied arm flows, edges (400 if invalid) |
-| POST | `/fingerprint` | `{fingerprint, nodeCount, edgeCount}` |
-| POST | `/scenario` | Each inline junction's scenario with route-implied volume and turning applied |
-| POST | `/result-structure` | The `urbanflow-network-result` contract with `status: "not_executed"` |
-| POST | `/from-scenario` | `{scenario}` → the single-junction network that represents it, with validation and fingerprint |
-
-All return 401 without key/user and 413 over 1 MiB.
+| Method | Route | Purpose | Output / Notes |
+| --- | --- | --- | --- |
+| POST | `/api/v2/networks/validate` | Validate network document schema and lane alignments | `{valid, errors, warnings, fingerprint}` |
+| POST | `/api/v2/networks/compile` | Compile network into execution plan and junction routing order | Execution plan |
+| POST | `/api/v2/network-graphs/import/osm` | Ingest OpenStreetMap Overpass XML/JSON into a network graph | `{graphId, nodeCount, edgeCount, corridor}` |
+| POST | `/api/v2/network-graphs/import/sumo` | Ingest SUMO `.net.xml` network representation | `{graphId, junctions, connections}` |
+| POST | `/api/v2/network-graphs/export/sumo` | Export compiled network graph into standard SUMO XML format | XML payload |
+| POST | `/api/v2/network-graphs/simulate` | Execute mesoscopic / microscopic multi-junction network run | Network trajectory & aggregate KPIs |
 
 ### 10.3 Planning — `/api/v2/planning` 🔑 👤
 
@@ -387,37 +388,142 @@ All return 401 without key/user and 413 over 1 MiB.
 | POST | `/validate` | Check a study without running it | `{valid, errors, warnings, simulations, scenarioFingerprint, alternatives}` | 401, 413 |
 | POST | `/run` | Run synchronously (scripts) | the study record with `result` | 401, 422 |
 | POST | `/jobs` | Start as a background job | 202 `{id, name, status: "queued", …}` | 401, 422, 429 |
-| GET | `/{study_id}` | Status and, when finished, the result. While queued or running, `progress` = `{phase, total, completed, fraction, elapsedSeconds}` counted in simulations across the whole study. A study a stopped server process was still running reads `status: "failed"`, `error: "Interrupted by a server restart …"` | `{id, name, status, error, createdAt, result, progress}` | 401, 404 |
-| DELETE | `/{study_id}` | Delete a finished or failed study (memory and database) | `{id, deleted: true}` | 401, 404, 409 while queued/running |
+| GET | `/{study_id}` | Status and, when finished, the result | `{id, name, status, error, createdAt, result, progress}` | 401, 404 |
+| DELETE | `/{study_id}` | Delete a finished or failed study | `{id, deleted: true}` | 401, 404, 409 while queued/running |
 | GET | `/{study_id}/report?format=json\|md\|csv` | Download the report | file with `Content-Disposition` | 401, 404, 422 not finished |
-| POST | `/{study_id}/reproduce` | Re-run the stored request and compare result fingerprints | `{reproduced, originalResultFingerprint, rerunResultFingerprint, gitCommitOriginal, gitCommitRerun}` | 401, 404, 422 |
+| POST | `/{study_id}/reproduce` | Re-run the stored request and compare result fingerprints | `{reproduced, originalResultFingerprint, rerunResultFingerprint}` | 401, 404, 422 |
 
-`status` is `queued`, `running`, `completed` or `failed` (with `error`). Finished studies are kept in `uf_planning_studies` and survive a restart; a study that was queued or running when the server stopped is lost (in-memory jobs).
+### 10.4 Network Metrics & Congestion Heatmap — `/api/v2/network-metrics` 🔑 👤
 
-The browser workflow over these routes is the planner page, `/app/planner` ([planner guide](../product/planner-guide.md)).
+| Method | Route | Purpose | Output |
+| --- | --- | --- | --- |
+| POST | `/grid/run` | Execute 3x3 or 12-junction arterial grid run | `{duration, throughput, meanDelay, linkMetrics}` |
+| GET | `/congestion/spread` | Compute link-to-link topological shockwave propagation | `{timeSeries, bottleneckLinks, spillbackEvents}` |
+| GET | `/mapdata` | Export spatial network links in GeoJSON format | GeoJSON FeatureCollection |
+
+### 10.5 Incidents & Weather Resilience — `/api/v2/incidents` 🔑 👤
+
+| Method | Route | Purpose | Output |
+| --- | --- | --- | --- |
+| POST | `/inject` | Inject vehicle crashes, lane blockages, or closures | `{incidentId, status: "active", affectedLinks}` |
+| POST | `/weather` | Apply rain, dense fog, snow, or ice friction/visibility | `{appliedConditions, frictionFactor, visibilityDistance}` |
+| POST | `/resilience/score` | Compute system recovery time and comparative resilience ($R$) | `{resilienceScore, recoveryTimeSeconds, steadyStateDelta}` |
+
+### 10.6 Emergency & Transit Priority — `/api/v2/priority` 🔑 👤
+
+| Method | Route | Purpose | Output |
+| --- | --- | --- | --- |
+| POST | `/preemption/simulate` | Simulate emergency vehicle arrival with siren detection | `{preempted, clearanceTime, civilianYieldCount}` |
+| POST | `/transit/tsp` | Evaluate Transit Signal Priority for scheduled bus fleets | `{transitDelayReduction, crossStreetDelayImpact}` |
+| GET | `/audit/log` | Retrieve compliance and response-time audit entries | List of preemption events and timestamps |
+
+### 10.7 Connected Vehicles & V2X Messaging — `/api/v2/v2x` 🔑 👤
+
+| Method | Route | Purpose | Output |
+| --- | --- | --- | --- |
+| POST | `/bus/publish` | Publish cooperative V2X vehicle status message | `{delivered, latencyMs, dropped}` |
+| POST | `/experiments/cooperative` | Run cooperative vs. non-cooperative benchmark ensemble | `{cooperativeThroughput, baselineThroughput, fuelSaved}` |
+
+### 10.8 Background Jobs & Workers — `/api/v2/jobs` 🔑 👤
+
+| Method | Route | Purpose | Output |
+| --- | --- | --- | --- |
+| GET | `/stats` | Retrieve in-memory and SQS queue depths and worker states | `{queueDepth, activeWorkers, completedJobs}` |
+| POST | `/dry-run` | Validate job spec and estimate worker execution time | `{estimatedSeconds, costTags}` |
+
+### 10.9 Enterprise Multi-Tenancy & Quotas — `/api/v2/tenancy` 🔑 👤
+
+| Method | Route | Purpose | Output |
+| --- | --- | --- | --- |
+| GET | `/me` | Return authenticated user identity, tenant ID, and RBAC role | `{userId, tenantId, role, permissions}` |
+| GET | `/quotas` | Check tenant simulation quotas, active jobs, and token usage | `{quotaLimit, quotaUsed, remainingTokens}` |
+
+### 10.10 Digital Twin & Replay — `/api/v2/twin` 🔑 👤
+
+| Method | Route | Purpose | Output |
+| --- | --- | --- | --- |
+| POST | `/replay/start` | Start telemetry replay adapter against recorded run | `{sessionId, totalTicks, frameRate}` |
+| GET | `/compare/live` | Stream real-time prediction-vs-observation differences | `{tick, predictedSpeed, observedSpeed, delta}` |
+| POST | `/what-if/branch` | Fork telemetry stream at specified tick into alternative strategy | `{forkedSessionId, baselineStrategy, alternativeStrategy}` |
 
 ---
 
-## 11. Robustness Lab API — `/api/v3` (V3.0, in development)
+## 11. Robustness Lab API — `/api/v3` (V3.0)
 
-Contract files: [`shared/schemas/v3/`](../../shared/schemas/v3/) (`experiment.schema.json`, `uncertainty-spec.schema.json` and `openapi.v3.snapshot.json`, the `/api/v3` part of the OpenAPI document). `backend/tests/experiments/test_contract.py` fails when any of them is stale; regenerate with `cd backend && python -m src.experiments.export_schemas`. Design: [ADR-013](../decisions/adr-013-v3-integration-contract-and-versioning.md), [ADR-015](../decisions/adr-015-robustness-lab-uncertainty-design.md); factor meanings: [factor mapping](../engineering/v3-w1-factor-mapping.md).
+Contract files: [`shared/schemas/v3/`](../../shared/schemas/v3/) (`experiment.schema.json`, `uncertainty-spec.schema.json` and `openapi.v3.snapshot.json`). Design: [ADR-013](../decisions/adr-013-v3-integration-contract-and-versioning.md), [ADR-015](../decisions/adr-015-robustness-lab-uncertainty-design.md).
 
-**Access.** Same rule as `/api/v2`: every route requires the API key (when `API_KEY` is set) **and** a signed-in user (`backend/tests/api/test_v3_route_auth.py`). Every experiment is private to its owner: another user's id answers **404**, exactly like an unknown one. There is no administrator override.
+**Access.** Every `/api/v3` route requires the API key (🔑) **and** a signed-in user (👤). Every experiment is private to its owner (HTTP 404 on unowned access).
 
 | Method | Route | Purpose | Output | Errors |
 | --- | --- | --- | --- | --- |
-| GET | `/capabilities` | What this server offers: feature flags (only what exists is `true`), document formats, factor kinds, quotas and limits | `urbanflow-capabilities` | 401 |
-| POST | `/experiments/validate` | Check a request and report its size without running anything | `{valid, errors, warnings, counts, baseline, specFingerprint, scenarioFingerprint, alternatives}` | 401, 413 |
-| POST | `/experiments` | Submit an `urbanflow-experiment` v1 document; runs in the background | 202 `urbanflow-experiment-status` | 401, 413, 422, 429 |
-| GET | `/experiments?limit&offset` | The caller's experiments, newest first (limit 1-100) | `urbanflow-experiment-list` | 401, 422 |
-| GET | `/experiments/{id}` | Status and live progress | `urbanflow-experiment-status` | 401, 404 |
-| GET | `/experiments/{id}/result` | The finished `urbanflow-experiment-result` | result document | 401, 404, 409 no result yet or failed |
-| DELETE | `/experiments/{id}` | Delete a finished or failed experiment | `{id, deleted: true}` | 401, 404, 409 while queued or running |
+| GET | `/capabilities` | Server capabilities, factor kinds, quotas, and limits | `urbanflow-capabilities` | 401 |
+| POST | `/experiments/validate` | Validate uncertainty experiment request without simulating | `{valid, counts, specFingerprint, scenarioFingerprint}` | 401, 413 |
+| POST | `/experiments` | Submit uncertainty experiment; runs asynchronously | 202 `urbanflow-experiment-status` | 401, 413, 422, 429 |
+| GET | `/experiments?limit&offset` | Caller's experiments, newest first | `urbanflow-experiment-list` | 401, 422 |
+| GET | `/experiments/{id}` | Status and live execution progress | `urbanflow-experiment-status` | 401, 404 |
+| GET | `/experiments/{id}/result` | Finished experiment result with bootstrap intervals | result document | 401, 404, 409 |
+| DELETE | `/experiments/{id}` | Delete experiment record and cached runs | `{id, deleted: true}` | 401, 404, 409 |
+| GET | `/experiments/{id}/package`| Export self-contained `.ufpkg` portable archive | Binary `.ufpkg` archive with SHA-256 manifest | 401, 404 |
+| POST | `/experiments/package/verify`| Verify integrity of an uploaded `.ufpkg` package | `{valid, manifestHash, internallyConsistent}` | 401, 422 |
 
-**Request.** `{format, version, name, scenario, alternatives?, baseline?, uncertainty}`: the scenario and alternatives are the V2.0 documents; `alternatives` omitted means fixed-time, adaptive and roundabout; `uncertainty` is an `urbanflow-uncertainty-spec` v1 (factors, number of conditions, replications, seed, primary indicator, tie tolerance). Unknown fields are rejected by name.
+---
 
-**Result.** Carries the specification and its fingerprint, the assumptions (with `basis` and rationale), **conditions, replications and total runs separately**, valid conditions and exclusions by reason and factor stratum, win/tie/loss with Wilson intervals, the paired difference with bootstrap intervals, regret, preference share, the eligibility checklist, the line `Real-world validity: None — assumptions only`, the limitations, a `resultFingerprint` that is identical for the same inputs and seed, and provenance. One-factor flip detection, sensitivity, split-half stability and the variance split are not computed yet, so **no result is classed "eligible"**; the checklist says why.
+## 12. AI Experiment Copilot — `/api/v3/copilot` 🔑 👤
 
-**Exclusions.** A condition is excluded for every alternative (and counted by reason) when its scenario is invalid after the change, a simulation fails, a run hits the vehicle limit, **no vehicle finishes a trip after warm-up** (the engine reports delay 0.0 for an empty sample, which is not a measurement; `validate` warns when fewer than 60 s are measured), or the indicator is missing. More than 10 % excluded overall, or 20 % in a factor stratum, makes the result ineligible.
+| Method | Route | Purpose | Output |
+| --- | --- | --- | --- |
+| GET | `/catalogue` | Return available scenario templates and prompt prompts | `{templates, suggestedQuestions}` |
+| POST | `/propose` | Formulate experiment proposal from natural language prompt | `{proposalId, generatedScenario, uncertaintyFactors, reasoning}` |
+| POST | `/confirm` | Validate and confirm proposal, submitting to experiments engine | 202 `{experimentId, status: "queued"}` |
+| POST | `/interpret` | Generate evidence-grounded narrative summary from result JSON | `{summaryMarkdown, verifiedAssertions, groundedTests}` |
 
-**Quotas** (proposals, reported by `/capabilities`): one running experiment per user and two server-wide (429), 50 stored experiments per user (429), at most 6 alternatives, 2000 runs (conditions × alternatives × replications) and 2 500 000 engine steps per experiment (steps = runs × duration ÷ time step, so 250 000 simulated seconds at the default 0.1 s step; 422, and the message names the quota). Documents nested more than 24 levels, and scale factors outside 0.05 to 10, are refused (422). Request bodies over 1 MiB are refused with 413. The [security review](../engineering/v3-w1-security-review.md) lists what was checked and what remains. There is no cancellation yet; an experiment a stopped server process was running reads `failed` with an `Interrupted by a server restart …` error.
+---
+
+## 13. AI Control Strategy Discovery Lab — `/api/v3/discovery` 🔑 👤
+
+| Method | Route | Purpose | Output |
+| --- | --- | --- | --- |
+| POST | `/search/estimate` | Estimate compute steps for NSGA-II evolutionary search | `{generations, populationSize, estimatedSteps}` |
+| POST | `/search/start` | Launch evolutionary multi-objective timing parameter search | 202 `{searchId, status: "optimizing"}` |
+| GET | `/search/{id}/status` | Poll evolutionary convergence and Pareto frontier evolution | `{generation, hypervolume, paretoFrontier}` |
+| GET | `/search/{id}/result` | Retrieve optimal non-dominated control strategy parameter sets | `{paretoStrategies, baselineComparison, heldOutScore}` |
+
+---
+
+## 14. Strategy Breakpoint Explorer — `/api/v3/stress` 🔑 👤
+
+| Method | Route | Purpose | Output |
+| --- | --- | --- | --- |
+| GET | `/catalogue` | Return stress test profiles (surges, gridlock scans) | `{profiles, parameterRanges}` |
+| POST | `/start` | Launch breakpoint search across escalating demand ladders | 202 `{jobId, status: "running"}` |
+| GET | `/result/{id}` | Retrieve failure threshold and gridlock onset points | `{breakdownArrivalRate, criticalQueueLength}` |
+
+---
+
+## 15. Insights & Analytics — `/api/v3/*` 🔑 👤
+
+| Method | Route | Purpose | Output |
+| --- | --- | --- | --- |
+| GET | `/insights/comparison` | Retrieve comparative metrics across paired strategies | `{delayComparison, throughputComparison, effectSizes}` |
+| GET | `/insights/sensitivity` | Multi-factor Sobol sensitivity variance decomposition | `{firstOrderIndices, totalOrderIndices}` |
+| GET | `/loadtests/latest` | Retrieve latest k6 load-test summary and p95 latencies | `{p95LatencyMs, rps, errorRate, passStatus}` |
+| GET | `/rl/comparisons` | Benchmark trained RL policies vs. classical baselines | `{policyName, baselineName, delayDelta, pValue}` |
+
+---
+
+## 16. Personal Access Tokens — `/api/v3/tokens` 🔑 👤
+
+| Method | Route | Purpose | Output |
+| --- | --- | --- | --- |
+| POST | `/` | Create new scoped Personal Access Token (PAT) | `{tokenId, token: "uf_pat_...", expiresAt}` (token shown once) |
+| GET | `/` | List active PATs for authenticated user | List of `{tokenId, name, scopes, createdAt, expiresAt}` |
+| DELETE | `/{token_id}` | Revoke active Personal Access Token | `{tokenId, revoked: true}` |
+
+---
+
+## 17. Telemetry & Observability Endpoints
+
+| Method | Route | Purpose | Authentication | Output Format |
+| --- | --- | --- | --- | --- |
+| GET | `/metrics` | Prometheus metrics text format (system & runtime metrics) | Token-protected | `text/plain` |
+| GET | `/metrics/prom` | Application-specific Prometheus counters, histograms, gauges | Open / Monitored | `text/plain; version=0.0.4` |
