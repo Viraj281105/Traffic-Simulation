@@ -1,110 +1,68 @@
-# UrbanFlow navigation architecture (audit and proposal)
+# UrbanFlow navigation architecture (audit and implementation)
 
-Status: implemented on `viraj-dev`, uncommitted (2026-10-28).
+Status: **IMPLEMENTED & VERIFIED** on `viraj-dev` (V5.4).
 
-## 1. Current hierarchy (before)
+## 1. Current hierarchy
 
-The dashboard is one document (`app.html`) with a hand-rolled router
-(`frontend/src/routing.ts`). Every view is rendered by the single `Dashboard`
-in `App.tsx`, so the simulation configuration and live stream stay mounted
-across view changes.
+The dashboard is one document (`app.html`) with a lightweight client-side router
+(`frontend/src/routing.ts`). Every view is rendered by the dashboard shell
+in `App.tsx`, preserving session state and cleanly mounting/unmounting live streams.
 
-| Header tab (`MainNav`) | Sub-nav                                                                                                                               | Routes                                                                                                                                   |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Compare                | step bar: Your junction → Watch both run → Results                                                                                    | `/app/comparative`                                                                                                                       |
-| Saved                  | none                                                                                                                                  | `/app/history`, `/app/runs/:id`, `/app/compare?runs=`                                                                                    |
-| Plan (sign-in)         | Planner · Experiment Copilot · Discovery Lab · Stress Lab · **API tokens**                                                            | `/app/planner`, `/app/copilot`, `/app/discovery`, `/app/stress`, `/app/tokens`, `/app/experiments/:id`                                   |
-| Research lab (sign-in) | Overview · Your own junction · Three-way · Scenario planning · Validation · Traffic sweep · Signal on its own · Roundabout on its own | `/app/research`, `/app/junction`, `/app/three-way`, `/app/scenarios`, `/app/validation`, `/app/volume`, `/app/signal`, `/app/roundabout` |
-| Admin (admins)         | none                                                                                                                                  | `/app/admin`                                                                                                                             |
+| Section (`MainNav`) | Sub-navigation / Grouping | Routes |
+| ------------------- | ------------------------- | ------ |
+| **Simulate** | Step bar: Configure → Watch run → Results | `/app/comparative` |
+| **Research lab** *(sign-in)* | **Overview**<br/>**Studies:** Custom junction study · Three-way study · Statistical validation · Traffic-level sweep<br/>**Single control:** Signal on its own · Roundabout on its own | `/app/research`<br/>`/app/junction`<br/>`/app/three-way`<br/>`/app/validation`<br/>`/app/volume`<br/>`/app/signal`<br/>`/app/roundabout` |
+| **Experiments** *(sign-in)* | **Decision & Discovery:** Planner · Scenario planning · Experiment Copilot · Discovery Lab · Stress Lab<br/>**Trust & Networks (Phases 4–6):** Trust and reports (`/app/insights`) · Networks (`/app/network`) · Resilience (`/app/resilience`) | `/app/planner`<br/>`/app/scenarios`<br/>`/app/copilot`<br/>`/app/discovery`<br/>`/app/stress`<br/>`/app/insights`<br/>`/app/network`<br/>`/app/resilience`<br/>`+ /app/experiments/:id` |
+| **Saved** | Saved runs, comparison viewer | `/app/history`, `/app/runs/:id`, `/app/compare?runs=` |
+| **Developer** *(utility)* | Personal access tokens (PATs), API credentials | `/app/tokens` |
+| **Admin** *(admins only)* | Platform admin panel | `/app/admin` |
 
-Section membership lived in `shell/sections.ts`; labels and tab lists were
-spread between it and `shell/Navigation.tsx`.
+Section definitions and metadata live in `frontend/src/components/shell/sections.ts` (`SECTIONS`) and are rendered by `frontend/src/components/shell/Navigation.tsx`.
 
-## 2. Most significant problems
+## 2. Problems resolved during V3–V5 evolution
 
-1. **API tokens are buried in the experiment tools.** Reaching them meant
-   opening Plan, then finding a fifth sub-tab among unrelated tools; the page
-   called itself "Plan".
-2. **Two things called "your junction".** The guided comparison's first step
-   is "Your junction" while a different, batch study at `/app/junction` is
-   "Your own junction" in the Research lab.
-3. **Research lab is a flat list of eight tabs** mixing an explainer, method
-   studies, a batch planning tool (Scenario planning) and two live
-   single-control simulators, with no grouping.
-4. **Planning is split.** Scenario planning (baseline vs intervention batch
-   runs) sat in Research while the Planner and the other experiment tools sat
-   in Plan; "Plan" also undersold Copilot, Discovery and Stress.
-5. **Experiment pages had no place.** `/app/experiments/:id` highlighted the
-   Planner tab even when the experiment came from the Copilot.
-6. **Saved work is fragmented and undiscoverable.** Saved only lists saved
-   runs. Planner studies, experiments, discovery searches, stress jobs and
-   traffic sweeps each live inside their own tool, and Saved never says so.
-7. **Inconsistent vocabulary.** "Save to History", "saved to History" and a
-   section called "Saved"; eyebrows reading "Plan" on the token page.
-8. **Dead ends after results.** The guided results offered other demand
-   levels but nothing pointed to the deeper studies that answer "does this
-   hold across traffic levels / on my real junction / formally?". A save
-   toast confirmed the save but gave no way to open it.
-9. **Experiment tools did not explain each other.** Nothing on the Copilot
-   said when the Planner or Stress Lab is the better tool.
+1. **API tokens promoted to top-level utility:** Tokens moved out of nested experiment sub-menus to a 1-click **Developer** tab in the utility bar.
+2. **Clear naming hierarchy:** Disambiguated "Your junction" (the wizard step) from "Custom junction study" (batch research tool).
+3. **Structured Research Lab:** Replaced flat 8-tab menu with clean grouped navigation (Overview, Multi-Alternative Studies, Single Control live inspection).
+4. **Unified Experimentation Suite:** Placed scenario planning alongside Planner, Copilot, Discovery Lab, Stress Lab, and newly introduced Phase 5/6 suites (Trust & Insights, Networks, Resilience).
+5. **Seamless Deep-Linking & Route Fallbacks:** All 18 routed views are mirrored across the Vite dev server, Vite preview, and Nginx SPA template (`frontend/templates/default.conf.template`), backed by `routing.test.tsx`.
+6. **Cross-Study Discovery:** Research and Experiment pages conclude with a "related tools" strip for intuitive cross-study navigation without returning to root hubs.
 
-## 3. Proposed hierarchy (after)
-
-One navigation model, defined once in `shell/sections.ts` (`SECTIONS`) and
-rendered by `shell/Navigation.tsx`:
+## 3. Current active hierarchy
 
 ```
-Header (persistent on every page)
+Header (persistent on every view)
 ├─ Primary workflows (segmented tabs)
 │  ├─ Simulate          /app/comparative           step bar: Configure → Watch both run → Results
 │  ├─ Research lab      /app/research              (sign-in)
 │  │    Overview
 │  │    Studies:        Custom junction study · Three-way study · Statistical validation · Traffic-level sweep
 │  │    Single control: Signal on its own · Roundabout on its own
+│  │    Single control: Signal on its own · Roundabout on its own
 │  ├─ Experiments       /app/planner               (sign-in)
 │  │    Planner · Scenario planning · Experiment Copilot · Discovery Lab · Stress Lab
-│  │    (+ current experiment shown as a trailing crumb on /app/experiments/:id)
+│  │    Trust and reports (/app/insights) · Networks (/app/network) · Resilience (/app/resilience)
+│  │    (+ current experiment trailing crumb on /app/experiments/:id)
 │  └─ Saved             /app/history               (+ run and compare pages)
 └─ Utilities (right side)
    ├─ Developer         /app/tokens  (one click from anywhere; sign-in)
    ├─ Admin             /app/admin   (admins only)
-   ├─ theme toggle, account
+   └─ Theme toggle, account session
 ```
 
-- Workflows sit in the centre; utilities sit on the right, so developer and
-  admin pages never compete with the research and experiment groupings.
-- Sub-nav groups carry labels on desktop and collapse to a scrollable row on
-  phones. Every tab has a one-line description (tooltip and related-tools
-  cards) taken from the same definition.
-- Research and Experiment pages end with a "related tools" strip built from
-  the same definitions, so moving between studies never needs the overview.
-- No URLs change. Labels change only where they collided or misled.
+## 4. User Journeys
 
-## 4. Journeys
+| Journey | Mechanism | Delivery |
+| ------- | --------- | -------- |
+| First visit | Lands on Simulate tab (`/app/comparative`), step "Configure" | Immediate zero-auth 2D preview |
+| Run → save → find again | Results → Save → toast with **Open saved run** link | Opens `/app/runs/:id` |
+| Results → deeper analysis | "Take it further" links on the results page | Direct deep-link to Planner or Research Lab |
+| Network inspection | Experiments → Networks (`/app/network?tab=map\|congestion\|metrics\|calibration\|rl\|twin\|loadtest`) | Interactive MapLibre & SVG view |
+| Incident & Resilience | Experiments → Resilience (`/app/resilience?tab=incidents\|strategies\|priority\|v2x\|account\|jobs`) | Incident injection & priority audit |
+| Manage API tokens | Developer tab in the header (1 click from anywhere) | `/app/tokens` with PAT generation |
 
-| Journey                                        | Before                                                                               | After                                                     |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------- |
-| First visit                                    | Compare tab, step "Your junction"                                                    | Simulate tab, step "Configure" (same page)                |
-| Run → save → find again                        | Results → "Save this comparison" → toast "saved to History" → click Saved → find row | Results → Save → toast with **Open saved run** link       |
-| Results → deeper analysis                      | Back to header → Research lab → overview → pick tool                                 | "Take it further" links on the results page               |
-| Study A → study B                              | sub-tab (flat 8)                                                                     | grouped sub-tab, or related-studies strip at the page end |
-| Copilot → when to use Stress Lab?              | not stated                                                                           | related-tools strip describes each tool                   |
-| Manage API tokens                              | Plan → sub-tab 5                                                                     | **Developer** in the header (one click, any page)         |
-| Find a planner study / experiment / stress job | not signposted                                                                       | Saved → "Saved in other tools" says where each kind lives |
+## 5. Architectural Invariants
 
-## 5. Risks
-
-- **Routing / deep links:** none removed or renamed; `routing.ts`, the nginx
-  template and the Vite fallback are unchanged.
-- **Section moves:** `/app/scenarios` moves from Research lab to Experiments
-  and `/app/tokens` from Plan to Developer. Both remain sign-in gated as
-  before. Bookmarks still work.
-- **Persistence:** unchanged. No new storage; Saved links to each tool's own
-  list. Experiments still have no list endpoint, so Saved says they are
-  reached from the tool that started them.
-- **Tests:** label and landmark names used by tests changed (Compare →
-  Simulate, Plan → Experiments, "Your own junction" → "Custom junction
-  study"); tests updated alongside.
-- **Not attempted:** a cross-page "simulation running" badge. The dual stream
-  is torn down when leaving Simulate (`useWebSocketSnapshot` mode change), so
-  such a badge would be wrong.
+- **Routing / deep links:** All paths defined in `VIEW_ROUTES` (`frontend/src/routing.ts`). Query parameters (`?tab=`, `?signin=1`) preserve sub-tab state on refresh.
+- **Teardown on unmount:** Simulation WebSockets are cleanly closed when navigating away from Simulate/Single control views to prevent ghost CPU load on the backend.
+- **Authentication gating:** Sensitive tools (`requiresAuth: true`) prompt Cognito / Dev-bypass sign-in before mounting.

@@ -122,8 +122,7 @@ v3 snapshot, so they are not in this client.
 - **Quotas, usage counters and rate-limit buckets are in memory**, per process:
   lost on restart, not shared between workers or hosts. Redis (named in F16) or a
   table is the follow-up; `QuotaManager` / `RateLimiter` are the seam.
-- The new routes are not registered in `main.py` and not in the OpenAPI snapshot
-  or route-auth tests yet; the register lines are in the work report.
+- The tenancy router is registered in `main.py` (`/api/v2/tenancy/me`, `/api/v2/tenancy/usage`) and covered by test suites (`tests/tenancy/test_tenancy_isolation.py`). Tenancy routes are excluded from the v3 public snapshot as enterprise internal APIs.
 - No tenant management API (create tenant, invite user, change role): roles and
   tenant come only from the identity provider.
 - No audit trail of denied requests, and no per-tenant quota configuration

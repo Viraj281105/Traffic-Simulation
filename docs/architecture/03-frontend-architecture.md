@@ -52,19 +52,19 @@ frontend/
 │   │   ├── ControlComparisonStudy.tsx (V1.3 three-way study, on /app/research) · AdaptiveSignalStatus.tsx (adaptive map overlay)
 │   │   ├── Login.tsx               Sign-in dialog
 │   │   └── ui/                     Shared UI: loaders, page transitions, status states, logo
-│   ├── hooks/                      useWebSocketSnapshot · useSimulationPolling · useLiveComparisonHistory ·
-│   │                               useStudyJob · useContainerSize · useAuthSession (sign-in, profile, admin) ·
-│   │                               useLiveConfigSync (dashboard config → backend) · useToast
-│   ├── services/                   api.ts (REST) · websocket.ts (stream client) · liveSession.ts · studyJobs.ts ·
-│   │                               singleVehicle.ts (legacy polling API) · v2/planning.ts · v3/experiments.ts —
-│   │                               the only modules that make requests
-│   ├── metrics/
-│   │   ├── catalog.ts              One description per metric: label, unit, precision, group, applicability
-│   │   └── plainLanguage.ts        Plain-language readings, similarity rule, grades, bands, "why", trust notes
-│   ├── types/                      config.ts (scenario, presets, dashboard body) · demand.ts · simulation.ts · scoring.ts
-│   ├── runs/savedRun.ts            Saved-run helpers
-│   ├── styles/ · theme/ · utils/   Design tokens, chart theme, light/dark mode (theme/mode.ts), time formatting
-│   └── test/                       Vitest + Testing Library suites
+│   ├── netpage/ · mapview/         MapLibre GL network map, node-edge layouts, offline vector tiles
+│   ├── congestion/                 Topological link congestion propagation heatmaps and timeline
+│   ├── calibration/                Observed turning-count calibration report and GEH histogram viewer
+│   ├── netrl/                      Multi-junction RL training curves and baseline comparison view
+│   ├── twinview/                   Digital twin telemetry replay and what-if branch fork editor
+│   ├── loadtest/                   k6 load-test report viewer and SLO compliance badges
+│   ├── incidents/ · rescommon/     Incident injection, rain/snow/fog weather selector, resilience curves
+│   ├── hooks/                      useWebSocketSnapshot, useStudyJob, useAuthSession, useLiveConfigSync
+│   ├── services/                   api.ts, websocket.ts, liveSession.ts, studyJobs.ts, v2/planning.ts, v3/experiments.ts, v3/insights.ts
+│   ├── metrics/                    catalog.ts (metric definitions), plainLanguage.ts (HCM grades, balance bands)
+│   ├── types/                      config.ts, demand.ts, simulation.ts, scoring.ts, network.ts
+│   ├── styles/ · theme/ · utils/   Design tokens, chart theme, light/dark mode, time formatters
+│   └── test/                       Vitest + Testing Library + axe-core a11y suites
 ├── templates/default.conf.template nginx site (SPA fallback, proxy, API-key injection, auth gate)
 ├── vite.config.ts                  Dev proxy, history fallback, Vitest config
 └── Dockerfile                      deps → dev / builder → nginx-unprivileged runtime
@@ -78,10 +78,16 @@ frontend/
 | --- | --- | --- |
 | `/` | Landing (separate document) | — |
 | `/app/comparative` | Guided comparison (default) | Compare |
+| `/app/network` | Multi-junction network map, congestion heatmap, calibration, RL, twin | Network |
 | `/app/planner` | Decision-support junction studies | Plan |
 | `/app/experiments/<id>` | V3.0 Robustness Lab parameter uncertainty experiment viewer | Plan |
+| `/app/copilot` | AI Experiment Copilot natural language formulation | AI Lab |
+| `/app/discovery` | AI Strategy Discovery Lab evolutionary parameter search | AI Lab |
+| `/app/stress` | Strategy Breakpoint Explorer and high-load traffic chaos | Stress Lab |
 | `/app/history` · `/app/runs/<id>` · `/app/compare?runs=a,b,…` | Saved runs, run page, comparison of ≤ 6 runs | Saved |
 | `/app/research` · `/app/volume` · `/app/validation` · `/app/junction` · `/app/three-way` · `/app/signal` · `/app/roundabout` | Research Lab hub and tools | Research Lab |
+| `/app/tokens` | Personal Access Token (PAT) generation and management | Profile |
+| `/app/insights` | System-wide comparative insights and latest load test reports | Insights |
 | `/app/admin` | User management and server configuration | Admin |
 | `/app`, `/app.html` | Redirect to `/app/comparative` | — |
 | anything else | Not-found page (nginx answers 404 with it) | — |

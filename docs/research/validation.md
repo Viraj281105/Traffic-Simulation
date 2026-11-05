@@ -251,21 +251,30 @@ The per-item audit with mechanisms and re-measurements is [V1 known limitations]
 
 ---
 
-## 6. FUTURE WORK (validation-specific)
+## 6. VALIDATION MILESTONES & ROADMAP STATUS
 
-Items below strengthen *evidence*; each belongs to a roadmap milestone rather than being an open-ended wish.
-
-| Work | Milestone |
-| --- | --- |
-| Validation of heterogeneous vehicle behaviour and its effect on capacity | V1.1 — **done for safety and determinism** (zero collisions / no gridlock across 28 heavy-mix runs at 30 % buses and trucks; exact replay); capacity effects remain exploratory until calibrated (K4) |
-| Physics and regression tests for lane changes | V1.2 — **done** (`tests/vehicles/test_lane_change.py`, `tests/integration/test_vehicle_types_and_lanes.py`) |
-| Adaptive-control experiments with validation against fixed-time | V1.3 — **done** (§4.1: three-way study over six demand levels, 1 and 2 lanes, cars and mixed traffic; exact replay; no signal collisions) |
-| Collision validation of multi-lane circulation (removes K1) | V1.4 — **done** (§4.2: 250 runs, one and two ring lanes, unequal, merging and asymmetric approaches, four mixes, 0 contacts) |
-| Safety validation of real-world geometry (three-arm, skewed, asymmetric, U-turns) | V1.5 — **done** (§4.3 fast tier; slow 60-run matrix 60/60, §4.4); capacity on such junctions remains exploratory |
-| Validated safety proxies; emissions where scientifically supportable | V1.6 |
-| Batch experiments with reproducibility at scenario level | V1.7 |
-| Calibration framework against observed traffic | V1.8 / V1.9 — **framework exists; never run on real observations** (§4.4) |
-| Research validation of the integrated platform | V2.0 — **partial** (§4.4: what was and was not checked) |
+| Work | Milestone | Delivered / Verified Status |
+| --- | --- | --- |
+| Validation of heterogeneous vehicle behaviour and capacity effects | V1.1 | **Done for safety and determinism** (zero collisions / no gridlock across heavy-mix runs; exact replay) |
+| Physics and regression tests for gradual MOBIL lane changes | V1.2 | **Done** (`tests/vehicles/test_lane_change.py`, `tests/integration/test_vehicle_types_and_lanes.py`) |
+| Adaptive-control experiments with validation against fixed-time | V1.3 | **Done** (Three-way study over varying demand levels, 1 and 2 lanes; exact replay; no signal collisions) |
+| Collision validation of multi-lane circulation | V1.4 | **Done** (250 runs, 1 and 2 ring lanes, merging and asymmetric approaches, 0 contacts) |
+| Safety validation of real-world geometry (three-arm, skewed, U-turns) | V1.5 | **Done** (60-run safety matrix 60/60 passed; capacity remains exploratory) |
+| Safety proxies (TTC/PET) and Akçelik fuel & CO2 emissions models | V1.6 / Phase 4 | **Done** (`backend/src/metrics/emissions.py`, `backend/src/metrics/safety.py`) |
+| Batch experiments with reproducibility at scenario level | V1.7 | **Done** (`backend/src/suites/`) |
+| Observed traffic calibration framework & Nelder-Mead fitting | V1.8 / V4.1 | **Done on synthetic ground truth** (GEH < 5.0 on $\ge 85\%$ of links; real counts dataset D1 open) |
+| Research validation of the integrated decision platform | V2.0 | **Done** ([V2.0 Completion Audit](../roadmap/V2_COMPLETION_AUDIT.md)) |
+| Parameter uncertainty sampling & paired CRN ensemble runner | V3.0 W1 | **Done** (Robustness Lab, Sobol/LHS sampling, Wilson score intervals, bootstrap paired differences) |
+| Signalised roundabout safety and capacity validation | V3.0 W2 | **Done** (G-SR technical criteria verified; metered entries preserve ring gap acceptance) |
+| Hypothesis property-based testing & Copilot AI eval gate | Phase 4 (V3.8) | **Done** (G-REL1 criteria verified; vehicle conservation, queue non-negativity, LLM judge gate) |
+| Multi-junction network execution & congestion propagation | Phase 5 (V4.6) | **Done** (12-junction arterial grid, vehicle handoffs, shockwave heatmaps; G-REL2 release note passed) |
+| Incidents, dynamic rerouting, weather & resilience scoring | Phase 6 (V5.4) | **Done** (Physical crashes, lane closures, Dijkstra rerouting, rain/snow/fog weather modifiers, resilience $R$) |
+| Emergency signal preemption, civilian yielding & transit priority | Phase 6 (V5.4) | **Done** (Siren acoustic detection, green extension, red truncation, corridor clearance, compliance audit) |
+| V2X inter-vehicle messaging bus & cooperative driving | Phase 6 (V5.4) | **Done** (In-process and MQTT pub/sub bus, latency/drop models, cooperative car-following benchmarks) |
+| Leader-follower platooning string stability ($\|\Gamma(j\omega)\| < 1$) | Phase 7 (V5.5) | 🗓️ **Planned** (Intra-platoon spacing $s = 1.0\text{–}2.0\text{ m}$, aerodynamic fuel savings) |
+| Autonomous Intersection Management (AIM) reservation manager | Phase 7 (V5.7) | 🗓️ **Planned** (G-AIM safety gate: zero overlapping space-time tile reservations under emergency deceleration) |
+| Physical microcontroller signal head demo over MQTT | Phase 7 (V5.8) | 🗓️ **Planned** (ESP32/Pi 3-color LED hardware driven by simulation events, physical button actuation) |
+| Unified 20-feature full regression suite (`full_regression.py`) | Phase 7 (V5.9) | 🗓️ **Planned** (One-click master test runner verifying zero regressions across F1–F20) |
 
 ---
 

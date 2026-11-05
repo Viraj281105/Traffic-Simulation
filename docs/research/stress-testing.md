@@ -2,10 +2,11 @@
 
 `backend/src/stress/`, API `/api/v3/stress`, UI **Plan → Stress Lab**.
 
-## Scope limit
+## Scope limit & Evolution to Phase 6 Resilience
 
-The engine has no time-varying demand and no lane closures or incidents, so v1 stress scenarios are
-**stationary extremes**. Surge and recovery scenarios need a demand-profile capability that is not built.
+In V3.0 (Stress Lab v1), stress scenarios were **stationary extremes** (extreme static volumes, high aggression, heavy mixes) without time-varying demand or lane closures.
+
+**Phase 6 Evolution (`backend/src/incidents/`, V4.7):** UrbanFlow introduced dynamic, time-varying incident simulation, lane closures with real-time driver rerouting, adverse weather modifiers (reduced friction, impaired visibility, extended reaction delays), event-day surge curves, and automated resilience scoring ($R \in [0, 1]$) with time-to-recovery metrics.
 
 ## Generator (`stress-v1`)
 
@@ -53,3 +54,20 @@ ownership, bounds and the daily quota (`backend/tests/experiments/test_stress.py
 Every job reserves `runs × duration` simulated seconds against the user's daily quota at submission
 (released if the job is cancelled), at most two stress jobs run per user, at most 30 scenarios per suite and
 eight levels per sweep. Jobs are held in memory.
+
+---
+
+## Phase 6 Resilience, Incidents & Weather Engine (F13, Package 2A)
+
+> Code: `backend/src/incidents/` · API: `/api/v2/incidents/*` · Tests: `backend/tests/incidents/`
+
+While Breakpoint Explorer probes parameter thresholds under stationary conditions, the Phase 6 Incident Engine evaluates system resilience under dynamic disruptions:
+
+1. **Incident Catalogue (`catalogue.py`):** Predefined incident archetypes including minor shoulder stalls, single-lane blockages, full approach closures, work-zone restrictions, and event-day demand surges.
+2. **Dynamic Physics & Weather Modifiers (`weather.py`):**
+   - Precipitation & road condition modifiers (Dry, Wet, Snow/Ice) dynamically scale pavement friction coefficients ($f$), extending stopping sight distances.
+   - Visibility degradation and precipitation models increase IDM driver reaction times ($T$) and reduce target speeds ($v_0$).
+3. **Recovery Time & Resilience Scoring (`resilience.py`):**
+   - **Time to Recovery ($T_{\text{rec}}$):** Duration required for average network delay and queue lengths to return within $1.15\times$ of pre-incident steady-state baselines following clearance.
+   - **Resilience Index ($R \in [0, 1]$):** Composite score penalizing peak delay spikes, throughput collapse, and extended recovery tails.
+   - Comparative resilience evaluation ranks strategies (Fixed-time vs. Adaptive vs. Roundabout vs. Coordinated) by their shock tolerance and post-clearance recovery slope.

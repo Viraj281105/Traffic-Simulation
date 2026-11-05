@@ -25,7 +25,9 @@ served at **`GET /metrics/prom`**. It returns the new run/API metrics plus every
 serves. Both use the same access rule: `Authorization: Bearer $METRICS_TOKEN` when the variable is
 set, otherwise loopback clients only.
 
-### Mounting (one-time, in `backend/src/main.py`)
+### Active Mounting in `backend/src/main.py`
+
+Mounted and active in production:
 
 ```python
 from src.observability import prom_router

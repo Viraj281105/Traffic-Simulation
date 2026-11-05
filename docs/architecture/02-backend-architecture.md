@@ -14,62 +14,50 @@ The backend has four layers. Each package belongs to one of them and imports onl
 
 | Layer | Owns | Packages / modules |
 | --- | --- | --- |
-| **Delivery** (HTTP, WebSocket) | Routes, request models, auth and API-key wiring, error envelope, origin policy, request limits, translating failures into status codes | `main.py` (composition root) · `api/` · every `router.py` / `api.py` inside a feature package |
-| **Application** (use cases) | Live sessions, the versioned simulation registry, studies and their jobs, planning, experiments, calibration, uncertainty, run history and reproduction | `live/` · `simulations/registry.py` · `study/` · `planning/` · `experiments/` · `calibration/` · `uncertainty/` · `networks/` · `history/` (reproduce, export) · `replays/` · `suites/` |
-| **Domain** (simulation) | The traffic model: geometry, vehicles, conflicts, controllers, metrics, the engine, configuration and scenario rules, strategies and registry, snapshots | `core/` · `strategies/` · `roads/` · `vehicles/` · `intersection/` · `controllers/` · `metrics/` · `scenario/` · `engine/` · `snapshot/` |
-| **Infrastructure** | SQLite connection, schema, migrations, DAOs, the ownership rule, CSV safety; each feature's own table in its `store.py` | `database/` · `access.py` · `csv_safety.py` · `calibration/store.py` · `planning/store.py` · `experiments/store.py` |
+| **Delivery** (HTTP, WebSocket) | Routes, request models, auth and API-key wiring, error envelope, origin policy, request limits, translating failures into status codes | `main.py` (composition root) · `api/` · `tokens_router.py` · every `router.py` / `api.py` inside a feature package |
+| **Application** (use cases) | Live sessions, simulation registry, studies, planning, experiments, calibration, uncertainty, networks, RL, twin, incidents, priority, v2x, jobs, tenancy, insights, history and reproduction | `live/` · `simulations/` · `study/` · `planning/` · `experiments/` · `calibration/` · `uncertainty/` · `networks/` · `netmetrics/` · `rl/` · `twin/` · `incidents/` · `priority/` · `v2x/` · `jobs/` · `tenancy/` · `insights/` · `copilot/` · `discovery/` · `stress/` · `history/` · `replays/` · `suites/` |
+| **Domain** (simulation) | The traffic model: geometry, vehicles, conflicts, controllers, metrics, engine, scenario rules, strategies, network topologies | `core/` · `strategies/` · `roads/` · `vehicles/` · `intersection/` · `controllers/` · `metrics/` · `scenario/` · `engine/` · `snapshot/` |
+| **Infrastructure** | SQLite connection, schema, migrations, DAOs, Parquet runstore, SQS queue worker, OpenTelemetry, Prometheus, ownership rules, CSV safety | `database/` · `runstore/` · `observability/` · `jobs/sqs.py` · `access.py` · `csv_safety.py` · feature stores |
 
 ```
 backend/src/
 ├── main.py                  Composition root: app, middleware, error handler, DB init, router mounting. No routes.
-├── api/                     Delivery plumbing shared by every router
-│   ├── auth.py              Cognito JWT verification (JWKS), dev bypass, identity dependencies
-│   ├── security.py          API_KEY, require_api_key, bearer parsing
-│   ├── errors.py            {"error": {code, message, details, timestamp}} envelope, iso_timestamp
-│   ├── origins.py           CORS origins (CORS_ORIGINS env) and the WebSocket origin/close helpers
-│   ├── ws_origin.py         Which browser origins may open a WebSocket
-│   ├── request_limits.py    Body-size middleware, pagination bounds, the synchronous-compute slot
-│   ├── validation.py        Configuration and scenario failures worded as HTTP 400s
-│   └── meta.py              /health · /api/version · /api/me · /api/users
-├── live/                    The live dashboard (/api/simulation/*, /ws/simulation/*)
-│   ├── dashboard_config.py  DEFAULT_CONFIG; dashboard payload → engine config; live seeds
-│   ├── sessions.py          Per-client LiveSession registry (TTL + cap), session middleware, engine/orchestrator factories
-│   ├── capture.py           Exact, reproducible record of a session's run (used when saving a replay)
-│   ├── single_vehicle.py    Sprint-2 single-vehicle polling state
-│   └── router.py            Live, dual and single-vehicle routes and the two live WebSockets
-├── simulations/             The versioned API (/api/v1/simulations, /api/simulation/new, /ws/v1/stream)
-│   ├── registry.py          In-memory simulation registry (bounded), assembly, persistence on completion
-│   └── router.py            Lifecycle, metrics, history, report routes; config/scenario validate + compile
-├── study/                   Volume sweeps, Monte Carlo validation, control comparison, jobs, reports
-│   ├── limits.py            Study workload bounds (duration, rates, seeds, time step, batch size)
-│   ├── router.py            /api/v1/study/* (synchronous and job routes)
-│   └── volume_sweep.py · validation.py · control_comparison.py · runner.py · jobs.py · batch.py · …
-├── replays/router.py        /api/v1/replays: saved live runs (+ their simulation_runs record)
-├── suites/router.py         /api/suites: scenario suites, batch experiments, CSV export
-├── history/                 /api/v1/study/history/runs: stored runs, labels, export, compare, reproduce
-├── calibration/             V1.8 /api/v2/calibration: observed data vs simulated (store.py: its table)
-├── networks/                V1.9 /api/v2/networks: multi-junction description (stateless)
-├── planning/                V2.0 /api/v2/planning: service.py (orchestration) · store.py (its table) · runner, findings, report
-├── experiments/             V3.0 /api/v3: preparation.py (validate + cost bounds) · service.py · store.py · router.py
-├── uncertainty/             V3.0 uncertainty spec, seeded sampler, analysis (pure computation)
-├── core/                    Leaf kernel: enums, clock, limits, schema loader, config models, speed thresholds, provenance
-├── strategies/              Strategy descriptors, built-in registry, compatibility validator, resolution contracts (ADR-014)
-├── roads/                   RoadNetwork, lanes, approaches, junction geometry, lane configuration
-├── vehicles/                Vehicle, IDM, spawner, router (leader finding), lane change, speed profile, vehicle types,
-│                            virtual obstacles (zero-speed leaders at stop and give-way lines)
+├── api/                     Delivery plumbing shared by every router (auth, security, errors, origins, limits, meta)
+├── core/                    Leaf kernel: enums, clock, limits, schema loader, config models, speed thresholds, provenance, run manifest
+├── roads/                   RoadNetwork, lanes, approaches, junction geometry, compass bearings
+├── vehicles/                Vehicle, IDM, spawner, router, MOBIL lane changes, vehicle classes, virtual obstacles
 ├── intersection/            Conflict manager (signal) and predictive conflict resolver
-├── controllers/             BaseController, fixed-time, adaptive, roundabout, stop-line detection,
-│                            factory.py (create_controller, derive_signals_state)
-├── metrics/                 MetricCollector, efficiency score, definitions/
-├── scenario/                documents.py (V1.4 scenario documents: parse, validate per strategy, compile) ·
-│                            config_validation.py · lane_validation.py (rules the JSON schema cannot express)
-├── engine/                  simulation_engine.py (tick loop, lifecycle, lock) · vehicle_pool.py (moves every vehicle
-│                            through the conflict layers, collision audit) · deadlock_detector.py ·
-│                            tick_callback.py (feeds a collector) · readout.py (metrics under the engine lock)
+├── controllers/             BaseController, fixed-time, adaptive, roundabout, signalised roundabout, factory
+├── strategies/              Strategy descriptors, built-in registry, compatibility validator (ADR-014)
+├── engine/                  simulation_engine.py (tick loop), vehicle_pool.py (stepping, SAT collision audit), deadlock_detector.py
 ├── snapshot/                SnapshotBuilder, SnapshotBuffer, DualSimulationOrchestrator
-├── database/                db.py (schema, WAL, migrations) · dao.py · replay_dao.py
-├── access.py                Who may see a stored record (one ownership rule)
-└── csv_safety.py            Spreadsheet-formula neutralisation for exports
+├── metrics/                 MetricCollector, delay, throughput, queues, stops, fuel/CO2, TTC/PET
+├── scenario/                Scenario documents, lane arrow validation, compilation
+├── live/                    Live dashboard sessions (/api/simulation/*, /ws/simulation/*)
+├── simulations/             Versioned API (/api/v1/simulations, /ws/v1/stream)
+├── study/                   Volume sweeps, Monte Carlo validation, control comparison, worker pool
+├── history/                 Stored runs, labels, export, compare, bit-identical seed reproduction
+├── planning/                V2.0 /api/v2/planning: multi-alternative studies, reports (JSON/MD/CSV)
+├── experiments/             V3.0 /api/v3: Robustness Lab, parameter uncertainty, .ufpkg package runner
+├── uncertainty/             Parameter uncertainty spec, Sobol/LHS sampler, bootstrap CIs, Wilson intervals
+├── copilot/                 AI Experiment Copilot: LLM integration, proposals, grounded summary checker
+├── discovery/               AI Strategy Discovery Lab: NSGA-II multi-objective evolutionary search
+├── stress/                  Strategy Breakpoint Explorer and high-load traffic chaos runner
+├── networks/                Network graph model (ADR-021), OSM/SUMO/GTFS import, link-junction handoff
+├── netmetrics/              Network delay, throughput, spillback, topological congestion spread heatmap
+├── calibration/             Turning count loader, GEH/RMSE/MAPE metrics, Nelder-Mead fitting, continuous recalibration
+├── rl/                      Gymnasium multi-junction environment, fixed-time/max-pressure baselines, PPO/DQN training
+├── observability/           OpenTelemetry distributed tracing, Prometheus /metrics/prom, SLO evaluator
+├── twin/                    Digital twin core: telemetry replay, prediction vs observation API, what-if branching
+├── incidents/               Crashes, lane closures, dynamic Dijkstra rerouting, rain/snow/fog weather, resilience scores
+├── priority/                Emergency vehicle siren pre-emption, civilian yielding, transit signal priority
+├── v2x/                     In-process pub/sub bus, MQTT adapter, packet latency/loss, cooperative driving experiments
+├── tenancy/                 OIDC JWT verification, RBAC roles (viewer, planner, engineer, admin), tenant scoping, quotas
+├── jobs/                    Asynchronous job queue, AWS SQS adapter, worker daemon, compute cost tags
+├── runstore/                Columnar Parquet results lakehouse on S3/local disk, DuckDB analytical SQL
+├── database/                SQLite WAL database, schema migrations, DAOs
+├── access.py                Resource access and tenant isolation logic
+└── csv_safety.py            Spreadsheet formula sanitization for tabular exports
 ```
 
 ---

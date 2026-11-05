@@ -94,3 +94,14 @@ actually ran.
 * Scenario planning still offers its own three-strategy list (no metered
   roundabout); its batch path compiles scenario documents, which need an
   explicit metering plan.
+
+---
+
+## Evolution to Multi-Junction Network Strategies (Phases 5 & 6)
+
+In addition to the isolated junction comparisons documented above, UrbanFlow supports network-wide multi-junction comparative strategies (`backend/src/networks/`, `backend/src/rl/`, `backend/src/priority/`):
+
+1. **Fixed-Time Coordinated Grid:** Synchronized two-phase cycle with green wave offsets along primary arterial corridors.
+2. **Max-Pressure Control (`network_baselines.py`):** Decentralized feedback policy selecting phases to maximize upstream-to-downstream pressure differentials, mitigating queue spillback.
+3. **Multi-Agent Reinforcement Learning (MARL / PPO):** Multi-junction policy network trained on queue and delay rewards, evaluated with paired confidence intervals.
+4. **Resilience & Priority Overlays (`src/incidents/`, `src/priority/`):** Dynamic incident mitigation plans, green wave clearing corridors for emergency sirens, and transit signal priority (TSP) for buses.
