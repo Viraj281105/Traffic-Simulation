@@ -1,0 +1,105 @@
+{{- if .Values.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.serviceAccount.name }}
+  labels:
+    app.kubernetes.io/name: worker
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- if .Values.serviceAccount.roleArn }}
+  annotations:
+    eks.amazonaws.com/role-arn: {{ .Values.serviceAccount.roleArn | quote }}
+  {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  labels:
+    app.kubernetes.io/name: worker
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  {{- if not .Values.keda.enabled }}
+  replicas: {{ .Values.replicas }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: worker
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: worker
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: worker
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "-m", "src.jobs"]
+          env:
+            - name: PYTHONPATH
+              value: /app
+            - name: JOBS_QUEUE_URL
+              value: {{ required "worker.queue.url is required when the worker is enabled" .Values.queue.url | quote }}
+            - name: JOBS_DLQ_URL
+              value: {{ .Values.queue.dlqUrl | quote }}
+            - name: RUNSTORE_BUCKET
+              value: {{ required "worker.runStore.bucket is required when the worker is enabled" .Values.runStore.bucket | quote }}
+            - name: RUNSTORE_PREFIX
+              value: {{ .Values.runStore.prefix | quote }}
+            - name: AWS_REGION
+              value: {{ .Values.queue.region | quote }}
+            - name: URBANFLOW_ENV
+              value: {{ .Values.tags.env | quote }}
+            - name: URBANFLOW_OWNER
+              value: {{ required "worker.tags.owner is required (mandatory cost tag)" .Values.tags.owner | quote }}
+            {{- range $k, $v := .Values.env }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+{{- if .Values.keda.enabled }}
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: worker-sqs
+spec:
+  podIdentity:
+    provider: aws
+    identityOwner: workload
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: worker
+spec:
+  scaleTargetRef:
+    name: worker
+  minReplicaCount: {{ .Values.keda.minReplicaCount }}
+  maxReplicaCount: {{ .Values.keda.maxReplicaCount }}
+  pollingInterval: {{ .Values.keda.pollingInterval }}
+  cooldownPeriod: {{ .Values.keda.cooldownPeriod }}
+  triggers:
+    - type: aws-sqs-queue
+      authenticationRef:
+        name: worker-sqs
+      metadata:
+        queueURL: {{ .Values.queue.url | quote }}
+        queueLength: {{ .Values.keda.queueLength | quote }}
+        awsRegion: {{ .Values.queue.region | quote }}
+        identityOwner: workload
+{{- end }}
+{{- end }}

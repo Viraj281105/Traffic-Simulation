@@ -28,6 +28,8 @@ export const VIEW_ROUTES = {
   discovery: "/app/discovery",
   stress: "/app/stress",
   tokens: "/app/tokens",
+  insights: "/app/insights",
+  network: "/app/network",
   admin: "/app/admin",
 } as const;
 

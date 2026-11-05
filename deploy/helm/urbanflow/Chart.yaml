@@ -1,0 +1,20 @@
+apiVersion: v2
+name: urbanflow
+description: UrbanFlow traffic simulation stack (backend, frontend, optional Go ingest service)
+type: application
+version: 0.1.0
+appVersion: "3.3.0"
+# Subcharts live in ./charts and are loaded without `helm dependency update`.
+dependencies:
+  - name: backend
+    version: 0.1.0
+    condition: backend.enabled
+  - name: frontend
+    version: 0.1.0
+    condition: frontend.enabled
+  - name: ingest
+    version: 0.1.0
+    condition: ingest.enabled
+  - name: worker
+    version: 0.1.0
+    condition: worker.enabled

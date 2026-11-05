@@ -1,0 +1,60 @@
+// Telemetry / run-event ingest contract (F1). The Go server in
+// services/ingest-go implements it; clients (Go today, Python generated from
+// this same file) must not depend on anything not stated here.
+//
+// Compatibility rules: field numbers are never reused; new fields are
+// optional additions; `seq` is the idempotency key together with `run_id`.
+syntax = "proto3";
+
+package urbanflow.ingest.v1;
+
+option go_package = "urbanflow/ingest/gen/ingestpb;ingestpb";
+
+// One telemetry sample or run event.
+message Event {
+  string run_id = 1;            // required, non-empty
+  int64 seq = 2;                // per-run sequence number, >= 0; (run_id, seq) is unique
+  double sim_time = 3;          // simulated seconds since run start, >= 0
+  string kind = 4;              // e.g. "step", "signal_change", "collision"
+  map<string, double> metrics = 5;  // named numeric values for this event
+}
+
+message IngestBatchRequest {
+  repeated Event events = 1;
+}
+
+message IngestBatchResponse {
+  uint64 accepted = 1;    // newly stored events
+  uint64 duplicates = 2;  // events whose (run_id, seq) was already stored
+  uint64 rejected = 3;    // invalid events (empty run_id, negative seq/time)
+}
+
+message RunSummaryRequest {
+  string run_id = 1;
+}
+
+message RunSummaryResponse {
+  string run_id = 1;
+  bool found = 2;
+  uint64 events = 3;
+  int64 last_seq = 4;
+  double first_sim_time = 5;
+  double last_sim_time = 6;
+  map<string, double> metric_means = 7;  // mean of each metric over events carrying it
+}
+
+message StatsRequest {}
+
+message StatsResponse {
+  uint64 runs = 1;
+  uint64 events = 2;
+}
+
+service Ingest {
+  // Store a batch of events. Idempotent per (run_id, seq).
+  rpc IngestBatch(IngestBatchRequest) returns (IngestBatchResponse);
+  // Client-streaming variant for sustained producers; one response at close.
+  rpc IngestStream(stream Event) returns (IngestBatchResponse);
+  rpc RunSummary(RunSummaryRequest) returns (RunSummaryResponse);
+  rpc Stats(StatsRequest) returns (StatsResponse);
+}

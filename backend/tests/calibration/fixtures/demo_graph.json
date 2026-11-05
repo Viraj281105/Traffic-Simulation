@@ -1,0 +1,302 @@
+{
+  "format": "urbanflow-graph",
+  "version": 1,
+  "name": "2x2 demo grid",
+  "source": "synthetic",
+  "nodes": [
+    {
+      "id": "GE0",
+      "x": 800.0,
+      "y": 0.0,
+      "kind": "gate"
+    },
+    {
+      "id": "GE1",
+      "x": 800.0,
+      "y": -400.0,
+      "kind": "gate"
+    },
+    {
+      "id": "GN0",
+      "x": 0.0,
+      "y": 400.0,
+      "kind": "gate"
+    },
+    {
+      "id": "GN1",
+      "x": 400.0,
+      "y": 400.0,
+      "kind": "gate"
+    },
+    {
+      "id": "GS0",
+      "x": 0.0,
+      "y": -800.0,
+      "kind": "gate"
+    },
+    {
+      "id": "GS1",
+      "x": 400.0,
+      "y": -800.0,
+      "kind": "gate"
+    },
+    {
+      "id": "GW0",
+      "x": -400.0,
+      "y": 0.0,
+      "kind": "gate"
+    },
+    {
+      "id": "GW1",
+      "x": -400.0,
+      "y": -400.0,
+      "kind": "gate"
+    },
+    {
+      "id": "J00",
+      "x": 0.0,
+      "y": 0.0,
+      "kind": "junction",
+      "control": "signal"
+    },
+    {
+      "id": "J01",
+      "x": 400.0,
+      "y": 0.0,
+      "kind": "junction",
+      "control": "signal"
+    },
+    {
+      "id": "J10",
+      "x": 0.0,
+      "y": -400.0,
+      "kind": "junction",
+      "control": "signal"
+    },
+    {
+      "id": "J11",
+      "x": 400.0,
+      "y": -400.0,
+      "kind": "junction",
+      "control": "signal"
+    }
+  ],
+  "links": [
+    {
+      "id": "GE0>J01",
+      "from": "GE0",
+      "to": "J01",
+      "length": 400.0,
+      "lanes": 1,
+      "speed": 13.89,
+      "name": ""
+    },
+    {
+      "id": "GE1>J11",
+      "from": "GE1",
+      "to": "J11",
+      "length": 400.0,
+      "lanes": 1,
+      "speed": 13.89,
+      "name": ""
+    },
+    {
+      "id": "GN0>J00",
+      "from": "GN0",
+      "to": "J00",
+      "length": 400.0,
+      "lanes": 1,
+      "speed": 13.89,
+      "name": ""
+    },
+    {
+      "id": "GN1>J01",
+      "from": "GN1",
+      "to": "J01",
+      "length": 400.0,
+      "lanes": 1,
+      "speed": 13.89,
+      "name": ""
+    },
+    {
+      "id": "GS0>J10",
+      "from": "GS0",
+      "to": "J10",
+      "length": 400.0,
+      "lanes": 1,
+      "speed": 13.89,
+      "name": ""
+    },
+    {
+      "id": "GS1>J11",
+      "from": "GS1",
+      "to": "J11",
+      "length": 400.0,
+      "lanes": 1,
+      "speed": 13.89,
+      "name": ""
+    },
+    {
+      "id": "GW0>J00",
+      "from": "GW0",
+      "to": "J00",
+      "length": 400.0,
+      "lanes": 1,
+      "speed": 13.89,
+      "name": ""
+    },
+    {
+      "id": "GW1>J10",
+      "from": "GW1",
+      "to": "J10",
+      "length": 400.0,
+      "lanes": 1,
+      "speed": 13.89,
+      "name": ""
+    },
+    {
+      "id": "J00>GN0",
+      "from": "J00",
+      "to": "GN0",
+      "length": 400.0,
+      "lanes": 1,
+      "speed": 13.89,
+      "name": ""
+    },
+    {
+      "id": "J00>GW0",
+      "from": "J00",
+      "to": "GW0",
+      "length": 400.0,
+      "lanes": 1,
+      "speed": 13.89,
+      "name": ""
+    },
+    {
+      "id": "J00>J01",
+      "from": "J00",
+      "to": "J01",
+      "length": 400.0,
+      "lanes": 1,
+      "speed": 13.89,
+      "name": ""
+    },
+    {
+      "id": "J00>J10",
+      "from": "J00",
+      "to": "J10",
+      "length": 400.0,
+      "lanes": 1,
+      "speed": 13.89,
+      "name": ""
+    },
+    {
+      "id": "J01>GE0",
+      "from": "J01",
+      "to": "GE0",
+      "length": 400.0,
+      "lanes": 1,
+      "speed": 13.89,
+      "name": ""
+    },
+    {
+      "id": "J01>GN1",
+      "from": "J01",
+      "to": "GN1",
+      "length": 400.0,
+      "lanes": 1,
+      "speed": 13.89,
+      "name": ""
+    },
+    {
+      "id": "J01>J00",
+      "from": "J01",
+      "to": "J00",
+      "length": 400.0,
+      "lanes": 1,
+      "speed": 13.89,
+      "name": ""
+    },
+    {
+      "id": "J01>J11",
+      "from": "J01",
+      "to": "J11",
+      "length": 400.0,
+      "lanes": 1,
+      "speed": 13.89,
+      "name": ""
+    },
+    {
+      "id": "J10>GS0",
+      "from": "J10",
+      "to": "GS0",
+      "length": 400.0,
+      "lanes": 1,
+      "speed": 13.89,
+      "name": ""
+    },
+    {
+      "id": "J10>GW1",
+      "from": "J10",
+      "to": "GW1",
+      "length": 400.0,
+      "lanes": 1,
+      "speed": 13.89,
+      "name": ""
+    },
+    {
+      "id": "J10>J00",
+      "from": "J10",
+      "to": "J00",
+      "length": 400.0,
+      "lanes": 1,
+      "speed": 13.89,
+      "name": ""
+    },
+    {
+      "id": "J10>J11",
+      "from": "J10",
+      "to": "J11",
+      "length": 400.0,
+      "lanes": 1,
+      "speed": 13.89,
+      "name": ""
+    },
+    {
+      "id": "J11>GE1",
+      "from": "J11",
+      "to": "GE1",
+      "length": 400.0,
+      "lanes": 1,
+      "speed": 13.89,
+      "name": ""
+    },
+    {
+      "id": "J11>GS1",
+      "from": "J11",
+      "to": "GS1",
+      "length": 400.0,
+      "lanes": 1,
+      "speed": 13.89,
+      "name": ""
+    },
+    {
+      "id": "J11>J01",
+      "from": "J11",
+      "to": "J01",
+      "length": 400.0,
+      "lanes": 1,
+      "speed": 13.89,
+      "name": ""
+    },
+    {
+      "id": "J11>J10",
+      "from": "J11",
+      "to": "J10",
+      "length": 400.0,
+      "lanes": 1,
+      "speed": 13.89,
+      "name": ""
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<osm version="0.6">
+  <node id="1" lat="51.5000" lon="-0.1060"/>
+  <node id="2" lat="51.5000" lon="-0.1040"/>
+  <node id="3" lat="51.5000" lon="-0.1020"><tag k="highway" v="traffic_signals"/></node>
+  <node id="4" lat="51.5000" lon="-0.1000"/>
+  <node id="5" lat="51.5018" lon="-0.1040"/>
+  <node id="6" lat="51.4982" lon="-0.1040"/>
+  <node id="7" lat="51.5018" lon="-0.1000"/>
+  <node id="8" lat="51.5010" lon="-0.1030"/>
+  <way id="100">
+    <nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/>
+    <tag k="highway" v="secondary"/><tag k="name" v="Main Street"/><tag k="maxspeed" v="30 mph"/><tag k="lanes" v="2"/>
+  </way>
+  <way id="200">
+    <nd ref="5"/><nd ref="2"/><nd ref="6"/>
+    <tag k="highway" v="residential"/><tag k="name" v="Side Road"/>
+  </way>
+  <way id="300">
+    <nd ref="8"/><nd ref="2"/>
+    <tag k="highway" v="footway"/>
+  </way>
+  <way id="400">
+    <nd ref="4"/><nd ref="7"/>
+    <tag k="highway" v="residential"/><tag k="oneway" v="yes"/>
+  </way>
+  <way id="500">
+    <nd ref="1"/><nd ref="999"/>
+    <tag k="highway" v="residential"/>
+  </way>
+</osm>

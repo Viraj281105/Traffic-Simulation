@@ -1,0 +1,12 @@
+# Optional dependencies of the reinforcement-learning signal-control package
+# (backend/src/rl, F18). Not part of the API image: install on top of
+# requirements.txt only where RL environments are trained or evaluated.
+#
+#   pip install -r backend/requirements.txt -r backend/requirements-rl.txt
+#
+# Tests in backend/tests/rl skip cleanly when these are absent.
+
+gymnasium>=1.0,<2
+numpy>=1.26
+stable-baselines3>=2.4,<3   # pulls in torch (CPU build is enough)
+mlflow-skinny>=2.14,<4      # optional: experiment tracking; file-based store

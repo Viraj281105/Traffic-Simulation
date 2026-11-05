@@ -764,6 +764,8 @@ describe("Navigation architecture", () => {
       "Experiment Copilot",
       "Discovery Lab",
       "Stress Lab",
+      "Trust and reports",
+      "Networks",
     ]);
     expect(
       experimentNav().getByRole("link", { name: "Experiment Copilot" }),
@@ -785,6 +787,8 @@ describe("Navigation architecture", () => {
       "/app/scenarios",
       "/app/discovery",
       "/app/stress",
+      "/app/insights",
+      "/app/network",
     ]);
   });
 

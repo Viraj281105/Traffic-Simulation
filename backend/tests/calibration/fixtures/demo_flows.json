@@ -1,0 +1,42 @@
+[
+  {
+    "origin": "GW0",
+    "destination": "GE0",
+    "vehiclesPerHour": 360.0
+  },
+  {
+    "origin": "GE0",
+    "destination": "GW0",
+    "vehiclesPerHour": 288.0
+  },
+  {
+    "origin": "GW1",
+    "destination": "GE1",
+    "vehiclesPerHour": 360.0
+  },
+  {
+    "origin": "GE1",
+    "destination": "GW1",
+    "vehiclesPerHour": 288.0
+  },
+  {
+    "origin": "GN0",
+    "destination": "GS0",
+    "vehiclesPerHour": 216.0
+  },
+  {
+    "origin": "GS0",
+    "destination": "GN0",
+    "vehiclesPerHour": 180.0
+  },
+  {
+    "origin": "GN1",
+    "destination": "GS1",
+    "vehiclesPerHour": 216.0
+  },
+  {
+    "origin": "GS1",
+    "destination": "GN1",
+    "vehiclesPerHour": 180.0
+  }
+]

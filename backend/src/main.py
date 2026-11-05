@@ -26,6 +26,7 @@ from src.api.request_limits import BodySizeLimitMiddleware, compute_slot
 from src.api.security import require_api_key
 from src.api.tokens_router import router as tokens_router
 from src.calibration import api as calibration_api
+from src.calibration import network_calibration_router
 from src.copilot.router import create_router as build_copilot_router
 from src.core.provenance import GIT_COMMIT_HASH
 from src.core.run_manifest import ENGINE_VERSION
@@ -33,19 +34,30 @@ from src.database.db import init_db
 from src.discovery.router import create_router as build_discovery_router
 from src.experiments.router import create_router as build_experiments_router
 from src.history import router as history_router
+from src.incidents.router import router as incidents_router
+from src.insights.router import create_router as build_insights_router
+from src.jobs.router import router as jobs_router
 from src.live import router as live_router
 from src.live.sessions import live_session_middleware
+from src.netmetrics.router import router as network_metrics_router
 from src.networks.api import router as networks_router
+from src.networks.import_api import router as network_graphs_router
+from src.observability import prom_router
 from src.observability import router as observability_router
 from src.observability.logging_setup import configure_logging
 from src.observability.middleware import ObservabilityMiddleware
 from src.planning.router import create_router as build_planning_router
+from src.priority.router import router as priority_router
 from src.replays import router as replays_router
 from src.simulations import router as simulations_router
 from src.stress.router import create_router as build_stress_router
+from src.study import metrics_router
 from src.study import router as study_router
 from src.study.runner import shutdown_pool
 from src.suites import router as suites_router
+from src.tenancy.router import router as tenancy_router
+from src.twin.router import router as twin_router
+from src.v2x.router import router as v2x_router
 
 # Structured (LOG_FORMAT=json) or plain logs, with token redaction and the
 # request id on every line (src/observability/logging_setup.py).
@@ -99,8 +111,57 @@ app.include_router(
     dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
 )
 
+# V3.9 /api/v2/network-graphs (src/networks/import_api.py): stateless graph import,
+# validation, SUMO export and mesoscopic network simulation.
+app.include_router(
+    network_graphs_router,
+    dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
+)
+
 # V1.8 /api/v2/calibration (src/calibration/api.py): runs belong to their creator.
 app.include_router(calibration_api.router)
+# V4.1 /api/v2/calibration/network-fit* (src/calibration/network_calibration_router.py).
+app.include_router(network_calibration_router.router)
+
+# V4.1 /api/v2/network-metrics (src/netmetrics/router.py): grid, network metrics,
+# congestion spread and map data. Stateless.
+app.include_router(
+    network_metrics_router,
+    dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
+)
+
+# V4.7+ stateless /api/v2 families (same auth as the networks router).
+# /api/v2 incidents, weather, surges and resilience (src/incidents).
+app.include_router(
+    incidents_router,
+    dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
+)
+# /api/v2 emergency and transit priority (src/priority).
+app.include_router(
+    priority_router,
+    dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
+)
+# /api/v2 vehicle messaging and cooperation experiments (src/v2x).
+app.include_router(
+    v2x_router,
+    dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
+)
+# /api/v2 job queue stats and enqueue dry run (src/jobs).
+app.include_router(
+    jobs_router,
+    dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
+)
+# /api/v2 tenant identity, roles and usage; needs an OIDC token (src/tenancy).
+app.include_router(
+    tenancy_router,
+    dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
+)
+
+# V4.2 /api/v2/twin (src/twin/router.py): prediction vs observation, what-if.
+app.include_router(
+    twin_router,
+    dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
+)
 
 # V2.0 /api/v2/planning (src/planning/router.py).
 app.include_router(
@@ -147,6 +208,15 @@ app.include_router(
     )
 )
 
+# V3.2 /api/v3 result screens (src/insights/router.py): comparison, sensitivity, run metrics and diff,
+# nightly regression, report, RL comparison and network upload checks. Same guards as the other v3 routes.
+app.include_router(
+    build_insights_router(
+        user_dependency=get_current_identity,
+        dependencies=[Depends(require_api_key)],
+    )
+)
+
 # V3.0 /api/v3/tokens (src/api/tokens_router.py): Personal Access Tokens (W7 Stage 1).
 app.include_router(
     tokens_router,
@@ -168,6 +238,8 @@ except Exception:
 app.include_router(meta.router)
 # /metrics: Prometheus text, token-protected (src/observability/router.py).
 app.include_router(observability_router.router)
+# GET /metrics/prom: Prometheus-format run, queue and latency metrics (src/observability/prom_router.py).
+app.include_router(prom_router.router)
 # /api/simulation/* and /ws/simulation/*: the live dashboard (src/live/router.py).
 app.include_router(live_router.router)
 # /api/v1/simulations, /api/simulation/new, /ws/v1/stream and config/scenario
@@ -175,6 +247,8 @@ app.include_router(live_router.router)
 app.include_router(simulations_router.router)
 # /api/v1/study/*: sweeps, validation, control comparison (src/study/router.py).
 app.include_router(study_router.router)
+# /api/v1/metrics/* and /api/v1/study/sensitivity* (src/study/metrics_router.py).
+app.include_router(metrics_router.router)
 # /api/v1/replays (src/replays/router.py).
 app.include_router(replays_router.router)
 # /api/suites (src/suites/router.py).

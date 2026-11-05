@@ -1,0 +1,4 @@
+stop_id,stop_name,stop_lat,stop_lon
+S1,Central,51.5000,-0.1060
+S2,Market,51.5000,-0.1040
+S3,Park,51.5000,-0.1000

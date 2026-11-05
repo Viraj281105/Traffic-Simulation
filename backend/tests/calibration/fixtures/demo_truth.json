@@ -1,0 +1,11 @@
+{
+  "demand:GE0->GW0": 0.6,
+  "demand:GE1->GW1": 0.8,
+  "demand:GN0->GS0": 1.5,
+  "demand:GN1->GS1": 1.0,
+  "demand:GS0->GN0": 0.7,
+  "demand:GS1->GN1": 1.3,
+  "demand:GW0->GE0": 1.4,
+  "demand:GW1->GE1": 1.2,
+  "speed:all": 0.8
+}

@@ -569,6 +569,331 @@ export const METRICS: MetricDef[] = [
   },
 ];
 
+/**
+ * Analysis measures: computed by the backend from per-vehicle trip and
+ * trajectory records or from several seeded runs (metrics/trip_metrics.py,
+ * metrics/trajectory_metrics.py, uncertainty/comparison.py,
+ * study/sensitivity.py), not part of the live collector snapshot. They are
+ * described here for the glossary only; the live metric panels and CSV exports
+ * read METRICS and never show these.
+ */
+export interface AnalysisMetricDef {
+  /** Field name in the backend's analysis output. */
+  key: string;
+  label: string;
+  unit: string;
+  description: string;
+  /** Everyday-words version for the glossary. */
+  plain: string;
+}
+
+export const ANALYSIS_GROUP = {
+  id: "analysis",
+  title: "Trip, safety and comparison analysis",
+  blurb:
+    "Measures worked out from per-vehicle records or from several seeded runs. Fuel and CO₂ are model estimates and time-to-collision is a proxy; none of these is a real-world measurement.",
+} as const;
+
+export const ANALYSIS_METRICS: AnalysisMetricDef[] = [
+  {
+    key: "totalDelayVehicleHours",
+    label: "Total delay",
+    unit: "vehicle-h",
+    description:
+      "Sum of every trip's delay (travel time minus the time at the driver's own desired speed, never below zero) divided by 3600. It grows with both how long each vehicle is held up and how many vehicles there are.",
+    plain:
+      "All the lost time of all vehicles added up, in vehicle-hours. Ten vehicles each losing six minutes make one vehicle-hour. It rises with traffic volume as well as with congestion, so compare it only between runs with the same demand.",
+  },
+  {
+    key: "delayRatio",
+    label: "Delay ratio",
+    unit: "",
+    description:
+      "Total delay divided by total travel time over the same trips: the share of all time spent travelling that was lost to delay.",
+    plain:
+      "The fraction of everyone's travel time that was lost. 0.25 means a quarter of all time on the road was delay. It does not depend on how many vehicles there were.",
+  },
+  {
+    key: "planningTimeIndex",
+    label: "Planning time index",
+    unit: "",
+    description:
+      "95th-percentile travel time divided by median travel time. Flagged as low-sample below 20 trips.",
+    plain:
+      "How much extra time a careful traveller should allow. 1.5 means that to be on time 19 days out of 20 you need half as long again as a typical trip. Closer to 1 is more predictable. Shaky with fewer than 20 trips.",
+  },
+  {
+    key: "p95TravelTimeS",
+    label: "95th-percentile travel time",
+    unit: "s",
+    description:
+      "Travel time that 95% of trips did not exceed (linear interpolation between the sorted trips). Flagged as low-sample below 20 trips.",
+    plain:
+      "A slow-day travel time: 19 in 20 trips were faster than this. It shows the bad end of the spread that an average hides. Shaky with fewer than 20 trips.",
+  },
+  {
+    key: "fuelLiters",
+    label: "Fuel used (estimate)",
+    unit: "L",
+    description:
+      "ESTIMATE from a simple speed, idle and acceleration fuel model for a generic petrol car, summed over each vehicle's speed samples. No vehicle class, road grade, cold start or electrification. Not a measurement.",
+    plain:
+      "A rough model estimate of fuel burnt, assuming ordinary petrol cars. Use it to compare runs, not as a real fuel figure.",
+  },
+  {
+    key: "co2Kg",
+    label: "CO₂ (estimate)",
+    unit: "kg",
+    description:
+      "ESTIMATE: the fuel estimate multiplied by 2.31 kg CO₂ per litre of petrol. It inherits every limit of the fuel model and is not a measurement.",
+    plain:
+      "A rough model estimate of CO₂, worked out from the fuel estimate. Use it to compare runs, not as a real emissions figure.",
+  },
+  {
+    key: "idleShare",
+    label: "Idle share",
+    unit: "",
+    description:
+      "Time vehicles spent almost stationary (speed under 0.1 m/s) divided by their total time in the run, over the vehicles analysed.",
+    plain:
+      "The fraction of vehicle time spent standing still. 0.2 means vehicles were stopped a fifth of the time they were in the simulation. Idling is also where the fuel estimate burns fuel for no distance.",
+  },
+  {
+    key: "minTtcS",
+    label: "Time-to-collision (proxy)",
+    unit: "s",
+    description:
+      "For a follower behind a leader on the same lane: bumper gap divided by closing speed, defined only while the follower is closing, and zero if already touching. Assumes constant speeds. A surrogate safety proxy, not a crash prediction; the smallest value seen is reported.",
+    plain:
+      "How many seconds until a following vehicle would hit the one ahead if neither changed speed. Smaller is closer. It is a warning sign used to compare runs, not a prediction that a crash will happen.",
+  },
+  {
+    key: "timeExposedTtcS",
+    label: "Time exposed to low TTC",
+    unit: "s",
+    description:
+      "Seconds for which time-to-collision was below the threshold (default 1.5 s), counted across all pairs and samples. A proxy measure of exposure, not of crashes.",
+    plain:
+      "How long, in total, vehicles spent in close-following situations. It measures how much time was spent near the edge, not how many separate close calls there were.",
+  },
+  {
+    key: "timeIntegratedTtcS",
+    label: "Time-integrated TTC",
+    unit: "s²",
+    description:
+      "Sum, over samples where time-to-collision was below the threshold, of (threshold minus time-to-collision) times the sample length. Weights closer approaches more heavily than time-exposed does. A proxy measure, not a crash prediction.",
+    plain:
+      "Like time exposed to low TTC, but a very close approach counts for more than a mild one. Larger means more time spent closer to a collision. A proxy for comparing runs.",
+  },
+  {
+    key: "conflictEvents",
+    label: "Conflict events",
+    unit: "",
+    description:
+      "Separate episodes of low time-to-collision: a run of consecutive below-threshold samples for one vehicle pair counts once. A proxy count, not crashes.",
+    plain:
+      "How many separate close calls there were. One long close call counts once, unlike the raw count of moments.",
+  },
+  {
+    key: "confidenceInterval",
+    label: "Confidence interval",
+    unit: "",
+    description:
+      "Range, in the metric's own units, that would contain the true average difference in the stated share of repeats (default 95%) if the study were run many times. Computed either by a Student t formula or by percentile bootstrap, and the method is always named.",
+    plain:
+      "A range for the true difference rather than a single number. A narrow range means the result is well pinned down; a wide one means more runs are needed. If it includes zero, the data cannot tell the two apart.",
+  },
+  {
+    key: "pValue",
+    label: "p-value",
+    unit: "",
+    description:
+      "Two-sided probability of seeing a difference at least this large if the two strategies were really the same, from a paired t test or a sign-flip randomisation test. It says nothing about whether the difference matters in practice.",
+    plain:
+      "How surprising the result would be if there were no real difference. Small values (below 0.05, say) mean it is unlikely to be chance. It does not say the difference is big or useful: read it with the confidence interval.",
+  },
+  {
+    key: "pairedComparison",
+    label: "Paired comparison",
+    unit: "",
+    description:
+      "Strategies A and B are run on the same seeds, and the analysis uses the per-seed difference a minus b. Pairing removes the seed-to-seed variation both strategies share. Both sides must have the same seeds in the same order.",
+    plain:
+      "Comparing two strategies on identical random traffic, seed by seed, and looking at the differences. Because both face the same traffic, the difference is much less muddied by luck.",
+  },
+  {
+    key: "sensitivityIndex",
+    label: "Sensitivity (first-order / total index)",
+    unit: "",
+    description:
+      "Variance-based Sobol-lite indices for inputs varied over their ranges. First-order S1 is the share of output variance explained by an input alone; total ST adds its interactions with other inputs. Estimates are noisy with small samples and may fall slightly outside 0 to 1; they are reported unclipped and ranked by ST, so read ranks as indicative.",
+    plain:
+      "Which input changes the result most. The first-order index is the share of the result's variation one input explains on its own; the total index also counts its effects in combination with other inputs. With few samples the figures are rough, so use them for ranking.",
+  },
+  {
+    key: "throughputVph",
+    label: "Network throughput",
+    unit: "veh/h",
+    description:
+      "Vehicles that finished their trip, scaled to one hour, over the whole network (network-metrics simulate).",
+    plain:
+      "How many vehicles got all the way through the network, per hour. Vehicles still travelling at the end of the run are not counted.",
+  },
+  {
+    key: "meanVehiclesInNetwork",
+    label: "Vehicles in the network",
+    unit: "vehicles",
+    description:
+      "Time-averaged number of vehicles on all links of the network during the run.",
+    plain:
+      "How many vehicles were on the roads at a typical moment of the run. More vehicles means a busier network.",
+  },
+  {
+    key: "meanQueuedVehicles",
+    label: "Queued vehicles",
+    unit: "vehicles",
+    description:
+      "Time-averaged number of vehicles waiting at the front of a link, summed over all links.",
+    plain:
+      "How many vehicles were waiting in queues at a typical moment, added up over every road in the network.",
+  },
+  {
+    key: "blockedLinkSeconds",
+    label: "Blocked link time",
+    unit: "link-s",
+    description:
+      "Total time, summed over links, during which a link had a vehicle ready to leave but the next link was full.",
+    plain:
+      "Time that roads could not let vehicles through because the road ahead was full. Two roads blocked for ten seconds each count as twenty link-seconds.",
+  },
+  {
+    key: "meanOccupancyRatio",
+    label: "Link fullness",
+    unit: "fraction",
+    description:
+      "Mean number of vehicles on a link divided by the number it can store (length times lanes). 0 is empty, 1 is full.",
+    plain:
+      "How full a road was: 0 is empty and 1 is packed. The congestion screens colour roads and cells by this.",
+  },
+  {
+    key: "densityVehPerKmLane",
+    label: "Density",
+    unit: "veh/km/lane",
+    description:
+      "Vehicles per kilometre of lane, weighted by lane length over the network, one value per time bucket.",
+    plain:
+      "How closely packed the vehicles were, per kilometre of lane. The sideways axis of the fundamental diagram.",
+  },
+  {
+    key: "flowVehPerHourLane",
+    label: "Flow per lane",
+    unit: "veh/h/lane",
+    description:
+      "Vehicles passing per hour per lane, weighted by lane length over the network, one value per time bucket.",
+    plain:
+      "How many vehicles moved through each lane per hour. The upward axis of the fundamental diagram; its highest dot shows the busiest the network got.",
+  },
+  {
+    key: "congestionOnsetSeconds",
+    label: "Congestion onset",
+    unit: "s",
+    description:
+      "Time at which a link first stayed at or above the congestion threshold of fullness for the minimum hold time.",
+    plain:
+      "The moment a road first became congested, counted from the start of the run. Roads are listed in the order they congested.",
+  },
+  {
+    key: "spillbackSeconds",
+    label: "Spillback time",
+    unit: "s",
+    description:
+      "Duration of a run in which a link head vehicle was ready to leave but the next link was full.",
+    plain:
+      "How long a queue was backed up into the road behind it because the road ahead had no room.",
+  },
+  {
+    key: "geh",
+    label: "GEH",
+    unit: "",
+    description:
+      "GEH = sqrt(2 (M - C)^2 / (M + C)) for modelled hourly flow M and counted hourly flow C on a link. Below 5 is the usual acceptable fit.",
+    plain:
+      "A traffic-engineering score for how well the modelled flow on a road matches the count. Below 5 is generally accepted as a good match; larger is a miss.",
+  },
+  {
+    key: "rmseVph",
+    label: "Flow error (RMSE)",
+    unit: "veh/h",
+    description:
+      "Root mean square of simulated minus counted hourly flow over the counted links.",
+    plain:
+      "The typical size of the miss between modelled and counted flow, in vehicles per hour. Big misses count extra.",
+  },
+  {
+    key: "mapePercent",
+    label: "Flow error (MAPE)",
+    unit: "%",
+    description:
+      "Mean of absolute percentage errors over links whose counted flow is at least the minimum; links with tiny counts are skipped and reported.",
+    plain:
+      "How far off the model is on average, as a percentage of the counted flow. Roads with very small counts are left out because a tiny denominator would give a meaningless percentage.",
+  },
+  {
+    key: "twinMae",
+    label: "Twin error (MAE)",
+    unit: "vehicles / window",
+    description:
+      "Mean absolute difference between predicted and observed vehicle counts per window (digital twin comparison).",
+    plain:
+      "On average, how many vehicles per time window the twin predicted wrongly, whether too many or too few.",
+  },
+  {
+    key: "twinMape",
+    label: "Twin error (MAPE)",
+    unit: "%",
+    description:
+      "Mean absolute error as a percentage of the observed count, over windows where the observed count is above zero.",
+    plain:
+      "How wrong the twin was as a share of what really happened. Windows where nothing was observed are skipped.",
+  },
+  {
+    key: "twinBias",
+    label: "Twin bias",
+    unit: "vehicles / window",
+    description:
+      "Mean of predicted minus observed count per window. Negative means the twin predicts too few vehicles.",
+    plain:
+      "Whether the twin leans one way. A negative number means it usually predicts fewer vehicles than were seen; a positive number means more.",
+  },
+  {
+    key: "mean_wait_s",
+    label: "Mean wait per entered vehicle (network RL)",
+    unit: "s",
+    description:
+      "Stopped vehicle-seconds in the network divided by the number of vehicles that entered it, from the network RL evaluation.",
+    plain:
+      "Total time vehicles spent stopped, divided by the vehicles that entered the network. It is not the delay of a finished trip, so do not compare it with delay figures from other screens.",
+  },
+  {
+    key: "loadTestP95Ms",
+    label: "Response time, 95th percentile",
+    unit: "ms",
+    description:
+      "The response time that 95% of load-test requests beat (k6 http_req_duration p(95)).",
+    plain:
+      "How long the slowest 5% of requests took at least. If this is 400 ms, nineteen in twenty requests were faster than that.",
+  },
+  {
+    key: "loadTestErrorRate",
+    label: "Load-test error rate",
+    unit: "fraction",
+    description:
+      "Share of load-test requests that failed (k6 http_req_failed rate).",
+    plain:
+      "The fraction of requests that failed during the load test. 0.01 means one in a hundred.",
+  },
+];
+
 export const METRICS_BY_GROUP: Record<MetricGroupId, MetricDef[]> =
   METRIC_GROUPS.reduce(
     (acc, g) => {

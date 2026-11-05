@@ -15,3 +15,9 @@ src/test
 coverage
 *.md
 eslint.config.js
+
+# Feature-folder tests and their helper (src/insights, src/comparison, ...) need
+# the test setup in src/test, which is excluded above.
+**/*.test.ts
+**/*.test.tsx
+src/insights/testApi.ts

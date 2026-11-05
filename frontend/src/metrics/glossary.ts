@@ -7,14 +7,28 @@
  * it has one, otherwise its `description`; the caveats restate flags the
  * catalog already encodes (warm-up, "no data yet", geometry scope).
  */
-import { METRICS, METRIC_GROUPS } from "./catalog";
+import {
+  ANALYSIS_GROUP,
+  ANALYSIS_METRICS,
+  METRICS,
+  METRIC_GROUPS,
+} from "./catalog";
 import type { MetricDef, MetricGroupId } from "./catalog";
 
+export type GlossaryGroupId = MetricGroupId | typeof ANALYSIS_GROUP.id;
+
+/** Live-metric groups followed by the analysis group. */
+export const GLOSSARY_GROUPS: {
+  id: GlossaryGroupId;
+  title: string;
+  blurb: string;
+}[] = [...METRIC_GROUPS, ANALYSIS_GROUP];
+
 export interface GlossaryEntry {
-  key: MetricDef["key"];
+  key: string;
   label: string;
   unit: string;
-  group: MetricGroupId;
+  group: GlossaryGroupId;
   text: string;
   caveats: string[];
 }
@@ -38,7 +52,7 @@ export function caveatsFor(def: MetricDef): string[] {
 }
 
 export function glossaryEntries(): GlossaryEntry[] {
-  return METRICS.map((def) => ({
+  const live: GlossaryEntry[] = METRICS.map((def) => ({
     key: def.key,
     label: def.label,
     unit: def.unit,
@@ -46,6 +60,15 @@ export function glossaryEntries(): GlossaryEntry[] {
     text: def.plain ?? def.description,
     caveats: caveatsFor(def),
   }));
+  const analysis: GlossaryEntry[] = ANALYSIS_METRICS.map((def) => ({
+    key: def.key,
+    label: def.label,
+    unit: def.unit,
+    group: ANALYSIS_GROUP.id,
+    text: def.plain,
+    caveats: [],
+  }));
+  return [...live, ...analysis];
 }
 
 /** Entries whose label, key or wording contains every word of `query`. */
@@ -75,7 +98,7 @@ export function glossaryMarkdown(): string {
     "simulation; nothing here is a real-world measurement.",
     "",
   ];
-  for (const group of METRIC_GROUPS) {
+  for (const group of GLOSSARY_GROUPS) {
     lines.push(`## ${group.title}`, "", group.blurb, "");
     for (const e of entries.filter((x) => x.group === group.id)) {
       const unit = e.unit ? ` (${e.unit})` : "";

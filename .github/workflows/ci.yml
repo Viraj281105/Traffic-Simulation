@@ -192,6 +192,11 @@ jobs:
           { echo '### Copilot evaluation'; echo '```'; cat copilot-eval.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           exit $status
 
+      # Offline eval harness and grounded-summary self-check (backend/evals/gate.py).
+      - name: Copilot eval harness gate (offline)
+        if: always()
+        run: python -m evals.gate --threshold 1.0 --report copilot-eval-gate.json
+
       - name: Upload Copilot evaluation report
         if: always()
         uses: actions/upload-artifact@v4

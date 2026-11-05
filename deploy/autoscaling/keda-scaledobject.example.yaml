@@ -1,0 +1,36 @@
+# Standalone KEDA objects for the job worker, for clusters where the worker chart's own
+# keda.enabled switch is not used. The worker chart renders the same two objects.
+# Requires the KEDA operator (see README.md). Replace the CHANGE-ME values.
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: worker-sqs
+  namespace: urbanflow
+spec:
+  podIdentity:
+    provider: aws
+    # Use the worker's own IRSA role (it holds sqs:GetQueueAttributes on the queue).
+    identityOwner: workload
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: worker
+  namespace: urbanflow
+spec:
+  scaleTargetRef:
+    name: worker
+  # Scale to zero when the queue is empty (F17 acceptance: workers scale to zero when idle).
+  minReplicaCount: 0
+  maxReplicaCount: 4
+  pollingInterval: 30
+  cooldownPeriod: 300
+  triggers:
+    - type: aws-sqs-queue
+      authenticationRef:
+        name: worker-sqs
+      metadata:
+        queueURL: https://sqs.CHANGE-ME.amazonaws.com/000000000000/urbanflow-staging-jobs
+        queueLength: "2"
+        awsRegion: CHANGE-ME
+        identityOwner: workload

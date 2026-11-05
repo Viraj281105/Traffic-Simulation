@@ -1,0 +1,9 @@
+# Overrides for the local kind cluster (deploy/kind/kind-config.yaml maps node
+# port 30080 to host port 8080).
+frontend:
+  service:
+    type: NodePort
+    nodePort: 30080
+backend:
+  persistence:
+    enabled: false

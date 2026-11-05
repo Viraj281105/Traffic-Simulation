@@ -37,11 +37,16 @@ def test_the_v3_family_is_mounted() -> None:
         "copilot",
         "discovery",
         "experiments",
+        "loadtests",
+        "networks",
         "packages",
+        "regression",
+        "rl",
+        "runs",
         "stress",
         "tokens",
     }
-    assert len(V3_ROUTES) >= 34
+    assert len(V3_ROUTES) >= 43
 
 
 @pytest.fixture

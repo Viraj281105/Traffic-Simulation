@@ -26,6 +26,8 @@ This directory contains historical **Architecture Decision Records (ADRs)**. The
 | **[ADR-018](adr-018-backend-layering-and-resource-routers.md)** | Backend Layering and Resource Routers | Accepted | 2026-10-16 |
 | **[ADR-019](adr-019-stop-line-position-under-driver-aggression.md)** | Stop-Line Position Under Driver Aggression | Proposed | 2026-10-22 |
 | **[ADR-020](adr-020-opt-in-driver-heterogeneity-and-demand-variability.md)** | Opt-In Driver Heterogeneity and Demand Variability | Accepted | 2026-11-03 |
+| **[ADR-021](adr-021-network-graph-model.md)** | Network Graph Model | Proposed | 2026-11-04 |
+| **[ADR-022](adr-022-observability-and-slos.md)** | Observability and SLOs | Proposed | 2026-11-05 |
 
 ## ADR Structure
 

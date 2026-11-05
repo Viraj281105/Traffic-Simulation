@@ -1,0 +1,10 @@
+{"version": 0.6, "elements": [
+ {"type": "node", "id": 1, "lat": 51.5000, "lon": -0.1060},
+ {"type": "node", "id": 2, "lat": 51.5000, "lon": -0.1040},
+ {"type": "node", "id": 3, "lat": 51.5000, "lon": -0.1020, "tags": {"highway": "traffic_signals"}},
+ {"type": "node", "id": 4, "lat": 51.5000, "lon": -0.1000},
+ {"type": "node", "id": 5, "lat": 51.5018, "lon": -0.1040},
+ {"type": "node", "id": 6, "lat": 51.4982, "lon": -0.1040},
+ {"type": "way", "id": 100, "nodes": [1, 2, 3, 4], "tags": {"highway": "secondary", "name": "Main Street", "maxspeed": "30 mph", "lanes": "2"}},
+ {"type": "way", "id": 200, "nodes": [5, 2, 6], "tags": {"highway": "residential", "name": "Side Road"}}
+]}

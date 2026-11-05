@@ -1,0 +1,8 @@
+image: {repository: urbanflow-backend, tag: dev, pullPolicy: IfNotPresent}
+service: {name: backend, port: 8000}
+env: {}
+existingSecret: ""
+apiKey: ""
+metricsToken: ""
+persistence: {enabled: true, size: 1Gi, storageClass: ""}
+resources: {}

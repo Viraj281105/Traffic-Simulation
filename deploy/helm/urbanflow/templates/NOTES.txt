@@ -1,0 +1,2 @@
+UrbanFlow installed as release {{ .Release.Name }}.
+Port-forward the UI:  kubectl port-forward svc/frontend 8080:{{ .Values.frontend.service.port }}

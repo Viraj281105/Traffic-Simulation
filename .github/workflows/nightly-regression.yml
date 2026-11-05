@@ -1,0 +1,60 @@
+name: Nightly Regression
+
+# Runs the same regression the Airflow DAG (airflow/dags/nightly_regression.py)
+# runs, on GitHub's scheduler, so the check exists without any Airflow
+# deployment. Full-strength slow sweeps plus a short multi-seed study.
+
+on:
+  schedule:
+    - cron: "17 2 * * *"   # 02:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    name: Backend regression (slow tests) and multi-seed study
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+
+      - name: Install
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Full backend suite including slow tests
+        working-directory: backend
+        env:
+          PYTHONPATH: .
+        run: pytest -n auto --dist loadfile --durations=25 --cov-report=xml:coverage.xml
+
+      - name: Multi-seed study
+        env:
+          PYTHONPATH: backend
+          DB_PATH: ${{ runner.temp }}/nightly.db
+        run: |
+          python airflow/scripts/run_multiseed.py \
+            --geometry signal --num-seeds 5 --duration 60 \
+            --output "${{ runner.temp }}/multiseed.json"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-regression
+          path: |
+            backend/coverage.xml
+            ${{ runner.temp }}/multiseed.json
+          if-no-files-found: warn

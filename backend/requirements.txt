@@ -15,6 +15,7 @@ httpx==0.28.1
 idna==3.18
 jsonschema==4.26.0
 jsonschema-specifications==2025.9.1
+numpy==2.3.5
 pydantic==2.13.4
 pydantic_core==2.46.4
 referencing==0.37.0
@@ -39,3 +40,13 @@ charset-normalizer==3.5.1
 cryptography==50.0.1
 pycparser==3.0
 urllib3==2.8.0
+
+# Run store (src/runstore): Parquet tables, and S3 objects via boto3 (imported lazily).
+pyarrow==26.0.1
+boto3==1.34.0
+botocore==1.34.162
+s3transfer==0.9.0
+jmespath==1.1.0
+python-dateutil==2.9.0.post0
+python-multipart==0.0.33
+six==1.17.0

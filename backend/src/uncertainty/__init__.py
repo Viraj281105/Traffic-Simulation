@@ -10,6 +10,15 @@ from .analysis import (
     result_fingerprint,
 )
 from .apply import FactorApplicationError, apply_factors, preflight
+from .comparison import (
+    PairedComparison,
+    bootstrap_mean_interval,
+    compare_paired,
+    mean_confidence_interval,
+    paired_bootstrap_test,
+    paired_t_test,
+    verdict,
+)
 from .runner import (
     EnsembleRefusedError,
     EnsembleRun,
@@ -30,6 +39,13 @@ from .spec import (
 from .stats import variance_decomposition
 
 __all__ = [
+    "PairedComparison",
+    "bootstrap_mean_interval",
+    "compare_paired",
+    "mean_confidence_interval",
+    "paired_bootstrap_test",
+    "paired_t_test",
+    "verdict",
     "Condition",
     "ConditionResult",
     "EnsembleRefusedError",

@@ -1,0 +1,116 @@
+name: Kubernetes Deploy (kind)
+
+# Builds the images, brings up a throwaway kind cluster on the runner,
+# installs the Helm chart and smoke-tests it. No cloud account is involved:
+# the "cluster" lives and dies with the job. It proves `helm install` works on
+# every change to the deploy path, and on merge to main.
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "deploy/**"
+      - "backend/Dockerfile"
+      - "backend/requirements.txt"
+      - "backend/src/**"
+      - "frontend/**"
+      - "shared/**"
+      - ".github/workflows/k8s-deploy.yml"
+  pull_request:
+    paths:
+      - "deploy/**"
+      - "backend/Dockerfile"
+      - "frontend/Dockerfile"
+      - ".github/workflows/k8s-deploy.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: k8s-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  helm-lint:
+    name: Helm lint and template
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+      - name: Lint
+        run: helm lint deploy/helm/urbanflow -f deploy/helm/values-kind.yaml
+      - name: Render (default and with ingest enabled)
+        run: |
+          helm template urbanflow deploy/helm/urbanflow -f deploy/helm/values-kind.yaml > /dev/null
+          helm template urbanflow deploy/helm/urbanflow -f deploy/helm/values-kind.yaml --set ingest.enabled=true > /dev/null
+
+  deploy-kind:
+    name: Build, deploy to kind, smoke test
+    needs: helm-lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CLUSTER: urbanflow
+      TAG: ci-${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build backend image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: backend/Dockerfile
+          load: true
+          tags: urbanflow-backend:${{ env.TAG }}
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+          cache-from: type=gha,scope=k8s-backend
+          cache-to: type=gha,scope=k8s-backend,mode=max
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./frontend
+          file: frontend/Dockerfile
+          load: true
+          tags: urbanflow-frontend:${{ env.TAG }}
+          cache-from: type=gha,scope=k8s-frontend
+          cache-to: type=gha,scope=k8s-frontend,mode=max
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: ${{ env.CLUSTER }}
+          config: deploy/kind/kind-config.yaml
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: Load images into the cluster
+        run: |
+          kind load docker-image urbanflow-backend:${TAG} urbanflow-frontend:${TAG} --name "${CLUSTER}"
+
+      - name: Helm install
+        run: |
+          helm upgrade --install urbanflow deploy/helm/urbanflow \
+            -f deploy/helm/values-kind.yaml \
+            --set backend.image.tag=${TAG} \
+            --set frontend.image.tag=${TAG} \
+            --wait --timeout 8m
+
+      - name: Smoke test
+        run: bash deploy/scripts/smoke-test.sh http://127.0.0.1:8080
+
+      - name: Diagnostics on failure
+        if: failure()
+        run: |
+          kubectl get pods,svc -o wide || true
+          kubectl describe pods || true
+          kubectl logs deploy/backend --tail=200 || true
+          kubectl logs deploy/frontend --tail=100 || true

@@ -357,3 +357,205 @@ A single score out of 100 from throughput, queued time, stops, fairness and idle
 - Counts only after the warm-up period.
 - Shows “—” until a vehicle has exited after the warm-up.
 - Compare only between runs of the same layout and scenario.
+
+## Trip, safety and comparison analysis
+
+Measures worked out from per-vehicle records or from several seeded runs. Fuel and CO₂ are model estimates and time-to-collision is a proxy; none of these is a real-world measurement.
+
+### Total delay (vehicle-h)
+
+`totalDelayVehicleHours`
+
+All the lost time of all vehicles added up, in vehicle-hours. Ten vehicles each losing six minutes make one vehicle-hour. It rises with traffic volume as well as with congestion, so compare it only between runs with the same demand.
+
+### Delay ratio
+
+`delayRatio`
+
+The fraction of everyone's travel time that was lost. 0.25 means a quarter of all time on the road was delay. It does not depend on how many vehicles there were.
+
+### Planning time index
+
+`planningTimeIndex`
+
+How much extra time a careful traveller should allow. 1.5 means that to be on time 19 days out of 20 you need half as long again as a typical trip. Closer to 1 is more predictable. Shaky with fewer than 20 trips.
+
+### 95th-percentile travel time (s)
+
+`p95TravelTimeS`
+
+A slow-day travel time: 19 in 20 trips were faster than this. It shows the bad end of the spread that an average hides. Shaky with fewer than 20 trips.
+
+### Fuel used (estimate) (L)
+
+`fuelLiters`
+
+A rough model estimate of fuel burnt, assuming ordinary petrol cars. Use it to compare runs, not as a real fuel figure.
+
+### CO₂ (estimate) (kg)
+
+`co2Kg`
+
+A rough model estimate of CO₂, worked out from the fuel estimate. Use it to compare runs, not as a real emissions figure.
+
+### Idle share
+
+`idleShare`
+
+The fraction of vehicle time spent standing still. 0.2 means vehicles were stopped a fifth of the time they were in the simulation. Idling is also where the fuel estimate burns fuel for no distance.
+
+### Time-to-collision (proxy) (s)
+
+`minTtcS`
+
+How many seconds until a following vehicle would hit the one ahead if neither changed speed. Smaller is closer. It is a warning sign used to compare runs, not a prediction that a crash will happen.
+
+### Time exposed to low TTC (s)
+
+`timeExposedTtcS`
+
+How long, in total, vehicles spent in close-following situations. It measures how much time was spent near the edge, not how many separate close calls there were.
+
+### Time-integrated TTC (s²)
+
+`timeIntegratedTtcS`
+
+Like time exposed to low TTC, but a very close approach counts for more than a mild one. Larger means more time spent closer to a collision. A proxy for comparing runs.
+
+### Conflict events
+
+`conflictEvents`
+
+How many separate close calls there were. One long close call counts once, unlike the raw count of moments.
+
+### Confidence interval
+
+`confidenceInterval`
+
+A range for the true difference rather than a single number. A narrow range means the result is well pinned down; a wide one means more runs are needed. If it includes zero, the data cannot tell the two apart.
+
+### p-value
+
+`pValue`
+
+How surprising the result would be if there were no real difference. Small values (below 0.05, say) mean it is unlikely to be chance. It does not say the difference is big or useful: read it with the confidence interval.
+
+### Paired comparison
+
+`pairedComparison`
+
+Comparing two strategies on identical random traffic, seed by seed, and looking at the differences. Because both face the same traffic, the difference is much less muddied by luck.
+
+### Sensitivity (first-order / total index)
+
+`sensitivityIndex`
+
+Which input changes the result most. The first-order index is the share of the result's variation one input explains on its own; the total index also counts its effects in combination with other inputs. With few samples the figures are rough, so use them for ranking.
+
+### Network throughput (veh/h)
+
+`throughputVph`
+
+How many vehicles got all the way through the network, per hour. Vehicles still travelling at the end of the run are not counted.
+
+### Vehicles in the network (vehicles)
+
+`meanVehiclesInNetwork`
+
+How many vehicles were on the roads at a typical moment of the run. More vehicles means a busier network.
+
+### Queued vehicles (vehicles)
+
+`meanQueuedVehicles`
+
+How many vehicles were waiting in queues at a typical moment, added up over every road in the network.
+
+### Blocked link time (link-s)
+
+`blockedLinkSeconds`
+
+Time that roads could not let vehicles through because the road ahead was full. Two roads blocked for ten seconds each count as twenty link-seconds.
+
+### Link fullness (fraction)
+
+`meanOccupancyRatio`
+
+How full a road was: 0 is empty and 1 is packed. The congestion screens colour roads and cells by this.
+
+### Density (veh/km/lane)
+
+`densityVehPerKmLane`
+
+How closely packed the vehicles were, per kilometre of lane. The sideways axis of the fundamental diagram.
+
+### Flow per lane (veh/h/lane)
+
+`flowVehPerHourLane`
+
+How many vehicles moved through each lane per hour. The upward axis of the fundamental diagram; its highest dot shows the busiest the network got.
+
+### Congestion onset (s)
+
+`congestionOnsetSeconds`
+
+The moment a road first became congested, counted from the start of the run. Roads are listed in the order they congested.
+
+### Spillback time (s)
+
+`spillbackSeconds`
+
+How long a queue was backed up into the road behind it because the road ahead had no room.
+
+### GEH
+
+`geh`
+
+A traffic-engineering score for how well the modelled flow on a road matches the count. Below 5 is generally accepted as a good match; larger is a miss.
+
+### Flow error (RMSE) (veh/h)
+
+`rmseVph`
+
+The typical size of the miss between modelled and counted flow, in vehicles per hour. Big misses count extra.
+
+### Flow error (MAPE) (%)
+
+`mapePercent`
+
+How far off the model is on average, as a percentage of the counted flow. Roads with very small counts are left out because a tiny denominator would give a meaningless percentage.
+
+### Twin error (MAE) (vehicles / window)
+
+`twinMae`
+
+On average, how many vehicles per time window the twin predicted wrongly, whether too many or too few.
+
+### Twin error (MAPE) (%)
+
+`twinMape`
+
+How wrong the twin was as a share of what really happened. Windows where nothing was observed are skipped.
+
+### Twin bias (vehicles / window)
+
+`twinBias`
+
+Whether the twin leans one way. A negative number means it usually predicts fewer vehicles than were seen; a positive number means more.
+
+### Mean wait per entered vehicle (network RL) (s)
+
+`mean_wait_s`
+
+Total time vehicles spent stopped, divided by the vehicles that entered the network. It is not the delay of a finished trip, so do not compare it with delay figures from other screens.
+
+### Response time, 95th percentile (ms)
+
+`loadTestP95Ms`
+
+How long the slowest 5% of requests took at least. If this is 400 ms, nineteen in twenty requests were faster than that.
+
+### Load-test error rate (fraction)
+
+`loadTestErrorRate`
+
+The fraction of requests that failed during the load test. 0.01 means one in a hundred.

@@ -283,3 +283,6 @@ study_report.json
 .venv/
 venv/
 frontend/coverage/
+
+# Prometheus bearer token for the local scrape config; never commit.
+deploy/observability/prometheus/metrics_token
