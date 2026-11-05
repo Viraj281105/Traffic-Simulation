@@ -69,3 +69,39 @@ error = simulated − observed. A comparison is **GOOD** if `|error| ≤ absGood
 - Fewer than 3 repetitions: the spread is flagged as unreliable. No confidence intervals are claimed.
 - Observation methodology (detector vs manual count, queue definition, travel-time span) is the user's; differences from the simulator's definitions (above) are not corrected for.
 - Nothing is tuned: V1.8 does not adjust driver-behaviour parameters to fit.
+
+---
+
+## Network-Scale Optimization & Continuous Recalibration (V4.1 / Phase 5, Package 1B)
+
+> Code: `backend/src/calibration/network_*.py` · API: `/api/v2/calibration/network-fit/*` · CLI: `scripts/calibrate_network.py` · Tests: `backend/tests/calibration/test_network_calibration.py`
+
+In Phase 5, calibration expanded from isolated junction observation matching into automated network-wide parameter optimization against sensor counts:
+
+### 1. Count Ingestion & Validation (`network_counts.py`)
+- Ingests CSV time-series sensor feeds: `link_id, interval_start, count[, sensor_id]`.
+- Aggregates multi-interval sensor counts into link flow rates (veh/h).
+- Validates graph link references, timestamps, and non-negative counts (`POST /api/v2/calibration/network-fit/validate-counts`).
+
+### 2. Error Metrics & G-CAL Gate (`network_metrics.py`)
+Computes standard traffic engineering goodness-of-fit metrics:
+- **GEH Statistic:** $GEH = \sqrt{\frac{2(M - C)^2}{M + C}}$
+  - Link is acceptable if $GEH < 5.0$.
+  - UK DMRB / FHWA standard: $\ge 85\%$ of links must satisfy $GEH < 5.0$.
+- **RMSE:** Root Mean Square Error across all monitored links.
+- **MAPE:** Mean Absolute Percentage Error (excluding zero-flow links).
+- **G-CAL Gate Assessment:** Evaluates before/after optimization metrics against formal pass/fail criteria.
+
+### 3. Optimizer Engine (`network_fit.py`)
+- Optimizes origin-destination flow multipliers and link free-flow speed adjustments using bounded optimization algorithms.
+- Pure Python execution with seeded reproducibility.
+- Emits comprehensive JSON report including initial vs. fitted parameters, link-level comparisons, and iteration history.
+
+### 4. Continuous Recalibration (`network_recalibration.py`)
+- Warm-start optimization seeded with previous calibration parameters.
+- Detects sensor drift against baseline thresholds (`driftThreshold`, default 15%).
+- Automated job endpoint: `POST /api/v2/calibration/network-fit/recalibrate`.
+
+### 5. Verification Status & Real-World Honesty Boundary
+- **VERIFIED on Synthetic Ground Truth:** Pipeline verified using synthetic counts generated from known multipliers; successfully recovers ground-truth parameters within tolerance.
+- **NEEDS-INPUT (D1):** Real-world city detector count dataset (open decision D1) required before G-CAL can be declared passing against empirical street data.

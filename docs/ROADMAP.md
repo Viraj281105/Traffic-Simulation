@@ -1,367 +1,222 @@
-# UrbanFlow Roadmap
+# UrbanFlow Master Roadmap: V0.1 — V6.1
 
-> **Update:** work after V3.0 (V3.1 – V6.1, W31 – W60) is planned in [plan/](plan/README.md). This page remains the record of V0.1 – V3.0.
+> **The Single Authoritative Project Roadmap.**  
+> **Current Version:** **V5.4 ✅ IMPLEMENTED** (Phase 6 Resilience, Priority, V2X & Enterprise Cloud complete; G-REL2 release note passed at W46; Phase 6 features implemented in codebase).  
+> **Upcoming Version:** **Phase 7 (V5.5 – V6.0, W55 – W60) 🗓️ PLANNED** (Cooperation, Governance, Hardware-in-the-Loop & AIM) followed by the **V6.1 Grand Evaluation Showcase**.  
+> **Historical Record:** V0.1–V2.0 released 2026-10-13 ([audit](roadmap/V2_COMPLETION_AUDIT.md)); V3.0 Experimentation Lab released ([RC](v3-release-candidate.md)); Phase 4 Trustworthy Results released; Phase 5 Beyond One Junction released ([note](releases/v4.6-beyond-one-junction.md)).  
+> **Delivery Plan Link:** Detailed weekly sprint breakdown in [plan/WEEKLY_PLAN.md](plan/WEEKLY_PLAN.md); 20 feature specifications in [plan/FEATURE_SPECIFICATIONS.md](plan/FEATURE_SPECIFICATIONS.md); future research frontiers beyond V6.0 in [future-scope/future_scope.md](future-scope/future_scope.md).
 
-> **This is the single authoritative roadmap for V0.1 – V3.0.** It supersedes every earlier roadmap, deferred-features log and V1.1/V2/V3 plan in this repository (preserved in git history).
-> **Current version:** **V2.0 ✅ COMPLETE** — the V2.0 release gate (G-V2) passed on 2026-10-13 (gate commit `6b609ce`, CI green; production deployment left to the product owner, manual) · V1.6–V1.9 are delivered *partially*, as each milestone states · evidence: [V2.0 completion audit](roadmap/V2_COMPLETION_AUDIT.md) · **Last updated:** 2026-10-13 (release status; scope and planned dates unchanged)
-> **After V2.0:** [§7 V3.0](#7-v30--composable-ai-assisted-traffic-control-experimentation-in-development) — composable, AI-assisted traffic-control experimentation (🟢 **IN DEVELOPMENT** — design-approval gate G-D passed 2026-10-14, recorded on [#150](https://github.com/Viraj281105/Traffic-Simulation/issues/150); W1 Robustness Lab vertical slice implemented 2026-10-15; W2–W9 planned; detail in [`roadmap/`](roadmap/V3_PRODUCT_STRATEGY.md)). **Beyond that:** [Future Scope](future-scope/future_scope.md) — research frontiers only.
+---
+
+## 1. Status Legend
 
 | Status | Meaning |
-| --- | --- |
-| ✅ **COMPLETE** | Shipped, documented, tested |
-| 🟢 **CURRENT / IMPLEMENTED** | Implemented, not yet released (none at present); a milestone marked *partial* delivers only part of its scope, as stated |
-| 🔜 **PLANNED / UPCOMING** | Next in line; work starts imminently |
-| 🗓️ **PLANNED** | Scheduled, not implemented (V3.0, §7) |
-| 🔭 **FUTURE SCOPE** | After V2.0 — not part of this roadmap |
+| :---: | :--- |
+| ✅ **COMPLETE / IMPLEMENTED** | Shipped, thoroughly tested in repository, documented, and verified. |
+| 🟢 **IN PROGRESS** | Active development or staging verification. |
+| 🗓️ **PLANNED** | Approved architecture and weekly schedule; work scheduled in upcoming sprint. |
+| 🔭 **FUTURE SCOPE** | Long-term academic and industrial research frontiers post-V6.0. |
 
 ---
 
-## 1. The boundary
+## 2. Phase-by-Phase Roadmap Evolution
 
 ```mermaid
-flowchart LR
-    A["<b>V1.0</b><br/>Foundation<br/>+ validated comparison<br/>+ cloud deployment<br/>✅ COMPLETE"]
-    B["<b>V1.1 – V1.9</b><br/>Capability expansion<br/>vehicles · lanes · adaptive signals ·<br/>roundabouts · real junctions · safety ·<br/>scenarios · calibration<br/>✅ COMPLETE (V1.6–V1.9 partly)"]
-    C["<b>V2.0</b><br/>Mature UrbanFlow<br/>decision-support platform<br/>✅ COMPLETE"]
-    D["<b>POST-V2.0</b><br/>New research frontiers<br/>(Future Scope)<br/>🔭"]
-    A --> B --> C --> D
+flowchart TD
+    V1_0["<b>Phase 1: Foundation (V1.0–V1.5)</b><br/>IDM physics · MOBIL lane changes · Adaptive signals<br/>Multi-lane roundabouts · Real-world geometries<br/>✅ COMPLETE"]
+    V2_0["<b>Phase 2: Decision Support (V2.0)</b><br/>Multi-alternative planning studies · Report exports<br/>Provenance tracking · Bit-identical reproduction<br/>✅ COMPLETE"]
+    V3_0["<b>Phase 3: Experimentation Lab (V3.0)</b><br/>Robustness Lab · Parameter uncertainty ensembles<br/>Signalised roundabouts · Strategy registry · Copilot · Discovery<br/>✅ COMPLETE"]
+    V4_0["<b>Phase 4: Trustworthy Results (V3.1–V3.8)</b><br/>Bootstrap CIs · Hypothesis property tests · RunStore Parquet<br/>Copilot eval gate · Go ingest microservice · Airflow DAGs<br/>✅ COMPLETE"]
+    V4_6["<b>Phase 5: Beyond One Junction (V3.9–V4.6)</b><br/>12-junction arterial grid · Congestion propagation heatmaps<br/>OSM/SUMO/GTFS import · GEH calibration · Multi-junction RL · Prometheus SLOs<br/>✅ COMPLETE"]
+    V5_4["<b>Phase 6: Resilience & Cloud (V4.7–V5.4)</b><br/>Incidents · Closures & rerouting · Weather modifiers · Resilience scores<br/>Emergency preemption & yielding · V2X MQTT bus · Multi-tenant OIDC · AWS Terraform<br/>✅ IMPLEMENTED"]
+    V6_0["<b>Phase 7: Cooperation & Governance (V5.5–V6.0)</b><br/>Platooning · Autonomous Intersection Management (AIM)<br/>Advisory governance · Hash-chained audit · Compute costing · ESP32/Pi hardware<br/>🗓️ PLANNED"]
+    V6_1["<b>Grand Showcase (V6.1)</b><br/>Unified 20-feature full regression suite · Final evaluation showcase · Fallback drills<br/>🗓️ PLANNED"]
+
+    V1_0 --> V2_0 --> V3_0 --> V4_0 --> V4_6 --> V5_4 --> V6_0 --> V6_1
 ```
 
-**The V2.0 line is a hard boundary.** Everything listed in §4 belongs to the V1.1–V2.0 product roadmap. [Future Scope](future-scope/future_scope.md) contains only capabilities that are genuinely new beyond V2.0, and never duplicates a roadmap item.
+---
+
+## 3. Detailed Version Milestones & Verification History
+
+### Phase 1: Foundation (V0.1 — V1.5) ✅ COMPLETE
+- **V0.1–V0.5:** Intelligent Driver Model (IDM) car-following, vehicle pools, spawner, fixed-time signals, single-lane roundabouts, MetricCollector with warmup exclusion.
+- **V0.6–V1.0:** DualSimulationOrchestrator (same-seed lockstep comparison), volume sweeps, delay crossover explorer, Monte Carlo validation, Docker Compose deployment.
+- **V1.1:** Heterogeneous fleet: 5 vehicle classes (car, SUV, bus, truck, motorcycle) with physical dimensions and calibrated IDM parameters.
+- **V1.2:** Advanced lane modelling: approach lane identity, permitted turn enforcement, MOBIL gradual lane-changing with shadow-lane reservations.
+- **V1.3:** Actuated adaptive signals: vehicle presence loop detection, passage green extension, gap-out logic, maximum green caps, stage skipping.
+- **V1.4:** Advanced roundabouts: multi-lane circulating rings, critical gap acceptance ($4.0\text{ s}$), follow-up headway ($2.5\text{ s}$), exit convergence zones.
+- **V1.5:** Real-world junction geometry: 3- and 4-arm junctions, configurable compass approach bearings, lane widths, skew-aware stop lines, dedicated U-turn movements.
+
+### Phase 2: Decision-Support Platform (V2.0) ✅ COMPLETE
+*Release Gate G-V2 passed 2026-10-13 ([Audit](roadmap/V2_COMPLETION_AUDIT.md))*
+- Multi-alternative planning studies (`/api/v2/planning`, `/app/planner`).
+- Common random arrival sequence enforcement across competing options.
+- Structured report exports (JSON, Markdown, CSV) with HCM Level-of-Service grades and causal "Why did this happen?" explanations.
+- Cryptographic provenance tracking and bit-identical seed reproduction checks.
+
+### Phase 3: Composable AI-Assisted Experimentation Lab (V3.0) ✅ COMPLETE
+*Release Candidate verified ([Release Candidate](v3-release-candidate.md))*
+- **W1 — Robustness Lab:** Multi-factor parameter uncertainty sampling (Sobol / Latin Hypercube), paired CRN ensembles, Wilson score intervals, bootstrap paired differences.
+- **W2 — Signalised Roundabouts:** Metered-entry signalised roundabout (`metered_entry`) gating approach lanes while preserving ring gap acceptance (G-SR verified).
+- **W3 — Composable Strategy Registry:** Layered strategy architecture (base, coordinator, actuators), compatibility validation, fingerprint parity (ADR-014).
+- **W4 — Driver Aggression Profiles:** Versioned high-aggression profile with reduced headways and assertive gap acceptance (ADR-016, ADR-019, ADR-020).
+- **W5 — AI Experiment Copilot:** Natural-language experiment formulation, schema validation gate, confirm-before-run protocol, grounded summary checker.
+- **W6 — AI Strategy Discovery Lab:** Multi-objective evolutionary search (NSGA-II) optimizing cycle lengths, green splits, and offsets against Pareto efficiency.
+- **W7 — Python SDK & `.ufpkg` Packages:** Portable self-contained experiment packages with SHA-256 integrity checks, personal access tokens (PATs), and Python client library (`urbanflow-client`).
+- **W8–W9 — Strategy Breakpoint Explorer:** Stationary and non-stationary demand surge stress testing and stability failure detection.
+
+### Phase 4: Trustworthy Results (V3.1 — V3.8, W31 — W38) ✅ COMPLETE
+- **V3.1 (W31):** Multi-seed runner, CI test coverage floor ($\ge 85\%$), run manifest with SHA-256 code version & configuration hash (`core/run_manifest.py`).
+- **V3.2 (W32):** Welch's t-test, Cohen's d effect sizes, Hypothesis property-based testing (vehicle conservation, queue non-negativity), Parquet RunStore on S3 and local disk.
+- **V3.3 (W33):** Sensitivity analysis engine, travel-time percentiles (p50, p95), DuckDB SQL analytical queries.
+- **V3.4 (W34):** Akçelik instantaneous fuel consumption and $\text{CO}_2$ emissions models, Time-to-Collision (TTC) & Post-Encroachment Time (PET) safety proxies, Airflow nightly regression DAG.
+- **V3.5 (W35):** Copilot evaluation harness with LLM judge and score gate in CI (`evals/gate.py`).
+- **V3.6 (W36):** Go telemetry ingest microservice (`services/ingest-go/`) with Protobuf contract (`proto/ingest.proto`).
+- **V3.7 (W37):** Grounded summary assertion checker comparing generated markdown against numerical JSON.
+- **V3.8 (W38):** Phase 4 release week, reproducibility audit script (`scripts/reproducibility_audit.py`).
+
+### Phase 5: Beyond One Junction (V3.9 — V4.6, W39 — W46) ✅ COMPLETE
+*Release Gate G-REL2 passed at W46 ([Release Note](releases/v4.6-beyond-one-junction.md))*
+- **V3.9 (W39):** Network graph model (ADR-021), two-junction arterial corridor, OpenStreetMap (OSM) Overpass road importer.
+- **V4.0 (W40):** Link-to-junction vehicle handoff and routing with conservation of vehicles, SUMO (`.net.xml`), GTFS, and Synchro importers.
+- **V4.1 (W41):** 3x3 grid (9 junctions) and 12-junction arterial grid models, network delay/throughput metrics, traffic-count calibration loader, GEH, RMSE, and MAPE error metrics.
+- **V4.2 (W42):** Topological link congestion spread analysis and heatmaps, OpenTelemetry tracing, Prometheus metrics endpoint (`GET /metrics/prom`), Redpanda compose configuration.
+- **V4.3 (W43):** Vectorized hot loops, continuous recalibration pipeline with warm-start Nelder-Mead optimization, Service Level Objective (SLO) definitions (`deploy/observability/slo.json`) and evaluation CLI.
+- **V4.4 (W44):** Scale to 12-junction network, multi-junction Gymnasium reinforcement learning environment (`backend/src/rl/network_env.py`), PPO/DQN training, fixed-time and max-pressure baselines, k6 performance load test scripts.
+- **V4.5 (W45):** Digital twin core (`backend/src/twin/`) with telemetry replay, real-time prediction-vs-observation comparison API, what-if intervention branching, MapLibre GL spatial map visualizer.
+- **V4.6 (W46):** Phase 5 release week, G-REL2 release note, and comprehensive claims register (`docs/releases/claims-register-v4.6.md`).
+
+### Phase 6: Resilience, Priority, V2X & Enterprise Cloud (V4.7 — V5.4, W47 — W54) ✅ IMPLEMENTED
+- **V4.7 (W47):** Incident simulation engine (`backend/src/incidents/`): physical vehicle crashes, lane blockages, and incident catalogue.
+- **V4.8 (W48):** Dynamic road closures with real-time Dijkstra/A* path rerouting; weather conditions (rain, dense fog, snow, ice) adjusting tire friction, visibility, and driver reaction times.
+- **V4.9 (W49):** Event-day demand surge profiles; recovery-time calculations and system resilience scores ($R$) quantifying post-incident recovery rate.
+- **V5.0 (W50):** Dedicated emergency vehicle models; acoustic siren broadcast detection; emergency signal pre-emption controller (`backend/src/priority/`) with immediate green extensions and clearance phases.
+- **V5.1 (W51):** Civilian vehicle yielding and corridor clearance behaviour; emergency response time metrics and audit logging; transit signal priority (TSP).
+- **V5.2 (W52):** Vehicle-to-Everything (V2X) messaging infrastructure (`backend/src/v2x/`); in-process publish/subscribe message bus and MQTT broker adapter; stochastic network latency and packet loss models; cooperative driving experiments.
+- **V5.3 (W53):** Enterprise multi-tenancy (`backend/src/tenancy/`); OIDC JWT authentication; Role-Based Access Control (RBAC: `viewer`, `planner`, `engineer`, `admin`); tenant data isolation; quotas and rate limits; automated TypeScript SDK generator (`scripts/generate_ts_client.py`).
+- **V5.4 (W54):** Cloud Infrastructure as Code in Terraform (`infra/terraform/`): multi-AZ VPC, EKS cluster, RDS PostgreSQL, encrypted S3 buckets, SQS queues, IAM OIDC roles; asynchronous job queue and worker daemon (`backend/src/jobs/`); GitHub Actions AWS staging CI/CD workflow (`.github/workflows/aws-staging.yml`).
 
 ---
 
-## 2. How UrbanFlow got here — V0.1 → V1.0 ✅
+## 4. Phase 7: Cooperation & Governance (V5.5 — V6.0, W55 — W60) 🗓️ PLANNED
 
-```mermaid
-flowchart LR
-    v01["V0.1<br/>Single vehicle"] --> v02["V0.2<br/>Multiple vehicles"] --> v03["V0.3<br/>Traffic control<br/>strategies"] --> v04["V0.4<br/>Simulation<br/>outputs"] --> v05["V0.5<br/>Performance<br/>metrics"]
-    v05 --> v06["V0.6<br/>Strategy<br/>comparison"] --> v07["V0.7<br/>Traffic volume<br/>analysis"] --> v08["V0.8<br/>Final validated<br/>study"] --> v09["V0.9<br/>Containerization"] --> v10["V1.0<br/>AWS cloud<br/>deployment"]
-```
-
-| Version | Milestone | Realised in the codebase as | Status |
-| --- | --- | --- | --- |
-| V0.1 | Single Vehicle | IDM car-following (`vehicles/idm.py`); single-vehicle demo routes (`/api/simulation/single-vehicle`) and canvas | ✅ |
-| V0.2 | Multiple Vehicles | Seeded spawner, vehicle pool, leaders and routing (`vehicles/spawner.py`, `pool.py`, `router.py`) | ✅ |
-| V0.3 | Traffic Control Strategies | `FixedTimeSignalController`, `RoundaboutController`, conflict management | ✅ |
-| V0.4 | Simulation Outputs | Snapshots, WebSocket streams, canvas visualisation, snapshot history buffer | ✅ |
-| V0.5 | Performance Metrics | `MetricCollector` with warm-up exclusion and the metric definitions | ✅ |
-| V0.6 | Strategy Comparison | `DualSimulationOrchestrator` (same seed, lockstep), comparative dashboard | ✅ |
-| V0.7 | Traffic Volume Analysis | Volume sweeps, sweep sessions, delay crossover | ✅ |
-| V0.8 | Final Validated Study | Monte Carlo validation, invariant checks, calibration pass, `scripts/run_full_study.py`, [comparative report](reports/comparative_report.md) | ✅ |
-| V0.9 | Containerization | Backend/frontend images, Compose stacks, nginx proxy, `start.ps1` | ✅ |
-| V1.0 | AWS Cloud Deployment | EC2 + Docker Compose deployment; guided planner experience; saved runs and reproducibility; finalisation (below) | ✅ |
-
----
-
-## 3. V1.0 — Finalisation & Demo ✅ COMPLETE
-
-**W11 · Oct 2 – Oct 5, 2026**
-
-| Finalisation work | Status |
-| --- | --- |
-| Final application QA and recording | ✅ |
-| Documentation freeze (this documentation overhaul) | ✅ |
-| Presentation readiness · presentation visuals | ✅ |
-| Final technical QA · research validation | ✅ |
-| Demo workflow | ✅ |
-| Final UI polish · UX QA | ✅ |
-
-### V1.0 capability baseline
-
-What every later version builds on — all implemented and documented:
-
-| Area | V1.0 capability | Reference |
-| --- | --- | --- |
-| Simulation | Discrete-time engine (Δt 0.1 s), IDM, seeded Poisson/uniform arrivals, curve speed rule, safe insertion | [Methodology](simulation/methodology.md) |
-| Control | Fixed-time signal (paired NS/EW plan, optional per-corridor greens, offset); single-geometry roundabout with gap acceptance | [Methodology §7](simulation/methodology.md#7-traffic-control-strategies) |
-| Comparison | Same-seed lockstep comparison; repeated-seed reliability check; demand ladder | [Methodology §10](simulation/methodology.md#10-controlled-comparison) |
-| Metrics | Delay family, throughput, queues, stops, fairness, reliability, exploratory TTC/PET, integrity counters | [Metrics reference](research/metrics-reference.md) |
-| Evidence | Invariant checks, Monte Carlo (Student-t, Welch, Cohen's d), calibrated one-lane capacity curve | [Validation & evidence](research/validation.md) |
-| Reproducibility | Provenance record per run; reproduce endpoint; JSON/CSV export | [Reproducibility](research/reproducibility.md) |
-| Product | Landing → Compare (3 steps) → Results → reliability → Saved → Research Lab | [Product story](product/README.md) |
-| Platform | FastAPI REST + 3 WebSocket streams; background study jobs; SQLite persistence; Cognito sign-in path | [API reference](api/README.md) · [System overview](architecture/00-system-overview.md) |
-| Delivery | Docker Compose on AWS EC2 behind nginx; CI (lint, types, tests, images, nightly regression) | [Deployment](deployment/README.md) · [Testing](testing/README.md) |
-
-Known V1.0 limitations, and which milestone addresses each, are listed in [Validation & evidence §5](research/validation.md#5-known-limitations).
-
----
-
-## 4. V1.1 → V2.0
+Phase 7 completes the technical roadmap, introducing cooperative autonomy, automated governance, physical hardware-in-the-loop demonstrations, and full regression verification:
 
 ```mermaid
 gantt
-    title UrbanFlow V1.0 → V2.0 (2026)
+    title UrbanFlow Phase 7 & Grand Showcase (2027)
     dateFormat YYYY-MM-DD
     axisFormat %b %d
-    section Complete
-    V1.0 Finalisation & Demo                 :done,    v10, 2026-10-02, 4d
-    V1.1 Different Vehicle Types             :done,    v11, 2026-10-05, 2d
-    V1.2 Advanced Lane Modelling             :done,    v12, 2026-10-05, 2d
-    V1.3 Adaptive Signal Control             :done,    v13, 2026-10-06, 1d
-    section Complete (V2.0 release gate passed 2026-10-13)
-    V1.4 Roundabouts + Scenario Config       :active,  v14, 2026-10-07, 1d
-    V1.5 Real-World Junction Modelling       :active,  v15, 2026-10-07, 1d
-    V1.6–V2.0 (implemented 2026-10-08/09)    :active,  v16i, 2026-10-08, 2d
-    section Original planned slots
-    V1.6 Safety & Environmental Analysis     :         v16, 2026-11-13, 7d
-    V1.7 Scenario / What-If Planning         :         v17, 2026-11-20, 8d
-    V1.8–V1.9 Calibration & Network Foundations :      v18, 2026-11-28, 10d
-    V2.0 Decision-Support Platform           :         v20, 2026-12-08, 10d
+    section Phase 7 Sprint Schedule
+    V5.5 Platooning & Compute Costing          :active, w55, 2027-04-19, 5d
+    V5.6 Platoon Maneuvers & Governance        :        w56, 2027-04-26, 5d
+    V5.7 Autonomous Intersection (AIM) & Shadow:        w57, 2027-05-03, 5d
+    V5.8 V2X Platooning & Hardware Signal Head :        w58, 2027-05-10, 5d
+    V5.9 Unified 20-Feature Regression & Polish:        w59, 2027-05-17, 5d
+    V6.0 G-REL4 Release & Claims Register Freeze:       w60, 2027-05-24, 5d
+    section Showcase
+    V6.1 Grand Evaluation Showcase & Buffer    :        w61, 2027-05-31, 5d
 ```
 
-| Week | Dates | Version | Theme | Status |
-| --- | --- | --- | --- | --- |
-| W11 | Oct 2 – Oct 5 | V1.0 | Finalisation & Demo | ✅ COMPLETE |
-| W12 | Oct 5 – Oct 6 | V1.1 | Different Vehicle Types | ✅ COMPLETE (with V1.2) |
-| W12 | Oct 5 – Oct 6 | V1.2 | Advanced Lane Modelling | ✅ COMPLETE (with V1.1) |
-| W12 | Oct 6 | V1.3 | Adaptive Signal Control | ✅ COMPLETE (ahead of the W14 slot) |
-| W12 | Oct 7 | V1.4 | Advanced Roundabout Modelling + Full Scenario Configuration | ✅ COMPLETE (ahead of the W15 slot) |
-| W12 | Oct 7 | V1.5 | Real-World Junction Modelling | ✅ COMPLETE (ahead of the W16 slot) |
-| W17 (plan) | Nov 13 – Nov 19 | V1.6 | Safety & Environmental Analysis | ✅ COMPLETE 2026-10-09, *partial* — proxies and estimates exploratory, not validated |
-| W18 (plan) | Nov 20 – Nov 27 | V1.7 | Scenario / What-If Planning | ✅ COMPLETE 2026-10-09, *partial* — batches are demand sweeps of one scenario; what-if alternatives are the V2.0 planner |
-| W19 (plan) | Nov 28 – Dec 7 | V1.8 / V1.9 | Calibration & Network-Level Foundations | ✅ COMPLETE 2026-10-08, *partial* — see the milestone notes |
-| W20 (plan) | Dec 8 – Dec 17 | V2.0 | UrbanFlow Decision-Support Platform | ✅ COMPLETE — release gate passed 2026-10-13 |
+### Detailed Feature Breakdown & Acceptance Criteria for Phase 7
 
-V1.4 – V2.0 were implemented ahead of their planned weeks; the weeks and dates above are the original plan, kept for reference. V1.4 – V2.0 were released together when the V2.0 release gate passed on 2026-10-13 ([V2.0 completion audit](roadmap/V2_COMPLETION_AUDIT.md)).
+#### Week 55 (V5.5) — Leader-Follower Platooning & Run Cost Accounting
+- **Platoon Controller (`backend/src/platoon/controller.py`):**
+  - Implement leader-follower longitudinal dynamics based on constant time headway ($T = 0.3\text{–}0.5\text{ s}$) and constant intra-platoon spacing ($s = 1.0\text{–}2.0\text{ m}$).
+  - Enforce string stability: perturbations from the lead vehicle must decay monotonically upstream ($\|\Gamma(j\omega)\| < 1$).
+  - Cap maximum platoon size ($N_{\max} = 8$ vehicles) to prevent link starvation.
+- **Compute Cost Accounting Engine (`backend/src/costing/`):**
+  - Track CPU execution time, memory footprint, and worker node instance hours.
+  - Map run metrics to current AWS Pricing API tables (t3.medium, c5.xlarge, spot instances).
+  - Expose per-run estimated dollar costs via `/api/v3/costing/estimate` and display cost badges in the frontend.
+- **Acceptance:** Platoon maintains string stability across sudden lead vehicle decelerations without rear-end collisions; cost estimates are computed and visible per run.
 
-Each milestone below lists its **goal**, its **scope** (authoritative), and the **V1.0 starting point** — a factual note on what exists today, so the work starts from the code rather than from assumptions.
+#### Week 56 (V5.6) — Dynamic Platoon Maneuvers & Advisory Governance
+- **Platoon Formation & Maneuvers (`backend/src/platoon/maneuvers.py`):**
+  - Multi-vehicle coordination protocol for joining an existing platoon, leaving/splitting at turn approaches, and coordinated multi-lane maneuvers.
+  - Fail-safe abort logic: if gap acceptance is violated during merging, the joining vehicle safely falls back to standard IDM following.
+- **Advisory Governance & Hash-Chained Audit Trail (`backend/src/governance/`):**
+  - Two-stage approval workflow (`draft` $\to$ `submitted` $\to$ `approved` $\to$ `archived`) for recommended signal timing and junction modifications.
+  - Append-only, cryptographically hash-chained audit ledger (SHA-256 blocks with parent hashes, timestamps, reviewer public keys, and scenario fingerprints) ensuring tamper-evident accountability.
+- **Acceptance:** Platoon join/leave maneuvers execute smoothly without triggering emergency braking; audit ledger validates tamper-resistance against manual row modification.
 
----
+#### Week 57 (V5.7) — Autonomous Intersection Management (AIM) & Shadow Mode
+- **Reservation-Based Autonomous Intersection Controller (`backend/src/aim/`):**
+  - Signal-free intersection management model dividing intersection space into a fine-grained grid of space-time reservation tiles ($\Delta x, \Delta y, \Delta t$).
+  - First-Come-First-Served (FCFS) trajectory negotiation allowing connected autonomous vehicles to cross without stopping if trajectory tiles are clear.
+  - Safety validation (Gate **G-AIM**): mathematical and simulation proof of zero overlapping spatial reservations under maximum emergency braking deceleration ($b_{\max}$).
+- **Shadow Mode Analytics Engine (`backend/src/governance/shadow.py`):**
+  - Offline shadow comparison comparing algorithmic recommendations against actual historical traffic outcomes without executing changes on the active network.
+- **Acceptance:** Signal-free intersection passes G-AIM safety gate with zero collisions under varying demand; throughput and delay improvements are compared fairly against optimal actuated signals.
 
-### V1.1 — Different Vehicle Types
+#### Week 58 (V5.8) — V2X Platooning Benefits & Physical Hardware Signal-Head Bridge
+- **Platooning Environmental Benefits Analysis:**
+  - Measure aerodynamic drafting benefits: integrate wind drag coefficients into fuel and $\text{CO}_2$ models, demonstrating quantified fuel savings ($8\text{–}15\%$) for platoon followers.
+- **Physical Hardware-in-the-Loop Bridge (`hardware/`, `backend/src/hardware_bridge/`):**
+  - C / MicroPython firmware for Raspberry Pi Pico W / ESP32 microcontroller driving a physical 3-color traffic signal head (Red, Yellow, Green LEDs).
+  - Bi-directional MQTT integration over AWS IoT Core / Mosquitto: simulation engine drives physical LED states in real time; physical pushbutton actuation triggers pedestrian/phase calls in the simulator.
+  - Virtual hardware device simulator for automated CI testing without physical hardware connected.
+- **Acceptance:** Physical signal head accurately reflects simulation phase transitions; physical button inputs trigger simulator stage changes; aerodynamic fuel savings are measured and reported.
 
-**✅ COMPLETE · delivered with V1.2 on 2026-10-06**
+#### Week 59 (V5.9) — Unified 20-Feature Full Regression & Research Closure
+- **Unified Full Regression Suite (`scripts/full_regression.py`):**
+  - Master test harness executing fast test suites across all 20 features (F1 through F20), generating an exhaustive feature-by-feature verification table.
+- **Hardware Demo Polish:** Final hardware assembly, status telemetry dashboard, and failure recovery testing.
+- **Research Write-up Draft:** Final technical paper documenting comparative findings across all strategies.
 
-**Goal:** introduce heterogeneous traffic.
+#### Week 60 (V6.0) — Release Gate G-REL4 & Claims Register Freeze
+- **Gate G-REL4 Verification:**
+  - Verify all 5 criteria: connected vehicles measured on hardware, platoon throughput effects quantified, signal-free vs. signal compared, approval audit trail verified, per-run cost visible.
+- **Claims Register Freeze:**
+  - Finalize `docs/releases/claims-register-v6.0.md`, mapping every claim in the documentation to a passing test, script, or measured dataset.
 
-| Scope | |
-| --- | --- |
-| Vehicle classes | Cars · SUVs · Buses · Trucks · Bikes |
-| Behaviour | Differentiated vehicle behaviour · vehicle models · IDM parameters |
-| Engine | Spawning · simulation logic · validation |
-| Presentation | Vehicle representation · configuration UI · legends / visual differentiation |
-
-**Delivered:** five vehicle classes — car, SUV, bus, truck, motorcycle — each with its own dimensions, IDM parameters (a, b, T, s₀), desired-speed range, cornering limit and lane-change behaviour (`backend/src/vehicles/vehicle_types.py`); `vehicleGeneration.vehicleMix` and `vehicleTypes` in the schema; type-aware seeded spawning; long-vehicle handling (axle-chord body pose, length-aware conflict zones, design-vehicle signal geometry, roundabout gap allowance and entry commitment); a per-class metric breakdown; a "What traffic uses the junction?" question, an advanced mix editor, class-specific map sprites, legends and a per-class results table. Without a mix, single-lane runs reproduce V1.0 bit for bit. Mixed results are exploratory (not calibrated). See [methodology §5.4](simulation/methodology.md#54-vehicle-classes-v11).
-
-**V1.0 starting point (for reference):** one passenger-car population; length `U(4.0, 5.0)` m, width `U(1.8, 2.2)` m and desired speed are randomised per vehicle, but IDM parameters (`a`, `b`, `T`, `s₀`, `δ`) are shared by all vehicles (`vehicleGeneration.*`).
-
----
-
-### V1.2 — Advanced Lane Modelling
-
-**✅ COMPLETE · delivered with V1.1 on 2026-10-06**
-
-**Goal:** move beyond single-lane assumptions.
-
-| Scope | |
-| --- | --- |
-| Lane model | Multi-lane traffic · lane model · lane assignment · routing |
-| Lane changing | Lane-changing foundations · lane changes |
-| Quality | Physics and regression tests |
-| Presentation | Lane configuration UI · visualisation · user controls |
-
-**Delivered:** explicit lane identity and one lane-use policy (`RoadNetwork.permitted_turns`, narrowed by the signal plan where its heads demand it); per-approach lane counts via `roads.approaches[].lanes` (opposite approaches must match); MOBIL lane changing carried out as gradual, distance-based manoeuvres with shadow occupancy of both lanes, safety checks against each vehicle's own IDM, mandatory changes and missed-turn fallback (`backend/src/vehicles/lane_change.py`); `roads.laneChange` settings; lane arrows, lane-change indicators, a lane-changing switch and side-street lanes in the signal research view. V1.0's undocumented single-tick lane jump is gone. See [methodology §4 and §6.1](simulation/methodology.md#61-lane-changing-v12).
-
-**V1.0 starting point (for reference):** 1–4 lanes per approach exist, but the calibrated comparison is one lane; a vehicle's lane is fixed at spawn by turn intent (left / straight / right policy); there is no lane changing; the versioned schema accepts only one lane count for all approaches.
-
----
-
-### V1.3 — Adaptive Signal Control
-
-**✅ COMPLETE · delivered on 2026-10-06 (planned for W14)**
-
-**Goal:** compare fixed-time signals with responsive/adaptive control.
-
-| Scope | |
-| --- | --- |
-| Control | Adaptive controller · control logic |
-| Evidence | Experiments · validation |
-| Presentation | Controller selection UI · visual comparison · result presentation |
-
-**Delivered:** a vehicle-actuated adaptive signal (`backend/src/controllers/adaptive_signal.py`) on the fixed-time signal's own phase plan, heads, yellow and all-red — minimum green, passage-based extension and gap-out, maximum green once another phase calls, rest in green, cyclic order with phases skipped when nobody waits — selected by `controller.signalControl: "adaptive"` with `controller.adaptive` settings (fixed-time stays the default and is unchanged); stop-line detection shared with a new green-time measure for both signals (`metrics.signalTiming`); a reproducible three-way study, fixed-time vs adaptive vs roundabout (`/api/v1/study/control-comparison`, Research Lab); a "How should the signal respond to traffic?" question, adaptive advanced settings, a live map panel explaining each decision, and results that name the controller. Results: adaptive lowers delay against the fixed timetable below saturation and gains nothing measurable at and above capacity; on one lane the roundabout keeps the lowest delay from busy demand upwards ([validation §4.1](research/validation.md#41-fixed-time-vs-adaptive-vs-roundabout-v13-2026-10-06)). See [methodology §7.3](simulation/methodology.md#73-adaptive-signal--controllersadaptive_signalpy-v13).
-
-**V1.0 starting point (for reference):** fixed-time control only. Controllers share the `BaseController` interface and are built by `controllers/factory.py`, so a new controller plugs in without changing the engine loop.
+#### Week 61 / Showcase (V6.1) — Grand Evaluation Showcase
+- End-to-end presentation rehearsals, verified offline fallback data packs (`fallback-pack/`), and final video assets (`recordings/urbanflow-final-demo.mp4`).
 
 ---
 
-### V1.4 — Advanced Roundabout Modelling
+## 5. Comprehensive Capability Matrix
 
-**🟢 IMPLEMENTED · 2026-10-07 (ahead of the W15 slot) · ✅ COMPLETE (released with V2.0, 2026-10-13) — extended to full user configuration**
+| Capability | V1.0–V1.5 | V2.0 | V3.0 | V3.8 (Ph 4) | V4.6 (Ph 5) | V5.4 (Ph 6) | V6.0 (Ph 7) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| Same-Seed Signal vs Roundabout Comparison | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 5 Heterogeneous Vehicle Classes | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| MOBIL Lane Changing & Permitted Turns | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Actuated Adaptive Signal Control | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Multi-Lane Roundabout Circulating Rings | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Real-World 3- and 4-Arm Geometries | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Multi-Alternative Decision-Support Studies | — | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Parameter Uncertainty & Robustness Lab | — | — | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Metered-Entry Signalised Roundabout | — | — | ✅ | ✅ | ✅ | ✅ | ✅ |
+| AI Traffic Experiment Copilot & Discovery | — | — | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Python SDK & `.ufpkg` Experiment Packages | — | — | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Hypothesis Invariant Property-Based Tests | — | — | — | ✅ | ✅ | ✅ | ✅ |
+| Parquet RunStore Lakehouse & DuckDB | — | — | — | ✅ | ✅ | ✅ | ✅ |
+| Fuel / $\text{CO}_2$ Emissions & TTC/PET Proxies | exploratory | exploratory | exploratory | ✅ | ✅ | ✅ | ✅ |
+| Go Telemetry Ingest Microservice | — | — | — | ✅ | ✅ | ✅ | ✅ |
+| Multi-Junction Network Graph Model (ADR-021) | — | — | — | — | ✅ | ✅ | ✅ |
+| 12-Junction Arterial Grid Execution | — | — | — | — | ✅ | ✅ | ✅ |
+| Link Congestion Propagation Heatmap | — | — | — | — | ✅ | ✅ | ✅ |
+| OSM, SUMO, GTFS, Synchro Network Import | — | — | — | — | ✅ | ✅ | ✅ |
+| Turning-Count Calibration (GEH, RMSE, MAPE)| — | — | — | — | ✅ | ✅ | ✅ |
+| Multi-Junction Reinforcement Learning (Gym) | — | — | — | — | ✅ | ✅ | ✅ |
+| Prometheus Observability (`/metrics/prom`) | — | — | — | — | ✅ | ✅ | ✅ |
+| Digital Twin Replay & What-If Branching | — | — | — | — | ✅ | ✅ | ✅ |
+| MapLibre GL Network Map Viewer | — | — | — | — | ✅ | ✅ | ✅ |
+| Physical Crashes, Dynamic Closures & Rerouting| — | — | — | — | — | ✅ | ✅ |
+| Adverse Weather Physics (Friction/Visibility)| — | — | — | — | — | ✅ | ✅ |
+| Strategy Resilience Scoring ($R$) | — | — | — | — | — | ✅ | ✅ |
+| Emergency Signal Preemption & Yielding | — | — | — | — | — | ✅ | ✅ |
+| Transit Signal Priority (TSP) | — | — | — | — | — | ✅ | ✅ |
+| V2X Messaging Bus & Cooperative Driving | — | — | — | — | — | ✅ | ✅ |
+| Enterprise Multi-Tenancy (OIDC RBAC Quotas) | — | — | — | — | — | ✅ | ✅ |
+| AWS Terraform Staging & SQS Job Worker | — | — | — | — | — | ✅ | ✅ |
+| Leader-Follower Platooning Controller | — | — | — | — | — | — | 🗓️ |
+| Autonomous Intersection Management (AIM) | — | — | — | — | — | — | 🗓️ |
+| Advisory Governance & Hash-Chained Audit | — | — | — | — | — | — | 🗓️ |
+| Per-Run Cloud Compute Cost Accounting | — | — | — | — | — | — | 🗓️ |
+| Physical Hardware Signal-Head Demo (MQTT) | — | — | — | — | — | — | 🗓️ |
+| Unified 20-Feature Regression Suite | — | — | — | — | — | — | 🗓️ |
 
-**Goal:** advance roundabout modelling beyond the current implementation, and let users build the junction they want to investigate.
-
-| Scope | |
-| --- | --- |
-| Geometry & behaviour | Proper multi-lane circulation · lane assignment · spiral behaviour · independent rings · exit behaviour · weaving |
-| Evidence | Collision validation |
-| Presentation | Roundabout configuration · visualisation improvements |
-
-**Delivered (implemented on `viraj-dev`, awaiting review):**
-
-*Roundabout.* The ring has its own lane count (`geometry.circulatingLanes`, 1–2; three-lane rings are rejected as not yet validated) and an explicit two-lane designation — left turns inner, right turns outer, straight on the entry lane's own — with right-aligned entry and exit mapping, merging entries for approaches one lane wider than the ring, keep-clear entry and **exit convergence zones** taken in strict arrival order (`roads/lane_config.py`, `controllers/roundabout.py`). Roundabout approaches may now all differ. One-lane rings are unchanged to the last bit. Three rejected designs and the measurements behind each decision are in [methodology §7.4.1](simulation/methodology.md#741-multi-lane-rings-v14); safety results in [validation §4.2](research/validation.md#42-v14-roundabout-validation-matrix). This resolves **K1** for supported configurations.
-
-*Full scenario configuration.* A strategy-neutral, versioned **scenario document** (`core/scenario.py`) — per-approach lanes, length, lane arrows, roundabout lane markings, demand, turning and vehicle mix; scenario mix; signal, adaptive and roundabout design; duration, warm-up, seed, arrival pattern — compiled once per strategy so comparisons differ only in control; strict validation that explains every rejection (`core/lane_validation.py`); `POST /api/v1/scenarios/validate` and `/compile`, scenario input to `/api/v1/simulations`, the live comparison and the control-comparison study; a per-approach results breakdown (`metrics.approachBreakdown`). Frontend: a **scenario builder** (guided "Build your own junction" and the Research Lab) with lane cards and movement toggles, "How busy is each road?", a live plan, completeness and validation panel, an explicit-percentage vehicle mix editor, presets as editable shortcuts, import/export; maps draw each arm and the ring from the snapshot; results name the scenario and split by approach.
-
-**Starting point (V1.0–V1.3):** concentric rings, one per approach lane, without lane designation; multi-lane runs were exploratory (low-speed inner-ring-exit contacts under saturation); `controller.circulatingLanes` was accepted but inert (it still is — superseded by `geometry.circulatingLanes`).
-
----
-
-### V1.5 — Real-World Junction Modelling
-
-**🟢 IMPLEMENTED · 2026-10-07 (ahead of the W16 slot) · ✅ COMPLETE (released with V2.0, 2026-10-13)**
-
-**Goal:** allow simulations to represent configurable real-world junction layouts.
-
-| Scope | |
-| --- | --- |
-| Model | Junction geometry / configuration model · traffic inputs |
-| Engine | Backend support |
-| Presentation | Junction builder · configuration workflow · visual editor |
-
-**Delivered (implemented on `viraj-dev`, awaiting review):**
-
-*Geometry.* A geometry layer (`roads/junction_geometry.py`) between the validated scenario and the lanes the engine runs on: three- or four-arm junctions, each arm on its own compass bearing (within 30° of its compass slot, neighbours at least 45° apart) with its own lane count, length and lane width; skew-aware stop lines; turning paths bent at the true crossing of entry and exit lanes; roundabout entries checked for overlap. Built once at set-up, never per tick; arms on their slots' axes use the exact V1.0 arithmetic, so every earlier scenario is reproduced bit for bit. See [methodology §4.4](simulation/methodology.md#44-real-world-junction-geometry-v15).
-
-*Movements.* An explicit **U-turn** movement, only where a scenario's lane use puts it: a half circle into the kerb lane at a signal (released with the lefts, yielding to all, rejected unless its radius meets the AASHTO design turning radius of every class using it), the inner ring lane at a roundabout. Movements, lanes and demand that would lead into a missing arm are rejected, never re-routed.
-
-*Scenario, validation, comparison.* Optional document fields (`approaches.<dir>: null`, `bearing`, `laneWidth`, `"uturn"`, `turning.uturn`) — V1.4 documents compile and fingerprint unchanged (pinned against values recorded with the V1.4 code). Every rejection says what, where, why and what is valid ([contract §9](architecture/06-scenario-configuration-contract.md#9-real-world-junctions-v15)). Fast-tier safety validation passed with 0 contacts across all tested shapes, exact reproduction and legacy compatibility; the 60-run slow safety matrix and the full slow regression suite were not run at the time; they were run in the V2.0 release-gate audit — **60/60** for the V1.5 matrix, and the full slow suite green on Python 3.11 ([validation §4.4](research/validation.md#44-v20-validation-addendum--what-was-and-was-not-checked-2026-10-12)). The comparison pipeline is unchanged in kind — same scenario, different control — and reports approach-level results for the arms that exist. Frontend: the V1.4 builder gains "Which roads meet here?", U-turn arrows and shares, and per-arm bearing and lane width under Advanced; the plan preview and both live maps draw arms on their real bearings.
-
-*Import foundation.* `assign_slots()` places measured arm bearings on compass slots or explains why it cannot — the step a future OpenStreetMap/GIS importer needs. No importer is part of V1.5.
-
-*Deferred.* Five-or-more-arm and staggered junctions (need movement rules and signal stages beyond the slot model); lane drops inside a signalised junction (K3); U-turns via medians or jughandles; per-arm speed limits; a map-based importer.
-
-**V1.0 starting point:** one abstract four-leg junction with symmetric approaches (`roads.approachLength`, `laneWidth`); `roads.approaches[]` is accepted by the schema but not read.
-
----
-
-### V1.6 — Safety & Environmental Analysis
-
-**Planned W17 · Nov 13 – Nov 19 · ✅ COMPLETE 2026-10-09, partial** — safety proxies (collisions, near-miss/TTC/PET) and a safety dashboard exist and are tested as implementation, but are exploratory, not validated; fuel/CO₂ are labelled uncalibrated estimates. Detail: audit A-16, A-17.
-
-**Goal:** expand evaluation beyond delay and throughput.
-
-| Scope | |
-| --- | --- |
-| Measures | Safety proxies · fuel/emissions modelling where scientifically supportable |
-| Evidence | Validation |
-| Presentation | New metrics dashboard · explanations · visualisations |
-
-**V1.0 starting point:** exploratory TTC (all geometries) and PET (signal only) in the specialist layer; an overlap audit used as a model-integrity check; no fuel or emissions model.
-
----
-
-### V1.7 — Scenario / What-If Planning
-
-**Planned W18 · Nov 20 – Nov 27 · ✅ COMPLETE 2026-10-09, partial** — scenario suites with batch experiments (a demand sweep of one scenario), suite comparison and CSV reporting; suites are private to their creator. Comparing intervention alternatives is delivered by the V2.0 planner. Detail: audit A-18, A-19.
-
-**Goal:** allow planners to compare intervention scenarios under different traffic conditions.
-
-| Scope | |
-| --- | --- |
-| Engine | Scenario engine · batch experiments · reproducibility |
-| Presentation | Scenario creation workflow · comparison UI · reporting |
-
-**V1.0 starting point:** one scenario per comparison; "Try another scenario" and a session table; background study jobs, run provenance, and saved-run comparison of up to six runs.
-
----
-
-### V1.8 / V1.9 — Calibration & Network-Level Foundations
-
-**Planned W19 · Nov 28 – Dec 7 · ✅ COMPLETE 2026-10-08, partial** — *calibration:* a framework that compares a simulation with observed counts a user supplies and rates the agreement; **no observed field data has been run through it and no model parameters are fitted**, so no result is field-calibrated. *Networks:* network documents are validated, compiled and fingerprinted; **multi-junction networks are not simulated**; no network visualisation. API only (`/api/v2/calibration`, `/api/v2/networks`). Detail: audit A-20 – A-32.
-
-**Goal:** connect simulations more closely to observed traffic and establish foundations for connected/networked simulation.
-
-| Scope | |
-| --- | --- |
-| Calibration | Calibration framework · real-world traffic inputs |
-| Networks | Network simulation foundations · network/scenario visualisation |
-| Reporting | Expanded reporting |
-
-**V1.0 starting point:** demand levels are calibrated against UrbanFlow's own measured capacity, not field data; the engine simulates one junction.
-
----
-
-### V2.0 — UrbanFlow Decision-Support Platform
-
-**Planned W20 · Dec 8 – Dec 17 · ✅ COMPLETE · planning API 2026-10-08, planner UI (`/app/planner`) 2026-10-12, release gate passed 2026-10-13** — evidence-only planning studies (no ranking or recommendation), background jobs, reports (JSON, Markdown, CSV) and reproduction; evidence in the [V2.0 completion audit](roadmap/V2_COMPLETION_AUDIT.md).
-
-**Goal:** integrate the major capabilities into a mature evidence-based planning workflow.
-
-| Scope | |
-| --- | --- |
-| Platform | Full-system integration · performance · reproducibility |
-| Evidence | Research validation |
-| Experience | End-to-end planner workflow · UX refinement · final presentation layer |
-
----
-
-## 5. Capability matrix
-
-| Capability | V1.0 | V1.1 | V1.2 | V1.3 | V1.4 | V1.5 | V1.6 | V1.7 | V1.8/9 | V2.0 |
-| --- | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
-| Same-seed signal vs roundabout comparison | ✅ | ● | ● | ● | ● | ● | ● | ● | ● | ◆ |
-| Plain-language results & reliability check | ✅ | ● | ● | ● | ● | ● | ● | ● | ● | ◆ |
-| Reproducible saved runs | ✅ | ● | ● | ● | ● | ● | ● | ● | ● | ◆ |
-| Heterogeneous vehicles | — | ✅ | ● | ● | ● | ● | ● | ● | ● | ◆ |
-| Multi-lane traffic & lane changes | partial | | ✅ | ● | ● | ● | ● | ● | ● | ◆ |
-| Adaptive signal control | — | | | ✅ | ● | ● | ● | ● | ● | ◆ |
-| Multi-lane roundabout circulation | exploratory | | | | ▲ | ● | ● | ● | ● | ◆ |
-| Real-world junction layouts | — | | | | | ▲ | ● | ● | ● | ◆ |
-| Safety proxies & emissions | exploratory | | | | | | ▲ | ● | ● | ◆ |
-| Scenario / what-if batches | — | | | | | | | ▲ | ● | ◆ |
-| Calibration to observed traffic | — | | | | | | | | ▲ | ◆ |
-| Network-level foundations | — | | | | | | | | ▲ | ◆ |
-
-✅ shipped · ▲ introduced · ● carried forward · ◆ integrated into the V2.0 platform. V1.4 – V2.0 were released with V2.0 on 2026-10-13. "Calibration to observed traffic" is a comparison framework only: no field data has been run through it and nothing is fitted. "Network-level foundations" do not include multi-junction simulation.
-
----
-
-## 6. Roadmap vs Future Scope
-
-| Theme | Inside the roadmap (≤ V2.0) | Future Scope (post-V2.0) — only what is genuinely new |
-| --- | --- | --- |
-| Vehicles | Cars, SUVs, buses, trucks, bikes (V1.1) | Emergency vehicles with priority and yielding (FS-1; V3.0 §7 records its expected deferral) |
-| Signals | Adaptive / responsive control (V1.3); signalised roundabouts and bounded strategy search (**V3.0, §7**) | Learning-based (RL) signal control (FS-2) |
-| Lanes & cooperation | Lanes, lane changes (V1.2) | V2V/V2I communication (FS-3); platooning (FS-4) |
-| Intersection control | Signals, roundabouts (V1.0–V1.4) | Reservation-based autonomous intersections (FS-5) |
-| Evidence | Scenario batches & reproducibility (V1.7); calibration (V1.8/9); uncertainty & robustness (**V3.0 Robustness Lab, §7**, moved from FS-6) | — |
-| Conditions | — | Weather & road condition (FS-7); incidents & disruption (FS-8) |
-| Scale | Network-level **foundations** (V1.8/9) | Large-scale network simulation (FS-9) |
-| Data | Real-world traffic **inputs** & calibration (V1.8/9) | Continuously updated digital twin (FS-10) |
-
----
-
-## 7. V3.0 — Composable, AI-assisted traffic-control experimentation (IN DEVELOPMENT)
-
-> **Status: 🟢 IN DEVELOPMENT — design-approval gate G-D passed 2026-10-14 ([#150](https://github.com/Viraj281105/Traffic-Simulation/issues/150)); W1 Robustness Lab vertical slice implemented 2026-10-15; W2 Signalised roundabouts implemented 2026-10-21 (G-SR technical criteria verified); W3–W9 planned.** The V2.0 release gate (G-V2) **passed 2026-10-13**. Detail, contracts, acceptance criteria and gates: [V3 product strategy](roadmap/V3_PRODUCT_STRATEGY.md) · [weekly sprint plan](roadmap/V3_WEEKLY_SPRINT_PLAN.md) · [presentation plan](roadmap/V3_PRESENTATION_PLAN.md) · [V2.0 completion audit](roadmap/V2_COMPLETION_AUDIT.md). Tracking: GitHub umbrella issue #150.
-
-**Direction.** Evolve UrbanFlow from an intersection simulator into a **composable, AI-assisted traffic-control experimentation platform** — *evidence, not a verdict*. Results are conditional on stated, assumed inputs; no AI output or simulation result is presented as proof that a strategy is universally superior.
-
-**One major demonstrable feature per implementation week:**
-
-| Week | Major feature | Role | Funding |
-| --- | --- | --- | --- |
-| W1 · 30 Oct – 5 Nov 2026 | **Robustness Lab** vertical slice (uncertainty sampling, paired ensembles, statistical contract) — moved here from Future Scope FS-6 | Evidence engine | Committed (✅ Implemented 2026-10-15) |
-| W2 · 6 – 12 Nov | **Signalised roundabouts** (`metered_entry`: signals gate entries, the existing gap-acceptance logic stays in force) | Flagship simulation feature | Committed (✅ Implemented 2026-10-21) |
-| W3 · 13 – 19 Nov | **Composable control strategies** (registry, compatibility validation, fingerprint parity) + adaptive signalised roundabout | Architecture | Committed; adaptive variant conditional |
-| W4 · 20 – 26 Nov | **High driver aggression** as the default for *new* scenarios (a new versioned profile; stored scenarios keep today's behaviour) · interim presentation 26 Nov | Declared model assumption | Committed |
-| W5 · 27 Nov – 3 Dec | **AI Traffic Experiment Copilot** (proposal-only, backend-validated, confirm-before-run, evidence-grounded summaries) | AI feature A | Committed; AI claim conditional on a provider decision |
-| W6 · 4 – 10 Dec | **AI Control Strategy Discovery Lab** (bounded multi-objective evolutionary search with held-out evaluation — optimisation, not a learned model) | AI feature B | Committed |
-| W7 · 11 – 17 Dec | **Python SDK, `/api/v3`, `.ufpkg` packages, tokens and quotas** | Platform | Committed (minimum) |
-| W8 · 18 – 24 Dec | **Traffic Chaos / Strategy Breakpoint Explorer** (stationary extremes) | Stress analysis | Conditional |
-| W9 · 25 – 31 Dec | **Integration, release candidate, evaluation showcase** (final showcase proposed Thu 7 Jan 2027) | Release | Committed |
-
-**Capacity.** The scope does not fit the original 26 Nov calendar (≈ 37.5 committed engineer-days against 18.75 planned); the proposal extends the schedule at 85 % planned load (decision D-SCOPE). Emergency/priority control, learned (RL) controllers, incident simulation, regime discovery, a visual strategy composer, an AI report generator and a PWA are **not** in V3.0 (deferred or Future Scope).
-
-**Moved or changed in Future Scope (no duplication):** FS-6 (uncertainty & robustness) → V3.0 Robustness Lab; the search-based part of FS-2 → V3.0 Discovery Lab (learned/RL controllers remain FS-2); FS-1 (emergency) stays in Future Scope, with a conditional V3.0 readiness gate that is expected to defer it.
-
----
-
-## 8. Maintaining this roadmap
-
-1. This file is the only roadmap. Do not add competing roadmap or "deferred" lists elsewhere.
-2. Do not add V1.x milestones or move scope between versions without an explicit decision recorded here.
-3. When a version ships, change its status, update §5, and move its "V1.0 starting point" note into a short "delivered" note.
-4. Anything that does not fit V1.1–V3.0 belongs in [Future Scope](future-scope/future_scope.md) — and only if it does not duplicate a roadmap item.
-5. Implementation decisions that constrain future work are recorded in [docs/decisions](decisions/README.md#implementation-decisions-v10).
+*Legend: ✅ Shipped & Tested · 🗓️ Planned in Phase 7 · — Not in that release.*

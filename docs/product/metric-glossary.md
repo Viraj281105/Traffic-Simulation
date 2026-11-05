@@ -559,3 +559,69 @@ How long the slowest 5% of requests took at least. If this is 400 ms, nineteen i
 `loadTestErrorRate`
 
 The fraction of requests that failed during the load test. 0.01 means one in a hundred.
+
+### Resilience score (/1)
+
+`resilienceScore`
+
+A single number from 0 to 1 for how well a signal strategy copes with a disruption; higher is better. It compares strategies inside the model under one scenario. It is not a prediction, and the weights are modelling choices.
+
+### Recovery time (s)
+
+`recoveryTimeSeconds`
+
+How long the network took to get back to normal after the disruption ended. If it never got back before the run finished, the figure is shown as not recovered, not as zero.
+
+### Peak extra delay (s)
+
+`peakExcessDelaySeconds`
+
+The worst moment: how many more seconds of delay the average vehicle in the network had, against the same run without the disruption.
+
+### Throughput loss (fraction)
+
+`throughputLoss`
+
+The share of finished trips lost to the disruption. 0.1 means one trip in ten that would have finished did not. A demand surge can make it zero.
+
+### Area under the delay curve (s squared)
+
+`areaUnderDelayCurve`
+
+The whole cost of a disruption in one number: how big the extra delay was and how long it lasted. Use it to compare strategies on the same scenario, not as seconds of delay.
+
+### Emergency vehicle travel time (s)
+
+`emergencyTravelTime`
+
+How long the ambulance or fire truck took to cross. The comparison pairs each seed with and without pre-emption, so both arms saw the same traffic.
+
+### Collateral delay (s per vehicle)
+
+`collateralDelay`
+
+What pre-emption costs everyone else: the extra seconds the other vehicles lost on average. A small or unreliable difference means the cost was hard to see.
+
+### Person delay (s per person)
+
+`personDelayPerPerson`
+
+Delay counted per person, not per vehicle, so a full bus counts for its passengers. It shows whether transit priority helps more people than it holds up.
+
+### Bus lateness (s)
+
+`busScheduleLateness`
+
+How far behind its timetable a bus was when it reached the signal. Lower is better; with transit priority switched on it should shrink.
+
+### Message delivery ratio (fraction)
+
+`messageDeliveryRatio`
+
+The share of signal-timing and hazard messages that actually arrived. 0.9 means nine in ten got through. It falls as the channel loses messages.
+
+### Delay benefit of connected vehicles (s per vehicle)
+
+`delayBenefitSeconds`
+
+How many seconds each vehicle saves when it receives signal timings and warnings. The latency by loss grid shows how late or lost messages shrink that saving.

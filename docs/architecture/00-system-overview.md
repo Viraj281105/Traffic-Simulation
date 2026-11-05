@@ -1,232 +1,141 @@
 # 00 — System Overview
 
-> **Status:** Current · describes the V1.0 implementation · verified against the source tree on 2026-10-05
-> **Read this first.** Documents 01–10 in this folder go deeper into individual layers and contracts; this page is the map.
+> **Status:** Current · Comprehensive platform architecture from V1.0 to V5.4 and Phase 7  
+> **Read this first.** Documents 01–10 in this folder explore individual layers, contracts, and standards in depth. This document maps the overarching platform architecture.
 
-UrbanFlow is a two-tier web application: a **React/TypeScript single-page app** that presents and explains results, and a **Python/FastAPI backend** that owns the simulation, every metric, every statistic and all persistence. The browser never simulates and never computes a metric — it renders what the backend measured.
+UrbanFlow is an evidence-based traffic simulation and decision-support platform designed to evaluate competing intersection and arterial control strategies under identical, common-random-number vehicle arrivals. It enforces a strict architectural boundary: **the backend is the single source of truth for all physics simulation and metric computation; the browser renders telemetry snapshots and presents verified findings.**
 
 ---
 
-## 1. Architecture at a glance
+## 1. High-Level Platform Architecture
 
 ```mermaid
 flowchart TB
-    subgraph Client["Browser"]
-        L["Landing page<br/>index.html · src/landing/"]
-        D["Dashboard SPA<br/>app.html · React 19 + TypeScript + Vite"]
+    subgraph Client["Presentation Layer (Browser)"]
+        LANDING["Landing Page<br/>index.html · Canvas showcase"]
+        SPA["Dashboard SPA<br/>app.html · React 19 + TypeScript 5.8 + Vite 8"]
+        CANVAS["HTML5 Canvas<br/>60 FPS motion interpolation"]
+        MAPLIBRE["MapLibre GL<br/>Multi-junction spatial vector map"]
+        CHARTS["Recharts & Analytics<br/>Declarative SVG metrics & CIs"]
     end
 
-    subgraph Edge["frontend container — nginx-unprivileged :8080"]
-        S["Static assets<br/>landing + dashboard bundles"]
-        P["Reverse proxy<br/>/api/ · /ws/ · /health"]
+    subgraph Edge["Edge Layer (nginx-unprivileged :8080)"]
+        STATIC["Static Asset Server<br/>SPA route fallback"]
+        PROXY["Reverse Proxy Gateway<br/>/api/ · /ws/ · /health · /metrics"]
+        INJECT["Security Injection<br/>Injects internal BACKEND_API_KEY"]
     end
 
-    subgraph API["backend container — FastAPI + Uvicorn :8000 (src/main.py mounts every router)"]
-        R["REST routes<br/>/api/v1/* · /api/simulation/*"]
-        W["WebSocket streams<br/>/ws/v1/stream · /ws/simulation/live · /ws/simulation/dual"]
-        J["Study job manager<br/>study/jobs.py · ≤ 4 concurrent"]
-        SES["Live-session registry<br/>per cookie or Cognito subject"]
+    subgraph Delivery["Delivery & Security Layer (FastAPI :8000)"]
+        MAIN["main.py (Composition Root & Middleware)"]
+        AUTH_OIDC["OIDC JWT & Cognito Verifier<br/>RBAC: viewer, planner, engineer, admin"]
+        OBS_MW["Observability Middleware<br/>Request tracking & latency metrics"]
+        LIMITS["Request Limits & Mutating Slot Lock<br/>1 MiB body cap on compute endpoints"]
     end
 
-    subgraph Core["Simulation core"]
-        E["SimulationEngine<br/>engine/simulation_engine.py · fixed Δt"]
-        DO["DualSimulationOrchestrator<br/>lockstep signal + roundabout"]
-        C["Controllers<br/>FixedTimeSignal · Roundabout"]
-        V["Vehicles<br/>Spawner · Pool · IDM · Router"]
-        M["MetricCollector<br/>metrics/collector.py"]
-        SB["SnapshotBuilder / Buffer"]
+    subgraph Application["Application Layer (Use Cases)"]
+        LIVE_SES["Live Interactive Sessions<br/>DualSimulationOrchestrator"]
+        PLAN_SRV["Planning Studies (/api/v2/planning)"]
+        EXP_SRV["Robustness Lab (/api/v3/experiments)<br/>Sobol / Latin Hypercube sampling"]
+        NET_SRV["Network Graphs & Calibration<br/>OSM/SUMO import · GEH Nelder-Mead fitting"]
+        DISC_SRV["AI Discovery Lab (/api/v3/discovery)<br/>NSGA-II multi-objective strategy search"]
+        COP_SRV["AI Copilot (/api/v3/copilot)<br/>Grounded non-hallucinating summaries"]
+        TWIN_SRV["Digital Twin Core (/api/v2/twin)<br/>Telemetry replay · What-if branching"]
+        INC_SRV["Incidents, Priority & V2X (/api/v2/*)<br/>Closures · Weather · Preemption · MQTT"]
     end
 
-    subgraph Study["Study layer — worker processes (study/runner.py)"]
-        VS["Volume sweep"]
-        MC["Monte Carlo validation"]
-        IC["Invariant checks"]
+    subgraph Domain["Strict Domain Stack (Microscopic Physics)"]
+        SNAP["snapshot/ (Builder, buffer, streams)"]
+        ENG["engine/ (SimulationEngine, vehicle pool, SAT audit)"]
+        NET_DOM["networks/ & netmetrics/ (Graph model, handoff, congestion)"]
+        CTRL["controllers/ (Fixed-Time, Adaptive, Roundabout, Metered)"]
+        PRIO_DOM["priority/ & incidents/ (Preemption, yielding, closures)"]
+        V2X_DOM["v2x/ (Publish/subscribe bus, latency, packet drop)"]
+        RL_DOM["rl/ (Gymnasium environment, baselines, steppers)"]
+        INT["intersection/ (ConflictManager, stop lines)"]
+        VEH["vehicles/ (IDM car-following, MOBIL lanes, 5 fleet classes)"]
+        ROADS["roads/ (RoadNetwork, approaches, turn geometry)"]
+        CORE["core/ (Clock, limits, enums, run manifest)"]
     end
 
-    DB[("SQLite · WAL<br/>named volume traffic_data")]
-    COG["Amazon Cognito<br/>(optional sign-in)"]
+    subgraph Infra["Infrastructure & Storage Layer"]
+        DB[("Transactional SQLite (WAL Mode)<br/>simulation_runs · studies · replays")]
+        RUNSTORE[("Parquet Lakehouse (S3 / Local)<br/>Columnar tick telemetry · DuckDB queries")]
+        QUEUE["Job Queue & SQS Adapter<br/>Background worker daemons · Cost tags"]
+        PROM["Prometheus Metrics (/metrics/prom)<br/>OpenTelemetry distributed tracing"]
+    end
 
-    L --> S
-    D --> S
-    D -- "HTTPS / HTTP" --> P
-    D -- "WebSocket" --> P
-    D -. "sign-in" .-> COG
-    P --> R
-    P --> W
-    R --> SES --> DO
-    R --> J --> Study
-    W --> SB
-    DO --> E
-    E --> C
-    E --> V
-    E --> M
-    M --> SB
-    Study --> E
-    R --> DB
-    Study --> DB
-    R -. "verify JWT (JWKS)" .-> COG
+    LANDING & SPA & CANVAS & MAPLIBRE & CHARTS --> STATIC
+    SPA --> PROXY
+    STATIC --> PROXY
+    PROXY --> INJECT --> MAIN
+    MAIN --> AUTH_OIDC --> OBS_MW --> LIMITS
+    LIMITS --> Application
+    Application --> Domain
+    Domain --> Infra
 ```
-
-| Layer | Technology | Responsibility | Source |
-| --- | --- | --- | --- |
-| Landing + dashboard | React 19, TypeScript, Vite, HTML5 Canvas, Recharts, Tailwind CSS | Narrative, guided comparison, plain-language results, Research Lab views, saved-run pages | `frontend/src/` |
-| Edge | nginx (unprivileged image) | Serves static bundles, SPA route fallback, proxies `/api/`, `/ws/`, `/health`; attaches the server-side API key; optional basic-auth gate | `frontend/templates/default.conf.template` |
-| API | FastAPI, Uvicorn, Pydantic, `jsonschema` | Validation, simulation lifecycle, live sessions, streaming, studies, history, replays, exports | `backend/src/main.py` (composition root) · `api/` · `live/` · `simulations/` · `study/router.py` · `replays/` · `suites/` · `history/` — see [02](02-backend-architecture.md) |
-| Simulation core | Pure Python | Discrete-time engine, IDM car-following, controllers, conflict management, metrics | `backend/src/core`, `vehicles`, `controllers`, `intersection`, `roads`, `metrics` |
-| Study layer | `concurrent.futures` worker processes | Sweeps, Monte Carlo validation, invariant checks, reports | `backend/src/study/` |
-| Persistence | SQLite (WAL, 5 s busy timeout, foreign keys) | Runs, per-tick metrics, sweeps, saved replays, configurations | `backend/src/database/` |
-| Contracts | JSON Schema | Scenario configuration validation; snapshot and vehicle shapes | `shared/schemas/` |
 
 ---
 
-## 2. Three ways the engine is driven
+## 2. Core Subsystems
 
-The same `SimulationEngine` is used everywhere. What differs is **who advances it** and **what happens to the result**.
+### 2.1 Microscopic Physics Engine
+- **Car-Following:** The Intelligent Driver Model (IDM) governs longitudinal accelerations with vehicle-type-specific parameters ($a, b, T, s_0$).
+- **Lateral Dynamics:** MOBIL governs discretionary and mandatory lane-changing decisions, auditing politeness factors and prospective follower braking thresholds before lane transitions.
+- **Collision Safety Auditing:** Oriented bounding box collisions are verified using the Separating Axis Theorem (SAT) after each tick; model failures are logged without halting the numerical loop.
+
+### 2.2 Network Graph Model (ADR-021)
+- **Topological Structure:** The network is modeled as a directed node-edge graph where nodes represent signalized or unsignalized junctions and edges represent multi-lane connecting links.
+- **Vehicle Conservation & Handoff:** Vehicles crossing downstream approach stop-lines are transferred onto downstream arterial links with conservation guarantees ($\text{spawned} = \text{active} + \text{completed}$).
+- **Congestion Heatmaps:** Downstream link spillback triggers upstream flow restriction, calculating propagation velocity and topological bottleneck heatmaps.
+
+### 2.3 Control Strategies Ecosystem
+- **Fixed-Time Signal Controller:** Paired stage sequencing, configurable cycle offsets, per-corridor greens, all-red clearance intervals.
+- **Actuated Adaptive Signal Controller:** Stop-line loop detection, passage green extensions, gap-out timers, maximum green caps.
+- **Multi-Lane Roundabout Controller:** Circulating ring reservations, critical gap acceptance ($4.0\text{ s}$), follow-up headway ($2.5\text{ s}$).
+- **Signalised Roundabout Controller (`metered_entry`):** Stop-line signal metering at entry approaches gating ring entry while preserving circulating gap-acceptance rules.
+- **Reinforcement Learning:** Gymnasium multi-junction signal environment supporting PPO/DQN training benchmarked against Fixed-Time and Max-Pressure baselines.
+
+### 2.4 Incident, Weather & Priority Overlays
+- **Incidents & Closures:** Dynamic road closures force real-time Dijkstra/A* path rerouting around blocked links.
+- **Weather Modifiers:** Rain, snow, dense fog, and ice modify tire-road friction, driver visibility limits, and IDM reaction headways.
+- **Emergency Preemption & Yielding:** Siren detection radius triggers immediate green extensions and red truncations; civilian vehicles pull aside to clear emergency green corridors.
+- **V2X Messaging Bus:** Inter-vehicle pub/sub messaging simulating packet latency and packet drop models to test cooperative longitudinal driving.
+
+### 2.5 Data Storage & Results Lakehouse
+- **Transactional State:** SQLite in WAL mode with foreign keys and 5 s busy timeouts stores user accounts, run metadata, and study status.
+- **Parquet Lakehouse:** High-frequency per-tick vehicle coordinates and operational metrics are serialized into Apache Parquet columnar files stored on local disk or AWS S3, queryable via DuckDB SQL in milliseconds.
+
+---
+
+## 3. Communication Patterns
+
+UrbanFlow provides three operational communication modalities:
 
 ```mermaid
 flowchart LR
-    subgraph A["Interactive (what planners use)"]
-        A1["POST /api/simulation/config"] --> A2["Live session<br/>engine + dual orchestrator"]
-        A2 --> A3["/ws/simulation/dual<br/>≈10 Hz snapshots"]
-        A2 --> A4["POST /api/v1/replays<br/>(save on request)"]
+    subgraph Interactive["1. Live Interactive Session"]
+        A1["POST /api/simulation/config"] --> A2["LiveSession Registry"]
+        A2 --> A3["/ws/simulation/dual<br/>10 Hz Snapshots"]
+        A3 --> A4["Canvas Hermite Spline<br/>60 FPS Interpolation"]
     end
-    subgraph B["Programmatic (versioned API)"]
-        B1["POST /api/v1/simulations"] --> B2["In-memory registry<br/>≤ 50 simulations"]
-        B2 --> B3["/ws/v1/stream?simulationId="]
-        B2 --> B4["Auto-persist on completion"]
+
+    subgraph AsyncStudies["2. Asynchronous Batch Studies"]
+        B1["POST /api/v2/planning/jobs<br/>POST /api/v3/experiments"] --> B2["Job Queue / AWS SQS"]
+        B2 --> B3["Worker Processes<br/>Multi-core / Spot EKS Nodes"]
+        B3 --> B4["Parquet Lakehouse<br/>Decision Reports (JSON/MD/CSV)"]
     end
-    subgraph C["Headless studies (Research Lab, CLI)"]
-        C1["POST /api/v1/study/*/jobs<br/>or scripts/run_full_study.py"] --> C2["Worker processes<br/>run as fast as CPU allows"]
-        C2 --> C3["Aggregated statistics<br/>+ persisted sweep runs"]
-    end
-```
 
-| Mode | Advanced by | Pace | Persisted |
-| --- | --- | --- | --- |
-| Interactive live / dual | Engine background thread | Real time (sleeps to `timeStep` per tick) | Only when the user saves (`/api/v1/replays`) |
-| Versioned `/api/v1/simulations` | Engine background thread after `control: start` | Real time | Automatically, on completion / stop / error |
-| Studies | Worker process loop calling `step()` | As fast as possible | Sweep runs and sweep sessions; Monte Carlo results are returned, not stored as runs |
-
----
-
-## 3. Inside one tick
-
-Every tick is executed under the engine's re-entrant lock, so REST handlers and snapshot builders only ever observe a completed tick.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant Clock
-    participant Spawner as VehicleSpawner
-    participant Ctrl as Controller
-    participant Pool as VehiclePool (IDM)
-    participant CB as Tick callbacks
-    participant MC as MetricCollector
-
-    Note over Clock,MC: SimulationEngine.step() — holds engine.lock for the whole tick
-    Clock->>Clock: tick() → elapsed += Δt
-    Spawner->>Pool: new vehicles (seeded arrival process, safe insertion speed)
-    Ctrl->>Ctrl: update(Δt) — signal phase / yield decisions (virtual obstacles)
-    Pool->>Pool: IDM acceleration → speed → position · lane transitions · exits
-    Pool->>Pool: post-update collision audit (oriented bounding boxes, debounced)
-    CB->>MC: update(elapsed, active, exited, signal state)
-    Note over MC: ignored for metrics until warm-up ends
-    alt elapsed ≥ duration
-        Clock-->>CB: status → COMPLETED (status callbacks fire, e.g. persistence)
+    subgraph HeadlessCLI["3. Headless CLI Automation"]
+        C1["python scripts/run_full_study.py<br/>python -m urbanflow_client run"] --> C2["Direct Engine Execution"]
+        C2 --> C3["Analytical Artifacts & Plots"]
     end
 ```
 
-The controller updates **before** vehicle physics, so a red signal or a refused gap affects the very same tick ("zero-latency" control response — `engine/simulation_engine.py`).
-
 ---
 
-## 4. Data and state flow
+## 4. Security & Multi-Tenancy Architecture
 
-```mermaid
-flowchart LR
-    CFG["Scenario configuration<br/>JSON · validated"] --> ENG["Engine construction<br/>network · conflict points · spawner · IDM"]
-    SEED["randomSeed"] --> ENG
-    ENG --> VS["Vehicle state<br/>position · speed · lane · wait · stops"]
-    VS --> MET["MetricCollector<br/>running accumulators (post warm-up)"]
-    VS --> SNAP["Snapshot<br/>vehicles · controller · metrics · counts"]
-    MET --> SNAP
-    SNAP --> WS["WebSocket frames"]
-    SNAP --> BUF["SnapshotBuffer<br/>≤ 1,000 frames (versioned API)"]
-    MET --> SUM["Final metrics dictionary"]
-    SUM --> RUN[("simulation_runs<br/>config · seed · provenance · metrics")]
-    SUM --> STAT["Study aggregation<br/>means · CI · Welch · Cohen's d"]
-    STAT --> SWEEP[("sweep_sessions")]
-    RUN --> REPRO["Reproduce · export · compare"]
-```
-
-| Artefact | Produced by | Lifetime | Consumer |
-| --- | --- | --- | --- |
-| Configuration | Client or study runner | Copied into each engine; stored with every persisted run | Engine, persistence, reproduction |
-| Vehicle state | `VehiclePool` | In memory for the run (exited vehicles are kept for metrics) | Collector, snapshot builder |
-| Snapshot | `SnapshotBuilder.build()` | Sent and discarded (live), or buffered (versioned API) | Canvas, live panels |
-| Metrics dictionary | `MetricCollector.get_metrics()` | Recomputed on demand from accumulators | Snapshots, reports, persistence |
-| Run record | `SimulationRunDAO.save()` | SQLite until deleted | Saved runs, reproduction, exports |
-| Study result | `study/validation.py`, `study/volume_sweep.py` | Returned via job result; sweeps also stored | Research Lab |
-
----
-
-## 5. Lifecycle of a simulation
-
-```mermaid
-stateDiagram-v2
-    [*] --> initialized: engine constructed
-    initialized --> running: start()
-    running --> paused: pause()
-    paused --> running: resume()
-    running --> completed: elapsed ≥ duration
-    running --> completed: stop()
-    paused --> completed: stop()
-    running --> error: exception in step()
-    completed --> [*]
-    error --> [*]
-```
-
-`start()` on anything other than `initialized` raises, which the versioned API reports as **409**. Interactive sessions re-create a completed engine (with a fresh seed unless the user pinned one) when Play is pressed again.
-
----
-
-## 6. Concurrency and isolation
-
-| Concern | Mechanism | Bound |
-| --- | --- | --- |
-| Torn reads of vehicle lists | `engine.lock` (re-entrant) held for the whole tick and by every reader | — |
-| One visitor resetting another's run | Live sessions keyed by the `ts_session` cookie (or the Cognito `sub` when a bearer token is sent) | ≤ 100 sessions; idle sessions reclaimed after 30 min; running/paused sessions never evicted |
-| Versioned simulations | `simulations_db` registry under a lock; completed runs evicted oldest-first | ≤ 50 entries (429 beyond) |
-| Heavy studies | Background job manager + worker process pool | ≤ 4 active jobs (429 beyond); finished jobs kept 1 h; `STUDY_WORKERS` processes |
-| SQLite contention | WAL journal, 5 s busy timeout | — |
-
----
-
-## 7. Security boundary
-
-```mermaid
-flowchart LR
-    U["Visitor"] -->|"optional HTTP basic auth<br/>(auth-gate include)"| N["nginx"]
-    N -->|"adds X-API-Key<br/>(server side, never shipped to browser)"| B["FastAPI"]
-    U -->|"Cognito ID token in Authorization<br/>(passed through nginx unchanged)"| N
-    B -->|"401 if API_KEY set and key missing"| X["mutating / compute-heavy routes"]
-```
-
-- **`API_KEY`** protects mutating and compute-heavy routes. nginx injects it as `X-API-Key` from `BACKEND_API_KEY`, so the browser never holds it, and leaves `Authorization` free for the user's token. In production the backend publishes no port.
-- **Cognito** identifies *who* saved a run. `POST/GET/DELETE /api/v1/replays` require a verified token; ownership is enforced on read and delete. Local development uses an explicit bypass token accepted only when `DEV_AUTH_BYPASS=1`.
-- **Access gate** — an optional nginx basic-auth include restricts who can use a public demo at all.
-
-Details: [Deployment & operations](../deployment/README.md) · [Operations guide](../operations.md#access-control).
-
----
-
-## 8. Where to go next
-
-| Question | Document |
-| --- | --- |
-| How is the backend organised? | [02 — Backend architecture](02-backend-architecture.md) |
-| How is the frontend organised? | [03 — Frontend architecture](03-frontend-architecture.md) |
-| What does the simulation actually model? | [Simulation methodology](../simulation/methodology.md) |
-| What does every metric mean? | [Metrics reference](../research/metrics-reference.md) |
-| Which endpoints exist? | [API & WebSocket reference](../api/README.md) |
-| How is it deployed? | [Deployment & operations](../deployment/README.md) |
+- **Authentication:** Amazon Cognito / OIDC JSON Web Tokens (JWT) verified against public JSON Web Key Sets (JWKS). Local development supports `DEV_AUTH_BYPASS=1`.
+- **Role-Based Access Control (RBAC):** Strict permissions enforcing 4 roles (`viewer`, `planner`, `engineer`, `admin`).
+- **Tenant Isolation:** All planning studies, Robustness Lab experiments, and telemetry runs are scoped strictly by `tenant_id` and `user_id`. Access attempts across tenant boundaries return an HTTP 404 response.
+- **Personal Access Tokens (PATs):** Cryptographically hashed tokens (`uf_pat_...`) with fine-grained capability scopes (`experiments:run`, `packages:read`) for Python SDK automation.

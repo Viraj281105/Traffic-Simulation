@@ -18,7 +18,9 @@ UrbanFlow models junction control through declarative, layered strategy descript
 | **3** | **Right-of-Way Rule** | `signal`, `yield_to_ring`, `signal_over_yield` | Authoritative rule governing vehicle entry into the conflict area |
 | **4** | **Control Policy** | `fixed_time_phase_plan`, `metering`, `uncontrolled`; cycle awareness | Operational policy driving entry signals or yields |
 | **5** | **Adaptation Logic** | `none`, `gap_out_extension`; determinism flag | Actuation / dynamic green extension logic |
-| **6** | **Priority Overlay** | `none` (V3.0); `emergency_preemption` (Reserved FS-1) | Priority vehicle preemptions (bus / emergency) |
+| **6** | **Priority Overlay** | `none`, `emergency_preemption`, `transit_signal_priority` | Emergency preemption & TSP clearance (implemented in `src/priority/`, Phase 6) |
+
+> **Note on Layer 6 Evolution (Phase 6 / V5.1):** Emergency vehicle preemption, EV siren detection, transit bus priority (TSP), emergency yielding maneuvers, and signal recovery plans are now implemented in `backend/src/priority/` and exposed via `/api/v2/priority/*`. Layer 6 operates as an active overlay modifying Phase timing dynamically upon vehicle classification.
 
 ---
 

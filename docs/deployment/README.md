@@ -1,13 +1,34 @@
 # Deployment & Operations
 
-> **Status:** Current · V1.0 (AWS cloud deployment milestone) · verified against `docker-compose.yml`, `docker-compose.dev.yml`, `backend/Dockerfile`, `frontend/Dockerfile`, `frontend/templates/default.conf.template`, `start.ps1` and `backend/src/main.py`
-> **Step-by-step runbook:** [AWS EC2 deployment runbook](AWS_FREE_TIER_DEPLOYMENT.md) · **Automated CI/CD:** [Production CI/CD setup](production-cicd-setup.md) · **Day-to-day behaviour:** [Operations guide](../operations.md)
+> **Status:** Current · Comprehensive Deployment Architecture across V1.0–V5.4 · verified against `docker-compose.yml`, `deploy/helm/`, `deploy/kind/`, `infra/terraform/`, and `.github/workflows/`
+> **Runbooks:** [AWS EC2 runbook](AWS_FREE_TIER_DEPLOYMENT.md) · [Terraform AWS staging guide](../../infra/terraform/README.md) · [Local Kind & Helm runbook](../../deploy/README.md) · [Operations guide](../operations.md)
 
 ---
 
-## 1. Deployment architecture
+## 1. Multi-Tier Deployment Topology
 
-UrbanFlow V1.0 runs as **two containers orchestrated by Docker Compose on a single Amazon EC2 instance**. There is no managed database, load balancer, CDN or container service in the checked-in configuration.
+UrbanFlow supports three deployment targets designed for different stages of the development and production lifecycle:
+
+```mermaid
+flowchart TD
+    subgraph T1["Tier 1: Single-Host Docker Compose (V1/V2 Baseline)"]
+        D1["EC2 Instance or Local Host<br/>nginx-unprivileged :8080 ↔ FastAPI backend :8000 ↔ SQLite WAL volume"]
+    end
+
+    subgraph T2["Tier 2: Local Kubernetes via Kind & Helm (Phase 4/5)"]
+        K1["Kind Cluster (port 8080)<br/>Umbrella Helm Chart: frontend, backend, Go ingest microservice, emptyDir/PVC"]
+    end
+
+    subgraph T3["Tier 3: Enterprise Cloud Staging Stack on AWS via Terraform (Phase 6)"]
+        AWS_VPC["AWS Multi-AZ VPC<br/>Public & Private Subnets · NAT Gateway · S3 Endpoint"]
+        EKS["Amazon EKS Cluster<br/>On-Demand System Nodes · Tainted Spot Batch Nodes · KEDA Scaler"]
+        RDS["Amazon RDS PostgreSQL<br/>Private Encrypted DB · Password in Secrets Manager"]
+        SQS["Amazon SQS Queue & DLQ<br/>Decoupled Async Simulation Workers"]
+        S3["Amazon S3 Buckets<br/>Encrypted Parquet RunStore Lakehouse"]
+    end
+
+    T1 --> T2 --> T3
+```
 
 ```mermaid
 flowchart TB

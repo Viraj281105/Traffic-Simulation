@@ -76,3 +76,16 @@ To check the schema files themselves, run the repository validator. It verifies 
   ```bash
   ./scripts/validate-schemas.sh
   ```
+
+---
+
+## Code Generation & OpenAPI Synchronization
+
+- **OpenAPI Snapshot Export:** `openapi.v3.snapshot.json` records the frozen contract of `/api/v3` endpoints. Regenerate with:
+  ```bash
+  cd backend && python -m src.experiments.export_schemas
+  ```
+- **TypeScript Client SDK Generation:** Generate type-safe TypeScript interfaces and service clients from the OpenAPI snapshot:
+  ```bash
+  python scripts/generate_ts_client.py
+  ```

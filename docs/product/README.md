@@ -155,8 +155,21 @@ Full mapping: [Metrics reference §6](../research/metrics-reference.md#6-plain-l
 
 ---
 
-## What the product deliberately does not do (V1.0)
+## Product Evolution Beyond Single Junctions
 
-- Pick a winner, or rank layouts with a composite score.
-- Claim crash risk — surrogate safety measures stay in the specialist layer.
-- Model a specific real junction, other vehicle types, adaptive signals or multi-lane roundabout circulation — see the [roadmap](../ROADMAP.md).
+While UrbanFlow began in V1.0 evaluating isolated single junctions, the platform has systematically evolved through six major phases:
+
+1. **V2.0 Decision Support:** Multi-alternative planning studies (`/app/planner`), automated PDF/Markdown report generation, and bit-identical seed reproduction.
+2. **V3.0 Experimentation Lab:** The Robustness Lab (`/app/experiments/:id`) allowing planners to test whether comparative advantages survive declared parameter uncertainty; Signalised Roundabouts (`metered_entry`); AI Experiment Copilot (`/app/copilot`); and AI Strategy Discovery (`/app/discovery`).
+3. **Phase 4 Trustworthy Results:** Parquet results lakehouse, DuckDB SQL analysis, Akçelik fuel/$\text{CO}_2$ emissions proxies, and Time-to-Collision (TTC) safety metrics.
+4. **Phase 5 Beyond One Junction:** Multi-junction arterial corridors and 12-junction networks (`/app/network`), MapLibre GL spatial mapping, topological link congestion heatmaps, turning-count calibration (GEH/RMSE), and multi-junction reinforcement learning.
+5. **Phase 6 Resilience, Priority & Cloud:** Crashes and road closures with dynamic Dijkstra rerouting, rain/snow/fog weather conditions, emergency signal preemption and civilian yielding, transit bus priority, and V2X inter-vehicle messaging.
+6. **Phase 7 Cooperation & Governance (Planned):** Leader-follower platooning, Autonomous Intersection Management (AIM) reservation managers, advisory governance approval workflows, and physical microcontroller signal-head demonstrations.
+
+---
+
+## Core Product Boundaries & Rules
+
+- **Evidence, Not a Verdict:** UrbanFlow never declares a universal winner and never issues automated municipal mandates. It computes standardized physical and statistical metrics, quantifies confidence intervals, and leaves the decision to accountable human officials.
+- **Surrogate Measures, Not Crash Predictions:** Surrogate safety metrics (TTC, PET) and emissions calculations are exploratory indicators, not certified crash-risk or emissions models.
+- **Advisory Only:** UrbanFlow provides simulation-backed decision support; it does not directly actuate live municipal signals.

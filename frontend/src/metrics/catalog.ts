@@ -892,6 +892,105 @@ export const ANALYSIS_METRICS: AnalysisMetricDef[] = [
     plain:
       "The fraction of requests that failed during the load test. 0.01 means one in a hundred.",
   },
+  {
+    key: "resilienceScore",
+    label: "Resilience score",
+    unit: "/1",
+    description:
+      "A weighted mean of four parts (recovery 0.35, throughput 0.25, peak delay 0.20, area under the delay curve 0.20), each between 0 and 1, from one signal strategy run with and without a disruption on the same seed. Mean over seeds with a bootstrap 95% interval.",
+    plain:
+      "A single number from 0 to 1 for how well a signal strategy copes with a disruption; higher is better. It compares strategies inside the model under one scenario. It is not a prediction, and the weights are modelling choices.",
+  },
+  {
+    key: "recoveryTimeSeconds",
+    label: "Recovery time",
+    unit: "s",
+    description:
+      "Seconds from the end of the last disruption window until the mean accrued delay stays within a tolerance of the undisturbed run for several buckets in a row. Missing when it never does before the run ends.",
+    plain:
+      "How long the network took to get back to normal after the disruption ended. If it never got back before the run finished, the figure is shown as not recovered, not as zero.",
+  },
+  {
+    key: "peakExcessDelaySeconds",
+    label: "Peak extra delay",
+    unit: "s",
+    description:
+      "Largest gap, over the buckets of the run, between the mean accrued delay with the disruption and without it, never below zero.",
+    plain:
+      "The worst moment: how many more seconds of delay the average vehicle in the network had, against the same run without the disruption.",
+  },
+  {
+    key: "throughputLoss",
+    label: "Throughput loss",
+    unit: "fraction",
+    description:
+      "Vehicles completed without the disruption minus vehicles completed with it, divided by the former, never below zero.",
+    plain:
+      "The share of finished trips lost to the disruption. 0.1 means one trip in ten that would have finished did not. A demand surge can make it zero.",
+  },
+  {
+    key: "areaUnderDelayCurve",
+    label: "Area under the delay curve",
+    unit: "s squared",
+    description:
+      "Sum over buckets of the extra mean accrued delay against the undisturbed run, times the bucket length.",
+    plain:
+      "The whole cost of a disruption in one number: how big the extra delay was and how long it lasted. Use it to compare strategies on the same scenario, not as seconds of delay.",
+  },
+  {
+    key: "emergencyTravelTime",
+    label: "Emergency vehicle travel time",
+    unit: "s",
+    description:
+      "Mean time an emergency vehicle took from entering to leaving the junction, per seed, compared with and without signal pre-emption over paired seeds.",
+    plain:
+      "How long the ambulance or fire truck took to cross. The comparison pairs each seed with and without pre-emption, so both arms saw the same traffic.",
+  },
+  {
+    key: "collateralDelay",
+    label: "Collateral delay",
+    unit: "s per vehicle",
+    description:
+      "Mean time lost by non-emergency vehicles, per seed, compared with and without pre-emption over paired seeds.",
+    plain:
+      "What pre-emption costs everyone else: the extra seconds the other vehicles lost on average. A small or unreliable difference means the cost was hard to see.",
+  },
+  {
+    key: "personDelayPerPerson",
+    label: "Person delay",
+    unit: "s per person",
+    description:
+      "Delay of every vehicle weighted by its assumed occupancy (cars and buses), divided by the people carried.",
+    plain:
+      "Delay counted per person, not per vehicle, so a full bus counts for its passengers. It shows whether transit priority helps more people than it holds up.",
+  },
+  {
+    key: "busScheduleLateness",
+    label: "Bus lateness",
+    unit: "s",
+    description:
+      "Mean time a bus reached the stop line after its timetable time, which is free-flow running time plus dwell plus padding.",
+    plain:
+      "How far behind its timetable a bus was when it reached the signal. Lower is better; with transit priority switched on it should shrink.",
+  },
+  {
+    key: "messageDeliveryRatio",
+    label: "Message delivery ratio",
+    unit: "fraction",
+    description:
+      "Messages delivered divided by messages attempted over all connected vehicles, after the channel's loss and range rules. Missing when no message was sent.",
+    plain:
+      "The share of signal-timing and hazard messages that actually arrived. 0.9 means nine in ten got through. It falls as the channel loses messages.",
+  },
+  {
+    key: "delayBenefitSeconds",
+    label: "Delay benefit of connected vehicles",
+    unit: "s per vehicle",
+    description:
+      "Baseline mean delay minus cooperative mean delay per vehicle, for one latency and loss setting. Positive is better.",
+    plain:
+      "How many seconds each vehicle saves when it receives signal timings and warnings. The latency by loss grid shows how late or lost messages shrink that saving.",
+  },
 ];
 
 export const METRICS_BY_GROUP: Record<MetricGroupId, MetricDef[]> =

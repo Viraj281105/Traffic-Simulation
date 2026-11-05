@@ -107,13 +107,71 @@ A comprehensive technical and feature reference for developers, engineers, and A
 * **User Profile Chip**: Header display with avatar, user name, email, and logout.
 * **Admin Panel (`AdminPanel`)**: Restricted dashboard for authorized administrators (configured via `ADMIN_EMAILS`) to manage system configurations, monitor activity, and inspect database volumes.
 
+### I. Multi-Junction Arterial Networks & Map Viewer (`/app/network`)
+* **Arterial Grid Engine (`networks/network_sim.py`)**: Mesoscopic vehicle handoff with link storage caps, speed limits, and queue spillback propagation across 9, 12, 36, and 100+ junction topologies.
+* **MapLibre GL & Canvas Network Map**: Interactive multi-junction network visualizer rendering nodes, directed links, lane configurations, and real-time link occupancy.
+* **Congestion Heatmap & Bottleneck Tracing**: Step-by-link space-time heatmaps identifying congestion onset points, propagation velocity, and spillback chains.
+* **Network Format Ingestion**: Direct parsers for OpenStreetMap XML/Overpass JSON and SUMO `.net.xml` network topologies.
+
+### J. Network-Scale Optimization & Recalibration (G-CAL Gate)
+* **Sensor Count Ingestion**: CSV sensor time-series loader aggregating interval counts into vehicle-per-hour link flows.
+* **Error Metrics**: Real-time computation of GEH statistics ($GEH < 5$ for $\ge 85\%$ of links), RMSE, and MAPE.
+* **Continuous Recalibration**: Warm-start Nelder-Mead/Powell optimization adapting baseline demand multipliers upon detector drift.
+
+### K. Multi-Junction Reinforcement Learning (MARL)
+* **Gymnasium Signal Environment**: Multi-agent environment controlling coordinated signals with queue and delay reduction rewards.
+* **Comparative Evaluation**: Automated benchmarking against Fixed-Time and Max-Pressure baselines with paired Student-$t$ confidence intervals.
+
+### L. Digital Twin Replay & What-If Analysis
+* **Observation Replay**: High-fidelity replay of recorded link sensor feeds against simulated predictions.
+* **Interactive What-If Branching**: Pause replay at arbitrary timestamps, inject lane closures or signal overrides, and simulate counterfactual traffic futures.
+
+### M. Dynamic Incidents, Road Closures, Weather & Resilience (`/app/resilience`)
+* **Disruption Injection**: On-demand simulation of crashes, stalled vehicles, lane closures, and work zones.
+* **Adverse Weather Modifiers**: Friction reduction (wet/ice pavement) and visibility degradation altering driver reaction times and spacing.
+* **Resilience Scoring**: Automated calculation of Time-to-Recovery ($T_{\text{rec}}$) and Resilience Index ($R \in [0, 1]$).
+
+### N. Emergency Priority Preemption & Transit Signal Priority (TSP)
+* **Emergency Preemption**: Emergency vehicle siren detection triggering instantaneous green-wave signal clearance.
+* **Autonomous Yielding**: Surrounding vehicles dynamically pull over to clear center emergency corridors.
+* **Bus Transit Priority**: Conditional green extension and early green recall for delayed public transit buses.
+
+### O. V2X Connected Vehicle Telematics
+* **MQTT Telematics Bus**: Real-time Basic Safety Message (BSM) and SPaT broadcasting over in-process and external MQTT brokers.
+* **Network Impairment Simulation**: Evaluates packet loss (0–20%) and transmission latency (10–500 ms) on cooperative maneuvers.
+
+### P. Multi-Tenant Enterprise Platform & RBAC (`/api/v2/tenancy`)
+* **OIDC & Role-Based Access Control**: Strict multi-tenant isolation supporting `admin`, `analyst`, `viewer`, and `service` roles.
+* **Tenant Quotas & Rate Limits**: Dual-level token bucket rate-limiting and daily/concurrent run quotas.
+
+### Q. Cloud Platform, Terraform Staging & Background Workers
+* **Terraform AWS Staging**: Complete Infrastructure-as-Code modules for VPC, EKS, RDS PostgreSQL, S3, Secrets Manager, and SQS job queues.
+* **Asynchronous SQS Worker**: Decoupled worker process consuming batch simulation jobs with automatic DLQ redrive and spot-instance auto-scaling via KEDA.
+
+### R. Enterprise SDKs & Open Specifications
+* **Python SDK (`sdk/python/`)**: Type-safe client wrapping all UrbanFlow APIs (simulation, networks, Copilot, stress, tenancy).
+* **TypeScript SDK**: Auto-generated typed client from OpenAPI v3 snapshots (`scripts/generate_ts_client.py`).
+
 ---
 
 ## 5. Software Results & Performance Benchmarks
 
 * **Telemetry Latency**: 10 Hz continuous WebSocket delivery with <15 ms frame processing overhead.
-* **100% Determinism**: Complete reproducibility on identical seeds and configurations.
-* **AI Inference Speed**: 300–600 ms response times via Groq inference.
+* **100% Determinism**: Complete reproducibility on identical seeds and configurations verified by property tests.
+* **Network Simulation Throughput**:
+  * **12-Junction Arterial Grid (900 s sim):** Runs in **0.0316 s** wall time (28,500 simulated seconds per wall second).
+  * **100-Junction Grid (440 links, 900 s sim):** Runs in **0.2522 s** wall time.
+* **AI Inference Speed**: 300–600 ms response times via Groq inference with 100% deterministic fallback.
 * **Automated Test Coverage**:
-  * Full pytest suite covering AI endpoints, schema validation, and fallback handlers (`tests/api/test_ai.py` 100% passing).
-  * Strict TypeScript compilation and Vite production build verified clean.
+  * 37 backend packages fully covered by pytest test suites.
+  * 18 frontend views fully validated with Vitest unit tests and contract fixtures.
+
+---
+
+## 6. Planned Phase 7 Scope (V5.5 – V6.1 Showcase)
+
+* **Vehicle Platooning & CACC (`backend/src/platoon/`):** Cooperative Adaptive Cruise Control with string-stable gap regulation, platoon formation, splitting, and aerodynamic fuel reduction models.
+* **Autonomous Intersection Management (AIM, `backend/src/aim/`):** Spatio-temporal reservation grid for signal-free autonomous vehicle coordination with formal zero-collision guarantees (Release Gate G-AIM).
+* **Enterprise Governance & Merkle Audit Trail (`backend/src/governance/`):** RFC 6962 SHA-256 hash-chained immutable audit ledger for configuration approvals and shadow-mode validation.
+* **Per-Run Cost Allocation (`backend/src/costing/`):** Automated per-study dollar cost tracking against AWS spot/on-demand pricing models.
+* **Physical Signal Head Hardware Bridge (`hardware/`, `backend/src/hardware_bridge/`):** 100 ms MQTT bridge connecting simulation states to physical Raspberry Pi / ESP32 LED signal heads.

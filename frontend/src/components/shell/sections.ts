@@ -184,6 +184,12 @@ const EXPERIMENTS: SectionDef = {
           description:
             "Multi-junction map, congestion spread, network metrics, calibration, RL, digital twin and load tests.",
         },
+        {
+          view: "resilience",
+          label: "Resilience",
+          description:
+            "Incidents and weather, strategy resilience, emergency and transit priority, connected vehicles, account and jobs.",
+        },
       ],
     },
   ],
