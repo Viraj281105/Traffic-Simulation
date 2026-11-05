@@ -45,6 +45,23 @@
         "dev"
       ],
       "port": 5173
+    },
+    {
+      "name": "frontend-preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "C:\\Viraj\\Code\\Traffic-Simulation\\frontend",
+        "exec",
+        "--",
+        "vite",
+        "preview",
+        "C:\\Viraj\\Code\\Traffic-Simulation\\frontend",
+        "--port",
+        "4173",
+        "--strictPort"
+      ],
+      "port": 4173
     }
   ]
 }
