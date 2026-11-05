@@ -11,14 +11,14 @@ The frontend strictly enforces the architectural boundary: **it never runs physi
 
 ## Technical Documentation Links
 
-| Area | Documentation Link |
-| :--- | :--- |
+| Area                                  | Documentation Link                                                                                |
+| :------------------------------------ | :------------------------------------------------------------------------------------------------ |
 | **Frontend Architecture & Data Flow** | [docs/architecture/03-frontend-architecture.md](../docs/architecture/03-frontend-architecture.md) |
-| **Product Journey & User Narrative** | [docs/product/urbanflow-user-narrative.md](../docs/product/urbanflow-user-narrative.md) |
-| **Planner Experience Guide** | [docs/product/planner-guide.md](../docs/product/planner-guide.md) |
-| **Metric Presentation Rules** | [docs/research/metrics-reference.md](../docs/research/metrics-reference.md) |
-| **Frontend Testing & Accessibility** | [docs/testing/README.md](../docs/testing/README.md) |
-| **Nginx Reverse Proxy & Static Host** | [docs/deployment/README.md](../docs/deployment/README.md) |
+| **Product Journey & User Narrative**  | [docs/product/urbanflow-user-narrative.md](../docs/product/urbanflow-user-narrative.md)           |
+| **Planner Experience Guide**          | [docs/product/planner-guide.md](../docs/product/planner-guide.md)                                 |
+| **Metric Presentation Rules**         | [docs/research/metrics-reference.md](../docs/research/metrics-reference.md)                       |
+| **Frontend Testing & Accessibility**  | [docs/testing/README.md](../docs/testing/README.md)                                               |
+| **Nginx Reverse Proxy & Static Host** | [docs/deployment/README.md](../docs/deployment/README.md)                                         |
 
 ---
 
@@ -118,39 +118,43 @@ frontend/src/
 
 Client-side routes are declared in `src/routing.ts` and mirrored by `templates/default.conf.template` (Nginx SPA fallback) and `vite.config.ts`. All views support deep-linking, refresh, and browser history navigation:
 
-| URL Path | View Component | Description |
-| :--- | :--- | :--- |
-| `/` | Landing Page | Public product narrative, interactive canvas hero, methodology overview. |
-| `/app/comparative` | Guided Comparison | 3-step comparison wizard (Scenario $\to$ Lockstep Simulation $\to$ Decision Report). |
-| `/app/network` | Network Visualizer | Multi-junction MapLibre GL map, congestion heatmaps, calibration, RL, twin. |
-| `/app/planner` | Decision Support | Multi-alternative planning studies and downloadable reports. |
-| `/app/experiments/:id`| Robustness Lab | Parameter uncertainty ensemble viewer with bootstrap paired difference intervals. |
-| `/app/copilot` | AI Copilot | Natural language experiment builder with schema validation gate. |
-| `/app/discovery` | Strategy Discovery | NSGA-II multi-objective strategy search and Pareto frontier exploration. |
-| `/app/stress` | Breakpoint Explorer | High-load traffic chaos and operational breakpoint explorer. |
-| `/app/history` | Run History | Stored simulation catalog, tags, labels, and bit-identical seed reproduction. |
-| `/app/runs/:id` | Run Detail Page | Detailed inspection of individual simulation runs and metrics. |
-| `/app/compare` | Multi-Run Compare | Side-by-side comparison of up to 6 historical simulation runs. |
-| `/app/research` | Research Lab Hub | Traffic volume sweeps, delay crossover explorer, Monte Carlo validation. |
-| `/app/volume` | Volume Sweep | Demand ladder analysis across varying saturation percentages. |
-| `/app/validation` | Monte Carlo Studio | Multi-seed statistical significance testing (Welch's t-test, Cohen's d). |
-| `/app/three-way` | Control Comparison | Three-way study: Fixed-Time vs. Adaptive Signal vs. Roundabout. |
-| `/app/tokens` | Access Tokens | Personal Access Token (PAT) generation and scope management. |
-| `/app/admin` | System Admin | User directory and administrative system monitoring. |
+| URL Path               | View Component      | Description                                                                          |
+| :--------------------- | :------------------ | :----------------------------------------------------------------------------------- |
+| `/`                    | Landing Page        | Public product narrative, interactive canvas hero, methodology overview.             |
+| `/app/comparative`     | Guided Comparison   | 3-step comparison wizard (Scenario $\to$ Lockstep Simulation $\to$ Decision Report). |
+| `/app/network`         | Network Visualizer  | Multi-junction MapLibre GL map, congestion heatmaps, calibration, RL, twin.          |
+| `/app/planner`         | Decision Support    | Multi-alternative planning studies and downloadable reports.                         |
+| `/app/experiments/:id` | Robustness Lab      | Parameter uncertainty ensemble viewer with bootstrap paired difference intervals.    |
+| `/app/copilot`         | AI Copilot          | Natural language experiment builder with schema validation gate.                     |
+| `/app/discovery`       | Strategy Discovery  | NSGA-II multi-objective strategy search and Pareto frontier exploration.             |
+| `/app/stress`          | Breakpoint Explorer | High-load traffic chaos and operational breakpoint explorer.                         |
+| `/app/history`         | Run History         | Stored simulation catalog, tags, labels, and bit-identical seed reproduction.        |
+| `/app/runs/:id`        | Run Detail Page     | Detailed inspection of individual simulation runs and metrics.                       |
+| `/app/compare`         | Multi-Run Compare   | Side-by-side comparison of up to 6 historical simulation runs.                       |
+| `/app/research`        | Research Lab Hub    | Traffic volume sweeps, delay crossover explorer, Monte Carlo validation.             |
+| `/app/volume`          | Volume Sweep        | Demand ladder analysis across varying saturation percentages.                        |
+| `/app/validation`      | Monte Carlo Studio  | Multi-seed statistical significance testing (Welch's t-test, Cohen's d).             |
+| `/app/three-way`       | Control Comparison  | Three-way study: Fixed-Time vs. Adaptive Signal vs. Roundabout.                      |
+| `/app/tokens`          | Access Tokens       | Personal Access Token (PAT) generation and scope management.                         |
+| `/app/admin`           | System Admin        | User directory and administrative system monitoring.                                 |
 
 ---
 
 ## Motion Interpolation & Visual Rendering
 
 ### 1. Dual Canvas Motion Interpolation
+
 The backend streams vehicle positions at ~10 Hz over WebSockets (`/ws/simulation/dual`). To achieve smooth 60 FPS rendering in the browser, `snapshotInterpolator.ts` maintains a circular buffer of recent frames and computes cubic Hermite spline interpolation:
+
 - Smooth velocity-based vehicle orientation and position transitions.
 - Visual state overlays: brake lights, turn indicators, vehicle class color-coding.
 - Traffic signal state rendering: animated green/yellow/red signal heads and pedestrian clearance.
 - Roundabout give-way line markers and circulating conflict zone indicators.
 
 ### 2. MapLibre GL Spatial Network Mapping
+
 The network view integrates MapLibre GL with pre-bundled offline vector tiles, allowing multi-junction corridors and grids (such as the 12-junction arterial network) to be explored interactively:
+
 - Node-edge spatial layout representing junctions and arterial connecting links.
 - Real-time link color coding reflecting space-mean speeds and volume-to-capacity ($V/C$) ratios.
 - Link congestion propagation animations showing upstream spillback evolution.
@@ -160,10 +164,12 @@ The network view integrates MapLibre GL with pre-bundled offline vector tiles, a
 ## Local Development Workflow
 
 ### Prerequisites
+
 - Node.js 24 or newer (Node 26 LTS recommended)
 - npm package manager
 
 ### Getting Started
+
 ```bash
 cd frontend
 
@@ -177,6 +183,7 @@ npm run dev
 The application will be accessible at `http://localhost:5173`. In development mode, Vite proxies `/api` and `/ws` requests to `http://localhost:8000` automatically.
 
 ### Environment Flags (`.env.local`)
+
 - `VITE_API_URL`: Override base backend REST API URL (defaults to current origin).
 - `VITE_WS_URL`: Override base WebSocket streaming URL (defaults to current origin).
 - `VITE_DEV_AUTH_BYPASS`: Set to `true` (default in dev) to bypass Cognito and sign in automatically as "Local Developer".
@@ -209,6 +216,7 @@ npm run build
 ## Production Containerization
 
 The frontend Dockerfile compiles assets using a multi-stage build and serves them via `nginx-unprivileged` on container port 8080:
+
 - **SPA Fallback:** Known routes in `src/routing.ts` fall back to `/app.html` without flickering; unknown paths render a 404 page.
 - **Reverse Proxy:** Proxies `/api/*`, `/ws/*`, and `/health` to the backend service.
 - **API Key Injection:** Injects the server-side `BACKEND_API_KEY` header for internal requests.
