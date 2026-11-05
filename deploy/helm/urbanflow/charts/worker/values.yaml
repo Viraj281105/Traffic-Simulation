@@ -1,0 +1,39 @@
+enabled: false
+image: {repository: urbanflow-backend, tag: dev, pullPolicy: IfNotPresent}
+# Used when KEDA is off. With keda.enabled the ScaledObject owns the replica count.
+replicas: 1
+serviceAccount:
+  name: worker
+  # IRSA role from Terraform output worker_role_arn.
+  roleArn: ""
+queue:
+  url: ""
+  dlqUrl: ""
+  region: ""
+runStore:
+  bucket: ""
+  prefix: ""
+# Cost tags the worker adds to every job (project defaults to urbanflow; owner is mandatory).
+tags:
+  env: staging
+  owner: ""
+env: {}
+# A job can run for many minutes: give it time to finish after SIGTERM.
+terminationGracePeriodSeconds: 900
+resources:
+  requests: {cpu: "1", memory: 1Gi}
+  limits: {memory: 2Gi}
+# Run on the tainted spot node group created by Terraform (modules/eks).
+nodeSelector:
+  workload: batch
+tolerations:
+  - {key: spot, operator: Equal, value: "true", effect: NoSchedule}
+# KEDA scales the Deployment between min and max replicas on queue depth (needs the KEDA operator).
+keda:
+  enabled: false
+  minReplicaCount: 0
+  maxReplicaCount: 4
+  # Target visible messages per replica.
+  queueLength: 2
+  pollingInterval: 30
+  cooldownPeriod: 300

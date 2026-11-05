@@ -15,3 +15,6 @@ dependencies:
   - name: ingest
     version: 0.1.0
     condition: ingest.enabled
+  - name: worker
+    version: 0.1.0
+    condition: worker.enabled

@@ -1,0 +1,7 @@
+# Copy to staging.tfvars (git-ignored) and fill in. No secrets belong here.
+region             = "us-east-1"
+owner              = "platform-team"
+github_repository  = "CHANGE-ME/Traffic-Simulation"
+state_bucket_name  = "CHANGE-ME-urbanflow-tfstate"
+alert_emails       = ["you@example.com"]
+monthly_budget_usd = 250

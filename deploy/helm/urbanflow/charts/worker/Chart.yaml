@@ -1,0 +1,6 @@
+apiVersion: v2
+name: worker
+description: UrbanFlow job-queue worker (F17). Disabled by default; consumes the SQS job queue and runs multi-seed studies.
+type: application
+version: 0.1.0
+appVersion: "4.1.0"

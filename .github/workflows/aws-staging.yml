@@ -1,0 +1,198 @@
+name: AWS Staging
+
+# Terraform plan on pull requests, and an image build + Helm deploy to the AWS staging EKS cluster
+# on a release tag or by hand. Written for package 2E and NOT yet exercised.
+#
+# Nothing here runs unless the repository variable AWS_STAGING_ENABLED is "true". Without it every
+# job is skipped, so forks and accounts with no AWS set-up are unaffected. No AWS key is stored:
+# jobs assume IAM roles through GitHub OIDC (roles come from infra/terraform, outputs
+# ci_plan_role_arn and ci_deploy_role_arn).
+#
+# Repository variables (Settings > Secrets and variables > Actions > Variables):
+#   AWS_STAGING_ENABLED   "true" to switch this workflow on
+#   AWS_REGION            for example us-east-1
+#   AWS_PLAN_ROLE_ARN     terraform output ci_plan_role_arn
+#   AWS_DEPLOY_ROLE_ARN   terraform output ci_deploy_role_arn
+#   EKS_CLUSTER_NAME      terraform output cluster_name
+#   TF_STATE_BUCKET       the Terraform state bucket
+#   TF_OWNER              owner cost tag
+#   TF_ALERT_EMAILS       budget alert addresses as a JSON list, for example ["a@example.com"]
+#   TF_MONTHLY_BUDGET_USD monthly budget cap
+#   ECR_REGISTRY          <account>.dkr.ecr.<region>.amazonaws.com
+#   JOBS_QUEUE_URL, JOBS_DLQ_URL, RUNSTORE_BUCKET, WORKER_ROLE_ARN   terraform outputs for the worker
+#   WORKER_ENABLED        "true" to deploy the job worker too (default: API and frontend only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to deploy (branch, tag or SHA)"
+        required: false
+        default: ""
+  push:
+    tags:
+      - "v*"
+  pull_request:
+    paths:
+      - "infra/terraform/**"
+      - ".github/workflows/aws-staging.yml"
+
+concurrency:
+  group: aws-staging-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  TF_DIR: infra/terraform/envs/staging
+  TF_VAR_owner: ${{ vars.TF_OWNER }}
+  TF_VAR_github_repository: ${{ github.repository }}
+  TF_VAR_state_bucket_name: ${{ vars.TF_STATE_BUCKET }}
+  TF_VAR_alert_emails: ${{ vars.TF_ALERT_EMAILS }}
+  TF_VAR_monthly_budget_usd: ${{ vars.TF_MONTHLY_BUDGET_USD }}
+  TF_VAR_region: ${{ vars.AWS_REGION }}
+  TF_IN_AUTOMATION: "true"
+
+jobs:
+  terraform-plan:
+    name: Terraform fmt, validate and plan
+    # Pull requests from forks get no OIDC token, so they are skipped.
+    if: >-
+      vars.AWS_STAGING_ENABLED == 'true' &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.5
+
+      - name: Format check
+        run: terraform fmt -check -recursive infra/terraform
+
+      - name: Validate (no backend, no credentials)
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+
+      - name: Assume the read-only plan role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Plan
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform init -input=false -reconfigure \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="key=staging/terraform.tfstate" \
+            -backend-config="region=${{ vars.AWS_REGION }}" \
+            -backend-config="encrypt=true" \
+            -backend-config="use_lockfile=true"
+          terraform plan -input=false -lock-timeout=60s -no-color | tee plan.txt
+          {
+            echo '### Terraform plan (staging)'
+            echo '```'
+            tail -n 60 plan.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: Build images and deploy to staging
+    if: >-
+      vars.AWS_STAGING_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # The deploy role trusts this environment only (repo:<owner>/<repo>:environment:staging).
+    environment: staging
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      NAMESPACE: urbanflow
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Assume the deploy role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Log in to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: true
+          tags: ${{ vars.ECR_REGISTRY }}/urbanflow-staging/backend:${{ github.sha }}
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+          cache-from: type=gha,scope=aws-backend
+          cache-to: type=gha,scope=aws-backend,mode=max
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./frontend
+          file: frontend/Dockerfile
+          push: true
+          tags: ${{ vars.ECR_REGISTRY }}/urbanflow-staging/frontend:${{ github.sha }}
+          cache-from: type=gha,scope=aws-frontend
+          cache-to: type=gha,scope=aws-frontend,mode=max
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: Connect to the cluster
+        run: aws eks update-kubeconfig --name "${{ vars.EKS_CLUSTER_NAME }}" --region "${{ vars.AWS_REGION }}"
+
+      - name: Helm deploy
+        run: |
+          args=(
+            --set "backend.image.repository=${{ vars.ECR_REGISTRY }}/urbanflow-staging/backend"
+            --set "backend.image.tag=${{ github.sha }}"
+            --set "frontend.image.repository=${{ vars.ECR_REGISTRY }}/urbanflow-staging/frontend"
+            --set "frontend.image.tag=${{ github.sha }}"
+          )
+          if [ "${{ vars.WORKER_ENABLED }}" = "true" ]; then
+            args+=(
+              --set "worker.enabled=true"
+              --set "worker.keda.enabled=true"
+              --set "worker.image.repository=${{ vars.ECR_REGISTRY }}/urbanflow-staging/backend"
+              --set "worker.image.tag=${{ github.sha }}"
+              --set "worker.queue.url=${{ vars.JOBS_QUEUE_URL }}"
+              --set "worker.queue.dlqUrl=${{ vars.JOBS_DLQ_URL }}"
+              --set "worker.queue.region=${{ vars.AWS_REGION }}"
+              --set "worker.runStore.bucket=${{ vars.RUNSTORE_BUCKET }}"
+              --set "worker.serviceAccount.roleArn=${{ vars.WORKER_ROLE_ARN }}"
+              --set "worker.tags.owner=${{ vars.TF_OWNER }}"
+            )
+          fi
+          helm upgrade --install urbanflow deploy/helm/urbanflow \
+            --namespace "${NAMESPACE}" \
+            --atomic --timeout 10m \
+            "${args[@]}"
+
+      - name: Check rollout
+        run: |
+          kubectl -n "${NAMESPACE}" rollout status deployment/backend --timeout=300s
+          kubectl -n "${NAMESPACE}" rollout status deployment/frontend --timeout=300s

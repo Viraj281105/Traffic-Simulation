@@ -1,0 +1,66 @@
+# ALTERNATIVE to the managed spot node group + cluster autoscaler: a Karpenter spot pool for batch workers.
+# Not used by the Terraform in infra/terraform, which provisions the managed "spot-batch" group instead.
+# Needs Karpenter v1 installed with its own IAM and interruption queue; none of that is provisioned here.
+# Same contract as the managed group, so the worker chart works unchanged: label workload=batch and
+# taint spot=true:NoSchedule.
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: spot-batch
+spec:
+  template:
+    metadata:
+      labels:
+        workload: batch
+        node-lifecycle: spot
+    spec:
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: spot-batch
+      taints:
+        - key: spot
+          value: "true"
+          effect: NoSchedule
+      requirements:
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["spot"]
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+        - key: karpenter.k8s.aws/instance-category
+          operator: In
+          values: ["c", "m"]
+        - key: karpenter.k8s.aws/instance-cpu
+          operator: In
+          values: ["4", "8"]
+  # Hard ceiling on batch compute, mirroring spot_max_size in the Terraform.
+  limits:
+    cpu: "16"
+  disruption:
+    consolidationPolicy: WhenEmpty
+    consolidateAfter: 2m
+---
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: spot-batch
+spec:
+  amiFamily: AL2023
+  amiSelectorTerms:
+    - alias: al2023@latest
+  role: CHANGE-ME-karpenter-node-role
+  subnetSelectorTerms:
+    - tags:
+        kubernetes.io/cluster/urbanflow-staging: shared
+        kubernetes.io/role/internal-elb: "1"
+  securityGroupSelectorTerms:
+    - tags:
+        aws:eks:cluster-name: urbanflow-staging
+  # Cost allocation: nodes carry the same mandatory tags as everything else.
+  tags:
+    project: urbanflow
+    env: staging
+    owner: CHANGE-ME
+    managed-by: karpenter

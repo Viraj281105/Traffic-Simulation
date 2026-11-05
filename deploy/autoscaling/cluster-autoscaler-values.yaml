@@ -1,0 +1,21 @@
+# Helm values for the kubernetes/autoscaler "cluster-autoscaler" chart. Not applied by anything yet.
+#   helm repo add autoscaler https://kubernetes.github.io/autoscaler
+#   helm upgrade --install cluster-autoscaler autoscaler/cluster-autoscaler -n kube-system -f cluster-autoscaler-values.yaml
+# Replace CHANGE-ME. The autoscaler needs its own IRSA role (autoscaling:Describe*, SetDesiredCapacity,
+# TerminateInstanceInAutoScalingGroup, ec2:Describe*), which this repository does not create yet.
+autoDiscovery:
+  # Matches the tags Terraform puts on the spot node group (modules/eks).
+  clusterName: urbanflow-staging
+awsRegion: CHANGE-ME
+rbac:
+  serviceAccount:
+    name: cluster-autoscaler
+    annotations:
+      eks.amazonaws.com/role-arn: arn:aws:iam::000000000000:role/CHANGE-ME-cluster-autoscaler
+extraArgs:
+  # Prefer the cheapest group that fits: the spot group (scale-from-zero) before on-demand.
+  expander: least-waste
+  balance-similar-node-groups: true
+  skip-nodes-with-system-pods: false
+  scale-down-unneeded-time: 5m
+  scale-down-delay-after-add: 5m
