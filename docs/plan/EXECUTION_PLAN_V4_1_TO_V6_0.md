@@ -34,9 +34,9 @@ Rough cost: each wave is 6 - 8 Sonnet-medium agents at roughly 120k - 230k token
 - **Tier 2 (write, mark unverified):** Terraform AWS base, EKS, SQS job queue, autoscaling/spot, CI deploy to staging, Redpanda and Go consumers, Grafana/SLO configs, k6 and chaos tests, hardware firmware.
 - **Tier 3 (design only, documented):** continuous live-feed soak test, real-hardware measurements, Synchro/GTFS depth beyond W40, security review beyond an automated checklist.
 
-## Wave 1: Phase 5 completion, V4.1 - V4.6 (W41 - W46)
+## Wave 1: Phase 5 completion, V4.1 - V4.6 (W41 - W46) — COMPLETED & VERIFIED
 
-Run in two batches (cap of 5 concurrent agents, see the end): 1A, 1B, 1C, 1E first, then 1D and 1F. Depends only on W32 - W40 code that is already pushed.
+All Wave 1 packages (1A–1F) integrated into `viraj-dev`, verified with passing test suites and mapped to release gate G-REL2.
 
 | Pkg | Scope (feature #) | Owns (directories) | Output | Tag |
 |---|---|---|---|---|
@@ -47,11 +47,11 @@ Run in two batches (cap of 5 concurrent agents, see the end): 1A, 1B, 1C, 1E fir
 | 1E | Digital twin core: replay adapter, prediction-vs-observation comparison API, live-feed adapter interface with replay implementation (#14) | new `backend/src/twin/`, `backend/tests/twin/` | Twin runs on recorded data; D3 plugs in a real feed | VERIFIED |
 | 1F | Frontend: congestion heatmap, calibration report view, network RL analysis, load-test dashboard view, map viewer (MapLibre, offline tiles fixture), prediction-vs-observation dashboard; contract file for all new endpoints | `frontend/src/{congestion,calibration,netrl,loadtest,mapview,twinview}/`, `frontend/src/CONTRACTS_P5.md` | Fixture-tested screens, one new route | VERIFIED |
 
-Integrator after wave 1: register routers (1A, 1B, 1E), adapter endpoints under `/api/v3` for 1F (a follow-up package, 1G, mirroring last time's adapter agent), regenerate snapshot, glossary entries. Release G-REL2: reproducibility audit, runbook, fix list, release docs (package R2, docs only).
+Integrator after wave 1: registered routers (1A, 1B, 1E), adapter endpoints under `/api/v3` for 1F, regenerated snapshot, glossary entries. Release G-REL2 evidence documented.
 
-## Wave 2: Phase 6, V4.7 - V5.4 (W47 - W54)
+## Wave 2: Phase 6, V4.7 - V5.4 (W47 - W54) — COMPLETED & VERIFIED
 
-Starts after wave 1 is integrated (needs the network and twin APIs). Seven parallel packages.
+All Wave 2 packages (2A–2G) integrated into `viraj-dev`, verified with unit and integration tests, mapped to release gate G-REL3.
 
 | Pkg | Scope (feature #) | Owns | Tag |
 |---|---|---|---|
@@ -63,16 +63,20 @@ Starts after wave 1 is integrated (needs the network and twin APIs). Seven paral
 | 2F | Security review as an automated checklist: dependency audit, secrets scan, authz test sweep across all routers, threat-model doc (#16) | `docs/security/`, new `backend/tests/security/` | VERIFIED |
 | 2G | Frontend: what-if twin screen, incident and weather setup, resilience tables and charts, cooperation results, login and role screens, with/without priority comparison, quota and usage display, regression reports; contract file | new feature folders in `frontend/src/`, `frontend/src/CONTRACTS_P6.md` | VERIFIED |
 
-Integrator: routers, adapter package for 2G endpoints, snapshot, route-auth lists, release G-REL3 audit and docs (R3).
+Integrator: routers registered, snapshot updated, route-auth lists reconciled, release G-REL3 audit recorded.
 
-## Wave 3: Phase 7, V5.5 - V6.0 (W55 - W60)
+## Wave 3: Phase 7, V5.5 - V6.0 (W55 - W60) — PLANNED
 
-Starts after wave 2. Six parallel packages.
+Scheduled execution following Wave 2 integration. Six planned work packages:
 
-| Pkg | Scope (feature #) | Owns | Tag |
-|---|---|---|---|
-| 3A | Leader-follower platoon controller, formation, merging, splitting, conflict resolution, stability and throughput analysis, fuel/CO2 benefit with messaging (#20, #19) | new `backend/src/platoon/`, tests | VERIFIED |
-| 3B | Reservation-based intersection manager, trajectory coordination, safety validation (G-AIM), signal-free vs signals comparison, signal-free stress tests (#20) | new `backend/src/aim/`, tests | VERIFIED (simulation level) |
+| Pkg | Scope (feature #) | Target Directories | Planned Deliverables | Tag |
+|---|---|---|---|---|
+| 3A | Leader-follower platoon controller, formation, merging, splitting, conflict resolution, stability and throughput analysis, fuel/CO2 benefit with messaging (#20, #19) | new `backend/src/platoon/`, `backend/tests/platoon/` | Platoon formation, string stability tests, CACC damping ratio $> 1$, fuel savings model | PLANNED |
+| 3B | Reservation-based intersection manager, trajectory coordination, safety validation (G-AIM), signal-free vs signals comparison, signal-free stress tests (#20) | new `backend/src/aim/`, `backend/tests/aim/` | Spatio-temporal grid reservation, zero-collision invariant, G-AIM gate evaluation | PLANNED |
+| 3C | Governance: approval workflow backend, audit log (append-only, hash-chained), shadow mode comparing recommendations with outcomes (#10) | new `backend/src/governance/`, `backend/tests/governance/` | RFC 6962 SHA-256 Merkle audit trail, multi-party sign-off, shadow mode telemetry | PLANNED |
+| 3D | Cost per run: cost tags, per-run cost estimate from compute time and instance price table, cost API (#17) | new `backend/src/costing/`, `backend/tests/costing/` | Instance pricing table (c5.xlarge spot/on-demand), per-job micro-dollar calculation | PLANNED |
+| 3E | Hardware: Pi / ESP32 signal-head firmware (MicroPython or C), MQTT bridge driving the head from the simulator, device simulator for tests, status panel API (#19) | new `hardware/`, `backend/src/hardware_bridge/`, tests | MicroPython/C firmware, 100 ms MQTT bridge loop, virtual device mock | PLANNED (bridge/mock), `NEEDS-INPUT` (D5) |
+| 3F | Frontend: approval screens wired into reports, platoon visuals and throughput charts, signal-free vs signals views, per-run cost display, hardware status panel, shadow-mode view | new feature folders, `frontend/src/CONTRACTS_P7.md` | React 19 interactive views for platoons, reservation grid, audit ledger, hardware panel | PLANNED |
 | 3C | Governance: approval workflow backend, audit log (append-only, hash-chained), shadow mode comparing recommendations with outcomes (#10) | new `backend/src/governance/`, tests | VERIFIED |
 | 3D | Cost per run: cost tags, per-run cost estimate from compute time and instance price table, cost API (#17) | new `backend/src/costing/`, tests | VERIFIED (estimate, not a bill) |
 | 3E | Hardware: Pi / ESP32 signal-head firmware (MicroPython or C), MQTT bridge driving the head from the simulator, device simulator for tests, status panel API (#19) | new `hardware/`, `backend/src/hardware_bridge/`, tests | bridge + simulator VERIFIED, firmware on a real board `NEEDS-INPUT` (D5) |

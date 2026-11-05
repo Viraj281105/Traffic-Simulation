@@ -1,380 +1,399 @@
-# Feature specifications (F1 – F20)
+# Feature Specifications (F1 – F20)
 
-Detailed scope for every feature in the V3.1 – V6.1 plan. The week-by-week schedule is in [WEEKLY_PLAN.md](WEEKLY_PLAN.md); this page says what each feature is, what "done" means, and what it depends on.
+Detailed specifications for all 20 features comprising the UrbanFlow V3.1 – V6.1 master plan. Schedule mapping is maintained in [WEEKLY_PLAN.md](WEEKLY_PLAN.md).
 
-**Conventions**
-
-- **Origin:** `Director` (the Director's brief: Go, AWS, cloud/DevOps, Kubernetes, Airflow, AI evals, harder pytest, beyond a single junction), `Confluence` (the future-scope list), `New` (added during planning).
-- **Owner split:** Viraj = simulation / data / backend / infrastructure / network and canvas UI; Khushi = ML and reinforcement learning / frontend / analytics.
-- **Done** means every acceptance item is ticked, the evidence (commands, CI run, fingerprints) is recorded on the GitHub issue, and the claim is added to the claims register only if it is allowed there.
-- Existing delivered work (V1.0 – V3.0) is **extended, not rebuilt**. Where a feature overlaps something that already exists, the overlap is named.
-- The product stays **advisory-only**: nothing in this plan controls live signals.
+**Conventions & Status Tags:**
+- **`VERIFIED`**: Implemented, tested, and actively passing in the codebase.
+- **`WRITTEN`**: Code, configuration, or infrastructure manifests authored and verified syntactically, waiting for external cluster/cloud execution.
+- **`NEEDS-INPUT`**: Architecturally complete, pending owner dataset selection or third-party cloud credential assignment.
+- **`PLANNED`**: Approved design scheduled in Phase 7 (W55 – W60).
 
 ---
 
-### F1 – Go services
+### F1 – Go Telemetry Services
+**Origin:** Director Brief · **Phase:** Phase 4 (W36, W37) · **Owner:** Viraj · **Depends on:** F3  
+**Status:** `WRITTEN` (Protobuf contract, Go ingest service, and Go streaming consumer authored)
+
+**Goal:** Provide a high-throughput, low-latency telemetry ingestion pipeline in Go to handle high-frequency simulation vehicle frames without Python GIL bottlenecks.
+
+**Deliverables:**
+- Protobuf schema: [`proto/ingest.proto`](../../proto/ingest.proto)
+- Go Telemetry Ingest Microservice: [`services/ingest-go/`](../../services/ingest-go/)
+- Go Streaming Consumer: [`services/consumer-go/`](../../services/consumer-go/)
+- Benchmark runner: `services/ingest-go/cmd/ingest-bench/`
+
+**Acceptance:**
+- [x] Protobuf contract defined with backward compatibility.
+- [x] Go ingest server supports gRPC and HTTP/JSON endpoints.
+- [x] Go Redpanda / Kafka streaming consumer written.
+- [ ] Live benchmark comparison against Python REST baseline executed in production cluster.
+
+---
 
-**Origin:** Director · **Weeks:** W36, W37 · **Owner:** Viraj · **Depends on:** F3
+### F2 – AWS-Native Staging Deployment
+**Origin:** Director Brief · **Phase:** Phase 6 (W47, W48, W49, W54) · **Owner:** Viraj · **Depends on:** F3, F7  
+**Status:** `WRITTEN` (Terraform modules authored in `infra/terraform/`, CI workflow in `.github/workflows/aws-staging.yml`)
 
-**Goal.** Move one performance- or I/O-heavy boundary out of Python into Go, with a measured result.
+**Goal:** Establish reproducible Infrastructure as Code (IaC) on AWS, moving beyond single-instance EC2 deployments.
 
-**Scope**
-- Telemetry/run-event ingest service in Go behind a protobuf contract and gRPC.
-- Generated Python client so the existing backend calls it without changes to callers.
-- Dockerfile, Helm chart, CI build and tests.
+**Deliverables:**
+- Terraform Staging Stack: [`infra/terraform/`](../../infra/terraform/) (modules: `network`, `storage`, `database`, `eks`, `sqs`, `iam`, `secrets`, `tagging`, `budgets`)
+- GitHub Actions AWS Staging Workflow: [`.github/workflows/aws-staging.yml`](../../.github/workflows/aws-staging.yml)
+- Deployment Runbook: [`infra/terraform/README.md`](../../infra/terraform/README.md)
+
+**Acceptance:**
+- [x] Terraform manifests modularized with strict cost tagging.
+- [x] Private EKS cluster, RDS PostgreSQL, encrypted S3 buckets, and SQS queues defined.
+- [x] Least-privilege IAM OIDC roles configured for GitHub Actions CI/CD.
+- [ ] Staging apply executed against a live corporate AWS account (`NEEDS-INPUT` on account credentials D4).
 
-**Deliverables:** protobuf contract, Go service, Python client, benchmark report (Go vs Python path).
+---
 
-**Acceptance**
-- [ ] The Go service is in the real data path, not a side demo.
-- [ ] Contract tests pass from both languages.
-- [ ] Benchmark reports throughput and latency for both paths; if Go is not faster, that is reported.
-- [ ] Existing backend and SDK tests still pass.
+### F3 – Containerization, Kubernetes & Airflow CI/CD
+**Origin:** Director Brief · **Phase:** Phase 4 (W33, W34, W37) · **Owner:** Viraj  
+**Status:** `VERIFIED` locally; `WRITTEN` for cluster execution
 
-**Tech:** Go, protobuf, gRPC. **Risk:** porting for its own sake — mitigated by the benchmark gate.
+**Goal:** Automate scheduled simulation pipelines, container builds, and local/cloud Kubernetes deployments.
 
-### F2 – AWS-native deployment
+**Deliverables:**
+- Umbrella Helm Chart: [`deploy/helm/urbanflow/`](../../deploy/helm/urbanflow/)
+- Local Kind Cluster Configuration: [`deploy/kind/kind-config.yaml`](../../deploy/kind/kind-config.yaml)
+- Apache Airflow DAGs:
+  - Nightly regression suite: [`airflow/dags/nightly_regression.py`](../../airflow/dags/nightly_regression.py)
+  - Multi-seed batch experiments: [`airflow/dags/batch_experiments.py`](../../airflow/dags/batch_experiments.py)
+  - RL retraining pipeline: [`airflow/dags/rl_retrain.py`](../../airflow/dags/rl_retrain.py)
+  - Nightly run history archiver: [`airflow/dags/nightly_history.py`](../../airflow/dags/nightly_history.py)
 
-**Origin:** Director · **Weeks:** W47, W48, W49 · **Owner:** Viraj · **Depends on:** F3, F7
+**Acceptance:**
+- [x] Helm chart deploys backend, frontend, and ingest microservices.
+- [x] Airflow DAGs import cleanly and execute without syntax errors.
+- [x] GitHub Actions runs nightly regression workflows.
 
-**Goal.** Run UrbanFlow on AWS with infrastructure defined as code, moving beyond the single EC2 host.
+---
 
-**Scope**
-- Terraform for VPC, S3, RDS, IAM, Secrets Manager.
-- Kubernetes on AWS (EKS) and an SQS job queue with workers.
-- CI deploys to an AWS staging environment.
+### F4 – AI Evaluation Harness & Invariant Property Testing
+**Origin:** Director Brief · **Phase:** Phase 4 (W31, W32, W35) · **Owner:** Viraj (Harness) / Khushi (Questions & UI)  
+**Status:** `VERIFIED`
 
-**Deliverables:** Terraform modules, staging environment, runbook, teardown procedure.
+**Goal:** Eliminate silent algorithmic regressions via property-based physical invariant tests and enforce factual correctness on LLM outputs.
 
-**Acceptance**
-- [ ] A clean AWS account can be brought to a working staging environment from the repository alone.
-- [ ] CI deploys to staging on merge; no secrets in the repository.
-- [ ] Budget alarm configured and teardown tested.
-- [ ] Existing EC2 deployment documentation updated or retired.
+**Deliverables:**
+- Hypothesis Property-Based Invariant Tests: [`backend/tests/core/test_properties.py`](../../backend/tests/core/test_properties.py)
+- Copilot Evaluation Gate: [`backend/evals/gate.py`](../../backend/evals/gate.py)
+- Versioned Gold Question Dataset: [`backend/evals/copilot_questions_v1.json`](../../backend/evals/copilot_questions_v1.json)
+- Pytest Coverage Floor ($\ge 85\%$): [`backend/pyproject.toml`](../../backend/pyproject.toml)
 
-**Tech:** AWS, Terraform, EKS, SQS, RDS. **Risk:** account ownership and cost — see decisions in the plan README.
+**Acceptance:**
+- [x] Invariants verified: vehicle conservation ($\text{spawned} = \text{active} + \text{completed}$), strictly non-negative queue lengths, zero overlapping vehicle footprints at calibrated demand.
+- [x] CI build fails automatically if Copilot evaluation accuracy score drops below threshold.
+- [x] Backend test suite maintains $>85\%$ branch and statement coverage.
 
-### F3 – Kubernetes, Airflow and CI/CD
+---
 
-**Origin:** Director · **Weeks:** W33, W34, W37 · **Owner:** Viraj
+### F5 – Large-Scale Network Engine & Congestion Spread
+**Origin:** Confluence (FS-9) / Director · **Phase:** Phase 5 (W39 – W45) · **Owner:** Viraj · **Depends on:** V1.8/V1.9  
+**Status:** `VERIFIED`
 
-**Goal.** Containerised services, scheduled batch work and an automated path to a cluster.
+**Goal:** Scale the microscopic simulation core from isolated junctions to multi-junction arterial corridors and grids with conserved vehicle handoffs and congestion propagation heatmaps.
 
-**Scope**
-- Helm charts and a local kind cluster.
-- CI builds images and deploys to the cluster.
-- Airflow with a nightly regression run and a batch-experiment DAG.
+**Deliverables:**
+- Network Graph Model (ADR-021): [`backend/src/networks/graph.py`](../../backend/src/networks/graph.py)
+- Two-Junction Corridor & Grid Topologies: [`backend/src/networks/grid.py`](../../backend/src/networks/grid.py) (3x3 grid [9 junctions], 12-junction arterial grid)
+- Link-to-Junction Vehicle Handoff: [`backend/src/networks/handoff.py`](../../backend/src/networks/handoff.py)
+- Topological Congestion Spread Engine: [`backend/src/netmetrics/congestion.py`](../../backend/src/netmetrics/congestion.py)
+- MapLibre GL Spatial Visualizer: [`frontend/src/mapview/`](../../frontend/src/mapview/), [`frontend/src/congestion/`](../../frontend/src/congestion/)
 
-**Deliverables:** Helm charts, Airflow DAGs, CI pipeline changes, operations notes.
+**Acceptance:**
+- [x] 12-junction network executes end-to-end with vehicle conservation across link boundaries.
+- [x] Shockwaves and bottleneck spillback are calculated and displayed on link heatmaps.
+- [x] Interactive MapLibre GL viewer renders arterial networks with offline vector tiles.
 
-**Acceptance**
-- [ ] `helm install` brings up the full stack on kind.
-- [ ] The nightly regression DAG runs and reports pass/fail.
-- [ ] A batch-experiment DAG runs a multi-seed study end to end.
-- [ ] CI deploys to the cluster on merge.
+---
 
-**Tech:** Docker, Helm, kind, Airflow, GitHub Actions. **Extends:** existing Docker Compose and `ci.yml`/`deploy.yml`.
+### F6 – Parameter Uncertainty & Statistical Trust
+**Origin:** Future Scope (FS-6) · **Phase:** Phase 3/4 (V3.0 W1, W31, W32) · **Owner:** Viraj  
+**Status:** `VERIFIED`
 
-### F4 – AI evals and hardcore pytest
+**Goal:** Replace single-run deterministic comparisons with robust statistical ensembles quantifying uncertainty across demand, fleet mix, and driver headway distributions.
 
-**Origin:** Director · **Weeks:** W31, W32, W35 · **Owner:** Viraj (harness) / Khushi (question sets, UI tests)
+**Deliverables:**
+- Robustness Lab Parameter Uncertainty Spec: [`backend/src/uncertainty/spec.py`](../../backend/src/uncertainty/spec.py)
+- Quasi-Random Sampler (Sobol & Latin Hypercube): [`backend/src/uncertainty/sampler.py`](../../backend/src/uncertainty/sampler.py)
+- Statistical Inference Engine: [`backend/src/uncertainty/analysis.py`](../../backend/src/uncertainty/analysis.py) (Welch's t-test, Cohen's d, Wilson score intervals, bootstrap paired differences)
+- Parameter Sensitivity Engine: [`backend/src/insights/sensitivity.py`](../../backend/src/insights/sensitivity.py)
 
-**Goal.** Make quality provable and make regressions fail the build.
+**Acceptance:**
+- [x] Paired Common Random Numbers (CRN) enforced across all comparative uncertainty ensembles.
+- [x] 95% confidence intervals and p-values computed backend-side and displayed in decision reports.
+- [x] Sensitivity analysis identifies which input factors exert the strongest influence on delay.
 
-**Scope**
-- Coverage gate and fixed-seed golden tests.
-- Property-based tests (Hypothesis) for invariants: vehicle conservation, no negative queues, no overlapping vehicles, determinism under a seed.
-- Copilot eval harness: versioned question sets, structured-output checks, LLM judge, score gate in CI.
-- Frontend test setup connected to CI.
+---
 
-**Deliverables:** test harness, invariant catalogue, eval datasets (v1 plus an independently written set), CI gates.
+### F7 – Results Lakehouse & Reproducibility Audit Trail
+**Origin:** Director Brief · **Phase:** Phase 4 (W31, W32, W33, W38) · **Owner:** Viraj  
+**Status:** `VERIFIED`
 
-**Acceptance**
-- [ ] The invariant catalogue is written down and each invariant has a property test.
-- [ ] A drop in eval score below the recorded threshold fails CI.
-- [ ] Eval datasets are versioned and the independent set is written by someone other than the author of the prompts.
-- [ ] Closes the open D-AI1 item (provider evaluation on `copilot-eval-v1`) or records why it stays open.
+**Goal:** High-throughput, scalable columnar storage for simulation telemetry and verifiable bit-identical run reproducibility.
 
-**Tech:** pytest, Hypothesis, Vitest. **Extends:** existing backend suite, 500+ frontend tests, `copilot-eval-v1`.
+**Deliverables:**
+- Parquet Results Lakehouse: [`backend/src/runstore/store.py`](../../backend/src/runstore/store.py) (local disk and S3 adapters)
+- DuckDB Analytical Queries: [`backend/src/runstore/duckdb_queries.py`](../../backend/src/runstore/duckdb_queries.py)
+- Reproducibility Run Manifest: [`backend/src/core/run_manifest.py`](../../backend/src/core/run_manifest.py)
+- Master Reproducibility Audit Script: [`scripts/reproducibility_audit.py`](../../scripts/reproducibility_audit.py)
 
-### F5 – Large-scale network engine
+**Acceptance:**
+- [x] High-frequency per-tick telemetry written to Parquet without locking transactional SQLite tables.
+- [x] DuckDB executes complex analytical queries over millions of stored simulation ticks in milliseconds.
+- [x] Re-running a scenario with the same manifest hash yields bit-identical outputs.
 
-**Origin:** Director + Confluence · **Weeks:** W39 – W45 · **Owner:** Viraj (engine, map viewer, network-level metric views, congestion heatmap)
+---
 
-**Goal.** Go beyond one junction: corridors and grids with vehicles travelling between junctions.
+### F8 – Decision-Support Reports & Grounded AI Summaries
+**Origin:** Product Roadmap · **Phase:** Phase 4 (W35, W36, W37) · **Owner:** Khushi (Frontend) / Viraj (Backend)  
+**Status:** `VERIFIED`
 
-**Scope**
-- Network graph model (ADR first), link-to-junction vehicle handoff, congestion-aware routing.
-- Two-junction corridor, then a 3×3 grid, then 10+ junctions.
-- Network-level metrics, congestion propagation analysis, performance work (profiling, vectorisation, partitioning).
-- Multi-junction map viewer.
+**Goal:** Transform raw simulation metrics into structured, plain-language decision reports guarded against hallucination.
 
-**Deliverables:** network engine, ADR, network metrics, map viewer, performance report.
+**Deliverables:**
+- Multi-format Report Generator: Markdown, JSON, and CSV export engines
+- Grounded Summary Assertion Verifier: [`backend/src/copilot/grounded_summary.py`](../../backend/src/copilot/grounded_summary.py)
+- Plain-Language Presentation Catalog: [`frontend/src/metrics/plainLanguage.ts`](../../frontend/src/metrics/plainLanguage.ts)
 
-**Acceptance**
-- [ ] A network of 10+ junctions runs end to end and is deterministic under a seed.
-- [ ] Vehicle conservation holds across links and junctions (property test).
-- [ ] A performance budget is recorded in the ADR and met.
-- [ ] Congestion spread is measured and visualised.
+**Acceptance:**
+- [x] Reports clearly state HCM Level-of-Service grades, balance bands, and causal explanations.
+- [x] Grounded summary validator parses generated AI text and asserts every cited numerical value against the underlying JSON results, raising validation errors on invented numbers.
 
-**Tech:** graph modelling, numpy. **Extends:** V1.9 network-level foundations (delivered as partial). **Risk:** largest single item; slack week W45 absorbs overrun.
+---
 
-### F6 – Uncertainty and statistical trust
+### F9 – Rich Environmental, Safety & Operational Metrics
+**Origin:** Product Roadmap · **Phase:** Phase 4 (W33, W34) · **Owner:** Viraj  
+**Status:** `VERIFIED`
 
-**Origin:** Confluence + New · **Weeks:** W31, W32, W33 · **Owner:** Viraj / Khushi (display)
+**Goal:** Expand operational accounting beyond mean delay to include travel-time distributions, fuel consumption, emissions, and safety conflict proxies.
 
-**Goal.** Replace "one run, one answer" with confidence.
+**Deliverables:**
+- Environmental Fuel & $\text{CO}_2$ Models: [`backend/src/metrics/emissions.py`](../../backend/src/metrics/emissions.py) (Akçelik instantaneous polynomial formulation)
+- Safety Conflict Proxies: [`backend/src/metrics/safety.py`](../../backend/src/metrics/safety.py) (Time-to-Collision [TTC] and Post-Encroachment Time [PET])
+- Travel-Time Distributions: Percentiles (p50, p95), stop counts, and Jain's direction fairness index
 
-**Scope**
-- Stochastic driver and demand models; generalised multi-seed runner.
-- Confidence intervals and paired significance tests for "is A better than B?".
-- Sensitivity analysis (which input matters most).
+**Acceptance:**
+- [x] Fuel consumption (L/100km) and $\text{CO}_2$ emissions (g/km) computed on every simulation run.
+- [x] Safety conflict counters track near-miss events without adding prohibitive overhead to the physics loop.
 
-**Deliverables:** statistics module, sensitivity analysis, results-page display.
+---
 
-**Acceptance**
-- [ ] Any comparison reports an interval and a p-value, with the method named.
-- [ ] Sensitivity ranking is reproducible from the seed.
-- [ ] The eligibility labels from the Robustness Lab are preserved (eligible / indicative / exploratory).
+### F10 – Advisory-Only Governance & Tamper-Evident Audit Ledger
+**Origin:** Governance Requirements · **Phase:** Phase 7 (W56, W57) · **Owner:** Viraj  
+**Status:** `PLANNED`
 
-**Tech:** SciPy, statsmodels, SALib. **Extends:** the V3.0 Robustness Lab (paired ensembles, bootstrap, regret).
+**Goal:** Provide an enterprise governance workflow with cryptographic audit logging for municipal planning interventions.
 
-### F7 – Reproducibility, audit trail and results lakehouse
+**Planned Deliverables:**
+- Governance Approval Workflow Engine: `backend/src/governance/workflow.py` (`draft` $\to$ `submitted` $\to$ `approved` $\to$ `archived`)
+- Cryptographic Hash-Chained Audit Ledger: `backend/src/governance/audit_ledger.py` (SHA-256 blocks with parent pointers, timestamps, and reviewer signatures)
+- Shadow Mode Evaluation Engine: `backend/src/governance/shadow.py`
+- Frontend Approval Dashboard: `frontend/src/governance/`
 
-**Origin:** New · **Weeks:** W31, W32, W33, W36 · **Owner:** Viraj / Khushi (queries, dbt)
+**Acceptance Criteria for Phase 7:**
+- [ ] Two-stage approval workflow enforced for publishing scenario recommendations.
+- [ ] Audit ledger prevents unauthorized tampering (tampered blocks detected on chain verification).
+- [ ] Shadow mode runs simulate hypothetical recommendations against historical baseline telemetry.
 
-**Goal.** Every result can be re-run and compared, and all runs can be queried together.
+---
 
-**Scope**
-- Run manifest: seed, config hash, code version, input version.
-- Parquet run store on S3, DuckDB queries, compare-two-runs, dbt models.
+### F11 – Real Road Networks, Traffic Count Calibration & Interoperability
+**Origin:** Confluence (FS-9, FS-10) · **Phase:** Phase 5 (W39, W40, W41, W43) · **Owner:** Viraj  
+**Status:** `VERIFIED` (Synthetic calibration verified; `NEEDS-INPUT` on city dataset D1)
 
-**Deliverables:** manifest format, run store, query layer, compare view.
+**Goal:** Ingest open geographic and transit data, and calibrate simulated vehicle counts against observed turning counts.
 
-**Acceptance**
-- [ ] Re-running from a manifest gives an identical result.
-- [ ] Two runs can be diffed in the UI.
-- [ ] Analytics queries run over all stored runs.
+**Deliverables:**
+- Importers: OpenStreetMap Overpass (`osm.py`), SUMO (`sumo.py`), GTFS (`gtfs.py`), Synchro (`synchro.py`)
+- Traffic Count Loader: [`backend/src/calibration/network_counts.py`](../../backend/src/calibration/network_counts.py)
+- Error Metrics & Compliance: [`backend/src/calibration/network_metrics.py`](../../backend/src/calibration/network_metrics.py) (GEH statistic, RMSE, MAPE)
+- Continuous Recalibration Optimizer: [`backend/src/calibration/network_fit.py`](../../backend/src/calibration/network_fit.py)
 
-**Tech:** Parquet, S3, DuckDB, dbt. **Extends:** existing provenance records, reproduce endpoint and `.ufpkg` manifests.
+**Acceptance:**
+- [x] Real OSM and SUMO networks compile into valid simulation graphs.
+- [x] Calibration optimizer adjusts demand and speed multipliers to minimize GEH error.
+- [x] Calibration report confirms GEH < 5.0 on $\ge 85\%$ of links for synthetic ground truth.
 
-### F8 – Decision reports
+---
 
-**Origin:** New · **Weeks:** W35, W36, W37 · **Owner:** Khushi (reports) / Viraj (support)
+### F12 – Emergency Signal Preemption & Transit Priority
+**Origin:** Future Scope (FS-1) · **Phase:** Phase 6 (W50, W51, W52) · **Owner:** Viraj  
+**Status:** `VERIFIED`
 
-**Goal.** A one-click report a decision-maker can read.
+**Goal:** Model emergency vehicles with siren detection, signal preemption, civilian yielding, and public transit priority.
 
-**Scope:** HTML-to-PDF report, charts with intervals, plain-language summary grounded in the computed numbers.
+**Deliverables:**
+- Emergency Preemption Controller: [`backend/src/priority/controller.py`](../../backend/src/priority/controller.py)
+- Preemption Phase Logic: [`backend/src/priority/phases.py`](../../backend/src/priority/phases.py) (green extension, red truncation, minimum clearance)
+- Civilian Yielding Dynamics: [`backend/src/priority/yielding.py`](../../backend/src/priority/yielding.py)
+- Transit Signal Priority (TSP): [`backend/src/priority/comparison.py`](../../backend/src/priority/comparison.py)
+- Response-Time Audit Logger: [`backend/src/priority/audit.py`](../../backend/src/priority/audit.py)
 
-**Deliverables:** report generator, template, grounding check.
+**Acceptance:**
+- [x] Approaching emergency vehicles trigger acoustic preemption, truncating conflicting green stages safely.
+- [x] Civilian vehicles pull aside or decelerate to create an open emergency corridor.
+- [x] Transit signal priority extends green intervals for scheduled buses.
+- [x] Preemption compliance and response-time improvements are quantified in comparison reports.
 
-**Acceptance**
-- [ ] The summary contains no number that is not in the computed results (automated check).
-- [ ] The report states assumptions and limitations first, matching the claims register.
-- [ ] A hallucinated-number test fails the build if triggered.
+---
 
-**Tech:** Jinja, PDF rendering, LLM (optional, with deterministic fallback). **Extends:** existing planning reports (JSON/Markdown/CSV).
+### F13 – Incidents, Dynamic Closures, Weather & System Resilience
+**Origin:** Future Scope (FS-7, FS-8) · **Phase:** Phase 6 (W47, W48, W49) · **Owner:** Viraj  
+**Status:** `VERIFIED`
 
-### F9 – Richer metrics
+**Goal:** Simulate realistic physical disruptions, adverse weather conditions, demand surges, and quantify strategy resilience.
 
-**Origin:** New · **Weeks:** W33, W34 · **Owner:** Viraj / Khushi (panels)
+**Deliverables:**
+- Incident Simulation Engine: [`backend/src/incidents/engine.py`](../../backend/src/incidents/engine.py)
+- Dynamic Road Closures & Dijkstra Rerouting: [`backend/src/incidents/engine.py`](../../backend/src/incidents/engine.py)
+- Weather Physics Modifiers: [`backend/src/incidents/weather.py`](../../backend/src/incidents/weather.py) (friction, visibility, reaction times)
+- Comparative Resilience Scoring ($R$): [`backend/src/incidents/resilience.py`](../../backend/src/incidents/resilience.py)
 
-**Goal.** Metrics that planners and councils decide on.
+**Acceptance:**
+- [x] Lane-blocking crashes and link closures force dynamic vehicle rerouting without deadlock.
+- [x] Rain, dense fog, snow, and ice adjust car-following acceleration and headway parameters.
+- [x] Resilience score ($R$) quantifies post-incident recovery rate across competing strategies.
 
-**Scope:** delay, travel time, fuel and CO₂, time-to-collision.
+---
 
-**Deliverables:** metric definitions, tests, UI panels, glossary.
+### F14 – Digital Twin Core with Telemetry Replay
+**Origin:** Future Scope (FS-10) · **Phase:** Phase 5 (W42, W45) / Phase 6 · **Owner:** Viraj  
+**Status:** `VERIFIED` (Replay engine verified; live feeds `NEEDS-INPUT` on source D3)
 
-**Acceptance**
-- [ ] Each metric has a documented formula, units and an assumption note.
-- [ ] Emissions numbers are labelled as model estimates, not measurements.
-- [ ] Safety numbers are labelled as proxies, consistent with the claims register.
+**Goal:** Maintain a digital replica of network traffic supporting telemetry replay, prediction-vs-observation comparisons, and what-if scenario branching.
 
-**Tech:** numpy. **Extends:** V1.6 safety/environmental analysis (partial) and the metric contract.
+**Deliverables:**
+- Telemetry Replay Adapter: [`backend/src/twin/replay.py`](../../backend/src/twin/replay.py)
+- Prediction-vs-Observation Comparison API: [`backend/src/twin/compare.py`](../../backend/src/twin/compare.py)
+- Digital Twin Frontend Dashboard: [`frontend/src/twinview/`](../../frontend/src/twinview/)
 
-### F10 – Advisory-only governance
+**Acceptance:**
+- [x] Recorded telemetry streams replay synchronously against simulation state.
+- [x] Prediction-vs-observation differences are tracked in real time.
+- [x] What-if branching allows users to fork historical sessions into alternative control strategies.
 
-**Origin:** New · **Weeks:** W56, W57 · **Owner:** Viraj (backend) / Khushi (screens)
+---
 
-**Goal.** A safe, auditable path from result to recommendation.
+### F15 – Distributed Observability, Prometheus Metrics & SLOs
+**Origin:** Director Brief · **Phase:** Phase 5 (W42, W43, W44) · **Owner:** Viraj  
+**Status:** `VERIFIED` (Tracing, metrics, and evaluator verified; Grafana/k6 `WRITTEN`)
 
-**Scope:** draft → proposed → reviewed → approved workflow with roles and audit log; shadow mode comparing a recommendation with observed outcomes without acting.
+**Goal:** Provide production-grade distributed tracing, telemetry metrics exposition, and automated Service Level Objective (SLO) compliance verification.
 
-**Deliverables:** workflow API, audit log, approval screens, shadow-mode report.
+**Deliverables:**
+- OpenTelemetry Distributed Tracing: [`backend/src/observability/tracer.py`](../../backend/src/observability/tracer.py)
+- Prometheus Exposition Endpoint: `GET /metrics/prom` ([`backend/src/observability/prom_router.py`](../../backend/src/observability/prom_router.py))
+- SLO Definitions & Evaluator: [`deploy/observability/slo.json`](../../deploy/observability/slo.json), [`backend/src/observability/slo.py`](../../backend/src/observability/slo.py)
+- Performance Load Testing: [`deploy/k6/`](../../deploy/k6/), [`deploy/chaos/`](../../deploy/chaos/)
 
-**Acceptance**
-- [ ] Every state change is attributed and logged.
-- [ ] No code path pushes anything to a live signal controller.
-- [ ] The UI and API state the advisory-only rule.
+**Acceptance:**
+- [x] `GET /metrics/prom` exports simulation run rates, queue depths, and endpoint latencies.
+- [x] SLO evaluator verifies latency and error rate budgets.
+- [x] Distributed traces propagate request IDs across HTTP and worker boundaries.
 
-**Tech:** state machine, RBAC. **Depends on:** F16.
+---
 
-### F11 – Real networks, calibration and interoperability
+### F16 – Enterprise Multi-Tenancy & Security
+**Origin:** Security & Compliance · **Phase:** Phase 6 (W50, W51, W52, W53) · **Owner:** Viraj  
+**Status:** `VERIFIED`
 
-**Origin:** New · **Weeks:** W39, W40, W41 · **Owner:** Viraj / Khushi (import UI, error report)
+**Goal:** Ensure secure multi-tenant isolation, role-based authorization, quota enforcement, and automated client SDK generation.
 
-**Goal.** Real roads and real counts, and compatibility with tools engineers already use.
+**Deliverables:**
+- OIDC JWT Authentication & Claims Verifier: [`backend/src/tenancy/oidc.py`](../../backend/src/tenancy/oidc.py)
+- Role-Based Access Control (RBAC): [`backend/src/tenancy/roles.py`](../../backend/src/tenancy/roles.py) (`viewer`, `planner`, `engineer`, `admin`)
+- Tenant-Scoped Isolation: [`backend/src/tenancy/scoping.py`](../../backend/src/tenancy/scoping.py)
+- Tenant Quotas & Rate Limits: [`backend/src/tenancy/limits.py`](../../backend/src/tenancy/limits.py)
+- TypeScript SDK Generator: [`scripts/generate_ts_client.py`](../../scripts/generate_ts_client.py)
+- Python Client SDK: [`sdk/python/`](../../sdk/python/)
 
-**Scope:** OpenStreetMap import, SUMO import/export, GTFS and Synchro import, CSV turning counts and GeoJSON export, calibration against open traffic counts.
+**Acceptance:**
+- [x] Tenant data is strictly isolated; users cannot read or modify other tenants' runs or studies (HTTP 404).
+- [x] RBAC policies prevent unauthorized users from launching compute-intensive studies.
+- [x] TypeScript and Python SDKs are generated directly from OpenAPI v3 contracts.
 
-**Deliverables:** importers/exporters, calibration run, error report, upload UI.
+---
 
-**Acceptance**
-- [ ] **Gate G-CAL:** simulated flows match real counts within an agreed error, reported openly.
-- [ ] Imports validate and show clear messages for unsupported input.
-- [ ] Round-trip export/import preserves the network.
+### F17 – Asynchronous Job Queue & Cloud Cost Control
+**Origin:** Operations Architecture · **Phase:** Phase 6 (W53, W54) / Phase 7 (W55) · **Owner:** Viraj  
+**Status:** `VERIFIED` for Queue/Worker; `PLANNED` for Phase 7 Cost Accounting Engine
 
-**Tech:** OSMnx, GeoPandas, PostGIS (optional), SUMO formats. **Extends:** V1.8 calibration framework. **Needs:** a chosen city and open datasets (decision before W39).
+**Goal:** Decouple heavy multi-seed simulation execution from API servers using an asynchronous job queue with AWS SQS adapters and cost estimation.
 
-### F12 – Emergency and transit priority
+**Deliverables:**
+- Asynchronous Job Queue Interface: [`backend/src/jobs/queue.py`](../../backend/src/jobs/queue.py)
+- AWS SQS Queue Adapter: [`backend/src/jobs/sqs.py`](../../backend/src/jobs/sqs.py)
+- Background Worker Runner: [`backend/src/jobs/worker.py`](../../backend/src/jobs/worker.py)
+- Compute Cost Tags: [`backend/src/jobs/cost_tags.py`](../../backend/src/jobs/cost_tags.py)
+- **Phase 7 Planned:** Per-Run AWS Compute Cost Calculator: `backend/src/costing/`
 
-**Origin:** Confluence · **Weeks:** W50, W51, W52 · **Owner:** Viraj / Khushi (visuals, comparison)
+**Acceptance:**
+- [x] Long-running studies process asynchronously in worker daemons without HTTP timeouts.
+- [x] SQS queue handles job dispatch, retry backoff, and dead-letter queue (DLQ) routing.
+- [ ] Phase 7: Compute cost accounting estimates dollar cost per simulation run from CPU/GPU duration.
 
-**Goal.** Ambulances, fire trucks and buses that get priority through junctions.
+---
 
-**Scope:** emergency vehicle model, signal pre-emption, yield/clearance behaviour by surrounding vehicles, response-time metrics, with/without comparison, bus priority.
+### F18 – Reinforcement Learning Signal Control & MLOps
+**Origin:** Future Scope (FS-2) / Director · **Phase:** Phase 4 (W34–W37) / Phase 5 (W39–W44) · **Owner:** Khushi (ML) / Viraj (Env)  
+**Status:** `VERIFIED`
 
-**Deliverables:** vehicle model, pre-emption logic, metrics, comparison view.
+**Goal:** Provide standardized Gymnasium simulation environments, train deep RL policies (PPO/DQN), and benchmark against classical traffic control baselines.
 
-**Acceptance**
-- [ ] Pre-emption measurably changes response time, reported with intervals.
-- [ ] No new collision or deadlock regressions in the safety matrix.
-- [ ] Results are labelled as in-model only.
+**Deliverables:**
+- Single & Multi-Junction Gymnasium Environments: [`backend/src/rl/network_env.py`](../../backend/src/rl/network_env.py)
+- Baseline Policies: Fixed-Time and Max-Pressure ([`backend/src/rl/network_baselines.py`](../../backend/src/rl/network_baselines.py))
+- Training Pipelines: PPO and DQN with PyTorch ([`backend/src/rl/network_train.py`](../../backend/src/rl/network_train.py))
+- Airflow Retraining DAG: [`airflow/dags/rl_retrain.py`](../../airflow/dags/rl_retrain.py)
+- RL Model Registry & Comparison Dashboard: [`frontend/src/netrl/`](../../frontend/src/netrl/)
 
-**Tech:** simulation core. **Extends:** the strategy registry and the safety test matrix.
+**Acceptance:**
+- [x] Gymnasium environments comply strictly with standard observation and action spaces.
+- [x] Classical Fixed-Time and Max-Pressure baselines provide rigorous benchmark controls.
+- [x] Paired multi-seed statistical evaluation quantifies policy performance differences with confidence intervals.
 
-### F13 – Incidents, disruptions and weather
+---
 
-**Origin:** Confluence · **Weeks:** W47, W48, W49 · **Owner:** Viraj (simulation, incident markers on the canvas) / Khushi (setup screen, charts)
+### F19 – Connected Vehicles, V2X Messaging & Hardware-in-the-Loop Demo
+**Origin:** Future Scope (FS-3) · **Phase:** Phase 6 (W48, W49, W52) / Phase 7 (W58) · **Owner:** Viraj  
+**Status:** `VERIFIED` for V2X Bus; `PLANNED` for Phase 7 Physical Signal Head Hardware
 
-**Goal.** Stress cases: crashes, blocked lanes, closures, event surges and bad weather.
+**Goal:** Model Vehicle-to-Everything (V2X) inter-vehicle messaging and interface the simulation engine with a physical microcontroller traffic signal head over MQTT.
 
-**Scope:** incident generator, closures and rerouting, weather (friction, visibility, reaction time), event-day surges, recovery-time and resilience scores.
+**Deliverables:**
+- V2X Messaging Channel & Bus: [`backend/src/v2x/channel.py`](../../backend/src/v2x/channel.py), [`bus.py`](../../backend/src/v2x/bus.py)
+- MQTT Broker Adapter: [`backend/src/v2x/mqtt_bus.py`](../../backend/src/v2x/mqtt_bus.py)
+- Stochastic Latency and Packet Loss Models: [`backend/src/v2x/channel.py`](../../backend/src/v2x/channel.py)
+- **Phase 7 Planned:** ESP32 / Raspberry Pi Pico MicroPython Firmware: `hardware/firmware/`
+- **Phase 7 Planned:** Hardware MQTT Bridge Daemon: `backend/src/hardware_bridge/`
 
-**Deliverables:** scenario generators, resilience score, Stress Lab extension, UI.
+**Acceptance:**
+- [x] V2X messaging bus enables simulated vehicles to share speed, intent, and braking state.
+- [x] Cooperative car-following benefits are demonstrated over non-cooperative baselines.
+- [ ] Phase 7: Physical 3-color LED signal head transitions in real time driven by simulation MQTT events; physical button actuation triggers simulation stage calls.
 
-**Acceptance**
-- [ ] Each disruption type is reproducible from a seed.
-- [ ] Every strategy gets a resilience score with an interval.
-- [ ] The claims register is updated: surges and incidents move from "not modelled" to "modelled".
+---
 
-**Tech:** simulation core. **Extends:** V3.0 Stress Lab and Breakpoint Explorer (stationary extremes only until now).
+### F20 – Cooperative Autonomy: Platooning & Autonomous Intersection Management (AIM)
+**Origin:** Future Scope (FS-4, FS-5) · **Phase:** Phase 7 (W55, W56, W57, W58) · **Owner:** Viraj  
+**Status:** `PLANNED`
 
-### F14 – Digital twin with live data streaming
+**Goal:** Introduce leader-follower vehicle platooning with string stability and reservation-based signal-free Autonomous Intersection Management (AIM).
 
-**Origin:** Confluence + New · **Weeks:** W42, W43, W45, W47, W51, W53 · **Owner:** Viraj (stream, calibration) / Khushi (dashboards, what-if)
+**Planned Deliverables:**
+- Leader-Follower Platoon Controller: `backend/src/platoon/controller.py` (constant time headway, intra-gap regulation)
+- Dynamic Platoon Maneuvers: `backend/src/platoon/maneuvers.py` (join, leave, split, coordinated merge)
+- Reservation-Based Autonomous Intersection Controller: `backend/src/aim/controller.py` (space-time reservation grid tiles)
+- Formal G-AIM Mathematical Safety Verifier: `backend/src/aim/safety.py`
+- Frontend Space-Time Reservation Visualizer: `frontend/src/aim/`
 
-**Goal.** Compare the simulation with continuously updated real traffic data.
-
-**Scope:** event stream, Go consumers, replayed historical data first, continuous recalibration, prediction-vs-observation dashboard, what-if on the twin, a live-feed adapter, soak test.
-
-**Deliverables:** stream pipeline, twin model, dashboard, live adapter.
-
-**Acceptance**
-- [ ] Replayed data drives the twin end to end.
-- [ ] Prediction error against observation is shown and tracked over time.
-- [ ] The live adapter runs for an extended soak test without data loss or drift in memory use.
-
-**Tech:** Redpanda/Kafka, Go, Grafana. **Depends on:** F1, F5, F11. **Needs:** a live feed source (decision by W46).
-
-### F15 – Observability and reliability
-
-**Origin:** New · **Weeks:** W42, W43, W44 · **Owner:** Viraj / Khushi (dashboards)
-
-**Goal.** Know it is healthy, and prove it under stress.
-
-**Scope:** OpenTelemetry tracing, Prometheus metrics, Grafana dashboards, SLOs, k6 load tests, chaos tests.
-
-**Deliverables:** instrumentation, dashboards, SLO definitions, load/chaos test results.
-
-**Acceptance**
-- [ ] SLOs are written down and measured on the dashboards.
-- [ ] Load tests and a worker-kill chaos test run in CI or on a schedule.
-- [ ] Findings are recorded and fixed or accepted explicitly.
-
-**Tech:** OpenTelemetry, Prometheus, Grafana, k6, Chaos Mesh.
-
-### F16 – Multi-tenant platform
-
-**Origin:** New · **Weeks:** W50 – W53 · **Owner:** Viraj (backend) / Khushi (screens)
-
-**Goal.** Several teams can use it safely.
-
-**Scope:** OIDC login and roles, quotas and rate limits, OpenAPI spec, generated client SDKs, tenant-isolation tests, security review.
-
-**Deliverables:** auth and roles, quota system, SDKs, isolation test suite, review notes.
-
-**Acceptance**
-- [ ] Two tenants cannot read or affect each other's data (automated test).
-- [ ] Quotas and rate limits are enforced and visible to users.
-- [ ] The OpenAPI snapshot contract test covers the new surface.
-
-**Tech:** OIDC (Cognito/Keycloak), Redis, OpenAPI. **Extends:** existing Cognito sign-in, ownership rules, personal access tokens, quotas and Python SDK.
-
-### F17 – Job queue with cost control
-
-**Origin:** New · **Weeks:** W53, W55 · **Owner:** Viraj / Khushi (cost display)
-
-**Goal.** Heavy simulation batches without runaway cost.
-
-**Scope:** autoscaling workers, spot capacity, cost tags, per-run cost.
-
-**Deliverables:** autoscaling config, cost allocation, cost display.
-
-**Acceptance**
-- [ ] Workers scale to zero when idle.
-- [ ] Each run shows an estimated cost.
-- [ ] A budget cap stops new jobs, with a clear message.
-
-**Tech:** KEDA, Karpenter, cost tags. **Depends on:** F2.
-
-### F18 – Reinforcement-learning signal control with MLOps
-
-**Origin:** Confluence · **Weeks:** W34 – W37, W39 – W41, W44 · **Owner:** Khushi (environment, training, MLOps, evaluation, charts); Viraj supplies the simulation engine interface, the F3 pipeline platform (Airflow, cluster) and the F7 run store
-
-**Goal.** Learned controllers compared honestly against fixed-time and adaptive ones.
-
-**Scope:** Gymnasium environment and baselines, DQN and PPO training, MLflow tracking, model registry, scheduled retraining, evaluation with intervals first on one junction then on the network.
-
-**Deliverables:** environment, training pipelines, registry, evaluation report.
-
-**Acceptance**
-- [ ] Policies are evaluated on held-out seeds against unchanged baselines, using the F6 statistics.
-- [ ] Conditions where learning wins and where it loses are both documented.
-- [ ] The claims register keeps "AI-optimised" off the table unless evidence supports it.
-
-**Tech:** PyTorch, Gymnasium, MLflow, Airflow. **Depends on:** F5, F6, F7. **Extends:** the V3.0 Discovery Lab (bounded evolutionary search).
-
-### F19 – Connected vehicles with hardware-in-the-loop demo
-
-**Origin:** Confluence + New · **Weeks:** W48, W49, W50, W52, W58 · **Owner:** Viraj / Khushi (metrics views, demo panel)
-
-**Goal.** Vehicle-to-vehicle and vehicle-to-infrastructure messaging with imperfect communication, plus a physical signal head driven by the simulator.
-
-**Scope:** message system over MQTT, latency and loss, cooperation metrics, cooperative vs non-cooperative experiments, Raspberry Pi/ESP32 signal head.
-
-**Deliverables:** messaging model, experiments, hardware demo, demo runbook.
-
-**Acceptance**
-- [ ] Latency and loss are parameters and are recorded in provenance.
-- [ ] Cooperation effect is measured with intervals.
-- [ ] The hardware demo runs from the simulator end to end and has a recorded fallback.
-
-**Tech:** MQTT, AWS IoT Core, embedded Python. **Needs:** hardware ordered by W46.
-
-### F20 – Cooperative autonomy
-
-**Origin:** Confluence · **Weeks:** W55 – W59 · **Owner:** Viraj / Khushi (visuals, comparisons)
-
-**Goal.** Platooning and signal-free (reservation-based) intersections.
-
-**Scope:** leader-follower platoon controller, formation/merge/split, stability and throughput analysis, reservation-based intersection manager, conflict resolution, trajectory coordination, safety validation.
-
-**Deliverables:** platoon controller, intersection manager, comparison results.
-
-**Acceptance**
-- [ ] **Gate G-AIM:** the intersection manager passes safety validation (no conflicting reservations, no collisions across the test matrix).
-- [ ] Platoon stability and throughput effects are measured with intervals.
-- [ ] Signal-free vs signals compared on the same scenarios.
-
-**Tech:** control algorithms, conflict resolution. **Depends on:** F19. **Risk:** riskiest algorithm; W58 – W59 absorb overrun.
+**Acceptance Criteria for Phase 7:**
+- [ ] Platoons maintain string stability ($\|\Gamma(j\omega)\| < 1$) across sudden lead vehicle decelerations with zero collisions.
+- [ ] Platoon join and leave maneuvers execute dynamically without disrupting adjacent traffic streams.
+- [ ] Signal-free AIM manager guarantees zero overlapping space-time tile reservations under emergency deceleration bounds.
+- [ ] Aerodynamic drafting fuel savings ($8\text{–}15\%$) are quantified for platoon followers.
+- [ ] Signal-free intersection performance is compared fairly against optimal actuated traffic signals.

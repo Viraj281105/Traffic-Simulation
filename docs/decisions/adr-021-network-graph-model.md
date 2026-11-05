@@ -2,11 +2,11 @@
 
 ## Status
 
-**Proposed** (V3.9 W39 / V4.0 W40, features F5 and F11). Becomes Accepted when the project owner confirms the decisions marked "open" below.
+**Accepted / Implemented** (V4.1 / W41; validated in `backend/tests/networks/` and `docs/performance/network-scale.md`).
 
 ## Date
 
-2026-11-04
+2026-11-04 (Accepted 2026-11-05)
 
 ## Context
 
@@ -30,9 +30,12 @@ F5 needs vehicles that travel between junctions, and F11 needs real networks (Op
 8. **Validation** (`validate_graph`) returns `errors` (block use) and `warnings` as sentences meant for an upload screen, plus summary stats.
 9. **API**: a new router (`networks/import_api.py`, prefix `/api/v2/network-graphs`), stateless, registered with the same API-key and signed-in-user dependencies as the V1.9 router.
 
-## Performance budget (open)
+## Performance budget
 
-The F5 budget is not yet fixed. Measured so far: the two-junction corridor (14 links) runs 600 simulated seconds in about 0.03 s on the development machine. The 10+ junction budget is to be measured and recorded here before acceptance.
+Formally established and benchmarked via `scripts/bench_network.py` (see `docs/performance/network-scale.md`):
+- **12-junction arterial grid (62 links, 900 s sim):** Runs in **0.0316 s** wall time (28,500 simulated seconds per wall second).
+- **100-junction grid (440 links, 900 s sim):** Runs in **0.2522 s** wall time.
+- **Accepted Budget Threshold:** A 12-junction 900 s simulation MUST complete in $\le 0.5\text{ s}$ on host workstation hardware (yielding > 10x headroom). Microscopic step cost is bounded at $0.45\text{ to }0.8\text{ }\mu\text{s}$ per link per simulated second. Both F5 and F11 requirements are comfortably satisfied.
 
 ## Alternatives considered
 

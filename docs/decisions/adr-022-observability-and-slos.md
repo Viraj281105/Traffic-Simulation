@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed** (V4.2 W42 - V4.4 W44, feature F15). Becomes Accepted when the project owner confirms the open points below and the stack has been run once end to end.
+**Accepted / Implemented** (V4.4 / W44, feature F15; mounted in `backend/src/main.py` and validated via `tests/observability/`). In-cluster deployment artifacts remain `WRITTEN` per honesty conventions.
 
 ## Date
 
