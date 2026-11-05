@@ -2,9 +2,12 @@
 
 import pytest
 
-from src.networks.network_sim import simulate_network
-from src.rl.network_env import demo_network
-from src.rl.network_stepper import NetworkStepper
+pytest.importorskip("numpy")
+pytest.importorskip("gymnasium")
+
+from src.networks.network_sim import simulate_network  # noqa: E402
+from src.rl.network_env import demo_network  # noqa: E402
+from src.rl.network_stepper import NetworkStepper  # noqa: E402
 
 
 def _run(stepper, steps, phases=None):
