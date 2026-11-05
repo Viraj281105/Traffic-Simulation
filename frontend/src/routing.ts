@@ -30,6 +30,7 @@ export const VIEW_ROUTES = {
   tokens: "/app/tokens",
   insights: "/app/insights",
   network: "/app/network",
+  resilience: "/app/resilience",
   admin: "/app/admin",
 } as const;
 

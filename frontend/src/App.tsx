@@ -162,6 +162,11 @@ const NetworkPage = lazy(() =>
     default: m.NetworkPage,
   })),
 );
+const ResiliencePage = lazy(() =>
+  import("./respage/ResiliencePage").then((m) => ({
+    default: m.ResiliencePage,
+  })),
+);
 const PlannerPage = lazy(() =>
   import("./components/planner/PlannerPage").then((m) => ({
     default: m.PlannerPage,
@@ -1002,6 +1007,18 @@ function Dashboard({
           <div className="related-fit">
             <Suspense fallback={viewLoading}>
               <NetworkPage />
+            </Suspense>
+            {related}
+          </div>
+        </PageTransition>
+      ) : viewMode === "resilience" ? (
+        <PageTransition
+          transitionKey={pageKey}
+          className="app-main full-screen page-scroll"
+        >
+          <div className="related-fit">
+            <Suspense fallback={viewLoading}>
+              <ResiliencePage />
             </Suspense>
             {related}
           </div>
