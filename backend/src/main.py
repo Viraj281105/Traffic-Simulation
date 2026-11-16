@@ -14,6 +14,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.ai import router as ai_router
+from src.aim.router import router as aim_router
 from src.api import meta
 from src.api.auth import (
     get_current_identity,
@@ -49,6 +50,7 @@ from src.observability import router as observability_router
 from src.observability.logging_setup import configure_logging
 from src.observability.middleware import ObservabilityMiddleware
 from src.planning.router import create_router as build_planning_router
+from src.platoon.router import router as platoon_router
 from src.priority.router import router as priority_router
 from src.replays import router as replays_router
 from src.simulations import router as simulations_router
@@ -156,6 +158,16 @@ app.include_router(
 # /api/v2 tenant identity, roles and usage; needs an OIDC token (src/tenancy).
 app.include_router(
     tenancy_router,
+    dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
+)
+# V5.5-V5.8 /api/v2 platoons (src/platoon) and signal-free intersection (src/aim):
+# self-contained in-model simulations, stateless.
+app.include_router(
+    platoon_router,
+    dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
+)
+app.include_router(
+    aim_router,
     dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
 )
 # V5.6 /api/v2/governance: advisory-only approvals, hash-chained audit log, shadow mode
