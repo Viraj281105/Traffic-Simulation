@@ -31,6 +31,7 @@ export const VIEW_ROUTES = {
   insights: "/app/insights",
   network: "/app/network",
   resilience: "/app/resilience",
+  cooperation: "/app/cooperation",
   admin: "/app/admin",
 } as const;
 

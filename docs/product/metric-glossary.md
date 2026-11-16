@@ -458,6 +458,30 @@ Which input changes the result most. The first-order index is the share of the r
 
 How many vehicles got all the way through the network, per hour. Vehicles still travelling at the end of the run are not counted.
 
+### Fuel intensity (platoon experiment) (L/100 km)
+
+`fuelLPer100Km`
+
+A rough fuel use figure for a vehicle in the platoon experiment. It is good for comparing a platoon with human drivers in the same model, not for predicting what a real vehicle burns.
+
+### CO2 intensity (platoon experiment) (g/km)
+
+`co2GPerKm`
+
+A rough carbon dioxide figure per kilometre in the platoon experiment. Like the fuel figure it only compares arms inside the model and is not a real emission measurement.
+
+### Intersection mean delay (signal-free) (s)
+
+`meanDelay`
+
+How many seconds a vehicle waits at the intersection compared with driving straight in. Lower is better. In the signal-free comparison it is a best case where every vehicle is connected.
+
+### Stops per vehicle (signal-free) (stops)
+
+`stopsPerVehicle`
+
+How many times a vehicle has to stop on the way through the intersection, on average. Lower is better.
+
 ### Vehicles in the network (vehicles)
 
 `meanVehiclesInNetwork`

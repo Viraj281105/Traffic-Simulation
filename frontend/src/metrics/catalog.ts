@@ -740,6 +740,42 @@ export const ANALYSIS_METRICS: AnalysisMetricDef[] = [
       "How many vehicles got all the way through the network, per hour. Vehicles still travelling at the end of the run are not counted.",
   },
   {
+    key: "fuelLPer100Km",
+    label: "Fuel intensity (platoon experiment)",
+    unit: "L/100 km",
+    description:
+      "Estimated litres of fuel per 100 km from a relative speed, idle and acceleration proxy over the simulated vehicle tracks (platoon experiment). A model estimate, not a measurement.",
+    plain:
+      "A rough fuel use figure for a vehicle in the platoon experiment. It is good for comparing a platoon with human drivers in the same model, not for predicting what a real vehicle burns.",
+  },
+  {
+    key: "co2GPerKm",
+    label: "CO2 intensity (platoon experiment)",
+    unit: "g/km",
+    description:
+      "Estimated grams of CO2 per kilometre from the same relative fuel proxy (platoon experiment). A model estimate, not a measurement.",
+    plain:
+      "A rough carbon dioxide figure per kilometre in the platoon experiment. Like the fuel figure it only compares arms inside the model and is not a real emission measurement.",
+  },
+  {
+    key: "meanDelay",
+    label: "Intersection mean delay (signal-free)",
+    unit: "s",
+    description:
+      "Mean box-entry time minus the unimpeded entry time over vehicles at one isolated intersection, signal-free reservations or a fixed-time signal (signal-free comparison).",
+    plain:
+      "How many seconds a vehicle waits at the intersection compared with driving straight in. Lower is better. In the signal-free comparison it is a best case where every vehicle is connected.",
+  },
+  {
+    key: "stopsPerVehicle",
+    label: "Stops per vehicle (signal-free)",
+    unit: "stops",
+    description:
+      "Mean number of stops a vehicle makes before entering the intersection box (signal-free comparison).",
+    plain:
+      "How many times a vehicle has to stop on the way through the intersection, on average. Lower is better.",
+  },
+  {
     key: "meanVehiclesInNetwork",
     label: "Vehicles in the network",
     unit: "vehicles",

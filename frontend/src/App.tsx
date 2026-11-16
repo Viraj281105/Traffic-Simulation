@@ -167,6 +167,11 @@ const ResiliencePage = lazy(() =>
     default: m.ResiliencePage,
   })),
 );
+const CooperationPage = lazy(() =>
+  import("./coopage/CooperationPage").then((m) => ({
+    default: m.CooperationPage,
+  })),
+);
 const PlannerPage = lazy(() =>
   import("./components/planner/PlannerPage").then((m) => ({
     default: m.PlannerPage,
@@ -1019,6 +1024,18 @@ function Dashboard({
           <div className="related-fit">
             <Suspense fallback={viewLoading}>
               <ResiliencePage />
+            </Suspense>
+            {related}
+          </div>
+        </PageTransition>
+      ) : viewMode === "cooperation" ? (
+        <PageTransition
+          transitionKey={pageKey}
+          className="app-main full-screen page-scroll"
+        >
+          <div className="related-fit">
+            <Suspense fallback={viewLoading}>
+              <CooperationPage />
             </Suspense>
             {related}
           </div>

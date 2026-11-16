@@ -190,6 +190,12 @@ const EXPERIMENTS: SectionDef = {
           description:
             "Incidents and weather, strategy resilience, emergency and transit priority, connected vehicles, account and jobs.",
         },
+        {
+          view: "cooperation",
+          label: "Cooperation",
+          description:
+            "Vehicle platoons, signal-free intersections, advisory recommendations with an audit log, and cost estimates.",
+        },
       ],
     },
   ],
