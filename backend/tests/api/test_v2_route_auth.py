@@ -38,6 +38,8 @@ def test_every_v2_family_is_mounted() -> None:
     families = {path.split("/")[3] for _, path in V2_ROUTES}
     assert families == {
         "calibration",
+        "costing",
+        "governance",
         "incidents",
         "jobs",
         "network-graphs",

@@ -30,9 +30,11 @@ from src.calibration import network_calibration_router
 from src.copilot.router import create_router as build_copilot_router
 from src.core.provenance import GIT_COMMIT_HASH
 from src.core.run_manifest import ENGINE_VERSION
+from src.costing.router import create_router as build_costing_router
 from src.database.db import init_db
 from src.discovery.router import create_router as build_discovery_router
 from src.experiments.router import create_router as build_experiments_router
+from src.governance.router import router as governance_router
 from src.history import router as history_router
 from src.incidents.router import router as incidents_router
 from src.insights.router import create_router as build_insights_router
@@ -155,6 +157,18 @@ app.include_router(
 app.include_router(
     tenancy_router,
     dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
+)
+# V5.6 /api/v2/governance: advisory-only approvals, hash-chained audit log, shadow mode
+# (src/governance). actor and roles still come from the request body; see the PR notes.
+app.include_router(
+    governance_router,
+    dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
+)
+# V5.5 /api/v2/costing: per-run cost estimates and tenant summaries (src/costing).
+app.include_router(
+    build_costing_router(
+        dependencies=[Depends(require_api_key), Depends(get_current_user_id)]
+    )
 )
 
 # V4.2 /api/v2/twin (src/twin/router.py): prediction vs observation, what-if.
