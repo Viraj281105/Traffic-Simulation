@@ -36,6 +36,7 @@ from src.database.db import init_db
 from src.discovery.router import create_router as build_discovery_router
 from src.experiments.router import create_router as build_experiments_router
 from src.governance.router import router as governance_router
+from src.hardware_bridge.router import router as hardware_router
 from src.history import router as history_router
 from src.incidents.router import router as incidents_router
 from src.insights.router import create_router as build_insights_router
@@ -168,6 +169,12 @@ app.include_router(
 )
 app.include_router(
     aim_router,
+    dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
+)
+# V5.8 /api/v2/hardware: simulated signal-head bridge and device simulator
+# (src/hardware_bridge). No real hardware is contacted.
+app.include_router(
+    hardware_router,
     dependencies=[Depends(require_api_key), Depends(get_current_user_id)],
 )
 # V5.6 /api/v2/governance: advisory-only approvals, hash-chained audit log, shadow mode

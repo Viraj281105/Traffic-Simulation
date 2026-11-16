@@ -41,6 +41,7 @@ def test_every_v2_family_is_mounted() -> None:
         "calibration",
         "costing",
         "governance",
+        "hardware",
         "incidents",
         "jobs",
         "network-graphs",
