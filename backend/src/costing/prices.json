@@ -1,0 +1,15 @@
+{
+  "label": "APPROXIMATE list prices written from memory, not fetched from AWS. Spot prices move constantly. Use for estimates only, never for billing.",
+  "asOf": "2026-11-01",
+  "region": "us-east-1",
+  "currency": "USD",
+  "defaultInstance": "m5.large",
+  "instances": {
+    "m5.large": {"vcpus": 2, "onDemandHourly": 0.096, "spotHourly": 0.038},
+    "m5.xlarge": {"vcpus": 4, "onDemandHourly": 0.192, "spotHourly": 0.077},
+    "c5.xlarge": {"vcpus": 4, "onDemandHourly": 0.17, "spotHourly": 0.068},
+    "c5.2xlarge": {"vcpus": 8, "onDemandHourly": 0.34, "spotHourly": 0.136}
+  },
+  "s3": {"perGbMonth": 0.023},
+  "sqs": {"perMillionRequests": 0.4}
+}
